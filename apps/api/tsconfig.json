@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@api/*": ["./src/*"],
+      "@fsrs-japanese/shared-types": ["../../packages/shared-types/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

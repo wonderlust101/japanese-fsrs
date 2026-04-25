@@ -158,10 +158,13 @@ CREATE POLICY "user_premade_subscriptions: users manage their own subscriptions"
 -- ============================================================
 
 CREATE TABLE cards (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  deck_id       UUID        NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- NULL for premade source cards; set for user-owned cards.
+  deck_id          UUID        REFERENCES decks(id) ON DELETE CASCADE,
+  -- NULL for user-owned cards; set for premade source cards.
+  premade_deck_id  UUID        REFERENCES premade_decks(id) ON DELETE CASCADE,
   -- NULL for premade deck source cards; personal copies always non-null.
-  user_id       UUID        REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id          UUID        REFERENCES profiles(id) ON DELETE CASCADE,
 
   -- Core content
   word          TEXT        NOT NULL,
@@ -190,25 +193,32 @@ CREATE TABLE cards (
   due           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   stability     FLOAT       NOT NULL DEFAULT 0,
   difficulty    FLOAT       NOT NULL DEFAULT 0,
-  elapsed_days  INT         NOT NULL DEFAULT 0,
-  scheduled_days INT        NOT NULL DEFAULT 0,
-  reps          INT         NOT NULL DEFAULT 0,
-  lapses        INT         NOT NULL DEFAULT 0,
-  last_review   TIMESTAMPTZ,
-  -- FSRS internal state: 0=New 1=Learning 2=Review 3=Relearning
-  state         INT         NOT NULL DEFAULT 0,
+  elapsed_days   INT         NOT NULL DEFAULT 0,
+  scheduled_days INT         NOT NULL DEFAULT 0,
+  -- Tracks progress through (re)learning steps in ts-fsrs v5+.
+  -- Must be persisted: losing this resets a learning-phase card to step 0.
+  learning_steps INT         NOT NULL DEFAULT 0,
+  reps           INT         NOT NULL DEFAULT 0,
+  lapses         INT         NOT NULL DEFAULT 0,
+  last_review    TIMESTAMPTZ,
+  -- FSRS internal state integer: 0=New 1=Learning 2=Review 3=Relearning
+  state          INT         NOT NULL DEFAULT 0,
 
   -- pgvector embedding for semantic similarity (text-embedding-3-small = 1536 dims)
   embedding     vector(1536),
 
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  -- Exactly one of deck_id / premade_deck_id must be non-null.
+  CONSTRAINT cards_deck_xor_premade CHECK (num_nonnulls(deck_id, premade_deck_id) = 1)
 );
 
 -- Covering index for the due-card query: user's cards ordered by due date.
-CREATE INDEX cards_user_id_due_idx     ON cards(user_id, due);
-CREATE INDEX cards_deck_id_idx         ON cards(deck_id);
-CREATE INDEX cards_parent_card_id_idx  ON cards(parent_card_id);
+CREATE INDEX cards_user_id_due_idx       ON cards(user_id, due);
+CREATE INDEX cards_deck_id_idx           ON cards(deck_id);
+CREATE INDEX cards_premade_deck_id_idx   ON cards(premade_deck_id);
+CREATE INDEX cards_parent_card_id_idx    ON cards(parent_card_id);
 
 -- IVFFlat index for cosine similarity search via pgvector (<=> operator).
 -- lists=100 is appropriate for up to ~1M vectors; tune upward as data grows.
@@ -225,7 +235,14 @@ CREATE POLICY "cards: users can read their own cards"
 
 CREATE POLICY "cards: users can insert their own cards"
   ON cards FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM decks
+      WHERE id = deck_id
+        AND decks.user_id = auth.uid()
+    )
+  );
 
 -- Guard: FSRS writes must go through fsrs.service.ts, but the RLS layer
 -- still scopes updates to the owning user and blocks writes to premade sources.
@@ -237,3 +254,35 @@ CREATE POLICY "cards: users can update their own cards"
 CREATE POLICY "cards: users can delete their own cards"
   ON cards FOR DELETE
   USING (auth.uid() = user_id AND user_id IS NOT NULL);
+
+-- ============================================================
+-- UPDATED_AT TRIGGER
+-- Keeps updated_at current automatically on every UPDATE,
+-- regardless of whether the application layer sets it explicitly.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER premade_decks_updated_at
+  BEFORE UPDATE ON premade_decks
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER decks_updated_at
+  BEFORE UPDATE ON decks
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER cards_updated_at
+  BEFORE UPDATE ON cards
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
