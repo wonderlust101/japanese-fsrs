@@ -230,4 +230,14 @@ The following features are documented in the PRD but are intentionally deferred.
 
 ---
 
+### Documentation Map
+Always refer to these files in the `/docs` directory before suggesting architectural changes or new features:
+- **Product Requirements:** [docs/PRD.md](./docs/PRD.md) - Features, user stories, and project scope.
+- **Technical Design:** [docs/TDD.md](./docs/TDD.md) - System architecture and FSRS implementation details.
+- **Information Architecture:** [docs/IA-WIREFRAME.md](./docs/IA-WIREFRAME.md) - Data flow and UI structure.
+- **Design Specs:** [docs/UX-UI-SPEC.md](./docs/UX-UI-SPEC.md) - Visual guidelines and component behaviors.
+- **Coding Standards:** [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) - Linting, naming, and PR guidelines.
+
+---
+
 *Last updated: 2026-04-24*
