@@ -24,6 +24,8 @@ export interface FsrsCardState {
   difficulty: number
   elapsedDays: number
   scheduledDays: number
+  /** ts-fsrs v5: tracks progress through (re)learning steps. Must be persisted. */
+  learningSteps: number
   reps: number
   lapses: number
   lastReview: Date | null
