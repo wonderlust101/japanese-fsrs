@@ -5,7 +5,7 @@ import { redis } from '../db/redis.ts'
 import { AppError } from './errorHandler.ts'
 
 // Sliding window: 20 AI endpoint calls per user per minute.
-// Key pattern in Redis: ratelimit:ai:{userId}
+// Key pattern in Redis: ratelimit:{userId}:ai  (per TDD §10.1)
 const aiRatelimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(20, '1 m'),
@@ -21,7 +21,7 @@ const aiRatelimit = new Ratelimit({
  */
 export const aiRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
   try {
-    const { success } = await aiRatelimit.limit(`ai:${req.user.id}`)
+    const { success } = await aiRatelimit.limit(`${req.user.id}:ai`)
 
     if (!success) {
       throw new AppError(429, 'AI rate limit exceeded. Please wait before making another request.')

@@ -40,9 +40,6 @@ const schedulers: Record<CardType, TsFsrsInstance> = {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-/** Union of valid card status string values. */
-type CardStatusValue = typeof CardStatus[keyof typeof CardStatus]
-
 /** Shape returned by processReview — contains all fields needed for the API response. */
 export interface ProcessReviewResult {
   id: string
@@ -51,12 +48,12 @@ export interface ProcessReviewResult {
   difficulty: number
   scheduledDays: number
   state: number
-  status: CardStatusValue
+  status: CardStatus
 }
 
 /** Default FSRS field values for a newly inserted card row. */
 export interface FsrsInitialState {
-  status: CardStatusValue
+  status: CardStatus
   due: string
   stability: number
   difficulty: number
@@ -107,7 +104,7 @@ interface CardRow {
   last_review: string | null
 }
 
-function mapStateToStatus(state: State): CardStatusValue {
+function mapStateToStatus(state: State): CardStatus {
   switch (state) {
     case State.New:        return CardStatus.New
     case State.Learning:   return CardStatus.Learning

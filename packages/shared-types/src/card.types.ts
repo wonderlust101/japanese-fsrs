@@ -65,6 +65,13 @@ export interface Card extends FsrsCardState {
   cardType: CardType
   parentCardId: string | null
 
+  /**
+   * URL to the cached audio file (Supabase Storage or CDN).
+   * NULL until audio is generated or sourced; the API generates TTS on demand
+   * and backfills this field once the file is stored (PRD AUD-01).
+   */
+  audioUrl: string | null
+
   /** 1536-dimension vector for pgvector cosine similarity search. */
   embedding: number[] | null
 
