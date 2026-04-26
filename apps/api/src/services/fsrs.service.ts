@@ -16,6 +16,7 @@ import { CardStatus } from '@fsrs-japanese/shared-types'
 import type { CardType, ReviewRating } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { AppError } from '../middleware/errorHandler.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -172,9 +173,13 @@ async function checkLeech(cardId: string, userId: string, lapses: number): Promi
 
   if (existing !== null) return
 
-  await supabaseAdmin
+  const { error: insertError } = await supabaseAdmin
     .from('leeches')
     .insert({ card_id: cardId, user_id: userId })
+
+  if (insertError !== null) {
+    console.error(`[FSRS] Failed to create leech record for card ${cardId}:`, insertError.message)
+  }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -207,7 +212,7 @@ export async function processReview(
     .single()
 
   if (fetchError !== null || data === null) {
-    throw new Error(`Card ${cardId} not found or does not belong to user`)
+    throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
   }
 
   const row = data as unknown as CardRow
@@ -215,7 +220,7 @@ export async function processReview(
   // Defensive guard — the WHERE clause already prevents this, but it must
   // never silently succeed even if that filter were accidentally dropped.
   if (row.user_id === null) {
-    throw new Error(`Refusing to apply FSRS to premade source card ${cardId}`)
+    throw new AppError(403, `Refusing to apply FSRS to premade source card ${cardId}`)
   }
 
   if (row.status === CardStatus.Suspended) {

@@ -61,6 +61,9 @@ export const config = {
     '/decks/:path*',
     '/analytics/:path*',
     '/settings/:path*',
+    // Onboarding — requires authentication; unauthenticated users are sent to /login
+    '/onboarding/:path*',
+    '/onboarding',
     // Auth pages — checked so logged-in users are redirected away from them
     '/login',
     '/signup',

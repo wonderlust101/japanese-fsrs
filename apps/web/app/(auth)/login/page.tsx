@@ -68,8 +68,13 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
           placeholder="••••••••"
-          error={error ?? undefined}
         />
+
+        {error && (
+          <p role="alert" className="text-xs text-danger-500">
+            {error}
+          </p>
+        )}
 
         <Button type="submit" variant="primary" size="md" loading={loading} className="w-full mt-2">
           Sign in

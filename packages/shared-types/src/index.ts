@@ -10,6 +10,6 @@ export type { Deck, PremadeDeck, UserPremadeSubscription } from './deck.types.ts
 export { ReviewRating } from './review.types.ts'
 export type { ReviewLog, ReviewResult, Leech } from './review.types.ts'
 
-export type { Profile } from './user.types.ts'
+export type { Profile, UpdateProfileInput } from './user.types.ts'
 
 export type { GrammarPattern } from './grammar.types.ts'
