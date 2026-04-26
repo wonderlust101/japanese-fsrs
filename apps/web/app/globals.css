@@ -50,7 +50,18 @@
   --radius-xl:   20px;
   --radius-full: 9999px;
 
+  /* ── Semantic surface tokens (light mode) ────────────────────────── */
+  --color-surface-base:    var(--color-neutral-50);
+  --color-surface-raised:  var(--color-neutral-0);
+  --color-surface-overlay: var(--color-neutral-0);
+  --color-surface-inset:   var(--color-neutral-100);
+
+  /* ── Semantic accent tokens ──────────────────────────────────────── */
+  --color-accent:    var(--color-primary-500);
+  --color-accent-bg: var(--color-primary-50);
+
   /* ── Shadows ─────────────────────────────────────────────────────── */
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-card:  0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-focus: 0 0 0 3px var(--color-primary-200);

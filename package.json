@@ -23,6 +23,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
-    "supabase": "^2.95.3"
+    "lucide-react": "^1.11.0",
+    "supabase": "^2.95.3",
+    "web": "^0.0.2"
   }
 }
