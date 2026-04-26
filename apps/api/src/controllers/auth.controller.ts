@@ -6,7 +6,7 @@ import * as authService from '../services/auth.service.ts'
 export const signup: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input  = signupSchema.parse(req.body)
-    const result = await authService.signup(input)
+    const result = await authService.signUp(input)
     res.status(201).json(result)
   } catch (err) {
     next(err)
@@ -16,7 +16,7 @@ export const signup: RequestHandler = async (req, res, next): Promise<void> => {
 export const login: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input  = loginSchema.parse(req.body)
-    const result = await authService.login(input)
+    const result = await authService.signInWithPassword(input)
     res.json(result)
   } catch (err) {
     next(err)
@@ -26,7 +26,7 @@ export const login: RequestHandler = async (req, res, next): Promise<void> => {
 export const refresh: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input  = refreshSchema.parse(req.body)
-    const result = await authService.refresh(input)
+    const result = await authService.refreshSession(input)
     res.json(result)
   } catch (err) {
     next(err)
@@ -37,7 +37,7 @@ export const logout: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     // authMiddleware already verified this header; safe to re-extract the token.
     const jwt = (req.headers.authorization as string).slice('Bearer '.length)
-    await authService.logout(jwt)
+    await authService.signOut(jwt)
     res.status(204).send()
   } catch (err) {
     next(err)
