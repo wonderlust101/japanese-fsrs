@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <p className="mt-1 text-sm text-neutral-500">AI-Enhanced Japanese SRS</p>
       </div>
 
-      <div className="w-full max-w-sm bg-neutral-0 rounded-[var(--radius-xl)] shadow-lg p-8">
+      <div className="w-full max-w-sm bg-surface-raised rounded-[var(--radius-xl)] shadow-lg p-8">
         {children}
       </div>
     </div>

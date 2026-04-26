@@ -34,7 +34,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-  const isAuthPage = pathname === '/login' || pathname === '/signup'
+  const isAuthPage =
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/signup/verify'
 
   if (user && isAuthPage) {
     // Authenticated user hitting an auth page → send straight to the app.
@@ -70,5 +73,6 @@ export const config = {
     // Auth pages — checked so logged-in users are redirected away from them
     '/login',
     '/signup',
+    '/signup/verify',
   ],
 }

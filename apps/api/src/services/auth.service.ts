@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
-import type { SignupInput, LoginInput, RefreshInput } from '../schemas/auth.schema.ts'
+import type { SignupInput, VerifyOtpInput, LoginInput, RefreshInput } from '../schemas/auth.schema.ts'
 
 export interface AuthTokens {
   accessToken:  string
@@ -9,47 +9,124 @@ export interface AuthTokens {
 }
 
 export interface SignUpResult {
-  userId: string
-  email:  string
+  email: string
 }
 
 /**
- * Creates a new Supabase Auth user and ensures the corresponding profiles row exists.
+ * Registers a new user and triggers the 6-digit OTP verification email.
  *
- * The `on_auth_user_created` DB trigger (migration 000000) inserts into `profiles`
- * automatically on every auth.users INSERT. The explicit upsert below is
- * defense-in-depth: it is a no-op when the trigger ran, but guarantees the row
- * exists if the trigger is ever removed or skipped in a test environment.
+ * Uses `auth.signUp()` (not `admin.createUser`) so Supabase sends the
+ * confirmation email according to the project's email template settings.
+ * The account is created but unconfirmed; the caller must complete the
+ * flow via `verifyOtp()`.
  *
- * If the profile write fails after the auth user was created, the auth user is
- * deleted to prevent orphaned auth entries with no matching profile.
+ * The `on_auth_user_created` trigger inserts into `profiles` on auth.users
+ * INSERT. The explicit upsert below is defense-in-depth and is a no-op when
+ * the trigger ran correctly.
+ *
+ * If the profile write fails, the auth user is deleted to avoid an orphaned
+ * account with no profile row.
+ *
+ * Requires the Supabase project to have "Confirm email" enabled and the email
+ * template configured to send OTP tokens (not magic links).
  */
 export async function signUp(input: SignupInput): Promise<SignUpResult> {
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email:         input.email,
-    password:      input.password,
-    email_confirm: true,
+  const { data, error } = await supabaseAdmin.auth.signUp({
+    email:    input.email,
+    password: input.password,
   })
 
-  if (error !== null || data.user === null) {
-    // Supabase returns status 422 when the email is already registered.
-    const status = error?.status === 422 ? 409 : 400
-    throw new AppError(status, error?.message ?? 'Signup failed')
+  if (error !== null) {
+    const msg = error.message ?? 'Signup failed'
+    // GoTrue 422 = email already registered; some versions surface this
+    // as "User already registered" at status 400 instead.
+    const isDuplicate =
+      error.status === 422 ||
+      msg.toLowerCase().includes('already registered') ||
+      msg.toLowerCase().includes('already exists')
+    throw new AppError(isDuplicate ? 409 : 400, msg)
+  }
+
+  // When the email is already confirmed, GoTrue returns user: null (no error)
+  // to avoid leaking account existence to anonymous clients. From the server
+  // side we can safely surface this as a conflict.
+  if (data.user === null) {
+    throw new AppError(409, 'Email address already registered')
   }
 
   const userId = data.user.id
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true })
+    .upsert({ id: userId, username: input.username }, { onConflict: 'id', ignoreDuplicates: false })
 
   if (profileError !== null) {
-    // Roll back the auth user so the account does not exist in a half-created state.
     await supabaseAdmin.auth.admin.deleteUser(userId)
+    if (profileError.code === '23505') {
+      throw new AppError(409, 'Username is already taken')
+    }
     throw new AppError(500, 'Account creation failed: could not initialize profile')
   }
 
-  return { userId, email: data.user.email ?? input.email }
+  return { email: data.user.email ?? input.email }
+}
+
+/**
+ * Returns whether the given username is available (not already taken by a
+ * confirmed profile row). Intended for client-side availability polling.
+ */
+export async function checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('username', username)
+    .maybeSingle()
+
+  if (error !== null) {
+    throw new AppError(500, 'Could not check username availability')
+  }
+
+  return { available: data === null }
+}
+
+/**
+ * Verifies the 6-digit OTP the user received by email and exchanges it for a
+ * session token pair.
+ *
+ * Defense-in-depth: upserts the profiles row after confirmation in case the
+ * on_auth_user_created trigger did not run (e.g. misconfiguration, test env).
+ * The upsert is a no-op when the row already exists.
+ */
+export async function verifyOtp(input: VerifyOtpInput): Promise<AuthTokens> {
+  const { data, error } = await supabaseAdmin.auth.verifyOtp({
+    email: input.email,
+    token: input.otp,
+    type:  'signup',
+  })
+
+  if (error !== null) {
+    throw new AppError(400, error.message ?? 'Invalid or expired verification code')
+  }
+
+  if (data.user === null || data.session === null) {
+    throw new AppError(400, 'Verification failed — please try again or request a new code')
+  }
+
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .upsert({ id: data.user.id }, { onConflict: 'id', ignoreDuplicates: true })
+
+  if (profileError !== null) {
+    // The account is now confirmed with a valid session, so we do not delete
+    // the auth user. The profile can be retried on next login.
+    throw new AppError(500, 'Verification succeeded but profile initialization failed — please try logging in')
+  }
+
+  return {
+    accessToken:  data.session.access_token,
+    refreshToken: data.session.refresh_token,
+    expiresIn:    data.session.expires_in,
+  }
 }
 
 /**

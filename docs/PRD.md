@@ -252,8 +252,10 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 
 ### 5.3 Security
 - All user data encrypted at rest and in transit
-- JWT-based authentication with refresh token rotation
-- No user review data shared with third parties or used for AI training without explicit opt-in
+- JWT-based session management via Supabase Auth; every API request verifies the token server-side — tokens are never trusted without server-side validation
+- Account verification at signup uses a **6-digit OTP sent to the user's email**, entered on the same device and browser where signup was initiated — this prevents the "device breakage" pattern inherent in magic link flows, where opening the link on a different device leaves the user without a session on the device they signed up from
+- Sessions are scoped per-device; logout invalidates only the current device session and does not sign the user out elsewhere
+- No user review data is shared with third parties or used for AI training without explicit opt-in
 
 ### 5.4 Accessibility
 - WCAG 2.1 AA compliance

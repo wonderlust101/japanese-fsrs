@@ -901,29 +901,129 @@ if (!success) return res.status(429).json({ error: 'Too many requests' })
 
 ## 11. Authentication
 
-Supabase Auth handles authentication. The Express API verifies JWTs using the Supabase JWT secret.
+Supabase Auth handles all authentication. The Express API verifies JWTs using `supabase.auth.getUser(token)` (never by decoding the JWT locally). The Next.js frontend uses `@supabase/ssr` to manage session cookies across App Router layouts.
+
+### 11.1 Auth Middleware (Express)
+
+Every protected Express route passes through `authMiddleware`, which extracts the Bearer token and validates it against Supabase:
 
 ```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
+// apps/api/src/middleware/auth.ts
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.replace('Bearer ', '')
-  if (!token) return res.status(401).json({ error: 'Unauthorized' })
+  const token = req.headers.authorization?.split(' ')[1]
+  if (!token) return next(new AppError(401, 'Unauthorized'))
 
-  const { data: { user }, error } = await supabase.auth.getUser(token)
-  if (error || !user) return res.status(401).json({ error: 'Invalid token' })
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+  if (error || !user) return next(new AppError(401, 'Invalid or expired token'))
 
   req.user = user
   next()
 }
 ```
 
-On the Next.js side, Supabase SSR helpers manage session cookies and server-side auth state across App Router layouts and middleware.
+`supabaseAdmin` uses the service role key and is defined in `apps/api/src/db/supabase.ts`. The resolved `user` object is attached to `req.user` and available to all downstream controllers and services.
+
+### 11.2 Signup with 6-Digit OTP Verification
+
+Signup is a two-step flow that keeps the user on the same device and browser throughout, preventing the "device breakage" problem of magic link emails (where clicking the link on a different device leaves the user without a session on the device they signed up on).
+
+**Step 1 — Account creation (`/signup`)**
+
+The signup page calls `supabase.auth.signUp()` directly from the browser using the anon key. Supabase creates an unconfirmed account and sends a **6-digit OTP** to the provided email. The frontend immediately navigates to `/signup/verify`, preserving the email in URL state:
+
+```typescript
+// apps/web/app/(auth)/signup/page.tsx
+const supabase = createSupabaseBrowserClient()
+const { error } = await supabase.auth.signUp({ email, password })
+if (!error) {
+  router.push(`/signup/verify?email=${encodeURIComponent(email)}`)
+}
+```
+
+The Express backend is not involved in this step — account creation is a direct browser-to-Supabase call via the anon key.
+
+**Step 2 — OTP entry (`/signup/verify`)**
+
+The verify page presents a 6-digit input (see UX/UI Spec §14.4). On submission:
+
+```typescript
+// apps/web/app/(auth)/signup/verify/page.tsx
+const { error } = await supabase.auth.verifyOtp({
+  email,
+  token: digits,   // the 6 characters the user typed
+  type:  'signup',
+})
+
+if (error) {
+  setError('Invalid or expired code. Try again, or go back to re-send.')
+  return
+}
+
+// Supabase confirms the account and establishes a full browser session.
+// The profiles row is created via the on_auth_user_created trigger (§11.3).
+router.push('/onboarding/level')
+router.refresh()
+```
+
+On success, Supabase confirms the account, writes access and refresh tokens into `httpOnly` cookies via the SSR helper, and the middleware allows the user through to `/onboarding`.
+
+**Step 3 — Profile initialization (Supabase trigger)**
+
+A Supabase database trigger automatically inserts a `profiles` row with defaults when `auth.users` is updated to confirmed, removing the need for an explicit API call:
+
+```sql
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id)
+  VALUES (NEW.id)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+```
+
+### 11.3 Login Flow
+
+Standard email + password login is handled client-side via `supabase.auth.signInWithPassword()`. No Express endpoint is required:
+
+```typescript
+const { error } = await supabase.auth.signInWithPassword({ email, password })
+if (!error) router.push('/dashboard')
+```
+
+### 11.4 Logout
+
+Logout calls the Express API to invalidate the current device session only:
+
+```typescript
+// POST /api/v1/auth/logout — auth.service.ts
+export async function signOut(jwt: string): Promise<void> {
+  const { error } = await supabaseAdmin.auth.admin.signOut(jwt, 'local')
+  if (error) throw new AppError(500, 'Logout failed')
+}
+```
+
+The `'local'` scope terminates only the session belonging to the supplied JWT. The user remains signed in on other devices.
+
+### 11.5 Next.js Middleware (Session Refresh)
+
+`apps/web/middleware.ts` uses `@supabase/ssr` to refresh session cookies on every request and redirect unauthenticated users:
+
+```typescript
+// Always getUser(), never getSession().
+// getSession() reads a client-accessible cookie and can be spoofed.
+// getUser() validates the JWT with Supabase server-side.
+const { data: { user } } = await supabase.auth.getUser()
+```
+
+Routes matched by the middleware config:
+- Protected routes (`/dashboard`, `/review`, `/decks`, `/analytics`, `/settings`, `/onboarding`) redirect to `/login` if `user` is null.
+- Auth routes (`/login`, `/signup`, `/signup/verify`) redirect to `/dashboard` if `user` is already authenticated.
 
 ---
 

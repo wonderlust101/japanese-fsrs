@@ -628,38 +628,105 @@ Onboarding must get a new user to their first review within 5 minutes. Every scr
 ### 14.2 Onboarding Flow
 
 ```
-Sign Up / Log In
+Sign Up (/signup)
+      ↓
+Email Verification (/signup/verify)
+(6-digit OTP — entered on the same device, no device switch required)
       ↓
 Welcome Screen
 (2 sentences. One illustration. "Let's set up your study plan →")
       ↓
-Step 1: What's your current level?
+Step 1: What's your current level?  (/onboarding/level)
 (6 options: Complete Beginner / N5 / N4 / N3 / N2 / N1+)
       ↓
-Step 2: What's your goal?
+Step 2: What's your goal?  (/onboarding/goal)
 (4 options: Pass JLPT / Enjoy anime & manga / Read novels / Live/work in Japan)
       ↓
-Step 3: What are your interests?
+Step 3: What are your interests?  (/onboarding/interests)
 (Multi-select chips: Anime, Gaming, Food, Business, Travel, Music, Sports, Tech)
       ↓
-Step 4: How much time per day?
+Step 4: How much time per day?  (/onboarding/schedule)
 (3 options: ~5 min (light) / ~15 min (steady) / ~30 min+ (intensive))
       ↓
-Recommended Decks Screen
+Recommended Decks Screen  (/onboarding/decks)
 (App recommends 2–3 premade decks based on level + goal. User can swap any.)
 [Add all recommended decks →]
       ↓
-Dashboard
+Dashboard (/dashboard)
 (First review session is immediately available)
 ```
 
 ### 14.3 Onboarding UI Rules
 
 - Each step fits on a single screen with no scrolling required
-- Progress is shown as a simple step indicator (e.g. "2 of 4")
-- Every step has a "Skip" option that uses sensible defaults
-- No email verification wall before onboarding — verify asynchronously
+- Progress is shown as a simple step indicator (e.g. "2 of 5") — the OTP screen is shown as step 0 or a pre-step so the numbered indicator begins at step 1 once the user is verified
+- Every onboarding step has a "Skip" option that uses sensible defaults
+- The OTP screen is lightweight and appears directly after signup submission — it must not feel like a wall; copy should frame it as a quick security step, not a mandatory bureaucratic gate
 - The recommended decks screen shows real card previews (the first card from each deck) so users see the quality of content before committing
+
+### 14.4 Email Verification: Tomo OTP Input Component
+
+The 6-digit OTP input is a first-class Tomo design system component used exclusively on the `/signup/verify` screen. It must feel fast, frictionless, and visually calm.
+
+#### Component Anatomy
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│              Check your email                                       │
+│              We sent a 6-digit code to you@example.com             │
+│                                                                     │
+│         ┌───┐  ┌───┐  ┌───┐     ┌───┐  ┌───┐  ┌───┐              │
+│         │ 4 │  │ 8 │  │ _ │     │   │  │   │  │   │              │
+│         └───┘  └───┘  └───┘     └───┘  └───┘  └───┘              │
+│                  ↑ active digit                                     │
+│                                                                     │
+│              Didn't receive it?  [Resend code →]                   │
+│              (available after 60 second cooldown)                   │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Interaction Behaviour
+
+- **6 individual `<input type="text" inputmode="numeric" maxlength="1">` elements** — one per digit — grouped with a visible gap after digit 3 (mirroring the 3+3 visual grouping used for confirmation codes in most email clients)
+- Auto-advance: focus moves to the next input as soon as a digit is entered; backspace on an empty input moves focus left
+- **Paste handling:** pasting the full 6-digit string fills all inputs and auto-submits — covers the common case of tapping "Copy code" from the notification banner
+- On mobile, `inputmode="numeric"` shows the numeric keyboard automatically — no need to switch keyboards
+- Auto-submit fires as soon as all 6 digits are present — the user never needs to press a confirm button in the happy path
+- If the code is invalid, all 6 inputs animate a horizontal shake (`ease-spring`, 3 cycles, 300ms total) and clear; focus returns to the first input
+
+#### Visual Spec
+
+| Property | Value |
+|---|---|
+| Digit box size | 52×60px (desktop), 44×52px (mobile) |
+| Border | `1px solid color-border-default` at rest; `color-accent` when focused |
+| Font | JetBrains Mono, `text-2xl`, weight 600 (monospace for visual alignment) |
+| Gap between boxes | `space-2` (8px); `space-4` (16px) after the third digit |
+| Error state border | `color-danger-500`, 2px |
+| Corner radius | `radius-md` (10px) |
+
+#### Resend Cooldown
+
+A "Resend code" link appears below the inputs. It is disabled for 60 seconds after the initial send (a live countdown is shown: "Resend in 42s"). After the cooldown, tapping it calls `supabase.auth.resend({ type: 'signup', email })` and resets the countdown.
+
+### 14.5 Device Breakage Prevention
+
+**What is device breakage?**
+
+Device breakage occurs when a user starts signup on one device/browser, receives a magic link email, and opens that link on a different device (e.g. tapping the email notification on their phone while the signup page is open on their desktop). The magic link creates an authenticated session on the second device — but the original device never receives that session, leaving the user stuck.
+
+**Why the 6-digit OTP eliminates this**
+
+The OTP is typed directly into the `/signup/verify` page on the same device and browser where signup began. The session is established in that browser's cookie jar. No cross-device handoff occurs. The pattern is the same as a bank or e-commerce OTP — universally understood by users and inherently device-scoped.
+
+**UX copy guidelines for the OTP screen**
+
+- Headline: "Check your email" — not "Verify your account" (framing: action, not bureaucracy)
+- Subtext: "We sent a 6-digit code to [email]. It expires in 10 minutes." — set expectations without alarm
+- Error state: "That code didn't work. Check the email and try again, or request a new code." — give the user a clear path, never a dead end
+- Never say "magic link" anywhere — it is a source of confusion for users who don't know the term
 
 ---
 

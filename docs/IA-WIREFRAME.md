@@ -27,7 +27,8 @@ The complete route map of the application. All routes under `(app)` require auth
 /                               ← Landing page (public)
 ├── /login                      ← Sign in
 ├── /signup                     ← Create account
-├── /onboarding                 ← First-time setup flow (post-signup)
+│   └── /signup/verify          ← 6-digit OTP email verification (same device)
+├── /onboarding                 ← First-time setup flow (post-signup, requires auth)
 │   ├── /level                  ← Step 1: Current level
 │   ├── /goal                   ← Step 2: Study goal
 │   ├── /interests              ← Step 3: Interests
@@ -77,7 +78,9 @@ app/
 │   ├── login/
 │   │   └── page.tsx
 │   └── signup/
-│       └── page.tsx
+│       ├── page.tsx
+│       └── verify/
+│           └── page.tsx               ← 6-digit OTP entry; receives ?email= query param
 │
 ├── onboarding/                        ← Onboarding (its own layout, no sidebar)
 │   ├── layout.tsx                     ← Progress bar, step indicator, no nav
@@ -651,18 +654,21 @@ How the major components relate spatially on key surfaces.
 
 ```
 Landing (/) 
-  → Sign Up (/signup) 
-    → Onboarding Step 1: Level (/onboarding/level) 
-      → Step 2: Goal (/onboarding/goal) 
-        → Step 3: Interests (/onboarding/interests) 
-          → Step 4: Schedule (/onboarding/schedule) 
-            → Step 5: Recommended Decks (/onboarding/decks) 
-              [Add Recommended Decks]
-              → Dashboard (/app/dashboard)
-                [Start Review button visible with due count]
-                → Review Session (/app/review/session)
-                  → Session Summary (/app/review/summary)
-                    → Dashboard
+  → Sign Up (/signup)
+    [Enter email + password → Submit]
+    → OTP Verification (/signup/verify?email=…)
+      [Enter 6-digit code from email — same device, no link to click]
+      → Onboarding Step 1: Level (/onboarding/level) 
+        → Step 2: Goal (/onboarding/goal) 
+          → Step 3: Interests (/onboarding/interests) 
+            → Step 4: Schedule (/onboarding/schedule) 
+              → Step 5: Recommended Decks (/onboarding/decks) 
+                [Add Recommended Decks]
+                → Dashboard (/dashboard)
+                  [Start Review button visible with due count]
+                  → Review Session (/review/session)
+                    → Session Summary (/review/summary)
+                      → Dashboard
 ```
 
 ### 6.2 Returning User Daily Review Flow
