@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Fonts ────────────────────────────────────────────────────────── */
+  --font-inter: var(--font-inter-loaded);
+  --font-noto-sans-jp: var(--font-noto-sans-jp-loaded);
+  --font-mono: var(--font-jetbrains-mono-loaded);
+
+  /* ── Indigo (Primary) ────────────────────────────────────────────── */
+  --color-primary-50:  #EEF2FF;
+  --color-primary-100: #E0E7FF;
+  --color-primary-200: #C7D2FE;
+  --color-primary-300: #A5B4FC;
+  --color-primary-400: #818CF8;
+  --color-primary-500: #6366F1;
+  --color-primary-600: #4F46E5;
+  --color-primary-700: #4338CA;
+  --color-primary-800: #3730A3;
+  --color-primary-900: #312E81;
+
+  /* ── Neutral (Gray) ──────────────────────────────────────────────── */
+  --color-neutral-0:   #FFFFFF;
+  --color-neutral-50:  #F9FAFB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-600: #4B5563;
+  --color-neutral-700: #374151;
+  --color-neutral-800: #1F2937;
+  --color-neutral-850: #18202F;
+  --color-neutral-900: #111827;
+
+  /* ── Status ──────────────────────────────────────────────────────── */
+  --color-success-100: #DCFCE7;
+  --color-success-500: #22C55E;
+  --color-success-700: #15803D;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;
+  --color-warning-700: #B45309;
+  --color-danger-100:  #FEE2E2;
+  --color-danger-500:  #EF4444;
+  --color-danger-700:  #B91C1C;
+
+  /* ── Border radius ───────────────────────────────────────────────── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ─────────────────────────────────────────────────────── */
+  --shadow-card:  0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-focus: 0 0 0 3px var(--color-primary-200);
+
+  /* ── Onboarding page transition ──────────────────────────────────── */
+  --animate-page-enter: page-enter 250ms cubic-bezier(0, 0, 0.2, 1) both;
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+}
+
+/* Noto Sans JP on any element carrying the lang attribute */
+[lang="ja"] {
+  font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
