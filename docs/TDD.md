@@ -134,18 +134,29 @@ fsrs-japanese/
 │       │   ├── middleware/
 │       │   │   ├── auth.ts         # JWT verification via Supabase
 │       │   │   ├── rateLimit.ts    # Upstash Redis rate limiting
-│       │   │   └── errorHandler.ts
+│       │   │   ├── errorHandler.ts
+│       │   │   └── __tests__/      # Unit tests (mocked deps, no env vars needed)
+│       │   │       └── auth.middleware.test.ts
 │       │   ├── services/           # Business logic, DB queries
 │       │   │   ├── fsrs.service.ts
 │       │   │   ├── ai.service.ts
 │       │   │   ├── card.service.ts
-│       │   │   └── analytics.service.ts
+│       │   │   ├── analytics.service.ts
+│       │   │   └── __tests__/      # Unit tests for pure service logic
+│       │   │       └── fsrs.service.test.ts
 │       │   ├── schemas/            # Zod validation schemas
-│       │   │   └── auth.schema.ts
+│       │   │   ├── auth.schema.ts
+│       │   │   └── __tests__/      # Schema validation unit tests
+│       │   │       └── auth.schema.test.ts
 │       │   ├── db/
 │       │   │   ├── supabase.ts     # Supabase client
 │       │   │   └── redis.ts        # Upstash Redis client
 │       │   └── index.ts
+│       ├── tests/
+│       │   └── integration/        # Integration tests (require live DB + Redis)
+│       │       ├── auth.routes.test.ts
+│       │       ├── cards.routes.test.ts
+│       │       └── reviews.routes.test.ts
 │       └── tsconfig.json
 │
 ├── packages/

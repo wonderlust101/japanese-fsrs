@@ -2,7 +2,7 @@ import { describe, it, expect, mock } from 'bun:test'
 
 // Must be registered before any module that transitively imports supabase.ts.
 // The real module throws at load time when env vars are absent.
-mock.module('../db/supabase.ts', () => ({
+mock.module('../../db/supabase.ts', () => ({
   supabaseAdmin: {
     auth: {
       // Default: simulate an invalid token. Overridden per-test where needed.
@@ -18,7 +18,7 @@ mock.module('../db/supabase.ts', () => ({
 
 // Dynamic imports are required: mock.module() must be registered before
 // the modules that depend on it are evaluated.
-const { app }            = await import('../app.ts')
+const { app }            = await import('../../app.ts')
 const { default: request } = await import('supertest')
 
 describe('authMiddleware — unauthenticated requests', () => {

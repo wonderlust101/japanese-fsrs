@@ -174,7 +174,8 @@ const toUpperCase = (s: string) => s.toUpperCase()
 | API route files | camelCase | `cards.ts` |
 | Controller files | camelCase with `.controller.ts` suffix | `auth.controller.ts` |
 | Service files | camelCase with `.service.ts` suffix | `fsrs.service.ts` |
-| Test files | Same name as subject with `.test.ts` suffix | `fsrs.service.test.ts` |
+| Unit test files | Same name as subject with `.test.ts` suffix, inside `__tests__/` | `middleware/__tests__/auth.middleware.test.ts` |
+| Integration test files | Same name as feature with `.test.ts` suffix, in `tests/integration/` | `tests/integration/auth.routes.test.ts` |
 | Directories | kebab-case | `shared-types/` |
 
 ### 2.2 Component File Colocation
@@ -183,13 +184,14 @@ Each non-trivial component gets its own directory with colocated files:
 
 ```
 components/review/ReviewCard/
-├── ReviewCard.tsx          ← Component
-├── ReviewCard.test.tsx     ← Tests
-├── ReviewCard.types.ts     ← Local types (if complex enough)
-└── index.ts                ← Re-export: export { ReviewCard } from './ReviewCard'
+├── ReviewCard.tsx              ← Component
+├── ReviewCard.types.ts         ← Local types (if complex enough)
+├── index.ts                    ← Re-export: export { ReviewCard } from './ReviewCard'
+└── __tests__/
+    └── ReviewCard.test.tsx     ← Unit tests
 ```
 
-Simple single-file components (< 80 lines, no local types) can live directly as `ReviewCard.tsx` without a directory.
+Simple single-file components (< 80 lines, no local types) can live directly as `ReviewCard.tsx` without a directory. Their tests still go in a sibling `__tests__/` folder: `review/__tests__/ReviewCard.test.tsx`.
 
 ### 2.3 Next.js App Router Specific
 
@@ -719,12 +721,38 @@ Always use `font-japanese` on any element containing Japanese text — never set
 
 ## 8. Testing Conventions
 
-See `TESTING.md` for full testing strategy. Summary of conventions:
+See `TESTING.md` for the full testing strategy, mocking guidelines, and setup requirements. Summary of conventions:
 
-- Test files live next to their subject: `ReviewCard.test.tsx` beside `ReviewCard.tsx`
+### Two-tier structure
+
+Tests are split by whether they require live external services:
+
+| Tier | Location | Requires real DB / Redis? |
+|---|---|---|
+| **Unit** | `src/<module>/__tests__/<subject>.test.ts` | No — all deps mocked |
+| **Integration** | `tests/integration/<feature>.test.ts` | Yes |
+
+**Unit tests** are co-located inside a `__tests__/` subdirectory within the module they test:
+
+```
+src/middleware/__tests__/auth.middleware.test.ts
+src/services/__tests__/fsrs.service.test.ts
+src/schemas/__tests__/auth.schema.test.ts
+```
+
+**Integration tests** are centralized so CI can run them separately from the unit suite:
+
+```
+tests/integration/auth.routes.test.ts
+tests/integration/reviews.routes.test.ts
+```
+
+### General rules
+
 - Use Bun's built-in test runner (`bun test`)
 - Use `@testing-library/react` for component tests
-- Mock the API layer at the TanStack Query / fetch boundary, not at the service layer
+- Mock external services (Supabase, Redis, OpenAI) in unit tests — use `mock.module()` before dynamic `import()`
+- Mock the API layer at the `fetch` boundary in frontend tests, not inside TanStack Query hooks
 - Never test implementation details — test behavior and output
 - Test IDs use `data-testid="kebab-case-name"` — only on elements that cannot be targeted by accessible roles
 
