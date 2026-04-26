@@ -148,52 +148,20 @@ function buildFsrsCard(row: CardRow): TsFsrsCard {
   }
 }
 
-// ─── Leech detection ──────────────────────────────────────────────────────────
-
-/**
- * Checks whether a card has crossed the leech threshold after a review and
- * creates a leech record if no unresolved one already exists.
- *
- * Must only be called from processReview. Duplicating this check anywhere
- * else produces duplicate leech records (see CLAUDE.md common pitfalls).
- *
- * The AI diagnosis/prescription fields are populated later by ai.service.ts
- * when the route handler processes the leech event.
- */
-async function checkLeech(cardId: string, userId: string, lapses: number): Promise<void> {
-  if (lapses < LEECH_THRESHOLD) return
-
-  const { data: existing } = await supabaseAdmin
-    .from('leeches')
-    .select('id')
-    .eq('card_id', cardId)
-    .eq('user_id', userId)
-    .eq('resolved', false)
-    .maybeSingle()
-
-  if (existing !== null) return
-
-  const { error: insertError } = await supabaseAdmin
-    .from('leeches')
-    .insert({ card_id: cardId, user_id: userId })
-
-  if (insertError !== null) {
-    console.error(`[FSRS] Failed to create leech record for card ${cardId}:`, insertError.message)
-  }
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Processes a single review rating and updates the card's FSRS scheduling state.
  *
  * This is the **only** function that writes FSRS state fields to `cards`.
- * It also writes a review log entry and performs leech detection.
+ * Steps 4–6 (FSRS state, review log, leech detection) are executed inside a
+ * single PostgreSQL transaction via the `process_review` RPC — if any write
+ * fails the entire review rolls back and no partial state is persisted.
  * Do not call f.repeat() / f.next() anywhere else in the codebase.
  *
- * @param cardId      - UUID of the card being reviewed
- * @param rating      - User's rating for this review
- * @param userId      - Authenticated user's ID (proves ownership; excludes premade source cards)
+ * @param cardId       - UUID of the card being reviewed
+ * @param rating       - User's rating for this review
+ * @param userId       - Authenticated user's ID (proves ownership; excludes premade source cards)
  * @param reviewTimeMs - Optional time spent on card in milliseconds
  * @returns Updated scheduling fields — sufficient to build the API response
  */
@@ -224,7 +192,7 @@ export async function processReview(
   }
 
   if (row.status === CardStatus.Suspended) {
-    throw new Error(`Card ${cardId} is suspended; unsuspend it before reviewing`)
+    throw new AppError(409, `Card ${cardId} is suspended; unsuspend it before reviewing`)
   }
 
   // ── 2. Select scheduler for this card's modality ─────────────────────────────
@@ -239,52 +207,36 @@ export async function processReview(
   const { card: updated } = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
   const newStatus = mapStateToStatus(updated.state)
 
-  // ── 4. Persist FSRS state ────────────────────────────────────────────────────
-  const { error: updateError } = await supabaseAdmin
-    .from('cards')
-    .update({
-      status:         newStatus,
-      due:            updated.due.toISOString(),
-      stability:      updated.stability,
-      difficulty:     updated.difficulty,
-      elapsed_days:   updated.elapsed_days,
-      scheduled_days: updated.scheduled_days,
-      learning_steps: updated.learning_steps,
-      reps:           updated.reps,
-      lapses:         updated.lapses,
-      state:          updated.state,
-      last_review:    (updated.last_review ?? reviewedAt).toISOString(),
-      updated_at:     reviewedAt.toISOString(),
-    })
-    .eq('id', cardId)
+  // ── 4–6. Atomically persist FSRS state, review log, and leech detection ───────
+  // A single RPC call wraps all three writes in one PostgreSQL transaction.
+  // If any statement fails, the entire review rolls back — no partial state.
+  const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
+    p_card_id:              cardId,
+    p_user_id:              userId,
+    p_status:               newStatus,
+    p_due:                  updated.due.toISOString(),
+    p_stability:            updated.stability,
+    p_difficulty:           updated.difficulty,
+    p_elapsed_days:         updated.elapsed_days,
+    p_scheduled_days:       updated.scheduled_days,
+    p_learning_steps:       updated.learning_steps,
+    p_reps:                 updated.reps,
+    p_lapses:               updated.lapses,
+    p_state:                updated.state,
+    p_last_review:          (updated.last_review ?? reviewedAt).toISOString(),
+    p_updated_at:           reviewedAt.toISOString(),
+    p_rating:               rating,
+    p_review_time_ms:       reviewTimeMs ?? null,
+    p_stability_after:      updated.stability,
+    p_difficulty_after:     updated.difficulty,
+    p_due_after:            updated.due.toISOString(),
+    p_scheduled_days_after: updated.scheduled_days,
+    p_leech_threshold:      LEECH_THRESHOLD,
+  })
 
-  if (updateError !== null) {
-    throw new Error(`Failed to persist FSRS state for card ${cardId}: ${updateError.message}`)
+  if (rpcError !== null) {
+    throw new AppError(500, `Failed to persist review for card ${cardId}: ${rpcError.message}`)
   }
-
-  // ── 5. Write review log ───────────────────────────────────────────────────────
-  // Requires the review_logs table (next migration after initial_schema).
-  const { error: logError } = await supabaseAdmin
-    .from('review_logs')
-    .insert({
-      card_id:              cardId,
-      user_id:              userId,
-      rating,
-      review_time_ms:       reviewTimeMs ?? null,
-      stability_after:      updated.stability,
-      difficulty_after:     updated.difficulty,
-      due_after:            updated.due.toISOString(),
-      scheduled_days_after: updated.scheduled_days,
-    })
-
-  if (logError !== null) {
-    throw new Error(`Failed to write review log for card ${cardId}: ${logError.message}`)
-  }
-
-  // ── 6. Leech detection ────────────────────────────────────────────────────────
-  // Runs here and only here. Adding leech checks elsewhere creates duplicates.
-  // Requires the leeches table (next migration after initial_schema).
-  await checkLeech(cardId, userId, updated.lapses)
 
   return {
     id:            cardId,

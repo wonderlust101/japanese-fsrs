@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { BarChart2, Library, ArrowRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getAuthUser } from '@/lib/supabase/get-auth-user'
 import { TopBar } from '../_components/top-bar'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -82,10 +82,7 @@ function EmptyStateCard({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getAuthUser()
 
   const greeting = getGreeting()
   const displayName = toDisplayName(

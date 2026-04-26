@@ -7,15 +7,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
+// Maps backend error messages (from AppError.message) to user-friendly strings.
+// The backend returns the raw Supabase error message for auth failures.
 const FRIENDLY_ERRORS: Record<string, string> = {
-  'User already registered': 'An account with this email already exists.',
+  'Email address already registered':    'An account with this email already exists.',
+  'User already registered':             'An account with this email already exists.',
   'Password should be at least 6 characters': 'Password must be at least 8 characters.',
-  'Unable to validate email address: invalid format': 'Please enter a valid email address.',
-  'Too many requests': 'Too many attempts. Please wait a moment and try again.',
+  'Too many requests':                   'Too many attempts. Please wait a moment and try again.',
 }
 
 function friendlyError(message: string): string {
-  return FRIENDLY_ERRORS[message] ?? 'Something went wrong. Please try again.'
+  return FRIENDLY_ERRORS[message] ?? message
 }
 
 export default function SignupPage() {
@@ -58,17 +60,44 @@ export default function SignupPage() {
     setErrors({})
     setLoading(true)
 
-    const supabase = createSupabaseBrowserClient()
-    const { error: authError } = await supabase.auth.signUp({ email, password })
+    try {
+      // Step 1: Create the account via the backend.
+      // Uses admin.createUser({ email_confirm: true }) so the account is
+      // immediately active regardless of the Supabase project's email
+      // confirmation setting. Also initialises the profile row.
+      const res = await fetch(
+        `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/signup`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email, password }),
+        },
+      )
 
-    if (authError) {
-      setErrors({ form: friendlyError(authError.message) })
+      if (!res.ok) {
+        const body = await res.json() as { error?: string }
+        setErrors({ form: friendlyError(body.error ?? 'Signup failed') })
+        setLoading(false)
+        return
+      }
+
+      // Step 2: Sign in immediately — the account is already confirmed.
+      const supabase = createSupabaseBrowserClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (signInError) {
+        // Account was created but sign-in failed — send the user to login
+        // rather than leaving them in a broken state.
+        router.push('/login')
+        return
+      }
+
+      router.push('/onboarding')
+      router.refresh()
+    } catch {
+      setErrors({ form: 'Something went wrong. Please try again.' })
       setLoading(false)
-      return
     }
-
-    router.push('/onboarding')
-    router.refresh()
   }
 
   return (

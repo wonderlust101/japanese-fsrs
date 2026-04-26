@@ -95,12 +95,12 @@ export async function refreshSession(input: RefreshInput): Promise<AuthTokens> {
 }
 
 /**
- * Invalidates the session associated with the given JWT on the Supabase side.
- * The `scope` defaults to 'global', revoking all sessions for this user.
- * Pass `scope: 'local'` to revoke only the current session.
+ * Invalidates the session associated with the given JWT.
+ * Uses `scope: 'local'` so only the current device session is revoked —
+ * sessions on other devices remain active.
  */
 export async function signOut(jwt: string): Promise<void> {
-  const { error } = await supabaseAdmin.auth.admin.signOut(jwt)
+  const { error } = await supabaseAdmin.auth.admin.signOut(jwt, 'local')
 
   if (error !== null) {
     throw new AppError(500, 'Logout failed')

@@ -12,8 +12,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': 'Incorrect email or password.',
-  'Email not confirmed': 'Please verify your email address before signing in.',
-  'Too many requests': 'Too many attempts. Please wait a moment and try again.',
+  'Too many requests':         'Too many attempts. Please wait a moment and try again.',
 }
 
 function friendlyError(message: string): string {

@@ -19,6 +19,7 @@
         "./*"
       ]
     },
+    "allowImportingTsExtensions": true,
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,

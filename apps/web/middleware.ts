@@ -55,6 +55,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Root — unauthenticated users get redirected to /login here instead of
+    // taking a two-hop journey: / → /onboarding → /login.
+    '/',
     // Protected (app) routes
     '/dashboard/:path*',
     '/review/:path*',

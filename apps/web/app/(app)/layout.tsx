@@ -1,14 +1,11 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getAuthUser } from '@/lib/supabase/get-auth-user'
 import { Sidebar } from './_components/sidebar'
 import { MobileBottomBar } from './_components/mobile-bottom-bar'
 
 // The middleware already guarantees an authenticated user reaches this layout.
 // We fetch the user here only to pass display data (email) to the Sidebar.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getAuthUser()
 
   return (
     <div className="flex h-screen bg-neutral-50 overflow-hidden">

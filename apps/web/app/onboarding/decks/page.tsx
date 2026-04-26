@@ -1,36 +1,60 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { UpdateProfileInput } from '@fsrs-japanese/shared-types'
 import { useOnboardingStore } from '@/stores/onboarding.store'
+
+const SCHEDULE_TO_CARD_LIMIT: Record<string, number> = {
+  light:     5,
+  steady:    20,
+  intensive: 50,
+}
 
 export default function DecksPage() {
   const router           = useRouter()
   const applyAllDefaults = useOnboardingStore((s) => s.actions.applyAllDefaults)
   const reset            = useOnboardingStore((s) => s.actions.reset)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
 
-  function handleAddAndStart() {
-    // Fill any unanswered steps with their sensible defaults before submitting.
+  async function handleAddAndStart() {
+    setLoading(true)
+    setError(null)
+
+    // Fill any unanswered steps with sensible defaults before building the payload.
     applyAllDefaults()
 
-    // TODO: POST /api/v1/profile/onboarding with the store's answers, then
-    // subscribe the user to the recommended deck IDs.
-    // profile fields mapped from store:
-    //   level ('beginner' | 'N5'…'N1') → jlpt_target (jlpt_level enum):
-    //     'beginner' → 'N5'  (no 'beginner' in the DB enum)
-    //     all others map 1-to-1
-    //   goal → study_goal (free text)
-    //   interests → interests (TEXT[])
-    //   schedule → daily_new_cards_limit:
-    //     'light'     → 5
-    //     'steady'    → 20   (matches DB DEFAULT 20 per TDD §4.1)
-    //     'intensive' → 50
-    //   daily_review_limit and retention_target use their DB defaults (200, 0.85)
-    //
-    // reset() must only be called here AFTER that API call succeeds, so the
-    // data isn't lost on a network error.
-    reset()
+    // Read the fully-defaulted state in one snapshot.
+    const { level, goal, interests, schedule } = useOnboardingStore.getState()
 
-    router.push('/dashboard')
+    // Map store values to the PATCH /api/v1/profile wire format.
+    // 'beginner' has no DB equivalent — it maps to the lowest JLPT level.
+    // Conditional spread for study_goal: exactOptionalPropertyTypes requires
+    // the key to be absent rather than set to undefined.
+    const payload: UpdateProfileInput = {
+      jlpt_target:           (level === 'beginner' || level === null) ? 'N5' : level,
+      ...(goal !== null ? { study_goal: goal } : {}),
+      interests,
+      daily_new_cards_limit: SCHEDULE_TO_CARD_LIMIT[schedule ?? 'steady'] ?? 20,
+    }
+
+    try {
+      // TODO: await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/profile`, {
+      //   method: 'PATCH',
+      //   headers: { 'Content-Type': 'application/json', Authorization: `Bearer <token>` },
+      //   body: JSON.stringify(payload),
+      // })
+      void payload // remove once the fetch above is wired up
+
+      // reset() is intentionally inside the try block — data must not be lost
+      // on a network error.
+      reset()
+      router.push('/dashboard')
+    } catch {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+    }
   }
 
   return (
@@ -75,21 +99,29 @@ export default function DecksPage() {
       </div>
 
       <div className="flex flex-col items-center gap-3 w-full">
+        {error && (
+          <p role="alert" className="text-xs text-danger-500">{error}</p>
+        )}
+
         <button
           type="button"
           onClick={handleAddAndStart}
+          disabled={loading}
           className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-[15px]
                      font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
+                     disabled:opacity-40 disabled:cursor-not-allowed
                      focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
         >
-          Add all and start learning →
+          {loading ? 'Saving…' : 'Add all and start learning →'}
         </button>
         <button
           type="button"
           onClick={() => router.push('/dashboard')}
-          className="text-[13px] text-neutral-400 hover:text-neutral-600 transition-colors"
+          disabled={loading}
+          className="text-[13px] text-neutral-400 hover:text-neutral-600 transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Skip for now — I'll browse decks myself
+          Skip for now — I&apos;ll browse decks myself
         </button>
       </div>
     </div>
