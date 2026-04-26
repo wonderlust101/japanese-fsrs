@@ -36,14 +36,21 @@ This is a **Bun monorepo** with two main apps:
 ```
 fsrs-japanese/
 ├── apps/
-│   ├── web/          # Next.js 15 frontend
-│   └── api/          # Express 5 backend
+│   ├── web/                    # Next.js 15 frontend
+│   └── api/                    # Express 5 backend
+│       └── src/
+│           ├── routes/         # Path → controller mapping only
+│           ├── controllers/    # Request parsing, response sending
+│           ├── services/       # Business logic, DB queries
+│           ├── schemas/        # Zod validation schemas
+│           ├── middleware/     # Auth, rate limiting, error handler
+│           └── db/             # Supabase + Redis clients
 ├── packages/
-│   ├── shared-types/ # Shared TypeScript interfaces
-│   └── tsconfig/     # Shared tsconfig base
+│   ├── shared-types/           # Shared TypeScript interfaces
+│   └── tsconfig/               # Shared tsconfig base
 ├── supabase/
-│   └── migrations/   # SQL migration files (run in order)
-├── bunfig.toml       # Bun workspace config
+│   └── migrations/             # SQL migration files (run in order)
+├── bunfig.toml                 # Bun workspace config
 └── CLAUDE.md
 ```
 
@@ -154,9 +161,10 @@ Recognition, production, reading, and audio cards have separate `generatorParame
 
 ### API
 - All routes are under `/api/v1/`.
-- Every route handler must call `next(error)` on failure — do not `res.json()` errors directly except in the global error handler.
+- The API uses a three-layer architecture: **routes → controllers → services**. Routes map paths to controller methods. Controllers handle `req`/`res`. Services hold business logic and never import Express types.
+- Every controller handler must call `next(error)` on failure — do not `res.json()` errors directly except in the global error handler.
 - Auth middleware (`apps/api/src/middleware/auth.ts`) must be applied to every protected route. Never skip it.
-- AI endpoints must go through the rate limiter middleware before the route handler.
+- AI endpoints must go through the rate limiter middleware before the controller handler.
 
 ### Database
 - Never write raw SQL in route handlers. All queries go through service functions in `apps/api/src/services/`.

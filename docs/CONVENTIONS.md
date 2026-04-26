@@ -172,6 +172,7 @@ const toUpperCase = (s: string) => s.toUpperCase()
 | Constants | camelCase for files, SCREAMING_SNAKE for values | `constants.ts`, `MAX_LEECHES` |
 | Types/interfaces file | camelCase with `.types.ts` suffix | `card.types.ts` |
 | API route files | camelCase | `cards.ts` |
+| Controller files | camelCase with `.controller.ts` suffix | `auth.controller.ts` |
 | Service files | camelCase with `.service.ts` suffix | `fsrs.service.ts` |
 | Test files | Same name as subject with `.test.ts` suffix | `fsrs.service.test.ts` |
 | Directories | kebab-case | `shared-types/` |
@@ -335,32 +336,45 @@ Always apply `lang="ja"` to Japanese text containers:
 
 ### 4.1 Route Handler Structure
 
-Every Express route handler follows this pattern — thin route, fat service:
+The API uses a three-layer architecture: **routes → controllers → services**.
+
+| Layer | File | Responsibility |
+|---|---|---|
+| Route | `routes/cards.ts` | Declare path + method, apply middleware, delegate to controller |
+| Controller | `controllers/cards.controller.ts` | Validate request, call service, send response |
+| Service | `services/card.service.ts` | Business logic, DB queries — no `req`/`res` |
 
 ```typescript
-// ✅ Correct: route is thin, logic lives in service
-// routes/cards.ts
-router.post('/', authMiddleware, rateLimitMiddleware, async (req, res, next) => {
-  try {
-    const { deckId } = req.params
-    const body = createCardSchema.parse(req.body) // Zod validation
-    const card = await cardService.create(deckId, req.user.id, body)
-    res.status(201).json(card)
-  } catch (error) {
-    next(error) // Always pass to error handler
-  }
-})
+// ✅ routes/cards.ts — path mapping only
+router.post('/', authMiddleware, rateLimitMiddleware, cardsController.create)
 
-// ❌ Wrong: business logic inside route handler
+// ✅ controllers/cards.controller.ts — request/response handling
+export const create: RequestHandler = async (req, res, next) => {
+  try {
+    const body = createCardSchema.parse(req.body)
+    const card = await cardService.create(req.params['deckId']!, req.user.id, body)
+    res.status(201).json(card)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ✅ services/card.service.ts — business logic only
+export async function create(deckId: string, userId: string, input: CreateCardInput): Promise<Card> {
+  // DB queries, FSRS logic, etc. — no req/res imports
+}
+
+// ❌ Wrong: business logic inside a route handler
 router.post('/', async (req, res) => {
-  const { word } = req.body
-  const existing = await supabase.from('cards').select().eq('word', word)
+  const existing = await supabase.from('cards').select().eq('word', req.body.word)
   if (existing.data?.length) {
     return res.status(409).json({ error: 'Card already exists' })
   }
   // ... 50 more lines
 })
 ```
+
+Controllers never import from `express` beyond `RequestHandler` (the type). They never call `supabaseAdmin` directly — all DB access goes through services.
 
 ### 4.2 Request Validation
 

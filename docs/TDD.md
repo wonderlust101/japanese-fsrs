@@ -117,22 +117,31 @@ fsrs-japanese/
 │   │
 │   └── api/                        # Express 5 backend
 │       ├── src/
-│       │   ├── routes/
+│       │   ├── routes/             # Path → controller mapping only
 │       │   │   ├── auth.ts
 │       │   │   ├── decks.ts
 │       │   │   ├── cards.ts
 │       │   │   ├── reviews.ts
 │       │   │   ├── ai.ts
 │       │   │   └── analytics.ts
+│       │   ├── controllers/        # Request parsing, response sending
+│       │   │   ├── auth.controller.ts
+│       │   │   ├── decks.controller.ts
+│       │   │   ├── cards.controller.ts
+│       │   │   ├── reviews.controller.ts
+│       │   │   ├── ai.controller.ts
+│       │   │   └── analytics.controller.ts
 │       │   ├── middleware/
 │       │   │   ├── auth.ts         # JWT verification via Supabase
 │       │   │   ├── rateLimit.ts    # Upstash Redis rate limiting
 │       │   │   └── errorHandler.ts
-│       │   ├── services/
+│       │   ├── services/           # Business logic, DB queries
 │       │   │   ├── fsrs.service.ts
 │       │   │   ├── ai.service.ts
 │       │   │   ├── card.service.ts
 │       │   │   └── analytics.service.ts
+│       │   ├── schemas/            # Zod validation schemas
+│       │   │   └── auth.schema.ts
 │       │   ├── db/
 │       │   │   ├── supabase.ts     # Supabase client
 │       │   │   └── redis.ts        # Upstash Redis client

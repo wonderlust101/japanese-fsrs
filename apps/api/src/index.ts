@@ -1,6 +1,7 @@
 import express from 'express'
 
 import { errorHandler } from './middleware/errorHandler.ts'
+import authRouter from './routes/auth.ts'
 
 const app = express()
 
@@ -14,7 +15,7 @@ app.get('/health', (_req, res) => {
 })
 
 // ── API routes ──────────────────────────────────────────────────────────────
-// Routes are mounted here under /api/v1 as they are implemented.
+app.use('/api/v1/auth', authRouter)
 
 // ── Global error handler — must be last ────────────────────────────────────
 app.use(errorHandler)
