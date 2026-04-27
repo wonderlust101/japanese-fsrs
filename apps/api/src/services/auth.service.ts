@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
-import type { SignupInput, VerifyOtpInput, LoginInput, RefreshInput } from '../schemas/auth.schema.ts'
+import type { SignupInput, VerifyOtpInput, LoginInput, RefreshInput, CancelSignupInput } from '../schemas/auth.schema.ts'
 
 export interface AuthTokens {
   accessToken:  string
@@ -9,7 +9,8 @@ export interface AuthTokens {
 }
 
 export interface SignUpResult {
-  email: string
+  email:  string
+  userId: string
 }
 
 /**
@@ -68,7 +69,23 @@ export async function signUp(input: SignupInput): Promise<SignUpResult> {
     throw new AppError(500, 'Account creation failed: could not initialize profile')
   }
 
-  return { email: data.user.email ?? input.email }
+  return { email: data.user.email ?? input.email, userId }
+}
+
+/**
+ * Deletes an unconfirmed user when they abandon the OTP verification step.
+ * Silently no-ops if the user does not exist or has already confirmed their
+ * email — this prevents the endpoint from being used to delete real accounts.
+ */
+export async function cancelSignup(input: CancelSignupInput): Promise<void> {
+  const { data, error } = await supabaseAdmin.auth.admin.getUserById(input.userId)
+
+  if (error !== null || data.user === null) return
+
+  // Guard: never delete an account that has already been confirmed.
+  if (data.user.email_confirmed_at !== null && data.user.email_confirmed_at !== undefined) return
+
+  await supabaseAdmin.auth.admin.deleteUser(input.userId)
 }
 
 /**

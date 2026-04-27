@@ -41,18 +41,38 @@ type View = 'signup' | 'verify'
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SignupPage() {
-  const [view, setView]   = useState<View>('signup')
-  const [email, setEmail] = useState('')
+  const [view, setView]     = useState<View>('signup')
+  const [email, setEmail]   = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+
+  function handleSuccess(newUserId: string) {
+    setUserId(newUserId)
+    setView('verify')
+  }
+
+  function handleBack() {
+    // Fire-and-forget: delete the unconfirmed account so the user can retry
+    // cleanly. The service guards against deleting confirmed accounts.
+    if (userId) {
+      fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/cancel-signup`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId }),
+      }).catch(() => {})
+      setUserId(null)
+    }
+    setView('signup')
+  }
 
   if (view === 'verify') {
-    return <VerifyView email={email} onBack={() => setView('signup')} />
+    return <VerifyView email={email} onBack={handleBack} />
   }
 
   return (
     <SignupForm
       email={email}
       onEmailChange={setEmail}
-      onSuccess={() => setView('verify')}
+      onSuccess={handleSuccess}
     />
   )
 }
@@ -62,7 +82,7 @@ export default function SignupPage() {
 interface SignupFormProps {
   email:         string
   onEmailChange: (email: string) => void
-  onSuccess:     () => void
+  onSuccess:     (userId: string) => void
 }
 
 function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
@@ -174,7 +194,8 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         return
       }
 
-      onSuccess()
+      const body = await res.json() as { userId: string }
+      onSuccess(body.userId)
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' })
       setLoading(false)
@@ -209,7 +230,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          placeholder="your_username"
+          placeholder="Your Username"
           hint={usernameHint}
           error={errors.username ?? (usernameStatus === 'taken' && !errors.username ? 'Username is already taken.' : undefined)}
         />
@@ -345,7 +366,7 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
       <p className="text-sm text-neutral-500 mb-8">
         We sent a 6-digit code to{' '}
         <span className="font-medium text-neutral-700">{email}</span>.
-        It expires in 10 minutes.
+        It expires in 1 minutes.
       </p>
 
       <div className="flex flex-col items-center gap-6">

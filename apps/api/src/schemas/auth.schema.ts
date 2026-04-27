@@ -23,7 +23,12 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 })
 
-export type SignupInput    = z.infer<typeof signupSchema>
-export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>
-export type LoginInput     = z.infer<typeof loginSchema>
-export type RefreshInput   = z.infer<typeof refreshSchema>
+export const cancelSignupSchema = z.object({
+  userId: z.string().uuid(),
+})
+
+export type SignupInput       = z.infer<typeof signupSchema>
+export type VerifyOtpInput    = z.infer<typeof verifyOtpSchema>
+export type LoginInput        = z.infer<typeof loginSchema>
+export type RefreshInput      = z.infer<typeof refreshSchema>
+export type CancelSignupInput = z.infer<typeof cancelSignupSchema>
