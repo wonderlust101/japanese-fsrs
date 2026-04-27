@@ -191,7 +191,7 @@ Supabase Auth handles the core `auth.users` table. A `profiles` table extends it
 ```sql
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  username TEXT UNIQUE,
+  -- display_name is stored in auth.users user_metadata, not duplicated here
   native_language TEXT DEFAULT 'en',
   jlpt_target TEXT CHECK (jlpt_target IN ('N5','N4','N3','N2','N1','beyond_jlpt')),
   study_goal TEXT,

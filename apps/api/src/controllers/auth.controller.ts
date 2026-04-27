@@ -13,25 +13,6 @@ export const cancelSignup: RequestHandler = async (req, res, next): Promise<void
   }
 }
 
-export const checkUsername: RequestHandler = async (req, res, next): Promise<void> => {
-  try {
-    const username = req.query['username']
-    if (
-      typeof username !== 'string' ||
-      username.length < 3 ||
-      username.length > 20 ||
-      !/^[a-zA-Z0-9_-]+$/.test(username)
-    ) {
-      res.status(400).json({ error: 'Invalid username format' })
-      return
-    }
-    const result = await authService.checkUsernameAvailable(username)
-    res.json(result)
-  } catch (err) {
-    next(err)
-  }
-}
-
 export const signup: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input  = signupSchema.parse(req.body)

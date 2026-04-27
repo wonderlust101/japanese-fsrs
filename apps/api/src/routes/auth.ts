@@ -6,9 +6,8 @@ import * as authController from '../controllers/auth.controller.ts'
 const router = Router()
 
 // Public — no auth middleware; user is unauthenticated during these flows.
-router.get('/check-username',  authController.checkUsername)
-router.post('/signup',         authController.signup)
-router.post('/cancel-signup',  authController.cancelSignup)
+router.post('/signup',        authController.signup)
+router.post('/cancel-signup', authController.cancelSignup)
 router.post('/verify-otp', authController.verifyOtp)
 router.post('/login',      authController.login)
 router.post('/refresh',    authController.refresh)

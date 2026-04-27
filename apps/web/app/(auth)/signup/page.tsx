@@ -9,8 +9,6 @@ import { OTPInput } from '@/components/ui/otp-input'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { useUserStore } from '@/stores/user.store'
 
-type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken'
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const OTP_RESEND_COOLDOWN = 60 // seconds
@@ -86,12 +84,11 @@ interface SignupFormProps {
 }
 
 function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
-  const [username, setUsername]               = useState('')
-  const [usernameStatus, setUsernameStatus]   = useState<UsernameStatus>('idle')
+  const [displayName, setDisplayName]         = useState('')
   const [password, setPassword]               = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [errors, setErrors]                   = useState<{
-    username?:        string
+    display_name?:    string
     email?:           string
     password?:        string
     confirmPassword?: string
@@ -99,47 +96,16 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
   }>({})
   const [loading, setLoading] = useState(false)
 
-  // Debounced username availability check.
-  useEffect(() => {
-    setUsernameStatus('idle')
-    const trimmed = username.trim()
-    if (trimmed.length < 3 || trimmed.length > 20 || !/^[a-zA-Z0-9_-]+$/.test(trimmed)) return
-
-    const controller = new AbortController()
-    const timer = setTimeout(async () => {
-      setUsernameStatus('checking')
-      try {
-        const res = await fetch(
-          `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/check-username?username=${encodeURIComponent(trimmed)}`,
-          { signal: controller.signal },
-        )
-        if (!res.ok || controller.signal.aborted) return
-        const body = await res.json() as { available: boolean }
-        setUsernameStatus(body.available ? 'available' : 'taken')
-      } catch {
-        if (!controller.signal.aborted) setUsernameStatus('idle')
-      }
-    }, 500)
-
-    return () => { clearTimeout(timer); controller.abort() }
-  }, [username])
-
   function validate(): boolean {
     const next: typeof errors = {}
 
-    const trimmedUsername = username.trim()
-    if (!trimmedUsername) {
-      next.username = 'Username is required.'
-    } else if (trimmedUsername.length < 3) {
-      next.username = 'Username must be at least 3 characters.'
-    } else if (trimmedUsername.length > 20) {
-      next.username = 'Username must be at most 20 characters.'
-    } else if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-      next.username = 'Letters, numbers, _ and - only.'
-    } else if (usernameStatus === 'taken') {
-      next.username = 'Username is already taken.'
-    } else if (usernameStatus === 'checking') {
-      next.username = 'Please wait while we check availability.'
+    const trimmed = displayName.trim()
+    if (!trimmed) {
+      next.display_name = 'Display name is required.'
+    } else if (trimmed.length < 2) {
+      next.display_name = 'Display name must be at least 2 characters.'
+    } else if (trimmed.length > 30) {
+      next.display_name = 'Display name must be at most 30 characters.'
     }
 
     if (!email) {
@@ -177,19 +143,13 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ email, password, username: username.trim() }),
+          body:    JSON.stringify({ email, password, display_name: displayName.trim() }),
         },
       )
 
       if (!res.ok) {
         const body = await res.json() as { error?: string }
-        const msg  = body.error ?? 'Signup failed'
-        if (msg.toLowerCase().includes('username')) {
-          setErrors({ username: msg })
-          setUsernameStatus('taken')
-        } else {
-          setErrors({ form: friendlySignupError(msg) })
-        }
+        setErrors({ form: friendlySignupError(body.error ?? 'Signup failed') })
         setLoading(false)
         return
       }
@@ -201,11 +161,6 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
       setLoading(false)
     }
   }
-
-  const usernameHint =
-    usernameStatus === 'checking'  ? 'Checking availability…' :
-    usernameStatus === 'available' ? '✓ Available' :
-    '3–20 characters, letters, numbers, _ or -'
 
   return (
     <>
@@ -224,15 +179,15 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         />
 
         <Input
-          label="Username"
+          label="Display name"
           type="text"
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          autoComplete="name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
           required
-          placeholder="Your Username"
-          hint={usernameHint}
-          error={errors.username ?? (usernameStatus === 'taken' && !errors.username ? 'Username is already taken.' : undefined)}
+          placeholder="Your Name"
+          hint="How you'll appear to yourself in the app"
+          error={errors.display_name}
         />
 
         <Input

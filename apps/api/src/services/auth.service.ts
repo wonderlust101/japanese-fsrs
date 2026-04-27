@@ -35,6 +35,7 @@ export async function signUp(input: SignupInput): Promise<SignUpResult> {
   const { data, error } = await supabaseAdmin.auth.signUp({
     email:    input.email,
     password: input.password,
+    options:  { data: { display_name: input.display_name } },
   })
 
   if (error !== null) {
@@ -59,13 +60,10 @@ export async function signUp(input: SignupInput): Promise<SignUpResult> {
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .upsert({ id: userId, username: input.username }, { onConflict: 'id', ignoreDuplicates: false })
+    .upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true })
 
   if (profileError !== null) {
     await supabaseAdmin.auth.admin.deleteUser(userId)
-    if (profileError.code === '23505') {
-      throw new AppError(409, 'Username is already taken')
-    }
     throw new AppError(500, 'Account creation failed: could not initialize profile')
   }
 
@@ -86,24 +84,6 @@ export async function cancelSignup(input: CancelSignupInput): Promise<void> {
   if (data.user.email_confirmed_at !== null && data.user.email_confirmed_at !== undefined) return
 
   await supabaseAdmin.auth.admin.deleteUser(input.userId)
-}
-
-/**
- * Returns whether the given username is available (not already taken by a
- * confirmed profile row). Intended for client-side availability polling.
- */
-export async function checkUsernameAvailable(username: string): Promise<{ available: boolean }> {
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('id')
-    .eq('username', username)
-    .maybeSingle()
-
-  if (error !== null) {
-    throw new AppError(500, 'Could not check username availability')
-  }
-
-  return { available: data === null }
 }
 
 /**
