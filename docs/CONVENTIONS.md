@@ -786,7 +786,7 @@ import type { ReviewCardProps } from './ReviewCard.types'
 ```
 
 Path aliases configured in `tsconfig.json`:
-- `@/*` → `apps/web/src/*`
+- `@/*` → `apps/web/*`
 - `@api/*` → `apps/api/src/*`
 - `@fsrs-japanese/*` → `packages/*/src`
 

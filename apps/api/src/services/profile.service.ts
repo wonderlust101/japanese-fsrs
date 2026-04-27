@@ -7,7 +7,6 @@ import type { JlptLevel, UpdateProfileInput } from '../schemas/profile.schema.ts
 // Never use select('*') — keep this list in sync with the Profile interface below.
 const PROFILE_COLUMNS = [
   'id',
-  'username',
   'native_language',
   'jlpt_target',
   'study_goal',
@@ -25,7 +24,6 @@ const PROFILE_COLUMNS = [
 /** Full profile row returned to callers — matches PROFILE_COLUMNS exactly. */
 export interface Profile {
   id:                    string
-  username:              string | null
   native_language:       string
   jlpt_target:           JlptLevel | null
   study_goal:            string | null

@@ -111,8 +111,8 @@ fsrs-japanese/
 │   │   │   └── shared/             # Shared layout components
 │   │   ├── lib/
 │   │   │   ├── api/                # API client functions (TanStack Query)
-│   │   │   ├── stores/             # Zustand stores
 │   │   │   └── utils/
+│   │   ├── stores/                 # Zustand stores
 │   │   └── public/
 │   │
 │   └── api/                        # Express 5 backend
@@ -412,7 +412,8 @@ The Express API is versioned at `/api/v1`. All endpoints require a valid Supabas
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/v1/auth/signup` | Create account via Supabase Auth |
+| POST | `/api/v1/auth/signup` | Create account, send OTP verification email |
+| POST | `/api/v1/auth/cancel-signup` | Delete unconfirmed account on signup abandon |
 | POST | `/api/v1/auth/login` | Login, return access + refresh tokens |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
 | POST | `/api/v1/auth/logout` | Invalidate session |
@@ -622,8 +623,10 @@ interface UserState {
   profile: Profile | null
   isLoading: boolean
   actions: {
-    setProfile: (profile: Profile) => void
+    setProfile:        (profile: Profile) => void
+    setLoading:        (loading: boolean) => void
     updatePreferences: (prefs: Partial<Profile>) => void
+    reset:             () => void
   }
 }
 ```
@@ -925,51 +928,65 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
 ### 11.2 Signup with 6-Digit OTP Verification
 
-Signup is a two-step flow that keeps the user on the same device and browser throughout, preventing the "device breakage" problem of magic link emails (where clicking the link on a different device leaves the user without a session on the device they signed up on).
+Signup is a multi-step flow that keeps the user on the same device and browser throughout, preventing the "device breakage" problem of magic link emails.
 
 **Step 1 — Account creation (`/signup`)**
 
-The signup page calls `supabase.auth.signUp()` directly from the browser using the anon key. Supabase creates an unconfirmed account and sends a **6-digit OTP** to the provided email. The frontend immediately navigates to `/signup/verify`, preserving the email in URL state:
+The browser calls `POST /api/v1/auth/signup` on the Express API with `{ email, password, display_name }`. The API validates the input with Zod, calls `supabaseAdmin.auth.signUp()` with `display_name` stored in `user_metadata`, performs a defensive profile upsert, and returns `{ email, userId }`. Supabase sends a **6-digit OTP** to the provided email.
 
 ```typescript
 // apps/web/app/(auth)/signup/page.tsx
-const supabase = createSupabaseBrowserClient()
-const { error } = await supabase.auth.signUp({ email, password })
-if (!error) {
-  router.push(`/signup/verify?email=${encodeURIComponent(email)}`)
-}
+const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/signup`, {
+  method:  'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body:    JSON.stringify({ email, password, display_name: displayName }),
+})
+const { userId } = await res.json()
+setUserId(userId)
+setView('verify') // flips to VerifyView in-component; URL stays at /signup
 ```
 
-The Express backend is not involved in this step — account creation is a direct browser-to-Supabase call via the anon key.
+The URL remains `/signup` throughout — no navigation occurs. The returned `userId` is held in React state for use in the cancel flow (Step 3).
 
-**Step 2 — OTP entry (`/signup/verify`)**
+`display_name` is stored in `auth.users.raw_user_meta_data` via `options.data` in the `signUp()` call — it is not duplicated in the `profiles` table.
 
-The verify page presents a 6-digit input (see UX/UI Spec §14.4). On submission:
+**Step 2 — OTP entry (VerifyView at `/signup`)**
+
+The verify view is a component state transition within `signup/page.tsx` — not a separate page. `/signup/verify` exists only as a redirect stub for middleware matching and immediately redirects back to `/signup`. On OTP completion:
 
 ```typescript
-// apps/web/app/(auth)/signup/verify/page.tsx
+// apps/web/app/(auth)/signup/page.tsx — VerifyView component
+const supabase = createSupabaseBrowserClient()
 const { error } = await supabase.auth.verifyOtp({
   email,
-  token: digits,   // the 6 characters the user typed
+  token: otp,
   type:  'signup',
 })
-
-if (error) {
-  setError('Invalid or expired code. Try again, or go back to re-send.')
-  return
+if (!error) {
+  useUserStore.getState().actions.reset()
+  router.push('/onboarding/level')
+  router.refresh()
 }
-
-// Supabase confirms the account and establishes a full browser session.
-// The profiles row is created via the on_auth_user_created trigger (§11.3).
-router.push('/onboarding/level')
-router.refresh()
 ```
 
-On success, Supabase confirms the account, writes access and refresh tokens into `httpOnly` cookies via the SSR helper, and the middleware allows the user through to `/onboarding`.
+`supabase.auth.verifyOtp()` must be called from the browser so that `@supabase/ssr` can write session cookies into the browser's cookie jar. Calling it server-side via the Express API would return tokens as JSON without setting cookies, breaking the SSR session architecture.
 
-**Step 3 — Profile initialization (Supabase trigger)**
+**Step 3 — Cancel signup (abandon OTP step)**
 
-A Supabase database trigger automatically inserts a `profiles` row with defaults when `auth.users` is updated to confirmed, removing the need for an explicit API call:
+If the user presses "Go back" before verifying, the page fire-and-forgets `POST /api/v1/auth/cancel-signup` with `{ userId }` to delete the unconfirmed account, allowing a clean retry. The service guards against deleting confirmed accounts:
+
+```typescript
+// apps/api/src/services/auth.service.ts
+export async function cancelSignup(input: CancelSignupInput): Promise<void> {
+  const { data } = await supabaseAdmin.auth.admin.getUserById(input.userId)
+  if (!data.user || data.user.email_confirmed_at) return
+  await supabaseAdmin.auth.admin.deleteUser(input.userId)
+}
+```
+
+**Step 4 — Profile initialization (Supabase trigger)**
+
+A Supabase database trigger automatically inserts a `profiles` row when a new row is inserted into `auth.users` (i.e. immediately on `signUp()`, before OTP confirmation). The API also performs a defensive upsert after `signUp()` to handle any race where the trigger has not yet run:
 
 ```sql
 CREATE OR REPLACE FUNCTION handle_new_user()

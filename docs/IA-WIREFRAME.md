@@ -26,8 +26,8 @@ The complete route map of the application. All routes under `(app)` require auth
 ```
 /                               ← Landing page (public)
 ├── /login                      ← Sign in
-├── /signup                     ← Create account
-│   └── /signup/verify          ← 6-digit OTP email verification (same device)
+├── /signup                     ← Create account + inline OTP verification (URL stays at /signup; view flips in-component)
+│   └── /signup/verify          ← Redirect stub → /signup (middleware guard only; not a user-facing page)
 ├── /onboarding                 ← First-time setup flow (post-signup, requires auth)
 │   ├── /level                  ← Step 1: Current level
 │   ├── /goal                   ← Step 2: Study goal
@@ -78,12 +78,13 @@ app/
 │   ├── login/
 │   │   └── page.tsx
 │   └── signup/
-│       ├── page.tsx
+│       ├── page.tsx               ← Signup form + VerifyView (OTP entry inline via state flip; URL stays at /signup)
 │       └── verify/
-│           └── page.tsx               ← 6-digit OTP entry; receives ?email= query param
+│           └── page.tsx           ← redirect('/signup') — middleware guard stub only
 │
 ├── onboarding/                        ← Onboarding (its own layout, no sidebar)
 │   ├── layout.tsx                     ← Progress bar, step indicator, no nav
+│   ├── page.tsx                       ← Redirects to /onboarding/level
 │   ├── level/page.tsx
 │   ├── goal/page.tsx
 │   ├── interests/page.tsx
@@ -655,8 +656,8 @@ How the major components relate spatially on key surfaces.
 ```
 Landing (/) 
   → Sign Up (/signup)
-    [Enter email + password → Submit]
-    → OTP Verification (/signup/verify?email=…)
+    [Enter email + display name + password → Submit → POST /api/v1/auth/signup]
+    → OTP Verification (VerifyView inline at /signup — URL does not change)
       [Enter 6-digit code from email — same device, no link to click]
       → Onboarding Step 1: Level (/onboarding/level) 
         → Step 2: Goal (/onboarding/goal) 

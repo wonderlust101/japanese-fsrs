@@ -630,11 +630,8 @@ Onboarding must get a new user to their first review within 5 minutes. Every scr
 ```
 Sign Up (/signup)
       ↓
-Email Verification (/signup/verify)
+Email Verification (VerifyView — inline at /signup, URL does not change)
 (6-digit OTP — entered on the same device, no device switch required)
-      ↓
-Welcome Screen
-(2 sentences. One illustration. "Let's set up your study plan →")
       ↓
 Step 1: What's your current level?  (/onboarding/level)
 (6 options: Complete Beginner / N5 / N4 / N3 / N2 / N1+)
@@ -666,7 +663,7 @@ Dashboard (/dashboard)
 
 ### 14.4 Email Verification: Tomo OTP Input Component
 
-The 6-digit OTP input is a first-class Tomo design system component used exclusively on the `/signup/verify` screen. It must feel fast, frictionless, and visually calm.
+The 6-digit OTP input is a first-class Tomo design system component used in the `VerifyView` component rendered inline at `/signup`. It must feel fast, frictionless, and visually calm.
 
 #### Component Anatomy
 
@@ -724,7 +721,7 @@ The OTP is typed directly into the `/signup/verify` page on the same device and 
 **UX copy guidelines for the OTP screen**
 
 - Headline: "Check your email" — not "Verify your account" (framing: action, not bureaucracy)
-- Subtext: "We sent a 6-digit code to [email]. It expires in 10 minutes." — set expectations without alarm
+- Subtext: "We sent a 6-digit code to [email]. It expires in 1 minute." — set expectations without alarm
 - Error state: "That code didn't work. Check the email and try again, or request a new code." — give the user a clear path, never a dead end
 - Never say "magic link" anywhere — it is a source of confusion for users who don't know the term
 

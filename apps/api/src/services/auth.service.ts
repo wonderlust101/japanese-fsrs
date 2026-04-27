@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
-import type { SignupInput, VerifyOtpInput, LoginInput, RefreshInput, CancelSignupInput } from '../schemas/auth.schema.ts'
+import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput } from '../schemas/auth.schema.ts'
 
 export interface AuthTokens {
   accessToken:  string
@@ -18,8 +18,8 @@ export interface SignUpResult {
  *
  * Uses `auth.signUp()` (not `admin.createUser`) so Supabase sends the
  * confirmation email according to the project's email template settings.
- * The account is created but unconfirmed; the caller must complete the
- * flow via `verifyOtp()`.
+ * The account is created but unconfirmed; the user must enter the 6-digit
+ * OTP on the signup page, which verifies it directly via the browser client.
  *
  * The `on_auth_user_created` trigger inserts into `profiles` on auth.users
  * INSERT. The explicit upsert below is defense-in-depth and is a no-op when
@@ -84,46 +84,6 @@ export async function cancelSignup(input: CancelSignupInput): Promise<void> {
   if (data.user.email_confirmed_at !== null && data.user.email_confirmed_at !== undefined) return
 
   await supabaseAdmin.auth.admin.deleteUser(input.userId)
-}
-
-/**
- * Verifies the 6-digit OTP the user received by email and exchanges it for a
- * session token pair.
- *
- * Defense-in-depth: upserts the profiles row after confirmation in case the
- * on_auth_user_created trigger did not run (e.g. misconfiguration, test env).
- * The upsert is a no-op when the row already exists.
- */
-export async function verifyOtp(input: VerifyOtpInput): Promise<AuthTokens> {
-  const { data, error } = await supabaseAdmin.auth.verifyOtp({
-    email: input.email,
-    token: input.otp,
-    type:  'signup',
-  })
-
-  if (error !== null) {
-    throw new AppError(400, error.message ?? 'Invalid or expired verification code')
-  }
-
-  if (data.user === null || data.session === null) {
-    throw new AppError(400, 'Verification failed — please try again or request a new code')
-  }
-
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .upsert({ id: data.user.id }, { onConflict: 'id', ignoreDuplicates: true })
-
-  if (profileError !== null) {
-    // The account is now confirmed with a valid session, so we do not delete
-    // the auth user. The profile can be retried on next login.
-    throw new AppError(500, 'Verification succeeded but profile initialization failed — please try logging in')
-  }
-
-  return {
-    accessToken:  data.session.access_token,
-    refreshToken: data.session.refresh_token,
-    expiresIn:    data.session.expires_in,
-  }
 }
 
 /**

@@ -279,6 +279,7 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
 
     // OTP accepted — Supabase has established the session via SSR cookies.
     // Clear any stale profile from a previous user before entering onboarding.
+    setLoading(false)
     useUserStore.getState().actions.reset()
     router.push('/onboarding/level')
     router.refresh()
@@ -321,7 +322,7 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
       <p className="text-sm text-neutral-500 mb-8">
         We sent a 6-digit code to{' '}
         <span className="font-medium text-neutral-700">{email}</span>.
-        It expires in 1 minutes.
+        It expires in 1 minute.
       </p>
 
       <div className="flex flex-col items-center gap-6">
