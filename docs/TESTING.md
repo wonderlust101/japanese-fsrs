@@ -1,8 +1,8 @@
 # Testing Strategy
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.0.0  
-**Last Updated:** 2026-04-26
+**Version:** 1.3.0  
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -210,11 +210,11 @@ bun test --watch apps/api/src
 ## 6. What Not to Test
 
 - **Implementation details:** test inputs and outputs, not which internal methods were called.
-- **Third-party library internals:** trust that `ts-fsrs`, Zod, and Supabase work correctly.
+- **Third-party library internals:** trust that `@open-spaced-repetition/binding`, Zod, and Supabase work correctly.
 - **Type correctness:** TypeScript catches type errors at compile time; do not write tests that only assert types.
 - **Trivial getters/setters:** a function that returns `this.value` does not need a test.
-- **The FSRS algorithm math:** `ts-fsrs` has its own test suite; test that `processReview` persists the result correctly, not that the scheduling math is right.
+- **The FSRS algorithm math:** `@open-spaced-repetition/binding` has its own test suite; test that `processReview` persists the result correctly, not that the scheduling math is right.
 
 ---
 
-*End of Testing Strategy v1.0.0*
+*End of Testing Strategy v1.3.0*

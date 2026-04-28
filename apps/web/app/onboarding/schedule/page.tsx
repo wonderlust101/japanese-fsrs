@@ -45,10 +45,10 @@ export default function SchedulePage() {
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="text-center">
-        <h1 className="text-[24px] font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
           How much time per day?
         </h1>
-        <p className="mt-2 text-[15px] text-neutral-500">
+        <p className="mt-2 text-base text-neutral-500">
           Sets your daily new-card limit. You can always adjust this in Settings.
         </p>
       </div>
@@ -70,14 +70,14 @@ export default function SchedulePage() {
             ].join(' ')}
           >
             <div>
-              <p className="font-medium text-neutral-900 text-[15px]">{opt.label}</p>
-              <p className="mt-0.5 text-[13px] text-neutral-500">{opt.description}</p>
+              <p className="font-medium text-neutral-900 text-base">{opt.label}</p>
+              <p className="mt-0.5 text-sm text-neutral-500">{opt.description}</p>
             </div>
             <div className="text-right shrink-0 ml-4">
-              <p className={`text-[15px] font-semibold ${schedule === opt.value ? 'text-primary-600' : 'text-neutral-700'}`}>
+              <p className={`text-base font-semibold ${schedule === opt.value ? 'text-primary-600' : 'text-neutral-700'}`}>
                 {opt.time}
               </p>
-              <p className="text-[12px] text-neutral-400 mt-0.5">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 {opt.newCards} new cards/day
               </p>
             </div>
@@ -89,7 +89,7 @@ export default function SchedulePage() {
         type="button"
         onClick={() => router.push(NEXT_STEP[STEP_PATH])}
         disabled={schedule === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-[15px]
+        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
                    font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
                    disabled:opacity-40 disabled:cursor-not-allowed
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"

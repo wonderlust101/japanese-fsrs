@@ -1,9 +1,9 @@
 # UX/UI Design Specification
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.0.0  
-**Status:** Draft  
-**Last Updated:** 2026-04-24
+**Version:** 1.3.0  
+**Status:** Active  
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -330,7 +330,6 @@ The review card has two faces. Transition between them is a vertical slide (not 
 - Meaning (primary)
 - Example sentence (Japanese + English)
 - Expandable sections: Kanji Breakdown, Mnemonic, Similar Cards
-- "Explain" button (triggers AI explanation panel)
 - Rating buttons (pinned to bottom)
 
 ### 7.4 Badge / Tag
@@ -374,16 +373,6 @@ Examples:
 - No reviews due: "You're all caught up. Next review in 3 hours."
 - New user: "Pick a deck to get started." → [Browse Premade Decks]
 
-### 7.8 AI Panel
-
-The AI explanation panel is a slide-in drawer (from the right on desktop, from the bottom on mobile). It must feel fast — stream the OpenAI response token-by-token using `ReadableStream` so the user sees text appearing immediately, not a blank panel with a spinner.
-
-- Width: `380px` on desktop
-- Background: `surface-overlay` with subtle border on left
-- Header: card word + "AI Explanation" label + close button
-- Content: streamed Markdown rendered with light prose styles
-- Never blocks the card itself — the card remains visible behind/beside the panel
-
 ---
 
 ## 8. Interaction Design
@@ -399,8 +388,7 @@ The entire review session must be usable without a mouse.
 | `2` | Rate: Hard |
 | `3` | Rate: Good |
 | `4` | Rate: Easy |
-| `E` | Open AI Explanation panel |
-| `Escape` | Close AI panel / close dialog |
+| `Escape` | Close dialog |
 
 A persistent keyboard shortcut hint appears at the bottom of the review card, collapsible after the first 5 sessions (stored in localStorage).
 
@@ -589,8 +577,6 @@ All interactive elements on mobile meet the 44×44px minimum touch target size (
 **Rating button feedback:** On press, scale to 0.96 over `duration-instant`, then spring back over `duration-fast`.
 
 **Session complete:** A brief celebration state — the progress bar fills to 100% with a pulse, followed by a smooth transition to the summary screen. No confetti or excessive animation.
-
-**AI panel open:** Slides in from the right with `ease-decelerate` at `duration-normal`. Content streams in progressively.
 
 **Leech flag:** The card briefly flashes a red border (2 cycles, `duration-deliberate` total) when flagged as a leech. Draws attention without being alarming.
 

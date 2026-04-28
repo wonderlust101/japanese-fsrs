@@ -8,11 +8,9 @@ export const CardStatus = {
 export type CardStatus = typeof CardStatus[keyof typeof CardStatus]
 
 export const CardType = {
-  Recognition: 'recognition',
-  Production: 'production',
-  Reading: 'reading',
-  Audio: 'audio',
-  Grammar: 'grammar',
+  Comprehension: 'comprehension',
+  Production:    'production',
+  Listening:     'listening',
 } as const
 export type CardType = typeof CardType[keyof typeof CardType]
 
@@ -24,7 +22,7 @@ export interface FsrsCardState {
   difficulty: number
   elapsedDays: number
   scheduledDays: number
-  /** ts-fsrs v5: tracks progress through (re)learning steps. Must be persisted. */
+  /** Tracks progress through (re)learning steps within the current phase. Must be persisted. */
   learningSteps: number
   reps: number
   lapses: number

@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express'
 
-import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema } from '../schemas/auth.schema.ts'
+import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema, verifyOtpSchema, resendOtpSchema } from '../schemas/auth.schema.ts'
 import * as authService from '../services/auth.service.ts'
 
 export const cancelSignup: RequestHandler = async (req, res, next): Promise<void> => {
@@ -38,6 +38,26 @@ export const refresh: RequestHandler = async (req, res, next): Promise<void> => 
     const input  = refreshSchema.parse(req.body)
     const result = await authService.refreshSession(input)
     res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const verifyOtp: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const input  = verifyOtpSchema.parse(req.body)
+    const result = await authService.verifyOtp(input)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const resendOtp: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const input = resendOtpSchema.parse(req.body)
+    await authService.resendOtp(input)
+    res.status(204).send()
   } catch (err) {
     next(err)
   }

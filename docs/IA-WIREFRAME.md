@@ -1,9 +1,9 @@
 # Information Architecture & Wireframe Guide
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.0.0  
-**Status:** Draft  
-**Last Updated:** 2026-04-24
+**Version:** 1.3.0  
+**Status:** Active  
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -254,7 +254,7 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  [Core N3 Vocab]                         [Recognition]   ✕ End      │
+│  [Core N3 Vocab]                         [Comprehension]   ✕ End      │
 │                                                                     │
 │  ─────────────────────────────────────────────────                  │
 │  ████████████████████░░░░░░░░░░░░░░░░░░░░   12 / 50               │
@@ -279,7 +279,7 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  [Core N3 Vocab]                         [Recognition]   ✕ End      │
+│  [Core N3 Vocab]                         [Comprehension]   ✕ End      │
 │                                                                     │
 │  ████████████████████░░░░░░░░░░░░░░░░░░░░   12 / 50               │
 │                                                                     │
@@ -296,29 +296,12 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 │  │                                                               │  │
 │  │  [▸ Kanji Breakdown]  [▸ Mnemonic]  [▸ Similar Cards]        │  │
 │  └───────────────────────────────────────────────────────────────┘  │
-│                                          [🤖 Explain]               │
 │                                                                     │
 │  ┌──────────┬──────────┬──────────┬──────────┐                     │
 │  │  Again   │   Hard   │   Good   │   Easy   │                     │
 │  │   (1)    │   (2)    │  (3) 3d  │  (4) 9d  │                     │
 │  └──────────┴──────────┴──────────┴──────────┘                     │
 └─────────────────────────────────────────────────────────────────────┘
-```
-
-**AI Explanation Panel (slide-in from right):**
-
-```
-┌──────────────────────────────────────────────────────┬─────────────┐
-│  [card content, dimmed]                              │ 🤖 AI      ✕│
-│                                                      │─────────────│
-│                                                      │ 木漏れ日    │
-│                                                      │             │
-│                                                      │ This word   │
-│                                                      │ combines... │
-│                                                      │ [streaming  │
-│                                                      │  text...]   │
-│                                                      │             │
-└──────────────────────────────────────────────────────┴─────────────┘
 ```
 
 ---
@@ -333,7 +316,7 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 │                   │                                                 │
 │                   │  ┌─────────────────────────────────────────┐   │
 │                   │  │ 📚 Core N3 Vocabulary          [···]    │   │
-│                   │  │ 320 cards · 12 due · Vocabulary         │   │
+│                   │  │ 320 cards · 12 due · Comprehension       │   │
 │                   │  │ ████████████████░░░░░  68% learned      │   │
 │                   │  └─────────────────────────────────────────┘   │
 │                   │                                                 │
@@ -477,10 +460,9 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 │                   │  ┌────────────────┐  ┌────────────────────┐   │
 │                   │  │ ACCURACY       │  │ CARD TYPE BREAKDOWN│   │
 │                   │  │ by card type   │  │                    │   │
-│                   │  │                │  │ Recognition  91%   │   │
-│                   │  │ [Bar chart]    │  │ Reading      84%   │   │
-│                   │  │                │  │ Production   76%   │   │
-│                   │  │                │  │ Audio        79%   │   │
+│                   │  │                │  │ Comprehension  91%   │
+│                   │  │ [Bar chart]    │  │ Production     76%   │
+│                   │  │                │  │ Listening      79%   │
 │                   │  └────────────────┘  └────────────────────┘   │
 │                   │                                                 │
 │                   │  ── Leech Watch ──                              │
@@ -498,7 +480,7 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 │  SIDEBAR          │  Browse Premade Decks                           │
 │                   │                                                 │
 │                   │  [🔍 Search decks...]                           │
-│                   │  [All] [Vocabulary] [Grammar] [Kanji] [Domain]  │
+│                   │  [All] [Comprehension] [Grammar] [Kanji] [Domain]  │
 │                   │                                                 │
 │                   │  ── JLPT Vocabulary ──                          │
 │                   │  ┌───────────┐ ┌───────────┐ ┌───────────┐    │
@@ -614,7 +596,7 @@ How the major components relate spatially on key surfaces.
 │  └────────────┘  │  └──────────────────────────────────────┘   │   │
 │                  └──────────────────────────────────────────────┘   │
 │  <ToastContainer> (portal, bottom-center)                           │
-│  <AIPanel> (portal, right drawer, conditionally rendered)           │
+│                                                                     │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -775,4 +757,4 @@ Never show raw state integers or ISO timestamps to the user anywhere in the UI.
 
 ---
 
-*End of IA & Wireframe Guide v1.0.0*
+*End of IA & Wireframe Guide v1.3.0*

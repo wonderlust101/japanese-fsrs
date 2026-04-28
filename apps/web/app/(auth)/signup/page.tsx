@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { OTPInput } from '@/components/ui/otp-input'
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { useCountdown } from '@/hooks/use-countdown'
+import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
 import { useUserStore } from '@/stores/user.store'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -49,8 +51,6 @@ export default function SignupPage() {
   }
 
   function handleBack() {
-    // Fire-and-forget: delete the unconfirmed account so the user can retry
-    // cleanly. The service guards against deleting confirmed accounts.
     if (userId) {
       fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/cancel-signup`, {
         method:  'POST',
@@ -237,84 +237,50 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
 // ── OTP verification view ─────────────────────────────────────────────────────
 
 function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
-  const router         = useRouter()
-  const [otpError, setOtpError]   = useState<string | null>(null)
-  const [loading, setLoading]     = useState(false)
-  const [cooldown, setCooldown]   = useState(OTP_RESEND_COOLDOWN)
-  const [resendMsg, setResendMsg] = useState<string | null>(null)
-  const cooldownRef               = useRef<ReturnType<typeof setInterval> | null>(null)
+  const router = useRouter()
+  const [otpError, setOtpError]           = useState<string | null>(null)
+  const [otpErrorVersion, setOtpErrorVersion] = useState(0)
+  const [resendMsg, setResendMsg]         = useState<string | null>(null)
+  const { remaining, restart }            = useCountdown(OTP_RESEND_COOLDOWN)
 
-  // Start the resend cooldown timer on mount.
-  useEffect(() => {
-    cooldownRef.current = setInterval(() => {
-      setCooldown((c) => {
-        if (c <= 1) {
-          clearInterval(cooldownRef.current!)
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
-    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current) }
-  }, [])
+  const verifyMutation = useMutation({
+    mutationFn: (otp: string) => verifyOtpAction(email, otp),
+    onSuccess: () => {
+      useUserStore.getState().actions.reset()
+      router.push('/onboarding/level')
+      router.refresh()
+    },
+    onError: (err) => {
+      setOtpError(friendlyOtpError((err as Error).message))
+      // Incrementing the version remounts OTPInput, clearing digits and
+      // restarting the shake animation without any useEffect in the child.
+      setOtpErrorVersion((v) => v + 1)
+    },
+  })
 
-  async function handleOtpComplete(otp: string) {
-    // Reset error before the attempt so the shake can re-trigger if this
-    // attempt also fails.
+  const resendMutation = useMutation({
+    mutationFn: () => resendOtpAction(email),
+    onSuccess: () => {
+      setResendMsg('A new code has been sent.')
+      restart()
+    },
+    onError: () => {
+      setResendMsg('Could not resend the code. Please try again.')
+    },
+  })
+
+  function handleOtpComplete(otp: string) {
     setOtpError(null)
-    setLoading(true)
-
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type:  'signup',
-    })
-
-    if (error) {
-      setOtpError(friendlyOtpError(error.message))
-      setLoading(false)
-      return
-    }
-
-    // OTP accepted — Supabase has established the session via SSR cookies.
-    // Clear any stale profile from a previous user before entering onboarding.
-    setLoading(false)
-    useUserStore.getState().actions.reset()
-    router.push('/onboarding/level')
-    router.refresh()
+    verifyMutation.mutate(otp)
   }
 
-  async function handleResend() {
-    if (cooldown > 0) return
+  function handleResend() {
+    if (remaining > 0) return
     setResendMsg(null)
-
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.resend({ type: 'signup', email })
-
-    if (error) {
-      setResendMsg('Could not resend the code. Please try again.')
-      return
-    }
-
-    setResendMsg('A new code has been sent.')
-    setCooldown(OTP_RESEND_COOLDOWN)
-
-    cooldownRef.current = setInterval(() => {
-      setCooldown((c) => {
-        if (c <= 1) {
-          clearInterval(cooldownRef.current!)
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
+    resendMutation.mutate()
   }
 
   return (
-    // The `animate-page-enter` class re-triggers the CSS enter animation so
-    // the verify view slides in from below, matching the onboarding step
-    // transitions. This runs once on mount — no ongoing animation overhead.
     <div className="animate-page-enter">
       <h1 className="text-xl font-semibold text-neutral-900 mb-2">
         Check your email
@@ -327,9 +293,10 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
 
       <div className="flex flex-col items-center gap-6">
         <OTPInput
+          key={otpErrorVersion}
           onComplete={handleOtpComplete}
           error={otpError}
-          isLoading={loading}
+          isLoading={verifyMutation.isPending}
         />
 
         {otpError && (
@@ -339,12 +306,13 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
         )}
 
         <div className="text-center text-sm text-neutral-500">
-          {cooldown > 0 ? (
-            <span>Resend in {cooldown}s</span>
+          {remaining > 0 ? (
+            <span>Resend in {remaining}s</span>
           ) : (
             <button
               type="button"
               onClick={handleResend}
+              disabled={resendMutation.isPending}
               className="text-primary-600 font-medium hover:underline focus:outline-none
                          focus-visible:ring-[3px] focus-visible:ring-primary-200 rounded"
             >

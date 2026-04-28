@@ -1,9 +1,9 @@
 # Technical Design Document
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.1.0  
-**Status:** Draft  
-**Last Updated:** 2026-04-24
+**Version:** 1.3.0  
+**Status:** Active  
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -35,8 +35,9 @@
 | Database | Supabase (PostgreSQL) | Latest | Primary datastore, auth, realtime subscriptions |
 | Vector Search | pgvector | 0.8.x | Semantic similarity search on card embeddings |
 | Cache / Rate Limiting | Upstash Redis | Latest | Session cache, rate limiting, review queue buffering |
-| AI | OpenAI GPT-4o (Omni) | Latest | Card generation, mnemonics, sentence generation, explanations |
-| SRS Algorithm | ts-fsrs | Latest | FSRS v5 scheduling algorithm |
+| AI | OpenAI gpt-5.4 nano | Latest | Card generation, mnemonics, sentence generation, explanations |
+| SRS Algorithm (runtime) | ts-fsrs | 5.3.x | Full FSRS v5 scheduler (state machine, rollback, forget, reschedule) |
+| SRS Algorithm (optimizer) | @open-spaced-repetition/binding | Latest | FSRS Rust bindings — reserved for future `computeParameters()` weight training |
 | Language | TypeScript | 5.x | Strict typing across full stack |
 | Package Manager | Bun | Latest | Monorepo workspace management, runtime, test runner |
 
@@ -216,6 +217,7 @@ CREATE TABLE decks (
   is_premade_fork BOOLEAN DEFAULT FALSE,  -- TRUE if cloned from a premade deck
   source_premade_id UUID,                  -- references premade_decks(id) if forked
   card_count INT DEFAULT 0,               -- denormalized counter
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -236,6 +238,7 @@ CREATE TABLE premade_decks (
   card_count INT DEFAULT 0,
   version INT DEFAULT 1,                  -- incremented on content updates
   is_active BOOLEAN DEFAULT TRUE,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -255,42 +258,52 @@ CREATE TABLE user_premade_subscriptions (
 
 
 
-### 4.4 Cards
+### 4.4 Ultra-Lean Card Architecture
+
+To prioritize "Premium Defaults" and system performance, Tomo uses an "Ultra-Lean" model. All layouts are defined in the application code, and the database stores the content in a flexible JSONB column. This ensures the number of fields available can change dynamically to adapt to different card types (e.g., Vocabulary vs. Grammar).
 
 ```sql
 CREATE TYPE card_status AS ENUM ('new', 'learning', 'review', 'relearning', 'suspended');
-CREATE TYPE card_type AS ENUM ('recognition', 'production', 'reading', 'audio', 'grammar');
+CREATE TYPE card_type AS ENUM ('comprehension', 'production', 'listening');
+CREATE TYPE layout_type AS ENUM ('vocabulary', 'grammar', 'sentence');
 CREATE TYPE jlpt_level AS ENUM ('N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt');
 CREATE TYPE register_tag AS ENUM ('casual', 'formal', 'written', 'archaic', 'slang', 'gendered', 'neutral');
 
+-- The SRS item (The Content + The Test in one row)
 CREATE TABLE cards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  deck_id UUID REFERENCES decks(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  deck_id UUID REFERENCES decks(id) ON DELETE CASCADE,
+  
+  -- The Layout Blueprint (System-defined)
+  layout_type layout_type NOT NULL DEFAULT 'vocabulary',
+  
+  -- The Content (The "Flexible" Part replacing 20 columns)
+  -- The fields available change dynamically based on the layout_type.
+  -- e.g., Vocabulary: {"word": "...", "meaning": "..."}
+  -- e.g., Grammar: {"pattern": "...", "usage_rule": "...", "examples": [...]}
+  fields_data JSONB NOT NULL DEFAULT '{}', 
+  
+  -- Cognitive Track (For FSRS Math)
+  card_type card_type NOT NULL DEFAULT 'comprehension',
+  
+  -- Sibling & Conjugation Sync (The v1.3 Bridge)
+  -- Links a Production card back to its Comprehension sibling,
+  -- or a conjugated verb back to its dictionary form.
+  parent_card_id UUID REFERENCES cards(id) ON DELETE SET NULL,
 
-  -- Core content
-  word TEXT NOT NULL,
-  reading TEXT,               -- Hiragana reading
-  meaning TEXT NOT NULL,
-  part_of_speech TEXT,
-  jlpt_level jlpt_level,
-  frequency_rank INT,
-  register register_tag DEFAULT 'neutral',
-
-  -- Extended content (AI-generated or user-provided)
-  example_sentences JSONB DEFAULT '[]',  -- [{ja: "", en: "", furigana: ""}]
-  kanji_breakdown JSONB DEFAULT '[]',    -- [{kanji: "", radical: "", meaning: ""}]
-  pitch_accent TEXT,
-  mnemonics JSONB DEFAULT '[]',         -- [{text: "", author: "ai|user"}]
-  collocations TEXT[],
-  homophones TEXT[],
+  -- Metadata (Extracted from JSONB for fast indexing/filtering)
   tags TEXT[],
+  jlpt_level jlpt_level,
+  
+  -- Morphological analysis readiness (v1.3)
+  tokens JSONB DEFAULT '[]',  -- [{surface: "", reading: "", pos: "", lemma: ""}]
+  parsed_at TIMESTAMPTZ,      -- Last analysis timestamp
+  
+  -- Vector embedding for AI similarity search (Generated from fields_data)
+  embedding vector(1536),
 
-  -- Card type
-  card_type card_type NOT NULL DEFAULT 'recognition',
-  parent_card_id UUID REFERENCES cards(id), -- Links sibling cards (same word)
-
-  -- FSRS state (via ts-fsrs)
+  -- FSRS state (managed by ts-fsrs via fsrs.service.ts)
   status card_status DEFAULT 'new',
   due TIMESTAMPTZ DEFAULT NOW(),
   stability FLOAT DEFAULT 0,
@@ -300,10 +313,7 @@ CREATE TABLE cards (
   reps INT DEFAULT 0,
   lapses INT DEFAULT 0,
   last_review TIMESTAMPTZ,
-  state INT DEFAULT 0,        -- FSRS internal state
-
-  -- Vector embedding for semantic similarity
-  embedding vector(1536),
+  state INT DEFAULT 0,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -315,8 +325,6 @@ CREATE INDEX cards_deck_idx ON cards(deck_id);
 CREATE INDEX cards_parent_idx ON cards(parent_card_id);
 CREATE INDEX cards_embedding_idx ON cards USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
-
-### 4.4 Review Logs
 
 ### 4.5 Review Logs
 
@@ -344,36 +352,7 @@ CREATE INDEX review_logs_user_date_idx ON review_logs(user_id, reviewed_at);
 CREATE INDEX review_logs_card_idx ON review_logs(card_id);
 ```
 
-### 4.6 Grammar Patterns
-
-```sql
-CREATE TABLE grammar_patterns (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  deck_id UUID REFERENCES decks(id) ON DELETE CASCADE,
-
-  pattern TEXT NOT NULL,           -- e.g. "〜ている"
-  meaning TEXT NOT NULL,
-  jlpt_level jlpt_level,
-  example_sentences JSONB DEFAULT '[]',
-  linked_vocabulary UUID[],        -- card IDs commonly used with this pattern
-  notes TEXT,
-
-  -- FSRS state (same fields as cards)
-  status card_status DEFAULT 'new',
-  due TIMESTAMPTZ DEFAULT NOW(),
-  stability FLOAT DEFAULT 0,
-  difficulty FLOAT DEFAULT 0,
-  reps INT DEFAULT 0,
-  lapses INT DEFAULT 0,
-  state INT DEFAULT 0,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### 4.7 User Leech Flags
+### 4.6 User Leech Flags
 
 ```sql
 CREATE TABLE leeches (
@@ -390,17 +369,15 @@ CREATE TABLE leeches (
 
 ### 4.7 Row Level Security
 
-All tables enforce RLS. Example policy for `cards`:
+All tables enforce RLS to ensure multi-tenant safety.
 
 ```sql
+-- Cards: Strict owner access
 ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access their own cards"
-  ON cards FOR ALL
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users access own cards" ON cards FOR ALL USING (auth.uid() = user_id);
 ```
 
-The same pattern applies to `decks`, `review_logs`, `grammar_patterns`, and `leeches`.
+The same owner-only access pattern applies to `decks`, `review_logs`, and `leeches`.
 
 ---
 
@@ -417,6 +394,8 @@ The Express API is versioned at `/api/v1`. All endpoints require a valid Supabas
 | POST | `/api/v1/auth/login` | Login, return access + refresh tokens |
 | POST | `/api/v1/auth/refresh` | Refresh access token |
 | POST | `/api/v1/auth/logout` | Invalidate session |
+| POST | `/api/v1/auth/login-otp` | Request a login OTP (v1.2) |
+| POST | `/api/v1/auth/verify-otp` | Verify login OTP and return tokens (v1.2) |
 
 ### 5.2 Decks
 
@@ -473,16 +452,16 @@ The Express API is versioned at `/api/v1`. All endpoints require a valid Supabas
 }
 ```
 
-### 5.5 AI Endpoints
+### 5.5 AI Endpoints (P0 + Planned)
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/v1/ai/generate-card` | Generate full card content from a word |
-| POST | `/api/v1/ai/generate-sentences` | Generate fresh example sentences for a card |
-| POST | `/api/v1/ai/generate-mnemonic` | Generate a personalized mnemonic |
-| POST | `/api/v1/ai/explain-failure` | Explain why an answer is correct on card fail |
-| POST | `/api/v1/ai/diagnose-leech` | Diagnose and prescribe action for a leech card |
-| GET | `/api/v1/ai/weakness-report` | Generate macro weakness analysis for the user |
+| Method | Path | Description | Priority |
+|---|---|---|---|
+| POST | `/api/v1/ai/generate-card` | Generate full card content from a word | 🟢 P0 |
+| POST | `/api/v1/ai/generate-sentences` | Generate fresh example sentences for a card | 🟢 P0 |
+| POST | `/api/v1/ai/generate-mnemonic` | Generate a personalized mnemonic | 🟢 P0 |
+| POST | `/api/v1/ai/explain-failure` | Explain why an answer is correct on card fail | 🟡 v1.4 |
+| POST | `/api/v1/ai/diagnose-leech` | Diagnose and prescribe action for a leech card | 🟡 v1.4 |
+| GET | `/api/v1/ai/weakness-report` | Generate macro weakness analysis for the user | 🟡 v1.4 |
 
 #### Generate Card — Request Body
 
@@ -504,6 +483,13 @@ The Express API is versioned at `/api/v1`. All endpoints require a valid Supabas
 | GET | `/api/v1/analytics/jlpt-gap` | JLPT gap analysis for target level |
 | GET | `/api/v1/analytics/streak` | Current and longest streak |
 | GET | `/api/v1/analytics/forecast` | Projected milestone dates |
+
+### 5.7 Profiles & Preferences
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/profile` | Get current user's profile and study preferences |
+| PATCH | `/api/v1/profile` | Update user preferences (daily limits, goals, interests) |
 
 ---
 
@@ -679,7 +665,7 @@ const submitReview = useMutation({
 
 ## 8. AI Integration
 
-### 8.1 OpenAI GPT-4o Configuration
+### 8.1 OpenAI GPT-5.4 nano Configuration
 
 All AI calls go through the `ai.service.ts` singleton in the Express API. The frontend never calls OpenAI directly.
 
@@ -693,40 +679,35 @@ const openai = new OpenAI({
 
 ### 8.2 Card Generation Prompt Strategy
 
-Card generation uses a structured JSON output schema to ensure parseable, consistent responses.
+Card generation uses a structured JSON output schema. The resulting object is stored directly in the `fields_data` JSONB column.
 
 ```typescript
 async function generateCard(word: string, userLevel: string, interests: string[]) {
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-5.4 nano',
     response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
         content: `You are a Japanese language expert generating SRS card data.
-        Always respond with valid JSON matching the schema exactly.
+        Always respond with valid JSON.
         User level: ${userLevel}. User interests: ${interests.join(', ')}.
-        Generate example sentences at or slightly above the user's level.
-        Do not use grammar patterns above the user's level.`
+        Generate content for the "fields_data" column.`
       },
       {
         role: 'user',
-        content: `Generate complete card data for the Japanese word: ${word}
+        content: `Generate complete card data for: ${word}
         
-        Return JSON with this exact shape:
+        Return JSON with these potential keys based on the word type:
         {
           "word": string,
-          "reading": string (hiragana),
-          "meaning": string (English),
+          "reading": string,
+          "meaning": string,
           "partOfSpeech": string,
-          "jlptLevel": "N5"|"N4"|"N3"|"N2"|"N1"|null,
-          "register": "casual"|"formal"|"written"|"archaic"|"slang"|"gendered"|"neutral",
           "exampleSentences": [{ "ja": string, "en": string, "furigana": string }],
-          "kanjiBreakdown": [{ "kanji": string, "radical": string, "meaning": string, "reading": string }],
+          "kanjiBreakdown": [{ "kanji": string, "meaning": string }],
           "pitchAccent": string,
-          "mnemonic": string,
-          "collocations": string[],
-          "homophones": string[]
+          "mnemonic": string
         }`
       }
     ]
@@ -742,7 +723,7 @@ Card embeddings power the "similar cards" feature via pgvector.
 
 ```typescript
 async function generateEmbedding(card: Card): Promise<number[]> {
-  const text = `${card.word} ${card.reading} ${card.meaning} ${card.tags.join(' ')}`
+  const text = `${card.fields_data.word} ${card.fields_data.reading} ${card.fields_data.meaning} ${card.tags.join(' ')}`
   
   const response = await openai.embeddings.create({
     model: 'text-embedding-3-small',
@@ -756,7 +737,7 @@ async function generateEmbedding(card: Card): Promise<number[]> {
 Stored in the `embedding vector(1536)` column and queried with:
 
 ```sql
-SELECT id, word, meaning,
+SELECT id, fields_data->>'word' as word, fields_data->>'meaning' as meaning,
   1 - (embedding <=> $1::vector) AS similarity
 FROM cards
 WHERE user_id = $2
@@ -785,72 +766,118 @@ return result
 
 ### 9.1 ts-fsrs Integration
 
-`ts-fsrs` provides the core FSRS v5 algorithm. The service wraps it to persist state to Supabase after every review.
+`ts-fsrs` is the runtime FSRS v5 scheduler. All FSRS state transitions go through `apps/api/src/services/fsrs.service.ts` which wraps `ts-fsrs` to persist state to Supabase.
+
+Per-card-type FSRS instances are created at module load with `generatorParameters`:
 
 ```typescript
-import { createEmptyCard, fsrs, generatorParameters, Rating } from 'ts-fsrs'
+import { fsrs, generatorParameters, Rating, State } from 'ts-fsrs'
 
-const params = generatorParameters({ request_retention: 0.85 })
-const f = fsrs(params)
+const scheduler = fsrs(generatorParameters({ request_retention: 0.85 }))
+```
 
-async function processReview(cardId: string, rating: Rating, userId: string) {
-  const card = await db.cards.findOne({ id: cardId, userId })
-  
-  const fsrsCard = {
-    due: card.due,
-    stability: card.stability,
-    difficulty: card.difficulty,
-    elapsed_days: card.elapsed_days,
-    scheduled_days: card.scheduled_days,
-    reps: card.reps,
-    lapses: card.lapses,
-    state: card.state,
-    last_review: card.last_review,
-  }
+Normal reviews use `f.next()` (single grade, O(1)):
 
-  const result = f.repeat(fsrsCard, new Date())
-  const updated = result[rating].card
+```typescript
+const { card: updated } = scheduler.next(buildFsrsCard(row), new Date(), Rating.Good)
+// updated.due, updated.stability, updated.difficulty, updated.scheduled_days
+// updated.state (State.New / Learning / Review / Relearning)
+// updated.reps, updated.lapses, updated.learning_steps
+```
 
-  await db.cards.update(cardId, {
-    due: updated.due,
-    stability: updated.stability,
-    difficulty: updated.difficulty,
-    elapsed_days: updated.elapsed_days,
-    scheduled_days: updated.scheduled_days,
-    reps: updated.reps,
-    lapses: updated.lapses,
-    state: updated.state,
-    last_review: updated.last_review,
-    status: mapState(updated.state),
-  })
+All four outcomes preview (UI only, no DB write) uses `f.repeat()`:
 
-  await db.reviewLogs.create({
-    cardId,
-    userId,
-    rating,
-    stabilityAfter: updated.stability,
-    difficultyAfter: updated.difficulty,
-    dueAfter: updated.due,
-    scheduledDaysAfter: updated.scheduled_days,
-  })
+```typescript
+const preview = scheduler.repeat(buildFsrsCard(row), new Date())
+// preview[Rating.Again].card, preview[Rating.Good].card, etc.
+```
 
-  return updated
+The card update, review log insert, and leech detection are executed atomically inside the `process_review` PostgreSQL RPC. The review log row includes a before-snapshot of all FSRS fields to enable future rollback.
+
+### 9.2 Linked Card Sync (v1.3)
+
+Sibling cards (Comprehension, Production, Listening) sharing the same `parent_card_id` synchronize their stability and difficulty to prevent redundant reviews of the same linguistic concept.
+
+**Sync Logic:**
+1. When a card is reviewed, its new `stability` and `difficulty` are calculated.
+2. Sibling cards (those with the same `parent_card_id`) have their `stability` and `difficulty` updated to match.
+3. Their `due` dates are re-calculated based on the new stability.
+
+```typescript
+async function syncSiblingCards(parentId: string, sourceCardId: string, newState: any) {
+  await db.cards.updateMany(
+    { parent_card_id: parentId, id: { ne: sourceCardId } },
+    { 
+      stability: newState.stability,
+      difficulty: newState.difficulty,
+      // Recalculate due date based on new stability
+      due: calculateNewDueDate(newState.stability)
+    }
+  )
 }
 ```
 
-### 9.2 Per-Card-Type Retention Parameters
+### 9.3 Conjugation Architecture (v1.3)
 
-Different FSRS parameter sets are maintained for each card type, allowing separate forgetting curves:
+Verbs and adjectives use a parent-child relationship for their 20+ conjugation forms (te-form, dictionary form, potential, etc.).
+
+**Schema Design:**
+- **Parent Card**: The base dictionary form (e.g., 食べる).
+- **Child Cards**: Conjugated forms (e.g., 食べられる).
+- `parent_card_id` links child cards to the dictionary form.
+- Child cards inherit the `meaning` from the parent's `fields_data` but have their own `word` and `reading` in their own `fields_data`.
+
+**FSRS Inheritance:**
+- Success on a conjugated form provides a small stability boost (0.2x) to the parent dictionary form.
+- Success on the dictionary form provides a significant stability boost (0.5x) to all known conjugated forms.
+
+### 9.4 Per-Card-Type Retention Parameters
+
+Each cognitive card type gets its own FSRS instance baked at startup with a different `request_retention`. This models measurably different forgetting curves per modality in Japanese learners. Do not consolidate into a single parameter set.
 
 ```typescript
-const cardTypeParams: Record<CardType, Partial<FSRSParameters>> = {
-  recognition:  generatorParameters({ request_retention: 0.90 }),
-  production:   generatorParameters({ request_retention: 0.85 }),
-  reading:      generatorParameters({ request_retention: 0.88 }),
-  audio:        generatorParameters({ request_retention: 0.82 }),
-  grammar:      generatorParameters({ request_retention: 0.87 }),
+const schedulers: Record<CardType, FSRS> = {
+    // Passive comprehension is easiest; keep retention high to ensure mastery.
+    comprehension: fsrs(generatorParameters({ request_retention: 0.90 })),
+
+    // Active production is the hardest. Dropping to 0.84 prevents burnout
+    // from constant failures while still building long-term memory.
+    production:    fsrs(generatorParameters({ request_retention: 0.84 })),
+
+    // Listening is often harder due to speed and reduced visual cues.
+    listening:     fsrs(generatorParameters({ request_retention: 0.82 })),
 }
 ```
+
+These match the `card_type` DB enum: `comprehension`, `production`, `listening`.
+
+### 9.5 Advanced FSRS Features
+
+All features below are implemented in `fsrs.service.ts`. DB-dependent features require the migrations from `20260502000000` through `20260502000003`.
+
+| Feature | Service Function | DB Dependency | Status |
+|---|---|---|---|
+| Normal review | `processReview()` | `process_review` RPC | Implemented |
+| Undo last review | `rollbackReview()` | before-snapshot cols (migration 0001) | Implemented |
+| Forget / reset card | `forgetCard()` | `process_forget` RPC (migration 0003) | Implemented |
+| Retrievability % | `getRetrievability()` | None (pure math) | Implemented |
+| Preview 4 outcomes | `previewNextStates()` | None (pure math) | Implemented |
+| Reschedule from history | `rescheduleFromHistory()` | Full review_logs with before-snapshot | Implemented |
+| Interval fuzzing | Set `enable_fuzz: true` in `generatorParameters` | None | Ready to enable |
+| Custom learning steps | Set `learning_steps` in `generatorParameters` | None | Ready to enable |
+| Max interval cap | Set `maximum_interval` in `generatorParameters` | None | Ready to enable |
+| Per-user weight optimization | `computeParameters()` via binding | Full review history CSV | Future |
+
+### 9.6 Dual-Package Architecture
+
+Two packages serve complementary purposes:
+
+| Package | Role | Used in |
+|---|---|---|
+| `ts-fsrs` | Runtime FSRS scheduler — state machine, `f.next()`, `f.forget()`, `f.rollback()`, `f.reschedule()`, `f.repeat()` | `fsrs.service.ts` |
+| `@open-spaced-repetition/binding` | Parameter optimizer — `computeParameters()` trains per-user FSRS weights from review history | Not yet wired; reserved for future weight training |
+
+`@open-spaced-repetition/binding` provides no state machine, no Rating enum, and no `createEmptyCard`. Its `nextStates()` computes FSRS math but the higher-level scheduling features all live in `ts-fsrs`.
 
 ### 9.3 Leech Detection
 
@@ -971,7 +998,16 @@ if (!error) {
 
 `supabase.auth.verifyOtp()` must be called from the browser so that `@supabase/ssr` can write session cookies into the browser's cookie jar. Calling it server-side via the Express API would return tokens as JSON without setting cookies, breaking the SSR session architecture.
 
-**Step 3 — Cancel signup (abandon OTP step)**
+**Step 3 — Passwordless Sign-In (v1.2)**
+
+Users can log in without a password by requesting a 6-digit OTP sent to their registered email.
+
+1.  Client calls `POST /api/v1/auth/login-otp` with `{ email }`.
+2.  API calls `supabase.auth.signInWithOtp({ email })`.
+3.  User enters OTP on the client.
+4.  Client calls `supabase.auth.verifyOtp({ email, token, type: 'magiclink' })` (browser-side).
+
+**Step 4 — Cancel signup (abandon OTP step)**
 
 If the user presses "Go back" before verifying, the page fire-and-forgets `POST /api/v1/auth/cancel-signup` with `{ userId }` to delete the unconfirmed account, allowing a clean retry. The service guards against deleting confirmed accounts:
 
@@ -1081,4 +1117,4 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 ---
 
-*End of TDD v1.0.0*
+*End of TDD v1.3.0*

@@ -1,10 +1,11 @@
 import type { Card } from './card.types.ts'
 
 export const ReviewRating = {
-  Again: 'again',
-  Hard: 'hard',
-  Good: 'good',
-  Easy: 'easy',
+  Manual: 'manual', // forget / reschedule operations; never a user-facing rating
+  Again:  'again',
+  Hard:   'hard',
+  Good:   'good',
+  Easy:   'easy',
 } as const
 export type ReviewRating = typeof ReviewRating[keyof typeof ReviewRating]
 
@@ -19,6 +20,18 @@ export interface ReviewLog {
   dueAfter: Date
   scheduledDaysAfter: number
   reviewedAt: Date
+  // Before-snapshot — null on logs written before migration 20260502000001;
+  // those logs are not eligible for rollback.
+  stateBefore:         number | null
+  stabilityBefore:     number | null
+  difficultyBefore:    number | null
+  dueBefore:           Date | null
+  scheduledDaysBefore: number | null
+  learningStepsBefore: number | null
+  elapsedDaysBefore:   number | null
+  lastReviewBefore:    Date | null
+  repsBefore:          number | null
+  lapsesBefore:        number | null
 }
 
 /** Entry in the Zustand session `completed` array after a card is rated. */

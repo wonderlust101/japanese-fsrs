@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, Library, BookOpen, BarChart2, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { signOutAction } from '@/lib/actions/auth.actions'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -44,8 +44,7 @@ export function Sidebar({ user }: { user: User | null }) {
   const router = useRouter()
 
   async function handleSignOut() {
-    const supabase = createSupabaseBrowserClient()
-    await supabase.auth.signOut()
+    await signOutAction()
     router.push('/login')
     router.refresh()
   }
@@ -90,7 +89,7 @@ export function Sidebar({ user }: { user: User | null }) {
         >
           <span
             aria-hidden="true"
-            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-primary-100 text-[10px] font-bold text-primary-700"
+            className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700"
           >
             {initial}
           </span>

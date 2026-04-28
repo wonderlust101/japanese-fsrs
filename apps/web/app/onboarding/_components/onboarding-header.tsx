@@ -35,7 +35,7 @@ export function OnboardingHeader() {
   return (
     <header className="w-full px-6 py-5 flex items-center justify-between">
       {/* Logo */}
-      <span className="text-[15px] font-semibold text-neutral-700 tracking-tight select-none">
+      <span className="text-base font-semibold text-neutral-700 tracking-tight select-none">
         友<span className="text-primary-500">日</span>
       </span>
 
@@ -58,7 +58,7 @@ export function OnboardingHeader() {
             ))}
           </div>
           <span
-            className="text-[13px] text-neutral-400 tabular-nums"
+            className="text-sm text-neutral-400 tabular-nums"
             aria-live="polite"
             aria-label={`Step ${stepIndex + 1} of ${total}`}
           >
@@ -74,7 +74,7 @@ export function OnboardingHeader() {
         <button
           type="button"
           onClick={handleSkip}
-          className="text-[13px] text-neutral-400 hover:text-neutral-600 transition-colors
+          className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300
                      rounded-md px-2 py-1"
         >

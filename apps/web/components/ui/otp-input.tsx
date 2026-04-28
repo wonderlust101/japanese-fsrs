@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -9,9 +9,10 @@ interface OTPInputProps {
   /** Called automatically as soon as all 6 digits are present. */
   onComplete: (otp: string) => void
   /**
-   * When truthy the component shakes, clears all inputs, and returns focus
-   * to the first digit. Set to null/'' before a retry so the shake can
-   * re-trigger if the subsequent attempt also fails.
+   * When truthy the component plays the shake animation and shows error borders.
+   * The parent must remount this component (via a changed `key`) each time a
+   * new error should trigger a shake — that resets digits and restarts the
+   * animation with no JS timers or internal useEffect needed.
    */
   error?: string | null
   /** Dims the inputs and disables interaction while an API call is in-flight. */
@@ -22,18 +23,8 @@ interface OTPInputProps {
 // ── OTPInput ──────────────────────────────────────────────────────────────────
 
 export function OTPInput({ onComplete, error, isLoading = false, className }: OTPInputProps) {
-  const [digits, setDigits]   = useState<string[]>(Array(6).fill(''))
-  const [shaking, setShaking] = useState(false)
-  const inputRefs             = useRef<(HTMLInputElement | null)[]>([])
-
-  // Shake + clear whenever the parent signals an error.
-  useEffect(() => {
-    if (!error) return
-    setDigits(Array(6).fill(''))
-    setShaking(true)
-    // Return focus to the first digit after the DOM has updated.
-    requestAnimationFrame(() => inputRefs.current[0]?.focus())
-  }, [error])
+  const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
+  const inputRefs           = useRef<(HTMLInputElement | null)[]>([])
 
   function updateDigit(index: number, raw: string) {
     const digit = raw.replace(/\D/g, '').slice(-1)
@@ -52,13 +43,10 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
   }
 
   function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    // Move back on Backspace in an already-empty field.
     if (e.key === 'Backspace' && digits[index] === '' && index > 0) {
       inputRefs.current[index - 1]?.focus()
       return
     }
-    // Block non-digit printable characters (allow control keys: Backspace,
-    // Tab, arrows, Copy/Paste shortcuts via Ctrl/Cmd).
     if (
       e.key.length === 1 &&
       !/\d/.test(e.key) &&
@@ -74,8 +62,6 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
     if (!pasted) return
 
-    // Paste always fills from digit 0 regardless of which box is focused —
-    // this matches how users expect a 6-digit OTP paste to behave.
     const next = Array(6).fill('').map((_, i) => pasted[i] ?? '') as string[]
     setDigits(next)
 
@@ -89,25 +75,27 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
   const hasError = !!error
 
   return (
-    // Outer div handles the shake animation — animating the wrapper moves all
-    // inputs together without disrupting the flex layout.
     <div
       role="group"
       aria-label="One-time password"
       className={cn(
         'flex items-center gap-2',
-        shaking && 'animate-otp-shake',
+        // Shake plays on mount when the parent remounts this component on error.
+        hasError && 'animate-otp-shake',
         className,
       )}
-      onAnimationEnd={() => setShaking(false)}
     >
       {digits.map((digit, i) => (
         <input
           key={i}
-          ref={(el) => { inputRefs.current[i] = el }}
+          ref={(el) => {
+            inputRefs.current[i] = el
+            // Focus the first box automatically when the component mounts
+            // after an error (the parent increments the key to remount).
+            if (i === 0 && el !== null && hasError) el.focus()
+          }}
           type="text"
           inputMode="numeric"
-          // The first box opts into the browser's OTP autofill on mobile.
           autoComplete={i === 0 ? 'one-time-code' : 'off'}
           maxLength={1}
           value={digit}
@@ -117,22 +105,15 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           className={cn(
-            // Size — smaller on mobile, full-spec on sm+ (≥640px)
             'w-11 h-14 sm:w-[52px] sm:h-[60px]',
-            // Typography: monospace, large, centred
             'font-mono text-2xl font-semibold text-center text-neutral-900',
-            // Surface
             'bg-neutral-100 rounded-[var(--radius-md)]',
-            // Focus ring + border
             'outline-none transition-colors duration-150',
             'focus:ring-[3px] focus:ring-primary-200 focus:border-primary-500',
-            // State-specific borders
             hasError
               ? 'border-2 border-danger-500'
               : 'border border-neutral-300',
-            // Disabled
             isLoading && 'opacity-40 cursor-not-allowed',
-            // Visual break after the third digit (3 + 3 grouping)
             i === 2 && 'mr-2 sm:mr-4',
           )}
         />

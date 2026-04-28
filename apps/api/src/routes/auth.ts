@@ -9,7 +9,9 @@ const router = Router()
 router.post('/signup',        authController.signup)
 router.post('/cancel-signup', authController.cancelSignup)
 router.post('/login',         authController.login)
-router.post('/refresh',    authController.refresh)
+router.post('/refresh',       authController.refresh)
+router.post('/verify-otp',    authController.verifyOtp)
+router.post('/resend-otp',    authController.resendOtp)
 
 // Protected — requires a valid Bearer token.
 router.post('/logout', authMiddleware, authController.logout)

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
-import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput } from '../schemas/auth.schema.ts'
+import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput, VerifyOtpInput, ResendOtpInput } from '../schemas/auth.schema.ts'
 
 export interface AuthTokens {
   accessToken:  string
@@ -125,6 +125,44 @@ export async function refreshSession(input: RefreshInput): Promise<AuthTokens> {
     accessToken:  data.session.access_token,
     refreshToken: data.session.refresh_token,
     expiresIn:    data.session.expires_in,
+  }
+}
+
+/**
+ * Verifies a 6-digit email OTP for the signup flow.
+ * Returns an access/refresh token pair on success so the caller can
+ * establish a session without a second round-trip.
+ */
+export async function verifyOtp(input: VerifyOtpInput): Promise<AuthTokens> {
+  const { data, error } = await supabaseAdmin.auth.verifyOtp({
+    email: input.email,
+    token: input.token,
+    type:  'signup',
+  })
+
+  if (error !== null || data.session === null) {
+    throw new AppError(400, error?.message ?? 'OTP verification failed')
+  }
+
+  return {
+    accessToken:  data.session.access_token,
+    refreshToken: data.session.refresh_token,
+    expiresIn:    data.session.expires_in,
+  }
+}
+
+/**
+ * Resends the signup OTP email to the given address.
+ * Uses the service role client to trigger the resend without a user session.
+ */
+export async function resendOtp(input: ResendOtpInput): Promise<void> {
+  const { error } = await supabaseAdmin.auth.resend({
+    type:  'signup',
+    email: input.email,
+  })
+
+  if (error !== null) {
+    throw new AppError(400, error.message ?? 'Failed to resend OTP')
   }
 }
 

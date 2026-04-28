@@ -16,18 +16,19 @@ This is a **Bun monorepo** with two main apps:
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS |
-| Client State | Zustand 5 |
-| Server State | TanStack Query v5 |
-| Backend | Express 5, TypeScript |
-| Database | Supabase (PostgreSQL) |
-| Vector Search | pgvector |
-| Cache / Rate Limiting | Upstash Redis |
-| AI | OpenAI gpt-5.4 nano (`gpt-5.4-nano`) |
-| SRS Algorithm | ts-fsrs |
-| Package Manager | Bun (workspaces) |
+| Layer                   | Technology                                        |
+|-------------------------|---------------------------------------------------|
+| Frontend                | Next.js 15 (App Router), TypeScript, Tailwind CSS |
+| Client State            | Zustand 5                                         |
+| Server State            | TanStack Query v5                                 |
+| Backend                 | Express 5, TypeScript                             |
+| Database                | Supabase (PostgreSQL)                             |
+| Vector Search           | pgvector                                          |
+| Cache / Rate Limiting   | Upstash Redis                                     |
+| AI                      | OpenAI gpt-5.4 nano (`gpt-5.4-nano`)              |
+| SRS Algorithm (runtime) | ts-fsrs                                           |
+| SRS Algorithm (optimizer)        | @open-spaced-repetition/binding                   |
+| Package Manager         | Bun (workspaces)                                  |
 
 ---
 
@@ -170,12 +171,15 @@ Comprehension, production, and listening cards have separate `generatorParameter
 - Never write raw SQL in route handlers. All queries go through service functions in `apps/api/src/services/`.
 - All tables have Row Level Security enabled. When writing new migrations, always add RLS policies. Do not disable RLS.
 - FSRS state fields (`stability`, `difficulty`, `due`, `state`, etc.) on the `cards` table must only be updated via `fsrs.service.ts`. Do not update them directly elsewhere.
+- **Ultra-Lean Layouts:** Do not create a database table for layouts. All layouts (Vocabulary, Grammar, Sentence) are defined in the application code. Content is stored in the flexible `fields_data` JSONB column.
 
 ### Frontend
 - Use the App Router only. Do not add anything to `pages/`.
 - Do not call the OpenAI API or Supabase directly from client components. All AI calls go through the Express API. Supabase is only called client-side for auth session management.
 - Do not use `useEffect` for data fetching. Use TanStack Query hooks.
 - Review session state lives entirely in `useReviewSessionStore` (Zustand). Do not lift it into React state or TanStack Query.
+- **Card Rendering:** Render cards using system-defined components based on the `layout_type` and `fields_data`.
+
 
 ### Styling
 - Tailwind CSS only. Do not add inline styles or CSS modules unless there is a very specific reason (e.g. a CSS animation that Tailwind can't express).
@@ -191,7 +195,7 @@ Comprehension, production, and listening cards have separate `generatorParameter
 
 ## FSRS Quick Reference
 
-The FSRS state machine has 4 states:
+The FSRS state machine has 4 states (plus a database-level `suspended` status):
 
 | State | Value | Description |
 |---|---|---|
@@ -200,35 +204,21 @@ The FSRS state machine has 4 states:
 | Review | 2 | In long-term memory, graduated |
 | Relearning | 3 | Lapsed, being relearned |
 
-Ratings map to `ts-fsrs` `Rating` enum:
+Ratings map to `@open-spaced-repetition/binding` `Rating` enum:
 - `1` = Again
 - `2` = Hard
 - `3` = Good
 - `4` = Easy
 
-Always use the `Rating` enum constants from `ts-fsrs`, not raw integers.
-
-### FSRS Service Functions (`fsrs.service.ts`)
-
-| Function | Description | DB writes |
-|---|---|---|
-| `processReview(cardId, rating, userId, ms?)` | Normal review — schedules next interval via `f.next()` | Yes (RPC) |
-| `rollbackReview(cardId, userId, logId)` | Undo a specific review log; restores card to before-snapshot | Yes (direct update) |
-| `forgetCard(cardId, userId, resetCount?)` | Reset card to New state (Anki Forget) | Yes (RPC) |
-| `getRetrievability(stability, elapsedDays)` | Current recall probability (0–1) | None (pure math) |
-| `previewNextStates(row, cardType, now?)` | Preview all 4 rating outcomes without committing | None (pure math) |
-| `rescheduleFromHistory(cardId, userId)` | Replay full review history to recompute schedule | Yes (RPC) |
-| `getInitialFsrsState()` | Default field values for a new card row | None |
+Always use the `Rating` enum constants from `@open-spaced-repetition/binding`, not raw integers.
 
 ---
 
 ## Common Pitfalls
 
-- **Use `f.next()` for all normal reviews, not `f.repeat()`.** `f.repeat()` computes all 4 rating outcomes simultaneously and is only valid inside `previewNextStates()`. Never call `f.repeat()` for an actual user review — it does not persist state and calling it more than once is not idempotent.
-- **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
-- **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
-- **Per-type FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across card types.
+- **Do not call `f.repeat()` more than once per review.** It is not idempotent. Call it once, persist the result, and return it.
 - **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
+- **Linked Card Sync (v1.3):** Sibling cards sharing a `parent_card_id` must be synchronized. When updating FSRS state for a card, you must synchronize the `stability` and `difficulty` to any sibling cards to prevent redundant reviews.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.
 - **Zustand actions must be inside the `actions` sub-object** in each store definition. Do not add actions at the top level of the store interface.
 - **pgvector queries use `<=>` (cosine distance), not `<->` (L2 distance).** The embedding index is built for cosine. Switching operators will not use the index.
@@ -263,4 +253,4 @@ Always refer to these files in the `/docs` directory before suggesting architect
 
 ---
 
-*Last updated: 2026-04-24*
+*Last updated: 2026-04-28*

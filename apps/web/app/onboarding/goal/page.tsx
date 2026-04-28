@@ -27,10 +27,10 @@ export default function GoalPage() {
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="text-center">
-        <h1 className="text-[24px] font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
           What's your main goal?
         </h1>
-        <p className="mt-2 text-[15px] text-neutral-500">
+        <p className="mt-2 text-base text-neutral-500">
           Your goal shapes which vocabulary and grammar patterns we surface first.
         </p>
       </div>
@@ -51,8 +51,8 @@ export default function GoalPage() {
             ].join(' ')}
           >
             <span className="text-2xl">{opt.emoji}</span>
-            <p className="mt-2 font-medium text-neutral-900 text-[15px]">{opt.label}</p>
-            <p className="mt-0.5 text-[13px] text-neutral-500">{opt.description}</p>
+            <p className="mt-2 font-medium text-neutral-900 text-base">{opt.label}</p>
+            <p className="mt-0.5 text-sm text-neutral-500">{opt.description}</p>
           </button>
         ))}
       </div>
@@ -61,7 +61,7 @@ export default function GoalPage() {
         type="button"
         onClick={() => router.push(NEXT_STEP[STEP_PATH])}
         disabled={goal === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-[15px]
+        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
                    font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
                    disabled:opacity-40 disabled:cursor-not-allowed
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"

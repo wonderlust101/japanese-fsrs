@@ -1,9 +1,9 @@
 # Product Requirements Document
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.1.0  
-**Status:** Draft  
-**Last Updated:** 2026-04-24
+**Version:** 1.3.0  
+**Status:** Active  
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -15,6 +15,7 @@
 4. [Feature Breakdown](#4-feature-breakdown)
 5. [Non-Functional Requirements](#5-non-functional-requirements)
 6. [Out of Scope](#6-out-of-scope)
+7. [Appendix: Future Roadmap](#7-appendix-future-roadmap)
 
 ---
 
@@ -95,7 +96,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 | ID | Feature | Priority |
 |---|---|---|
 | SRS-01 | FSRS algorithm implementation with Japanese-specific scheduling parameters | 🟢 P0 |
-| SRS-02 | Separate scheduling tracks for kanji recognition, kanji production, reading (kunyomi/onyomi), meaning recall, and listening | 🟢 P0 |
+| SRS-02 | Separate scheduling tracks for comprehension (Japanese → concept), production (concept → Japanese), and listening (audio → concept) | 🟢 P0 |
 | SRS-03 | Linked card types — each vocabulary item spawns multiple card types that share performance data | 🟢 P0 |
 | SRS-04 | Leech detection with AI-powered diagnosis and prescription | 🟢 P0 |
 | SRS-05 | Forgetting curve visualization per card and per deck | 🟡 P1 |
@@ -126,11 +127,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 |---|---|---|
 | AI-01 | Contextual sentence generation tuned to the user's current grammar level and interests | 🟢 P0 |
 | AI-02 | Personalized mnemonic generation based on native language and known vocabulary | 🟢 P0 |
-| AI-03 | Confusion pair detection and proactive drilling before confusion sets in | 🟢 P0 |
-| AI-04 | Weak point pattern analysis with macro insights and targeted remediation sessions | 🟢 P0 |
-| AI-05 | AI explanation on card failure — contextual breakdown on demand | 🟢 P0 |
-| AI-06 | Grammar point linking — vocabulary cards link to relevant grammar patterns with AI-generated examples | 🟡 P1 |
-| AI-07 | Semantic similarity search — find related cards in your deck using vector embeddings | 🟡 P1 |
+| AI-05 | AI explanation on card failure — contextual breakdown on demand | 🟡 v1.4 |
 
 ---
 
@@ -147,11 +144,11 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.5 Grammar Track
+### 4.5 Grammar Layout & Bridging
 
 | ID | Feature | Priority |
 |---|---|---|
-| GRAM-01 | Dedicated grammar SRS deck covering N5–N1 and beyond with FSRS scheduling | 🟢 P0 |
+| GRAM-01 | Dedicated grammar SRS support covering N5–N1 and beyond using the Grammar layout | 🟢 P0 |
 | GRAM-02 | Grammar cards include 5+ varied AI-generated example sentences per pattern | 🟢 P0 |
 | GRAM-03 | Grammar → Vocabulary bridging — learning a grammar point surfaces related vocabulary | 🟡 P1 |
 | GRAM-04 | Conjugation driller — dedicated mode for verb and adjective conjugation forms | 🟡 P1 |
@@ -207,7 +204,7 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 | PERS-01 | JLPT level alignment with gap analysis for target level | 🟢 P0 |
 | PERS-02 | Custom study goals (e.g. pass N2, read manga, watch without subtitles) | 🟢 P0 |
 | PERS-03 | Interests profile used to flavor AI-generated sentences | 🟢 P0 |
-| PERS-04 | Vocabulary domain tracking — see coverage by topic (food, business, anime, etc.) | 🟡 P1 |
+| PERS-05 | **User Profile Management** (CRUD for user goals, level, and interest profiles) | 🟢 P0 |
 
 ---
 
@@ -219,7 +216,7 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 | ANAL-02 | Kanji coverage map — visual display across the Joyo set organized by grade and frequency | 🟡 P1 |
 | ANAL-03 | Vocabulary coverage by domain — % of a given manga, novel, or show you'd understand today | 🟡 P1 |
 | ANAL-04 | Level progression tracker — JLPT-aligned milestones with projected dates | 🟢 P0 |
-| ANAL-05 | Review accuracy broken down by card type (recognition vs. production vs. reading vs. audio) | 🟢 P0 |
+| ANAL-05 | Review accuracy broken down by cognitive track (comprehension vs. production vs. listening) | 🟢 P0 |
 | ANAL-06 | Streak and review history calendar | 🟢 P0 |
 
 ---
@@ -282,4 +279,25 @@ The following are explicitly out of scope and will not be considered for any nea
 
 ---
 
-*End of PRD v1.0.0*
+*End of PRD v1.3.0*
+
+---
+
+## 7. Appendix: Future Roadmap
+
+Features listed here are deferred to v1.4 or beyond to ensure a focused MVP delivery.
+
+| ID | Feature | Status |
+|---|---|---|
+| AI-03 | Confusion pair detection and proactive drilling | Deferred (v1.4) |
+| AI-04 | Weak point pattern analysis with macro insights | Deferred (v1.4) |
+| AI-06 | Grammar point linking (Vocabulary → Grammar) | Deferred (v1.4) |
+| AI-07 | Semantic similarity search (pgvector) | Deferred (v1.4) |
+| PERS-04 | Vocabulary domain tracking (visual radar) | Deferred (v1.4) |
+| IMM-01 | Browser extension for sentence mining | Deferred (P2) |
+| IMM-02 | Subtitle mining (.srt extraction) | Deferred (P2) |
+| AUD-03 | Audio-only review sessions | Deferred (v1.4) |
+| SOC-01 | Shared deck marketplace | Deferred (P2) |
+| SOC-02 | Community mnemonic voting | Deferred (P2) |
+| SOC-03 | Study group streaks | Deferred (P2) |
+| SOC-04 | Content-linked public decks | Deferred (P2) |

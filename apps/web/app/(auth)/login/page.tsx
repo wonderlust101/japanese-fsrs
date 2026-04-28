@@ -3,12 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-
-// Metadata cannot be exported from a Client Component — put it in the layout
-// or a wrapper server component if SEO is needed.
+import { loginAction } from '@/lib/actions/auth.actions'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': 'Incorrect email or password.',
@@ -23,26 +21,21 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const { mutate, isPending, error } = useMutation({
+    mutationFn: () => loginAction(email, password),
+    onSuccess: () => {
+      router.push('/dashboard')
+      router.refresh()
+    },
+  })
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    const supabase = createSupabaseBrowserClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (authError) {
-      setError(friendlyError(authError.message))
-      setLoading(false)
-      return
-    }
-
-    router.push('/dashboard')
-    router.refresh()
+    mutate()
   }
+
+  const errorMessage = error ? friendlyError((error as Error).message) : null
 
   return (
     <>
@@ -69,13 +62,13 @@ export default function LoginPage() {
           placeholder="••••••••"
         />
 
-        {error && (
+        {errorMessage && (
           <p role="alert" className="text-xs text-danger-500">
-            {error}
+            {errorMessage}
           </p>
         )}
 
-        <Button type="submit" variant="primary" size="md" loading={loading} className="w-full mt-2">
+        <Button type="submit" variant="primary" size="md" loading={isPending} className="w-full mt-2">
           Sign in
         </Button>
       </form>

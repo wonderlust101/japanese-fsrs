@@ -4,6 +4,8 @@ import cors from 'cors'
 import { errorHandler } from './middleware/errorHandler.ts'
 import authRouter    from './routes/auth.ts'
 import profileRouter from './routes/profile.ts'
+import decksRouter   from './routes/decks.ts'
+import aiRouter      from './routes/ai.ts'
 
 // CORS_ORIGIN accepts a comma-separated list for multiple origins.
 // Default covers local Next.js dev server.
@@ -24,6 +26,8 @@ app.use(express.urlencoded({ extended: false }))
 // ── API routes ──────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',    authRouter)
 app.use('/api/v1/profile', profileRouter)
+app.use('/api/v1/decks',   decksRouter)
+app.use('/api/v1/ai',     aiRouter)
 
 // ── Global error handler — must be last ────────────────────────────────────
 app.use(errorHandler)

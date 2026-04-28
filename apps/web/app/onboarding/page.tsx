@@ -27,10 +27,10 @@ export default function OnboardingWelcomePage() {
       </svg>
 
       <div className="max-w-sm">
-        <h1 className="text-[26px] font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
           Welcome to FSRS Japanese
         </h1>
-        <p className="mt-3 text-[15px] text-neutral-500 leading-relaxed">
+        <p className="mt-3 text-base text-neutral-500 leading-relaxed">
           We'll set up a study plan tailored to your level and goals.
           It only takes a minute.
         </p>
@@ -39,7 +39,7 @@ export default function OnboardingWelcomePage() {
       <button
         type="button"
         onClick={() => router.push('/onboarding/level')}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-[15px]
+        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
                    font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
                    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
       >

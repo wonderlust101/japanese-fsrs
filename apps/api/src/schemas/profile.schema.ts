@@ -11,7 +11,7 @@ export const updateProfileSchema = z.object({
   interests:             z.array(z.string().trim().min(1)).max(20).optional(),
   daily_new_cards_limit: z.number().int().min(1).max(9999).optional(),
   daily_review_limit:    z.number().int().min(1).max(9999).optional(),
-  retention_target:      z.number().min(0.7).max(0.99).optional(),
+  retention_target:      z.number().min(0.6).max(0.99).optional(),
   timezone:              z.string().trim().min(1).max(100).optional(),
 }).strict()
 

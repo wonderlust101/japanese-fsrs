@@ -1,8 +1,8 @@
 # Code Conventions & Style Guide
 ## AI-Enhanced FSRS for Japanese
 
-**Version:** 1.0.0  
-**Last Updated:** 2026-04-24
+**Version:** 1.3.0  
+**Last Updated:** 2026-04-28
 
 This document is the authoritative reference for all code style, naming, and structural conventions in this repository. Claude Code and all contributors must follow these conventions exactly. When in doubt, follow existing patterns in the codebase rather than inventing new ones.
 
@@ -53,15 +53,15 @@ Use `interface` for object shapes that represent entities or contracts. Use `typ
 // ✅ Use interface for entity shapes
 interface Card {
   id: string
-  word: string
-  reading: string
-  meaning: string
+  layoutType: LayoutType
+  fieldsData: Record<string, any>
 }
 
 // ✅ Use type for unions and computed types
-type CardType = 'recognition' | 'production' | 'reading' | 'audio' | 'grammar'
+type CardType = 'recognition' | 'production' | 'reading' | 'listening'
+type LayoutType = 'vocabulary' | 'grammar' | 'sentence' | 'kanji'
 type CardWithDeck = Card & { deck: Deck }
-type PartialCard = Partial<Pick<Card, 'reading' | 'meaning'>>
+type PartialCard = Partial<Pick<Card, 'fieldsData'>>
 
 // ❌ Don't use type for plain object shapes that could be interfaces
 type Card = {
@@ -101,7 +101,7 @@ enum CardStatus {
 
 ```typescript
 // ✅
-const display = card.reading ?? card.word
+const display = card.fieldsData.reading ?? card.fieldsData.word
 const limit = options?.limit ?? 20
 
 // ❌ — swallows 0
@@ -230,7 +230,7 @@ export function ReviewCard({ card, onRate }: ReviewCardProps) {
   const { data } = useQuery(...)
   
   // 4b. Derived state / memos
-  const displayWord = card.reading ?? card.word
+  const displayWord = card.fieldsData.reading ?? card.fieldsData.word
   
   // 4c. Handlers
   const handleFlip = () => setIsFlipped(true)
@@ -391,6 +391,7 @@ export const createCardSchema = z.object({
   deckId: z.string().uuid(),
   reading: z.string().optional(),
   meaning: z.string().min(1).max(500),
+  layoutType: z.enum(['vocabulary', 'grammar', 'sentence'])
 })
 
 export type CreateCardInput = z.infer<typeof createCardSchema>
@@ -412,8 +413,6 @@ All API responses follow a consistent shape. Success responses return the data d
 // ❌ Don't wrap in { success: true, data: {...} }
 { "success": true, "data": { "id": "uuid" } }
 ```
-
-Error responses always use the standard error shape (see `ERROR-HANDLING.md`).
 
 ### 4.4 HTTP Status Codes
 
@@ -518,7 +517,7 @@ Always specify the columns you need in `.select()`. Never use `.select('*')` in 
 
 ```typescript
 // ✅
-.select('id, word, reading, meaning, due, status')
+.select('id, layout_type, fields_data, due, status')
 
 // ❌
 .select('*')
@@ -801,7 +800,7 @@ Comment the *why*, not the *what*. Code explains what it does. Comments explain 
 ```typescript
 // ✅ Explains non-obvious reasoning
 // FSRS requires all sibling card types to share the same parent_card_id
-// so weakness analysis can correlate failures across recognition/production
+// so weakness analysis can correlate failures across cognitive tracks
 const parentId = await findOrCreateParentCard(word, deckId)
 
 // ✅ Marks intentional deviation
