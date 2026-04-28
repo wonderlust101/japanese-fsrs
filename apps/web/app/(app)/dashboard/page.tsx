@@ -87,7 +87,7 @@ export default async function DashboardPage() {
   const greeting = getGreeting()
   const displayName = toDisplayName(
     user?.email,
-    user?.user_metadata?.['full_name'] as string | undefined,
+    user?.user_metadata?.['display_name'] as string | undefined,
   )
 
   // MVP: real due-count query goes here once reviews are wired up
