@@ -140,6 +140,21 @@ export async function createDeckAction(payload: CreateDeckPayload): Promise<{ id
   return res.json() as Promise<{ id: string; name: string }>
 }
 
+export async function deleteDeckAction(deckId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/decks/${deckId}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    throw new Error(body.error ?? 'Failed to delete deck')
+  }
+}
+
 export async function getDeckAction(deckId: string): Promise<DeckSummary | null> {
   const supabase = await createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()

@@ -2,13 +2,15 @@
 
 import { useState }                                from 'react'
 import Link                                        from 'next/link'
-import { useQuery, useInfiniteQuery }              from '@tanstack/react-query'
+import { useRouter }                               from 'next/navigation'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { TopBar }                   from '@/app/(app)/_components/top-bar'
 import { Button }                   from '@/components/ui/button'
+import { Dialog }                   from '@/components/ui/dialog'
 import { cn }                       from '@/lib/utils'
 import { queryKeys }                from '@/lib/api/queryKeys'
-import { getDeckWithStatsAction }   from '@/lib/actions/decks.actions'
+import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
 import { listCardsAction }          from '@/lib/actions/cards.actions'
 import { CardListItem }             from './card-list-item'
 import { CardListItemSkeleton }     from './card-list-skeleton'
@@ -40,7 +42,18 @@ interface Props {
 }
 
 export function DeckDetailView({ deckId, deckName }: Props) {
-  const [status, setStatus] = useState<StatusFilter>('all')
+  const router      = useRouter()
+  const queryClient = useQueryClient()
+  const [status,      setStatus]      = useState<StatusFilter>('all')
+  const [deleteOpen,  setDeleteOpen]  = useState(false)
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteDeckAction(deckId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
+      router.push('/decks')
+    },
+  })
 
   // Deck header stats
   const { data: deck } = useQuery({
@@ -88,6 +101,7 @@ export function DeckDetailView({ deckId, deckName }: Props) {
         <span className="flex-1 text-base font-semibold text-neutral-900 truncate">{deckName}</span>
         <button
           type="button"
+          onClick={() => setDeleteOpen(true)}
           className="text-neutral-400 hover:text-neutral-600 transition-colors px-1"
           aria-label="Deck options"
         >
@@ -200,6 +214,38 @@ export function DeckDetailView({ deckId, deckName }: Props) {
         )}
 
       </div>
+
+      {/* ── Delete confirmation dialog ─────────────────────────────────── */}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Deck">
+        <p className="text-sm text-neutral-600 mb-5">
+          Permanently delete{' '}
+          <span className="font-semibold text-neutral-900">"{deckName}"</span>
+          {' '}and all its cards? This cannot be undone.
+        </p>
+        {deleteMutation.isError && (
+          <p role="alert" className="text-sm text-danger-500 mb-3">
+            {(deleteMutation.error as Error).message}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setDeleteOpen(false)}
+            disabled={deleteMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            loading={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate()}
+          >
+            Delete Deck
+          </Button>
+        </div>
+      </Dialog>
     </>
   )
 }
