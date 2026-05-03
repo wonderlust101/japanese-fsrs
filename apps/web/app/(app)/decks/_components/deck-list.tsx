@@ -6,6 +6,7 @@ import { useQuery }  from '@tanstack/react-query'
 
 import { TopBar }             from '@/app/(app)/_components/top-bar'
 import { Button }             from '@/components/ui/button'
+import { queryKeys }          from '@/lib/api/queryKeys'
 import { DeckCard }           from './deck-card'
 import { DeckCardSkeleton }   from './deck-skeleton'
 import { CreateDeckDialog }   from './create-deck-dialog'
@@ -15,7 +16,7 @@ export function DeckListView() {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const { data: decks, isLoading } = useQuery({
-    queryKey: ['decks'],
+    queryKey: queryKeys.decks.list(),
     queryFn:  listDecksAction,
   })
 

@@ -17,9 +17,9 @@ import * as profileService from '../services/profile.service.ts'
  */
 export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { deckId }          = deckIdParamSchema.parse(req.params)
-    const { limit, offset }   = listCardsQuerySchema.parse(req.query)
-    const result              = await cardService.listCards(deckId, req.user.id, limit, offset)
+    const { deckId }                 = deckIdParamSchema.parse(req.params)
+    const { limit, cursor, status }  = listCardsQuerySchema.parse(req.query)
+    const result                     = await cardService.listCards(deckId, req.user.id, limit, cursor, status)
     res.json(result)
   } catch (err) {
     next(err)

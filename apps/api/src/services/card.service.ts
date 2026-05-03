@@ -57,8 +57,9 @@ export interface CardRow {
 }
 
 export interface CardListResult {
-  cards: CardRow[]
-  total: number
+  items:      CardRow[]
+  nextCursor: string | null
+  hasMore:    boolean
 }
 
 export interface CreateCardMeta {
@@ -114,32 +115,62 @@ async function assertDeckOwnership(deckId: string, userId: string): Promise<void
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns a paginated list of cards in a deck owned by the user.
+ * Returns a cursor-paginated list of cards in a deck owned by the user.
+ * Optional `status` filter: 'new', 'learning' (includes relearning), 'review', 'suspended'.
  * Throws 404 if the deck does not exist or belongs to a different user.
  */
 export async function listCards(
-  deckId: string,
-  userId: string,
-  limit: number,
-  offset: number,
+  deckId:  string,
+  userId:  string,
+  limit:   number,
+  cursor?: string,
+  status?: string,
 ): Promise<CardListResult> {
   await assertDeckOwnership(deckId, userId)
 
-  const { data, error, count } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('cards')
-    .select(CARD_COLUMNS, { count: 'exact' })
+    .select(CARD_COLUMNS)
     .eq('deck_id', deckId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+    .order('id', { ascending: false })
+    .limit(limit + 1)
+
+  if (status === 'learning') {
+    query = query.or('status.eq.learning,status.eq.relearning')
+  } else if (status !== undefined && status !== 'all') {
+    query = query.eq('status', status)
+  }
+
+  if (cursor !== undefined) {
+    const { data: cursorCard } = await supabaseAdmin
+      .from('cards')
+      .select('created_at')
+      .eq('id', cursor)
+      .single()
+
+    if (cursorCard !== null) {
+      query = query.lt('created_at', (cursorCard as { created_at: string }).created_at)
+    }
+  }
+
+  const { data, error } = await query
 
   if (error !== null) {
     throw new AppError(500, `Failed to list cards: ${error.message}`)
   }
 
+  const rows    = data ?? []
+  const hasMore = rows.length > limit
+  const items   = rows
+    .slice(0, limit)
+    .map((row) => toCardRow(row as unknown as Record<string, unknown>))
+
   return {
-    cards: (data ?? []).map((row) => toCardRow(row as unknown as Record<string, unknown>)),
-    total: count ?? 0,
+    items,
+    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    hasMore,
   }
 }
 
@@ -187,7 +218,7 @@ export async function createCard(
       fields_data:    fieldsData,
       card_type:      meta.card_type,
       layout_type:    meta.layout_type,
-      tags:           meta.tags           ?? null,
+      tags:           meta.tags           ?? [],
       jlpt_level:     meta.jlpt_level     ?? null,
       parent_card_id: meta.parent_card_id ?? null,
       // FSRS initial state

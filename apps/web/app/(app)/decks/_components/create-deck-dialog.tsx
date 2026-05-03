@@ -8,6 +8,7 @@ import { Input }            from '@/components/ui/input'
 import { Select }           from '@/components/ui/select'
 import { Button }           from '@/components/ui/button'
 import { createDeckAction } from '@/lib/actions/decks.actions'
+import { queryKeys }        from '@/lib/api/queryKeys'
 
 type DeckType = 'vocabulary' | 'grammar' | 'kanji' | 'mixed'
 
@@ -37,7 +38,7 @@ export function CreateDeckDialog({ open, onClose }: Props) {
       deck_type:   deckType,
     }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['decks'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
       handleClose()
     },
   })

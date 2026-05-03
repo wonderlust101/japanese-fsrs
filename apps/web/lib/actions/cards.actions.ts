@@ -2,6 +2,66 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+// ─── Card list types ──────────────────────────────────────────────────────────
+
+export interface CardItem {
+  id:          string
+  fieldsData:  Record<string, unknown>
+  layoutType:  string
+  cardType:    string
+  jlptLevel:   string | null
+  status:      string
+  state:       number
+  due:         string
+  tags:        string[] | null
+}
+
+export interface CardListPage {
+  items:      CardItem[]
+  nextCursor: string | null
+  hasMore:    boolean
+}
+
+export async function listCardsAction(
+  deckId:  string,
+  options: { limit?: number; cursor?: string; status?: string },
+): Promise<CardListPage> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) return { items: [], nextCursor: null, hasMore: false }
+
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 50))
+  if (options.cursor !== undefined)                           params.set('cursor', options.cursor)
+  if (options.status !== undefined && options.status !== 'all') params.set('status', options.status)
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/decks/${deckId}/cards?${params.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: 'no-store',
+    },
+  )
+
+  if (!res.ok) return { items: [], nextCursor: null, hasMore: false }
+
+  const body = await res.json() as {
+    items: Array<{
+      id: string; fieldsData: Record<string, unknown>; layoutType: string
+      cardType: string; jlptLevel: string | null; status: string
+      state: number; due: string; tags: string[] | null
+    }>
+    nextCursor: string | null
+    hasMore: boolean
+  }
+
+  return {
+    items:      body.items,
+    nextCursor: body.nextCursor,
+    hasMore:    body.hasMore,
+  }
+}
+
 // Mirrors GeneratedCardDataSchema from the API — fields_data shape for a vocabulary card.
 export interface GeneratedCardData {
   word:              string

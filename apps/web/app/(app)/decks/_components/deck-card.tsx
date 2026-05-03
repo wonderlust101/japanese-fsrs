@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import type { DeckRow } from '@/lib/actions/decks.actions'
 import { getDeckStatsAction } from '@/lib/actions/decks.actions'
+import { queryKeys } from '@/lib/api/queryKeys'
 
 const BADGE: Record<DeckRow['deckType'], string> = {
   vocabulary: 'bg-primary-100 text-primary-700',
@@ -19,7 +20,7 @@ interface Props {
 
 export function DeckCard({ deck, index }: Props) {
   const { data: stats } = useQuery({
-    queryKey: ['deck-stats', deck.id],
+    queryKey: queryKeys.decks.detail(deck.id),
     queryFn:  () => getDeckStatsAction(deck.id),
   })
 

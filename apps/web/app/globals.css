@@ -60,6 +60,20 @@
   --color-accent:    var(--color-primary-500);
   --color-accent-bg: var(--color-primary-50);
 
+  /* ── JLPT level badge colors — UX-UI-SPEC §4.5 ──────────────────── */
+  --color-jlpt-n5-bg:       #DCFCE7;
+  --color-jlpt-n5-text:     #15803D;
+  --color-jlpt-n4-bg:       #D1FAE5;
+  --color-jlpt-n4-text:     #065F46;
+  --color-jlpt-n3-bg:       #DBEAFE;
+  --color-jlpt-n3-text:     #1D4ED8;
+  --color-jlpt-n2-bg:       #EDE9FE;
+  --color-jlpt-n2-text:     #6D28D9;
+  --color-jlpt-n1-bg:       #FEE2E2;
+  --color-jlpt-n1-text:     #B91C1C;
+  --color-jlpt-beyond-bg:   #FEF3C7;
+  --color-jlpt-beyond-text: #92400E;
+
   /* ── Shadows ─────────────────────────────────────────────────────── */
   --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.06);
   --shadow-card:  0 4px 12px rgba(0, 0, 0, 0.08);

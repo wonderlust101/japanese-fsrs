@@ -48,16 +48,20 @@ export const updateCardSchema = z.object({
 export const cardIdParamSchema  = z.object({ id:     z.string().uuid('Invalid card ID') })
 export const deckIdParamSchema  = z.object({ deckId: z.string().uuid('Invalid deck ID') })
 
+export const cardStatusFilterEnum = z.enum(['all', 'new', 'learning', 'review', 'suspended'])
+
 export const listCardsQuerySchema = z.object({
   limit:  z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  cursor: z.string().uuid().optional(),
+  status: cardStatusFilterEnum.optional(),
 })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type CreateCardInput = z.infer<typeof createCardSchema>
-export type UpdateCardInput = z.infer<typeof updateCardSchema>
-export type ListCardsQuery  = z.infer<typeof listCardsQuerySchema>
-export type CardType        = z.infer<typeof cardTypeEnum>
-export type LayoutType      = z.infer<typeof layoutTypeEnum>
-export type JlptLevel       = z.infer<typeof jlptLevelEnum>
+export type CreateCardInput    = z.infer<typeof createCardSchema>
+export type UpdateCardInput    = z.infer<typeof updateCardSchema>
+export type ListCardsQuery     = z.infer<typeof listCardsQuerySchema>
+export type CardType           = z.infer<typeof cardTypeEnum>
+export type LayoutType         = z.infer<typeof layoutTypeEnum>
+export type JlptLevel          = z.infer<typeof jlptLevelEnum>
+export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>
