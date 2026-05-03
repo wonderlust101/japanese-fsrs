@@ -4,6 +4,7 @@ import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { CARD_COLUMNS, toCardRow, type CardRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type { SubmitReviewInput } from '../schemas/review.schema.ts'
+import type { SessionSummary, SessionLeech } from '@fsrs-japanese/shared-types'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export async function submitBatch(
         review.rating,
         userId,
         review.reviewTimeMs,
+        review.sessionId,
       )
       results.push(result)
     } catch (err) {
@@ -185,4 +187,84 @@ export async function submitBatch(
   }
 
   return { results, errors }
+}
+
+/**
+ * Returns aggregate stats for all reviews that share the given session_id.
+ *
+ * Leeches are matched by card_id + a time window anchored to the session's
+ * reviewed_at range. A 5-second buffer is added to the upper bound because
+ * leech rows are written inside the same DB transaction as the review log,
+ * but their created_at may differ by a few milliseconds due to statement
+ * ordering within the transaction.
+ */
+export async function getSessionSummary(
+  sessionId: string,
+  userId:    string,
+): Promise<SessionSummary> {
+  const { data: logs, error: logsError } = await supabaseAdmin
+    .from('review_logs')
+    .select('card_id, rating, review_time_ms, reviewed_at')
+    .eq('session_id', sessionId)
+    .eq('user_id', userId)
+
+  if (logsError !== null) {
+    throw new AppError(500, `Failed to fetch session logs: ${logsError.message}`)
+  }
+  if (logs === null || logs.length === 0) {
+    throw new AppError(404, `Session ${sessionId} not found`)
+  }
+
+  // ── Aggregate stats ──────────────────────────────────────────────────────────
+  const breakdown = { again: 0, hard: 0, good: 0, easy: 0 }
+  let totalTimeMs = 0
+
+  for (const log of logs) {
+    const rating = log.rating as keyof typeof breakdown
+    if (rating in breakdown) breakdown[rating]++
+    totalTimeMs += (log.review_time_ms as number | null) ?? 0
+  }
+
+  const total      = logs.length
+  const accuracyPct = total === 0
+    ? 0
+    : Math.round(((breakdown.good + breakdown.easy) / total) * 1000) / 10
+
+  // ── Leech lookup ─────────────────────────────────────────────────────────────
+  const cardIds = [...new Set(logs.map((l) => l.card_id as string))]
+
+  const reviewedAts = logs.map((l) => new Date(l.reviewed_at as string).getTime())
+  const minReviewedAt = new Date(Math.min(...reviewedAts)).toISOString()
+  const maxReviewedAtMs = Math.max(...reviewedAts)
+  const maxReviewedAt = new Date(maxReviewedAtMs + 5_000).toISOString()
+
+  const { data: leechRows, error: leechError } = await supabaseAdmin
+    .from('leeches')
+    .select('id, card_id, diagnosis, prescription, resolved, created_at')
+    .in('card_id', cardIds)
+    .eq('user_id', userId)
+    .gte('created_at', minReviewedAt)
+    .lte('created_at', maxReviewedAt)
+
+  if (leechError !== null) {
+    throw new AppError(500, `Failed to fetch session leeches: ${leechError.message}`)
+  }
+
+  const leeches: SessionLeech[] = (leechRows ?? []).map((l) => ({
+    leechId:      l.id as string,
+    cardId:       l.card_id as string,
+    diagnosis:    (l.diagnosis as string | null) ?? null,
+    prescription: (l.prescription as string | null) ?? null,
+    resolved:     l.resolved as boolean,
+    createdAt:    l.created_at as string,
+  }))
+
+  return {
+    sessionId,
+    totalCards: total,
+    totalTimeMs,
+    accuracyPct,
+    ratingBreakdown: breakdown,
+    leeches,
+  }
 }

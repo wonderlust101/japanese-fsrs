@@ -9,7 +9,12 @@ export const submitReviewSchema = z.object({
   cardId:       z.string().uuid('Invalid card ID'),
   rating:       reviewRatingEnum,
   reviewTimeMs: z.number().int().min(0).optional(),
+  sessionId:    z.string().uuid('Invalid session ID').optional(),
 }).strict()
+
+export const sessionSummaryParamsSchema = z.object({
+  sessionId: z.string().uuid('Invalid session ID'),
+})
 
 export const batchReviewSchema = z.object({
   reviews: z.array(submitReviewSchema).min(1).max(500),

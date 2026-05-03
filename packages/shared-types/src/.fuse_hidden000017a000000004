@@ -50,26 +50,3 @@ export interface Leech {
   resolvedAt: Date | null
   createdAt: Date
 }
-
-export interface SessionLeech {
-  leechId:      string
-  cardId:       string
-  diagnosis:    string | null
-  prescription: string | null
-  resolved:     boolean
-  createdAt:    string
-}
-
-export interface SessionSummary {
-  sessionId:   string
-  totalCards:  number
-  totalTimeMs: number
-  accuracyPct: number
-  ratingBreakdown: {
-    again: number
-    hard:  number
-    good:  number
-    easy:  number
-  }
-  leeches: SessionLeech[]
-}

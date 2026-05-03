@@ -8,7 +8,7 @@ export { DeckType } from './deck.types.ts'
 export type { Deck, PremadeDeck, UserPremadeSubscription } from './deck.types.ts'
 
 export { ReviewRating } from './review.types.ts'
-export type { ReviewLog, ReviewResult, Leech, SessionLeech, SessionSummary } from './review.types.ts'
+export type { ReviewLog, ReviewResult, Leech } from './review.types.ts'
 
 export type { Profile, UpdateProfileInput } from './user.types.ts'
 

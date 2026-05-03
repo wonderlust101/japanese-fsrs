@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express'
 
-import { submitReviewSchema, batchReviewSchema } from '../schemas/review.schema.ts'
+import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '../schemas/review.schema.ts'
 import * as reviewService  from '../services/review.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { processReview }   from '../services/fsrs.service.ts'
@@ -27,8 +27,8 @@ export const getDue: RequestHandler = async (req, res, next): Promise<void> => {
  */
 export const submit: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { cardId, rating, reviewTimeMs } = submitReviewSchema.parse(req.body)
-    const result = await processReview(cardId, rating, req.user.id, reviewTimeMs)
+    const { cardId, rating, reviewTimeMs, sessionId } = submitReviewSchema.parse(req.body)
+    const result = await processReview(cardId, rating, req.user.id, reviewTimeMs, sessionId)
     res.json({ card: result })
   } catch (err) {
     next(err)
@@ -60,6 +60,21 @@ export const forecast: RequestHandler = async (req, res, next): Promise<void> =>
   try {
     const data = await reviewService.getReviewForecast(req.user.id)
     res.json(data)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /api/v1/reviews/session-summary/:sessionId
+ * Returns aggregate stats for a completed review session: total cards, time
+ * spent, accuracy, per-rating breakdown, and any leeches triggered.
+ */
+export const sessionSummary: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const { sessionId } = sessionSummaryParamsSchema.parse(req.params)
+    const summary = await reviewService.getSessionSummary(sessionId, req.user.id)
+    res.json(summary)
   } catch (err) {
     next(err)
   }

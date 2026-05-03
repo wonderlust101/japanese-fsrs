@@ -195,10 +195,11 @@ function getScheduler(cardType: string): TsFsrsInstance {
  * PostgreSQL transaction via the `process_review` RPC.
  */
 export async function processReview(
-  cardId: string,
-  rating: ReviewRating,
-  userId: string,
+  cardId:       string,
+  rating:       ReviewRating,
+  userId:       string,
   reviewTimeMs?: number,
+  sessionId?:   string,
 ): Promise<ProcessReviewResult> {
   // ── 1. Fetch card — filter by user_id to exclude premade source cards ────────
   const { data, error: fetchError } = await supabaseAdmin
@@ -267,6 +268,7 @@ export async function processReview(
     p_last_review_before:    row.last_review ?? null,
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
+    p_session_id:            sessionId ?? null,
   })
 
   if (rpcError !== null) {
