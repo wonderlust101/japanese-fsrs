@@ -6,7 +6,7 @@ import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schema
 // ─── Column projection ────────────────────────────────────────────────────────
 // Excludes tokens, parsed_at, embedding — internal/heavy fields not needed by clients.
 
-const CARD_COLUMNS = [
+export const CARD_COLUMNS = [
   'id',
   'user_id',
   'deck_id',
@@ -72,7 +72,7 @@ export interface CreateCardMeta {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function toCardRow(raw: Record<string, unknown>): CardRow {
+export function toCardRow(raw: Record<string, unknown>): CardRow {
   return {
     id:            raw['id'] as string,
     userId:        raw['user_id'] as string,
