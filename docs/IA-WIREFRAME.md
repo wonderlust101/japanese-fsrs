@@ -458,8 +458,8 @@ The review session hides the sidebar and expands to fill the viewport. This is t
 │                   │  └───────────────────────────────────────────┘ │
 │                   │                                                 │
 │                   │  ┌────────────────┐  ┌────────────────────┐   │
-│                   │  │ ACCURACY       │  │ CARD TYPE BREAKDOWN│   │
-│                   │  │ by card type   │  │                    │   │
+│                   │  │ ACCURACY       │  │  LAYOUT BREAKDOWN  │   │
+│                   │  │ by layout      │  │                    │   │
 │                   │  │                │  │ Comprehension  91%   │
 │                   │  │ [Bar chart]    │  │ Production     76%   │
 │                   │  │                │  │ Listening      79%   │
@@ -606,7 +606,7 @@ How the major components relate spatially on key surfaces.
 ┌──────────────────────────────────────────────────────────────────────┐
 │  <ReviewSessionLayout> (full-bleed, no sidebar)                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  <SessionHeader> — deck name, card type, end button          │   │
+│  │  <SessionHeader> — deck name, layout, end button             │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │  <SessionProgress> — progress bar + count                    │   │

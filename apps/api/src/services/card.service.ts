@@ -243,6 +243,43 @@ export async function createCard(
   return toCardRow(data as unknown as Record<string, unknown>)
 }
 
+const SHARED_CARD_FIELDS = ['word', 'reading', 'meaning'] as const
+type SharedFieldKey = (typeof SHARED_CARD_FIELDS)[number]
+
+async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<void> {
+  const sharedValues: Partial<Record<SharedFieldKey, unknown>> = {}
+  for (const key of SHARED_CARD_FIELDS) {
+    if (key in updatedCard.fieldsData) {
+      sharedValues[key] = updatedCard.fieldsData[key]
+    }
+  }
+  if (Object.keys(sharedValues).length === 0) return
+
+  const rootId = updatedCard.parentCardId ?? updatedCard.id
+
+  const { data: siblings, error } = await supabaseAdmin
+    .from('cards')
+    .select('id, fields_data')
+    .eq('user_id', userId)
+    .or(`parent_card_id.eq.${rootId},id.eq.${rootId}`)
+    .neq('id', updatedCard.id)
+
+  if (error !== null || siblings === null || siblings.length === 0) return
+
+  const now = new Date().toISOString()
+  for (const sibling of siblings) {
+    const merged = {
+      ...(sibling.fields_data as Record<string, unknown>),
+      ...sharedValues,
+    }
+    await supabaseAdmin
+      .from('cards')
+      .update({ fields_data: merged, updated_at: now })
+      .eq('id', sibling.id as string)
+      .eq('user_id', userId)
+  }
+}
+
 /**
  * Applies a partial update to a card's content fields.
  * FSRS state fields must only be modified via fsrs.service.ts.
@@ -281,7 +318,13 @@ export async function updateCard(
     throw new AppError(404, 'Card not found')
   }
 
-  return toCardRow(data as unknown as Record<string, unknown>)
+  const updated = toCardRow(data as unknown as Record<string, unknown>)
+
+  if (input.fields_data !== undefined) {
+    await syncSharedFields(updated, userId)
+  }
+
+  return updated
 }
 
 /**

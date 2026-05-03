@@ -260,12 +260,11 @@ CREATE TABLE user_premade_subscriptions (
 
 ### 4.4 Ultra-Lean Card Architecture
 
-To prioritize "Premium Defaults" and system performance, Tomo uses an "Ultra-Lean" model. All layouts are defined in the application code, and the database stores the content in a flexible JSONB column. This ensures the number of fields available can change dynamically to adapt to different card types (e.g., Vocabulary vs. Grammar).
+To prioritize "Premium Defaults" and system performance, Tomo uses an "Ultra-Lean" model. All layouts are defined in the application code, and the database stores the content in a flexible JSONB column. This ensures the number of fields available can change dynamically to adapt to different layouts (e.g., Comprehension vs. Production).
 
 ```sql
 CREATE TYPE card_status AS ENUM ('new', 'learning', 'review', 'relearning', 'suspended');
-CREATE TYPE card_type AS ENUM ('comprehension', 'production', 'listening');
-CREATE TYPE layout_type AS ENUM ('vocabulary', 'grammar', 'sentence');
+CREATE TYPE layout_type AS ENUM ('comprehension', 'production', 'listening');
 CREATE TYPE jlpt_level AS ENUM ('N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt');
 CREATE TYPE register_tag AS ENUM ('casual', 'formal', 'written', 'archaic', 'slang', 'gendered', 'neutral');
 
@@ -275,17 +274,14 @@ CREATE TABLE cards (
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   deck_id UUID REFERENCES decks(id) ON DELETE CASCADE,
   
-  -- The Layout Blueprint (System-defined)
-  layout_type layout_type NOT NULL DEFAULT 'vocabulary',
+  -- The Review Layout (drives FSRS scheduler selection and card presentation)
+  layout_type layout_type NOT NULL DEFAULT 'comprehension',
   
   -- The Content (The "Flexible" Part replacing 20 columns)
   -- The fields available change dynamically based on the layout_type.
-  -- e.g., Vocabulary: {"word": "...", "meaning": "..."}
-  -- e.g., Grammar: {"pattern": "...", "usage_rule": "...", "examples": [...]}
+  -- e.g., Comprehension: {"word": "...", "reading": "...", "meaning": "..."}
+  -- e.g., Production: {"meaning": "...", "word": "...", "reading": "..."}
   fields_data JSONB NOT NULL DEFAULT '{}', 
-  
-  -- Cognitive Track (For FSRS Math)
-  card_type card_type NOT NULL DEFAULT 'comprehension',
   
   -- Sibling & Conjugation Sync (The v1.3 Bridge)
   -- Links a Production card back to its Comprehension sibling,
@@ -479,7 +475,7 @@ The Express API is versioned at `/api/v1`. All endpoints require a valid Supabas
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/analytics/heatmap` | Retention heatmap data (last 365 days) |
-| GET | `/api/v1/analytics/accuracy` | Accuracy breakdown by card type |
+| GET | `/api/v1/analytics/accuracy` | Accuracy breakdown by layout |
 | GET | `/api/v1/analytics/jlpt-gap` | JLPT gap analysis for target level |
 | GET | `/api/v1/analytics/streak` | Current and longest streak |
 | GET | `/api/v1/analytics/forecast` | Projected milestone dates |
@@ -831,12 +827,12 @@ Verbs and adjectives use a parent-child relationship for their 20+ conjugation f
 - Success on a conjugated form provides a small stability boost (0.2x) to the parent dictionary form.
 - Success on the dictionary form provides a significant stability boost (0.5x) to all known conjugated forms.
 
-### 9.4 Per-Card-Type Retention Parameters
+### 9.4 Per-Layout Retention Parameters
 
-Each cognitive card type gets its own FSRS instance baked at startup with a different `request_retention`. This models measurably different forgetting curves per modality in Japanese learners. Do not consolidate into a single parameter set.
+Each layout gets its own FSRS instance baked at startup with a different `request_retention`. This models measurably different forgetting curves per modality in Japanese learners. Do not consolidate into a single parameter set.
 
 ```typescript
-const schedulers: Record<CardType, FSRS> = {
+const schedulers: Record<LayoutType, FSRS> = {
     // Passive comprehension is easiest; keep retention high to ensure mastery.
     comprehension: fsrs(generatorParameters({ request_retention: 0.90 })),
 
@@ -849,7 +845,7 @@ const schedulers: Record<CardType, FSRS> = {
 }
 ```
 
-These match the `card_type` DB enum: `comprehension`, `production`, `listening`.
+These match the `layout_type` DB enum: `comprehension`, `production`, `listening`.
 
 ### 9.5 Advanced FSRS Features
 

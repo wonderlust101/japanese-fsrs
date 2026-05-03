@@ -27,7 +27,7 @@ Existing spaced repetition tools (Anki, Bunpro, jpdb.io, Migaku) treat Japanese 
 
 ### 1.2 Solution
 
-An AI-native spaced repetition application built specifically for Japanese learners. The core engine is an implementation of the FSRS (Free Spaced Repetition Scheduler) algorithm tuned for Japanese-specific card types. AI augments every layer — card generation, weakness diagnosis, personalized mnemonics, and contextual sentence creation — in a single, self-contained application.
+An AI-native spaced repetition application built specifically for Japanese learners. The core engine is an implementation of the FSRS (Free Spaced Repetition Scheduler) algorithm tuned for Japanese-specific review layouts. AI augments every layer — card generation, weakness diagnosis, personalized mnemonics, and contextual sentence creation — in a single, self-contained application.
 
 ### 1.3 Target Audience
 
@@ -97,7 +97,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 |---|---|---|
 | SRS-01 | FSRS algorithm implementation with Japanese-specific scheduling parameters | 🟢 P0 |
 | SRS-02 | Separate scheduling tracks for comprehension (Japanese → concept), production (concept → Japanese), and listening (audio → concept) | 🟢 P0 |
-| SRS-03 | Linked card types — each vocabulary item spawns multiple card types that share performance data | 🟢 P0 |
+| SRS-03 | Linked card layouts — each vocabulary item can have multiple layouts (comprehension, production, listening) that share performance data | 🟢 P0 |
 | SRS-04 | Leech detection with AI-powered diagnosis and prescription | 🟢 P0 |
 | SRS-05 | Forgetting curve visualization per card and per deck | 🟡 P1 |
 | SRS-06 | Customizable retention target with FSRS global interval adjustment | 🟢 P0 |

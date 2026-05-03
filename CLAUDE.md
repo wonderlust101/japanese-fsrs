@@ -147,8 +147,8 @@ The semantic similarity feature ("similar cards") does not require billions of v
 ### Why Upstash Redis?
 Serverless-compatible, no persistent connection needed. Used for three purposes: AI response caching (reduce OpenAI costs), rate limiting AI endpoints per user, and buffering offline review submissions for batch retry.
 
-### FSRS parameters are per card type
-Comprehension, production, and listening cards have separate `generatorParameters` instances with different `request_retention` targets. Do not consolidate them into a single parameter set — each card type has measurably different forgetting curves in Japanese.
+### FSRS parameters are per layout
+Comprehension, production, and listening layouts have separate `generatorParameters` instances with different `request_retention` targets. Do not consolidate them into a single parameter set — each layout has measurably different forgetting curves in Japanese.
 
 ---
 
@@ -227,7 +227,8 @@ Always use the `Rating` enum constants from `ts-fsrs`, not raw integers.
 - **Use `f.next()` for all normal reviews, not `f.repeat()`.** `f.repeat()` computes all 4 rating outcomes simultaneously and is only valid inside `previewNextStates()`. Never call `f.repeat()` for an actual user review — it does not persist state and calling it more than once is not idempotent.
 - **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
 - **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
-- **Per-type FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across card types.
+- **Per-layout FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across layouts.
+- **Linked Card Sync:** When updating content fields (`word`, `reading`, `meaning`) on a card, those shared values must propagate to all sibling cards via `syncSharedFields` in `card.service.ts`. When updating FSRS state, synchronize `stability` and `difficulty` to sibling cards to prevent redundant reviews.
 - **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.
 - **Zustand actions must be inside the `actions` sub-object** in each store definition. Do not add actions at the top level of the store interface.

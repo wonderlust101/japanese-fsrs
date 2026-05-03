@@ -148,8 +148,8 @@ The semantic similarity feature ("similar cards") does not require billions of v
 ### Why Upstash Redis?
 Serverless-compatible, no persistent connection needed. Used for three purposes: AI response caching (reduce OpenAI costs), rate limiting AI endpoints per user, and buffering offline review submissions for batch retry.
 
-### FSRS parameters are per card type
-Comprehension, production, and listening cards have separate `generatorParameters` instances with different `request_retention` targets. Do not consolidate them into a single parameter set — each card type has measurably different forgetting curves in Japanese.
+### FSRS parameters are per layout
+Comprehension, production, and listening layouts have separate `generatorParameters` instances with different `request_retention` targets. Do not consolidate them into a single parameter set — each layout has measurably different forgetting curves in Japanese.
 
 ---
 
@@ -171,7 +171,7 @@ Comprehension, production, and listening cards have separate `generatorParameter
 - Never write raw SQL in route handlers. All queries go through service functions in `apps/api/src/services/`.
 - All tables have Row Level Security enabled. When writing new migrations, always add RLS policies. Do not disable RLS.
 - FSRS state fields (`stability`, `difficulty`, `due`, `state`, etc.) on the `cards` table must only be updated via `fsrs.service.ts`. Do not update them directly elsewhere.
-- **Ultra-Lean Layouts:** Do not create a database table for layouts. All layouts (Vocabulary, Grammar, Sentence) are defined in the application code. Content is stored in the flexible `fields_data` JSONB column.
+- **Ultra-Lean Layouts:** Do not create a database table for layouts. All layouts (Comprehension, Production, Listening) are defined in the application code. Content is stored in the flexible `fields_data` JSONB column.
 
 ### Frontend
 - Use the App Router only. Do not add anything to `pages/`.
@@ -218,7 +218,7 @@ Always use the `Rating` enum constants from `@open-spaced-repetition/binding`, n
 
 - **Do not call `f.repeat()` more than once per review.** It is not idempotent. Call it once, persist the result, and return it.
 - **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
-- **Linked Card Sync (v1.3):** Sibling cards sharing a `parent_card_id` must be synchronized. When updating FSRS state for a card, you must synchronize the `stability` and `difficulty` to any sibling cards to prevent redundant reviews.
+- **Linked Card Sync (v1.3):** Sibling cards sharing a `parent_card_id` must be synchronized. When updating content fields (`word`, `reading`, `meaning`), those shared values must propagate to all sibling cards via `syncSharedFields` in `card.service.ts`. When updating FSRS state, synchronize `stability` and `difficulty` to sibling cards to prevent redundant reviews.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.
 - **Zustand actions must be inside the `actions` sub-object** in each store definition. Do not add actions at the top level of the store interface.
 - **pgvector queries use `<=>` (cosine distance), not `<->` (L2 distance).** The embedding index is built for cosine. Switching operators will not use the index.
