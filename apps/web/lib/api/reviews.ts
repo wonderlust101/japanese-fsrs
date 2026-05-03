@@ -23,11 +23,14 @@ export function useSubmitReview() {
       reviewTimeMs?: number
     }) => submitReviewAction(cardId, rating, reviewTimeMs),
 
-    onError: (_err, variables) => {
+    onError: (err, variables) => {
+      console.error('[Review] Submission failed — queuing offline:', err)
       offlineQueue.add(variables)
     },
 
     onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.heatmap() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.accuracy() })
     },

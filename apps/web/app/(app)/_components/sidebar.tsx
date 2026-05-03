@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { LayoutDashboard, Library, BookOpen, BarChart2, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
@@ -42,9 +43,11 @@ function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
 export function Sidebar({ user }: { user: User | null }) {
   const pathname = usePathname()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   async function handleSignOut() {
     await signOutAction()
+    queryClient.clear()
     router.push('/login')
     router.refresh()
   }

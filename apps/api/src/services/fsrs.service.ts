@@ -208,8 +208,11 @@ export async function processReview(
     .eq('user_id', userId)
     .single()
 
-  if (fetchError !== null || data === null) {
-    throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
+  if (fetchError !== null) {
+    throw new AppError(500, `DB error fetching card ${cardId}: ${fetchError.message}`)
+  }
+  if (data === null) {
+    throw new AppError(404, `Card ${cardId} not found or does not belong to user (userId=${userId})`)
   }
 
   const row = data as unknown as CardRow
