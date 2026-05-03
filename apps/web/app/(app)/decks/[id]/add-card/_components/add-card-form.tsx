@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { TopBar }                from '@/app/(app)/_components/top-bar'
@@ -12,6 +12,7 @@ import { CardSkeleton }          from './card-skeleton'
 import { GeneratedCardPreview }  from './card-preview'
 import { generateCardPreviewAction, saveCardAction } from '@/lib/actions/cards.actions'
 import type { GeneratedCardData } from '@/lib/actions/cards.actions'
+import { queryKeys } from '@/lib/api/queryKeys'
 
 type Phase = 'input' | 'generating' | 'preview' | 'saving'
 
@@ -21,7 +22,8 @@ interface Props {
 }
 
 export function AddCardForm({ deckId, deckName }: Props) {
-  const router = useRouter()
+  const router      = useRouter()
+  const queryClient = useQueryClient()
 
   const [word,    setWord]    = useState('')
   const [phase,   setPhase]   = useState<Phase>('input')
@@ -41,6 +43,8 @@ export function AddCardForm({ deckId, deckName }: Props) {
   const saveMutation = useMutation({
     mutationFn: () => saveCardAction(deckId, { fields_data: preview! }),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })
       router.push(`/decks/${deckId}`)
     },
   })

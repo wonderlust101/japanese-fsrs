@@ -135,3 +135,53 @@ export async function saveCardAction(deckId: string, payload: SaveCardPayload): 
     throw new Error(body.error ?? 'Failed to save card')
   }
 }
+
+// ─── Card detail types ────────────────────────────────────────────────────────
+
+export interface CardDetail {
+  id:            string
+  deckId:        string
+  layoutType:    string
+  cardType:      string
+  fieldsData:    Record<string, unknown>
+  jlptLevel:     string | null
+  tags:          string[] | null
+  status:        string
+  state:         number
+  due:           string
+  stability:     number
+  difficulty:    number
+  elapsedDays:   number
+  scheduledDays: number
+  reps:          number
+  lapses:        number
+  lastReview:    string | null
+  createdAt:     string
+  updatedAt:     string
+}
+
+export async function getCardAction(deckId: string, cardId: string): Promise<CardDetail | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) return null
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/decks/${deckId}/cards/${cardId}`,
+    { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' },
+  )
+  if (!res.ok) return null
+  return res.json() as Promise<CardDetail>
+}
+
+export async function getSimilarCardsAction(cardId: string): Promise<CardItem[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) return []
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/cards/${cardId}/similar`,
+    { headers: { Authorization: `Bearer ${session.access_token}` }, cache: 'no-store' },
+  )
+  if (!res.ok) return []
+  return res.json() as Promise<CardItem[]>
+}
