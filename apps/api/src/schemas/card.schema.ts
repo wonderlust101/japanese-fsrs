@@ -40,7 +40,7 @@ export const updateCardSchema = z.object({
   layout_type: layoutTypeEnum.optional(),
   card_type:   cardTypeEnum.optional(),
   tags:        z.array(z.string()).optional(),
-  jlpt_level:  jlptLevelEnum.optional(),
+  jlpt_level:  jlptLevelEnum.nullable().optional(),
 }).strict()
 
 // ─── Param / query schemas ────────────────────────────────────────────────────

@@ -24,7 +24,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
       ref={ref}
       onClose={onClose}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      className="w-full max-w-md p-0 border-0 rounded-[var(--radius-xl)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-lg)] [&::backdrop]:bg-neutral-900/40"
+      className="m-auto w-full max-w-md p-0 border-0 rounded-[var(--radius-xl)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-lg)] [&::backdrop]:bg-neutral-900/40"
     >
       <div className="p-6">
         <div className="flex items-center justify-between mb-5">

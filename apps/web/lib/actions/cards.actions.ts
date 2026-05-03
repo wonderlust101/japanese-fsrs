@@ -185,3 +185,45 @@ export async function getSimilarCardsAction(cardId: string): Promise<CardItem[]>
   if (!res.ok) return []
   return res.json() as Promise<CardItem[]>
 }
+
+// ─── Card edit / delete actions ───────────────────────────────────────────────
+
+export interface UpdateCardPayload {
+  fields_data?: Record<string, unknown>
+  jlpt_level?:  string | null
+  tags?:        string[]
+}
+
+export async function updateCardAction(cardId: string, payload: UpdateCardPayload): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/cards/${cardId}`,
+    {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body:    JSON.stringify(payload),
+    },
+  )
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    throw new Error(body.error ?? 'Failed to update card')
+  }
+}
+
+export async function deleteCardAction(cardId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/cards/${cardId}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    throw new Error(body.error ?? 'Failed to delete card')
+  }
+}
