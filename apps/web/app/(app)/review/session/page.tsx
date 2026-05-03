@@ -9,6 +9,7 @@ import {
   useCurrentCard,
   useIsSessionStarted,
   useSessionHistory,
+  useSessionId,
   useSessionActions,
 } from '@/stores/useReviewSessionStore'
 
@@ -17,6 +18,7 @@ export default function ReviewSessionPage() {
   const isStarted      = useIsSessionStarted()
   const currentCard    = useCurrentCard()
   const sessionHistory = useSessionHistory()
+  const sessionId      = useSessionId()
   const { endSession } = useSessionActions()
   const { mutate: submitReview, isError } = useSubmitReview()
   const [hasSyncError, setHasSyncError] = useState(false)
@@ -46,17 +48,17 @@ export default function ReviewSessionPage() {
     const isLastCard   = currentCard === undefined
 
     submitReview(
-      { cardId: last.card.id, rating: last.rating, reviewTimeMs },
+      { cardId: last.card.id, rating: last.rating, reviewTimeMs, ...(sessionId !== null ? { sessionId } : {}) },
       isLastCard
         ? {
             onSettled: () => {
               endSession()
-              router.replace('/review')
+              router.replace(`/review/summary?id=${sessionId}`)
             },
           }
         : undefined,
     )
-  }, [sessionHistory, submitReview, currentCard, endSession, router])
+  }, [sessionHistory, submitReview, currentCard, endSession, sessionId, router])
 
   // ② Reset card timer after mutation fires (declared after ① so it runs second)
   useEffect(() => {

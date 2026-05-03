@@ -10,6 +10,7 @@ import {
   submitBatchAction,
   getDueCardsAction,
   getReviewForecastAction,
+  getSessionSummaryAction,
 } from '../actions/reviews.actions'
 import type { ReviewRating } from '@fsrs-japanese/shared-types'
 
@@ -17,11 +18,12 @@ export function useSubmitReview() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ cardId, rating, reviewTimeMs }: {
+    mutationFn: ({ cardId, rating, reviewTimeMs, sessionId }: {
       cardId:        string
       rating:        ReviewRating
       reviewTimeMs?: number
-    }) => submitReviewAction(cardId, rating, reviewTimeMs),
+      sessionId?:    string
+    }) => submitReviewAction(cardId, rating, reviewTimeMs, sessionId),
 
     onError: (err, variables) => {
       console.error('[Review] Submission failed — queuing offline:', err)
@@ -50,6 +52,15 @@ export function useReviewForecast() {
     queryKey: queryKeys.reviews.forecast(),
     queryFn:  getReviewForecastAction,
     staleTime: 1000 * 60 * 30,
+  })
+}
+
+export function useSessionSummary(sessionId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.reviews.summary(sessionId ?? ''),
+    queryFn:  () => getSessionSummaryAction(sessionId!),
+    enabled:  sessionId !== null,
+    staleTime: Infinity,
   })
 }
 

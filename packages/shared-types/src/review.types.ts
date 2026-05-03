@@ -54,6 +54,9 @@ export interface Leech {
 export interface SessionLeech {
   leechId:      string
   cardId:       string
+  deckId:       string
+  word:         string
+  reading:      string | null
   diagnosis:    string | null
   prescription: string | null
   resolved:     boolean
@@ -65,6 +68,7 @@ export interface SessionSummary {
   totalCards:  number
   totalTimeMs: number
   accuracyPct: number
+  nextDueAt:   string | null
   ratingBreakdown: {
     again: number
     hard:  number

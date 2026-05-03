@@ -11,8 +11,9 @@ export const queryKeys = {
     similar: (id: string)     => [...queryKeys.cards.all(), 'similar', id]        as const,
   },
   reviews: {
-    due:      () => ['reviews', 'due']      as const,
-    forecast: () => ['reviews', 'forecast'] as const,
+    due:      ()           => ['reviews', 'due']            as const,
+    forecast: ()           => ['reviews', 'forecast']       as const,
+    summary:  (id: string) => ['reviews', 'summary', id]   as const,
   },
   analytics: {
     heatmap:  () => ['analytics', 'heatmap']  as const,

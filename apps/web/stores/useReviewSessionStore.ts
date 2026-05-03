@@ -18,6 +18,8 @@ interface ReviewSessionState {
   sessionHistory: SessionHistoryEntry[]
   /** True while a session is active; false after endSession() or before startSession(). */
   sessionStarted: boolean
+  /** UUID generated at session start; kept after endSession() so the summary page can fetch. Cleared by reset(). */
+  sessionId:      string | null
 }
 
 // ── Actions (functions only) ──────────────────────────────────────────────────
@@ -47,6 +49,7 @@ const initialState: ReviewSessionState = {
   showAnswer:     false,
   sessionHistory: [],
   sessionStarted: false,
+  sessionId:      null,
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -64,6 +67,7 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
             showAnswer:     false,
             sessionHistory: [],
             sessionStarted: true,
+            sessionId:      crypto.randomUUID(),
           }),
 
         flipCard: () => set({ showAnswer: true }),
@@ -97,4 +101,5 @@ export const useCurrentCard      = () => useReviewSessionStore((s) => s.queue[s.
 export const useShowAnswer       = () => useReviewSessionStore((s) => s.showAnswer)
 export const useSessionHistory   = () => useReviewSessionStore((s) => s.sessionHistory)
 export const useIsSessionStarted = () => useReviewSessionStore((s) => s.sessionStarted)
+export const useSessionId        = () => useReviewSessionStore((s) => s.sessionId)
 export const useSessionActions   = () => useReviewSessionStore((s) => s.actions)

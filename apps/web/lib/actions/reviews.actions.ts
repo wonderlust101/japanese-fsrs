@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import type { ReviewRating } from '@fsrs-japanese/shared-types'
+import type { ReviewRating, SessionSummary } from '@fsrs-japanese/shared-types'
 
 /** Shape of a card as returned by the Express API (content in fieldsData). */
 export interface DueCard {
@@ -41,9 +41,10 @@ export async function getDueCardsAction(): Promise<DueCard[]> {
 }
 
 export async function submitReviewAction(
-  cardId:       string,
-  rating:       ReviewRating,
+  cardId:        string,
+  rating:        ReviewRating,
   reviewTimeMs?: number,
+  sessionId?:    string,
 ): Promise<{ card: DueCard }> {
   const supabase = await createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
@@ -55,13 +56,31 @@ export async function submitReviewAction(
       'Content-Type': 'application/json',
       Authorization:  `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ cardId, rating, reviewTimeMs }),
+    body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }),
   })
   if (!res.ok) {
     const body = await res.json() as { error?: string }
     throw new Error(body.error ?? 'Failed to submit review')
   }
   return res.json() as Promise<{ card: DueCard }>
+}
+
+export async function getSessionSummaryAction(
+  sessionId: string,
+): Promise<SessionSummary> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/session-summary/${encodeURIComponent(sessionId)}`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  )
+  if (!res.ok) {
+    const body = await res.json() as { error?: string }
+    throw new Error(body.error ?? 'Failed to fetch session summary')
+  }
+  return res.json() as Promise<SessionSummary>
 }
 
 export async function submitBatchAction(

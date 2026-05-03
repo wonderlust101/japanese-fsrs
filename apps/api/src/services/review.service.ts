@@ -204,7 +204,7 @@ export async function getSessionSummary(
 ): Promise<SessionSummary> {
   const { data: logs, error: logsError } = await supabaseAdmin
     .from('review_logs')
-    .select('card_id, rating, review_time_ms, reviewed_at')
+    .select('card_id, rating, review_time_ms, reviewed_at, due_after')
     .eq('session_id', sessionId)
     .eq('user_id', userId)
 
@@ -230,6 +230,12 @@ export async function getSessionSummary(
     ? 0
     : Math.round(((breakdown.good + breakdown.easy) / total) * 1000) / 10
 
+  // Earliest scheduled due date across all cards reviewed in this session.
+  // ISO string sort is lexicographically correct for TIMESTAMPTZ values.
+  const nextDueAt = logs.length > 0
+    ? (logs.map((l) => l.due_after as string).sort()[0] ?? null)
+    : null
+
   // ── Leech lookup ─────────────────────────────────────────────────────────────
   const cardIds = [...new Set(logs.map((l) => l.card_id as string))]
 
@@ -250,20 +256,52 @@ export async function getSessionSummary(
     throw new AppError(500, `Failed to fetch session leeches: ${leechError.message}`)
   }
 
-  const leeches: SessionLeech[] = (leechRows ?? []).map((l) => ({
-    leechId:      l.id as string,
-    cardId:       l.card_id as string,
-    diagnosis:    (l.diagnosis as string | null) ?? null,
-    prescription: (l.prescription as string | null) ?? null,
-    resolved:     l.resolved as boolean,
-    createdAt:    l.created_at as string,
-  }))
+  // Enrich leech rows with card display data (word, reading) and deckId for linking.
+  const cardDataMap = new Map<string, { deckId: string; word: string; reading: string | null }>()
+
+  if ((leechRows ?? []).length > 0) {
+    const leechCardIds = (leechRows ?? []).map((l) => l.card_id as string)
+
+    const { data: cardRows, error: cardError } = await supabaseAdmin
+      .from('cards')
+      .select('id, deck_id, fields_data')
+      .in('id', leechCardIds)
+
+    if (cardError !== null) {
+      throw new AppError(500, `Failed to fetch card data for leeches: ${cardError.message}`)
+    }
+
+    for (const c of cardRows ?? []) {
+      const fields = c.fields_data as Record<string, unknown>
+      cardDataMap.set(c.id as string, {
+        deckId:  c.deck_id as string,
+        word:    (fields['word']    as string)        ?? '',
+        reading: (fields['reading'] as string | null) ?? null,
+      })
+    }
+  }
+
+  const leeches: SessionLeech[] = (leechRows ?? []).map((l) => {
+    const card = cardDataMap.get(l.card_id as string)
+    return {
+      leechId:      l.id as string,
+      cardId:       l.card_id as string,
+      deckId:       card?.deckId  ?? '',
+      word:         card?.word    ?? '',
+      reading:      card?.reading ?? null,
+      diagnosis:    (l.diagnosis    as string | null) ?? null,
+      prescription: (l.prescription as string | null) ?? null,
+      resolved:     l.resolved as boolean,
+      createdAt:    l.created_at as string,
+    }
+  })
 
   return {
     sessionId,
     totalCards: total,
     totalTimeMs,
     accuracyPct,
+    nextDueAt,
     ratingBreakdown: breakdown,
     leeches,
   }
