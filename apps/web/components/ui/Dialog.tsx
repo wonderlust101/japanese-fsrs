@@ -9,7 +9,7 @@ interface DialogProps {
   children: React.ReactNode
 }
 
-export function Dialog({ open, onClose, title, children }: DialogProps) {
+export function Dialog({ open, onClose, title, children }: DialogProps): React.JSX.Element {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {

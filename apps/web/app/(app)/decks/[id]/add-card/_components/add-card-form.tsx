@@ -6,8 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { TopBar }                from '@/app/(app)/_components/top-bar'
-import { Button }                from '@/components/ui/button'
-import { Input }                 from '@/components/ui/input'
+import { Button }                from '@/components/ui/Button'
+import { Input }                 from '@/components/ui/Input'
 import { CardSkeleton }          from './card-skeleton'
 import { GeneratedCardPreview }  from './card-preview'
 import { generateCardPreviewAction, saveCardAction } from '@/lib/actions/cards.actions'
@@ -21,7 +21,7 @@ interface Props {
   deckName: string
 }
 
-export function AddCardForm({ deckId, deckName }: Props) {
+export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
   const router      = useRouter()
   const queryClient = useQueryClient()
 
@@ -41,7 +41,10 @@ export function AddCardForm({ deckId, deckName }: Props) {
   })
 
   const saveMutation = useMutation({
-    mutationFn: () => saveCardAction(deckId, { fields_data: preview! }),
+    mutationFn: () => {
+      if (preview === null) throw new Error('Cannot save: no preview generated')
+      return saveCardAction(deckId, { fields_data: preview })
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })

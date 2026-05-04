@@ -6,8 +6,8 @@ import { useRouter }                               from 'next/navigation'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { TopBar }                   from '@/app/(app)/_components/top-bar'
-import { Button }                   from '@/components/ui/button'
-import { Dialog }                   from '@/components/ui/dialog'
+import { Button }                   from '@/components/ui/Button'
+import { Dialog }                   from '@/components/ui/Dialog'
 import { cn }                       from '@/lib/utils'
 import { queryKeys }                from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
@@ -41,7 +41,7 @@ interface Props {
   deckName: string
 }
 
-export function DeckDetailView({ deckId, deckName }: Props) {
+export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
   const router      = useRouter()
   const queryClient = useQueryClient()
   const [status,      setStatus]      = useState<StatusFilter>('all')

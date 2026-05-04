@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/Button'
+import { Dialog } from '@/components/ui/Dialog'
 
 interface Props {
   open:      boolean

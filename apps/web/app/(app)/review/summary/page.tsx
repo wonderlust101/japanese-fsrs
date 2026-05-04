@@ -4,9 +4,9 @@ import { useEffect, useRef } from 'react'
 import { useRouter }         from 'next/navigation'
 
 import Link               from 'next/link'
-import { Button }            from '@/components/ui/button'
-import { FuriganaText }      from '@/components/ui/furigana-text'
-import { RatingBreakdown }   from '@/components/review/rating-breakdown'
+import { Button }            from '@/components/ui/Button'
+import { FuriganaText }      from '@/components/ui/FuriganaText'
+import { RatingBreakdown }   from '@/components/review/RatingBreakdown'
 import { useSearchParams }    from 'next/navigation'
 import { useSessionSummary } from '@/lib/api/reviews'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
@@ -52,7 +52,7 @@ function MetricSkeleton() {
   )
 }
 
-export default function ReviewSummaryPage() {
+export default function ReviewSummaryPage(): React.JSX.Element {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const sessionId    = searchParams.get('id')
@@ -188,7 +188,7 @@ export default function ReviewSummaryPage() {
                       className="font-japanese text-base font-medium text-neutral-900 group-hover:text-primary-600 transition-colors"
                     />
                   ) : (
-                    <span className="font-japanese text-base font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">
+                    <span lang="ja" className="font-japanese text-base font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">
                       {leech.word}
                     </span>
                   )}

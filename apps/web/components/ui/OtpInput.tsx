@@ -22,7 +22,7 @@ interface OTPInputProps {
 
 // ── OTPInput ──────────────────────────────────────────────────────────────────
 
-export function OTPInput({ onComplete, error, isLoading = false, className }: OTPInputProps) {
+export function OTPInput({ onComplete, error, isLoading = false, className }: OTPInputProps): React.JSX.Element {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
   const inputRefs           = useRef<(HTMLInputElement | null)[]>([])
 

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-export default function OnboardingWelcomePage() {
+export default function OnboardingWelcomePage(): React.JSX.Element {
   const router = useRouter()
 
   return (

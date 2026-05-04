@@ -1,4 +1,4 @@
-export function CardSkeleton() {
+export function CardSkeleton(): React.JSX.Element {
   return (
     <div className="bg-neutral-0 rounded-[var(--radius-lg)] border border-neutral-200 p-6 space-y-4 animate-pulse">
       <div className="space-y-2">

@@ -81,7 +81,7 @@ function EmptyStateCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function DashboardPage() {
+export default async function DashboardPage(): Promise<React.JSX.Element> {
   const user = await getAuthUser()
 
   const greeting = getGreeting()

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { useGenerateSentences } from '@/lib/api/ai'
 import { updateCardAction } from '@/lib/actions/cards.actions'
 import { queryKeys } from '@/lib/api/queryKeys'

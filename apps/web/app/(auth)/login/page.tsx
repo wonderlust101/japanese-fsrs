@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { loginAction } from '@/lib/actions/auth.actions'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
@@ -17,7 +17,7 @@ function friendlyError(message: string): string {
   return FRIENDLY_ERRORS[message] ?? 'Something went wrong. Please try again.'
 }
 
-export default function LoginPage() {
+export default function LoginPage(): React.JSX.Element {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

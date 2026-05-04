@@ -10,7 +10,7 @@ interface Props {
   total:     number
 }
 
-export function RatingBreakdown({ breakdown, total }: Props) {
+export function RatingBreakdown({ breakdown, total }: Props): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3">
       {BARS.map(({ key, label, bar }) => {

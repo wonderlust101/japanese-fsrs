@@ -18,7 +18,7 @@ interface Props {
   index: number
 }
 
-export function DeckCard({ deck, index }: Props) {
+export function DeckCard({ deck, index }: Props): React.JSX.Element {
   const { data: stats } = useQuery({
     queryKey: queryKeys.decks.detail(deck.id),
     queryFn:  () => getDeckStatsAction(deck.id),

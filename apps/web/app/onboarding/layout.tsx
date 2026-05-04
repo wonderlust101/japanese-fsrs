@@ -18,7 +18,7 @@ export const metadata: Metadata = {
  * selections survive page refreshes and are accessible across all five pages
  * without prop drilling or a React context wrapper here.
  */
-export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
+export default function OnboardingLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col">
       <OnboardingHeader />

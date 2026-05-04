@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter }                   from 'next/navigation'
 
-import { ReviewCard }                      from '@/components/review/review-card'
+import { ReviewCard }                      from '@/components/review/ReviewCard'
 import { useSubmitReview, useOfflineSync } from '@/lib/api/reviews'
 import {
   useCurrentCard,
@@ -13,7 +13,7 @@ import {
   useSessionActions,
 } from '@/stores/useReviewSessionStore'
 
-export default function ReviewSessionPage() {
+export default function ReviewSessionPage(): React.JSX.Element | null {
   const router         = useRouter()
   const isStarted      = useIsSessionStarted()
   const currentCard    = useCurrentCard()

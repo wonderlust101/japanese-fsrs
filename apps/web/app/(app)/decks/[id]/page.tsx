@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: deck?.name ?? 'Deck' }
 }
 
-export default async function DeckDetailPage({ params }: Props) {
+export default async function DeckDetailPage({ params }: Props): Promise<React.JSX.Element> {
   const { id: deckId } = await params
   const deck           = await getDeckAction(deckId)
   if (deck === null) redirect('/decks')

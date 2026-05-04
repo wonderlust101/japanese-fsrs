@@ -21,7 +21,7 @@ const OPTIONS: LevelOption[] = [
   { value: 'N1',       emoji: '📔', label: 'N1 or Beyond',      description: 'Advanced learner' },
 ]
 
-export default function LevelPage() {
+export default function LevelPage(): React.JSX.Element {
   const router  = useRouter()
   const level   = useOnboardingStore((s) => s.level)
   const setLevel = useOnboardingStore((s) => s.actions.setLevel)

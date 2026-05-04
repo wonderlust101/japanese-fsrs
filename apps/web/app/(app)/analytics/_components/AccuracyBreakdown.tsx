@@ -54,7 +54,7 @@ function EmptyState() {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AccuracyBreakdown({ data, isLoading }: Props) {
+export function AccuracyBreakdown({ data, isLoading }: Props): React.JSX.Element {
   return (
     <section
       aria-label="Accuracy breakdown by layout"

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef }                    from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query'
 
 import { queryKeys }  from './queryKeys'
 import { offlineQueue } from '../offline-queue'
@@ -11,19 +11,24 @@ import {
   getDueCardsAction,
   getReviewForecastAction,
   getSessionSummaryAction,
+  type DueCard,
+  type ForecastDay,
 } from '../actions/reviews.actions'
-import type { ReviewRating } from '@fsrs-japanese/shared-types'
+import type { ReviewRating, SessionSummary } from '@fsrs-japanese/shared-types'
 
-export function useSubmitReview() {
+interface SubmitReviewVariables {
+  cardId:        string
+  rating:        ReviewRating
+  reviewTimeMs?: number
+  sessionId?:    string
+}
+
+export function useSubmitReview(): UseMutationResult<{ card: DueCard }, Error, SubmitReviewVariables> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ cardId, rating, reviewTimeMs, sessionId }: {
-      cardId:        string
-      rating:        ReviewRating
-      reviewTimeMs?: number
-      sessionId?:    string
-    }) => submitReviewAction(cardId, rating, reviewTimeMs, sessionId),
+    mutationFn: ({ cardId, rating, reviewTimeMs, sessionId }: SubmitReviewVariables) =>
+      submitReviewAction(cardId, rating, reviewTimeMs, sessionId),
 
     onError: (err, variables) => {
       console.error('[Review] Submission failed — queuing offline:', err)
@@ -39,7 +44,7 @@ export function useSubmitReview() {
   })
 }
 
-export function useDueCards() {
+export function useDueCards(): UseQueryResult<DueCard[]> {
   return useQuery({
     queryKey: queryKeys.reviews.due(),
     queryFn:  getDueCardsAction,
@@ -47,7 +52,7 @@ export function useDueCards() {
   })
 }
 
-export function useReviewForecast() {
+export function useReviewForecast(): UseQueryResult<ForecastDay[]> {
   return useQuery({
     queryKey: queryKeys.reviews.forecast(),
     queryFn:  getReviewForecastAction,
@@ -55,10 +60,11 @@ export function useReviewForecast() {
   })
 }
 
-export function useSessionSummary(sessionId: string | null) {
+export function useSessionSummary(sessionId: string | null): UseQueryResult<SessionSummary> {
+  const safeId = sessionId ?? ''
   return useQuery({
-    queryKey: queryKeys.reviews.summary(sessionId ?? ''),
-    queryFn:  () => getSessionSummaryAction(sessionId!),
+    queryKey: queryKeys.reviews.summary(safeId),
+    queryFn:  () => getSessionSummaryAction(safeId),
     enabled:  sessionId !== null,
     staleTime: Infinity,
   })

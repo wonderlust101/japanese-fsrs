@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { deleteAccountAction } from '@/lib/actions/auth.actions'
 import { DeleteAccountDialog } from './delete-account-dialog'

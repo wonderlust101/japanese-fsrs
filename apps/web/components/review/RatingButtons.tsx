@@ -13,7 +13,7 @@ interface Props {
   onRate: (rating: ReviewRating) => void
 }
 
-export function RatingButtons({ onRate }: Props) {
+export function RatingButtons({ onRate }: Props): React.JSX.Element {
   return (
     <div className="w-full max-w-[640px] grid grid-cols-4 gap-3">
       {RATINGS.map(({ value, label, key, colors }) => (

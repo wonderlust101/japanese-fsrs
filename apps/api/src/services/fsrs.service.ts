@@ -325,20 +325,25 @@ export async function rollbackReview(
   const row = cardResult.data as unknown as CardRow
   const log = logResult.data as unknown as ReviewLogRow
 
-  if (log.state_before === null) {
+  if (
+    log.state_before      === null ||
+    log.due_before        === null ||
+    log.stability_before  === null ||
+    log.difficulty_before === null
+  ) {
     throw new AppError(
       409,
       `Review log ${reviewLogId} has no before-snapshot; logs written before migration 20260502000001 cannot be rolled back`,
     )
   }
 
-  // All _before fields are written atomically with state_before — non-null is guaranteed.
+  // The four _before fields above are written atomically — narrowed together by the guard.
   const reviewLogInput: ReviewLogInput = {
     rating:            log.rating as unknown as Rating,
     state:             log.state_before as State,
-    due:               new Date(log.due_before!),
-    stability:         log.stability_before!,
-    difficulty:        log.difficulty_before!,
+    due:               new Date(log.due_before),
+    stability:         log.stability_before,
+    difficulty:        log.difficulty_before,
     elapsed_days:      log.elapsed_days_before ?? 0,
     last_elapsed_days: 0, // not stored; deprecated ts-fsrs field
     scheduled_days:    log.scheduled_days_before ?? 0,

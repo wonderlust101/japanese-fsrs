@@ -16,7 +16,7 @@ function resolveStep(pathname: string): OnboardingStepPath | null {
   )
 }
 
-export function OnboardingHeader() {
+export function OnboardingHeader(): React.JSX.Element {
   const pathname  = usePathname()
   const router    = useRouter()
   const applyStepDefault = useOnboardingStore((s) => s.actions.applyStepDefault)

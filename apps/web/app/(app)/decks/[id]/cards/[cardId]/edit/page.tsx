@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Edit ${word}` }
 }
 
-export default async function EditCardPage({ params }: Props) {
+export default async function EditCardPage({ params }: Props): Promise<React.JSX.Element> {
   const { id: deckId, cardId } = await params
   const [deck, card] = await Promise.all([
     getDeckAction(deckId),

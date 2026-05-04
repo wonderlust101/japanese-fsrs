@@ -1,4 +1,4 @@
-export function CardListItemSkeleton() {
+export function CardListItemSkeleton(): React.JSX.Element {
   return (
     <li className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] border border-neutral-200 px-5 py-4 space-y-2 animate-pulse">
       <div className="flex items-center gap-3">

@@ -4,7 +4,7 @@ interface Props {
   className?: string
 }
 
-export function FuriganaText({ text, reading, className }: Props) {
+export function FuriganaText({ text, reading, className }: Props): React.JSX.Element {
   return (
     <ruby lang="ja" className={className}>
       {text}

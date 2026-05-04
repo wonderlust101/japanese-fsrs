@@ -4,20 +4,21 @@ import { useRouter } from 'next/navigation'
 import { X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
-import { Button }          from '@/components/ui/button'
+import { Button }          from '@/components/ui/Button'
 import { queryKeys }       from '@/lib/api/queryKeys'
 import { getDeckAction }   from '@/lib/actions/decks.actions'
 import { useCurrentCard, useSessionActions } from '@/stores/useReviewSessionStore'
 
-export function SessionHeader() {
+export function SessionHeader(): React.JSX.Element {
   const router      = useRouter()
   const currentCard = useCurrentCard()
   const { endSession } = useSessionActions()
 
+  const deckId = currentCard?.deckId ?? ''
   const { data: deck } = useQuery({
-    queryKey: queryKeys.decks.detail(currentCard?.deckId ?? ''),
-    queryFn:  () => getDeckAction(currentCard!.deckId),
-    enabled:  currentCard?.deckId !== undefined,
+    queryKey: queryKeys.decks.detail(deckId),
+    queryFn:  () => getDeckAction(deckId),
+    enabled:  deckId !== '',
     staleTime: 1000 * 60 * 30,
   })
 

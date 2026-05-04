@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
+import { createJSONStorage, devtools, persist } from 'zustand/middleware'
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 
@@ -87,53 +87,56 @@ const initial: OnboardingAnswers = {
 }
 
 export const useOnboardingStore = create<OnboardingState>()(
-  persist(
-    (set, get) => ({
-      ...initial,
-      actions: {
-        setLevel:           (level)    => set({ level }),
-        setGoal:            (goal)     => set({ goal }),
-        setInterests:       (interests)=> set({ interests }),
-        setSchedule:        (schedule) => set({ schedule }),
-        setSelectedDeckIds: (ids)      => set({ selectedDeckIds: ids }),
+  devtools(
+    persist(
+      (set, get) => ({
+        ...initial,
+        actions: {
+          setLevel:           (level)    => set({ level }),
+          setGoal:            (goal)     => set({ goal }),
+          setInterests:       (interests)=> set({ interests }),
+          setSchedule:        (schedule) => set({ schedule }),
+          setSelectedDeckIds: (ids)      => set({ selectedDeckIds: ids }),
 
-        toggleInterest: (interest) =>
-          set((s) => ({
-            interests: s.interests.includes(interest)
-              ? s.interests.filter((i) => i !== interest)
-              : [...s.interests, interest],
-          })),
+          toggleInterest: (interest) =>
+            set((s) => ({
+              interests: s.interests.includes(interest)
+                ? s.interests.filter((i) => i !== interest)
+                : [...s.interests, interest],
+            })),
 
-        applyStepDefault: (step) => set(stepDefault(step)),
+          applyStepDefault: (step) => set(stepDefault(step)),
 
-        applyAllDefaults: () => {
-          const s = get()
-          set({
-            level:    s.level    ?? 'N5',
-            goal:     s.goal     ?? 'jlpt',
-            schedule: s.schedule ?? 'steady',
-          })
+          applyAllDefaults: () => {
+            const s = get()
+            set({
+              level:    s.level    ?? 'N5',
+              goal:     s.goal     ?? 'jlpt',
+              schedule: s.schedule ?? 'steady',
+            })
+          },
+
+          reset: () => set(initial),
         },
-
-        reset: () => set(initial),
-      },
-    }),
-    {
-      name: 'fsrs-onboarding',
-      storage: createJSONStorage(() => {
-        // sessionStorage is only available in the browser; return a no-op
-        // storage during SSR to prevent hydration mismatches.
-        if (typeof window === 'undefined') {
-          return {
-            getItem:    () => null,
-            setItem:    () => undefined,
-            removeItem: () => undefined,
-          }
-        }
-        return sessionStorage
       }),
-      // Never serialize `actions` — functions are not serializable.
-      partialize: ({ actions: _a, ...rest }) => rest,
-    }
-  )
+      {
+        name: 'fsrs-onboarding',
+        storage: createJSONStorage(() => {
+          // sessionStorage is only available in the browser; return a no-op
+          // storage during SSR to prevent hydration mismatches.
+          if (typeof window === 'undefined') {
+            return {
+              getItem:    () => null,
+              setItem:    () => undefined,
+              removeItem: () => undefined,
+            }
+          }
+          return sessionStorage
+        }),
+        // Never serialize `actions` — functions are not serializable.
+        partialize: ({ actions: _a, ...rest }) => rest,
+      },
+    ),
+    { name: 'OnboardingStore' },
+  ),
 )

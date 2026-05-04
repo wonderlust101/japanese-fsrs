@@ -4,7 +4,7 @@ import { MobileBottomBar } from './_components/mobile-bottom-bar'
 
 // The middleware already guarantees an authenticated user reaches this layout.
 // We fetch the user here only to pass display data (email) to the Sidebar.
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }): Promise<React.JSX.Element> {
   const user = await getAuthUser()
 
   return (

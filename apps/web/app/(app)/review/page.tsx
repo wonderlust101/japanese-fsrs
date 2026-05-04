@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation'
 
-import { Button }            from '@/components/ui/button'
+import { Button }            from '@/components/ui/Button'
 import { useDueCards, useReviewForecast } from '@/lib/api/reviews'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
 
-export default function ReviewHubPage() {
+export default function ReviewHubPage(): React.JSX.Element {
   const router = useRouter()
   const { startSession } = useSessionActions()
 

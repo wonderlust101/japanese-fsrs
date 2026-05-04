@@ -2,7 +2,7 @@ interface KanjiPair { kanji: string; meaning: string }
 
 interface Props { breakdown: KanjiPair[] }
 
-export function KanjiBreakdown({ breakdown }: Props) {
+export function KanjiBreakdown({ breakdown }: Props): React.JSX.Element {
   return (
     <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
       <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Kanji Breakdown</h2>

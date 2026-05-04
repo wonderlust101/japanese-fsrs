@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
-import { QueryProvider } from '@/components/providers/query-provider'
+import { QueryProvider } from '@/components/providers/QueryProvider'
 import './globals.css'
 
 const inter = Inter({
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   description: 'AI-enhanced spaced repetition for Japanese learners',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
     <html
       lang="en"

@@ -16,7 +16,7 @@ const INTEREST_OPTIONS = [
   { value: 'tech',     label: 'Tech',     emoji: '💻' },
 ]
 
-export default function InterestsPage() {
+export default function InterestsPage(): React.JSX.Element {
   const router          = useRouter()
   const interests       = useOnboardingStore((s) => s.interests)
   const toggleInterest  = useOnboardingStore((s) => s.actions.toggleInterest)

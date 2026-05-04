@@ -37,7 +37,7 @@ const OPTIONS: ScheduleOption[] = [
   },
 ]
 
-export default function SchedulePage() {
+export default function SchedulePage(): React.JSX.Element {
   const router      = useRouter()
   const schedule    = useOnboardingStore((s) => s.schedule)
   const setSchedule = useOnboardingStore((s) => s.actions.setSchedule)

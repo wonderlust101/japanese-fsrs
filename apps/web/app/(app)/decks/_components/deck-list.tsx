@@ -5,14 +5,14 @@ import Link          from 'next/link'
 import { useQuery }  from '@tanstack/react-query'
 
 import { TopBar }             from '@/app/(app)/_components/top-bar'
-import { Button }             from '@/components/ui/button'
+import { Button }             from '@/components/ui/Button'
 import { queryKeys }          from '@/lib/api/queryKeys'
 import { DeckCard }           from './deck-card'
 import { DeckCardSkeleton }   from './deck-skeleton'
 import { CreateDeckDialog }   from './create-deck-dialog'
 import { listDecksAction }    from '@/lib/actions/decks.actions'
 
-export function DeckListView() {
+export function DeckListView(): React.JSX.Element {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const { data: decks, isLoading } = useQuery({

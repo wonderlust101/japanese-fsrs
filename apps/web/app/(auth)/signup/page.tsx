@@ -4,9 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { OTPInput } from '@/components/ui/otp-input'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { OTPInput } from '@/components/ui/OtpInput'
 import { useCountdown } from '@/hooks/use-countdown'
 import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
 import { useUserStore } from '@/stores/user.store'
@@ -40,7 +40,7 @@ type View = 'signup' | 'verify'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function SignupPage() {
+export default function SignupPage(): React.JSX.Element {
   const [view, setView]     = useState<View>('signup')
   const [email, setEmail]   = useState('')
   const [userId, setUserId] = useState<string | null>(null)

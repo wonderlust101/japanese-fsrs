@@ -8,6 +8,6 @@ import { redirect } from 'next/navigation'
  * If a user lands here directly (e.g. a bookmarked or shared URL), send them
  * to /signup so the two-step flow can start from the beginning.
  */
-export default function VerifyRedirectPage() {
+export default function VerifyRedirectPage(): never {
   redirect('/signup')
 }

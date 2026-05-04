@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect }     from 'react'
-import { FuriganaText }  from '@/components/ui/furigana-text'
-import { RatingButtons } from './rating-buttons'
+import { FuriganaText }  from '@/components/ui/FuriganaText'
+import { RatingButtons } from './RatingButtons'
 import {
   useCurrentCard,
   useShowAnswer,
@@ -23,7 +23,7 @@ interface ExampleSentence {
   furigana: string
 }
 
-export function ReviewCard() {
+export function ReviewCard(): React.JSX.Element | null {
   const card       = useCurrentCard()
   const showAnswer = useShowAnswer()
   const { flipCard, submitRating } = useSessionActions()
@@ -70,7 +70,7 @@ export function ReviewCard() {
         </div>
 
         <div className="flex flex-col items-center px-12 pt-8 pb-8">
-          <p className="text-3xl font-japanese font-medium text-center text-neutral-900">
+          <p lang="ja" className="text-3xl font-japanese font-medium text-center text-neutral-900">
             {word}
           </p>
 

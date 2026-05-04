@@ -18,7 +18,7 @@ const TABS: Tab[] = [
   { href: '/analytics', label: 'Stats',  Icon: BarChart2 },
 ]
 
-export function MobileBottomBar() {
+export function MobileBottomBar(): React.JSX.Element {
   const pathname = usePathname()
 
   return (

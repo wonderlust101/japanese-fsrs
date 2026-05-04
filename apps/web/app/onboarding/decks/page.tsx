@@ -12,7 +12,7 @@ const SCHEDULE_TO_CARD_LIMIT: Record<string, number> = {
   intensive: 50,
 }
 
-export default function DecksPage() {
+export default function DecksPage(): React.JSX.Element {
   const router         = useRouter()
   const applyAllDefaults = useOnboardingStore((s) => s.actions.applyAllDefaults)
   const reset            = useOnboardingStore((s) => s.actions.reset)

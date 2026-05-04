@@ -6,7 +6,7 @@ function formatStability(days: number): string {
   return days < 1 ? '< 1d' : `~${days.toFixed(1)}d`
 }
 
-export function FsrsStats({ card }: Props) {
+export function FsrsStats({ card }: Props): React.JSX.Element {
   const dueDate = new Date(card.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return (

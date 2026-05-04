@@ -19,7 +19,7 @@ const OPTIONS: GoalOption[] = [
   { value: 'life_work',  emoji: '🏢', label: 'Live / work in Japan',    description: 'Practical, everyday Japanese' },
 ]
 
-export default function GoalPage() {
+export default function GoalPage(): React.JSX.Element {
   const router  = useRouter()
   const goal    = useOnboardingStore((s) => s.goal)
   const setGoal = useOnboardingStore((s) => s.actions.setGoal)

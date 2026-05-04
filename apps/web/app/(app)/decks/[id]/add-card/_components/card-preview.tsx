@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { GeneratedCardData } from '@/lib/actions/cards.actions'
 
-export function GeneratedCardPreview({ data }: { data: GeneratedCardData }) {
+export function GeneratedCardPreview({ data }: { data: GeneratedCardData }): React.JSX.Element {
   const [visible, setVisible]         = useState(false)
   const [sentenceIdx, setSentenceIdx] = useState(0)
   const frameRef = useRef<number | null>(null)

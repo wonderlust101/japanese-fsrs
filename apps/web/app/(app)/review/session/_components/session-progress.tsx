@@ -2,7 +2,7 @@
 
 import { useReviewQueue, useReviewSessionStore } from '@/stores/useReviewSessionStore'
 
-export function SessionProgress() {
+export function SessionProgress(): React.JSX.Element {
   const queue        = useReviewQueue()
   const currentIndex = useReviewSessionStore((s) => s.currentIndex)
 

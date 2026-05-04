@@ -40,7 +40,7 @@ function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
   )
 }
 
-export function Sidebar({ user }: { user: User | null }) {
+export function Sidebar({ user }: { user: User | null }): React.JSX.Element {
   const pathname = usePathname()
   const router = useRouter()
   const queryClient = useQueryClient()

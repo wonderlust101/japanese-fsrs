@@ -6,7 +6,7 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-export default async function AddCardPage({ params }: Props) {
+export default async function AddCardPage({ params }: Props): Promise<React.JSX.Element> {
   const { id: deckId } = await params
   const deck = await getDeckAction(deckId)
 

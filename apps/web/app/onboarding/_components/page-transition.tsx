@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
  * The `key` is derived from the pathname — the only external signal that
  * changes as the user moves between steps. No state or effect needed.
  */
-export function PageTransition({ children }: { children: React.ReactNode }) {
+export function PageTransition({ children }: { children: React.ReactNode }): React.JSX.Element {
   const pathname = usePathname()
 
   return (

@@ -1,5 +1,5 @@
 {
-  "name": "@japanese-fsrs/tsconfig",
+  "name": "@fsrs-japanese/tsconfig",
   "version": "0.0.0",
   "private": true,
   "exports": {

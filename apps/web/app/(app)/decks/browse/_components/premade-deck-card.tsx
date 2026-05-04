@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import type { PremadeDeckRow } from '@/lib/actions/premade.actions'
 
 const JLPT_BADGE: Record<string, { bg: string; text: string; label: string }> = {

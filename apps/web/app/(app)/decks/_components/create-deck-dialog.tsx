@@ -3,10 +3,10 @@
 import { useState }                    from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Dialog }           from '@/components/ui/dialog'
-import { Input }            from '@/components/ui/input'
-import { Select }           from '@/components/ui/select'
-import { Button }           from '@/components/ui/button'
+import { Dialog }           from '@/components/ui/Dialog'
+import { Input }            from '@/components/ui/Input'
+import { Select }           from '@/components/ui/Select'
+import { Button }           from '@/components/ui/Button'
 import { createDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys }        from '@/lib/api/queryKeys'
 
@@ -24,7 +24,7 @@ interface Props {
   onClose: () => void
 }
 
-export function CreateDeckDialog({ open, onClose }: Props) {
+export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
   const queryClient = useQueryClient()
 
   const [name,        setName]        = useState('')

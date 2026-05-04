@@ -1,4 +1,4 @@
-export function DeckCardSkeleton() {
+export function DeckCardSkeleton(): React.JSX.Element {
   return (
     <div className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3 animate-pulse">
       <div className="flex items-center gap-2">

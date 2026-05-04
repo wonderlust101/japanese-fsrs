@@ -3,6 +3,6 @@ import { DeckListView } from './_components/deck-list'
 
 export const metadata: Metadata = { title: 'My Decks' }
 
-export default function DecksPage() {
+export default function DecksPage(): React.JSX.Element {
   return <DeckListView />
 }

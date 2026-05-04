@@ -34,7 +34,7 @@ function buildMonthRows(): Array<{ year: number; month: number; days: Date[] }> 
 
   const months: Array<{ year: number; month: number; days: Date[] }> = []
 
-  let cursor = new Date(start)
+  const cursor = new Date(start)
   cursor.setDate(1) // start at the 1st of the month containing `start`
 
   while (cursor <= today) {
@@ -74,7 +74,7 @@ function HeatmapSkeleton() {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function RetentionHeatmap({ data, isLoading }: Props) {
+export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element {
   const dayMap = new Map<string, HeatmapDay>(data.map((d) => [d.date, d]))
   const months = buildMonthRows()
 

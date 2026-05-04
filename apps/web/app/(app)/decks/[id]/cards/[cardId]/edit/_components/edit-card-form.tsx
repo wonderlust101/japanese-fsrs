@@ -6,11 +6,11 @@ import Link                            from 'next/link'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { TopBar }       from '@/app/(app)/_components/top-bar'
-import { Button }       from '@/components/ui/button'
-import { Input }        from '@/components/ui/input'
-import { Select }       from '@/components/ui/select'
-import { Dialog }       from '@/components/ui/dialog'
-import { FuriganaText } from '@/components/ui/furigana-text'
+import { Button }       from '@/components/ui/Button'
+import { Input }        from '@/components/ui/Input'
+import { Select }       from '@/components/ui/Select'
+import { Dialog }       from '@/components/ui/Dialog'
+import { FuriganaText } from '@/components/ui/FuriganaText'
 import { updateCardAction, deleteCardAction } from '@/lib/actions/cards.actions'
 import type { CardDetail }              from '@/lib/actions/cards.actions'
 import { queryKeys }                   from '@/lib/api/queryKeys'
@@ -35,7 +35,7 @@ interface Props {
   deckName: string
 }
 
-export function EditCardForm({ card, deckId, deckName }: Props) {
+export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Element {
   const router      = useRouter()
   const queryClient = useQueryClient()
 

@@ -34,7 +34,7 @@ interface Props {
   deckId: string
 }
 
-export function CardListItem({ card, deckId }: Props) {
+export function CardListItem({ card, deckId }: Props): React.JSX.Element {
   const fd      = card.fieldsData
   const word    = (fd['word']    as string | undefined) ?? (fd['front'] as string | undefined) ?? '—'
   const reading = (fd['reading'] as string | undefined) ?? ''

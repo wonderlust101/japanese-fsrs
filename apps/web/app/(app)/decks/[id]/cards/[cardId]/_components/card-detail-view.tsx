@@ -5,8 +5,8 @@ import Link            from 'next/link'
 import { useQuery }    from '@tanstack/react-query'
 
 import { TopBar }                from '@/app/(app)/_components/top-bar'
-import { Button }                from '@/components/ui/button'
-import { FuriganaText }          from '@/components/ui/furigana-text'
+import { Button }                from '@/components/ui/Button'
+import { FuriganaText }          from '@/components/ui/FuriganaText'
 import { queryKeys }             from '@/lib/api/queryKeys'
 import { getCardAction, getSimilarCardsAction } from '@/lib/actions/cards.actions'
 import { CardListItem }          from '../../../_components/card-list-item'
@@ -34,7 +34,7 @@ interface Props {
   deckName: string
 }
 
-export function CardDetailView({ deckId, cardId, deckName }: Props) {
+export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.Element {
   const [showSimilar, setShowSimilar] = useState(false)
 
   const { data: card, isLoading } = useQuery({
