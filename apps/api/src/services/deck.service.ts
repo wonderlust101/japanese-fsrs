@@ -46,20 +46,34 @@ export interface DeckWithStats extends DeckRow {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
+interface DeckDbRow {
+  id:                string
+  user_id:           string
+  name:              string
+  description:       string | null
+  deck_type:         DeckType
+  is_public:         boolean
+  is_premade_fork:   boolean
+  source_premade_id: string | null
+  card_count:        number
+  created_at:        string
+  updated_at:        string
+}
+
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
-function toRow(raw: Record<string, unknown>): DeckRow {
+function toRow(raw: DeckDbRow): DeckRow {
   return {
-    id:              raw['id'] as string,
-    userId:          raw['user_id'] as string,
-    name:            raw['name'] as string,
-    description:     raw['description'] as string | null,
-    deckType:        raw['deck_type'] as DeckType,
-    isPublic:        raw['is_public'] as boolean,
-    isPremadeFork:   raw['is_premade_fork'] as boolean,
-    sourcePremadeId: raw['source_premade_id'] as string | null,
-    cardCount:       raw['card_count'] as number,
-    createdAt:       raw['created_at'] as string,
-    updatedAt:       raw['updated_at'] as string,
+    id:              raw.id,
+    userId:          raw.user_id,
+    name:            raw.name,
+    description:     raw.description,
+    deckType:        raw.deck_type,
+    isPublic:        raw.is_public,
+    isPremadeFork:   raw.is_premade_fork,
+    sourcePremadeId: raw.source_premade_id,
+    cardCount:       raw.card_count,
+    createdAt:       raw.created_at,
+    updatedAt:       raw.updated_at,
   }
 }
 
@@ -79,7 +93,7 @@ export async function listDecks(userId: string): Promise<DeckRow[]> {
     throw new AppError(500, `Failed to list decks: ${error.message}`)
   }
 
-  return (data ?? []).map((row) => toRow(row as unknown as Record<string, unknown>))
+  return (data ?? []).map((row) => toRow(row as unknown as DeckDbRow))
 }
 
 /**
@@ -124,7 +138,7 @@ export async function getDeck(deckId: string, userId: string): Promise<DeckWithS
   }
 
   return {
-    ...toRow(deckResult.data as unknown as Record<string, unknown>),
+    ...toRow(deckResult.data as unknown as DeckDbRow),
     dueCount: dueResult.count ?? 0,
     newCount: newResult.count ?? 0,
   }
@@ -151,7 +165,7 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
     throw new AppError(500, `Failed to create deck: ${error?.message ?? 'unknown error'}`)
   }
 
-  return toRow(data as unknown as Record<string, unknown>)
+  return toRow(data as unknown as DeckDbRow)
 }
 
 /**
@@ -194,7 +208,7 @@ export async function updateDeck(
     throw new AppError(404, 'Deck not found')
   }
 
-  return toRow(data as unknown as Record<string, unknown>)
+  return toRow(data as unknown as DeckDbRow)
 }
 
 /**

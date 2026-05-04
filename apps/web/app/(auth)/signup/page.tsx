@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { OTPInput } from '@/components/ui/OtpInput'
 import { useCountdown } from '@/hooks/use-countdown'
 import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
+import { env } from '@/lib/env'
 import { useUserStore } from '@/stores/user.store'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ export default function SignupPage(): React.JSX.Element {
 
   function handleBack() {
     if (userId) {
-      fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/cancel-signup`, {
+      fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/auth/cancel-signup`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ userId }),
@@ -139,7 +140,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
 
     try {
       const res = await fetch(
-        `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/signup`,
+        `${env.NEXT_PUBLIC_API_URL}/api/v1/auth/signup`,
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },

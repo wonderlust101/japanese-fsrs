@@ -1,6 +1,7 @@
 # IDEs and System Files
 .idea/
 .vscode/
+.fallow/
 .DS_Store
 Thumbs.db
 

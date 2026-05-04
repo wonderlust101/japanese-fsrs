@@ -1,5 +1,14 @@
+import type { ZodType } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
+import {
+  HeatmapRpcSchema,
+  AccuracyRpcSchema,
+  StreakRpcSchema,
+  JlptGapRpcSchema,
+  MilestoneForecastRpcSchema,
+} from '../schemas/analytics.schema.ts'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -39,6 +48,23 @@ export interface MilestoneForecastRow {
   projectedCompletionDate:   string | null  // YYYY-MM-DD or null if no projection
 }
 
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Calls a Supabase RPC, validates the result through a Zod schema, and surfaces
+ * Postgres / Zod errors as AppError so the global error handler can format them.
+ */
+async function callRpc<T>(
+  fn:     string,
+  params: Record<string, unknown>,
+  schema: ZodType<T>,
+  label:  string,
+): Promise<T> {
+  const { data, error } = await supabaseAdmin.rpc(fn, params)
+  if (error !== null) throw new AppError(500, `Failed to fetch ${label}: ${error.message}`)
+  return schema.parse(data ?? [])
+}
+
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
@@ -46,26 +72,9 @@ export interface MilestoneForecastRow {
  *
  * Days with zero reviews are omitted from the result — the frontend fills those
  * gaps as 0, consistent with the forecast data pattern.
- *
- * @param userId - Authenticated user's ID
  */
 export async function getHeatmapData(userId: string): Promise<HeatmapDay[]> {
-  const { data, error } = await supabaseAdmin.rpc('get_heatmap_data', {
-    p_user_id: userId,
-  })
-
-  if (error !== null) {
-    throw new AppError(500, `Failed to fetch heatmap data: ${error.message}`)
-  }
-
-  return (data ?? []).map((row: unknown) => {
-    const r = row as { date: string; retention: number; count: number }
-    return {
-      date:      r.date,
-      retention: Number(r.retention),
-      count:     Number(r.count),
-    }
-  })
+  return callRpc('get_heatmap_data', { p_user_id: userId }, HeatmapRpcSchema, 'heatmap data')
 }
 
 /**
@@ -74,26 +83,12 @@ export async function getHeatmapData(userId: string): Promise<HeatmapDay[]> {
  * Groups all of the user's review history by card_type
  * (comprehension | production | listening). accuracyPct is the percentage of
  * reviews rated "good" or "easy".
- *
- * @param userId - Authenticated user's ID
  */
 export async function getAccuracyByLayout(userId: string): Promise<LayoutAccuracy[]> {
-  const { data, error } = await supabaseAdmin.rpc('get_accuracy_by_layout', {
-    p_user_id: userId,
-  })
-
-  if (error !== null) {
-    throw new AppError(500, `Failed to fetch accuracy breakdown: ${error.message}`)
-  }
-
-  return (data ?? []).map((row: unknown) => {
-    const r          = row as { layout: string; total: number; successful: number }
-    const total      = Number(r.total)
-    const successful = Number(r.successful)
-    const accuracyPct = total === 0
-      ? 0
-      : Math.round((successful / total) * 1000) / 10
-    return { layout: r.layout, total, successful, accuracyPct }
+  const rows = await callRpc('get_accuracy_by_layout', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
+  return rows.map((r) => {
+    const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
+    return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
   })
 }
 
@@ -102,24 +97,15 @@ export async function getAccuracyByLayout(userId: string): Promise<LayoutAccurac
  * Uses UTC calendar days. Empty history → `{ 0, 0, null }`.
  */
 export async function getStreak(userId: string): Promise<StreakStats> {
-  const { data, error } = await supabaseAdmin.rpc('get_streak', { p_user_id: userId })
-
-  if (error !== null) {
-    throw new AppError(500, `Failed to fetch streak: ${error.message}`)
-  }
-
-  const row = (data ?? [])[0] as
-    | { current_streak: number; longest_streak: number; last_review_date: string | null }
-    | undefined
-
+  const rows = await callRpc('get_streak', { p_user_id: userId }, StreakRpcSchema, 'streak')
+  const row = rows[0]
   if (row === undefined) {
     return { currentStreak: 0, longestStreak: 0, lastReviewDate: null }
   }
-
   return {
-    currentStreak:  Number(row.current_streak ?? 0),
-    longestStreak:  Number(row.longest_streak ?? 0),
-    lastReviewDate: row.last_review_date ?? null,
+    currentStreak:  row.current_streak  ?? 0,
+    longestStreak:  row.longest_streak  ?? 0,
+    lastReviewDate: row.last_review_date,
   }
 }
 
@@ -128,24 +114,14 @@ export async function getStreak(userId: string): Promise<StreakStats> {
  * computed in the service layer so the RPC stays focused on aggregation.
  */
 export async function getJlptGap(userId: string): Promise<JlptGapRow[]> {
-  const { data, error } = await supabaseAdmin.rpc('get_jlpt_gap', { p_user_id: userId })
-
-  if (error !== null) {
-    throw new AppError(500, `Failed to fetch JLPT gap: ${error.message}`)
-  }
-
-  return (data ?? []).map((row: unknown) => {
-    const r       = row as { jlpt_level: string; total: number; learned: number; due: number }
-    const total   = Number(r.total)
-    const learned = Number(r.learned)
-    const progressPct = total === 0
-      ? 0
-      : Math.round((learned / total) * 1000) / 10
+  const rows = await callRpc('get_jlpt_gap', { p_user_id: userId }, JlptGapRpcSchema, 'JLPT gap')
+  return rows.map((r) => {
+    const progressPct = r.total === 0 ? 0 : Math.round((r.learned / r.total) * 1000) / 10
     return {
-      jlptLevel: r.jlpt_level,
-      total,
-      learned,
-      due:       Number(r.due),
+      jlptLevel:   r.jlpt_level,
+      total:       r.total,
+      learned:     r.learned,
+      due:         r.due,
       progressPct,
     }
   })
@@ -157,28 +133,18 @@ export async function getJlptGap(userId: string): Promise<JlptGapRow[]> {
  * `daysRemaining = null` and `projectedCompletionDate = null`.
  */
 export async function getMilestoneForecast(userId: string): Promise<MilestoneForecastRow[]> {
-  const { data, error } = await supabaseAdmin.rpc('get_milestone_forecast', { p_user_id: userId })
-
-  if (error !== null) {
-    throw new AppError(500, `Failed to fetch milestone forecast: ${error.message}`)
-  }
-
-  return (data ?? []).map((row: unknown) => {
-    const r = row as {
-      jlpt_level:                string
-      total:                     number
-      learned:                   number
-      daily_pace:                number | string | null
-      days_remaining:            number | null
-      projected_completion_date: string | null
-    }
-    return {
-      jlptLevel:               r.jlpt_level,
-      total:                   Number(r.total),
-      learned:                 Number(r.learned),
-      dailyPace:               r.daily_pace === null ? 0 : Number(r.daily_pace),
-      daysRemaining:           r.days_remaining === null ? null : Number(r.days_remaining),
-      projectedCompletionDate: r.projected_completion_date,
-    }
-  })
+  const rows = await callRpc(
+    'get_milestone_forecast',
+    { p_user_id: userId },
+    MilestoneForecastRpcSchema,
+    'milestone forecast',
+  )
+  return rows.map((r) => ({
+    jlptLevel:               r.jlpt_level,
+    total:                   r.total,
+    learned:                 r.learned,
+    dailyPace:               r.daily_pace ?? 0,
+    daysRemaining:           r.days_remaining,
+    projectedCompletionDate: r.projected_completion_date,
+  }))
 }
