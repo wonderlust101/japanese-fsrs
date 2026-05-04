@@ -1,17 +1,31 @@
 import { z } from 'zod'
 
+import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../lib/sanitize.ts'
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export const cardTypeEnum   = z.enum(['comprehension', 'production', 'listening'])
 export const layoutTypeEnum = z.enum(['vocabulary', 'grammar', 'sentence'])
 export const jlptLevelEnum  = z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'])
 
+// ─── Shared field-validation primitives ───────────────────────────────────────
+
+// fields_data is heterogeneous (different card layouts store different shapes),
+// so we cannot enumerate every leaf type. Instead we accept arbitrary JSON-like
+// values but reject markup and oversized strings recursively. Top-level keys
+// are also length-bounded.
+const fieldsDataSchema = z.record(z.string().min(1).max(50), z.unknown())
+  .refine((v) => !deepHasMarkup(v), 'Field values cannot contain HTML or script-like content')
+  .refine((v) => !deepHasOversizedString(v, 2000), 'Field values must each be at most 2000 characters')
+
+const tagsSchema = z.array(safeShortText(50, 1)).max(20)
+
 // ─── Shared metadata fields ───────────────────────────────────────────────────
 
 const cardMetaFields = {
   card_type:      cardTypeEnum.default('comprehension'),
   layout_type:    layoutTypeEnum.default('vocabulary'),
-  tags:           z.array(z.string()).optional(),
+  tags:           tagsSchema.optional(),
   jlpt_level:     jlptLevelEnum.optional(),
   parent_card_id: z.string().uuid('Invalid parent card ID').optional(),
 }
@@ -20,13 +34,13 @@ const cardMetaFields = {
 
 // AI path: client sends a word; controller calls ai.service.generateCard.
 const aiCreateSchema = z.object({
-  word: z.string().trim().min(1, 'Word is required').max(50, 'Word must be at most 50 characters'),
+  word: safeShortText(50, 1),
   ...cardMetaFields,
 }).strict()
 
 // Manual path: client supplies fields_data directly.
 const manualCreateSchema = z.object({
-  fields_data: z.record(z.string(), z.unknown()),
+  fields_data: fieldsDataSchema,
   ...cardMetaFields,
 }).strict()
 
@@ -36,10 +50,10 @@ export const createCardSchema = z.union([aiCreateSchema, manualCreateSchema])
 
 // All fields optional — only present keys are written (true PATCH semantics).
 export const updateCardSchema = z.object({
-  fields_data: z.record(z.string(), z.unknown()).optional(),
+  fields_data: fieldsDataSchema.optional(),
   layout_type: layoutTypeEnum.optional(),
   card_type:   cardTypeEnum.optional(),
-  tags:        z.array(z.string()).optional(),
+  tags:        tagsSchema.optional(),
   jlpt_level:  jlptLevelEnum.nullable().optional(),
 }).strict()
 

@@ -1,22 +1,29 @@
 import { z } from 'zod'
 
+import { stripMarkupTransform } from '../lib/sanitize.ts'
+
+// Strip markup from any LLM-produced string before it's persisted or returned.
+// Defence-in-depth: the prompts are JSON-mode and shouldn't yield HTML, but a
+// poisoned prompt could try.
+const safeStr = z.string().transform(stripMarkupTransform)
+
 export const generateCardInputSchema = z.object({
   word: z.string().trim().min(1, 'Word is required').max(50, 'Word must be at most 50 characters'),
 }).strict()
 
 export const GeneratedCardDataSchema = z.object({
-  word:             z.string(),
-  reading:          z.string(),
-  meaning:          z.string(),
-  partOfSpeech:     z.string().optional(),
+  word:             safeStr,
+  reading:          safeStr,
+  meaning:          safeStr,
+  partOfSpeech:     safeStr.optional(),
   exampleSentences: z.array(
-    z.object({ ja: z.string(), en: z.string(), furigana: z.string() }),
+    z.object({ ja: safeStr, en: safeStr, furigana: safeStr }),
   ).optional(),
   kanjiBreakdown:   z.array(
-    z.object({ kanji: z.string(), meaning: z.string() }),
+    z.object({ kanji: safeStr, meaning: safeStr }),
   ).optional(),
-  pitchAccent:      z.string().optional(),
-  mnemonic:         z.string().optional(),
+  pitchAccent:      safeStr.optional(),
+  mnemonic:         safeStr.optional(),
 })
 
 export const generateSentencesInputSchema = z.object({
@@ -26,7 +33,7 @@ export const generateSentencesInputSchema = z.object({
 
 export const GeneratedSentencesSchema = z.object({
   sentences: z.array(
-    z.object({ ja: z.string(), en: z.string(), furigana: z.string() }),
+    z.object({ ja: safeStr, en: safeStr, furigana: safeStr }),
   ),
 })
 
@@ -35,7 +42,7 @@ export const generateMnemonicInputSchema = z.object({
 }).strict()
 
 export const GeneratedMnemonicSchema = z.object({
-  mnemonic: z.string(),
+  mnemonic: safeStr,
 })
 
 export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>

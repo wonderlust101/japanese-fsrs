@@ -17,7 +17,7 @@ import { CardStatus } from '@fsrs-japanese/shared-types'
 import type { CardType, ReviewRating } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -210,20 +210,20 @@ export async function processReview(
     .single()
 
   if (fetchError !== null) {
-    throw new AppError(500, `DB error fetching card ${cardId}: ${fetchError.message}`)
+    throw dbError('fetch card', fetchError)
   }
   if (data === null) {
-    throw new AppError(404, `Card ${cardId} not found or does not belong to user (userId=${userId})`)
+    throw new AppError(404, 'Card not found')
   }
 
   const row = data as unknown as FsrsCardRow
 
   if (row.user_id === null) {
-    throw new AppError(403, `Refusing to apply FSRS to premade source card ${cardId}`)
+    throw new AppError(403, 'Cannot review a premade source card')
   }
 
   if (row.status === CardStatus.Suspended) {
-    throw new AppError(409, `Card ${cardId} is suspended; unsuspend it before reviewing`)
+    throw new AppError(409, 'Card is suspended; unsuspend it before reviewing')
   }
 
   // ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
@@ -272,7 +272,7 @@ export async function processReview(
   })
 
   if (rpcError !== null) {
-    throw new AppError(500, `Failed to persist review for card ${cardId}: ${rpcError.message}`)
+    throw dbError('persist review', rpcError)
   }
 
   return {
@@ -316,10 +316,10 @@ export async function rollbackReview(
   ])
 
   if (cardResult.error !== null || cardResult.data === null) {
-    throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
+    throw new AppError(404, 'Card not found')
   }
   if (logResult.error !== null || logResult.data === null) {
-    throw new AppError(404, `Review log ${reviewLogId} not found`)
+    throw new AppError(404, 'Review log not found')
   }
 
   const row = cardResult.data as unknown as FsrsCardRow
@@ -331,10 +331,7 @@ export async function rollbackReview(
     log.stability_before  === null ||
     log.difficulty_before === null
   ) {
-    throw new AppError(
-      409,
-      `Review log ${reviewLogId} has no before-snapshot; logs written before migration 20260502000001 cannot be rolled back`,
-    )
+    throw new AppError(409, 'This review cannot be rolled back')
   }
 
   // The four _before fields above are written atomically — narrowed together by the guard.
@@ -376,7 +373,7 @@ export async function rollbackReview(
     .eq('user_id', userId)
 
   if (updateError !== null) {
-    throw new AppError(500, `Failed to rollback card ${cardId}: ${updateError.message}`)
+    throw dbError('rollback card', updateError)
   }
 
   return {
@@ -412,13 +409,13 @@ export async function forgetCard(
     .single()
 
   if (fetchError !== null || data === null) {
-    throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
+    throw new AppError(404, 'Card not found')
   }
 
   const row = data as unknown as FsrsCardRow
 
   if (row.user_id === null) {
-    throw new AppError(403, `Refusing to apply FSRS to premade source card ${cardId}`)
+    throw new AppError(403, 'Cannot reset a premade source card')
   }
 
   const scheduler = getScheduler(row.card_type)
@@ -448,7 +445,7 @@ export async function forgetCard(
   })
 
   if (rpcError !== null) {
-    throw new AppError(500, `Failed to forget card ${cardId}: ${rpcError.message}`)
+    throw dbError('forget card', rpcError)
   }
 
   const forgottenStatus = stateToStatus(forgotten.state)
@@ -527,20 +524,17 @@ export async function rescheduleFromHistory(
   ])
 
   if (cardResult.error !== null || cardResult.data === null) {
-    throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
+    throw new AppError(404, 'Card not found')
   }
   if (logsResult.error !== null) {
-    throw new AppError(500, `Failed to fetch review logs for card ${cardId}: ${logsResult.error.message}`)
+    throw dbError('fetch review logs', logsResult.error)
   }
 
   const row = cardResult.data as unknown as FsrsCardRow
   const logs = (logsResult.data ?? []) as unknown as ReviewLogRow[]
 
   if (logs.length === 0) {
-    throw new AppError(
-      409,
-      `No eligible review logs for card ${cardId}: all logs either pre-date migration 20260502000001 or are manual operations`,
-    )
+    throw new AppError(409, 'No eligible review logs to reschedule from')
   }
 
   const history: FSRSHistory[] = logs.map((log) => ({
@@ -553,7 +547,7 @@ export async function rescheduleFromHistory(
   const result = scheduler.reschedule(emptyCard, history)
 
   if (result.reschedule_item === null) {
-    throw new AppError(409, `reschedule returned no result for card ${cardId}`)
+    throw new AppError(409, 'Reschedule produced no result')
   }
 
   const updated: TsFsrsCard = result.reschedule_item.card
@@ -595,7 +589,7 @@ export async function rescheduleFromHistory(
   })
 
   if (rpcError !== null) {
-    throw new AppError(500, `Failed to reschedule card ${cardId}: ${rpcError.message}`)
+    throw dbError('reschedule card', rpcError)
   }
 
   return {

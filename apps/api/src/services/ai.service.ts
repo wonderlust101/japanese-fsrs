@@ -8,6 +8,7 @@ import {
   GeneratedMnemonicSchema,
 } from '../schemas/ai.schema.ts'
 import { AppError } from '../middleware/errorHandler.ts'
+import { sanitizeForPrompt } from '../lib/sanitize.ts'
 import type {
   GeneratedCardData,
   GeneratedSentences,
@@ -27,10 +28,15 @@ const CARD_CACHE_TTL      = 60 * 60 * 24 * 7    // 7 days — per TDD §10.1
 const SENTENCES_CACHE_TTL = 60 * 60 * 24 * 7    // 7 days
 const MNEMONIC_CACHE_TTL  = 60 * 60 * 24 * 30   // 30 days — per TDD §10.1
 
+// Hard cap on the joined interests fragment when it lands in a prompt — even
+// 20 individually-bounded interests can produce a 1KB+ string that crowds out
+// the actual instruction text.
+const PROMPT_INTERESTS_MAX = 500
+
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-function sanitize(input: string): string {
-  return input.replace(/<[^>]*>/g, '').trim()
+function joinInterests(interests: string[]): string {
+  return interests.join(', ').slice(0, PROMPT_INTERESTS_MAX)
 }
 
 function hashInterests(interests: string[]): string {
@@ -57,9 +63,9 @@ export async function generateCard(
   userLevel: string,
   interests: string[],
 ): Promise<GeneratedCardData> {
-  const safeWord      = sanitize(word)
-  const safeLevel     = sanitize(userLevel)
-  const safeInterests = interests.map(sanitize)
+  const safeWord      = sanitizeForPrompt(word)
+  const safeLevel     = sanitizeForPrompt(userLevel)
+  const safeInterests = interests.map((s) => sanitizeForPrompt(s))
 
   const cacheKey = `card:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`
 
@@ -69,20 +75,22 @@ export async function generateCard(
     return GeneratedCardDataSchema.parse(payload)
   }
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-5.4-nano',
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: `You are a Japanese language expert generating SRS card data.
+  let response
+  try {
+    response = await openai.chat.completions.create({
+      model: 'gpt-5.4-nano',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Japanese language expert generating SRS card data.
 Always respond with valid JSON.
-User level: ${safeLevel}. User interests: ${safeInterests.join(', ')}.
+User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
 Generate content appropriate for the user's level and interests.`,
-      },
-      {
-        role: 'user',
-        content: `Generate complete card data for the Japanese word: ${safeWord}
+        },
+        {
+          role: 'user',
+          content: `Generate complete card data for the Japanese word: ${safeWord}
 
 Return JSON with these keys:
 {
@@ -95,9 +103,16 @@ Return JSON with these keys:
   "pitchAccent": string,
   "mnemonic": string (memorable association for ${safeLevel} learner)
 }`,
-      },
-    ],
-  })
+        },
+      ],
+    })
+  } catch (err) {
+    console.error('[ai.service] generateCard OpenAI request failed', {
+      name:    err instanceof Error ? err.name    : 'Unknown',
+      message: err instanceof Error ? err.message : String(err),
+    })
+    throw new AppError(502, 'AI service temporarily unavailable')
+  }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {
@@ -122,9 +137,9 @@ export async function generateSentences(
   interests:  string[],
   count:      number,
 ): Promise<GeneratedSentences> {
-  const safeWord      = sanitize(word)
-  const safeLevel     = sanitize(userLevel)
-  const safeInterests = interests.map(sanitize)
+  const safeWord      = sanitizeForPrompt(word)
+  const safeLevel     = sanitizeForPrompt(userLevel)
+  const safeInterests = interests.map((s) => sanitizeForPrompt(s))
   const safeCount     = Math.max(1, Math.min(5, Math.trunc(count)))
 
   const cacheKey = `sentences:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}:${safeCount}`
@@ -135,20 +150,22 @@ export async function generateSentences(
     return GeneratedSentencesSchema.parse(payload)
   }
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-5.4-nano',
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: `You are a Japanese language expert generating natural example sentences for SRS flash cards.
+  let response
+  try {
+    response = await openai.chat.completions.create({
+      model: 'gpt-5.4-nano',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Japanese language expert generating natural example sentences for SRS flash cards.
 Always respond with valid JSON.
-User level: ${safeLevel}. User interests: ${safeInterests.join(', ')}.
+User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
 Sentences must be natural, level-appropriate, and tied to the user's interests when possible.`,
-      },
-      {
-        role: 'user',
-        content: `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
+        },
+        {
+          role: 'user',
+          content: `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 {
@@ -160,9 +177,16 @@ Constraints:
 - Each "ja" must contain the target word.
 - "furigana" should give hiragana readings for kanji compounds in the sentence.
 - Vary the grammar pattern across sentences.`,
-      },
-    ],
-  })
+        },
+      ],
+    })
+  } catch (err) {
+    console.error('[ai.service] generateSentences OpenAI request failed', {
+      name:    err instanceof Error ? err.name    : 'Unknown',
+      message: err instanceof Error ? err.message : String(err),
+    })
+    throw new AppError(502, 'AI service temporarily unavailable')
+  }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {
@@ -188,10 +212,10 @@ export async function generateMnemonic(
   nativeLanguage: string,
   interests:      string[],
 ): Promise<GeneratedMnemonic> {
-  const safeWord       = sanitize(word)
-  const safeLevel      = sanitize(userLevel)
-  const safeNative     = sanitize(nativeLanguage)
-  const safeInterests  = interests.map(sanitize)
+  const safeWord       = sanitizeForPrompt(word)
+  const safeLevel      = sanitizeForPrompt(userLevel)
+  const safeNative     = sanitizeForPrompt(nativeLanguage)
+  const safeInterests  = interests.map((s) => sanitizeForPrompt(s))
 
   const cacheKey = `mnemonic:${safeWord}:${userId}`
 
@@ -201,20 +225,22 @@ export async function generateMnemonic(
     return GeneratedMnemonicSchema.parse(payload)
   }
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-5.4-nano',
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: `You are a Japanese language tutor crafting memorable mnemonics.
+  let response
+  try {
+    response = await openai.chat.completions.create({
+      model: 'gpt-5.4-nano',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Japanese language tutor crafting memorable mnemonics.
 Always respond with valid JSON.
-User level: ${safeLevel}. Native language: ${safeNative}. Interests: ${safeInterests.join(', ')}.
+User level: ${safeLevel}. Native language: ${safeNative}. Interests: ${joinInterests(safeInterests)}.
 Mnemonics must be vivid, link sound + meaning, and reference the user's interests when possible.`,
-      },
-      {
-        role: 'user',
-        content: `Generate one memorable mnemonic for the Japanese word: ${safeWord}
+        },
+        {
+          role: 'user',
+          content: `Generate one memorable mnemonic for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 { "mnemonic": string }
@@ -223,9 +249,16 @@ Constraints:
 - Keep it under 200 characters.
 - Connect the reading to the meaning through a vivid image.
 - Use the user's native language for the mnemonic text.`,
-      },
-    ],
-  })
+        },
+      ],
+    })
+  } catch (err) {
+    console.error('[ai.service] generateMnemonic OpenAI request failed', {
+      name:    err instanceof Error ? err.name    : 'Unknown',
+      message: err instanceof Error ? err.message : String(err),
+    })
+    throw new AppError(502, 'AI service temporarily unavailable')
+  }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {

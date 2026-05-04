@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
 import type { ApiCard } from '@fsrs-japanese/shared-types'
@@ -173,7 +173,7 @@ export async function listCards(
   const { data, error } = await query
 
   if (error !== null) {
-    throw new AppError(500, `Failed to list cards: ${error.message}`)
+    throw dbError('list cards', error)
   }
 
   const rows    = data ?? []
@@ -272,14 +272,34 @@ async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<v
 
   const rootId = updatedCard.parentCardId ?? updatedCard.id
 
-  const { data: siblings, error } = await supabaseAdmin
-    .from('cards')
-    .select('id, fields_data')
-    .eq('user_id', userId)
-    .or(`parent_card_id.eq.${rootId},id.eq.${rootId}`)
-    .neq('id', updatedCard.id)
+  // Two parameterised queries — sibling = same parent OR same root id — and
+  // merge in JS. Avoids building a PostgREST `.or()` DSL string from a UUID,
+  // which would be injectable if the column type ever changed.
+  const [byParent, byId] = await Promise.all([
+    supabaseAdmin
+      .from('cards')
+      .select('id, fields_data')
+      .eq('user_id', userId)
+      .eq('parent_card_id', rootId)
+      .neq('id', updatedCard.id),
+    supabaseAdmin
+      .from('cards')
+      .select('id, fields_data')
+      .eq('user_id', userId)
+      .eq('id', rootId)
+      .neq('id', updatedCard.id),
+  ])
 
-  if (error !== null || siblings === null || siblings.length === 0) return
+  if (byParent.error !== null || byId.error !== null) return
+
+  const seen = new Set<string>()
+  const siblings = [...(byParent.data ?? []), ...(byId.data ?? [])].filter((row) => {
+    const id = row.id as string
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  })
+  if (siblings.length === 0) return
 
   const now = new Date().toISOString()
   await Promise.all(siblings.map((sibling) => {
@@ -322,11 +342,8 @@ export async function updateCard(
     .single()
 
   if (error !== null) {
-    const status = error.code === 'PGRST116' ? 404 : 500
-    throw new AppError(
-      status,
-      status === 404 ? 'Card not found' : `Failed to update card: ${error.message}`,
-    )
+    if (error.code === 'PGRST116') throw new AppError(404, 'Card not found')
+    throw dbError('update card', error)
   }
 
   if (data === null) {
@@ -366,7 +383,7 @@ export async function deleteCard(cardId: string, userId: string): Promise<void> 
     .eq('id', cardId)
 
   if (deleteError !== null) {
-    throw new AppError(500, `Failed to delete card: ${deleteError.message}`)
+    throw dbError('delete card', deleteError)
   }
 }
 
@@ -381,7 +398,7 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<C
   })
 
   if (error !== null) {
-    throw new AppError(500, `Failed to find similar cards: ${error.message}`)
+    throw dbError('find similar cards', error)
   }
 
   return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput, VerifyOtpInput, ResendOtpInput } from '../schemas/auth.schema.ts'
 
 export interface AuthTokens {
@@ -39,14 +39,16 @@ export async function signUp(input: SignupInput): Promise<SignUpResult> {
   })
 
   if (error !== null) {
-    const msg = error.message ?? 'Signup failed'
+    const msg = error.message ?? ''
     // GoTrue 422 = email already registered; some versions surface this
     // as "User already registered" at status 400 instead.
     const isDuplicate =
       error.status === 422 ||
       msg.toLowerCase().includes('already registered') ||
       msg.toLowerCase().includes('already exists')
-    throw new AppError(isDuplicate ? 409 : 400, msg)
+    if (isDuplicate) throw new AppError(409, 'Email already registered')
+    console.error('[auth.service] signup failed', { name: error.name, message: error.message })
+    throw new AppError(400, 'Signup failed')
   }
 
   // When the email is already confirmed, GoTrue returns user: null (no error)
@@ -141,7 +143,10 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<AuthTokens> {
   })
 
   if (error !== null || data.session === null) {
-    throw new AppError(400, error?.message ?? 'OTP verification failed')
+    if (error !== null) {
+      console.error('[auth.service] verifyOtp failed', { name: error.name, message: error.message })
+    }
+    throw new AppError(400, 'Invalid or expired code')
   }
 
   return {
@@ -162,7 +167,8 @@ export async function resendOtp(input: ResendOtpInput): Promise<void> {
   })
 
   if (error !== null) {
-    throw new AppError(400, error.message ?? 'Failed to resend OTP')
+    console.error('[auth.service] resendOtp failed', { name: error.name, message: error.message })
+    throw new AppError(400, 'Failed to resend OTP')
   }
 }
 
@@ -188,6 +194,6 @@ export async function deleteAccount(userId: string): Promise<void> {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
   if (error !== null) {
-    throw new AppError(500, `Failed to delete account: ${error.message}`)
+    throw dbError('delete account', error)
   }
 }

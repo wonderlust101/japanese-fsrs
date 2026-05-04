@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { CreateDeckInput, UpdateDeckInput, DeckType } from '../schemas/deck.schema.ts'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ export async function listDecks(userId: string): Promise<DeckRow[]> {
     .order('updated_at', { ascending: false })
 
   if (error !== null) {
-    throw new AppError(500, `Failed to list decks: ${error.message}`)
+    throw dbError('list decks', error)
   }
 
   return (data ?? []).map((row) => toRow(row as unknown as DeckDbRow))
@@ -162,7 +162,7 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
     .single()
 
   if (error !== null || data === null) {
-    throw new AppError(500, `Failed to create deck: ${error?.message ?? 'unknown error'}`)
+    throw dbError('create deck', error)
   }
 
   return toRow(data as unknown as DeckDbRow)
@@ -197,11 +197,8 @@ export async function updateDeck(
     .single()
 
   if (error !== null) {
-    const status = error.code === 'PGRST116' ? 404 : 500
-    throw new AppError(
-      status,
-      status === 404 ? 'Deck not found' : `Failed to update deck: ${error.message}`,
-    )
+    if (error.code === 'PGRST116') throw new AppError(404, 'Deck not found')
+    throw dbError('update deck', error)
   }
 
   if (data === null) {
@@ -237,6 +234,6 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
     .eq('id', deckId)
 
   if (deleteError !== null) {
-    throw new AppError(500, `Failed to delete deck: ${deleteError.message}`)
+    throw dbError('delete deck', deleteError)
   }
 }

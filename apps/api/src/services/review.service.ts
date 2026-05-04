@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { CARD_COLUMNS, toCardRow, type CardRow, type CardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
@@ -62,10 +62,10 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   ])
 
   if (totalResult.error !== null) {
-    throw new AppError(500, `Failed to count today's reviews: ${totalResult.error.message}`)
+    throw dbError("count today's reviews", totalResult.error)
   }
   if (newResult.error !== null) {
-    throw new AppError(500, `Failed to count today's new reviews: ${newResult.error.message}`)
+    throw dbError("count today's new reviews", newResult.error)
   }
 
   const totalReviewedToday = totalResult.count ?? 0
@@ -89,7 +89,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
     .limit(remainingTotal)
 
   if (overdueError !== null) {
-    throw new AppError(500, `Failed to fetch due cards: ${overdueError.message}`)
+    throw dbError('fetch due cards', overdueError)
   }
 
   const overdueCards = (overdueData ?? []).map(
@@ -110,7 +110,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
     .limit(newSlots)
 
   if (newError !== null) {
-    throw new AppError(500, `Failed to fetch new cards: ${newError.message}`)
+    throw dbError('fetch new cards', newError)
   }
 
   const newCards = (newData ?? []).map(
@@ -139,7 +139,7 @@ export async function getReviewForecast(userId: string, days = 14): Promise<Fore
     .lt('due', windowEndISO)
 
   if (error !== null) {
-    throw new AppError(500, `Failed to fetch review forecast: ${error.message}`)
+    throw dbError('fetch review forecast', error)
   }
 
   // Group by YYYY-MM-DD in TypeScript — avoids a new DB migration for GROUP BY.
@@ -209,10 +209,10 @@ export async function getSessionSummary(
     .eq('user_id', userId)
 
   if (logsError !== null) {
-    throw new AppError(500, `Failed to fetch session logs: ${logsError.message}`)
+    throw dbError('fetch session logs', logsError)
   }
   if (logs === null || logs.length === 0) {
-    throw new AppError(404, `Session ${sessionId} not found`)
+    throw new AppError(404, 'Session not found')
   }
 
   // ── Aggregate stats ──────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export async function getSessionSummary(
     .lte('created_at', maxReviewedAt)
 
   if (leechError !== null) {
-    throw new AppError(500, `Failed to fetch session leeches: ${leechError.message}`)
+    throw dbError('fetch session leeches', leechError)
   }
 
   // Enrich leech rows with card display data (word, reading) and deckId for linking.
@@ -268,7 +268,7 @@ export async function getSessionSummary(
       .in('id', leechCardIds)
 
     if (cardError !== null) {
-      throw new AppError(500, `Failed to fetch card data for leeches: ${cardError.message}`)
+      throw dbError('fetch card data for leeches', cardError)
     }
 
     for (const c of cardRows ?? []) {

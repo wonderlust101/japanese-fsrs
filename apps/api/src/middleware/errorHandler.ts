@@ -20,12 +20,28 @@ export class AppError extends Error {
 }
 
 /**
+ * Wrap a Supabase / external-SDK error into a generic 500 AppError, logging
+ * the underlying error server-side. Use at every DB error site to keep
+ * Postgres internals (table names, error codes, SQL hints) out of client
+ * responses.
+ *
+ * @example
+ * if (error !== null) throw dbError('list cards', error)
+ */
+export function dbError(action: string, err: unknown): AppError {
+  console.error(`[db] ${action} failed`, err instanceof Error
+    ? { name: err.name, message: err.message }
+    : { detail: 'non-Error thrown' })
+  return new AppError(500, `Failed to ${action}`)
+}
+
+/**
  * Global Express error handler. Must be registered last — after all routes.
  *
  * Handles:
  *   AppError  → status from the error, message forwarded verbatim
- *   ZodError  → 400 with the issues array for client-side field highlighting
- *   Anything else → 500 with a generic message (details logged server-side)
+ *   ZodError  → 400 with a sanitized issues array (no echoed input values)
+ *   Anything else → 500 with a generic message (sanitized triple logged)
  */
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof AppError) {
@@ -34,11 +50,19 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   }
 
   if (err instanceof ZodError) {
-    res.status(400).json({ error: 'Validation error', details: err.issues })
+    // Strip received/expected/input fields — they may echo user input or
+    // leak schema internals.
+    const safeIssues = err.issues.map(({ code, path, message }) => ({ code, path, message }))
+    res.status(400).json({ error: 'Validation error', details: safeIssues })
     return
   }
 
-  // Log unexpected errors but never leak internals to the client.
-  console.error('[API] Unhandled error:', err)
+  // Log only the minimal triple. Full err objects can carry err.cause,
+  // err.response (with auth headers), Supabase internals, etc.
+  console.error('[API] Unhandled error', {
+    name:    err instanceof Error ? err.name    : 'Unknown',
+    message: err instanceof Error ? err.message : String(err),
+    stack:   err instanceof Error ? err.stack   : undefined,
+  })
   res.status(500).json({ error: 'Internal server error' })
 }

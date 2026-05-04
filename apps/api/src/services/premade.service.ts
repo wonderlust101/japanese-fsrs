@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import type { DeckType } from '../schemas/deck.schema.ts'
 import type { JlptLevel } from '../schemas/card.schema.ts'
@@ -85,7 +85,7 @@ export async function listPremadeDecks(
   const { data, error } = await query
 
   if (error !== null) {
-    throw new AppError(500, `Failed to list premade decks: ${error.message}`)
+    throw dbError('list premade decks', error)
   }
 
   return (data ?? []).map((row) => toPremadeRow(row as unknown as PremadeDeckDbRow))
@@ -121,7 +121,7 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
     .order('subscribed_at', { ascending: false })
 
   if (subsError !== null) {
-    throw new AppError(500, `Failed to list subscriptions: ${subsError.message}`)
+    throw dbError('list subscriptions', subsError)
   }
 
   const rows = (subs ?? []) as Array<{ id: string; premade_deck_id: string; subscribed_at: string }>
@@ -143,10 +143,10 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
   ])
 
   if (premadeDecksResult.error !== null) {
-    throw new AppError(500, `Failed to load premade deck names: ${premadeDecksResult.error.message}`)
+    throw dbError('load premade deck names', premadeDecksResult.error)
   }
   if (decksResult.error !== null) {
-    throw new AppError(500, `Failed to load forked decks: ${decksResult.error.message}`)
+    throw dbError('load forked decks', decksResult.error)
   }
 
   const nameById  = new Map<string, string>(
@@ -200,7 +200,7 @@ export async function subscribeToPremadeDeck(
 
   if (error !== null) {
     if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found')
-    throw new AppError(500, `Failed to subscribe to premade deck: ${error.message}`)
+    throw dbError('subscribe to premade deck', error)
   }
 
   const row = (data as SubscribeRpcRow[] | null)?.[0]
@@ -234,7 +234,7 @@ export async function unsubscribeFromPremadeDeck(
     .eq('is_premade_fork', true)
 
   if (deckError !== null) {
-    throw new AppError(500, `Failed to delete forked deck: ${deckError.message}`)
+    throw dbError('delete forked deck', deckError)
   }
 
   const { error: subError } = await supabaseAdmin
@@ -244,6 +244,6 @@ export async function unsubscribeFromPremadeDeck(
     .eq('premade_deck_id', premadeDeckId)
 
   if (subError !== null) {
-    throw new AppError(500, `Failed to delete subscription: ${subError.message}`)
+    throw dbError('delete subscription', subError)
   }
 }

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { JlptLevel, UpdateProfileInput } from '../schemas/profile.schema.ts'
 
 // ─── Column projection ────────────────────────────────────────────────────────
@@ -88,10 +88,8 @@ export async function updateProfile(
   // Supabase returns PGRST116 when .single() finds no matching row — the only
   // realistic cause here is a missing profile (see getProfile for why that's unusual).
   if (error !== null) {
-    const status = error.code === 'PGRST116' ? 404 : 500
-    const message =
-      status === 404 ? 'Profile not found' : `Failed to update profile: ${error.message}`
-    throw new AppError(status, message)
+    if (error.code === 'PGRST116') throw new AppError(404, 'Profile not found')
+    throw dbError('update profile', error)
   }
 
   if (data === null) {

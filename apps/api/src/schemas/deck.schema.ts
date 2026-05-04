@@ -1,18 +1,20 @@
 import { z } from 'zod'
 
+import { safeShortText } from '../lib/sanitize.ts'
+
 // Mirrors the deck_type DB enum exactly.
 export const deckTypeEnum = z.enum(['vocabulary', 'grammar', 'kanji', 'mixed'])
 
 export const createDeckSchema = z.object({
-  name:        z.string().trim().min(1, 'Name is required').max(100, 'Name must be at most 100 characters'),
-  description: z.string().trim().max(500, 'Description must be at most 500 characters').optional(),
+  name:        safeShortText(100, 1),
+  description: safeShortText(500).optional(),
   deck_type:   deckTypeEnum.default('vocabulary'),
 }).strict()
 
 // Every field is optional — only present keys are written (true PATCH semantics).
 export const updateDeckSchema = z.object({
-  name:        z.string().trim().min(1, 'Name is required').max(100).optional(),
-  description: z.string().trim().max(500).nullable().optional(),
+  name:        safeShortText(100, 1).optional(),
+  description: safeShortText(500).nullable().optional(),
   deck_type:   deckTypeEnum.optional(),
   is_public:   z.boolean().optional(),
 }).strict()

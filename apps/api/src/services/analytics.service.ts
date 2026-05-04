@@ -1,7 +1,7 @@
 import type { ZodType } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import { dbError } from '../middleware/errorHandler.ts'
 import {
   HeatmapRpcSchema,
   AccuracyRpcSchema,
@@ -61,7 +61,7 @@ async function callRpc<T>(
   label:  string,
 ): Promise<T> {
   const { data, error } = await supabaseAdmin.rpc(fn, params)
-  if (error !== null) throw new AppError(500, `Failed to fetch ${label}: ${error.message}`)
+  if (error !== null) throw dbError(`fetch ${label}`, error)
   return schema.parse(data ?? [])
 }
 

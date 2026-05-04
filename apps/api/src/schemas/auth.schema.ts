@@ -1,12 +1,11 @@
 import { z } from 'zod'
 
+import { safeShortText } from '../lib/sanitize.ts'
+
 export const signupSchema = z.object({
   email:        z.email(),
-  password:     z.string().min(8),
-  display_name: z.string()
-    .min(2,  'Display name must be at least 2 characters.')
-    .max(30, 'Display name must be at most 30 characters.')
-    .trim(),
+  password:     z.string().min(8).max(128),
+  display_name: safeShortText(30, 2),
 })
 
 export const loginSchema = z.object({
