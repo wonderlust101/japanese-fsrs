@@ -1,7 +1,8 @@
 import { Router } from 'express'
 
-import { authMiddleware }       from '../middleware/auth.ts'
-import * as premadeController   from '../controllers/premade.controller.ts'
+import { authMiddleware }                from '../middleware/auth.ts'
+import { subscribeRateLimitMiddleware }  from '../middleware/rateLimit.ts'
+import * as premadeController            from '../controllers/premade.controller.ts'
 
 const router = Router()
 
@@ -13,7 +14,7 @@ router.get('/subscriptions/me', premadeController.subscriptions)
 
 router.get('/',                premadeController.list)
 router.get('/:id',             premadeController.get)
-router.post('/:id/subscribe',  premadeController.subscribe)
+router.post('/:id/subscribe',  subscribeRateLimitMiddleware, premadeController.subscribe)
 router.delete('/:id/subscribe', premadeController.unsubscribe)
 
 export default router

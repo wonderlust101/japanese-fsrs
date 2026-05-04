@@ -64,3 +64,52 @@ export const authRateLimitMiddleware: RequestHandler = async (req, _res, next): 
     next(err)
   }
 }
+
+// Sliding window: 5 batch flushes per 5 minutes per user. Bounds the worst case
+// (5 × 500 reviews × ~50 ms ≈ 125 s of CPU per 5 min) while leaving headroom
+// for legitimate offline-buffer flushes.
+const batchRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '5 m'),
+  prefix: 'ratelimit:batch',
+})
+
+/**
+ * Rate-limits POST /api/v1/reviews/batch — the offline-buffer sync endpoint.
+ * Must be applied after authMiddleware (requires req.user).
+ */
+export const batchRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const { success } = await batchRatelimit.limit(`${req.user.id}:batch`)
+    if (!success) {
+      throw new AppError(429, 'Batch sync rate limit exceeded. Please wait before retrying.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Sliding window: 15 subscribes per 15 mins per user. The subscribe RPC clones
+// every source card into a new owned deck — most expensive write path.
+const subscribeRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(15, '15 m'),
+  prefix: 'ratelimit:subscribe',
+})
+
+/**
+ * Rate-limits POST /api/v1/premade-decks/:id/subscribe.
+ * Must be applied after authMiddleware (requires req.user).
+ */
+export const subscribeRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const { success } = await subscribeRatelimit.limit(`${req.user.id}:subscribe`)
+    if (!success) {
+      throw new AppError(429, 'Subscription rate limit exceeded. Please wait before retrying.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}

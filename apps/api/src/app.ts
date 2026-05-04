@@ -25,7 +25,12 @@ export const app = express()
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
 
-app.use(helmet())
+app.use(helmet({
+  // Bumped to 2 years + preload for hstspreload.org submission eligibility.
+  hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  // No legitimate self-framing for a JSON API.
+  frameguard: { action: 'deny' },
+}))
 app.use(cors({
   origin: allowedOrigins,
   allowedHeaders: ['Content-Type', 'Authorization'],
