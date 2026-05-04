@@ -42,7 +42,6 @@ export interface ProcessReviewResult {
   stability: number
   difficulty: number
   scheduledDays: number
-  state: number
   status: CardStatus
 }
 
@@ -64,7 +63,6 @@ export interface FsrsInitialState {
   learning_steps: number
   reps: number
   lapses: number
-  state: number
   last_review: null
 }
 
@@ -84,7 +82,6 @@ const FSRS_SELECT_COLUMNS = [
   'learning_steps',
   'reps',
   'lapses',
-  'state',
   'last_review',
 ].join(', ')
 
@@ -102,7 +99,6 @@ interface FsrsCardRow {
   learning_steps: number
   reps: number
   lapses: number
-  state: number
   last_review: string | null
 }
 
@@ -141,7 +137,7 @@ function buildFsrsCard(row: FsrsCardRow): CardInput {
     learning_steps: row.learning_steps,
     reps:           row.reps,
     lapses:         row.lapses,
-    state:          row.state as State,
+    state:          statusToState(row.status),
     // exactOptionalPropertyTypes: omit the key entirely when null so we don't
     // assign `undefined` to a property typed `DateInput | null`.
     ...(row.last_review !== null ? { last_review: new Date(row.last_review) } : {}),
@@ -178,6 +174,22 @@ function stateToStatus(state: State): CardStatus {
     case State.Review:     return CardStatus.Review
     case State.Relearning: return CardStatus.Relearning
     default:               return CardStatus.New
+  }
+}
+
+/**
+ * Inverse of stateToStatus — derives the ts-fsrs State integer from the
+ * persisted status enum. Suspended cards are filtered out before reviews
+ * begin (see processReview / forgetCard guards), so 'suspended' is never
+ * passed in here; defaulting it to State.New is safe.
+ */
+function statusToState(status: string): State {
+  switch (status) {
+    case CardStatus.New:        return State.New
+    case CardStatus.Learning:   return State.Learning
+    case CardStatus.Review:     return State.Review
+    case CardStatus.Relearning: return State.Relearning
+    default:                    return State.New
   }
 }
 
@@ -247,7 +259,6 @@ export async function processReview(
     p_learning_steps:       updated.learning_steps,
     p_reps:                 updated.reps,
     p_lapses:               updated.lapses,
-    p_state:                updated.state,
     p_last_review:          reviewedAt.toISOString(),
     p_updated_at:           reviewedAt.toISOString(),
     p_rating:               rating,
@@ -257,8 +268,9 @@ export async function processReview(
     p_due_after:            updated.due.toISOString(),
     p_scheduled_days_after: updated.scheduled_days,
     p_leech_threshold:      LEECH_THRESHOLD,
-    // Before-snapshot — enables rollback via rollbackReview()
-    p_state_before:          row.state,
+    // Before-snapshot — enables rollback via rollbackReview().
+    // state_before is the integer derived from the pre-review status.
+    p_state_before:          statusToState(row.status),
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -281,7 +293,6 @@ export async function processReview(
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
-    state:         updated.state,
     status:        newStatus,
   }
 }
@@ -365,7 +376,6 @@ export async function rollbackReview(
       learning_steps: restored.learning_steps,
       reps:           restored.reps,
       lapses:         restored.lapses,
-      state:          restored.state,
       last_review:    restored.last_review?.toISOString() ?? null,
       updated_at:     now.toISOString(),
     })
@@ -382,7 +392,6 @@ export async function rollbackReview(
     stability:     restored.stability,
     difficulty:    restored.difficulty,
     scheduledDays: restored.scheduled_days,
-    state:         restored.state,
     status:        restoredStatus,
   }
 }
@@ -432,7 +441,7 @@ export async function forgetCard(
     p_reps:                 forgotten.reps,
     p_lapses:               forgotten.lapses,
     p_updated_at:           now.toISOString(),
-    p_state_before:          row.state,
+    p_state_before:          statusToState(row.status),
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -455,7 +464,6 @@ export async function forgetCard(
     stability:     forgotten.stability,
     difficulty:    forgotten.difficulty,
     scheduledDays: forgotten.scheduled_days,
-    state:         forgotten.state,
     status:        forgottenStatus,
   }
 }
@@ -566,7 +574,6 @@ export async function rescheduleFromHistory(
     p_learning_steps:       updated.learning_steps,
     p_reps:                 updated.reps,
     p_lapses:               updated.lapses,
-    p_state:                updated.state,
     p_last_review:          updated.last_review?.toISOString() ?? now.toISOString(),
     p_updated_at:           now.toISOString(),
     p_rating:               'manual',
@@ -576,7 +583,7 @@ export async function rescheduleFromHistory(
     p_due_after:            updated.due.toISOString(),
     p_scheduled_days_after: updated.scheduled_days,
     p_leech_threshold:      LEECH_THRESHOLD,
-    p_state_before:          row.state,
+    p_state_before:          statusToState(row.status),
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -598,7 +605,6 @@ export async function rescheduleFromHistory(
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
-    state:         updated.state,
     status:        updatedStatus,
   }
 }
@@ -619,7 +625,6 @@ export function getInitialFsrsState(): FsrsInitialState {
     learning_steps: empty.learning_steps,
     reps:           empty.reps,
     lapses:         empty.lapses,
-    state:          empty.state,
     last_review:    null,
   }
 }

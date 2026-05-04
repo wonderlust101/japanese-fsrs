@@ -26,7 +26,6 @@ export const CARD_COLUMNS = [
   'reps',
   'lapses',
   'last_review',
-  'state',
   'created_at',
   'updated_at',
 ].join(', ')
@@ -78,7 +77,6 @@ export interface CardDbRow {
   reps:            number
   lapses:          number
   last_review:     string | null
-  state:           number
   created_at:      string
   updated_at:      string
 }
@@ -103,7 +101,6 @@ export function toCardRow(raw: CardDbRow): CardRow {
     reps:          raw.reps,
     lapses:        raw.lapses,
     lastReview:    raw.last_review,
-    state:         raw.state,
     createdAt:     raw.created_at,
     updatedAt:     raw.updated_at,
   }
@@ -245,7 +242,6 @@ export async function createCard(
       scheduled_days: fsrs.scheduled_days,
       reps:           fsrs.reps,
       lapses:         fsrs.lapses,
-      state:          fsrs.state,
       last_review:    fsrs.last_review,
     })
     .select(CARD_COLUMNS)

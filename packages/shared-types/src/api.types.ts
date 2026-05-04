@@ -27,7 +27,6 @@ export interface ApiCard {
   reps:          number
   lapses:        number
   lastReview:    string | null
-  state:         number
   createdAt:     string
   updatedAt:     string
 }
@@ -35,13 +34,13 @@ export interface ApiCard {
 /** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs. */
 export type ApiDueCard = Pick<
   ApiCard,
-  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'status' | 'due' | 'state' | 'fieldsData'
+  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'status' | 'due' | 'fieldsData'
 >
 
 /** Subset of ApiCard returned by /decks/:id/cards (card list). */
 export type ApiCardListItem = Pick<
   ApiCard,
-  'id' | 'fieldsData' | 'layoutType' | 'cardType' | 'jlptLevel' | 'status' | 'state' | 'due' | 'tags'
+  'id' | 'fieldsData' | 'layoutType' | 'cardType' | 'jlptLevel' | 'status' | 'due' | 'tags'
 >
 
 export interface ApiDeck {

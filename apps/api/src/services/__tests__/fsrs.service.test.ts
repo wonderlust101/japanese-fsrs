@@ -18,7 +18,6 @@ describe('fsrs.service — getInitialFsrsState', () => {
   it('returns FSRS field defaults for a fresh card', () => {
     const s = getInitialFsrsState()
     expect(s.status).toBe('new')
-    expect(s.state).toBe(0)
     expect(s.reps).toBe(0)
     expect(s.lapses).toBe(0)
     expect(s.elapsed_days).toBe(0)
@@ -62,7 +61,6 @@ describe('fsrs.service — previewNextStates', () => {
     learning_steps: 0,
     reps:           0,
     lapses:         0,
-    state:          0,
     last_review:    null,
   }
 

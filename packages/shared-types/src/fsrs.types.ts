@@ -27,6 +27,4 @@ export interface FsrsCardState {
   reps: number
   lapses: number
   lastReview: Date | null
-  /** FSRS internal state integer: 0=New 1=Learning 2=Review 3=Relearning */
-  state: number
 }

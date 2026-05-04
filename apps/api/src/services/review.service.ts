@@ -237,7 +237,13 @@ export async function getSessionSummary(
     : null
 
   // ── Leech lookup ─────────────────────────────────────────────────────────────
-  const cardIds = [...new Set(logs.map((l) => l.card_id as string))]
+  // review_logs.card_id is nullable (set to NULL when a card is deleted, see
+  // migration 20260504000004), so filter orphan logs before deriving cardIds.
+  const cardIds = [...new Set(
+    logs
+      .map((l) => l.card_id as string | null)
+      .filter((id): id is string => id !== null),
+  )]
 
   const reviewedAts = logs.map((l) => new Date(l.reviewed_at as string).getTime())
   const minReviewedAt = new Date(Math.min(...reviewedAts)).toISOString()
