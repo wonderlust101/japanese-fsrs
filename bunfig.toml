@@ -1,0 +1,5 @@
+[test]
+# Set dummy env vars before any test module loads. Required because
+# ai.service.ts and supabase.ts throw at module-load when their env vars are
+# absent, and the auth middleware test transitively imports both via app.ts.
+preload = ["./apps/api/tests/setup.ts"]

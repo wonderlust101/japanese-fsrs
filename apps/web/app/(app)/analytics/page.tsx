@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { AnalyticsDashboard } from './_components/AnalyticsDashboard'
 
-export default function AnalyticsIndexPage() {
-  redirect('/analytics/overview')
+export default function AnalyticsPage(): React.JSX.Element {
+  return <AnalyticsDashboard />
 }

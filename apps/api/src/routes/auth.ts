@@ -14,6 +14,7 @@ router.post('/verify-otp',    authController.verifyOtp)
 router.post('/resend-otp',    authController.resendOtp)
 
 // Protected — requires a valid Bearer token.
-router.post('/logout', authMiddleware, authController.logout)
+router.post('/logout',          authMiddleware, authController.logout)
+router.delete('/account',       authMiddleware, authController.deleteAccount)
 
 export default router

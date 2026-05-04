@@ -27,4 +27,5 @@ export interface UpdateProfileInput {
   daily_review_limit?:    number
   retention_target?:      number
   timezone?:              string
+  native_language?:       string
 }

@@ -13,6 +13,7 @@ export const updateProfileSchema = z.object({
   daily_review_limit:    z.number().int().min(1).max(9999).optional(),
   retention_target:      z.number().min(0.6).max(0.99).optional(),
   timezone:              z.string().trim().min(1).max(100).optional(),
+  native_language:       z.string().trim().min(2).max(10).optional(),
 }).strict()
 
 export type JlptLevel         = z.infer<typeof jlptLevelEnum>

@@ -13,6 +13,7 @@ import { CardListItem }          from '../../../_components/card-list-item'
 import { FsrsStats }             from './fsrs-stats'
 import { ExampleSentences }      from './example-sentences'
 import { KanjiBreakdown }        from './kanji-breakdown'
+import { MnemonicSection }       from './mnemonic-section'
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
 
@@ -125,8 +126,12 @@ export function CardDetailView({ deckId, cardId, deckName }: Props) {
         </section>
 
         {/* ── Example Sentences ───────────────────────────────────────── */}
-        {exampleSentences !== undefined && exampleSentences.length > 0 && (
-          <ExampleSentences sentences={exampleSentences} />
+        {!isLoading && (
+          <ExampleSentences
+            cardId={cardId}
+            sentences={exampleSentences ?? []}
+            fieldsData={fd}
+          />
         )}
 
         {/* ── Kanji Breakdown ─────────────────────────────────────────── */}
@@ -135,12 +140,12 @@ export function CardDetailView({ deckId, cardId, deckName }: Props) {
         )}
 
         {/* ── Mnemonic ────────────────────────────────────────────────── */}
-        {mnemonic !== undefined && (
-          <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Mnemonic</h2>
-            <p className="text-base text-neutral-700 italic leading-relaxed">{mnemonic}</p>
-            <Button variant="ghost" size="sm" disabled>Regenerate →</Button>
-          </section>
+        {!isLoading && (
+          <MnemonicSection
+            cardId={cardId}
+            mnemonic={mnemonic}
+            fieldsData={fd}
+          />
         )}
 
         {/* ── FSRS Stats ──────────────────────────────────────────────── */}

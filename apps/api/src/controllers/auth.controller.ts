@@ -73,3 +73,12 @@ export const logout: RequestHandler = async (req, res, next): Promise<void> => {
     next(err)
   }
 }
+
+export const deleteAccount: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    await authService.deleteAccount(req.user.id)
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+}

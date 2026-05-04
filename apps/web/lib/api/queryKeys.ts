@@ -16,8 +16,19 @@ export const queryKeys = {
     summary:  (id: string) => ['reviews', 'summary', id]   as const,
   },
   analytics: {
-    heatmap:  () => ['analytics', 'heatmap']  as const,
-    accuracy: () => ['analytics', 'accuracy'] as const,
-    jlptGap:  () => ['analytics', 'jlpt-gap'] as const,
+    heatmap:    () => ['analytics', 'heatmap']    as const,
+    accuracy:   () => ['analytics', 'accuracy']   as const,
+    jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
+    streak:     () => ['analytics', 'streak']     as const,
+    milestones: () => ['analytics', 'milestones'] as const,
+  },
+  premadeDecks: {
+    all:           ()           => ['premade-decks']                                  as const,
+    list:          ()           => [...queryKeys.premadeDecks.all(), 'list']          as const,
+    detail:        (id: string) => [...queryKeys.premadeDecks.all(), 'detail', id]    as const,
+    subscriptions: ()           => [...queryKeys.premadeDecks.all(), 'subscriptions'] as const,
+  },
+  profile: {
+    me: () => ['profile', 'me'] as const,
   },
 } as const

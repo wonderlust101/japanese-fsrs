@@ -213,6 +213,63 @@ export async function updateCardAction(cardId: string, payload: UpdateCardPayloa
   }
 }
 
+export interface RegeneratedSentences {
+  sentences: { ja: string; en: string; furigana: string }[]
+}
+
+export async function generateSentencesAction(
+  cardId: string,
+  count?: number,
+): Promise<RegeneratedSentences> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/ai/generate-sentences`,
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization:  `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(count !== undefined ? { cardId, count } : { cardId }),
+    },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to regenerate sentences')
+  }
+  return res.json() as Promise<RegeneratedSentences>
+}
+
+export interface RegeneratedMnemonic {
+  mnemonic: string
+}
+
+export async function generateMnemonicAction(cardId: string): Promise<RegeneratedMnemonic> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/ai/generate-mnemonic`,
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization:  `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ cardId }),
+    },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to regenerate mnemonic')
+  }
+  return res.json() as Promise<RegeneratedMnemonic>
+}
+
 export async function deleteCardAction(cardId: string): Promise<void> {
   const supabase = await createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()

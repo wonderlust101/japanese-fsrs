@@ -44,3 +44,53 @@ export async function getAccuracyAction(): Promise<LayoutAccuracy[]> {
   }
   return res.json() as Promise<LayoutAccuracy[]>
 }
+
+export interface StreakStats {
+  currentStreak:  number
+  longestStreak:  number
+  lastReviewDate: string | null
+}
+
+export interface JlptGapRow {
+  jlptLevel:   string
+  total:       number
+  learned:     number
+  due:         number
+  progressPct: number
+}
+
+export interface MilestoneForecastRow {
+  jlptLevel:                string
+  total:                    number
+  learned:                  number
+  dailyPace:                number
+  daysRemaining:            number | null
+  projectedCompletionDate:  string | null
+}
+
+async function getJSON<T>(path: string, fallback: T): Promise<T> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) return fallback
+
+  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}${path}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache:   'no-store',
+  })
+  if (!res.ok) return fallback
+  return res.json() as Promise<T>
+}
+
+export async function getStreakAction(): Promise<StreakStats> {
+  return getJSON<StreakStats>('/api/v1/analytics/streak', {
+    currentStreak: 0, longestStreak: 0, lastReviewDate: null,
+  })
+}
+
+export async function getJlptGapAction(): Promise<JlptGapRow[]> {
+  return getJSON<JlptGapRow[]>('/api/v1/analytics/jlpt-gap', [])
+}
+
+export async function getMilestoneForecastAction(): Promise<MilestoneForecastRow[]> {
+  return getJSON<MilestoneForecastRow[]>('/api/v1/analytics/milestones', [])
+}

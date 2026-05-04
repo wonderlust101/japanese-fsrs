@@ -19,5 +19,28 @@ export const GeneratedCardDataSchema = z.object({
   mnemonic:         z.string().optional(),
 })
 
-export type GenerateCardInput = z.infer<typeof generateCardInputSchema>
-export type GeneratedCardData = z.infer<typeof GeneratedCardDataSchema>
+export const generateSentencesInputSchema = z.object({
+  cardId: z.string().uuid('Invalid card ID'),
+  count:  z.number().int().min(1).max(5).optional(),
+}).strict()
+
+export const GeneratedSentencesSchema = z.object({
+  sentences: z.array(
+    z.object({ ja: z.string(), en: z.string(), furigana: z.string() }),
+  ),
+})
+
+export const generateMnemonicInputSchema = z.object({
+  cardId: z.string().uuid('Invalid card ID'),
+}).strict()
+
+export const GeneratedMnemonicSchema = z.object({
+  mnemonic: z.string(),
+})
+
+export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>
+export type GeneratedCardData        = z.infer<typeof GeneratedCardDataSchema>
+export type GenerateSentencesInput   = z.infer<typeof generateSentencesInputSchema>
+export type GeneratedSentences       = z.infer<typeof GeneratedSentencesSchema>
+export type GenerateMnemonicInput    = z.infer<typeof generateMnemonicInputSchema>
+export type GeneratedMnemonic        = z.infer<typeof GeneratedMnemonicSchema>

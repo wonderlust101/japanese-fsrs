@@ -28,3 +28,43 @@ export const accuracy: RequestHandler = async (req, res, next): Promise<void> =>
     next(err)
   }
 }
+
+/**
+ * GET /api/v1/analytics/streak
+ * Returns the user's current/longest streak and last review date.
+ */
+export const streak: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const data = await analyticsService.getStreak(req.user.id)
+    res.json(data)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /api/v1/analytics/jlpt-gap
+ * Returns per-JLPT-level total/learned/due counts plus progressPct.
+ */
+export const jlptGap: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const data = await analyticsService.getJlptGap(req.user.id)
+    res.json(data)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /api/v1/analytics/milestones
+ * Returns per-JLPT-level projected completion dates based on the user's
+ * 30-day learning pace.
+ */
+export const milestones: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const data = await analyticsService.getMilestoneForecast(req.user.id)
+    res.json(data)
+  } catch (err) {
+    next(err)
+  }
+}

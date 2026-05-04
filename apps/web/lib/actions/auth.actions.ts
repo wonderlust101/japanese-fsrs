@@ -45,3 +45,24 @@ export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient()
   await supabase.auth.signOut()
 }
+
+export async function deleteAccountAction(): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session === null) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/account`,
+    {
+      method:  'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    },
+  )
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to delete account')
+  }
+
+  await supabase.auth.signOut()
+}

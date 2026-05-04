@@ -9,6 +9,7 @@ import aiRouter      from './routes/ai.ts'
 import cardsRouter   from './routes/cards.ts'
 import reviewsRouter   from './routes/reviews.ts'
 import analyticsRouter from './routes/analytics.ts'
+import premadeRouter   from './routes/premade.ts'
 
 // CORS_ORIGIN accepts a comma-separated list for multiple origins.
 // Default covers local Next.js dev server.
@@ -30,6 +31,7 @@ app.use(express.urlencoded({ extended: false }))
 app.use('/api/v1/auth',    authRouter)
 app.use('/api/v1/profile', profileRouter)
 app.use('/api/v1/decks',   decksRouter)
+app.use('/api/v1/premade-decks',        premadeRouter)
 app.use('/api/v1/ai',                   aiRouter)
 app.use('/api/v1/reviews',             reviewsRouter)
 app.use('/api/v1/decks/:deckId/cards', cardsRouter)

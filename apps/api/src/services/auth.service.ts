@@ -178,3 +178,16 @@ export async function signOut(jwt: string): Promise<void> {
     throw new AppError(500, 'Logout failed')
   }
 }
+
+/**
+ * Permanently deletes the user's account and all linked data.
+ * The auth.users → profiles cascade chain wipes profile, decks, cards,
+ * subscriptions, and review logs in a single Supabase admin call.
+ */
+export async function deleteAccount(userId: string): Promise<void> {
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+  if (error !== null) {
+    throw new AppError(500, `Failed to delete account: ${error.message}`)
+  }
+}
