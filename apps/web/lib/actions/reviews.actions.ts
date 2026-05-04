@@ -25,19 +25,33 @@ export interface BatchResult {
   errors:  Array<{ cardId: string; error: string }>
 }
 
-export async function getDueCardsAction(): Promise<DueCard[]> {
+// ─── Internal helper ──────────────────────────────────────────────────────────
+
+async function apiCall<T>(
+  path:        string,
+  init:        RequestInit | undefined,
+  errorPrefix: string,
+): Promise<T> {
   const supabase = await createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (session === null) throw new Error('Not authenticated')
 
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/due`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
+  const headers = new Headers(init?.headers)
+  headers.set('Authorization', `Bearer ${session.access_token}`)
+  if (init?.body !== undefined) headers.set('Content-Type', 'application/json')
+
+  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}${path}`, { ...init, headers })
   if (!res.ok) {
     const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to fetch due cards')
+    throw new Error(body.error ?? errorPrefix)
   }
-  return res.json() as Promise<DueCard[]>
+  return res.json() as Promise<T>
+}
+
+// ─── Server actions ───────────────────────────────────────────────────────────
+
+export async function getDueCardsAction(): Promise<DueCard[]> {
+  return apiCall<DueCard[]>('/api/v1/reviews/due', undefined, 'Failed to fetch due cards')
 }
 
 export async function submitReviewAction(
@@ -46,76 +60,33 @@ export async function submitReviewAction(
   reviewTimeMs?: number,
   sessionId?:    string,
 ): Promise<{ card: DueCard }> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/submit`, {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization:  `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }),
-  })
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to submit review')
-  }
-  return res.json() as Promise<{ card: DueCard }>
+  return apiCall<{ card: DueCard }>(
+    '/api/v1/reviews/submit',
+    { method: 'POST', body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }) },
+    'Failed to submit review',
+  )
 }
 
 export async function getSessionSummaryAction(
   sessionId: string,
 ): Promise<SessionSummary> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/session-summary/${encodeURIComponent(sessionId)}`,
-    { headers: { Authorization: `Bearer ${session.access_token}` } },
+  return apiCall<SessionSummary>(
+    `/api/v1/reviews/session-summary/${encodeURIComponent(sessionId)}`,
+    undefined,
+    'Failed to fetch session summary',
   )
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to fetch session summary')
-  }
-  return res.json() as Promise<SessionSummary>
 }
 
 export async function submitBatchAction(
   reviews: Array<{ cardId: string; rating: ReviewRating; reviewTimeMs?: number }>,
 ): Promise<BatchResult> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/batch`, {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization:  `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ reviews }),
-  })
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to submit batch')
-  }
-  return res.json() as Promise<BatchResult>
+  return apiCall<BatchResult>(
+    '/api/v1/reviews/batch',
+    { method: 'POST', body: JSON.stringify({ reviews }) },
+    'Failed to submit batch',
+  )
 }
 
 export async function getReviewForecastAction(): Promise<ForecastDay[]> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/reviews/forecast`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to fetch forecast')
-  }
-  return res.json() as Promise<ForecastDay[]>
+  return apiCall<ForecastDay[]>('/api/v1/reviews/forecast', undefined, 'Failed to fetch forecast')
 }

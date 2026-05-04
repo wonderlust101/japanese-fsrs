@@ -70,7 +70,7 @@ export interface FsrsInitialState {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Columns selected for every FSRS operation — keep in sync with CardRow below. */
+/** Columns selected for every FSRS operation — keep in sync with FsrsCardRow below. */
 const FSRS_SELECT_COLUMNS = [
   'id',
   'user_id',
@@ -89,7 +89,7 @@ const FSRS_SELECT_COLUMNS = [
 ].join(', ')
 
 /** Row shape returned by the SELECT above. */
-interface CardRow {
+interface FsrsCardRow {
   id: string
   user_id: string | null
   card_type: string
@@ -131,7 +131,7 @@ interface ReviewLogRow {
 }
 
 /** Convert a DB card row to the CardInput shape ts-fsrs expects. */
-function buildFsrsCard(row: CardRow): CardInput {
+function buildFsrsCard(row: FsrsCardRow): CardInput {
   return {
     due:            new Date(row.due),
     stability:      row.stability,
@@ -216,7 +216,7 @@ export async function processReview(
     throw new AppError(404, `Card ${cardId} not found or does not belong to user (userId=${userId})`)
   }
 
-  const row = data as unknown as CardRow
+  const row = data as unknown as FsrsCardRow
 
   if (row.user_id === null) {
     throw new AppError(403, `Refusing to apply FSRS to premade source card ${cardId}`)
@@ -322,7 +322,7 @@ export async function rollbackReview(
     throw new AppError(404, `Review log ${reviewLogId} not found`)
   }
 
-  const row = cardResult.data as unknown as CardRow
+  const row = cardResult.data as unknown as FsrsCardRow
   const log = logResult.data as unknown as ReviewLogRow
 
   if (
@@ -415,7 +415,7 @@ export async function forgetCard(
     throw new AppError(404, `Card ${cardId} not found or does not belong to user`)
   }
 
-  const row = data as unknown as CardRow
+  const row = data as unknown as FsrsCardRow
 
   if (row.user_id === null) {
     throw new AppError(403, `Refusing to apply FSRS to premade source card ${cardId}`)
@@ -480,7 +480,7 @@ export function getRetrievability(stability: number, elapsedDays: number): numbe
  * repeat() anywhere else — use scheduler.next() for actual reviews.
  */
 export function previewNextStates(
-  row: CardRow,
+  row: FsrsCardRow,
   cardType: CardType,
   now?: Date,
 ): Record<'again' | 'hard' | 'good' | 'easy', RatingPreview> {
@@ -533,7 +533,7 @@ export async function rescheduleFromHistory(
     throw new AppError(500, `Failed to fetch review logs for card ${cardId}: ${logsResult.error.message}`)
   }
 
-  const row = cardResult.data as unknown as CardRow
+  const row = cardResult.data as unknown as FsrsCardRow
   const logs = (logsResult.data ?? []) as unknown as ReviewLogRow[]
 
   if (logs.length === 0) {

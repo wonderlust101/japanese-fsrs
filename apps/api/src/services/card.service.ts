@@ -72,29 +72,54 @@ export interface CreateCardMeta {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-export function toCardRow(raw: Record<string, unknown>): CardRow {
+/** Raw snake_case row shape returned by SELECT CARD_COLUMNS. Single cast site for DB → domain. */
+export interface CardDbRow {
+  id:              string
+  user_id:         string
+  deck_id:         string
+  layout_type:     LayoutType
+  fields_data:     Record<string, unknown>
+  card_type:       CardType
+  parent_card_id:  string | null
+  tags:            string[] | null
+  jlpt_level:      JlptLevel | null
+  status:          string
+  due:             string
+  stability:       number
+  difficulty:      number
+  elapsed_days:    number
+  scheduled_days:  number
+  reps:            number
+  lapses:          number
+  last_review:     string | null
+  state:           number
+  created_at:      string
+  updated_at:      string
+}
+
+export function toCardRow(raw: CardDbRow): CardRow {
   return {
-    id:            raw['id'] as string,
-    userId:        raw['user_id'] as string,
-    deckId:        raw['deck_id'] as string,
-    layoutType:    raw['layout_type'] as LayoutType,
-    fieldsData:    raw['fields_data'] as Record<string, unknown>,
-    cardType:      raw['card_type'] as CardType,
-    parentCardId:  raw['parent_card_id'] as string | null,
-    tags:          raw['tags'] as string[] | null,
-    jlptLevel:     raw['jlpt_level'] as JlptLevel | null,
-    status:        raw['status'] as string,
-    due:           raw['due'] as string,
-    stability:     raw['stability'] as number,
-    difficulty:    raw['difficulty'] as number,
-    elapsedDays:   raw['elapsed_days'] as number,
-    scheduledDays: raw['scheduled_days'] as number,
-    reps:          raw['reps'] as number,
-    lapses:        raw['lapses'] as number,
-    lastReview:    raw['last_review'] as string | null,
-    state:         raw['state'] as number,
-    createdAt:     raw['created_at'] as string,
-    updatedAt:     raw['updated_at'] as string,
+    id:            raw.id,
+    userId:        raw.user_id,
+    deckId:        raw.deck_id,
+    layoutType:    raw.layout_type,
+    fieldsData:    raw.fields_data,
+    cardType:      raw.card_type,
+    parentCardId:  raw.parent_card_id,
+    tags:          raw.tags,
+    jlptLevel:     raw.jlpt_level,
+    status:        raw.status,
+    due:           raw.due,
+    stability:     raw.stability,
+    difficulty:    raw.difficulty,
+    elapsedDays:   raw.elapsed_days,
+    scheduledDays: raw.scheduled_days,
+    reps:          raw.reps,
+    lapses:        raw.lapses,
+    lastReview:    raw.last_review,
+    state:         raw.state,
+    createdAt:     raw.created_at,
+    updatedAt:     raw.updated_at,
   }
 }
 
@@ -165,7 +190,7 @@ export async function listCards(
   const hasMore = rows.length > limit
   const items   = rows
     .slice(0, limit)
-    .map((row) => toCardRow(row as unknown as Record<string, unknown>))
+    .map((row) => toCardRow(row as unknown as CardDbRow))
 
   return {
     items,
@@ -190,7 +215,7 @@ export async function getCard(cardId: string, userId: string): Promise<CardRow> 
     throw new AppError(404, 'Card not found')
   }
 
-  return toCardRow(data as unknown as Record<string, unknown>)
+  return toCardRow(data as unknown as CardDbRow)
 }
 
 /**
@@ -240,7 +265,7 @@ export async function createCard(
     throw new AppError(500, `Failed to create card: ${error?.message ?? 'unknown error'}`)
   }
 
-  return toCardRow(data as unknown as Record<string, unknown>)
+  return toCardRow(data as unknown as CardDbRow)
 }
 
 const SHARED_CARD_FIELDS = ['word', 'reading', 'meaning'] as const
@@ -267,17 +292,17 @@ async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<v
   if (error !== null || siblings === null || siblings.length === 0) return
 
   const now = new Date().toISOString()
-  for (const sibling of siblings) {
+  await Promise.all(siblings.map((sibling) => {
     const merged = {
       ...(sibling.fields_data as Record<string, unknown>),
       ...sharedValues,
     }
-    await supabaseAdmin
+    return supabaseAdmin
       .from('cards')
       .update({ fields_data: merged, updated_at: now })
       .eq('id', sibling.id as string)
       .eq('user_id', userId)
-  }
+  }))
 }
 
 /**
@@ -318,7 +343,7 @@ export async function updateCard(
     throw new AppError(404, 'Card not found')
   }
 
-  const updated = toCardRow(data as unknown as Record<string, unknown>)
+  const updated = toCardRow(data as unknown as CardDbRow)
 
   if (input.fields_data !== undefined) {
     await syncSharedFields(updated, userId)
@@ -369,5 +394,5 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<C
     throw new AppError(500, `Failed to find similar cards: ${error.message}`)
   }
 
-  return (data ?? []).map((row: unknown) => toCardRow(row as Record<string, unknown>))
+  return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))
 }

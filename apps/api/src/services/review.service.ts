@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
 import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
-import { CARD_COLUMNS, toCardRow, type CardRow } from './card.service.ts'
+import { CARD_COLUMNS, toCardRow, type CardRow, type CardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type { SubmitReviewInput } from '../schemas/review.schema.ts'
 import type { SessionSummary, SessionLeech } from '@fsrs-japanese/shared-types'
@@ -93,7 +93,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   }
 
   const overdueCards = (overdueData ?? []).map(
-    (row) => toCardRow(row as unknown as Record<string, unknown>),
+    (row) => toCardRow(row as unknown as CardDbRow),
   )
 
   // ── Fetch new cards ────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   }
 
   const newCards = (newData ?? []).map(
-    (row) => toCardRow(row as unknown as Record<string, unknown>),
+    (row) => toCardRow(row as unknown as CardDbRow),
   )
 
   return [...overdueCards, ...newCards]

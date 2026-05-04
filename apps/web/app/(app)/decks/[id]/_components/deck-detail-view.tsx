@@ -79,12 +79,12 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   })
 
-  const cards   = data?.pages.flatMap((p) => p.items) ?? []
-  const progress = deck !== null && deck !== undefined && deck.cardCount > 0
+  const cards    = data?.pages.flatMap((p) => p.items) ?? []
+  const progress = deck && deck.cardCount > 0
     ? Math.round(((deck.cardCount - deck.newCount) / deck.cardCount) * 100)
     : 0
 
-  const createdDate = deck?.createdAt !== undefined
+  const createdDate = deck?.createdAt
     ? new Date(deck.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : null
 
@@ -115,7 +115,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="space-y-1.5">
-              {deck !== undefined && deck !== null && (
+              {deck && (
                 <span className={cn(
                   'inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize',
                   DECK_TYPE_BADGE[deck.deckType] ?? 'bg-neutral-100 text-neutral-600',
@@ -124,7 +124,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                 </span>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-600">
-                {deck !== undefined && deck !== null ? (
+                {deck ? (
                   <>
                     <span>{deck.cardCount} cards</span>
                     <span aria-hidden="true">·</span>
@@ -133,7 +133,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                     </span>
                     <span aria-hidden="true">·</span>
                     <span>{progress}% learned</span>
-                    {createdDate !== null && (
+                    {createdDate && (
                       <>
                         <span aria-hidden="true">·</span>
                         <span>Since {createdDate}</span>
