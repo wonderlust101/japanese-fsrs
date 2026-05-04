@@ -16,7 +16,10 @@ import type {
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
-const openai = new OpenAI({ apiKey: process.env['OPENAI_API_KEY'] })
+const openaiKey = process.env['OPENAI_API_KEY']
+if (!openaiKey) throw new Error('OPENAI_API_KEY environment variable is not set')
+
+const openai = new OpenAI({ apiKey: openaiKey })
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 

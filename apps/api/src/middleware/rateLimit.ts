@@ -32,3 +32,35 @@ export const aiRateLimitMiddleware: RequestHandler = async (req, _res, next): Pr
     next(err)
   }
 }
+
+// Sliding window: 5 attempts per 15 minutes.
+// Keyed by email+IP so brute-force on a known account and credential-stuffing
+// from a single host both hit the limit. Anonymous bodies fall back to IP only.
+const authRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '15 m'),
+  prefix: 'ratelimit:auth',
+})
+
+/**
+ * Rate-limits public auth endpoints (signup/login/refresh/verify-otp/resend-otp).
+ * Apply BEFORE the controller; body must already be parsed by express.json.
+ *
+ * Returns 429 when the (email, ip) tuple exceeds 5 attempts per 15 minutes.
+ */
+export const authRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
+    const key = `${email || 'anon'}:${req.ip ?? 'unknown'}`
+    const { success } = await authRatelimit.limit(key)
+
+    if (!success) {
+      throw new AppError(429, 'Too many auth attempts. Try again later.')
+    }
+
+    next()
+  } catch (err) {
+    next(err)
+  }
+}

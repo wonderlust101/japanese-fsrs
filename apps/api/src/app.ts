@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 
 import { errorHandler } from './middleware/errorHandler.ts'
 import authRouter    from './routes/auth.ts'
@@ -19,13 +20,19 @@ const allowedOrigins = (process.env['CORS_ORIGIN'] ?? 'http://localhost:3000')
 
 export const app = express()
 
+// Trust the first proxy hop so req.ip reflects the real client when deployed
+// behind Vercel/Fly/Render. Required before any IP-based rate limit or audit log.
+app.set('trust proxy', 1)
+app.disable('x-powered-by')
+
+app.use(helmet())
 app.use(cors({
   origin: allowedOrigins,
   allowedHeaders: ['Content-Type', 'Authorization'],
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
 }))
-app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
+app.use(express.json({ limit: '100kb' }))
+app.use(express.urlencoded({ extended: false, limit: '100kb' }))
 
 // ── API routes ──────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',    authRouter)

@@ -1,0 +1,32 @@
+name: security-audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 7 * * 1'  # Mondays 07:00 UTC — catches advisories on landed code
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # Print every advisory so they're visible in run logs.
+      # `bun audit` exits 0 regardless of findings, so a separate enforcement
+      # step is needed to actually fail the build.
+      - name: Report vulnerabilities
+        run: bun audit
+
+      # Fail on high/critical only. Tighten by removing the severity filter
+      # once the existing moderate (web-app postcss) is fixed.
+      - name: Fail on high/critical
+        run: |
+          count=$(bun audit --json | jq '[.[][] | select(.severity == "high" or .severity == "critical")] | length')
+          if [ "$count" != "0" ]; then
+            echo "::error::Found $count high/critical vulnerabilities"
+            exit 1
+          fi
