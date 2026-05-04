@@ -26,3 +26,27 @@ export type {
   ApiForecastDay,
   ApiBatchResult,
 } from './api.types.ts'
+
+export {
+  assertCardRow,
+  assertReviewLogRow,
+} from './database.types.helpers.ts'
+export type {
+  WordFields,
+  VocabularyFieldsData,
+  GrammarFieldsData,
+  SentenceFieldsData,
+  FieldsData,
+  MorphToken,
+  TokensData,
+  ExampleSentencesData,
+  TypedCardRow,
+  TypedGrammarPatternRow,
+  TypedReviewLogRow,
+  MilestoneForecastRow,
+  HeatmapDataRow,
+  AccuracyByLayoutRow,
+  StreakRow,
+  JlptGapRow,
+  SimilarCardRow,
+} from './database.types.helpers.ts'

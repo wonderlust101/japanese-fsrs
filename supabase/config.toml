@@ -1,0 +1,18 @@
+# Supabase Local Development Configuration
+# Reference: https://supabase.com/docs/guides/cli/config
+
+[api]
+port = 3001
+enabled = true
+
+[db]
+port = 5432
+
+[studio]
+port = 3002
+
+[inbucket]
+port = 54324
+
+[auth]
+enable_signup = true
