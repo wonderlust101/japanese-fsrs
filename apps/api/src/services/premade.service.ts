@@ -1,9 +1,13 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
-import { getInitialFsrsState } from './fsrs.service.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import type { DeckType } from '../schemas/deck.schema.ts'
 import type { JlptLevel } from '../schemas/card.schema.ts'
+import type {
+  ApiPremadeDeck,
+  ApiPremadeSubscription,
+  ApiSubscribeResult,
+} from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
 
@@ -23,51 +27,39 @@ const PREMADE_COLUMNS = [
 
 // ─── Return shapes ────────────────────────────────────────────────────────────
 
-export interface PremadeDeckRow {
-  id:          string
-  name:        string
-  description: string | null
-  deckType:    DeckType
-  jlptLevel:   JlptLevel | null
-  domain:      string | null
-  cardCount:   number
-  version:     number
-  isActive:    boolean
-  createdAt:   string
-  updatedAt:   string
-}
-
-export interface SubscriptionRow {
-  id:              string
-  premadeDeckId:   string
-  premadeDeckName: string
-  deckId:          string
-  cardCount:       number
-  subscribedAt:    string
-}
-
-export interface SubscribeResult {
-  subscriptionId: string
-  deckId:         string
-  cardCount:      number
-  alreadyExisted: boolean
-}
+export type PremadeDeckRow  = ApiPremadeDeck
+export type SubscriptionRow = ApiPremadeSubscription
+export type SubscribeResult = ApiSubscribeResult
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function toPremadeRow(raw: Record<string, unknown>): PremadeDeckRow {
+interface PremadeDeckDbRow {
+  id:          string
+  name:        string
+  description: string | null
+  deck_type:   DeckType
+  jlpt_level:  JlptLevel | null
+  domain:      string | null
+  card_count:  number
+  version:     number
+  is_active:   boolean
+  created_at:  string
+  updated_at:  string
+}
+
+function toPremadeRow(raw: PremadeDeckDbRow): PremadeDeckRow {
   return {
-    id:          raw['id'] as string,
-    name:        raw['name'] as string,
-    description: raw['description'] as string | null,
-    deckType:    raw['deck_type'] as DeckType,
-    jlptLevel:   raw['jlpt_level'] as JlptLevel | null,
-    domain:      raw['domain'] as string | null,
-    cardCount:   raw['card_count'] as number,
-    version:     raw['version'] as number,
-    isActive:    raw['is_active'] as boolean,
-    createdAt:   raw['created_at'] as string,
-    updatedAt:   raw['updated_at'] as string,
+    id:          raw.id,
+    name:        raw.name,
+    description: raw.description,
+    deckType:    raw.deck_type,
+    jlptLevel:   raw.jlpt_level,
+    domain:      raw.domain,
+    cardCount:   raw.card_count,
+    version:     raw.version,
+    isActive:    raw.is_active,
+    createdAt:   raw.created_at,
+    updatedAt:   raw.updated_at,
   }
 }
 
@@ -96,7 +88,7 @@ export async function listPremadeDecks(
     throw new AppError(500, `Failed to list premade decks: ${error.message}`)
   }
 
-  return (data ?? []).map((row) => toPremadeRow(row as unknown as Record<string, unknown>))
+  return (data ?? []).map((row) => toPremadeRow(row as unknown as PremadeDeckDbRow))
 }
 
 /**
@@ -114,7 +106,7 @@ export async function getPremadeDeck(id: string): Promise<PremadeDeckRow> {
     throw new AppError(404, 'Premade deck not found')
   }
 
-  return toPremadeRow(data as unknown as Record<string, unknown>)
+  return toPremadeRow(data as unknown as PremadeDeckDbRow)
 }
 
 /**
@@ -183,148 +175,44 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
     .filter((r): r is SubscriptionRow => r !== null)
 }
 
+interface SubscribeRpcRow {
+  subscription_id: string
+  deck_id:         string
+  card_count:      number
+  already_existed: boolean
+}
+
 /**
- * Subscribes the user to a premade deck.
+ * Subscribes the user to a premade deck via the subscribe_to_premade_deck RPC.
  *
- * Steps:
- *   1. Verify the premade deck exists and is active.
- *   2. Insert into user_premade_subscriptions (idempotent on UNIQUE constraint).
- *      If the row already existed, return the linked deck without re-cloning.
- *   3. Create a personal deck row (is_premade_fork = TRUE, source_premade_id set).
- *   4. Bulk-clone the premade source cards into the new deck with FSRS state
- *      reset to "new". The card_count trigger keeps decks.card_count in sync.
+ * Atomic on the SQL side: either subscription, forked deck, and card clones
+ * all exist or none do. If the user is already subscribed, returns the
+ * existing fork without re-cloning.
  */
 export async function subscribeToPremadeDeck(
   userId: string,
   premadeDeckId: string,
 ): Promise<SubscribeResult> {
-  const premade = await getPremadeDeck(premadeDeckId)
-
-  // Step 2 — check whether the user is already subscribed.
-  const { data: existingSub, error: existingErr } = await supabaseAdmin
-    .from('user_premade_subscriptions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('premade_deck_id', premadeDeckId)
-    .maybeSingle()
-
-  if (existingErr !== null) {
-    throw new AppError(500, `Failed to check existing subscription: ${existingErr.message}`)
-  }
-
-  if (existingSub !== null) {
-    const { data: existingDeck, error: deckErr } = await supabaseAdmin
-      .from('decks')
-      .select('id, card_count')
-      .eq('user_id', userId)
-      .eq('source_premade_id', premadeDeckId)
-      .maybeSingle()
-
-    if (deckErr !== null) {
-      throw new AppError(500, `Failed to load existing forked deck: ${deckErr.message}`)
-    }
-    if (existingDeck === null) {
-      throw new AppError(500, 'Subscription exists but the forked deck is missing')
-    }
-    return {
-      subscriptionId: (existingSub as { id: string }).id,
-      deckId:         (existingDeck as { id: string }).id,
-      cardCount:      (existingDeck as { card_count: number }).card_count,
-      alreadyExisted: true,
-    }
-  }
-
-  // Step 2 (continued) — create the subscription row.
-  const { data: subData, error: subError } = await supabaseAdmin
-    .from('user_premade_subscriptions')
-    .insert({ user_id: userId, premade_deck_id: premadeDeckId })
-    .select('id')
-    .single()
-
-  if (subError !== null || subData === null) {
-    throw new AppError(500, `Failed to create subscription: ${subError?.message ?? 'unknown'}`)
-  }
-
-  const subscriptionId = (subData as { id: string }).id
-
-  // Step 3 — create the personal forked deck.
-  const { data: deckData, error: deckError } = await supabaseAdmin
-    .from('decks')
-    .insert({
-      user_id:           userId,
-      name:              premade.name,
-      description:       premade.description,
-      deck_type:         premade.deckType,
-      is_premade_fork:   true,
-      source_premade_id: premadeDeckId,
-    })
-    .select('id')
-    .single()
-
-  if (deckError !== null || deckData === null) {
-    // Roll back the subscription so the next call can re-attempt cleanly.
-    await supabaseAdmin
-      .from('user_premade_subscriptions')
-      .delete()
-      .eq('id', subscriptionId)
-    throw new AppError(500, `Failed to create forked deck: ${deckError?.message ?? 'unknown'}`)
-  }
-
-  const newDeckId = (deckData as { id: string }).id
-
-  // Step 4 — clone source cards. Fetch the source rows then bulk-insert with
-  // user_id and deck_id flipped on. We don't carry FSRS state from sources;
-  // every personal copy starts at "new".
-  const { data: sourceCards, error: sourceErr } = await supabaseAdmin
-    .from('cards')
-    .select('layout_type, fields_data, card_type, jlpt_level, tags')
-    .eq('premade_deck_id', premadeDeckId)
-    .is('user_id', null)
-
-  if (sourceErr !== null) {
-    throw new AppError(500, `Failed to load source cards: ${sourceErr.message}`)
-  }
-
-  const fsrs = getInitialFsrsState()
-  const cardsToInsert = (sourceCards ?? []).map((c) => {
-    const r = c as Record<string, unknown>
-    return {
-      user_id:        userId,
-      deck_id:        newDeckId,
-      premade_deck_id: null,
-      layout_type:    r['layout_type'],
-      fields_data:    r['fields_data'],
-      card_type:      r['card_type'],
-      jlpt_level:     r['jlpt_level'],
-      tags:           r['tags'] ?? [],
-      status:         fsrs.status,
-      due:            fsrs.due,
-      stability:      fsrs.stability,
-      difficulty:     fsrs.difficulty,
-      elapsed_days:   fsrs.elapsed_days,
-      scheduled_days: fsrs.scheduled_days,
-      learning_steps: fsrs.learning_steps,
-      reps:           fsrs.reps,
-      lapses:         fsrs.lapses,
-      state:          fsrs.state,
-      last_review:    fsrs.last_review,
-    }
+  const { data, error } = await supabaseAdmin.rpc('subscribe_to_premade_deck', {
+    p_user_id:         userId,
+    p_premade_deck_id: premadeDeckId,
   })
 
-  if (cardsToInsert.length > 0) {
-    const { error: insertErr } = await supabaseAdmin
-      .from('cards')
-      .insert(cardsToInsert)
-    if (insertErr !== null) {
-      throw new AppError(500, `Failed to clone cards: ${insertErr.message}`)
-    }
+  if (error !== null) {
+    if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found')
+    throw new AppError(500, `Failed to subscribe to premade deck: ${error.message}`)
+  }
+
+  const row = (data as SubscribeRpcRow[] | null)?.[0]
+  if (row === undefined) {
+    throw new AppError(500, 'Subscribe RPC returned no row')
   }
 
   return {
-    subscriptionId,
-    deckId:         newDeckId,
-    cardCount:      cardsToInsert.length,
-    alreadyExisted: false,
+    subscriptionId: row.subscription_id,
+    deckId:         row.deck_id,
+    cardCount:      row.card_count,
+    alreadyExisted: row.already_existed,
   }
 }
 

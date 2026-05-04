@@ -1,7 +1,7 @@
 'use server'
 
 import type { UpdateProfileInput } from '@fsrs-japanese/shared-types'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { apiCall, apiCallSafe } from '@/lib/api/client'
 
 export interface ProfileResponse {
   id:                    string
@@ -18,44 +18,13 @@ export interface ProfileResponse {
 }
 
 export async function getProfileAction(): Promise<ProfileResponse | null> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) return null
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/profile`,
-    {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      cache:   'no-store',
-    },
-  )
-
-  if (!res.ok) return null
-  return res.json() as Promise<ProfileResponse>
+  return apiCallSafe<ProfileResponse | null>('/api/v1/profile', {}, null)
 }
 
 export async function updateProfileAction(payload: UpdateProfileInput): Promise<void> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (session === null) {
-    throw new Error('Not authenticated')
-  }
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/profile`,
-    {
-      method:  'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization:  `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(payload),
-    },
+  await apiCall<unknown>(
+    '/api/v1/profile',
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    'Failed to update profile',
   )
-
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to update profile')
-  }
 }

@@ -13,3 +13,16 @@ export type { ReviewLog, ReviewResult, Leech, SessionLeech, SessionSummary } fro
 export type { Profile, UpdateProfileInput } from './user.types.ts'
 
 export type { GrammarPattern } from './grammar.types.ts'
+
+export type {
+  ApiCard,
+  ApiDueCard,
+  ApiCardListItem,
+  ApiDeck,
+  ApiDeckWithStats,
+  ApiPremadeDeck,
+  ApiPremadeSubscription,
+  ApiSubscribeResult,
+  ApiForecastDay,
+  ApiBatchResult,
+} from './api.types.ts'

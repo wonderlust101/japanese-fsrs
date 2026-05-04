@@ -1,5 +1,6 @@
 'use server'
 
+import { apiCall } from '@/lib/api/client'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export interface AuthTokens {
@@ -47,22 +48,7 @@ export async function signOutAction(): Promise<void> {
 }
 
 export async function deleteAccountAction(): Promise<void> {
+  await apiCall<unknown>('/api/v1/auth/account', { method: 'DELETE' }, 'Failed to delete account')
   const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/auth/account`,
-    {
-      method:  'DELETE',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    },
-  )
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error ?? 'Failed to delete account')
-  }
-
   await supabase.auth.signOut()
 }

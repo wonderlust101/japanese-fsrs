@@ -1,6 +1,6 @@
 'use server'
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { apiCall, apiCallSafe } from '@/lib/api/client'
 
 export interface HeatmapDay {
   date:      string  // YYYY-MM-DD (UTC)
@@ -13,36 +13,6 @@ export interface LayoutAccuracy {
   total:       number
   successful:  number
   accuracyPct: number  // 0–100, one decimal place
-}
-
-export async function getHeatmapAction(): Promise<HeatmapDay[]> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/analytics/heatmap`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to fetch heatmap data')
-  }
-  return res.json() as Promise<HeatmapDay[]>
-}
-
-export async function getAccuracyAction(): Promise<LayoutAccuracy[]> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
-
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}/api/v1/analytics/accuracy`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (!res.ok) {
-    const body = await res.json() as { error?: string }
-    throw new Error(body.error ?? 'Failed to fetch accuracy data')
-  }
-  return res.json() as Promise<LayoutAccuracy[]>
 }
 
 export interface StreakStats {
@@ -68,29 +38,26 @@ export interface MilestoneForecastRow {
   projectedCompletionDate:  string | null
 }
 
-async function getJSON<T>(path: string, fallback: T): Promise<T> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) return fallback
+export async function getHeatmapAction(): Promise<HeatmapDay[]> {
+  return apiCall<HeatmapDay[]>('/api/v1/analytics/heatmap', {}, 'Failed to fetch heatmap data')
+}
 
-  const res = await fetch(`${process.env['NEXT_PUBLIC_API_URL']}${path}`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache:   'no-store',
-  })
-  if (!res.ok) return fallback
-  return res.json() as Promise<T>
+export async function getAccuracyAction(): Promise<LayoutAccuracy[]> {
+  return apiCall<LayoutAccuracy[]>('/api/v1/analytics/accuracy', {}, 'Failed to fetch accuracy data')
 }
 
 export async function getStreakAction(): Promise<StreakStats> {
-  return getJSON<StreakStats>('/api/v1/analytics/streak', {
-    currentStreak: 0, longestStreak: 0, lastReviewDate: null,
-  })
+  return apiCallSafe<StreakStats>(
+    '/api/v1/analytics/streak',
+    {},
+    { currentStreak: 0, longestStreak: 0, lastReviewDate: null },
+  )
 }
 
 export async function getJlptGapAction(): Promise<JlptGapRow[]> {
-  return getJSON<JlptGapRow[]>('/api/v1/analytics/jlpt-gap', [])
+  return apiCallSafe<JlptGapRow[]>('/api/v1/analytics/jlpt-gap', {}, [])
 }
 
 export async function getMilestoneForecastAction(): Promise<MilestoneForecastRow[]> {
-  return getJSON<MilestoneForecastRow[]>('/api/v1/analytics/milestones', [])
+  return apiCallSafe<MilestoneForecastRow[]>('/api/v1/analytics/milestones', {}, [])
 }

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
+import type { ApiCard } from '@fsrs-japanese/shared-types'
 
 // ─── Column projection ────────────────────────────────────────────────────────
 // Excludes tokens, parsed_at, embedding — internal/heavy fields not needed by clients.
@@ -32,29 +33,14 @@ export const CARD_COLUMNS = [
 
 // ─── Return shapes ────────────────────────────────────────────────────────────
 
-export interface CardRow {
-  id:           string
-  userId:       string
-  deckId:       string
-  layoutType:   LayoutType
-  fieldsData:   Record<string, unknown>
-  cardType:     CardType
-  parentCardId: string | null
-  tags:         string[] | null
-  jlptLevel:    JlptLevel | null
-  status:       string
-  due:          string
-  stability:    number
-  difficulty:   number
-  elapsedDays:  number
-  scheduledDays: number
-  reps:         number
-  lapses:       number
-  lastReview:   string | null
-  state:        number
-  createdAt:    string
-  updatedAt:    string
-}
+/**
+ * Wire-format card row returned by the service. Aliased to ApiCard from
+ * shared-types so the frontend can import the same shape it receives over HTTP.
+ *
+ * `layoutType`, `cardType`, and `jlptLevel` are widened to `string` in ApiCard
+ * since the wire format does not carry the API's narrower enum types.
+ */
+export type CardRow = ApiCard
 
 export interface CardListResult {
   items:      CardRow[]

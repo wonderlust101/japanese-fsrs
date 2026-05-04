@@ -1,105 +1,40 @@
 'use server'
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { apiCall, apiCallSafe } from '@/lib/api/client'
+import type {
+  ApiPremadeDeck,
+  ApiPremadeSubscription,
+  ApiSubscribeResult,
+} from '@fsrs-japanese/shared-types'
 
-export interface PremadeDeckRow {
-  id:          string
-  name:        string
-  description: string | null
-  deckType:    'vocabulary' | 'grammar' | 'kanji' | 'mixed'
-  jlptLevel:   string | null
-  domain:      string | null
-  cardCount:   number
-  version:     number
-  isActive:    boolean
-  createdAt:   string
-  updatedAt:   string
-}
-
-export interface SubscriptionRow {
-  id:              string
-  premadeDeckId:   string
-  premadeDeckName: string
-  deckId:          string
-  cardCount:       number
-  subscribedAt:    string
-}
-
-export interface SubscribeResult {
-  subscriptionId: string
-  deckId:         string
-  cardCount:      number
-  alreadyExisted: boolean
-}
-
-async function bearer(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token ?? null
-}
+export type PremadeDeckRow  = ApiPremadeDeck
+export type SubscriptionRow = ApiPremadeSubscription
+export type SubscribeResult = ApiSubscribeResult
 
 export async function listPremadeDecksAction(): Promise<PremadeDeckRow[]> {
-  const token = await bearer()
-  if (token === null) return []
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/premade-decks`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
-  )
-  if (!res.ok) return []
-  return res.json() as Promise<PremadeDeckRow[]>
+  return apiCallSafe<PremadeDeckRow[]>('/api/v1/premade-decks', {}, [])
 }
 
 export async function listMySubscriptionsAction(): Promise<SubscriptionRow[]> {
-  const token = await bearer()
-  if (token === null) return []
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/premade-decks/subscriptions/me`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
-  )
-  if (!res.ok) return []
-  return res.json() as Promise<SubscriptionRow[]>
+  return apiCallSafe<SubscriptionRow[]>('/api/v1/premade-decks/subscriptions/me', {}, [])
 }
 
 export async function subscribeToPremadeDeckAction(
   premadeDeckId: string,
 ): Promise<SubscribeResult> {
-  const token = await bearer()
-  if (token === null) throw new Error('Not authenticated')
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/premade-decks/${premadeDeckId}/subscribe`,
-    {
-      method:  'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+  return apiCall<SubscribeResult>(
+    `/api/v1/premade-decks/${premadeDeckId}/subscribe`,
+    { method: 'POST' },
+    'Failed to subscribe',
   )
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error ?? 'Failed to subscribe')
-  }
-
-  return res.json() as Promise<SubscribeResult>
 }
 
 export async function unsubscribeFromPremadeDeckAction(
   premadeDeckId: string,
 ): Promise<void> {
-  const token = await bearer()
-  if (token === null) throw new Error('Not authenticated')
-
-  const res = await fetch(
-    `${process.env['NEXT_PUBLIC_API_URL']}/api/v1/premade-decks/${premadeDeckId}/subscribe`,
-    {
-      method:  'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    },
+  await apiCall<unknown>(
+    `/api/v1/premade-decks/${premadeDeckId}/subscribe`,
+    { method: 'DELETE' },
+    'Failed to unsubscribe',
   )
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error ?? 'Failed to unsubscribe')
-  }
 }
