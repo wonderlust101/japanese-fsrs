@@ -155,10 +155,14 @@ export async function listCards(
   }
 
   if (cursor !== undefined) {
+    // Scope the cursor lookup to the authenticated user so an attacker cannot
+    // probe whether a card UUID belongs to another user via response timing /
+    // result-shape differences.
     const { data: cursorCard } = await supabaseAdmin
       .from('cards')
       .select('created_at')
       .eq('id', cursor)
+      .eq('user_id', userId)
       .single()
 
     if (cursorCard !== null) {
