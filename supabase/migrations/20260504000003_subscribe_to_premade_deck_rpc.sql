@@ -79,14 +79,14 @@ BEGIN
     INSERT INTO cards (
       user_id, deck_id, premade_deck_id,
       layout_type, fields_data, card_type, jlpt_level, tags,
-      status, due, stability, difficulty,
+      due, stability, difficulty,
       elapsed_days, scheduled_days, learning_steps,
       reps, lapses, state, last_review
     )
     SELECT
       p_user_id, v_new_deck_id, NULL,
       c.layout_type, c.fields_data, c.card_type, c.jlpt_level, COALESCE(c.tags, '{}'),
-      'new'::card_status, NOW(), 0, 0,
+      NOW(), 0, 0,
       0, 0, 0,
       0, 0, 0, NULL
     FROM cards c

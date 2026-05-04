@@ -6,8 +6,10 @@
 -- C2. review_logs.card_id: NOT NULL + ON DELETE CASCADE  →
 --                         nullable + ON DELETE SET NULL.
 --     Card deletion no longer destroys analytics history.
--- C3. Drop cards.state and grammar_patterns.state. The card_status enum
---     is the single source of truth; the integer is derived by callers.
+-- C3. Drop cards.status and grammar_patterns.status (and the card_status
+--     enum). The ts-fsrs `state` integer (0..3) is the single source of
+--     truth for FSRS phase. Suspension moves to a separate is_suspended
+--     BOOLEAN — orthogonal to FSRS state.
 --     review_logs.state_before stays as an immutable snapshot.
 -- C4. Extend update_deck_card_count() to maintain premade_decks.card_count
 --     for premade source cards (deck_id IS NULL, premade_deck_id IS NOT NULL).
@@ -76,25 +78,38 @@ ALTER TABLE review_logs
   FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE SET NULL;
 
 
--- ─── C3. Drop cards.state and grammar_patterns.state ─────────────────────────
--- The integer state is now derived from cards.status at the API boundary.
--- review_logs.state_before is preserved as an immutable snapshot.
+-- ─── C3. Drop cards.status / grammar_patterns.status; add is_suspended ───────
+-- The ts-fsrs `state` integer (0=New, 1=Learning, 2=Review, 3=Relearning) is
+-- now the single source of truth. Suspension moves to a separate BOOLEAN.
 
-ALTER TABLE cards            DROP COLUMN state;
-ALTER TABLE grammar_patterns DROP COLUMN state;
+ALTER TABLE cards
+  ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE grammar_patterns
+  ADD COLUMN is_suspended BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Replace process_review: same param list minus p_state, body stops writing state.
--- DROP first because parameter-list changes are incompatible with CREATE OR REPLACE.
-DROP FUNCTION IF EXISTS process_review(
-  UUID, UUID, card_status, TIMESTAMPTZ, FLOAT, FLOAT, INT, INT, INT, INT, INT,
-  INT, TIMESTAMPTZ, TIMESTAMPTZ, review_rating, INT, FLOAT, FLOAT, TIMESTAMPTZ,
-  INT, INT, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT, INT, TIMESTAMPTZ, INT, INT, UUID
-);
+-- Backfill is_suspended from status BEFORE dropping status. cards.state was
+-- always written in lockstep with status by the existing process_review RPC,
+-- so the integer is already correct and needs no backfill.
+UPDATE cards            SET is_suspended = TRUE WHERE status = 'suspended';
+UPDATE grammar_patterns SET is_suspended = TRUE WHERE status = 'suspended';
+
+ALTER TABLE cards            DROP COLUMN status;
+ALTER TABLE grammar_patterns DROP COLUMN status;
+
+-- Rewrite process_review: parameter list swaps p_status (card_status) for
+-- p_state (INT). Must DROP all overloads first because parameter-list changes are
+-- incompatible with CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS process_review(UUID, UUID, card_status, TIMESTAMPTZ, FLOAT, FLOAT, INT, INT, INT, INT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ, review_rating, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT);
+DROP FUNCTION IF EXISTS process_review(UUID, UUID, card_status, TIMESTAMPTZ, FLOAT, FLOAT, INT, INT, INT, INT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ, review_rating, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT, INT, TIMESTAMPTZ, INT, INT);
+DROP FUNCTION IF EXISTS process_review(UUID, UUID, card_status, TIMESTAMPTZ, FLOAT, FLOAT, INT, INT, INT, INT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ, review_rating, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT, INT, FLOAT, FLOAT, TIMESTAMPTZ, INT, INT, INT, TIMESTAMPTZ, INT, INT, UUID);
+
+-- The card_status type only had cards/grammar_patterns as users; now safe to drop.
+DROP TYPE card_status;
 
 CREATE FUNCTION process_review(
   p_card_id              UUID,
   p_user_id              UUID,
-  p_status               card_status,
+  p_state                INT,
   p_due                  TIMESTAMPTZ,
   p_stability            FLOAT,
   p_difficulty           FLOAT,
@@ -138,7 +153,7 @@ BEGIN
 
   UPDATE cards
   SET
-    status         = p_status,
+    state          = p_state,
     due            = p_due,
     stability      = p_stability,
     difficulty     = p_difficulty,
@@ -180,8 +195,7 @@ BEGIN
 END;
 $$;
 
--- Replace process_forget: signature unchanged (it had no p_state); body
--- removes the `state = 0` write since the column no longer exists.
+-- Rewrite process_forget: signature unchanged; body resets state = 0.
 CREATE OR REPLACE FUNCTION process_forget(
   p_card_id              UUID,
   p_user_id              UUID,
@@ -211,7 +225,7 @@ AS $$
 BEGIN
   UPDATE cards
   SET
-    status         = 'new',
+    state          = 0,
     due            = p_due,
     stability      = p_stability,
     difficulty     = p_difficulty,
@@ -241,7 +255,7 @@ BEGIN
 END;
 $$;
 
--- Replace get_jlpt_gap: filter on status enum instead of dropped state column.
+-- Rewrite get_jlpt_gap: state-based filters; suspension via is_suspended.
 CREATE OR REPLACE FUNCTION get_jlpt_gap(p_user_id UUID)
 RETURNS TABLE(jlpt_level TEXT, total BIGINT, learned BIGINT, due BIGINT)
 LANGUAGE sql
@@ -251,8 +265,8 @@ AS $$
   SELECT
     c.jlpt_level::TEXT,
     COUNT(*),
-    COUNT(*) FILTER (WHERE c.status IN ('review', 'relearning')),
-    COUNT(*) FILTER (WHERE c.due <= NOW() AND c.status != 'suspended')
+    COUNT(*) FILTER (WHERE c.state >= 2),
+    COUNT(*) FILTER (WHERE c.due <= NOW() AND NOT c.is_suspended)
   FROM cards c
   WHERE c.user_id = p_user_id
     AND c.jlpt_level IS NOT NULL
@@ -260,9 +274,8 @@ AS $$
   ORDER BY c.jlpt_level;
 $$;
 
--- Replace get_milestone_forecast: per_level CTE filter `state >= 2` →
--- `status IN ('review', 'relearning')`. The pace CTE keeps using
--- review_logs.state_before since that snapshot column is preserved.
+-- Rewrite get_milestone_forecast: per_level CTE filter is state-based again.
+-- The pace CTE was always state-based (review_logs.state_before).
 CREATE OR REPLACE FUNCTION get_milestone_forecast(p_user_id UUID)
 RETURNS TABLE(
   jlpt_level                  TEXT,
@@ -292,9 +305,9 @@ AS $$
   ),
   per_level AS (
     SELECT
-      c.jlpt_level::TEXT                                          AS jlpt_level,
-      COUNT(*)                                                     AS total,
-      COUNT(*) FILTER (WHERE c.status IN ('review', 'relearning')) AS learned
+      c.jlpt_level::TEXT                         AS jlpt_level,
+      COUNT(*)                                    AS total,
+      COUNT(*) FILTER (WHERE c.state >= 2)        AS learned
     FROM cards c
     WHERE c.user_id = p_user_id
       AND c.jlpt_level IS NOT NULL

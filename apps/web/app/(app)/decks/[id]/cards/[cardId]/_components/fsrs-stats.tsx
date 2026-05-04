@@ -1,3 +1,4 @@
+import { State }            from '@fsrs-japanese/shared-types'
 import type { CardDetail } from '@/lib/actions/cards.actions'
 
 interface Props { card: CardDetail }
@@ -24,7 +25,12 @@ export function FsrsStats({ card }: Props): React.JSX.Element {
         <span aria-hidden="true" className="text-neutral-300">·</span>
         <span>Lapses: <span className="font-medium text-neutral-900">{card.lapses}</span></span>
         <span aria-hidden="true" className="text-neutral-300">·</span>
-        <span>Status: <span className="font-medium text-neutral-900 capitalize">{card.status}</span></span>
+        <span>State: <span className="font-medium text-neutral-900">{State[card.state]}</span></span>
+        {card.isSuspended && (
+          <span className="ml-1 rounded bg-neutral-200 px-2 text-xs font-medium text-neutral-700">
+            Suspended
+          </span>
+        )}
       </div>
     </section>
   )

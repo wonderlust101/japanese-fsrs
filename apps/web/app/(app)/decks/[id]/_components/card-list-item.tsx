@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import { cn }            from '@/lib/utils'
+import { State }         from '@fsrs-japanese/shared-types'
 import type { CardItem } from '@/lib/actions/cards.actions'
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
@@ -14,16 +15,16 @@ const JLPT_STYLE: Record<string, { bg: string; text: string; label: string }> = 
   beyond_jlpt: { bg: 'var(--color-jlpt-beyond-bg)', text: 'var(--color-jlpt-beyond-text)', label: '∞' },
 }
 
-// ─── Status dot ───────────────────────────────────────────────────────────────
+// ─── State dot ────────────────────────────────────────────────────────────────
 
-function statusDotClass(status: string): string {
-  switch (status) {
-    case 'new':        return 'bg-neutral-400'
-    case 'learning':
-    case 'relearning': return 'bg-warning-500'
-    case 'review':     return 'bg-success-500'
-    case 'suspended':  return 'bg-neutral-300'
-    default:           return 'bg-neutral-300'
+function dotClass(state: State, isSuspended: boolean): string {
+  if (isSuspended) return 'bg-neutral-300'
+  switch (state) {
+    case State.New:        return 'bg-neutral-400'
+    case State.Learning:
+    case State.Relearning: return 'bg-warning-500'
+    case State.Review:     return 'bg-success-500'
+    default:               return 'bg-neutral-300'
   }
 }
 
@@ -59,8 +60,8 @@ export function CardListItem({ card, deckId }: Props): React.JSX.Element {
             </span>
           )}
           <span
-            className={cn('ml-auto shrink-0 h-2.5 w-2.5 rounded-full', statusDotClass(card.status))}
-            aria-label={card.status}
+            className={cn('ml-auto shrink-0 h-2.5 w-2.5 rounded-full', dotClass(card.state, card.isSuspended))}
+            aria-label={card.isSuspended ? 'suspended' : State[card.state].toLowerCase()}
           />
         </div>
 

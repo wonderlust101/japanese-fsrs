@@ -10,5 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
+  },
+  "dependencies": {
+    "ts-fsrs": "^5.3.2"
   }
 }

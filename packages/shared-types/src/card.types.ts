@@ -1,4 +1,4 @@
-import type { CardStatus, CardType, FsrsCardState } from './fsrs.types.ts'
+import type { CardType, FsrsCardState } from './fsrs.types.ts'
 
 export const JLPTLevel = {
   N5: 'N5',
@@ -66,6 +66,12 @@ export interface Card extends FsrsCardState {
   parentCardId: string | null
 
   /**
+   * Whether this card is suspended (excluded from review queues).
+   * Orthogonal to FSRS `state` — a card in any state can be suspended.
+   */
+  isSuspended: boolean
+
+  /**
    * URL to the cached audio file (Supabase Storage or CDN).
    * NULL until audio is generated or sourced; the API generates TTS on demand
    * and backfills this field once the file is stored (PRD AUD-01).
@@ -79,4 +85,4 @@ export interface Card extends FsrsCardState {
   updatedAt: Date
 }
 
-export type { CardStatus, CardType, FsrsCardState }
+export type { CardType, FsrsCardState }

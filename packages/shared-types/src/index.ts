@@ -1,4 +1,4 @@
-export { CardStatus, CardType } from './fsrs.types.ts'
+export { State, CardType } from './fsrs.types.ts'
 export type { FsrsCardState } from './fsrs.types.ts'
 
 export { JLPTLevel, RegisterTag } from './card.types.ts'

@@ -13,7 +13,6 @@ import {
   type Grade,
 } from 'ts-fsrs'
 
-import { CardStatus } from '@fsrs-japanese/shared-types'
 import type { CardType, ReviewRating } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
@@ -42,7 +41,7 @@ export interface ProcessReviewResult {
   stability: number
   difficulty: number
   scheduledDays: number
-  status: CardStatus
+  state: State
 }
 
 /** Rating preview for a single outcome — returned by previewNextStates(). */
@@ -54,7 +53,7 @@ export interface RatingPreview {
 
 /** Default FSRS field values for a newly inserted card row. */
 export interface FsrsInitialState {
-  status: CardStatus
+  state: State
   due: string
   stability: number
   difficulty: number
@@ -73,7 +72,8 @@ const FSRS_SELECT_COLUMNS = [
   'id',
   'user_id',
   'card_type',
-  'status',
+  'state',
+  'is_suspended',
   'due',
   'stability',
   'difficulty',
@@ -90,7 +90,8 @@ interface FsrsCardRow {
   id: string
   user_id: string | null
   card_type: string
-  status: string
+  state: State
+  is_suspended: boolean
   due: string
   stability: number
   difficulty: number
@@ -137,7 +138,7 @@ function buildFsrsCard(row: FsrsCardRow): CardInput {
     learning_steps: row.learning_steps,
     reps:           row.reps,
     lapses:         row.lapses,
-    state:          statusToState(row.status),
+    state:          row.state,
     // exactOptionalPropertyTypes: omit the key entirely when null so we don't
     // assign `undefined` to a property typed `DateInput | null`.
     ...(row.last_review !== null ? { last_review: new Date(row.last_review) } : {}),
@@ -164,32 +165,6 @@ function mapRatingStringToEnum(rating: string): Rating {
     case 'good':  return Rating.Good
     case 'easy':  return Rating.Easy
     default:      return Rating.Manual
-  }
-}
-
-function stateToStatus(state: State): CardStatus {
-  switch (state) {
-    case State.New:        return CardStatus.New
-    case State.Learning:   return CardStatus.Learning
-    case State.Review:     return CardStatus.Review
-    case State.Relearning: return CardStatus.Relearning
-    default:               return CardStatus.New
-  }
-}
-
-/**
- * Inverse of stateToStatus — derives the ts-fsrs State integer from the
- * persisted status enum. Suspended cards are filtered out before reviews
- * begin (see processReview / forgetCard guards), so 'suspended' is never
- * passed in here; defaulting it to State.New is safe.
- */
-function statusToState(status: string): State {
-  switch (status) {
-    case CardStatus.New:        return State.New
-    case CardStatus.Learning:   return State.Learning
-    case CardStatus.Review:     return State.Review
-    case CardStatus.Relearning: return State.Relearning
-    default:                    return State.New
   }
 }
 
@@ -234,7 +209,7 @@ export async function processReview(
     throw new AppError(403, 'Cannot review a premade source card')
   }
 
-  if (row.status === CardStatus.Suspended) {
+  if (row.is_suspended) {
     throw new AppError(409, 'Card is suspended; unsuspend it before reviewing')
   }
 
@@ -244,13 +219,11 @@ export async function processReview(
   const reviewedAt = new Date()
   const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
 
-  const newStatus = stateToStatus(updated.state)
-
   // ── 3. Atomically persist FSRS state, review log, and leech detection ─────
   const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
     p_card_id:              cardId,
     p_user_id:              userId,
-    p_status:               newStatus,
+    p_state:                updated.state,
     p_due:                  updated.due.toISOString(),
     p_stability:            updated.stability,
     p_difficulty:           updated.difficulty,
@@ -269,8 +242,7 @@ export async function processReview(
     p_scheduled_days_after: updated.scheduled_days,
     p_leech_threshold:      LEECH_THRESHOLD,
     // Before-snapshot — enables rollback via rollbackReview().
-    // state_before is the integer derived from the pre-review status.
-    p_state_before:          statusToState(row.status),
+    p_state_before:          row.state,
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -293,7 +265,7 @@ export async function processReview(
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
-    status:        newStatus,
+    state:         updated.state,
   }
 }
 
@@ -361,13 +333,12 @@ export async function rollbackReview(
 
   const scheduler = getScheduler(row.card_type)
   const restored: TsFsrsCard = scheduler.rollback(buildFsrsCard(row), reviewLogInput)
-  const restoredStatus = stateToStatus(restored.state)
   const now = new Date()
 
   const { error: updateError } = await supabaseAdmin
     .from('cards')
     .update({
-      status:         restoredStatus,
+      state:          restored.state,
       due:            restored.due.toISOString(),
       stability:      restored.stability,
       difficulty:     restored.difficulty,
@@ -392,7 +363,7 @@ export async function rollbackReview(
     stability:     restored.stability,
     difficulty:    restored.difficulty,
     scheduledDays: restored.scheduled_days,
-    status:        restoredStatus,
+    state:         restored.state,
   }
 }
 
@@ -441,7 +412,7 @@ export async function forgetCard(
     p_reps:                 forgotten.reps,
     p_lapses:               forgotten.lapses,
     p_updated_at:           now.toISOString(),
-    p_state_before:          statusToState(row.status),
+    p_state_before:          row.state,
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -457,14 +428,13 @@ export async function forgetCard(
     throw dbError('forget card', rpcError)
   }
 
-  const forgottenStatus = stateToStatus(forgotten.state)
   return {
     id:            cardId,
     due:           forgotten.due,
     stability:     forgotten.stability,
     difficulty:    forgotten.difficulty,
     scheduledDays: forgotten.scheduled_days,
-    status:        forgottenStatus,
+    state:         forgotten.state,
   }
 }
 
@@ -559,13 +529,12 @@ export async function rescheduleFromHistory(
   }
 
   const updated: TsFsrsCard = result.reschedule_item.card
-  const updatedStatus = stateToStatus(updated.state)
   const now = new Date()
 
   const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
     p_card_id:              cardId,
     p_user_id:              userId,
-    p_status:               updatedStatus,
+    p_state:                updated.state,
     p_due:                  updated.due.toISOString(),
     p_stability:            updated.stability,
     p_difficulty:           updated.difficulty,
@@ -583,7 +552,7 @@ export async function rescheduleFromHistory(
     p_due_after:            updated.due.toISOString(),
     p_scheduled_days_after: updated.scheduled_days,
     p_leech_threshold:      LEECH_THRESHOLD,
-    p_state_before:          statusToState(row.status),
+    p_state_before:          row.state,
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,
     p_due_before:            row.due,
@@ -605,7 +574,7 @@ export async function rescheduleFromHistory(
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
-    status:        updatedStatus,
+    state:         updated.state,
   }
 }
 
@@ -616,7 +585,7 @@ export async function rescheduleFromHistory(
 export function getInitialFsrsState(): FsrsInitialState {
   const empty = createEmptyCard()
   return {
-    status:         CardStatus.New,
+    state:          empty.state,
     due:            empty.due.toISOString(),
     stability:      empty.stability,
     difficulty:     empty.difficulty,

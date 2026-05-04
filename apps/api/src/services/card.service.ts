@@ -2,7 +2,7 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
-import type { ApiCard } from '@fsrs-japanese/shared-types'
+import { State, type ApiCard } from '@fsrs-japanese/shared-types'
 
 // ─── Column projection ────────────────────────────────────────────────────────
 // Excludes tokens, parsed_at, embedding — internal/heavy fields not needed by clients.
@@ -17,7 +17,8 @@ export const CARD_COLUMNS = [
   'parent_card_id',
   'tags',
   'jlpt_level',
-  'status',
+  'state',
+  'is_suspended',
   'due',
   'stability',
   'difficulty',
@@ -68,7 +69,8 @@ export interface CardDbRow {
   parent_card_id:  string | null
   tags:            string[] | null
   jlpt_level:      JlptLevel | null
-  status:          string
+  state:           State
+  is_suspended:    boolean
   due:             string
   stability:       number
   difficulty:      number
@@ -92,7 +94,8 @@ export function toCardRow(raw: CardDbRow): CardRow {
     parentCardId:  raw.parent_card_id,
     tags:          raw.tags,
     jlptLevel:     raw.jlpt_level,
-    status:        raw.status,
+    state:         raw.state,
+    isSuspended:   raw.is_suspended,
     due:           raw.due,
     stability:     raw.stability,
     difficulty:    raw.difficulty,
@@ -145,10 +148,16 @@ export async function listCards(
     .order('id', { ascending: false })
     .limit(limit + 1)
 
-  if (status === 'learning') {
-    query = query.or('status.eq.learning,status.eq.relearning')
-  } else if (status !== undefined && status !== 'all') {
-    query = query.eq('status', status)
+  // Translate the status-shaped filter param (URL-stable) into state + is_suspended.
+  // 'suspended' is orthogonal to FSRS state, so it gets its own branch.
+  if (status === 'new') {
+    query = query.eq('state', State.New).eq('is_suspended', false)
+  } else if (status === 'learning') {
+    query = query.in('state', [State.Learning, State.Relearning]).eq('is_suspended', false)
+  } else if (status === 'review') {
+    query = query.eq('state', State.Review).eq('is_suspended', false)
+  } else if (status === 'suspended') {
+    query = query.eq('is_suspended', true)
   }
 
   if (cursor !== undefined) {
@@ -233,8 +242,8 @@ export async function createCard(
       tags:           meta.tags           ?? [],
       jlpt_level:     meta.jlpt_level     ?? null,
       parent_card_id: meta.parent_card_id ?? null,
-      // FSRS initial state
-      status:         fsrs.status,
+      // FSRS initial state. is_suspended uses the column default (FALSE).
+      state:          fsrs.state,
       due:            fsrs.due,
       stability:      fsrs.stability,
       difficulty:     fsrs.difficulty,

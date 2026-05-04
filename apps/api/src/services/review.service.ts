@@ -4,7 +4,7 @@ import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { CARD_COLUMNS, toCardRow, type CardRow, type CardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type { SubmitReviewInput } from '../schemas/review.schema.ts'
-import type { SessionSummary, SessionLeech } from '@fsrs-japanese/shared-types'
+import { State, type SessionSummary, type SessionLeech } from '@fsrs-japanese/shared-types'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -79,11 +79,13 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   // ── Fetch overdue non-new cards ────────────────────────────────────────────
   const now = new Date().toISOString()
 
+  // Non-new cards (Learning, Review, Relearning) that aren't suspended.
   const { data: overdueData, error: overdueError } = await supabaseAdmin
     .from('cards')
     .select(CARD_COLUMNS)
     .eq('user_id', userId)
-    .in('status', ['learning', 'review', 'relearning'])
+    .in('state', [State.Learning, State.Review, State.Relearning])
+    .eq('is_suspended', false)
     .lte('due', now)
     .order('due', { ascending: true })
     .limit(remainingTotal)
@@ -105,7 +107,8 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
     .from('cards')
     .select(CARD_COLUMNS)
     .eq('user_id', userId)
-    .eq('status', 'new')
+    .eq('state', State.New)
+    .eq('is_suspended', false)
     .order('created_at', { ascending: true })
     .limit(newSlots)
 
@@ -134,7 +137,7 @@ export async function getReviewForecast(userId: string, days = 14): Promise<Fore
     .from('cards')
     .select('due')
     .eq('user_id', userId)
-    .neq('status', 'suspended')
+    .eq('is_suspended', false)
     .gte('due', todayISO)
     .lt('due', windowEndISO)
 

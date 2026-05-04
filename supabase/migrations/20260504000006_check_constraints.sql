@@ -6,8 +6,6 @@
 -- defense, and SECURITY DEFINER RPCs write directly without the API
 -- ever seeing the values. Add DB-level guards.
 --
--- Note: cards/grammar_patterns state_range CHECKs are intentionally
--- omitted — migration 20260504000004 dropped the `state` column.
 -- ============================================================
 
 ALTER TABLE profiles
@@ -35,7 +33,8 @@ ALTER TABLE cards
   ADD CONSTRAINT cards_scheduled_days_nonneg CHECK (scheduled_days >= 0),
   ADD CONSTRAINT cards_learning_steps_nonneg CHECK (learning_steps >= 0),
   ADD CONSTRAINT cards_reps_nonneg          CHECK (reps >= 0),
-  ADD CONSTRAINT cards_lapses_nonneg        CHECK (lapses >= 0);
+  ADD CONSTRAINT cards_lapses_nonneg        CHECK (lapses >= 0),
+  ADD CONSTRAINT cards_state_range         CHECK (state BETWEEN 0 AND 3);
 
 ALTER TABLE grammar_patterns
   ADD CONSTRAINT grammar_patterns_stability_nonneg     CHECK (stability >= 0),
@@ -44,7 +43,8 @@ ALTER TABLE grammar_patterns
   ADD CONSTRAINT grammar_patterns_scheduled_days_nonneg CHECK (scheduled_days >= 0),
   ADD CONSTRAINT grammar_patterns_learning_steps_nonneg CHECK (learning_steps >= 0),
   ADD CONSTRAINT grammar_patterns_reps_nonneg          CHECK (reps >= 0),
-  ADD CONSTRAINT grammar_patterns_lapses_nonneg        CHECK (lapses >= 0);
+  ADD CONSTRAINT grammar_patterns_lapses_nonneg        CHECK (lapses >= 0),
+  ADD CONSTRAINT grammar_patterns_state_range         CHECK (state BETWEEN 0 AND 3);
 
 ALTER TABLE review_logs
   ADD CONSTRAINT review_logs_review_time_ms_nonneg

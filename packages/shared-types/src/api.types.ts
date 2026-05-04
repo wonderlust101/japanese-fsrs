@@ -8,6 +8,8 @@
  * of truth for what HTTP responses actually contain today.
  */
 
+import type { State } from './fsrs.types.ts'
+
 export interface ApiCard {
   id:            string
   userId:        string
@@ -18,7 +20,8 @@ export interface ApiCard {
   parentCardId:  string | null
   tags:          string[] | null
   jlptLevel:     string | null
-  status:        string
+  state:         State
+  isSuspended:   boolean
   due:           string
   stability:     number
   difficulty:    number
@@ -31,16 +34,17 @@ export interface ApiCard {
   updatedAt:     string
 }
 
-/** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs. */
+/** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs.
+ *  Due cards are by definition not suspended, so isSuspended is omitted. */
 export type ApiDueCard = Pick<
   ApiCard,
-  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'status' | 'due' | 'fieldsData'
+  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'state' | 'due' | 'fieldsData'
 >
 
 /** Subset of ApiCard returned by /decks/:id/cards (card list). */
 export type ApiCardListItem = Pick<
   ApiCard,
-  'id' | 'fieldsData' | 'layoutType' | 'cardType' | 'jlptLevel' | 'status' | 'due' | 'tags'
+  'id' | 'fieldsData' | 'layoutType' | 'cardType' | 'jlptLevel' | 'state' | 'isSuspended' | 'due' | 'tags'
 >
 
 export interface ApiDeck {

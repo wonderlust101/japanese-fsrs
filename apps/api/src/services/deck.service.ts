@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+import { State } from '@fsrs-japanese/shared-types'
 import type { CreateDeckInput, UpdateDeckInput, DeckType } from '../schemas/deck.schema.ts'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -121,7 +122,7 @@ export async function getDeck(deckId: string, userId: string): Promise<DeckWithS
       .eq('deck_id', deckId)
       .eq('user_id', userId)
       .lte('due', now)
-      .neq('status', 'suspended'),
+      .eq('is_suspended', false),
 
     // Cards never reviewed.
     supabaseAdmin
@@ -129,7 +130,7 @@ export async function getDeck(deckId: string, userId: string): Promise<DeckWithS
       .select('id', { count: 'exact', head: true })
       .eq('deck_id', deckId)
       .eq('user_id', userId)
-      .eq('status', 'new'),
+      .eq('state', State.New),
   ])
 
   if (deckResult.error !== null || deckResult.data === null) {

@@ -17,7 +17,7 @@ const {
 describe('fsrs.service — getInitialFsrsState', () => {
   it('returns FSRS field defaults for a fresh card', () => {
     const s = getInitialFsrsState()
-    expect(s.status).toBe('new')
+    expect(s.state).toBe(0)
     expect(s.reps).toBe(0)
     expect(s.lapses).toBe(0)
     expect(s.elapsed_days).toBe(0)
@@ -52,7 +52,8 @@ describe('fsrs.service — previewNextStates', () => {
     id:             'card-1',
     user_id:        'user-1',
     card_type:      'comprehension',
-    status:         'new',
+    state:          0,
+    is_suspended:   false,
     due:            new Date().toISOString(),
     stability:      0,
     difficulty:     0,
