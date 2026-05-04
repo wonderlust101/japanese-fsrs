@@ -9,7 +9,7 @@ const router = Router()
 // Public — no auth middleware; user is unauthenticated during these flows.
 // Rate-limited to deter brute-force on credentials/OTP and email enumeration.
 router.post('/signup',        authRateLimitMiddleware, authController.signup)
-router.post('/cancel-signup', authController.cancelSignup)
+router.post('/cancel-signup', authRateLimitMiddleware, authController.cancelSignup)
 router.post('/login',         authRateLimitMiddleware, authController.login)
 router.post('/refresh',       authRateLimitMiddleware, authController.refresh)
 router.post('/verify-otp',    authRateLimitMiddleware, authController.verifyOtp)

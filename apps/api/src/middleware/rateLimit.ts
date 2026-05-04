@@ -113,3 +113,27 @@ export const subscribeRateLimitMiddleware: RequestHandler = async (req, _res, ne
     next(err)
   }
 }
+
+// Sliding window: 60 single-review submits per minute per user. Bounds review-log
+// spam without hampering active study (typical pace is 0.2–0.5 cards/sec).
+const submitRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, '1 m'),
+  prefix: 'ratelimit:submit',
+})
+
+/**
+ * Rate-limits POST /api/v1/reviews/submit — single-review writes.
+ * Must run after authMiddleware (requires req.user).
+ */
+export const submitRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const { success } = await submitRatelimit.limit(`${req.user.id}:submit`)
+    if (!success) {
+      throw new AppError(429, 'Submit rate limit exceeded. Please slow down.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}

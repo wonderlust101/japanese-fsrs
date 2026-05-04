@@ -252,7 +252,7 @@ export async function createCard(
     .single()
 
   if (error !== null || data === null) {
-    throw new AppError(500, `Failed to create card: ${error?.message ?? 'unknown error'}`)
+    throw dbError('create card', error)
   }
 
   return toCardRow(data as unknown as CardDbRow)
@@ -261,6 +261,17 @@ export async function createCard(
 const SHARED_CARD_FIELDS = ['word', 'reading', 'meaning'] as const
 type SharedFieldKey = (typeof SHARED_CARD_FIELDS)[number]
 
+/**
+ * Propagates shared content fields (word, reading, meaning) from the just-
+ * updated card to its siblings (cards sharing parent_card_id or rooted at
+ * updatedCard.id).
+ *
+ * NOTE: Concurrent edits to two sibling cards by the same user can race —
+ * each call's sibling-fetch sees pre-update data, and the later UPDATE
+ * overwrites the earlier one (last-write-wins). Affects only same-user
+ * concurrent edits to siblings; not a privilege boundary. Optimistic
+ * concurrency on `fields_data` would close the gap; deferred for now.
+ */
 async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<void> {
   const sharedValues: Partial<Record<SharedFieldKey, unknown>> = {}
   for (const key of SHARED_CARD_FIELDS) {

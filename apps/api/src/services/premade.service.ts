@@ -200,6 +200,21 @@ export async function subscribeToPremadeDeck(
 
   if (error !== null) {
     if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found')
+    // Concurrent subscribe race: the other request committed the INSERT first
+    // and the unique (user_id, premade_deck_id) constraint fired on this one.
+    // The user is in fact subscribed; surface the existing record.
+    if (error.code === '23505') {
+      const existing = (await listSubscriptions(userId))
+        .find((s) => s.premadeDeckId === premadeDeckId)
+      if (existing !== undefined) {
+        return {
+          subscriptionId: existing.id,
+          deckId:         existing.deckId,
+          cardCount:      existing.cardCount,
+          alreadyExisted: true,
+        }
+      }
+    }
     throw dbError('subscribe to premade deck', error)
   }
 
