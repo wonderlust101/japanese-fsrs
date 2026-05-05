@@ -252,7 +252,9 @@ export async function createCard(
     .insert({
       user_id:        userId,
       deck_id:        deckId,
-      fields_data:    fieldsData,
+      // Cast: fieldsData is Record<string, unknown> from the controller; the
+      // generated Insert type expects Json. JSON-serialisable at runtime.
+      fields_data:    fieldsData as never,
       card_type:      meta.card_type,
       layout_type:    meta.layout_type,
       tags:           meta.tags           ?? [],
@@ -358,7 +360,7 @@ async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<v
     }
     return supabaseAdmin
       .from('cards')
-      .update({ fields_data: merged, updated_at: now })
+      .update({ fields_data: merged as never, updated_at: now })
       .eq('id', sibling.id as string)
       .eq('user_id', userId)
   }))
@@ -384,7 +386,7 @@ export async function updateCard(
 
   const { data, error } = await supabaseAdmin
     .from('cards')
-    .update(patch)
+    .update(patch as never)
     .eq('id', cardId)
     .eq('user_id', userId)
     .select(CARD_COLUMNS)
@@ -520,7 +522,9 @@ async function backfillEmbedding(
   const { error } = await supabaseAdmin
     .from('cards')
     .update({
-      embedding,
+      // Cast: pgvector(1536) column is generated as `string` by supabase gen
+      // types; the supabase-js client serialises a number[] correctly at runtime.
+      embedding: embedding as unknown as string,
       embedding_updated_at: new Date().toISOString(),
     })
     .eq('id', cardId)
@@ -594,7 +598,7 @@ export async function backfillPremadeEmbeddings(): Promise<{
       const embedding = await generateEmbedding(text)
       const { error: updateError } = await supabaseAdmin
         .from('cards')
-        .update({ embedding, embedding_updated_at: new Date().toISOString() })
+        .update({ embedding: embedding as unknown as string, embedding_updated_at: new Date().toISOString() })
         .eq('id', row.id)
       if (updateError !== null) {
         console.error('[admin] failed to update premade embedding', { cardId: row.id, err: updateError })

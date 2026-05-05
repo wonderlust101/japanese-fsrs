@@ -191,7 +191,7 @@ export async function updateDeck(
 
   const { data, error } = await supabaseAdmin
     .from('decks')
-    .update(patch)
+    .update(patch as never)
     .eq('id', deckId)
     .eq('user_id', userId)
     .select(DECK_COLUMNS)

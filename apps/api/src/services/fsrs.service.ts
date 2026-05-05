@@ -227,6 +227,10 @@ export async function processReview(
   const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
 
   // ── 3. Atomically persist FSRS state, review log, and leech detection ─────
+  // Args cast: nullable RPC params (p_review_time_ms, p_last_review_before,
+  // p_session_id) are typed as non-nullable in the generated Database type
+  // because the migration declares them without DEFAULT NULL. The DB accepts
+  // NULL at runtime; supabase-js sends NULL correctly.
   const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
     p_card_id:              cardId,
     p_user_id:              userId,
@@ -260,7 +264,7 @@ export async function processReview(
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
     p_session_id:            sessionId ?? null,
-  })
+  } as never)
 
   if (rpcError !== null) {
     throw dbError('persist review', rpcError)
@@ -409,6 +413,7 @@ export async function forgetCard(
   const now = new Date()
   const { card: forgotten }: RecordLogItem = scheduler.forget(buildFsrsCard(row), now, resetCount)
 
+  // Args cast: see process_review note above.
   const { error: rpcError } = await supabaseAdmin.rpc('process_forget', {
     p_card_id:              cardId,
     p_user_id:              userId,
@@ -429,7 +434,7 @@ export async function forgetCard(
     p_last_review_before:    row.last_review ?? null,
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
-  })
+  } as never)
 
   if (rpcError !== null) {
     throw dbError('forget card', rpcError)
@@ -569,7 +574,7 @@ export async function rescheduleFromHistory(
     p_last_review_before:    row.last_review ?? null,
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
-  })
+  } as never)
 
   if (rpcError !== null) {
     throw dbError('reschedule card', rpcError)

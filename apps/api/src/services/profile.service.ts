@@ -120,7 +120,7 @@ export async function updateProfile(
     .update({
       ...profileFields,
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('id', userId)
     .select(PROFILE_COLUMNS)
     .single()

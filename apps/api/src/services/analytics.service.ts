@@ -1,7 +1,10 @@
 import type { ZodType } from 'zod'
+import type { Database } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { dbError } from '../middleware/errorHandler.ts'
+
+type RpcName = keyof Database['public']['Functions']
 import {
   HeatmapRpcSchema,
   AccuracyRpcSchema,
@@ -55,12 +58,12 @@ export interface MilestoneForecastRow {
  * Postgres / Zod errors as AppError so the global error handler can format them.
  */
 async function callRpc<T>(
-  fn:     string,
+  fn:     RpcName,
   params: Record<string, unknown>,
   schema: ZodType<T>,
   label:  string,
 ): Promise<T> {
-  const { data, error } = await supabaseAdmin.rpc(fn, params)
+  const { data, error } = await supabaseAdmin.rpc(fn, params as never)
   if (error !== null) throw dbError(`fetch ${label}`, error)
   return schema.parse(data ?? [])
 }
