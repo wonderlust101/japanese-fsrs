@@ -27,6 +27,8 @@ export type {
   ApiBatchResult,
 } from './api.types.ts'
 
+export type { Database, Json } from './database.types.ts'
+
 export {
   assertCardRow,
   assertReviewLogRow,
