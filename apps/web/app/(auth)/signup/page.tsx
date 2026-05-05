@@ -35,45 +35,52 @@ function friendlyOtpError(message: string): string {
   return 'Verification failed. Please try again.'
 }
 
-// ── View type ─────────────────────────────────────────────────────────────────
+// ── View state ────────────────────────────────────────────────────────────────
+// Discriminated union: 'verify' is reachable only after a successful signup
+// returns a userId. The type makes it impossible to land in the verify view
+// without the userId needed to cancel the pending account.
 
-type View = 'signup' | 'verify'
+type SignupViewState =
+  | { view: 'signup' }
+  | { view: 'verify'; userId: string }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SignupPage(): React.JSX.Element {
-  const [view, setView]     = useState<View>('signup')
-  const [email, setEmail]   = useState('')
-  const [userId, setUserId] = useState<string | null>(null)
+  const [viewState, setViewState] = useState<SignupViewState>({ view: 'signup' })
+  const [email,     setEmail]     = useState('')
 
   function handleSuccess(newUserId: string) {
-    setUserId(newUserId)
-    setView('verify')
+    setViewState({ view: 'verify', userId: newUserId })
   }
 
   function handleBack() {
-    if (userId) {
+    if (viewState.view === 'verify') {
       fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/auth/cancel-signup`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId }),
+        body:    JSON.stringify({ userId: viewState.userId }),
       }).catch(() => {})
-      setUserId(null)
     }
-    setView('signup')
+    setViewState({ view: 'signup' })
   }
 
-  if (view === 'verify') {
-    return <VerifyView email={email} onBack={handleBack} />
+  switch (viewState.view) {
+    case 'verify':
+      return <VerifyView email={email} onBack={handleBack} />
+    case 'signup':
+      return (
+        <SignupForm
+          email={email}
+          onEmailChange={setEmail}
+          onSuccess={handleSuccess}
+        />
+      )
+    default: {
+      const _exhaustiveCheck: never = viewState
+      throw new Error(`Unhandled signup view state: ${JSON.stringify(_exhaustiveCheck)}`)
+    }
   }
-
-  return (
-    <SignupForm
-      email={email}
-      onEmailChange={setEmail}
-      onSuccess={handleSuccess}
-    />
-  )
 }
 
 // ── Signup form view ──────────────────────────────────────────────────────────

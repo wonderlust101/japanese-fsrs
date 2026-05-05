@@ -1,8 +1,8 @@
-import Link from 'next/link'
+import Link from 'next/link';
 
-import { cn }                              from '@/lib/utils'
-import { State, getWordFields }            from '@fsrs-japanese/shared-types'
-import type { CardItem }                   from '@/lib/actions/cards.actions'
+import { cn } from '@/lib/utils';
+import { getWordFields, State } from '@fsrs-japanese/shared-types';
+import type { CardItem } from '@/lib/actions/cards.actions';
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
 
@@ -24,7 +24,10 @@ function dotClass(state: State, isSuspended: boolean): string {
     case State.Learning:
     case State.Relearning: return 'bg-warning-500'
     case State.Review:     return 'bg-success-500'
-    default:               return 'bg-neutral-300'
+    default: {
+      const _exhaustiveCheck: never = state
+      return _exhaustiveCheck
+    }
   }
 }
 

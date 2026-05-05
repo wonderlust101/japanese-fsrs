@@ -161,12 +161,17 @@ function buildFsrsCard(row: FsrsCardRow): CardInput {
 /** Map a user-facing ReviewRating string to the ts-fsrs Grade (excludes Manual). */
 function mapRatingToGrade(rating: ReviewRating): Grade {
   switch (rating) {
-    case 'again': return Rating.Again
-    case 'hard':  return Rating.Hard
-    case 'good':  return Rating.Good
-    case 'easy':  return Rating.Easy
-    // 'manual' is never passed by users; the Zod layer rejects it at submission.
-    default:      return Rating.Good
+    case 'again':  return Rating.Again
+    case 'hard':   return Rating.Hard
+    case 'good':   return Rating.Good
+    case 'easy':   return Rating.Easy
+    // 'manual' is never passed by users — Zod rejects it at submission. Map to
+    // Good defensively so the schedule still moves forward if somehow reached.
+    case 'manual': return Rating.Good
+    default: {
+      const _exhaustiveCheck: never = rating
+      return _exhaustiveCheck
+    }
   }
 }
 

@@ -14,7 +14,14 @@ import { generateCardPreviewAction, saveCardAction } from '@/lib/actions/cards.a
 import type { GeneratedCardData } from '@/lib/actions/cards.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 
-type Phase = 'input' | 'generating' | 'preview' | 'saving'
+// Discriminated union — `preview` is only present once generation succeeds,
+// and once present it stays attached through 'saving'. The four flat-state
+// invalid combinations (preview without phase, etc.) become unrepresentable.
+type FormState =
+  | { phase: 'input' }
+  | { phase: 'generating' }
+  | { phase: 'preview';   preview: GeneratedCardData }
+  | { phase: 'saving';    preview: GeneratedCardData }
 
 interface Props {
   deckId:   string
@@ -25,26 +32,24 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
   const router      = useRouter()
   const queryClient = useQueryClient()
 
-  const [word,    setWord]    = useState('')
-  const [phase,   setPhase]   = useState<Phase>('input')
-  const [preview, setPreview] = useState<GeneratedCardData | null>(null)
+  const [word,      setWord]      = useState('')
+  const [formState, setFormState] = useState<FormState>({ phase: 'input' })
 
   const generateMutation = useMutation({
     mutationFn: () => generateCardPreviewAction(word.trim()),
     onSuccess: (data) => {
-      setPreview(data)
-      setPhase('preview')
+      setFormState({ phase: 'preview', preview: data })
     },
     onError: () => {
-      setPhase('input')
+      setFormState({ phase: 'input' })
     },
   })
 
   const saveMutation = useMutation({
-    mutationFn: () => {
-      if (preview === null) throw new Error('Cannot save: no preview generated')
-      return saveCardAction(deckId, { fields_data: preview })
-    },
+    // The mutate caller passes `preview` explicitly (captured at click time
+    // from the narrowed 'preview'-phase state) — no nullable closure needed.
+    mutationFn: (preview: GeneratedCardData) =>
+      saveCardAction(deckId, { fields_data: preview }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })
@@ -54,12 +59,21 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
 
   function handleGenerate() {
     if (word.trim().length === 0) return
-    setPhase('generating')
+    setFormState({ phase: 'generating' })
     generateMutation.reset()
     generateMutation.mutate()
   }
 
-  const isWorking = phase === 'generating' || phase === 'saving'
+  function handleSave() {
+    if (formState.phase !== 'preview') return
+    const { preview } = formState
+    setFormState({ phase: 'saving', preview })
+    saveMutation.mutate(preview)
+  }
+
+  const isWorking = formState.phase === 'generating' || formState.phase === 'saving'
+  const showPreview = formState.phase === 'preview' || formState.phase === 'saving'
+  const isSaving    = formState.phase === 'saving'
 
   return (
     <>
@@ -98,7 +112,7 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
 
           <Button
             onClick={handleGenerate}
-            loading={phase === 'generating'}
+            loading={formState.phase === 'generating'}
             disabled={word.trim().length === 0 || isWorking}
             className="w-full"
           >
@@ -107,31 +121,28 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
         </div>
 
         {/* ── Skeleton ─────────────────────────────────────────────── */}
-        {phase === 'generating' && <CardSkeleton />}
+        {formState.phase === 'generating' && <CardSkeleton />}
 
         {/* ── Preview card ─────────────────────────────────────────── */}
-        {(phase === 'preview' || phase === 'saving') && preview !== null && (
-          <GeneratedCardPreview data={preview} />
+        {showPreview && (
+          <GeneratedCardPreview data={formState.preview} />
         )}
 
         {/* ── Action row ───────────────────────────────────────────── */}
-        {(phase === 'preview' || phase === 'saving') && (
+        {showPreview && (
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
-              onClick={() => setPhase('input')}
-              disabled={phase === 'saving'}
+              onClick={() => setFormState({ phase: 'input' })}
+              disabled={isSaving}
             >
               ← Edit word
             </Button>
 
             <Button
-              onClick={() => {
-                setPhase('saving')
-                saveMutation.mutate()
-              }}
-              loading={phase === 'saving'}
-              disabled={phase === 'saving'}
+              onClick={handleSave}
+              loading={isSaving}
+              disabled={isSaving}
             >
               Add to Deck →
             </Button>

@@ -1,10 +1,10 @@
 'use client'
 
-import { useReviewQueue, useReviewSessionStore } from '@/stores/useReviewSessionStore'
+import { useReviewQueue, useCurrentIndex } from '@/stores/useReviewSessionStore'
 
 export function SessionProgress(): React.JSX.Element {
   const queue        = useReviewQueue()
-  const currentIndex = useReviewSessionStore((s) => s.currentIndex)
+  const currentIndex = useCurrentIndex()
 
   const total      = queue.length
   const completed  = Math.min(currentIndex, total)

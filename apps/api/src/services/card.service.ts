@@ -1,21 +1,21 @@
-import OpenAI from 'openai'
+import OpenAI from 'openai';
 
-import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
-import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { getInitialFsrsState } from './fsrs.service.ts'
-import type { UpdateCardInput } from '../schemas/card.schema.ts'
+import { supabaseAdmin } from '../db/supabase.ts';
+import { asPayload, narrowRow } from '../lib/db.ts';
+import { AppError, dbError } from '../middleware/errorHandler.ts';
+import { getInitialFsrsState } from './fsrs.service.ts';
+import type { CardStatusFilter, UpdateCardInput } from '../schemas/card.schema.ts';
 import {
-  State,
-  type ApiCard,
-  type ApiCardListItem,
-  type ApiDueCard,
-  type ApiSimilarCard,
-  type CardType,
-  type FieldsData,
-  type JLPTLevel,
-  type LayoutType,
-} from '@fsrs-japanese/shared-types'
+    type ApiCard,
+    type ApiCardListItem,
+    type ApiDueCard,
+    type ApiSimilarCard,
+    type CardType,
+    type FieldsData,
+    type JLPTLevel,
+    type LayoutType,
+    State
+} from '@fsrs-japanese/shared-types';
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
 // Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
@@ -240,7 +240,7 @@ export async function listCards(
   userId:  string,
   limit:   number,
   cursor?: string,
-  status?: string,
+  status?: CardStatusFilter,
 ): Promise<CardListResult> {
   await assertDeckOwnership(deckId, userId)
 
@@ -255,7 +255,11 @@ export async function listCards(
 
   // Translate the status-shaped filter param (URL-stable) into state + is_suspended.
   // 'suspended' is orthogonal to FSRS state, so it gets its own branch.
-  if (status === 'new') {
+  // 'all' and undefined intentionally apply no filter; the explicit branch +
+  // exhaustive default makes a future enum addition fail compilation here.
+  if (status === undefined || status === 'all') {
+    // no-op
+  } else if (status === 'new') {
     query = query.eq('state', State.New).eq('is_suspended', false)
   } else if (status === 'learning') {
     query = query.in('state', [State.Learning, State.Relearning]).eq('is_suspended', false)
@@ -263,6 +267,8 @@ export async function listCards(
     query = query.eq('state', State.Review).eq('is_suspended', false)
   } else if (status === 'suspended') {
     query = query.eq('is_suspended', true)
+  } else {
+      throw new Error(`Unhandled card status filter: ${String(status)}`)
   }
 
   if (cursor !== undefined) {

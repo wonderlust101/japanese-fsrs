@@ -73,6 +73,10 @@ function stepDefault(step: OnboardingStepPath): Partial<OnboardingAnswers> {
     case '/onboarding/interests': return { interests: [] }
     case '/onboarding/schedule':  return { schedule: 'steady' }
     case '/onboarding/decks':     return { selectedDeckIds: [] }
+    default: {
+      const _exhaustiveCheck: never = step
+      return _exhaustiveCheck
+    }
   }
 }
 

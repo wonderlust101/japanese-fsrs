@@ -4,89 +4,107 @@ import { devtools } from 'zustand/middleware'
 import type { ReviewRating } from '@fsrs-japanese/shared-types'
 import type { DueCard } from '@/lib/actions/reviews.actions'
 
-// ── State (data only) ─────────────────────────────────────────────────────────
+// ── State (discriminated by phase) ────────────────────────────────────────────
+//
+// Three phases:
+//   idle     — no session, no leftover data.
+//   active   — a session is running; queue / currentIndex / showAnswer are live.
+//   finished — endSession() was called; sessionId + history are preserved so
+//              the summary page can fetch and the user can see their results.
+//              reset() returns to idle.
+//
+// Modeling these as a discriminated union eliminates invalid combinations
+// (e.g. sessionStarted=true with sessionId=null, or an idle store with a
+// non-empty queue) at the type level.
 
 interface SessionHistoryEntry {
   card:   DueCard
   rating: ReviewRating
 }
 
-interface ReviewSessionState {
+interface IdleState {
+  phase: 'idle'
+}
+
+interface ActiveState {
+  phase:          'active'
+  sessionId:      string
   queue:          DueCard[]
   currentIndex:   number
   showAnswer:     boolean
   sessionHistory: SessionHistoryEntry[]
-  /** True while a session is active; false after endSession() or before startSession(). */
-  sessionStarted: boolean
-  /** UUID generated at session start; kept after endSession() so the summary page can fetch. Cleared by reset(). */
-  sessionId:      string | null
 }
 
-// ── Actions (functions only) ──────────────────────────────────────────────────
+interface FinishedState {
+  phase:          'finished'
+  sessionId:      string
+  sessionHistory: SessionHistoryEntry[]
+}
+
+type ReviewSessionState = IdleState | ActiveState | FinishedState
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 interface ReviewSessionActions {
   startSession: (cards: DueCard[]) => void
   flipCard:     () => void
-  /**
-   * Optimistically advances the queue to the next card and records the result.
-   * The network mutation (POST /api/v1/reviews/submit) fires separately from
-   * a TanStack Query useMutation hook in the component — never from here.
-   */
   submitRating: (rating: ReviewRating) => void
   endSession:   () => void
   reset:        () => void
 }
 
-// ── Combined store type ───────────────────────────────────────────────────────
-
 type ReviewSessionStore = ReviewSessionState & { actions: ReviewSessionActions }
-
-// ── Initial state ─────────────────────────────────────────────────────────────
-
-const initialState: ReviewSessionState = {
-  queue:          [],
-  currentIndex:   0,
-  showAnswer:     false,
-  sessionHistory: [],
-  sessionStarted: false,
-  sessionId:      null,
-}
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useReviewSessionStore = create<ReviewSessionStore>()(
   devtools(
     (set, get) => ({
-      ...initialState,
+      phase: 'idle',
 
       actions: {
         startSession: (cards) =>
           set({
+            phase:          'active',
+            sessionId:      crypto.randomUUID(),
             queue:          cards,
             currentIndex:   0,
             showAnswer:     false,
             sessionHistory: [],
-            sessionStarted: true,
-            sessionId:      crypto.randomUUID(),
-          }),
+            actions:        get().actions,
+          }, true),
 
-        flipCard: () => set({ showAnswer: true }),
-
-        submitRating: (rating) => {
-          const { currentIndex, queue, sessionHistory } = get()
-          const currentCard = queue[currentIndex]
-          // Guard: no-op if the queue is already exhausted.
-          if (currentCard === undefined) return
-          set({
-            currentIndex:   currentIndex + 1,
-            showAnswer:     false,
-            sessionHistory: [...sessionHistory, { card: currentCard, rating }],
-          })
+        flipCard: () => {
+          const s = get()
+          if (s.phase !== 'active') return
+          set({ ...s, showAnswer: true }, true)
         },
 
-        endSession: () => set({ sessionStarted: false }),
+        submitRating: (rating) => {
+          const s = get()
+          if (s.phase !== 'active') return
+          const currentCard = s.queue[s.currentIndex]
+          if (currentCard === undefined) return
+          set({
+            ...s,
+            currentIndex:   s.currentIndex + 1,
+            showAnswer:     false,
+            sessionHistory: [...s.sessionHistory, { card: currentCard, rating }],
+          }, true)
+        },
 
-        reset: () => set(initialState),
+        endSession: () => {
+          const s = get()
+          if (s.phase !== 'active') return
+          set({
+            phase:          'finished',
+            sessionId:      s.sessionId,
+            sessionHistory: s.sessionHistory,
+            actions:        s.actions,
+          }, true)
+        },
+
+        reset: () => set({ phase: 'idle', actions: get().actions }, true),
       },
     }),
     { name: 'ReviewSessionStore' },
@@ -94,12 +112,34 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
 )
 
 // ── Selector hooks ────────────────────────────────────────────────────────────
-// Components import these — never select the whole store.
+// Components import these — never select the whole store. Each hook narrows
+// the discriminated union internally and projects a stable shape so callers
+// don't have to discriminate themselves.
 
-export const useReviewQueue      = () => useReviewSessionStore((s) => s.queue)
-export const useCurrentCard      = () => useReviewSessionStore((s) => s.queue[s.currentIndex])
-export const useShowAnswer       = () => useReviewSessionStore((s) => s.showAnswer)
-export const useSessionHistory   = () => useReviewSessionStore((s) => s.sessionHistory)
-export const useIsSessionStarted = () => useReviewSessionStore((s) => s.sessionStarted)
-export const useSessionId        = () => useReviewSessionStore((s) => s.sessionId)
-export const useSessionActions   = () => useReviewSessionStore((s) => s.actions)
+export const useReviewQueue      = (): DueCard[] =>
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : []))
+
+export const useCurrentCard      = (): DueCard | undefined =>
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue[s.currentIndex] : undefined))
+
+export const useCurrentIndex     = (): number =>
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.currentIndex : 0))
+
+export const useShowAnswer       = (): boolean =>
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.showAnswer : false))
+
+export const useSessionHistory   = (): SessionHistoryEntry[] =>
+  useReviewSessionStore((s) =>
+    s.phase === 'active' || s.phase === 'finished' ? s.sessionHistory : [],
+  )
+
+export const useIsSessionStarted = (): boolean =>
+  useReviewSessionStore((s) => s.phase === 'active')
+
+export const useSessionId        = (): string | null =>
+  useReviewSessionStore((s) =>
+    s.phase === 'active' || s.phase === 'finished' ? s.sessionId : null,
+  )
+
+export const useSessionActions   = (): ReviewSessionActions =>
+  useReviewSessionStore((s) => s.actions)
