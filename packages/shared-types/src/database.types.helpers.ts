@@ -26,6 +26,7 @@
  */
 
 import type { ExampleSentence, KanjiBreakdown, Mnemonic } from './card.types.ts'
+import type { Database } from './database.types.ts'
 
 // ============================================================
 // JSONB Column Shapes
@@ -41,7 +42,6 @@ export interface WordFields {
   meaning: string
   partOfSpeech?: string | null
   frequencyRank?: number | null
-  register?: string
 }
 
 /**
@@ -117,8 +117,7 @@ export type ExampleSentencesData = ExampleSentence[]
  *   const embedding = card.embedding; // number[] | null (not string)
  */
 export type TypedCardRow = Omit<
-  // Assume Database types exist; replace with actual import once generated
-  any, // Placeholder until database.types.ts is generated
+  Database['public']['Tables']['cards']['Row'],
   'fields_data' | 'tokens' | 'embedding'
 > & {
   fields_data: FieldsData
@@ -130,7 +129,7 @@ export type TypedCardRow = Omit<
  * grammar_patterns table row with typed example_sentences JSONB.
  */
 export type TypedGrammarPatternRow = Omit<
-  any, // Placeholder
+  Database['public']['Tables']['grammar_patterns']['Row'],
   'example_sentences'
 > & {
   example_sentences: ExampleSentencesData
@@ -141,7 +140,7 @@ export type TypedGrammarPatternRow = Omit<
  * All before-snapshot columns are nullable (logs from pre-migration records).
  */
 export type TypedReviewLogRow = Omit<
-  any, // Placeholder
+  Database['public']['Tables']['review_logs']['Row'],
   'state_before' | 'stability_before' | 'difficulty_before' | 'due_before' |
   'scheduled_days_before' | 'learning_steps_before' | 'elapsed_days_before' |
   'last_review_before' | 'reps_before' | 'lapses_before'
@@ -256,7 +255,8 @@ export function assertReviewLogRow(row: unknown): TypedReviewLogRow {
     throw new Error('Expected a row object')
   }
   const r = row as Record<string, unknown>
-  if (!r.id || !r.card_id || !r.rating) {
+  // card_id is nullable since migration 20260504000004 (ON DELETE SET NULL).
+  if (!r.id || !r.rating) {
     throw new Error('Row missing required review_log fields')
   }
   return row as TypedReviewLogRow
