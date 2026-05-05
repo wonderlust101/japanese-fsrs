@@ -106,3 +106,20 @@ export interface ApiBatchResult {
   results: unknown[]
   errors:  Array<{ cardId: string; error: string }>
 }
+
+/**
+ * Wire-format result from /api/v1/cards/:id/similar (find_similar_cards RPC).
+ * Mirrors the 8 columns the RPC actually returns — distinct from ApiCard,
+ * which would imply 21 columns and was previously the (incorrect) declared
+ * return type.
+ */
+export interface ApiSimilarCard {
+  id:         string
+  deckId:     string
+  layoutType: LayoutType
+  cardType:   CardType
+  fieldsData: FieldsData
+  tags:       string[]
+  jlptLevel:  JLPTLevel | null
+  similarity: number
+}

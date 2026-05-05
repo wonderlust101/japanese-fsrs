@@ -1,7 +1,7 @@
 'use server'
 
 import { apiCall, apiCallSafe } from '@/lib/api/client'
-import type { ApiCard, ApiCardListItem } from '@fsrs-japanese/shared-types'
+import type { ApiCard, ApiCardListItem, ApiSimilarCard } from '@fsrs-japanese/shared-types'
 
 // ─── Card list types ──────────────────────────────────────────────────────────
 
@@ -88,8 +88,8 @@ export async function getCardAction(deckId: string, cardId: string): Promise<Car
   )
 }
 
-export async function getSimilarCardsAction(cardId: string): Promise<CardItem[]> {
-  return apiCallSafe<CardItem[]>(`/api/v1/cards/${cardId}/similar`, {}, [])
+export async function getSimilarCardsAction(cardId: string): Promise<ApiSimilarCard[]> {
+  return apiCallSafe<ApiSimilarCard[]>(`/api/v1/cards/${cardId}/similar`, {}, [])
 }
 
 // ─── Card edit / delete actions ───────────────────────────────────────────────

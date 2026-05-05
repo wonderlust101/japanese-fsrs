@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
-import { State, type ApiCard, type FieldsData } from '@fsrs-japanese/shared-types'
+import { State, type ApiCard, type ApiSimilarCard, type FieldsData } from '@fsrs-japanese/shared-types'
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
 // Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
@@ -451,8 +451,12 @@ export async function deleteCard(cardId: string, userId: string): Promise<void> 
 /**
  * Returns up to 10 cards semantically similar to the given card via pgvector.
  * Returns an empty array if the card has no embedding yet.
+ *
+ * The find_similar_cards RPC returns 8 columns (id, deck_id, layout_type,
+ * card_type, fields_data, tags, jlpt_level, similarity) — not the full 21
+ * fields of ApiCard. The return type mirrors the actual RPC shape.
  */
-export async function getSimilarCards(cardId: string, userId: string): Promise<CardRow[]> {
+export async function getSimilarCards(cardId: string, userId: string): Promise<ApiSimilarCard[]> {
   const { data, error } = await supabaseAdmin.rpc('find_similar_cards', {
     p_card_id: cardId,
     p_user_id: userId,
@@ -462,7 +466,16 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<C
     throw dbError('find similar cards', error)
   }
 
-  return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))
+  return (data ?? []).map((row) => ({
+    id:         row.id,
+    deckId:     row.deck_id,
+    layoutType: row.layout_type,
+    cardType:   row.card_type,
+    fieldsData: row.fields_data as FieldsData,
+    tags:       row.tags ?? [],
+    jlptLevel:  row.jlpt_level,
+    similarity: row.similarity,
+  }))
 }
 
 /**

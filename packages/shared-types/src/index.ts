@@ -22,6 +22,7 @@ export type {
   ApiDeckWithStats,
   ApiPremadeDeck,
   ApiPremadeSubscription,
+  ApiSimilarCard,
   ApiSubscribeResult,
   ApiForecastDay,
   ApiBatchResult,

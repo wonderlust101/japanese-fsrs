@@ -9,7 +9,6 @@ import { Button }                from '@/components/ui/Button'
 import { FuriganaText }          from '@/components/ui/FuriganaText'
 import { queryKeys }             from '@/lib/api/queryKeys'
 import { getCardAction, getSimilarCardsAction } from '@/lib/actions/cards.actions'
-import { CardListItem }          from '../../../_components/card-list-item'
 import { FsrsStats }             from './fsrs-stats'
 import { ExampleSentences }      from './example-sentences'
 import { KanjiBreakdown }        from './kanji-breakdown'
@@ -172,9 +171,26 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
           )}
           {showSimilar && !loadingSimilar && similar !== undefined && similar.length > 0 && (
             <ul className="space-y-2">
-              {similar.map((c) => (
-                <CardListItem key={c.id} card={c} deckId={deckId} />
-              ))}
+              {similar.map((c) => {
+                const cfd     = c.fieldsData as Record<string, unknown>
+                const cWord   = (cfd['word']    as string | undefined) ?? (cfd['front'] as string | undefined) ?? '—'
+                const cReading= (cfd['reading'] as string | undefined) ?? ''
+                const cMeaning= (cfd['meaning'] as string | undefined) ?? (cfd['back']  as string | undefined) ?? ''
+                return (
+                  <li key={c.id}>
+                    <Link
+                      href={`/decks/${c.deckId}/cards/${c.id}`}
+                      className="flex items-baseline gap-3 px-4 py-3 rounded-[var(--radius-md)] border border-neutral-200 hover:shadow-[var(--shadow-card)] transition-shadow"
+                    >
+                      <span lang="ja" className="text-base font-bold text-neutral-900">{cWord}</span>
+                      {cReading.length > 0 && (
+                        <span lang="ja" className="text-sm text-neutral-500">{cReading}</span>
+                      )}
+                      <span className="ml-auto text-sm text-neutral-700 truncate">{cMeaning}</span>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </section>
