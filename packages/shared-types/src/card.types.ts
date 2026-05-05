@@ -1,4 +1,4 @@
-import type { CardType, FsrsCardState } from './fsrs.types.ts'
+import type { CardType } from './fsrs.types.ts'
 
 export const JLPTLevel = {
   N5: 'N5',
@@ -37,4 +37,4 @@ export interface Mnemonic {
   author: 'ai' | 'user'
 }
 
-export type { CardType, FsrsCardState }
+export type { CardType }

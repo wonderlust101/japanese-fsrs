@@ -8,12 +8,13 @@ export const CardType = {
 } as const
 export type CardType = typeof CardType[keyof typeof CardType]
 
-/** Shared FSRS scheduling fields — present on both Card and GrammarPattern.
+/** Shared FSRS scheduling fields used by GrammarPattern (wire format).
  *  `state` is the ts-fsrs integer enum (0=New, 1=Learning, 2=Review, 3=Relearning).
- *  Suspension is orthogonal to FSRS state and lives on the higher-level Card type. */
+ *  Dates are ISO 8601 strings — the algorithm-internal Date objects live in
+ *  the API service layer and are serialised before crossing the wire. */
 export interface FsrsCardState {
   state: State
-  due: Date
+  due: string
   stability: number
   difficulty: number
   elapsedDays: number
@@ -22,5 +23,5 @@ export interface FsrsCardState {
   learningSteps: number
   reps: number
   lapses: number
-  lastReview: Date | null
+  lastReview: string | null
 }

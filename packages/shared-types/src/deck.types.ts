@@ -18,8 +18,8 @@ export interface Deck {
   isPremadeFork: boolean
   sourcePremadeId: string | null
   cardCount: number
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
 }
 
 export interface PremadeDeck {
@@ -34,14 +34,14 @@ export interface PremadeDeck {
   cardCount: number
   version: number
   isActive: boolean
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
 }
 
 export interface UserPremadeSubscription {
   id: string
   userId: string
   premadeDeckId: string
-  subscribedAt: Date
+  subscribedAt: string
   lastSeenVersion: number
 }
