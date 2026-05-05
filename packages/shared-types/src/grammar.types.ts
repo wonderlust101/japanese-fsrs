@@ -7,10 +7,15 @@ export interface GrammarPattern extends FsrsCardState {
   deckId: string
   pattern: string
   meaning: string
-  jlptLevel: JLPTLevel
+  /** Nullable in the schema; `null` for patterns not pinned to a JLPT level. */
+  jlptLevel: JLPTLevel | null
   exampleSentences: ExampleSentence[]
-  linkedVocabulary: string[]
   notes: string | null
-  createdAt: Date
-  updatedAt: Date
+  /**
+   * Whether this pattern is suspended (excluded from review queues).
+   * Orthogonal to FSRS `state` — a pattern in any state can be suspended.
+   */
+  isSuspended: boolean
+  createdAt: string
+  updatedAt: string
 }

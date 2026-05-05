@@ -5,13 +5,17 @@ export interface Profile {
   nativeLanguage: string
   jlptTarget: JLPTLevel | null
   studyGoal: string | null
+  /**
+   * Synthesised at the API boundary from the `user_interests` junction table;
+   * not a column on `profiles`. See apps/api/src/services/profile.service.ts.
+   */
   interests: string[]
   dailyNewCardsLimit: number
   dailyReviewLimit: number
   retentionTarget: number
   timezone: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
 }
 
 /**
