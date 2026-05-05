@@ -29,10 +29,30 @@ export class AppError extends Error {
  * if (error !== null) throw dbError('list cards', error)
  */
 export function dbError(action: string, err: unknown): AppError {
-  console.error(`[db] ${action} failed`, err instanceof Error
-    ? { name: err.name, message: err.message }
-    : { detail: 'non-Error thrown' })
+  console.error(`[db] ${action} failed`, summarizeDbError(err))
   return new AppError(500, `Failed to ${action}`)
+}
+
+/**
+ * Extract loggable fields from an unknown thrown value. Supabase's
+ * PostgrestError is a plain object (not an Error instance) shaped as
+ * { message, code, details, hint } — `instanceof Error` returns false,
+ * so a naive logger drops all of it. Capture every shape we expect.
+ */
+function summarizeDbError(err: unknown): Record<string, unknown> {
+  if (err instanceof Error) {
+    return { name: err.name, message: err.message }
+  }
+  if (err !== null && typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    return {
+      message: e['message'],
+      code:    e['code'],
+      details: e['details'],
+      hint:    e['hint'],
+    }
+  }
+  return { detail: String(err) }
 }
 
 /**
