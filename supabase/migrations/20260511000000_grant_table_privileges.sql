@@ -58,3 +58,11 @@ GRANT ALL                             ON public.premade_decks     TO service_rol
 -- ── user_premade_subscriptions ───────────────────────────────
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_premade_subscriptions TO authenticated;
 GRANT ALL                             ON public.user_premade_subscriptions TO service_role;
+
+-- ── RPC functions ─────────────────────────────────────────────
+-- Supabase also revokes EXECUTE from PUBLIC for functions in its managed
+-- environment, so migration-created functions have no callable grants by
+-- default. All RPCs are called server-side via supabaseAdmin (service_role),
+-- never directly from authenticated clients, so only service_role needs
+-- EXECUTE. This covers every function in the public schema as of this migration.
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;

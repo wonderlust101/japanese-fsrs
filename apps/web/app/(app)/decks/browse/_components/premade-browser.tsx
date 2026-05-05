@@ -37,9 +37,10 @@ interface SnackbarState {
 }
 
 export function PremadeBrowser(): React.JSX.Element {
-  const [filter, setFilter] = useState<Filter>('all')
-  const [search, setSearch] = useState('')
-  const [snack,  setSnack]  = useState<SnackbarState | null>(null)
+  const [filter, setFilter]   = useState<Filter>('all')
+  const [search, setSearch]   = useState('')
+  const [snack,  setSnack]    = useState<SnackbarState | null>(null)
+  const [error,  setError]    = useState<string | null>(null)
 
   const { data: decks = [],         isLoading } = usePremadeDecks()
   const { data: subscriptions = [] }            = useMySubscriptions()
@@ -75,6 +76,7 @@ export function PremadeBrowser(): React.JSX.Element {
   }, [filtered])
 
   function handleSubscribe(deck: PremadeDeckRow): void {
+    setError(null)
     subscribe.mutate(deck.id, {
       onSuccess: (res) => {
         setSnack({
@@ -84,6 +86,9 @@ export function PremadeBrowser(): React.JSX.Element {
           deckId:    res.deckId,
           premadeId: deck.id,
         })
+      },
+      onError: (err) => {
+        setError(err.message)
       },
     })
   }
@@ -172,6 +177,16 @@ export function PremadeBrowser(): React.JSX.Element {
           </section>
         ))}
       </div>
+
+      {error !== null && (
+        <div
+          role="alert"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-[var(--radius-md)]
+                     bg-danger-50 border border-danger-200 text-sm text-danger-700 shadow-md"
+        >
+          {error}
+        </div>
+      )}
 
       {snack !== null && (
         <Snackbar
