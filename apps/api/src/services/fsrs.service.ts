@@ -13,9 +13,10 @@ import {
   type State,
 } from 'ts-fsrs'
 
-import type { CardType, ReviewRating } from '@fsrs-japanese/shared-types'
+import { isCardType, type CardType, type ReviewRating } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ function mapRatingStringToEnum(rating: string): Rating {
 }
 
 function getScheduler(cardType: string): TsFsrsInstance {
-  return schedulers[cardType as CardType] ?? schedulers.comprehension
+  return isCardType(cardType) ? schedulers[cardType] : schedulers.comprehension
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ export async function processReview(
     throw new AppError(404, 'Card not found')
   }
 
-  const row = data as unknown as FsrsCardRow
+  const row = narrowRow<FsrsCardRow>(data)
 
   if (row.user_id === null) {
     throw new AppError(403, 'Cannot review a premade source card')
@@ -236,7 +237,7 @@ export async function processReview(
   // p_session_id) are typed as non-nullable in the generated Database type
   // because the migration declares them without DEFAULT NULL. The DB accepts
   // NULL at runtime; supabase-js sends NULL correctly.
-  const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
+  const { error: rpcError } = await supabaseAdmin.rpc('process_review', asPayload({
     p_card_id:              cardId,
     p_user_id:              userId,
     p_state:                updated.state,
@@ -269,7 +270,7 @@ export async function processReview(
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
     p_session_id:            sessionId ?? null,
-  } as never)
+  }))
 
   if (rpcError !== null) {
     throw dbError('persist review', rpcError)
@@ -321,8 +322,8 @@ export async function rollbackReview(
     throw new AppError(404, 'Review log not found')
   }
 
-  const row = cardResult.data as unknown as FsrsCardRow
-  const log = logResult.data as unknown as ReviewLogRow
+  const row = narrowRow<FsrsCardRow>(cardResult.data)
+  const log = narrowRow<ReviewLogRow>(logResult.data)
 
   if (
     log.state_before      === null ||
@@ -335,7 +336,7 @@ export async function rollbackReview(
 
   // The four _before fields above are written atomically — narrowed together by the guard.
   const reviewLogInput: ReviewLogInput = {
-    rating:            log.rating as unknown as Rating,
+    rating:            mapRatingStringToEnum(log.rating),
     state:             log.state_before as State,
     due:               new Date(log.due_before),
     stability:         log.stability_before,
@@ -408,7 +409,7 @@ export async function forgetCard(
     throw new AppError(404, 'Card not found')
   }
 
-  const row = data as unknown as FsrsCardRow
+  const row = narrowRow<FsrsCardRow>(data)
 
   if (row.user_id === null) {
     throw new AppError(403, 'Cannot reset a premade source card')
@@ -418,8 +419,8 @@ export async function forgetCard(
   const now = new Date()
   const { card: forgotten }: RecordLogItem = scheduler.forget(buildFsrsCard(row), now, resetCount)
 
-  // Args cast: see process_review note above.
-  const { error: rpcError } = await supabaseAdmin.rpc('process_forget', {
+  // Args wrapped via asPayload: see process_review note above.
+  const { error: rpcError } = await supabaseAdmin.rpc('process_forget', asPayload({
     p_card_id:              cardId,
     p_user_id:              userId,
     p_due:                  forgotten.due.toISOString(),
@@ -439,7 +440,7 @@ export async function forgetCard(
     p_last_review_before:    row.last_review ?? null,
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
-  } as never)
+  }))
 
   if (rpcError !== null) {
     throw dbError('forget card', rpcError)
@@ -525,13 +526,15 @@ export async function rescheduleFromHistory(
     throw dbError('fetch review logs', logsResult.error)
   }
 
-  const row = cardResult.data as unknown as FsrsCardRow
-  const logs = (logsResult.data ?? []) as unknown as ReviewLogRow[]
+  const row = narrowRow<FsrsCardRow>(cardResult.data)
+  const logs = narrowRow<ReviewLogRow[]>(logsResult.data ?? [])
 
   if (logs.length === 0) {
     throw new AppError(409, 'No eligible review logs to reschedule from')
   }
 
+  // FSRSHistory.rating excludes Rating.Manual; the SELECT above filters
+  // .neq('rating', 'manual'), so mapRatingStringToEnum never returns Manual here.
   const history: FSRSHistory[] = logs.map((log) => ({
     rating: mapRatingStringToEnum(log.rating) as Grade,
     review: new Date(log.reviewed_at),
@@ -548,7 +551,7 @@ export async function rescheduleFromHistory(
   const updated: TsFsrsCard = result.reschedule_item.card
   const now = new Date()
 
-  const { error: rpcError } = await supabaseAdmin.rpc('process_review', {
+  const { error: rpcError } = await supabaseAdmin.rpc('process_review', asPayload({
     p_card_id:              cardId,
     p_user_id:              userId,
     p_state:                updated.state,
@@ -579,7 +582,7 @@ export async function rescheduleFromHistory(
     p_last_review_before:    row.last_review ?? null,
     p_reps_before:           row.reps,
     p_lapses_before:         row.lapses,
-  } as never)
+  }))
 
   if (rpcError !== null) {
     throw dbError('reschedule card', rpcError)

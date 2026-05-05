@@ -252,7 +252,7 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
       router.refresh()
     },
     onError: (err) => {
-      setOtpError(friendlyOtpError((err as Error).message))
+      setOtpError(friendlyOtpError(err.message))
       // Incrementing the version remounts OTPInput, clearing digits and
       // restarting the shake animation without any useEffect in the child.
       setOtpErrorVersion((v) => v + 1)

@@ -57,7 +57,7 @@ export function ProfileSection({
       onSaved('Native language saved')
     } catch (e) {
       setNative(initialNativeLanguage)
-      onError((e as Error).message)
+      onError(e instanceof Error ? e.message : 'Unknown error')
     }
   }
 
@@ -68,7 +68,7 @@ export function ProfileSection({
       onSaved('Timezone saved')
     } catch (e) {
       setTimezone(initialTimezone)
-      onError((e as Error).message)
+      onError(e instanceof Error ? e.message : 'Unknown error')
     }
   }
 

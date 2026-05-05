@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { UpdateProfileInput } from '../schemas/profile.schema.ts'
 import type { JLPTLevel, Profile } from '@fsrs-japanese/shared-types'
@@ -111,7 +112,7 @@ export async function getProfile(userId: string): Promise<Profile> {
     throw new AppError(404, 'Profile not found')
   }
 
-  return toProfile(profileResult.data as unknown as ProfileDbRow, interests)
+  return toProfile(narrowRow<ProfileDbRow>(profileResult.data), interests)
 }
 
 /**
@@ -133,10 +134,10 @@ export async function updateProfile(
 
   const { data, error } = await supabaseAdmin
     .from('profiles')
-    .update({
+    .update(asPayload({
       ...profileFields,
       updated_at: new Date().toISOString(),
-    } as never)
+    }))
     .eq('id', userId)
     .select(PROFILE_COLUMNS)
     .single()
@@ -160,5 +161,5 @@ export async function updateProfile(
   // was unchanged in this call.
   const finalInterests = interests ?? await fetchInterests(userId)
 
-  return toProfile(data as unknown as ProfileDbRow, finalInterests)
+  return toProfile(narrowRow<ProfileDbRow>(data), finalInterests)
 }

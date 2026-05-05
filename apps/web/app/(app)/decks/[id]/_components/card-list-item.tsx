@@ -1,8 +1,8 @@
 import Link from 'next/link'
 
-import { cn }            from '@/lib/utils'
-import { State }         from '@fsrs-japanese/shared-types'
-import type { CardItem } from '@/lib/actions/cards.actions'
+import { cn }                              from '@/lib/utils'
+import { State, getWordFields }            from '@fsrs-japanese/shared-types'
+import type { CardItem }                   from '@/lib/actions/cards.actions'
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
 
@@ -36,11 +36,13 @@ interface Props {
 }
 
 export function CardListItem({ card, deckId }: Props): React.JSX.Element {
-  // FieldsData is a discriminated union; widen to Record for cross-layout access.
-  const fd      = card.fieldsData as Record<string, unknown>
-  const word    = (fd['word']    as string | undefined) ?? (fd['front'] as string | undefined) ?? '—'
-  const reading = (fd['reading'] as string | undefined) ?? ''
-  const meaning = (fd['meaning'] as string | undefined) ?? (fd['back']  as string | undefined) ?? ''
+  const wordFields = getWordFields(card)
+  const sentenceFd = wordFields === null
+    ? card.fieldsData as Record<string, unknown>
+    : null
+  const word    = wordFields?.word    ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '—')
+  const reading = wordFields?.reading ?? ''
+  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back']  === 'string' ? sentenceFd['back']  : '')
 
   const jlpt    = card.jlptLevel !== null ? JLPT_STYLE[card.jlptLevel] : undefined
 

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import type {
@@ -88,7 +89,7 @@ export async function listPremadeDecks(
     throw dbError('list premade decks', error)
   }
 
-  return (data ?? []).map((row) => toPremadeRow(row as unknown as PremadeDeckDbRow))
+  return (data ?? []).map((row) => toPremadeRow(narrowRow<PremadeDeckDbRow>(row)))
 }
 
 /**
@@ -106,7 +107,7 @@ export async function getPremadeDeck(id: string): Promise<PremadeDeckRow> {
     throw new AppError(404, 'Premade deck not found')
   }
 
-  return toPremadeRow(data as unknown as PremadeDeckDbRow)
+  return toPremadeRow(narrowRow<PremadeDeckDbRow>(data))
 }
 
 /**
@@ -124,7 +125,8 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
     throw dbError('list subscriptions', subsError)
   }
 
-  const rows = (subs ?? []) as Array<{ id: string; premade_deck_id: string; subscribed_at: string }>
+  interface SubscriptionDbRow { id: string; premade_deck_id: string; subscribed_at: string }
+  const rows = narrowRow<SubscriptionDbRow[]>(subs ?? [])
   if (rows.length === 0) return []
 
   const premadeIds = rows.map((r) => r.premade_deck_id)
@@ -149,12 +151,15 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
     throw dbError('load forked decks', decksResult.error)
   }
 
+  interface PremadeNameRow { id: string; name: string }
+  interface ForkedDeckRow  { id: string; source_premade_id: string; card_count: number }
+
   const nameById  = new Map<string, string>(
-    ((premadeDecksResult.data ?? []) as Array<{ id: string; name: string }>)
+    narrowRow<PremadeNameRow[]>(premadeDecksResult.data ?? [])
       .map((p) => [p.id, p.name]),
   )
   const deckBySrc = new Map<string, { id: string; cardCount: number }>(
-    ((decksResult.data ?? []) as Array<{ id: string; source_premade_id: string; card_count: number }>)
+    narrowRow<ForkedDeckRow[]>(decksResult.data ?? [])
       .map((d) => [d.source_premade_id, { id: d.id, cardCount: d.card_count }]),
   )
 
@@ -218,7 +223,7 @@ export async function subscribeToPremadeDeck(
     throw dbError('subscribe to premade deck', error)
   }
 
-  const row = (data as SubscribeRpcRow[] | null)?.[0]
+  const row = narrowRow<SubscribeRpcRow[] | null>(data)?.[0]
   if (row === undefined) {
     throw new AppError(500, 'Subscribe RPC returned no row')
   }

@@ -9,6 +9,7 @@ import { Button }                from '@/components/ui/Button'
 import { FuriganaText }          from '@/components/ui/FuriganaText'
 import { queryKeys }             from '@/lib/api/queryKeys'
 import { getCardAction, getSimilarCardsAction } from '@/lib/actions/cards.actions'
+import { getWordFields, getVocabularyFields }   from '@fsrs-japanese/shared-types'
 import { FsrsStats }             from './fsrs-stats'
 import { ExampleSentences }      from './example-sentences'
 import { KanjiBreakdown }        from './kanji-breakdown'
@@ -48,16 +49,23 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
   })
 
   // ── Extract fieldsData fields ──────────────────────────────────────────────
-  // FieldsData is a discriminated union; widen to Record for cross-layout access.
-  const fd              = (card?.fieldsData ?? {}) as Record<string, unknown>
-  const word            = (fd['word']             as string | undefined) ?? (fd['front'] as string | undefined) ?? '—'
-  const reading         = (fd['reading']          as string | undefined) ?? ''
-  const meaning         = (fd['meaning']          as string | undefined) ?? (fd['back'] as string | undefined) ?? ''
-  const partOfSpeech    = (fd['partOfSpeech']     as string | undefined)
-  const pitchAccent     = (fd['pitchAccent']      as string | undefined)
-  const mnemonic        = (fd['mnemonic']         as string | undefined)
-  const exampleSentences = fd['exampleSentences'] as { ja: string; en: string; furigana: string }[] | undefined
-  const kanjiBreakdown   = fd['kanjiBreakdown']   as { kanji: string; meaning: string }[]   | undefined
+  // Narrow on layoutType for typed access; fall back to free-form lookups
+  // for sentence-layout cards and the legacy singular `mnemonic` key (the
+  // ai.service emits it as a single string; the typed schema reserves
+  // `mnemonics: Mnemonic[]` for the future plural form).
+  const wordFields  = card != null ? getWordFields(card) : null
+  const vocabFields = card != null ? getVocabularyFields(card) : null
+  const rawFd       = (card?.fieldsData ?? {}) as Record<string, unknown>
+  const sentenceFd  = card != null && wordFields === null ? rawFd : null
+
+  const word    = wordFields?.word    ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '—')
+  const reading = wordFields?.reading ?? ''
+  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back']  === 'string' ? sentenceFd['back']  : '')
+  const partOfSpeech    = wordFields?.partOfSpeech ?? undefined
+  const pitchAccent     = vocabFields?.pitchAccent ?? undefined
+  const exampleSentences = vocabFields?.exampleSentences
+  const kanjiBreakdown   = vocabFields?.kanjiBreakdown
+  const mnemonic        = typeof rawFd['mnemonic'] === 'string' ? rawFd['mnemonic'] : undefined
 
   const jlpt = card?.jlptLevel !== null && card?.jlptLevel !== undefined
     ? JLPT_STYLE[card.jlptLevel]
@@ -130,7 +138,7 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
           <ExampleSentences
             cardId={cardId}
             sentences={exampleSentences ?? []}
-            fieldsData={fd}
+            fieldsData={rawFd}
           />
         )}
 
@@ -144,7 +152,7 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
           <MnemonicSection
             cardId={cardId}
             mnemonic={mnemonic}
-            fieldsData={fd}
+            fieldsData={rawFd}
           />
         )}
 
@@ -172,10 +180,11 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
           {showSimilar && !loadingSimilar && similar !== undefined && similar.length > 0 && (
             <ul className="space-y-2">
               {similar.map((c) => {
-                const cfd     = c.fieldsData as Record<string, unknown>
-                const cWord   = (cfd['word']    as string | undefined) ?? (cfd['front'] as string | undefined) ?? '—'
-                const cReading= (cfd['reading'] as string | undefined) ?? ''
-                const cMeaning= (cfd['meaning'] as string | undefined) ?? (cfd['back']  as string | undefined) ?? ''
+                const cWordFields = getWordFields(c)
+                const cFd         = cWordFields === null ? c.fieldsData as Record<string, unknown> : null
+                const cWord       = cWordFields?.word    ?? (typeof cFd?.['front'] === 'string' ? cFd['front'] : '—')
+                const cReading    = cWordFields?.reading ?? ''
+                const cMeaning    = cWordFields?.meaning ?? (typeof cFd?.['back']  === 'string' ? cFd['back']  : '')
                 return (
                   <li key={c.id}>
                     <Link

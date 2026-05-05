@@ -13,6 +13,7 @@ import { Dialog }       from '@/components/ui/Dialog'
 import { FuriganaText } from '@/components/ui/FuriganaText'
 import { updateCardAction, deleteCardAction } from '@/lib/actions/cards.actions'
 import type { CardDetail }              from '@/lib/actions/cards.actions'
+import { getWordFields }                from '@fsrs-japanese/shared-types'
 import { queryKeys }                   from '@/lib/api/queryKeys'
 
 // ─── JLPT options ─────────────────────────────────────────────────────────────
@@ -40,9 +41,10 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
   const queryClient = useQueryClient()
 
   const fd = card.fieldsData
-  const [word,      setWord]      = useState((fd['word']    as string | undefined) ?? '')
-  const [reading,   setReading]   = useState((fd['reading'] as string | undefined) ?? '')
-  const [meaning,   setMeaning]   = useState((fd['meaning'] as string | undefined) ?? '')
+  const initial = getWordFields(card)
+  const [word,      setWord]      = useState(initial?.word    ?? '')
+  const [reading,   setReading]   = useState(initial?.reading ?? '')
+  const [meaning,   setMeaning]   = useState(initial?.meaning ?? '')
   const [jlptLevel, setJlptLevel] = useState(card.jlptLevel ?? '')
   const [tags,      setTags]      = useState((card.tags ?? []).join(', '))
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -70,7 +72,7 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
     },
   })
 
-  const originalWord = (fd['word'] as string | undefined) ?? ''
+  const originalWord = initial?.word ?? ''
 
   return (
     <>
@@ -150,7 +152,7 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
 
           {saveMutation.isError && (
             <p role="alert" className="text-sm text-danger-500">
-              {(saveMutation.error as Error).message}
+              {saveMutation.error?.message ?? 'Unknown error'}
             </p>
           )}
 
@@ -197,7 +199,7 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
         </p>
         {deleteMutation.isError && (
           <p role="alert" className="text-sm text-danger-500 mb-3">
-            {(deleteMutation.error as Error).message}
+            {deleteMutation.error?.message ?? 'Unknown error'}
           </p>
         )}
         <div className="flex justify-end gap-2">

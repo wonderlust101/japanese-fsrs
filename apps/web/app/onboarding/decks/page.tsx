@@ -86,7 +86,7 @@ export default function DecksPage(): React.JSX.Element {
       <div className="flex flex-col items-center gap-3 w-full">
         {error && (
           <p role="alert" className="text-xs text-danger-500">
-            {(error as Error).message}
+            {error?.message ?? 'Unknown error'}
           </p>
         )}
 

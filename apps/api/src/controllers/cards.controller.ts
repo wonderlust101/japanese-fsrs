@@ -55,12 +55,15 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
     let fieldsData: Record<string, unknown>
 
     if ('word' in input) {
-      const profile = await profileService.getProfile(req.user.id)
-      fieldsData    = await aiService.generateCard(
+      const profile  = await profileService.getProfile(req.user.id)
+      const generated = await aiService.generateCard(
         input.word,
         profile.jlptTarget ?? 'N5',
         profile.interests,
-      ) as unknown as Record<string, unknown>
+      )
+      // GeneratedCardData has known string keys; widen to the JSONB-compatible
+      // Record<string, unknown> shape that createCard / fields_data persistence accepts.
+      fieldsData = generated as Record<string, unknown>
     } else {
       fieldsData = input.fields_data
     }

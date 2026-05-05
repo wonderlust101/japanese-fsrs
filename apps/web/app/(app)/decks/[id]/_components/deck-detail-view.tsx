@@ -61,7 +61,10 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     queryFn:  () => getDeckWithStatsAction(deckId),
   })
 
-  // Card list — cursor-paginated, resets when status tab changes
+  // Card list — cursor-paginated, resets when status tab changes.
+  // The `as string | undefined` on initialPageParam widens `undefined` so
+  // TanStack infers the pageParam type as `string | undefined` rather than
+  // just `undefined`.
   const {
     data,
     fetchNextPage,
@@ -72,7 +75,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     queryKey:         [...queryKeys.cards.byDeck(deckId), status],
     queryFn:          ({ pageParam }) => listCardsAction(deckId, {
       limit:  50,
-      ...(pageParam !== undefined ? { cursor: pageParam as string } : {}),
+      ...(pageParam !== undefined ? { cursor: pageParam } : {}),
       status,
     }),
     initialPageParam: undefined as string | undefined,
@@ -224,7 +227,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         </p>
         {deleteMutation.isError && (
           <p role="alert" className="text-sm text-danger-500 mb-3">
-            {(deleteMutation.error as Error).message}
+            {deleteMutation.error?.message ?? 'Unknown error'}
           </p>
         )}
         <div className="flex justify-end gap-2">

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { DUE_CARD_COLUMNS, toApiDueCard, type DueCardDbRow } from './card.service.ts'
@@ -90,7 +91,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Api
   }
 
   const overdueCards = (overdueData ?? []).map(
-    (row) => toApiDueCard(row as unknown as DueCardDbRow),
+    (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
   )
 
   // ── Fetch new cards ────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Api
   }
 
   const newCards = (newData ?? []).map(
-    (row) => toApiDueCard(row as unknown as DueCardDbRow),
+    (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
   )
 
   return [...overdueCards, ...newCards]
@@ -137,7 +138,8 @@ export async function getReviewForecast(userId: string, days = 14): Promise<ApiF
 
   // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT comes back as
   // a number in the JSON response (Supabase casts), but be defensive about it.
-  const rows = (data ?? []) as Array<{ date: string; count: number | string }>
+  interface ForecastRpcRow { date: string; count: number | string }
+  const rows = narrowRow<ForecastRpcRow[]>(data ?? [])
   return rows.map((r) => ({
     date:  r.date,
     count: typeof r.count === 'string' ? Number.parseInt(r.count, 10) : r.count,
@@ -192,7 +194,14 @@ export async function getSessionSummary(
   sessionId: string,
   userId:    string,
 ): Promise<SessionSummary> {
-  const { data: logs, error: logsError } = await supabaseAdmin
+  interface SessionLogRow {
+    card_id:        string
+    rating:         string
+    review_time_ms: number | null
+    reviewed_at:    string
+    due_after:      string
+  }
+  const { data: logsData, error: logsError } = await supabaseAdmin
     .from('review_logs')
     .select('card_id, rating, review_time_ms, reviewed_at, due_after')
     .eq('session_id', sessionId)
@@ -201,18 +210,18 @@ export async function getSessionSummary(
   if (logsError !== null) {
     throw dbError('fetch session logs', logsError)
   }
-  if (logs === null || logs.length === 0) {
+  if (logsData === null || logsData.length === 0) {
     throw new AppError(404, 'Session not found')
   }
+  const logs = narrowRow<SessionLogRow[]>(logsData)
 
   // ── Aggregate stats ──────────────────────────────────────────────────────────
   const breakdown = { again: 0, hard: 0, good: 0, easy: 0 }
   let totalTimeMs = 0
 
   for (const log of logs) {
-    const rating = log.rating as keyof typeof breakdown
-    if (rating in breakdown) breakdown[rating]++
-    totalTimeMs += (log.review_time_ms as number | null) ?? 0
+    if (log.rating in breakdown) breakdown[log.rating as keyof typeof breakdown]++
+    totalTimeMs += log.review_time_ms ?? 0
   }
 
   const total      = logs.length
@@ -223,7 +232,7 @@ export async function getSessionSummary(
   // Earliest scheduled due date across all cards reviewed in this session.
   // ISO string sort is lexicographically correct for TIMESTAMPTZ values.
   const nextDueAt = logs.length > 0
-    ? (logs.map((l) => l.due_after as string).sort()[0] ?? null)
+    ? (logs.map((l) => l.due_after).sort()[0] ?? null)
     : null
 
   // ── Leech lookup ─────────────────────────────────────────────────────────────
@@ -232,7 +241,15 @@ export async function getSessionSummary(
   // prior time-window heuristic was unreliable under clock skew or batch
   // submissions, and pre-existing leeches without session_id can't be
   // retroactively assigned to a session anyway.
-  const { data: leechRows, error: leechError } = await supabaseAdmin
+  interface LeechRow {
+    id:           string
+    card_id:      string
+    diagnosis:    string | null
+    prescription: string | null
+    resolved:     boolean
+    created_at:   string
+  }
+  const { data: leechData, error: leechError } = await supabaseAdmin
     .from('leeches')
     .select('id, card_id, diagnosis, prescription, resolved, created_at')
     .eq('session_id', sessionId)
@@ -241,14 +258,16 @@ export async function getSessionSummary(
   if (leechError !== null) {
     throw dbError('fetch session leeches', leechError)
   }
+  const leechRows = narrowRow<LeechRow[]>(leechData ?? [])
 
   // Enrich leech rows with card display data (word, reading) and deckId for linking.
   const cardDataMap = new Map<string, { deckId: string; word: string; reading: string | null }>()
 
-  if ((leechRows ?? []).length > 0) {
-    const leechCardIds = (leechRows ?? []).map((l) => l.card_id as string)
+  if (leechRows.length > 0) {
+    const leechCardIds = leechRows.map((l) => l.card_id)
 
-    const { data: cardRows, error: cardError } = await supabaseAdmin
+    interface LeechCardRow { id: string; deck_id: string; fields_data: Record<string, unknown> }
+    const { data: cardData, error: cardError } = await supabaseAdmin
       .from('cards')
       .select('id, deck_id, fields_data')
       .in('id', leechCardIds)
@@ -257,28 +276,25 @@ export async function getSessionSummary(
       throw dbError('fetch card data for leeches', cardError)
     }
 
-    for (const c of cardRows ?? []) {
-      const fields = c.fields_data as Record<string, unknown>
-      cardDataMap.set(c.id as string, {
-        deckId:  c.deck_id as string,
-        word:    (fields['word']    as string)        ?? '',
-        reading: (fields['reading'] as string | null) ?? null,
-      })
+    for (const c of narrowRow<LeechCardRow[]>(cardData ?? [])) {
+      const word    = typeof c.fields_data['word']    === 'string' ? c.fields_data['word']    : ''
+      const reading = typeof c.fields_data['reading'] === 'string' ? c.fields_data['reading'] : null
+      cardDataMap.set(c.id, { deckId: c.deck_id, word, reading })
     }
   }
 
-  const leeches: SessionLeech[] = (leechRows ?? []).map((l) => {
-    const card = cardDataMap.get(l.card_id as string)
+  const leeches: SessionLeech[] = leechRows.map((l) => {
+    const card = cardDataMap.get(l.card_id)
     return {
-      leechId:      l.id as string,
-      cardId:       l.card_id as string,
+      leechId:      l.id,
+      cardId:       l.card_id,
       deckId:       card?.deckId  ?? '',
       word:         card?.word    ?? '',
       reading:      card?.reading ?? null,
-      diagnosis:    (l.diagnosis    as string | null) ?? null,
-      prescription: (l.prescription as string | null) ?? null,
-      resolved:     l.resolved as boolean,
-      createdAt:    l.created_at as string,
+      diagnosis:    l.diagnosis    ?? null,
+      prescription: l.prescription ?? null,
+      resolved:     l.resolved,
+      createdAt:    l.created_at,
     }
   })
 

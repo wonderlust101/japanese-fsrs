@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput } from '../schemas/card.schema.ts'
@@ -59,7 +60,7 @@ export const CARD_COLUMNS = [
   'updated_at',
 ].join(', ')
 
-// Slim projection for the review session — only the 7 fields the UI renders.
+// Slim projection for the review session — only the fields the UI renders.
 // Mirrors ApiDueCard in shared-types. Keeps FSRS internals (stability,
 // difficulty, reps, lapses, …) off the wire during reviews.
 export const DUE_CARD_COLUMNS = [
@@ -70,6 +71,7 @@ export const DUE_CARD_COLUMNS = [
   'state',
   'due',
   'fields_data',
+  'layout_type',
 ].join(', ')
 
 // Slim projection for the deck card-browser list — mirrors ApiCardListItem.
@@ -174,7 +176,7 @@ export function toCardRow(raw: CardDbRow): CardRow {
 /** Raw snake_case row shape returned by SELECT DUE_CARD_COLUMNS. */
 export type DueCardDbRow = Pick<
   CardDbRow,
-  'id' | 'deck_id' | 'card_type' | 'jlpt_level' | 'state' | 'due' | 'fields_data'
+  'id' | 'deck_id' | 'card_type' | 'jlpt_level' | 'state' | 'due' | 'fields_data' | 'layout_type'
 >
 
 /** Maps a DUE_CARD_COLUMNS row to the wire-format ApiDueCard. */
@@ -187,6 +189,7 @@ export function toApiDueCard(raw: DueCardDbRow): ApiDueCard {
     state:      raw.state,
     due:        raw.due,
     fieldsData: raw.fields_data as FieldsData,
+    layoutType: raw.layout_type,
   }
 }
 
@@ -288,7 +291,7 @@ export async function listCards(
   const hasMore = rows.length > limit
   const items   = rows
     .slice(0, limit)
-    .map((row) => toApiCardListItem(row as unknown as CardListDbRow))
+    .map((row) => toApiCardListItem(narrowRow<CardListDbRow>(row)))
 
   return {
     items,
@@ -313,7 +316,7 @@ export async function getCard(cardId: string, userId: string): Promise<CardRow> 
     throw new AppError(404, 'Card not found')
   }
 
-  return toCardRow(data as unknown as CardDbRow)
+  return toCardRow(narrowRow<CardDbRow>(data))
 }
 
 /**
@@ -338,9 +341,9 @@ export async function createCard(
     .insert({
       user_id:        userId,
       deck_id:        deckId,
-      // Cast: fieldsData is Record<string, unknown> from the controller; the
+      // fieldsData is Record<string, unknown> from the controller; the
       // generated Insert type expects Json. JSON-serialisable at runtime.
-      fields_data:    fieldsData as never,
+      fields_data:    asPayload(fieldsData),
       card_type:      meta.card_type,
       layout_type:    meta.layout_type,
       tags:           meta.tags           ?? [],
@@ -364,7 +367,7 @@ export async function createCard(
     throw dbError('create card', error)
   }
 
-  const created = toCardRow(data as unknown as CardDbRow)
+  const created = toCardRow(narrowRow<CardDbRow>(data))
 
   // Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
   // network error, malformed fields) must not block card creation.
@@ -429,25 +432,28 @@ async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<v
 
   if (byParent.error !== null || byId.error !== null) return
 
+  interface SiblingRow {
+    id:          string
+    fields_data: Record<string, unknown>
+  }
+  const all = [...(byParent.data ?? []), ...(byId.data ?? [])]
+    .map((row) => narrowRow<SiblingRow>(row))
+
   const seen = new Set<string>()
-  const siblings = [...(byParent.data ?? []), ...(byId.data ?? [])].filter((row) => {
-    const id = row.id as string
-    if (seen.has(id)) return false
-    seen.add(id)
+  const siblings = all.filter((row) => {
+    if (seen.has(row.id)) return false
+    seen.add(row.id)
     return true
   })
   if (siblings.length === 0) return
 
   const now = new Date().toISOString()
   await Promise.all(siblings.map((sibling) => {
-    const merged = {
-      ...(sibling.fields_data as Record<string, unknown>),
-      ...sharedValues,
-    }
+    const merged = { ...sibling.fields_data, ...sharedValues }
     return supabaseAdmin
       .from('cards')
-      .update({ fields_data: merged as never, updated_at: now })
-      .eq('id', sibling.id as string)
+      .update(asPayload({ fields_data: merged, updated_at: now }))
+      .eq('id', sibling.id)
       .eq('user_id', userId)
   }))
 }
@@ -472,7 +478,7 @@ export async function updateCard(
 
   const { data, error } = await supabaseAdmin
     .from('cards')
-    .update(patch as never)
+    .update(asPayload(patch))
     .eq('id', cardId)
     .eq('user_id', userId)
     .select(CARD_COLUMNS)
@@ -487,7 +493,7 @@ export async function updateCard(
     throw new AppError(404, 'Card not found')
   }
 
-  const updated = toCardRow(data as unknown as CardDbRow)
+  const updated = toCardRow(narrowRow<CardDbRow>(data))
 
   if (input.fields_data !== undefined) {
     await syncSharedFields(updated, userId)
@@ -571,7 +577,7 @@ export async function getStaleEmbeddingCards(userId: string): Promise<CardRow[]>
     throw dbError('fetch stale embedding cards', error)
   }
 
-  return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))
+  return (data ?? []).map((row: unknown) => toCardRow(narrowRow<CardDbRow>(row)))
 }
 
 /**
@@ -592,7 +598,8 @@ export async function regenerateEmbedding(cardId: string, userId: string): Promi
     throw new AppError(404, 'Card not found')
   }
 
-  const cardData = data as unknown as { fields_data: Record<string, unknown> }
+  interface CardFieldsRow { fields_data: Record<string, unknown> }
+  const cardData = narrowRow<CardFieldsRow>(data)
   await backfillEmbedding(cardId, userId, cardData.fields_data)
 }
 
@@ -683,7 +690,8 @@ export async function backfillPremadeEmbeddings(): Promise<{
     throw dbError('list premade cards needing embeddings', error)
   }
 
-  const rows = (data ?? []) as Array<{ id: string; fields_data: Record<string, unknown> }>
+  interface PremadeEmbedRow { id: string; fields_data: Record<string, unknown> }
+  const rows = narrowRow<PremadeEmbedRow[]>(data ?? [])
   let succeeded = 0
   let failed    = 0
 

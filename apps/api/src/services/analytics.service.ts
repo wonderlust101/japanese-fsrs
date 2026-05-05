@@ -9,6 +9,7 @@ import type {
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { asPayload } from '../lib/db.ts'
 import { dbError } from '../middleware/errorHandler.ts'
 
 type RpcName = keyof Database['public']['Functions']
@@ -32,7 +33,7 @@ async function callRpc<T>(
   schema: ZodType<T>,
   label:  string,
 ): Promise<T> {
-  const { data, error } = await supabaseAdmin.rpc(fn, params as never)
+  const { data, error } = await supabaseAdmin.rpc(fn, asPayload(params))
   if (error !== null) throw dbError(`fetch ${label}`, error)
   return schema.parse(data ?? [])
 }

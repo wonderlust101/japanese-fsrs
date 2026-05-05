@@ -57,7 +57,7 @@ export function AccountSection({ email, onSaved, onError }: Props): React.JSX.El
       router.push('/')
       router.refresh()
     } catch (e) {
-      onError((e as Error).message)
+      onError(e instanceof Error ? e.message : 'Unknown error')
     }
   }
 

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { State, type ApiDeck, type ApiDeckWithStats, type DeckType } from '@fsrs-japanese/shared-types'
 import type { CreateDeckInput, UpdateDeckInput } from '../schemas/deck.schema.ts'
@@ -72,7 +73,7 @@ export async function listDecks(userId: string): Promise<DeckRow[]> {
     throw dbError('list decks', error)
   }
 
-  return (data ?? []).map((row) => toRow(row as unknown as DeckDbRow))
+  return (data ?? []).map((row) => toRow(narrowRow<DeckDbRow>(row)))
 }
 
 /**
@@ -117,7 +118,7 @@ export async function getDeck(deckId: string, userId: string): Promise<DeckWithS
   }
 
   return {
-    ...toRow(deckResult.data as unknown as DeckDbRow),
+    ...toRow(narrowRow<DeckDbRow>(deckResult.data)),
     dueCount: dueResult.count ?? 0,
     newCount: newResult.count ?? 0,
   }
@@ -144,7 +145,7 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
     throw dbError('create deck', error)
   }
 
-  return toRow(data as unknown as DeckDbRow)
+  return toRow(narrowRow<DeckDbRow>(data))
 }
 
 /**
@@ -169,7 +170,7 @@ export async function updateDeck(
 
   const { data, error } = await supabaseAdmin
     .from('decks')
-    .update(patch as never)
+    .update(asPayload(patch))
     .eq('id', deckId)
     .eq('user_id', userId)
     .select(DECK_COLUMNS)
@@ -184,7 +185,7 @@ export async function updateDeck(
     throw new AppError(404, 'Deck not found')
   }
 
-  return toRow(data as unknown as DeckDbRow)
+  return toRow(narrowRow<DeckDbRow>(data))
 }
 
 /**

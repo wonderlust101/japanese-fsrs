@@ -8,19 +8,13 @@ import {
   useShowAnswer,
   useSessionActions,
 } from '@/stores/useReviewSessionStore'
-import { CardType }          from '@fsrs-japanese/shared-types'
+import { CardType, getWordFields, getVocabularyFields } from '@fsrs-japanese/shared-types'
 import type { ReviewRating } from '@fsrs-japanese/shared-types'
 
 const CARD_TYPE_LABEL: Record<string, string> = {
   [CardType.Comprehension]: 'Reading',
   [CardType.Production]:    'Writing',
   [CardType.Listening]:     'Listening',
-}
-
-interface ExampleSentence {
-  ja:       string
-  en:       string
-  furigana: string
 }
 
 export function ReviewCard(): React.JSX.Element | null {
@@ -52,13 +46,16 @@ export function ReviewCard(): React.JSX.Element | null {
 
   if (!card) return null
 
-  // FieldsData is a discriminated union; widen to Record for cross-layout access.
-  const fd              = card.fieldsData as Record<string, unknown>
-  const word            = (fd['word'] as string | undefined) ?? (fd['front'] as string | undefined) ?? ''
-  const reading         = (fd['reading'] as string | undefined) ?? null
-  const meaning         = (fd['meaning'] as string | undefined) ?? (fd['back'] as string | undefined) ?? ''
-  const exampleSentences = fd['exampleSentences'] as ExampleSentence[] | undefined
-  const firstSentence   = exampleSentences?.[0]
+  // Narrow on layoutType — vocabulary/grammar share WordFields; sentence falls
+  // back to free-form `front`/`back` keys.
+  const wordFields = getWordFields(card)
+  const sentenceFd = wordFields === null
+    ? card.fieldsData as Record<string, unknown>
+    : null
+  const word    = wordFields?.word ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '')
+  const reading = wordFields?.reading ?? null
+  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back'] === 'string' ? sentenceFd['back'] : '')
+  const firstSentence = getVocabularyFields(card)?.exampleSentences?.[0]
 
   return (
     <div className="flex flex-col items-center px-4 py-8 gap-4">

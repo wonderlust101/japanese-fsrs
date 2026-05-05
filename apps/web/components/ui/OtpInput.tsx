@@ -62,7 +62,7 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
     if (!pasted) return
 
-    const next = Array(6).fill('').map((_, i) => pasted[i] ?? '') as string[]
+    const next = Array<string>(6).fill('').map((_, i) => pasted[i] ?? '')
     setDigits(next)
 
     inputRefs.current[Math.min(pasted.length, 5)]?.focus()

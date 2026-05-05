@@ -35,7 +35,7 @@ export default function LoginPage(): React.JSX.Element {
     mutate()
   }
 
-  const errorMessage = error ? friendlyError((error as Error).message) : null
+  const errorMessage = error ? friendlyError(error.message) : null
 
   return (
     <>

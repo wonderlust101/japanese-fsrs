@@ -3,6 +3,7 @@
 import { useState } from 'react'
 
 import { updateProfileAction } from '@/lib/actions/profile.actions'
+import { isJlptLevel }         from '@fsrs-japanese/shared-types'
 
 const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'] as const
 type JlptLevel = (typeof JLPT_LEVELS)[number]
@@ -33,7 +34,7 @@ export function LearningSection({
   onError,
 }: Props): React.JSX.Element {
   const [jlpt,        setJlpt]        = useState<JlptLevel>(
-    (initialJlptTarget ?? 'N5') as JlptLevel,
+    isJlptLevel(initialJlptTarget) ? initialJlptTarget : 'N5',
   )
   const [dailyNew,    setDailyNew]    = useState(initialDailyNew)
   const [dailyReview, setDailyReview] = useState(initialDailyReview)
@@ -50,7 +51,7 @@ export function LearningSection({
       onSaved(`${name} saved`)
     } catch (e) {
       rollback()
-      onError((e as Error).message)
+      onError(e instanceof Error ? e.message : 'Unknown error')
     }
   }
 

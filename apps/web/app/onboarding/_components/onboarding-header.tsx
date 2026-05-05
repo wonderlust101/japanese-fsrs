@@ -10,10 +10,7 @@ import {
 } from '@/stores/onboarding.store'
 
 function resolveStep(pathname: string): OnboardingStepPath | null {
-  return (
-    (ONBOARDING_STEPS.find((s) => pathname.startsWith(s)) as OnboardingStepPath | undefined) ??
-    null
-  )
+  return ONBOARDING_STEPS.find((s) => pathname.startsWith(s)) ?? null
 }
 
 export function OnboardingHeader(): React.JSX.Element {

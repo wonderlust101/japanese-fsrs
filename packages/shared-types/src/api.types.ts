@@ -38,10 +38,11 @@ export interface ApiCard {
 }
 
 /** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs.
- *  Due cards are by definition not suspended, so isSuspended is omitted. */
+ *  Due cards are by definition not suspended, so isSuspended is omitted.
+ *  layoutType is included so the UI can narrow fieldsData via field-shapes helpers. */
 export type ApiDueCard = Pick<
   ApiCard,
-  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'state' | 'due' | 'fieldsData'
+  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'state' | 'due' | 'fieldsData' | 'layoutType'
 >
 
 /** Subset of ApiCard returned by /decks/:id/cards (card list). */

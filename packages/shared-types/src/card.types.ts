@@ -10,6 +10,10 @@ export const JLPTLevel = {
 } as const
 export type JLPTLevel = typeof JLPTLevel[keyof typeof JLPTLevel]
 
+const JLPT_LEVEL_VALUES = Object.values(JLPTLevel) as readonly string[]
+export const isJlptLevel = (v: unknown): v is JLPTLevel =>
+  typeof v === 'string' && JLPT_LEVEL_VALUES.includes(v)
+
 /** Discriminator for cards.fields_data shape. Mirrors the layout_type enum on
  *  the cards table (introduced in migration 20260502000004_align_card_schema). */
 export const LayoutType = {

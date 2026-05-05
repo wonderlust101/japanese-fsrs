@@ -74,7 +74,7 @@ export function ExampleSentences({ cardId, sentences, fieldsData }: Props): Reac
 
       {generate.isError && pending === null && (
         <p className="text-sm text-danger-700" role="alert">
-          {(generate.error as Error).message}
+          {generate.error?.message ?? 'Unknown error'}
         </p>
       )}
 

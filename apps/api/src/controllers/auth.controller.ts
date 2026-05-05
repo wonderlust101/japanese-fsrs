@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express'
 
 import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema, verifyOtpSchema, resendOtpSchema } from '../schemas/auth.schema.ts'
 import * as authService from '../services/auth.service.ts'
+import { AppError } from '../middleware/errorHandler.ts'
 
 export const cancelSignup: RequestHandler = async (req, res, next): Promise<void> => {
   try {
@@ -65,9 +66,13 @@ export const resendOtp: RequestHandler = async (req, res, next): Promise<void> =
 
 export const logout: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    // authMiddleware already verified this header; safe to re-extract the token.
-    const jwt = (req.headers.authorization as string).slice('Bearer '.length)
-    await authService.signOut(jwt)
+    // authMiddleware already verified the bearer token, but re-validate the
+    // header rather than trusting it — middleware misconfig must not crash here.
+    const auth = req.headers.authorization
+    if (auth === undefined || !auth.startsWith('Bearer ')) {
+      throw new AppError(401, 'Missing bearer token')
+    }
+    await authService.signOut(auth.slice('Bearer '.length))
     res.status(204).send()
   } catch (err) {
     next(err)

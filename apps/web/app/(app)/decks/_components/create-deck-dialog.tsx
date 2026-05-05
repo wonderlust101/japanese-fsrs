@@ -9,8 +9,7 @@ import { Select }           from '@/components/ui/Select'
 import { Button }           from '@/components/ui/Button'
 import { createDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys }        from '@/lib/api/queryKeys'
-
-type DeckType = 'vocabulary' | 'grammar' | 'kanji' | 'mixed'
+import { isDeckType, type DeckType } from '@fsrs-japanese/shared-types'
 
 const TYPE_OPTIONS = [
   { value: 'vocabulary', label: 'Vocabulary' },
@@ -77,13 +76,13 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
           label="Type"
           value={deckType}
           options={TYPE_OPTIONS}
-          onChange={(e) => setDeckType(e.target.value as DeckType)}
+          onChange={(e) => { if (isDeckType(e.target.value)) setDeckType(e.target.value) }}
           disabled={mutation.isPending}
         />
 
         {mutation.isError && (
           <p role="alert" className="text-xs text-danger-500">
-            {(mutation.error as Error).message}
+            {mutation.error?.message ?? 'Unknown error'}
           </p>
         )}
 

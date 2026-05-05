@@ -91,7 +91,7 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
             disabled={isWorking}
             error={
               generateMutation.isError
-                ? (generateMutation.error as Error).message
+                ? generateMutation.error?.message ?? 'Unknown error'
                 : undefined
             }
           />
@@ -141,7 +141,7 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
         {/* ── Save error ───────────────────────────────────────────── */}
         {saveMutation.isError && (
           <p role="alert" className="text-sm text-danger-500">
-            {(saveMutation.error as Error).message}
+            {saveMutation.error?.message ?? 'Unknown error'}
           </p>
         )}
 

@@ -36,10 +36,30 @@ export type SentenceFieldsData = Record<string, unknown>
 
 /**
  * Discriminated union of all `fields_data` shapes by layout_type.
- * Discriminate by the parent card's layout_type field:
- *
- *   if (card.layoutType === 'vocabulary') {
- *     const fields = card.fieldsData as VocabularyFieldsData
- *   }
+ * Use `getWordFields` / `getVocabularyFields` to narrow at the consumer site
+ * instead of widening to `Record<string, unknown>`.
  */
 export type FieldsData = VocabularyFieldsData | GrammarFieldsData | SentenceFieldsData
+
+import type { LayoutType } from './card.types.ts'
+
+/** Narrow input — anything carrying both layoutType and fieldsData. */
+type FieldsCarrier = { layoutType: LayoutType; fieldsData: FieldsData }
+
+/**
+ * Returns the shared word/reading/meaning fields when the card is vocabulary
+ * or grammar; null for sentence-layout cards. The DB CHECK constraint
+ * (cards_fields_data_shape) enforces presence of these keys, so the cast
+ * inside this helper is safe at runtime.
+ */
+export function getWordFields(card: FieldsCarrier): WordFields | null {
+  if (card.layoutType === 'vocabulary' || card.layoutType === 'grammar') {
+    return card.fieldsData as WordFields
+  }
+  return null
+}
+
+/** Returns vocabulary-only fields (example sentences, kanji breakdown, etc.) or null. */
+export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData | null {
+  return card.layoutType === 'vocabulary' ? (card.fieldsData as VocabularyFieldsData) : null
+}

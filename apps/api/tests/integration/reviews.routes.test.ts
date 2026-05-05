@@ -111,6 +111,7 @@ const API_DUE_CARD_KEYS = [
   'fieldsData',
   'id',
   'jlptLevel',
+  'layoutType',
   'state',
 ].sort()
 
