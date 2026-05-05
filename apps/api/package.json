@@ -9,7 +9,8 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "embeddings:backfill": "bun run scripts/backfill-premade-embeddings.ts"
   },
   "dependencies": {
     "@fsrs-japanese/shared-types": "workspace:*",

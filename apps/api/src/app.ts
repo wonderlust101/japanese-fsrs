@@ -11,7 +11,6 @@ import cardsRouter   from './routes/cards.ts'
 import reviewsRouter   from './routes/reviews.ts'
 import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
-import adminRouter     from './routes/admin.ts'
 
 // CORS_ORIGIN accepts a comma-separated list for multiple origins.
 // Default covers local Next.js dev server.
@@ -58,7 +57,6 @@ app.use('/api/v1/reviews',             reviewsRouter)
 app.use('/api/v1/decks/:deckId/cards', cardsRouter)
 app.use('/api/v1/cards',               cardsRouter)
 app.use('/api/v1/analytics',           analyticsRouter)
-app.use('/api/v1/admin',               adminRouter)
 
 // ── Global error handler — must be last ────────────────────────────────────
 app.use(errorHandler)

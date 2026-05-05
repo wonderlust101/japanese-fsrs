@@ -6,5 +6,5 @@
       "@fsrs-japanese/shared-types": ["../../packages/shared-types/src/index.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "scripts"]
 }

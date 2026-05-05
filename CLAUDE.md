@@ -123,12 +123,19 @@ OPENAI_API_KEY=
 OPENAI_EMBEDDING_MODEL=
 LEECH_THRESHOLD=8
 DEFAULT_RETENTION_TARGET=0.85
-ADMIN_TOKEN=
 ```
 
-`ADMIN_TOKEN` gates `POST /api/v1/admin/*` ops endpoints (e.g. premade embedding backfill). Generate with `openssl rand -hex 32`. Leave empty to disable admin endpoints (they 503 without it).
-
 `OPENAI_EMBEDDING_MODEL` is optional; defaults to `text-embedding-3-small`. The chosen model **must produce 1536-dim vectors** to match the `cards.embedding vector(1536)` column type. Switching to a model with a different dimension requires a schema migration.
+
+### Operations
+
+After deploying changes that introduce new premade source cards, run the embedding backfill once so `find_similar_cards` returns results for those new cards:
+
+```
+bun --filter api run embeddings:backfill
+```
+
+Idempotent — only operates on rows where `embedding IS NULL`. Uses the existing `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `OPENAI_API_KEY` env vars; no additional secrets required.
 
 ### `apps/web/.env.local`
 ```
