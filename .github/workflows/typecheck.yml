@@ -1,0 +1,34 @@
+name: typecheck
+
+# Catches two kinds of drift:
+# 1. Code drift: services or components that don't match committed types
+#    (always runs).
+# 2. Schema drift: committed packages/shared-types/src/database.types.ts
+#    out of sync with the live Supabase schema (only when the
+#    SUPABASE_ACCESS_TOKEN secret is set — regenerates the type and lets
+#    the typecheck against application code fail if the schema moved).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      # Optional: regenerate Database type from the live schema. Skipped if
+      # the SUPABASE_ACCESS_TOKEN secret is not configured, in which case
+      # the committed type is used as-is (still catches code-level drift).
+      - name: Regenerate Database type from live schema
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun run db:types
+
+      - name: Typecheck
+        run: bun run typecheck
