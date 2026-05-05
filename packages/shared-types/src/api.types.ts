@@ -6,7 +6,7 @@
 
 import type { CardType, State } from './fsrs.types.ts'
 import type { JLPTLevel, LayoutType } from './card.types.ts'
-import type { FieldsData } from './database.types.helpers.ts'
+import type { FieldsData } from './field-shapes.ts'
 
 export interface ApiCard {
   id:             string
@@ -122,4 +122,65 @@ export interface ApiSimilarCard {
   tags:       string[]
   jlptLevel:  JLPTLevel | null
   similarity: number
+}
+
+// ─── Analytics wire formats ───────────────────────────────────────────────────
+
+/** Single day in the retention heatmap. Days with zero reviews are omitted. */
+export interface ApiHeatmapDay {
+  date:      string  // YYYY-MM-DD (UTC)
+  retention: number  // 0–100, one decimal place
+  count:     number  // total reviews that day
+}
+
+/** Per-layout (cognitive modality) accuracy rollup. */
+export interface ApiLayoutAccuracy {
+  layout:      string  // comprehension | production | listening
+  total:       number
+  successful:  number  // good + easy ratings
+  accuracyPct: number  // 0–100, one decimal place
+}
+
+/** Current and longest streak plus the last review date (UTC calendar days). */
+export interface ApiStreakStats {
+  currentStreak:   number
+  longestStreak:   number
+  lastReviewDate:  string | null  // YYYY-MM-DD or null if no reviews
+}
+
+/** Per-JLPT-level total/learned/due counts with progress percentage. */
+export interface ApiJlptGap {
+  jlptLevel:    string
+  total:        number
+  learned:      number
+  due:          number
+  progressPct:  number  // 0–100, one decimal place
+}
+
+/** Per-JLPT-level milestone projection from the user's 30-day pace. */
+export interface ApiMilestoneForecast {
+  jlptLevel:                 string
+  total:                     number
+  learned:                   number
+  dailyPace:                 number
+  daysRemaining:             number | null
+  projectedCompletionDate:   string | null  // YYYY-MM-DD or null if no projection
+}
+
+// ─── Review submit wire format ────────────────────────────────────────────────
+
+/**
+ * Response of POST /api/v1/reviews/submit. The card payload is a strict subset
+ * of ApiCard — only the fields the client needs to update its local state
+ * after a review.
+ */
+export interface ApiReviewSubmitResponse {
+  card: {
+    id:            string
+    due:           string  // ISO 8601
+    stability:     number
+    difficulty:    number
+    scheduledDays: number
+    state:         State
+  }
 }

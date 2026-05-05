@@ -4,7 +4,14 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
-import { State, type ApiCard, type ApiSimilarCard, type FieldsData } from '@fsrs-japanese/shared-types'
+import {
+  State,
+  type ApiCard,
+  type ApiCardListItem,
+  type ApiDueCard,
+  type ApiSimilarCard,
+  type FieldsData,
+} from '@fsrs-japanese/shared-types'
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
 // Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
@@ -49,6 +56,32 @@ export const CARD_COLUMNS = [
   'updated_at',
 ].join(', ')
 
+// Slim projection for the review session — only the 7 fields the UI renders.
+// Mirrors ApiDueCard in shared-types. Keeps FSRS internals (stability,
+// difficulty, reps, lapses, …) off the wire during reviews.
+export const DUE_CARD_COLUMNS = [
+  'id',
+  'deck_id',
+  'card_type',
+  'jlpt_level',
+  'state',
+  'due',
+  'fields_data',
+].join(', ')
+
+// Slim projection for the deck card-browser list — mirrors ApiCardListItem.
+export const CARD_LIST_COLUMNS = [
+  'id',
+  'fields_data',
+  'layout_type',
+  'card_type',
+  'jlpt_level',
+  'state',
+  'is_suspended',
+  'due',
+  'tags',
+].join(', ')
+
 // ─── Return shapes ────────────────────────────────────────────────────────────
 
 /**
@@ -61,7 +94,7 @@ export const CARD_COLUMNS = [
 export type CardRow = ApiCard
 
 export interface CardListResult {
-  items:      CardRow[]
+  items:      ApiCardListItem[]
   nextCursor: string | null
   hasMore:    boolean
 }
@@ -135,6 +168,46 @@ export function toCardRow(raw: CardDbRow): CardRow {
   }
 }
 
+/** Raw snake_case row shape returned by SELECT DUE_CARD_COLUMNS. */
+export type DueCardDbRow = Pick<
+  CardDbRow,
+  'id' | 'deck_id' | 'card_type' | 'jlpt_level' | 'state' | 'due' | 'fields_data'
+>
+
+/** Maps a DUE_CARD_COLUMNS row to the wire-format ApiDueCard. */
+export function toApiDueCard(raw: DueCardDbRow): ApiDueCard {
+  return {
+    id:         raw.id,
+    deckId:     raw.deck_id,
+    cardType:   raw.card_type,
+    jlptLevel:  raw.jlpt_level,
+    state:      raw.state,
+    due:        raw.due,
+    fieldsData: raw.fields_data as FieldsData,
+  }
+}
+
+/** Raw snake_case row shape returned by SELECT CARD_LIST_COLUMNS. */
+export type CardListDbRow = Pick<
+  CardDbRow,
+  'id' | 'fields_data' | 'layout_type' | 'card_type' | 'jlpt_level' | 'state' | 'is_suspended' | 'due' | 'tags'
+>
+
+/** Maps a CARD_LIST_COLUMNS row to the wire-format ApiCardListItem. */
+export function toApiCardListItem(raw: CardListDbRow): ApiCardListItem {
+  return {
+    id:          raw.id,
+    fieldsData:  raw.fields_data as FieldsData,
+    layoutType:  raw.layout_type,
+    cardType:    raw.card_type,
+    jlptLevel:   raw.jlpt_level,
+    state:       raw.state,
+    isSuspended: raw.is_suspended,
+    due:         raw.due,
+    tags:        raw.tags,
+  }
+}
+
 /** Verifies a deck exists and belongs to the given user. Throws 404 otherwise. */
 async function assertDeckOwnership(deckId: string, userId: string): Promise<void> {
   const { data, error } = await supabaseAdmin
@@ -167,7 +240,7 @@ export async function listCards(
 
   let query = supabaseAdmin
     .from('cards')
-    .select(CARD_COLUMNS)
+    .select(CARD_LIST_COLUMNS)
     .eq('deck_id', deckId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -212,7 +285,7 @@ export async function listCards(
   const hasMore = rows.length > limit
   const items   = rows
     .slice(0, limit)
-    .map((row) => toCardRow(row as unknown as CardDbRow))
+    .map((row) => toApiCardListItem(row as unknown as CardListDbRow))
 
   return {
     items,

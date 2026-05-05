@@ -41,10 +41,15 @@ const schedulers: Record<CardType, TsFsrsInstance> = {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-/** Shape returned by all FSRS write operations — contains fields needed for API response. */
+/**
+ * Shape returned by all FSRS write operations — contains fields needed for
+ * the API response. `due` is an ISO 8601 string so the type matches the wire
+ * format (res.json serialises a Date the same way, but typing it as Date
+ * misrepresents what the client actually receives).
+ */
 export interface ProcessReviewResult {
   id: string
-  due: Date
+  due: string  // ISO 8601
   stability: number
   difficulty: number
   scheduledDays: number
@@ -272,7 +277,7 @@ export async function processReview(
 
   return {
     id:            cardId,
-    due:           updated.due,
+    due:           updated.due.toISOString(),
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
@@ -370,7 +375,7 @@ export async function rollbackReview(
 
   return {
     id:            cardId,
-    due:           restored.due,
+    due:           restored.due.toISOString(),
     stability:     restored.stability,
     difficulty:    restored.difficulty,
     scheduledDays: restored.scheduled_days,
@@ -442,7 +447,7 @@ export async function forgetCard(
 
   return {
     id:            cardId,
-    due:           forgotten.due,
+    due:           forgotten.due.toISOString(),
     stability:     forgotten.stability,
     difficulty:    forgotten.difficulty,
     scheduledDays: forgotten.scheduled_days,
@@ -582,7 +587,7 @@ export async function rescheduleFromHistory(
 
   return {
     id:            cardId,
-    due:           updated.due,
+    due:           updated.due.toISOString(),
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,

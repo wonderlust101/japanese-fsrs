@@ -1,9 +1,9 @@
 'use client'
 
-import type { HeatmapDay } from '@/lib/actions/analytics.actions'
+import type { ApiHeatmapDay } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  heatmap:    HeatmapDay[]
+  heatmap:    ApiHeatmapDay[]
   isLoading:  boolean
 }
 

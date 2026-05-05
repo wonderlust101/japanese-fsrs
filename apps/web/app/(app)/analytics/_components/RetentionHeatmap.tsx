@@ -1,9 +1,9 @@
 'use client'
 
-import type { HeatmapDay } from '@/lib/actions/analytics.actions'
+import type { ApiHeatmapDay } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  data:      HeatmapDay[]
+  data:      ApiHeatmapDay[]
   isLoading: boolean
 }
 
@@ -15,13 +15,13 @@ function toYMD(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function dotColor(day: HeatmapDay | undefined): string {
+function dotColor(day: ApiHeatmapDay | undefined): string {
   if (day === undefined || day.count === 0) return 'bg-neutral-200'
   if (day.retention >= 85)                  return 'bg-primary-500'
   return 'bg-warning-500'
 }
 
-function dotTitle(ymd: string, day: HeatmapDay | undefined): string {
+function dotTitle(ymd: string, day: ApiHeatmapDay | undefined): string {
   if (day === undefined || day.count === 0) return `${ymd} — no reviews`
   return `${ymd} — ${day.retention}% retention (${day.count} review${day.count === 1 ? '' : 's'})`
 }
@@ -75,7 +75,7 @@ function HeatmapSkeleton() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element {
-  const dayMap = new Map<string, HeatmapDay>(data.map((d) => [d.date, d]))
+  const dayMap = new Map<string, ApiHeatmapDay>(data.map((d) => [d.date, d]))
   const months = buildMonthRows()
 
   return (

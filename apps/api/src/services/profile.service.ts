@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { JlptLevel, UpdateProfileInput } from '../schemas/profile.schema.ts'
+import type { Profile } from '@fsrs-japanese/shared-types'
+
+export type { Profile }
 
 // ─── Column projection ────────────────────────────────────────────────────────
 
@@ -20,22 +23,38 @@ const PROFILE_COLUMNS = [
   'updated_at',
 ].join(', ')
 
-// ─── Return shape ─────────────────────────────────────────────────────────────
+// ─── Internal DB row shape ────────────────────────────────────────────────────
 
-/** Full profile row returned to callers. `interests` is a virtual field
- *  joined from user_interests; the rest match PROFILE_COLUMNS exactly. */
-export interface Profile {
+/** Raw snake_case row shape returned by SELECT PROFILE_COLUMNS. Internal —
+ *  the boundary type is the camelCase shared `Profile`. */
+interface ProfileDbRow {
   id:                    string
   native_language:       string
   jlpt_target:           JlptLevel | null
   study_goal:            string | null
-  interests:             string[]
   daily_new_cards_limit: number
   daily_review_limit:    number
   retention_target:      number
   timezone:              string
   created_at:            string
   updated_at:            string
+}
+
+/** Maps a raw DB row + interests array to the camelCase wire-format Profile. */
+function toProfile(raw: ProfileDbRow, interests: string[]): Profile {
+  return {
+    id:                  raw.id,
+    nativeLanguage:      raw.native_language,
+    jlptTarget:          raw.jlpt_target,
+    studyGoal:           raw.study_goal,
+    interests,
+    dailyNewCardsLimit:  raw.daily_new_cards_limit,
+    dailyReviewLimit:    raw.daily_review_limit,
+    retentionTarget:     raw.retention_target,
+    timezone:            raw.timezone,
+    createdAt:           raw.created_at,
+    updatedAt:           raw.updated_at,
+  }
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -92,10 +111,7 @@ export async function getProfile(userId: string): Promise<Profile> {
     throw new AppError(404, 'Profile not found')
   }
 
-  return {
-    ...(profileResult.data as unknown as Omit<Profile, 'interests'>),
-    interests,
-  }
+  return toProfile(profileResult.data as unknown as ProfileDbRow, interests)
 }
 
 /**
@@ -144,8 +160,5 @@ export async function updateProfile(
   // was unchanged in this call.
   const finalInterests = interests ?? await fetchInterests(userId)
 
-  return {
-    ...(data as unknown as Omit<Profile, 'interests'>),
-    interests: finalInterests,
-  }
+  return toProfile(data as unknown as ProfileDbRow, finalInterests)
 }

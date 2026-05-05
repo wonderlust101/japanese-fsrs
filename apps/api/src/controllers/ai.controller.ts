@@ -19,7 +19,7 @@ export const generateCard: RequestHandler = async (req, res, next): Promise<void
   try {
     const { word }  = generateCardInputSchema.parse(req.body)
     const profile   = await profileService.getProfile(req.user.id)
-    const userLevel = profile.jlpt_target ?? 'N5'
+    const userLevel = profile.jlptTarget ?? 'N5'
     const interests = profile.interests   ?? []
 
     const data = await aiService.generateCard(word, userLevel, interests)
@@ -48,7 +48,7 @@ export const generateSentences: RequestHandler = async (req, res, next): Promise
 
     const data = await aiService.generateSentences(
       word,
-      profile.jlpt_target ?? 'N5',
+      profile.jlptTarget ?? 'N5',
       profile.interests   ?? [],
       count ?? 3,
     )
@@ -77,8 +77,8 @@ export const generateMnemonic: RequestHandler = async (req, res, next): Promise<
     const data = await aiService.generateMnemonic(
       word,
       req.user.id,
-      profile.jlpt_target ?? 'N5',
-      profile.native_language,
+      profile.jlptTarget ?? 'N5',
+      profile.nativeLanguage,
       profile.interests ?? [],
     )
     res.json(data)

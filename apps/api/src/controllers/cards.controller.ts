@@ -58,8 +58,8 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
       const profile = await profileService.getProfile(req.user.id)
       fieldsData    = await aiService.generateCard(
         input.word,
-        profile.jlpt_target ?? 'N5',
-        profile.interests   ?? [],
+        profile.jlptTarget ?? 'N5',
+        profile.interests,
       ) as unknown as Record<string, unknown>
     } else {
       fieldsData = input.fields_data

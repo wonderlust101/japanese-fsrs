@@ -1,9 +1,9 @@
 import { it, expect, beforeAll, afterAll } from 'bun:test'
+import request from 'supertest'
 
 import { describeIntegration, isIntegrationEnabled } from './_helpers'
 
 let app:           import('express').Express
-let request:       typeof import('supertest').default
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
 
 interface SeededUser {
@@ -41,9 +41,8 @@ async function seedUser(): Promise<SeededUser> {
 
 beforeAll(async () => {
   if (!isIntegrationEnabled()) return
-  ;({ app }            = await import('../../src/app'))
-  ;({ default: request } = await import('supertest'))
-  ;({ supabaseAdmin }  = await import('../../src/db/supabase'))
+  ;({ app }           = await import('../../src/app'))
+  ;({ supabaseAdmin } = await import('../../src/db/supabase'))
 })
 
 afterAll(async () => {
@@ -212,5 +211,46 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .post(`/api/v1/cards/${fakeUuid}/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
     expect(res.status).toBe(404)
+  })
+})
+
+// Pinning the wire shape for the deck card-browser list. Any drift from
+// ApiCardListItem (e.g. accidentally re-including FSRS internals like
+// stability/difficulty/reps) will fail this test.
+const API_CARD_LIST_ITEM_KEYS = [
+  'cardType',
+  'due',
+  'fieldsData',
+  'id',
+  'isSuspended',
+  'jlptLevel',
+  'layoutType',
+  'state',
+  'tags',
+].sort()
+
+describeIntegration('cards routes — list wire shape', () => {
+  it('GET /api/v1/decks/:deckId/cards returns items whose keys exactly match ApiCardListItem', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .send({
+        fields_data: { word: '空', reading: 'そら', meaning: 'sky' },
+        layout_type: 'vocabulary',
+        card_type:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+
+    const listRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(listRes.status).toBe(200)
+    expect(Array.isArray(listRes.body.items)).toBe(true)
+    expect(listRes.body.items.length).toBeGreaterThan(0)
+
+    const keys = Object.keys(listRes.body.items[0]).sort()
+    expect(keys).toEqual(API_CARD_LIST_ITEM_KEYS)
   })
 })

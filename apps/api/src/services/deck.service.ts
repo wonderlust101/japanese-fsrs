@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { State } from '@fsrs-japanese/shared-types'
+import { State, type ApiDeck, type ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 import type { CreateDeckInput, UpdateDeckInput, DeckType } from '../schemas/deck.schema.ts'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -8,11 +8,9 @@ import type { CreateDeckInput, UpdateDeckInput, DeckType } from '../schemas/deck
 
 const DECK_COLUMNS = [
   'id',
-  'user_id',
   'name',
   'description',
   'deck_type',
-  'is_public',
   'is_premade_fork',
   'source_premade_id',
   'card_count',
@@ -22,38 +20,20 @@ const DECK_COLUMNS = [
 
 // ─── Return shapes ────────────────────────────────────────────────────────────
 
-/** Deck row returned by list and create endpoints. */
-export interface DeckRow {
-  id:              string
-  userId:          string
-  name:            string
-  description:     string | null
-  deckType:        DeckType
-  isPublic:        boolean
-  isPremadeFork:   boolean
-  sourcePremadeId: string | null
-  cardCount:       number
-  createdAt:       string
-  updatedAt:       string
-}
+/** Deck row returned by list and create endpoints. Aliased to the wire-format
+ *  ApiDeck so the service and the shared contract cannot drift again. */
+export type DeckRow = ApiDeck
 
 /** Deck row augmented with computed review stats — returned by the detail endpoint. */
-export interface DeckWithStats extends DeckRow {
-  /** Cards due for review right now (due <= NOW, status != suspended). */
-  dueCount: number
-  /** Cards that have never been reviewed (status = new). */
-  newCount: number
-}
+export type DeckWithStats = ApiDeckWithStats
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface DeckDbRow {
   id:                string
-  user_id:           string
   name:              string
   description:       string | null
   deck_type:         DeckType
-  is_public:         boolean
   is_premade_fork:   boolean
   source_premade_id: string | null
   card_count:        number
@@ -65,11 +45,9 @@ interface DeckDbRow {
 function toRow(raw: DeckDbRow): DeckRow {
   return {
     id:              raw.id,
-    userId:          raw.user_id,
     name:            raw.name,
     description:     raw.description,
     deckType:        raw.deck_type,
-    isPublic:        raw.is_public,
     isPremadeFork:   raw.is_premade_fork,
     sourcePremadeId: raw.source_premade_id,
     cardCount:       raw.card_count,

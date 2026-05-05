@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express'
+import type { ApiReviewSubmitResponse } from '@fsrs-japanese/shared-types'
 
 import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '../schemas/review.schema.ts'
 import * as reviewService  from '../services/review.service.ts'
@@ -29,7 +30,7 @@ export const submit: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { cardId, rating, reviewTimeMs, sessionId } = submitReviewSchema.parse(req.body)
     const result = await processReview(cardId, rating, req.user.id, reviewTimeMs, sessionId)
-    res.json({ card: result })
+    res.json({ card: result } satisfies ApiReviewSubmitResponse)
   } catch (err) {
     next(err)
   }

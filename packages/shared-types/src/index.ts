@@ -8,7 +8,7 @@ export { DeckType } from './deck.types.ts'
 export type { Deck, PremadeDeck, UserPremadeSubscription } from './deck.types.ts'
 
 export { ReviewRating } from './review.types.ts'
-export type { ReviewLog, ReviewResult, Leech, SessionLeech, SessionSummary } from './review.types.ts'
+export type { SessionLeech, SessionSummary } from './review.types.ts'
 
 export type { Profile, UpdateProfileInput } from './user.types.ts'
 
@@ -26,30 +26,18 @@ export type {
   ApiSubscribeResult,
   ApiForecastDay,
   ApiBatchResult,
+  ApiHeatmapDay,
+  ApiLayoutAccuracy,
+  ApiStreakStats,
+  ApiJlptGap,
+  ApiMilestoneForecast,
+  ApiReviewSubmitResponse,
 } from './api.types.ts'
 
 export type { Database, Json } from './database.types.ts'
 
-export {
-  assertCardRow,
-  assertReviewLogRow,
-} from './database.types.helpers.ts'
-export type {
-  WordFields,
-  VocabularyFieldsData,
-  GrammarFieldsData,
-  SentenceFieldsData,
-  FieldsData,
-  MorphToken,
-  TokensData,
-  ExampleSentencesData,
-  TypedCardRow,
-  TypedGrammarPatternRow,
-  TypedReviewLogRow,
-  MilestoneForecastRow,
-  HeatmapDataRow,
-  AccuracyByLayoutRow,
-  StreakRow,
-  JlptGapRow,
-  SimilarCardRow,
-} from './database.types.helpers.ts'
+// JSONB content shape for ApiCard.fieldsData. The discriminated-union
+// constituents (WordFields, VocabularyFieldsData, GrammarFieldsData,
+// SentenceFieldsData) are intentionally not re-exported — consumers
+// widen to Record<string, unknown> at the read site.
+export type { FieldsData } from './field-shapes.ts'

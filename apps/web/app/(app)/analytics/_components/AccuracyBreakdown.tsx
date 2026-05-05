@@ -2,10 +2,10 @@
 
 import { BarChart2 } from 'lucide-react'
 
-import type { LayoutAccuracy } from '@/lib/actions/analytics.actions'
+import type { ApiLayoutAccuracy } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  data:      LayoutAccuracy[]
+  data:      ApiLayoutAccuracy[]
   isLoading: boolean
 }
 

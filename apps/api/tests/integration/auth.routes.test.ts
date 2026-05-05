@@ -1,20 +1,20 @@
 import { it, expect, beforeAll, afterAll } from 'bun:test'
+import request from 'supertest'
 
 import { describeIntegration, isIntegrationEnabled } from './_helpers'
 
 // Lazy imports — only resolved when integration tests are enabled, since the
 // real Supabase admin client throws at module-load when given the stub URL.
+// supertest is import-time safe and stays at the top.
 let app:           import('express').Express
-let request:       typeof import('supertest').default
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
 
 const createdUserIds: string[] = []
 
 beforeAll(async () => {
   if (!isIntegrationEnabled()) return
-  ;({ app }            = await import('../../src/app'))
-  ;({ default: request } = await import('supertest'))
-  ;({ supabaseAdmin }  = await import('../../src/db/supabase'))
+  ;({ app }           = await import('../../src/app'))
+  ;({ supabaseAdmin } = await import('../../src/db/supabase'))
 })
 
 afterAll(async () => {

@@ -1,10 +1,10 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
-import { CARD_COLUMNS, toCardRow, type CardRow, type CardDbRow } from './card.service.ts'
+import { DUE_CARD_COLUMNS, toApiDueCard, type DueCardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type { SubmitReviewInput } from '../schemas/review.schema.ts'
-import { State, type SessionSummary, type SessionLeech } from '@fsrs-japanese/shared-types'
+import { State, type ApiDueCard, type SessionSummary, type SessionLeech } from '@fsrs-japanese/shared-types'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ function startOfTodayISO(): string {
  *   - Overdue cards fill up to remainingTotal.
  *   - New cards fill up to min(remainingNew, remainingTotal - overdueCount).
  */
-export async function getDueCards(userId: string, profile: Profile): Promise<CardRow[]> {
+export async function getDueCards(userId: string, profile: Profile): Promise<ApiDueCard[]> {
   const todayISO = startOfTodayISO()
 
   // ── Count today's reviews ──────────────────────────────────────────────────
@@ -71,8 +71,8 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   const totalReviewedToday = totalResult.count ?? 0
   const newReviewedToday   = newResult.count   ?? 0
 
-  const remainingTotal = Math.max(0, profile.daily_review_limit    - totalReviewedToday)
-  const remainingNew   = Math.max(0, profile.daily_new_cards_limit - newReviewedToday)
+  const remainingTotal = Math.max(0, profile.dailyReviewLimit   - totalReviewedToday)
+  const remainingNew   = Math.max(0, profile.dailyNewCardsLimit - newReviewedToday)
 
   if (remainingTotal === 0) return []
 
@@ -82,7 +82,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   // Non-new cards (Learning, Review, Relearning) that aren't suspended.
   const { data: overdueData, error: overdueError } = await supabaseAdmin
     .from('cards')
-    .select(CARD_COLUMNS)
+    .select(DUE_CARD_COLUMNS)
     .eq('user_id', userId)
     .in('state', [State.Learning, State.Review, State.Relearning])
     .eq('is_suspended', false)
@@ -95,7 +95,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   }
 
   const overdueCards = (overdueData ?? []).map(
-    (row) => toCardRow(row as unknown as CardDbRow),
+    (row) => toApiDueCard(row as unknown as DueCardDbRow),
   )
 
   // ── Fetch new cards ────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
 
   const { data: newData, error: newError } = await supabaseAdmin
     .from('cards')
-    .select(CARD_COLUMNS)
+    .select(DUE_CARD_COLUMNS)
     .eq('user_id', userId)
     .eq('state', State.New)
     .eq('is_suspended', false)
@@ -117,7 +117,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
   }
 
   const newCards = (newData ?? []).map(
-    (row) => toCardRow(row as unknown as CardDbRow),
+    (row) => toApiDueCard(row as unknown as DueCardDbRow),
   )
 
   return [...overdueCards, ...newCards]

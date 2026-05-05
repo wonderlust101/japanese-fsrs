@@ -6,10 +6,10 @@ import { TopBar } from '@/app/(app)/_components/top-bar'
 import { ProfileSection }  from './profile-section'
 import { LearningSection } from './learning-section'
 import { AccountSection }  from './account-section'
-import type { ProfileResponse } from '@/lib/actions/profile.actions'
+import type { Profile } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  initialProfile: ProfileResponse
+  initialProfile: Profile
   email:          string
   displayName:    string
 }
@@ -51,7 +51,7 @@ export function SettingsView({ initialProfile, email, displayName }: Props): Rea
           <section id="profile" className="scroll-mt-20">
             <ProfileSection
               initialDisplayName={displayName}
-              initialNativeLanguage={initialProfile.native_language}
+              initialNativeLanguage={initialProfile.nativeLanguage}
               initialTimezone={initialProfile.timezone}
               onSaved={(msg) => addToast('saved', msg)}
               onError={(msg) => addToast('error', msg)}
@@ -60,10 +60,10 @@ export function SettingsView({ initialProfile, email, displayName }: Props): Rea
 
           <section id="learning" className="scroll-mt-20">
             <LearningSection
-              initialJlptTarget={initialProfile.jlpt_target}
-              initialDailyNew={initialProfile.daily_new_cards_limit}
-              initialDailyReview={initialProfile.daily_review_limit}
-              initialRetention={initialProfile.retention_target}
+              initialJlptTarget={initialProfile.jlptTarget}
+              initialDailyNew={initialProfile.dailyNewCardsLimit}
+              initialDailyReview={initialProfile.dailyReviewLimit}
+              initialRetention={initialProfile.retentionTarget}
               initialInterests={initialProfile.interests}
               onSaved={(msg) => addToast('saved', msg)}
               onError={(msg) => addToast('error', msg)}

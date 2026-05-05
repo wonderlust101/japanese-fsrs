@@ -1,6 +1,13 @@
 'use client'
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import type {
+  ApiHeatmapDay,
+  ApiLayoutAccuracy,
+  ApiStreakStats,
+  ApiJlptGap,
+  ApiMilestoneForecast,
+} from '@fsrs-japanese/shared-types'
 
 import { queryKeys } from './queryKeys'
 import { staleTimes } from './config'
@@ -10,14 +17,9 @@ import {
   getStreakAction,
   getJlptGapAction,
   getMilestoneForecastAction,
-  type HeatmapDay,
-  type LayoutAccuracy,
-  type StreakStats,
-  type JlptGapRow,
-  type MilestoneForecastRow,
 } from '../actions/analytics.actions'
 
-export function useHeatmapData(): UseQueryResult<HeatmapDay[], Error> {
+export function useHeatmapData(): UseQueryResult<ApiHeatmapDay[], Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.heatmap(),
     queryFn:   getHeatmapAction,
@@ -25,7 +27,7 @@ export function useHeatmapData(): UseQueryResult<HeatmapDay[], Error> {
   })
 }
 
-export function useAccuracyByLayout(): UseQueryResult<LayoutAccuracy[], Error> {
+export function useAccuracyByLayout(): UseQueryResult<ApiLayoutAccuracy[], Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.accuracy(),
     queryFn:   getAccuracyAction,
@@ -33,7 +35,7 @@ export function useAccuracyByLayout(): UseQueryResult<LayoutAccuracy[], Error> {
   })
 }
 
-export function useStreak(): UseQueryResult<StreakStats, Error> {
+export function useStreak(): UseQueryResult<ApiStreakStats, Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.streak(),
     queryFn:   getStreakAction,
@@ -41,7 +43,7 @@ export function useStreak(): UseQueryResult<StreakStats, Error> {
   })
 }
 
-export function useJlptGap(): UseQueryResult<JlptGapRow[], Error> {
+export function useJlptGap(): UseQueryResult<ApiJlptGap[], Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.jlptGap(),
     queryFn:   getJlptGapAction,
@@ -49,7 +51,7 @@ export function useJlptGap(): UseQueryResult<JlptGapRow[], Error> {
   })
 }
 
-export function useMilestoneForecast(): UseQueryResult<MilestoneForecastRow[], Error> {
+export function useMilestoneForecast(): UseQueryResult<ApiMilestoneForecast[], Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.milestones(),
     queryFn:   getMilestoneForecastAction,

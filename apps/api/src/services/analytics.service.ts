@@ -1,5 +1,12 @@
 import type { ZodType } from 'zod'
-import type { Database } from '@fsrs-japanese/shared-types'
+import type {
+  Database,
+  ApiHeatmapDay,
+  ApiLayoutAccuracy,
+  ApiStreakStats,
+  ApiJlptGap,
+  ApiMilestoneForecast,
+} from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { dbError } from '../middleware/errorHandler.ts'
@@ -12,44 +19,6 @@ import {
   JlptGapRpcSchema,
   MilestoneForecastRpcSchema,
 } from '../schemas/analytics.schema.ts'
-
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export interface HeatmapDay {
-  date:      string  // YYYY-MM-DD (UTC)
-  retention: number  // 0–100, one decimal place
-  count:     number  // total reviews that day
-}
-
-export interface LayoutAccuracy {
-  layout:      string  // comprehension | production | listening
-  total:       number
-  successful:  number  // good + easy ratings
-  accuracyPct: number  // 0–100, one decimal place
-}
-
-export interface StreakStats {
-  currentStreak:   number
-  longestStreak:   number
-  lastReviewDate:  string | null  // YYYY-MM-DD or null if no reviews
-}
-
-export interface JlptGapRow {
-  jlptLevel:    string
-  total:        number
-  learned:      number
-  due:          number
-  progressPct:  number  // 0–100, one decimal place
-}
-
-export interface MilestoneForecastRow {
-  jlptLevel:                 string
-  total:                     number
-  learned:                   number
-  dailyPace:                 number
-  daysRemaining:             number | null
-  projectedCompletionDate:   string | null  // YYYY-MM-DD or null if no projection
-}
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -76,7 +45,7 @@ async function callRpc<T>(
  * Days with zero reviews are omitted from the result — the frontend fills those
  * gaps as 0, consistent with the forecast data pattern.
  */
-export async function getHeatmapData(userId: string): Promise<HeatmapDay[]> {
+export async function getHeatmapData(userId: string): Promise<ApiHeatmapDay[]> {
   return callRpc('get_heatmap_data', { p_user_id: userId }, HeatmapRpcSchema, 'heatmap data')
 }
 
@@ -87,7 +56,7 @@ export async function getHeatmapData(userId: string): Promise<HeatmapDay[]> {
  * (comprehension | production | listening). accuracyPct is the percentage of
  * reviews rated "good" or "easy".
  */
-export async function getAccuracyByLayout(userId: string): Promise<LayoutAccuracy[]> {
+export async function getAccuracyByLayout(userId: string): Promise<ApiLayoutAccuracy[]> {
   const rows = await callRpc('get_accuracy_by_layout', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
   return rows.map((r) => {
     const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
@@ -99,7 +68,7 @@ export async function getAccuracyByLayout(userId: string): Promise<LayoutAccurac
  * Returns the user's current and longest review streak plus their last review date.
  * Uses UTC calendar days. Empty history → `{ 0, 0, null }`.
  */
-export async function getStreak(userId: string): Promise<StreakStats> {
+export async function getStreak(userId: string): Promise<ApiStreakStats> {
   const rows = await callRpc('get_streak', { p_user_id: userId }, StreakRpcSchema, 'streak')
   const row = rows[0]
   if (row === undefined) {
@@ -116,7 +85,7 @@ export async function getStreak(userId: string): Promise<StreakStats> {
  * Returns per-JLPT-level totals plus learned and due counts. progressPct is
  * computed in the service layer so the RPC stays focused on aggregation.
  */
-export async function getJlptGap(userId: string): Promise<JlptGapRow[]> {
+export async function getJlptGap(userId: string): Promise<ApiJlptGap[]> {
   const rows = await callRpc('get_jlpt_gap', { p_user_id: userId }, JlptGapRpcSchema, 'JLPT gap')
   return rows.map((r) => {
     const progressPct = r.total === 0 ? 0 : Math.round((r.learned / r.total) * 1000) / 10
@@ -135,7 +104,7 @@ export async function getJlptGap(userId: string): Promise<JlptGapRow[]> {
  * over the last 30 days. Levels with no projectable data return
  * `daysRemaining = null` and `projectedCompletionDate = null`.
  */
-export async function getMilestoneForecast(userId: string): Promise<MilestoneForecastRow[]> {
+export async function getMilestoneForecast(userId: string): Promise<ApiMilestoneForecast[]> {
   const rows = await callRpc(
     'get_milestone_forecast',
     { p_user_id: userId },

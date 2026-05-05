@@ -1,13 +1,13 @@
 'use client'
 
 import type {
-  JlptGapRow,
-  MilestoneForecastRow,
-} from '@/lib/actions/analytics.actions'
+  ApiJlptGap,
+  ApiMilestoneForecast,
+} from '@fsrs-japanese/shared-types'
 
 interface Props {
-  gap:        JlptGapRow[]
-  milestones: MilestoneForecastRow[]
+  gap:        ApiJlptGap[]
+  milestones: ApiMilestoneForecast[]
   isLoading:  boolean
 }
 
