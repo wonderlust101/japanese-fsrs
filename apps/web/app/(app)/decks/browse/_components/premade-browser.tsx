@@ -12,7 +12,7 @@ import {
 } from '@/lib/api/premade'
 import { PremadeDeckCard } from './premade-deck-card'
 import { Snackbar } from './snackbar'
-import type { PremadeDeckRow } from '@/lib/actions/premade.actions'
+import type { ApiPremadeDeck } from '@fsrs-japanese/shared-types'
 
 type Filter = 'all' | 'vocabulary' | 'grammar' | 'kanji'
 
@@ -23,7 +23,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'kanji',      label: 'Kanji' },
 ]
 
-const SECTION_LABEL: Record<PremadeDeckRow['deckType'], string> = {
+const SECTION_LABEL: Record<ApiPremadeDeck['deckType'], string> = {
   vocabulary: 'Vocabulary',
   grammar:    'Grammar',
   kanji:      'Kanji',
@@ -66,7 +66,7 @@ export function PremadeBrowser(): React.JSX.Element {
   }, [decks, filter, search])
 
   const grouped = useMemo(() => {
-    const groups = new Map<PremadeDeckRow['deckType'], PremadeDeckRow[]>()
+    const groups = new Map<ApiPremadeDeck['deckType'], ApiPremadeDeck[]>()
     for (const d of filtered) {
       const arr = groups.get(d.deckType) ?? []
       arr.push(d)
@@ -75,7 +75,7 @@ export function PremadeBrowser(): React.JSX.Element {
     return [...groups.entries()]
   }, [filtered])
 
-  function handleSubscribe(deck: PremadeDeckRow): void {
+  function handleSubscribe(deck: ApiPremadeDeck): void {
     setError(null)
     subscribe.mutate(deck.id, {
       onSuccess: (res) => {

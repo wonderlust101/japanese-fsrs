@@ -9,7 +9,7 @@ import {
   useSessionActions,
 } from '@/stores/useReviewSessionStore'
 import { CardType, getWordFields, getVocabularyFields } from '@fsrs-japanese/shared-types'
-import type { ReviewRating } from '@fsrs-japanese/shared-types'
+import type { UserRating } from '@fsrs-japanese/shared-types'
 
 const CARD_TYPE_LABEL: Record<string, string> = {
   [CardType.Comprehension]: 'Reading',
@@ -32,7 +32,7 @@ export function ReviewCard(): React.JSX.Element | null {
           flipCard()
         }
       } else {
-        const ratingMap: Record<string, ReviewRating> = {
+        const ratingMap: Record<string, UserRating> = {
           '1': 'again', '2': 'hard', '3': 'good', '4': 'easy',
         }
         const rating = ratingMap[e.key]

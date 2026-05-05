@@ -1,13 +1,12 @@
 import { z } from 'zod'
 
-import { JLPTLevel } from '@fsrs-japanese/shared-types'
+import { jlptLevelEnum } from './card.schema.ts'
 
-import { safeShortText } from '../lib/sanitize.ts'
+import { safeShortText } from '../sanitize.ts'
 
-// Derived from the canonical JLPTLevel const in shared-types.
+// jlptLevelEnum is owned by card.schema.ts (single source of truth).
 // CLAUDE.md: 'beyond_jlpt' is the correct value for native/non-JLPT vocabulary;
 // never use null to mean "not on JLPT".
-export const jlptLevelEnum = z.enum(Object.values(JLPTLevel) as [JLPTLevel, ...JLPTLevel[]])
 
 export const updateProfileSchema = z.object({
   jlpt_target:           jlptLevelEnum.optional(),

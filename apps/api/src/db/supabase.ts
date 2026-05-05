@@ -1,15 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@fsrs-japanese/shared-types'
-
-const supabaseUrl = process.env['SUPABASE_URL']
-const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY']
-
-if (!supabaseUrl) throw new Error('SUPABASE_URL environment variable is not set')
-if (!supabaseServiceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is not set')
+import type { Database } from './database.types.ts'
+import { env } from '../lib/env.ts'
 
 /**
  * Service-role Supabase client. Bypasses RLS — use only after the request's
  * auth middleware has already verified the caller's identity.
  * Never expose this client or its key to the browser or frontend.
  */
-export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey)
+export const supabaseAdmin = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { stripMarkupTransform } from '../lib/sanitize.ts'
+import { stripMarkupTransform } from '../sanitize.ts'
 
 // Strip markup from any LLM-produced string before it's persisted or returned.
 // Defence-in-depth: the prompts are JSON-mode and shouldn't yield HTML, but a

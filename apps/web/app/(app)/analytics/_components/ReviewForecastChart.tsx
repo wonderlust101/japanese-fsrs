@@ -1,9 +1,9 @@
 'use client'
 
-import type { ForecastDay } from '@/lib/actions/reviews.actions'
+import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  data:      ForecastDay[]
+  data:      ApiForecastDay[]
   isLoading: boolean
 }
 

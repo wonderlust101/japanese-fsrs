@@ -11,7 +11,7 @@ import { Input }                 from '@/components/ui/Input'
 import { CardSkeleton }          from './card-skeleton'
 import { GeneratedCardPreview }  from './card-preview'
 import { generateCardPreviewAction, saveCardAction } from '@/lib/actions/cards.actions'
-import type { GeneratedCardData } from '@/lib/actions/cards.actions'
+import type { GeneratedCardData } from '@fsrs-japanese/shared-types'
 import { queryKeys } from '@/lib/api/queryKeys'
 
 // Discriminated union — `preview` is only present once generation succeeds,

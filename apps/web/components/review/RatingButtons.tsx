@@ -1,8 +1,8 @@
 'use client'
 
-import type { ReviewRating } from '@fsrs-japanese/shared-types'
+import type { UserRating } from '@fsrs-japanese/shared-types'
 
-const RATINGS: Array<{ value: ReviewRating; label: string; key: string; colors: string }> = [
+const RATINGS: Array<{ value: UserRating; label: string; key: string; colors: string }> = [
   { value: 'again', label: 'Again', key: '1', colors: 'bg-danger-500  hover:bg-danger-700  focus-visible:ring-danger-500'  },
   { value: 'hard',  label: 'Hard',  key: '2', colors: 'bg-warning-500 hover:bg-warning-700 focus-visible:ring-warning-500' },
   { value: 'good',  label: 'Good',  key: '3', colors: 'bg-success-500 hover:bg-success-700 focus-visible:ring-success-500' },
@@ -10,7 +10,7 @@ const RATINGS: Array<{ value: ReviewRating; label: string; key: string; colors: 
 ]
 
 interface Props {
-  onRate: (rating: ReviewRating) => void
+  onRate: (rating: UserRating) => void
 }
 
 export function RatingButtons({ onRate }: Props): React.JSX.Element {

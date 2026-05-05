@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { safeShortText } from '../lib/sanitize.ts'
+import { safeShortText } from '../sanitize.ts'
 
 export const signupSchema = z.object({
   email:        z.email(),

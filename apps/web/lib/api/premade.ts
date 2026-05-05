@@ -15,12 +15,14 @@ import {
   listMySubscriptionsAction,
   subscribeToPremadeDeckAction,
   unsubscribeFromPremadeDeckAction,
-  type PremadeDeckRow,
-  type SubscriptionRow,
-  type SubscribeResult,
 } from '../actions/premade.actions'
+import type {
+  ApiPremadeDeck,
+  ApiPremadeSubscription,
+  ApiSubscribeResult,
+} from '@fsrs-japanese/shared-types'
 
-export function usePremadeDecks(): UseQueryResult<PremadeDeckRow[], Error> {
+export function usePremadeDecks(): UseQueryResult<ApiPremadeDeck[], Error> {
   return useQuery({
     queryKey:  queryKeys.premadeDecks.list(),
     queryFn:   listPremadeDecksAction,
@@ -28,7 +30,7 @@ export function usePremadeDecks(): UseQueryResult<PremadeDeckRow[], Error> {
   })
 }
 
-export function useMySubscriptions(): UseQueryResult<SubscriptionRow[], Error> {
+export function useMySubscriptions(): UseQueryResult<ApiPremadeSubscription[], Error> {
   return useQuery({
     queryKey:  queryKeys.premadeDecks.subscriptions(),
     queryFn:   listMySubscriptionsAction,
@@ -36,7 +38,7 @@ export function useMySubscriptions(): UseQueryResult<SubscriptionRow[], Error> {
   })
 }
 
-export function useSubscribeToPremadeDeck(): UseMutationResult<SubscribeResult, Error, string> {
+export function useSubscribeToPremadeDeck(): UseMutationResult<ApiSubscribeResult, Error, string> {
   const queryClient = useQueryClient()
 
   return useMutation({

@@ -51,8 +51,8 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
   // ── Extract fieldsData fields ──────────────────────────────────────────────
   // Narrow on layoutType for typed access; fall back to free-form lookups
   // for sentence-layout cards and the legacy singular `mnemonic` key (the
-  // ai.service emits it as a single string; the typed schema reserves
-  // `mnemonics: Mnemonic[]` for the future plural form).
+  // ai.service emits it as a single string; the typed schema does not yet
+  // model a plural form).
   const wordFields  = card != null ? getWordFields(card) : null
   const vocabFields = card != null ? getVocabularyFields(card) : null
   const rawFd       = (card?.fieldsData ?? {}) as Record<string, unknown>

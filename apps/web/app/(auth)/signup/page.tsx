@@ -11,6 +11,7 @@ import { useCountdown } from '@/hooks/use-countdown'
 import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
 import { env } from '@/lib/env'
 import { useUserStore } from '@/stores/user.store'
+import { signupSchema } from '@fsrs-japanese/shared-types'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -107,25 +108,21 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
   function validate(): boolean {
     const next: typeof errors = {}
 
-    const trimmed = displayName.trim()
-    if (!trimmed) {
-      next.display_name = 'Display name is required.'
-    } else if (trimmed.length < 2) {
-      next.display_name = 'Display name must be at least 2 characters.'
-    } else if (trimmed.length > 30) {
-      next.display_name = 'Display name must be at most 30 characters.'
-    }
-
-    if (!email) {
-      next.email = 'Email is required.'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      next.email = 'Please enter a valid email address.'
-    }
-
-    if (!password) {
-      next.password = 'Password is required.'
-    } else if (password.length < 8) {
-      next.password = 'Password must be at least 8 characters.'
+    // Schema-driven field validation: matches the server signupSchema exactly.
+    // Cross-field rules (confirmPassword) live below since they're not part of
+    // the API contract.
+    const result = signupSchema.safeParse({
+      email,
+      password,
+      display_name: displayName.trim(),
+    })
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const key = issue.path[0]
+        if (key === 'email')        next.email        ??= issue.message
+        if (key === 'password')     next.password     ??= issue.message
+        if (key === 'display_name') next.display_name ??= issue.message
+      }
     }
 
     if (!confirmPassword) {

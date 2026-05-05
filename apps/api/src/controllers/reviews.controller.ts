@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express'
 import type { ApiReviewSubmitResponse } from '@fsrs-japanese/shared-types'
 
-import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '../schemas/review.schema.ts'
+import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '@fsrs-japanese/shared-types'
 import * as reviewService  from '../services/review.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { processReview }   from '../services/fsrs.service.ts'

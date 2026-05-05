@@ -1,35 +1,13 @@
-import type { JLPTLevel } from './card.types.ts'
+import type { z } from 'zod'
 
-export interface Profile {
-  id: string
-  nativeLanguage: string
-  jlptTarget: JLPTLevel | null
-  studyGoal: string | null
-  /**
-   * Synthesised at the API boundary from the `user_interests` junction table;
-   * not a column on `profiles`. See apps/api/src/services/profile.service.ts.
-   */
-  interests: string[]
-  dailyNewCardsLimit: number
-  dailyReviewLimit: number
-  retentionTarget: number
-  timezone: string
-  createdAt: string
-  updatedAt: string
-}
+import type { ProfileSchema } from './schemas/api.schema.ts'
 
 /**
- * Request body for PATCH /api/v1/profile.
- * All fields are optional — only those present are written (true PATCH semantics).
- * Keys are snake_case to match the wire format the API schema expects.
+ * User profile (wire-format). `interests` is synthesised at the API boundary
+ * from the `user_interests` junction table; not a column on `profiles`.
+ * See apps/api/src/services/profile.service.ts.
  */
-export interface UpdateProfileInput {
-  jlpt_target?:           JLPTLevel
-  study_goal?:            string
-  interests?:             string[]
-  daily_new_cards_limit?: number
-  daily_review_limit?:    number
-  retention_target?:      number
-  timezone?:              string
-  native_language?:       string
-}
+export type Profile = z.infer<typeof ProfileSchema>
+
+// `UpdateProfileInput` is sourced from the Zod schema at
+// shared-types/src/schemas/profile.schema.ts (re-exported from index.ts).

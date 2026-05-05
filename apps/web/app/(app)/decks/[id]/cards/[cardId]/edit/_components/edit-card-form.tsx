@@ -12,8 +12,7 @@ import { Select }       from '@/components/ui/Select'
 import { Dialog }       from '@/components/ui/Dialog'
 import { FuriganaText } from '@/components/ui/FuriganaText'
 import { updateCardAction, deleteCardAction } from '@/lib/actions/cards.actions'
-import type { CardDetail }              from '@/lib/actions/cards.actions'
-import { getWordFields }                from '@fsrs-japanese/shared-types'
+import { getWordFields, isJlptLevel, type ApiCard, type JLPTLevel } from '@fsrs-japanese/shared-types'
 import { queryKeys }                   from '@/lib/api/queryKeys'
 
 // ─── JLPT options ─────────────────────────────────────────────────────────────
@@ -31,7 +30,7 @@ const JLPT_OPTIONS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
-  card:     CardDetail
+  card:     ApiCard
   deckId:   string
   deckName: string
 }
@@ -45,7 +44,7 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
   const [word,      setWord]      = useState(initial?.word    ?? '')
   const [reading,   setReading]   = useState(initial?.reading ?? '')
   const [meaning,   setMeaning]   = useState(initial?.meaning ?? '')
-  const [jlptLevel, setJlptLevel] = useState(card.jlptLevel ?? '')
+  const [jlptLevel, setJlptLevel] = useState<JLPTLevel | ''>(card.jlptLevel ?? '')
   const [tags,      setTags]      = useState((card.tags ?? []).join(', '))
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -137,7 +136,10 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
             label="JLPT Level"
             value={jlptLevel}
             options={JLPT_OPTIONS}
-            onChange={(e) => setJlptLevel(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === '' || isJlptLevel(v)) setJlptLevel(v)
+            }}
             disabled={saveMutation.isPending}
           />
 

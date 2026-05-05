@@ -11,19 +11,19 @@ import {
   getDueCardsAction,
   getReviewForecastAction,
   getSessionSummaryAction,
-  type DueCard,
-  type ForecastDay,
 } from '../actions/reviews.actions'
-import type { ReviewRating, SessionSummary } from '@fsrs-japanese/shared-types'
+import type {
+  SessionSummary,
+  ApiDueCard, ApiForecastDay, ApiReviewedCard,
+  SubmitReviewInput,
+} from '@fsrs-japanese/shared-types'
 
-interface SubmitReviewVariables {
-  cardId:        string
-  rating:        ReviewRating
-  reviewTimeMs?: number
-  sessionId?:    string
-}
+// Reuses the canonical shared schema-derived type — `rating` excludes 'manual'
+// because the user-facing API rejects it; `reviewTimeMs` / `sessionId` are
+// optional and may be undefined post-Zod inference.
+type SubmitReviewVariables = SubmitReviewInput
 
-export function useSubmitReview(): UseMutationResult<{ card: DueCard }, Error, SubmitReviewVariables> {
+export function useSubmitReview(): UseMutationResult<{ card: ApiReviewedCard }, Error, SubmitReviewVariables> {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -44,7 +44,7 @@ export function useSubmitReview(): UseMutationResult<{ card: DueCard }, Error, S
   })
 }
 
-export function useDueCards(): UseQueryResult<DueCard[]> {
+export function useDueCards(): UseQueryResult<ApiDueCard[]> {
   return useQuery({
     queryKey: queryKeys.reviews.due(),
     queryFn:  getDueCardsAction,
@@ -52,7 +52,7 @@ export function useDueCards(): UseQueryResult<DueCard[]> {
   })
 }
 
-export function useReviewForecast(): UseQueryResult<ForecastDay[]> {
+export function useReviewForecast(): UseQueryResult<ApiForecastDay[]> {
   return useQuery({
     queryKey: queryKeys.reviews.forecast(),
     queryFn:  getReviewForecastAction,

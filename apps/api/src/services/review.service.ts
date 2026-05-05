@@ -4,7 +4,6 @@ import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { DUE_CARD_COLUMNS, toApiDueCard, type DueCardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
-import type { SubmitReviewInput } from '../schemas/review.schema.ts'
 import {
   State,
   type ApiDueCard,
@@ -12,6 +11,7 @@ import {
   type ApiBatchResult,
   type SessionSummary,
   type SessionLeech,
+  type SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

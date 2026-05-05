@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express'
 
-import { updateProfileSchema } from '../schemas/profile.schema.ts'
+import { updateProfileSchema } from '@fsrs-japanese/shared-types'
 import * as profileService from '../services/profile.service.ts'
 
 /**

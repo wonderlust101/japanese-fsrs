@@ -4,9 +4,9 @@ import {
   createCardSchema,
   updateCardSchema,
   cardIdParamSchema,
-  deckIdParamSchema,
+  nestedDeckIdParamSchema,
   listCardsQuerySchema,
-} from '../schemas/card.schema.ts'
+} from '@fsrs-japanese/shared-types'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
@@ -17,7 +17,7 @@ import * as profileService from '../services/profile.service.ts'
  */
 export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { deckId }                 = deckIdParamSchema.parse(req.params)
+    const { deckId }                 = nestedDeckIdParamSchema.parse(req.params)
     const { limit, cursor, status }  = listCardsQuerySchema.parse(req.query)
     const result                     = await cardService.listCards(deckId, req.user.id, limit, cursor, status)
     res.json(result)
@@ -49,7 +49,7 @@ export const get: RequestHandler = async (req, res, next): Promise<void> => {
  */
 export const create: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { deckId } = deckIdParamSchema.parse(req.params)
+    const { deckId } = nestedDeckIdParamSchema.parse(req.params)
     const input      = createCardSchema.parse(req.body)
 
     let fieldsData: Record<string, unknown>

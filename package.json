@@ -14,7 +14,7 @@
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "bun run --filter '*' lint",
     "lint:fix": "bun run --filter '*' lint:fix",
-    "db:types": "supabase gen types typescript --project-id kukkptyopjdtuzgzamua > packages/shared-types/src/database.types.ts"
+    "db:types": "supabase gen types typescript --project-id kukkptyopjdtuzgzamua > apps/api/src/db/database.types.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -10,8 +10,14 @@ import { RatingBreakdown }   from '@/components/review/RatingBreakdown'
 import { useSearchParams }    from 'next/navigation'
 import { useSessionSummary } from '@/lib/api/reviews'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
+import { sessionSummaryParamsSchema } from '@fsrs-japanese/shared-types'
+import { z } from 'zod'
 
 const PERSONAL_BEST_KEY = 'fsrs:longestSession'
+
+// Coerces the localStorage value to a non-negative integer, falling back to 0
+// for missing / NaN / tampered values.
+const personalBestSchema = z.coerce.number().int().nonnegative().catch(0)
 
 function formatTime(ms: number): string {
   const s = Math.round(ms / 1000)
@@ -55,7 +61,8 @@ function MetricSkeleton() {
 export default function ReviewSummaryPage(): React.JSX.Element {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const sessionId    = searchParams.get('id')
+  const parsedParams = sessionSummaryParamsSchema.safeParse({ sessionId: searchParams.get('id') })
+  const sessionId    = parsedParams.success ? parsedParams.data.sessionId : null
   const { reset }    = useSessionActions()
 
   const { data: summary, isLoading, isError } = useSessionSummary(sessionId)
@@ -75,7 +82,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     if (summary === undefined || bestAppliedRef.current) return
     bestAppliedRef.current = true
 
-    const previousBest = parseInt(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0', 10)
+    const previousBest = personalBestSchema.parse(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0')
     if (summary.totalCards > previousBest) {
       isNewRecord.current = true
       localStorage.setItem(PERSONAL_BEST_KEY, String(summary.totalCards))
@@ -95,7 +102,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 
   const previousBest =
     typeof window !== 'undefined'
-      ? parseInt(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0', 10)
+      ? personalBestSchema.parse(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0')
       : 0
 
   return (

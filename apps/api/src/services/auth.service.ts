@@ -1,8 +1,11 @@
-import type { ApiAuthTokens, ApiSignUpResult } from '@fsrs-japanese/shared-types'
+import type {
+  ApiAuthTokens, ApiSignUpResult,
+  SignupInput, LoginInput, RefreshInput,
+  CancelSignupInput, VerifyOtpInput, ResendOtpInput,
+} from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput, VerifyOtpInput, ResendOtpInput } from '../schemas/auth.schema.ts'
 
 /**
  * Registers a new user and triggers the 6-digit OTP verification email.

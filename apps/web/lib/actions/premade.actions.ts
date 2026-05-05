@@ -1,29 +1,37 @@
 'use server'
 
+import { z } from 'zod'
+
 import { apiCall, apiCallSafe } from '@/lib/api/client'
-import type {
-  ApiPremadeDeck,
-  ApiPremadeSubscription,
-  ApiSubscribeResult,
+import {
+  ApiPremadeDeckSchema,
+  ApiPremadeSubscriptionSchema,
+  ApiSubscribeResultSchema,
+  voidResponseSchema,
+  type ApiPremadeDeck,
+  type ApiPremadeSubscription,
+  type ApiSubscribeResult,
 } from '@fsrs-japanese/shared-types'
 
-export type PremadeDeckRow  = ApiPremadeDeck
-export type SubscriptionRow = ApiPremadeSubscription
-export type SubscribeResult = ApiSubscribeResult
-
-export async function listPremadeDecksAction(): Promise<PremadeDeckRow[]> {
-  return apiCallSafe<PremadeDeckRow[]>('/api/v1/premade-decks', {}, [])
+export async function listPremadeDecksAction(): Promise<ApiPremadeDeck[]> {
+  return apiCallSafe<ApiPremadeDeck[]>('/api/v1/premade-decks', z.array(ApiPremadeDeckSchema), {}, [])
 }
 
-export async function listMySubscriptionsAction(): Promise<SubscriptionRow[]> {
-  return apiCallSafe<SubscriptionRow[]>('/api/v1/premade-decks/subscriptions/me', {}, [])
+export async function listMySubscriptionsAction(): Promise<ApiPremadeSubscription[]> {
+  return apiCallSafe<ApiPremadeSubscription[]>(
+    '/api/v1/premade-decks/subscriptions/me',
+    z.array(ApiPremadeSubscriptionSchema),
+    {},
+    [],
+  )
 }
 
 export async function subscribeToPremadeDeckAction(
   premadeDeckId: string,
-): Promise<SubscribeResult> {
-  return apiCall<SubscribeResult>(
+): Promise<ApiSubscribeResult> {
+  return apiCall<ApiSubscribeResult>(
     `/api/v1/premade-decks/${premadeDeckId}/subscribe`,
+    ApiSubscribeResultSchema,
     { method: 'POST' },
     'Failed to subscribe',
   )
@@ -34,6 +42,7 @@ export async function unsubscribeFromPremadeDeckAction(
 ): Promise<void> {
   await apiCall<unknown>(
     `/api/v1/premade-decks/${premadeDeckId}/subscribe`,
+    voidResponseSchema,
     { method: 'DELETE' },
     'Failed to unsubscribe',
   )

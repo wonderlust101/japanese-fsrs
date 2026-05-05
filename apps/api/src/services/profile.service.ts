@@ -1,8 +1,7 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import type { UpdateProfileInput } from '../schemas/profile.schema.ts'
-import type { JLPTLevel, Profile } from '@fsrs-japanese/shared-types'
+import type { JLPTLevel, Profile, UpdateProfileInput } from '@fsrs-japanese/shared-types'
 
 export type { Profile }
 

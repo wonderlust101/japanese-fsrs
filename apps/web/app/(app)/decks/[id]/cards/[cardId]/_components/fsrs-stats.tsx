@@ -1,7 +1,6 @@
-import { State }            from '@fsrs-japanese/shared-types'
-import type { CardDetail } from '@/lib/actions/cards.actions'
+import { State, type ApiCard } from '@fsrs-japanese/shared-types'
 
-interface Props { card: CardDetail }
+interface Props { card: ApiCard }
 
 function formatStability(days: number): string {
   return days < 1 ? '< 1d' : `~${days.toFixed(1)}d`

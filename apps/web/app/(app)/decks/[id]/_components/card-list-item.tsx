@@ -1,8 +1,7 @@
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
-import { getWordFields, State } from '@fsrs-japanese/shared-types';
-import type { CardItem } from '@/lib/actions/cards.actions';
+import { getWordFields, State, type ApiCardListItem } from '@fsrs-japanese/shared-types';
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
 
@@ -34,7 +33,7 @@ function dotClass(state: State, isSuspended: boolean): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
-  card:   CardItem
+  card:   ApiCardListItem
   deckId: string
 }
 

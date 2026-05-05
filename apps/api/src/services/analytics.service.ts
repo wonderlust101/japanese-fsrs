@@ -1,6 +1,5 @@
 import type { ZodType } from 'zod'
 import type {
-  Database,
   ApiHeatmapDay,
   ApiLayoutAccuracy,
   ApiStreakStats,
@@ -9,10 +8,9 @@ import type {
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import type { Database } from '../db/database.types.ts'
 import { asPayload } from '../lib/db.ts'
 import { dbError } from '../middleware/errorHandler.ts'
-
-type RpcName = keyof Database['public']['Functions']
 import {
   HeatmapRpcSchema,
   AccuracyRpcSchema,
@@ -20,6 +18,8 @@ import {
   JlptGapRpcSchema,
   MilestoneForecastRpcSchema,
 } from '../schemas/analytics.schema.ts'
+
+type RpcName = keyof Database['public']['Functions'] & string
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 

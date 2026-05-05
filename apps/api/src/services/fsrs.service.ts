@@ -13,15 +13,21 @@ import {
   type State,
 } from 'ts-fsrs'
 
-import { isCardType, type CardType, type ReviewRating } from '@fsrs-japanese/shared-types'
+import {
+  isCardType,
+  type CardType,
+  type ReviewRating,
+  type ApiReviewedCard,
+} from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { env }           from '../lib/env.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LEECH_THRESHOLD = Number.parseInt(process.env['LEECH_THRESHOLD'] ?? '8', 10)
+const LEECH_THRESHOLD = env.LEECH_THRESHOLD
 
 // ─── Per-type FSRS instances ──────────────────────────────────────────────────
 // Each card type gets its own FSRS instance baked with its request_retention.
@@ -43,19 +49,11 @@ const schedulers: Record<CardType, TsFsrsInstance> = {
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 /**
- * Shape returned by all FSRS write operations — contains fields needed for
- * the API response. `due` is an ISO 8601 string so the type matches the wire
- * format (res.json serialises a Date the same way, but typing it as Date
- * misrepresents what the client actually receives).
+ * Shape returned by all FSRS write operations. Aliased to the wire-format
+ * ApiReviewedCard so the service-layer return type and the `card` payload
+ * embedded in /reviews/submit responses cannot drift.
  */
-export interface ProcessReviewResult {
-  id: string
-  due: string  // ISO 8601
-  stability: number
-  difficulty: number
-  scheduledDays: number
-  state: State
-}
+export type ProcessReviewResult = ApiReviewedCard
 
 /** Rating preview for a single outcome — returned by previewNextStates(). */
 export interface RatingPreview {

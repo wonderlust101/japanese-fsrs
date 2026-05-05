@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express'
 
-import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema, verifyOtpSchema, resendOtpSchema } from '../schemas/auth.schema.ts'
+import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema, verifyOtpSchema, resendOtpSchema } from '@fsrs-japanese/shared-types'
 import * as authService from '../services/auth.service.ts'
 import { AppError } from '../middleware/errorHandler.ts'
 

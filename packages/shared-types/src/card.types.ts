@@ -1,4 +1,7 @@
+import type { z } from 'zod'
+
 import type { CardType } from './fsrs.types.ts'
+import type { ExampleSentenceSchema, KanjiBreakdownSchema } from './schemas/field-shapes.schema.ts'
 
 export const JLPTLevel = {
   N5: 'N5',
@@ -23,22 +26,10 @@ export const LayoutType = {
 } as const
 export type LayoutType = typeof LayoutType[keyof typeof LayoutType]
 
-export interface ExampleSentence {
-  ja: string
-  en: string
-  furigana: string
-}
+/** Single example sentence — kana/kanji form, English gloss, and furigana annotations. */
+export type ExampleSentence = z.infer<typeof ExampleSentenceSchema>
 
-export interface KanjiBreakdown {
-  kanji: string
-  radical: string
-  meaning: string
-  reading: string
-}
-
-export interface Mnemonic {
-  text: string
-  author: 'ai' | 'user'
-}
+/** Per-kanji breakdown of a vocabulary item. */
+export type KanjiBreakdown = z.infer<typeof KanjiBreakdownSchema>
 
 export type { CardType }

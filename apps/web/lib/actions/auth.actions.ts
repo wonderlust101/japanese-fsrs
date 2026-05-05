@@ -1,13 +1,11 @@
 'use server'
 
-import type { ApiAuthTokens } from '@fsrs-japanese/shared-types'
+import { voidResponseSchema, type ApiAuthTokens } from '@fsrs-japanese/shared-types'
 
 import { apiCall } from '@/lib/api/client'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export type AuthTokens = ApiAuthTokens
-
-export async function loginAction(email: string, password: string): Promise<AuthTokens> {
+export async function loginAction(email: string, password: string): Promise<ApiAuthTokens> {
   const supabase = await createSupabaseServerClient()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -46,7 +44,12 @@ export async function signOutAction(): Promise<void> {
 }
 
 export async function deleteAccountAction(): Promise<void> {
-  await apiCall<unknown>('/api/v1/auth/account', { method: 'DELETE' }, 'Failed to delete account')
+  await apiCall<unknown>(
+    '/api/v1/auth/account',
+    voidResponseSchema,
+    { method: 'DELETE' },
+    'Failed to delete account',
+  )
   const supabase = await createSupabaseServerClient()
   await supabase.auth.signOut()
 }

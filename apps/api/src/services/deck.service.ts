@@ -1,8 +1,11 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { State, type ApiDeck, type ApiDeckWithStats, type DeckType } from '@fsrs-japanese/shared-types'
-import type { CreateDeckInput, UpdateDeckInput } from '../schemas/deck.schema.ts'
+import {
+  State,
+  type ApiDeck, type ApiDeckWithStats, type DeckType,
+  type CreateDeckInput, type UpdateDeckInput,
+} from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
 // Keep these in sync with the return interfaces below. Never use select('*').
@@ -19,15 +22,6 @@ const DECK_COLUMNS = [
   'updated_at',
 ].join(', ')
 
-// ─── Return shapes ────────────────────────────────────────────────────────────
-
-/** Deck row returned by list and create endpoints. Aliased to the wire-format
- *  ApiDeck so the service and the shared contract cannot drift again. */
-export type DeckRow = ApiDeck
-
-/** Deck row augmented with computed review stats — returned by the detail endpoint. */
-export type DeckWithStats = ApiDeckWithStats
-
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 interface DeckDbRow {
@@ -43,7 +37,7 @@ interface DeckDbRow {
 }
 
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
-function toRow(raw: DeckDbRow): DeckRow {
+function toRow(raw: DeckDbRow): ApiDeck {
   return {
     id:              raw.id,
     name:            raw.name,
@@ -62,7 +56,7 @@ function toRow(raw: DeckDbRow): DeckRow {
 /**
  * Returns all decks owned by the given user, ordered by most recently updated.
  */
-export async function listDecks(userId: string): Promise<DeckRow[]> {
+export async function listDecks(userId: string): Promise<ApiDeck[]> {
   const { data, error } = await supabaseAdmin
     .from('decks')
     .select(DECK_COLUMNS)
@@ -82,7 +76,7 @@ export async function listDecks(userId: string): Promise<DeckRow[]> {
  * Throws 404 if the deck does not exist or does not belong to the user.
  * Three queries run in parallel: the deck row, due-card count, and new-card count.
  */
-export async function getDeck(deckId: string, userId: string): Promise<DeckWithStats> {
+export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
   const now = new Date().toISOString()
 
   const [deckResult, dueResult, newResult] = await Promise.all([
@@ -129,7 +123,7 @@ export async function getDeck(deckId: string, userId: string): Promise<DeckWithS
  *
  * @param userId - Taken from the verified JWT; never from the request body.
  */
-export async function createDeck(userId: string, input: CreateDeckInput): Promise<DeckRow> {
+export async function createDeck(userId: string, input: CreateDeckInput): Promise<ApiDeck> {
   const { data, error } = await supabaseAdmin
     .from('decks')
     .insert({
@@ -160,7 +154,7 @@ export async function updateDeck(
   deckId: string,
   userId: string,
   input: UpdateDeckInput,
-): Promise<DeckRow> {
+): Promise<ApiDeck> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
   if (input.name        !== undefined) patch['name']        = input.name

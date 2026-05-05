@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { ReviewRating } from '@fsrs-japanese/shared-types'
+import { ReviewRating } from '../review.types.ts'
 
 // 'manual' is explicitly excluded — it is only valid for internal fsrs.service
 // operations (forgetCard, rescheduleFromHistory). The Zod layer rejects it here
@@ -27,3 +27,7 @@ export const batchReviewSchema = z.object({
 
 export type SubmitReviewInput = z.infer<typeof submitReviewSchema>
 export type BatchReviewInput  = z.infer<typeof batchReviewSchema>
+
+/** Narrower rating type that excludes the internal 'manual' grade — what
+ *  the user-facing UI and HTTP API actually traffic in. */
+export type UserRating = SubmitReviewInput['rating']

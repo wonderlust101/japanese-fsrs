@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { DeckType } from '@fsrs-japanese/shared-types'
+import { DeckType } from '../deck.types.ts'
 
-import { safeShortText } from '../lib/sanitize.ts'
+import { safeShortText } from '../sanitize.ts'
 
 // Derived from the canonical DeckType const in shared-types.
 export const deckTypeEnum = z.enum(Object.values(DeckType) as [DeckType, ...DeckType[]])
@@ -27,4 +27,6 @@ export const deckIdParamSchema = z.object({
 })
 
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>
+export type CreateDeckPayload = z.input<typeof createDeckSchema>
 export type UpdateDeckInput   = z.infer<typeof updateDeckSchema>
+export type UpdateDeckPayload = z.input<typeof updateDeckSchema>

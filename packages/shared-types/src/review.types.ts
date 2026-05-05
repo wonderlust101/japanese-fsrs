@@ -1,3 +1,7 @@
+import type { z } from 'zod'
+
+import type { SessionLeechSchema, SessionSummarySchema } from './schemas/api.schema.ts'
+
 export const ReviewRating = {
   Manual: 'manual', // forget / reschedule operations; never a user-facing rating
   Again:  'again',
@@ -7,29 +11,5 @@ export const ReviewRating = {
 } as const
 export type ReviewRating = typeof ReviewRating[keyof typeof ReviewRating]
 
-export interface SessionLeech {
-  leechId:      string
-  cardId:       string
-  deckId:       string
-  word:         string
-  reading:      string | null
-  diagnosis:    string | null
-  prescription: string | null
-  resolved:     boolean
-  createdAt:    string
-}
-
-export interface SessionSummary {
-  sessionId:   string
-  totalCards:  number
-  totalTimeMs: number
-  accuracyPct: number
-  nextDueAt:   string | null
-  ratingBreakdown: {
-    again: number
-    hard:  number
-    good:  number
-    easy:  number
-  }
-  leeches: SessionLeech[]
-}
+export type SessionLeech   = z.infer<typeof SessionLeechSchema>
+export type SessionSummary = z.infer<typeof SessionSummarySchema>

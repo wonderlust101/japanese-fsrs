@@ -5,7 +5,7 @@ import {
   generateCardInputSchema,
   generateSentencesInputSchema,
   generateMnemonicInputSchema,
-} from '../schemas/ai.schema.ts'
+} from '@fsrs-japanese/shared-types'
 import * as aiService      from '../services/ai.service.ts'
 import * as cardService    from '../services/card.service.ts'
 import * as profileService from '../services/profile.service.ts'

@@ -1,200 +1,94 @@
 /**
  * Wire-format types for the Express API (camelCase). These describe the JSON
- * shape that crosses the API → frontend boundary, derived from the API's
- * service-layer row types. Source of truth for HTTP response payloads.
+ * shape that crosses the API → frontend boundary. Each type is derived via
+ * `z.infer` from a Zod schema in `schemas/api.schema.ts` so the runtime
+ * validator and the static type cannot drift.
  */
 
-import type { CardType, State } from './fsrs.types.ts'
-import type { JLPTLevel, LayoutType } from './card.types.ts'
-import type { FieldsData } from './field-shapes.ts'
+import type { z } from 'zod'
 
-export interface ApiCard {
-  id:             string
-  /** Null for premade source rows that flow through this DTO. */
-  userId:         string | null
-  /** Null for premade source rows; XOR with premadeDeckId. */
-  deckId:         string | null
-  premadeDeckId:  string | null
-  layoutType:     LayoutType
-  fieldsData:     FieldsData
-  cardType:       CardType
-  parentCardId:   string | null
-  tags:           string[]
-  jlptLevel:      JLPTLevel | null
-  state:          State
-  isSuspended:    boolean
-  due:            string
-  stability:      number
-  difficulty:     number
-  elapsedDays:    number
-  scheduledDays:  number
-  /** ts-fsrs v5+ progress through (re)learning steps within the current phase. */
-  learningSteps:  number
-  reps:           number
-  lapses:         number
-  lastReview:     string | null
-  createdAt:      string
-  updatedAt:      string
-}
+import type {
+  ApiCardSchema,
+  ApiDueCardSchema,
+  ApiCardListItemSchema,
+  ApiSimilarCardSchema,
+  ApiDeckSchema,
+  ApiDeckWithStatsSchema,
+  ApiPremadeDeckSchema,
+  ApiPremadeSubscriptionSchema,
+  ApiSubscribeResultSchema,
+  ApiForecastDaySchema,
+  ApiHeatmapDaySchema,
+  ApiLayoutAccuracySchema,
+  ApiStreakStatsSchema,
+  ApiJlptGapSchema,
+  ApiMilestoneForecastSchema,
+  ApiReviewedCardSchema,
+  ApiReviewSubmitResponseSchema,
+  ApiAuthTokensSchema,
+  ApiSignUpResultSchema,
+} from './schemas/api.schema.ts'
 
+export type ApiCard         = z.infer<typeof ApiCardSchema>
 /** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs.
  *  Due cards are by definition not suspended, so isSuspended is omitted.
  *  layoutType is included so the UI can narrow fieldsData via field-shapes helpers. */
-export type ApiDueCard = Pick<
-  ApiCard,
-  'id' | 'deckId' | 'cardType' | 'jlptLevel' | 'state' | 'due' | 'fieldsData' | 'layoutType'
->
-
+export type ApiDueCard      = z.infer<typeof ApiDueCardSchema>
 /** Subset of ApiCard returned by /decks/:id/cards (card list). */
-export type ApiCardListItem = Pick<
-  ApiCard,
-  'id' | 'fieldsData' | 'layoutType' | 'cardType' | 'jlptLevel' | 'state' | 'isSuspended' | 'due' | 'tags'
->
+export type ApiCardListItem = z.infer<typeof ApiCardListItemSchema>
 
-export interface ApiDeck {
-  id:              string
-  name:            string
-  description:     string | null
-  deckType:        'vocabulary' | 'grammar' | 'kanji' | 'mixed'
-  cardCount:       number
-  isPremadeFork:   boolean
-  sourcePremadeId: string | null
-  createdAt:       string
-  updatedAt:       string
-}
+/**
+ * Wire-format result from /api/v1/cards/:id/similar (find_similar_cards RPC).
+ * Mirrors the 8 columns the RPC actually returns — distinct from ApiCard,
+ * which would imply 21 columns.
+ */
+export type ApiSimilarCard = z.infer<typeof ApiSimilarCardSchema>
 
-export interface ApiDeckWithStats extends ApiDeck {
-  dueCount: number
-  newCount: number
-}
+export type ApiDeck          = z.infer<typeof ApiDeckSchema>
+export type ApiDeckWithStats = z.infer<typeof ApiDeckWithStatsSchema>
 
-export interface ApiPremadeDeck {
-  id:          string
-  name:        string
-  description: string | null
-  deckType:    'vocabulary' | 'grammar' | 'kanji' | 'mixed'
-  jlptLevel:   string | null
-  domain:      string | null
-  cardCount:   number
-  version:     number
-  isActive:    boolean
-  createdAt:   string
-  updatedAt:   string
-}
+export type ApiPremadeDeck         = z.infer<typeof ApiPremadeDeckSchema>
+export type ApiPremadeSubscription = z.infer<typeof ApiPremadeSubscriptionSchema>
+export type ApiSubscribeResult     = z.infer<typeof ApiSubscribeResultSchema>
 
-export interface ApiPremadeSubscription {
-  id:              string
-  premadeDeckId:   string
-  premadeDeckName: string
-  deckId:          string
-  cardCount:       number
-  subscribedAt:    string
-}
+export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 
-export interface ApiSubscribeResult {
-  subscriptionId: string
-  deckId:         string
-  cardCount:      number
-  alreadyExisted: boolean
-}
-
-export interface ApiForecastDay {
-  date:  string
-  count: number
-}
-
+/** Generic batch result. The element type T is supplied by the caller. */
 export interface ApiBatchResult<T = unknown> {
   results: T[]
   errors:  Array<{ cardId: string; error: string }>
 }
 
-/**
- * Wire-format result from /api/v1/cards/:id/similar (find_similar_cards RPC).
- * Mirrors the 8 columns the RPC actually returns — distinct from ApiCard,
- * which would imply 21 columns and was previously the (incorrect) declared
- * return type.
- */
-export interface ApiSimilarCard {
-  id:         string
-  deckId:     string
-  layoutType: LayoutType
-  cardType:   CardType
-  fieldsData: FieldsData
-  tags:       string[]
-  jlptLevel:  JLPTLevel | null
-  similarity: number
-}
-
 // ─── Analytics wire formats ───────────────────────────────────────────────────
 
 /** Single day in the retention heatmap. Days with zero reviews are omitted. */
-export interface ApiHeatmapDay {
-  date:      string  // YYYY-MM-DD (UTC)
-  retention: number  // 0–100, one decimal place
-  count:     number  // total reviews that day
-}
+export type ApiHeatmapDay = z.infer<typeof ApiHeatmapDaySchema>
 
 /** Per-layout (cognitive modality) accuracy rollup. */
-export interface ApiLayoutAccuracy {
-  layout:      string  // comprehension | production | listening
-  total:       number
-  successful:  number  // good + easy ratings
-  accuracyPct: number  // 0–100, one decimal place
-}
+export type ApiLayoutAccuracy = z.infer<typeof ApiLayoutAccuracySchema>
 
 /** Current and longest streak plus the last review date (UTC calendar days). */
-export interface ApiStreakStats {
-  currentStreak:   number
-  longestStreak:   number
-  lastReviewDate:  string | null  // YYYY-MM-DD or null if no reviews
-}
+export type ApiStreakStats = z.infer<typeof ApiStreakStatsSchema>
 
 /** Per-JLPT-level total/learned/due counts with progress percentage. */
-export interface ApiJlptGap {
-  jlptLevel:    string
-  total:        number
-  learned:      number
-  due:          number
-  progressPct:  number  // 0–100, one decimal place
-}
+export type ApiJlptGap = z.infer<typeof ApiJlptGapSchema>
 
 /** Per-JLPT-level milestone projection from the user's 30-day pace. */
-export interface ApiMilestoneForecast {
-  jlptLevel:                 string
-  total:                     number
-  learned:                   number
-  dailyPace:                 number
-  daysRemaining:             number | null
-  projectedCompletionDate:   string | null  // YYYY-MM-DD or null if no projection
-}
+export type ApiMilestoneForecast = z.infer<typeof ApiMilestoneForecastSchema>
 
 // ─── Review submit wire format ────────────────────────────────────────────────
 
 /**
- * Response of POST /api/v1/reviews/submit. The card payload is a strict subset
- * of ApiCard — only the fields the client needs to update its local state
- * after a review.
+ * Strict subset of ApiCard returned by FSRS write operations and embedded in
+ * the /reviews/submit response — only the fields the client needs to update
+ * its local state after a review.
  */
-export interface ApiReviewSubmitResponse {
-  card: {
-    id:            string
-    due:           string  // ISO 8601
-    stability:     number
-    difficulty:    number
-    scheduledDays: number
-    state:         State
-  }
-}
+export type ApiReviewedCard = z.infer<typeof ApiReviewedCardSchema>
+
+/** Response of POST /api/v1/reviews/submit. */
+export type ApiReviewSubmitResponse = z.infer<typeof ApiReviewSubmitResponseSchema>
 
 // ─── Auth wire formats ────────────────────────────────────────────────────────
 
-export interface ApiAuthTokens {
-  accessToken:  string
-  refreshToken: string
-  expiresIn:    number
-}
-
-export interface ApiSignUpResult {
-  email:  string
-  userId: string
-}
+export type ApiAuthTokens   = z.infer<typeof ApiAuthTokensSchema>
+export type ApiSignUpResult = z.infer<typeof ApiSignUpResultSchema>

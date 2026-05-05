@@ -1,10 +1,11 @@
 import OpenAI from 'openai';
 
 import { supabaseAdmin } from '../db/supabase.ts';
+import { env }           from '../lib/env.ts';
 import { asPayload, narrowRow } from '../lib/db.ts';
 import { AppError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
-import type { CardStatusFilter, UpdateCardInput } from '../schemas/card.schema.ts';
+import type { CardStatusFilter, UpdateCardInput } from '@fsrs-japanese/shared-types'
 import {
     type ApiCard,
     type ApiCardListItem,
@@ -25,10 +26,9 @@ import {
 // EMBEDDING_MODEL must produce 1536-dim vectors to match the
 // `cards.embedding vector(1536)` column type. Switching to a model with a
 // different dimension requires a schema migration.
-const EMBEDDING_MODEL = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small'
-const openaiKey = process.env['OPENAI_API_KEY']
-const openai = openaiKey !== undefined && openaiKey.length > 0
-  ? new OpenAI({ apiKey: openaiKey })
+const EMBEDDING_MODEL = env.OPENAI_EMBEDDING_MODEL
+const openai = env.OPENAI_API_KEY !== undefined
+  ? new OpenAI({ apiKey: env.OPENAI_API_KEY })
   : null
 
 // ─── Column projection ────────────────────────────────────────────────────────
@@ -89,15 +89,6 @@ export const CARD_LIST_COLUMNS = [
 
 // ─── Return shapes ────────────────────────────────────────────────────────────
 
-/**
- * Wire-format card row returned by the service. Aliased to ApiCard from
- * shared-types so the frontend can import the same shape it receives over HTTP.
- *
- * `layoutType`, `cardType`, and `jlptLevel` are widened to `string` in ApiCard
- * since the wire format does not carry the API's narrower enum types.
- */
-export type CardRow = ApiCard
-
 export interface CardListResult {
   items:      ApiCardListItem[]
   nextCursor: string | null
@@ -141,7 +132,7 @@ export interface CardDbRow {
   updated_at:      string
 }
 
-export function toCardRow(raw: CardDbRow): CardRow {
+export function toCardRow(raw: CardDbRow): ApiCard {
   return {
     id:            raw.id,
     userId:        raw.user_id,
@@ -310,7 +301,7 @@ export async function listCards(
  * Returns a single card by ID.
  * Throws 404 if the card does not exist or belongs to a different user.
  */
-export async function getCard(cardId: string, userId: string): Promise<CardRow> {
+export async function getCard(cardId: string, userId: string): Promise<ApiCard> {
   const { data, error } = await supabaseAdmin
     .from('cards')
     .select(CARD_COLUMNS)
@@ -337,7 +328,7 @@ export async function createCard(
   userId: string,
   fieldsData: Record<string, unknown>,
   meta: CreateCardMeta,
-): Promise<CardRow> {
+): Promise<ApiCard> {
   await assertDeckOwnership(deckId, userId)
 
   const fsrs = getInitialFsrsState()
@@ -407,7 +398,7 @@ type SharedFieldKey = (typeof SHARED_CARD_FIELDS)[number]
  * concurrent edits to siblings; not a privilege boundary. Optimistic
  * concurrency on `fields_data` would close the gap; deferred for now.
  */
-async function syncSharedFields(updatedCard: CardRow, userId: string): Promise<void> {
+async function syncSharedFields(updatedCard: ApiCard, userId: string): Promise<void> {
   const sharedValues: Partial<Record<SharedFieldKey, unknown>> = {}
   for (const key of SHARED_CARD_FIELDS) {
     if (key in updatedCard.fieldsData) {
@@ -473,7 +464,7 @@ export async function updateCard(
   cardId: string,
   userId: string,
   input: UpdateCardInput,
-): Promise<CardRow> {
+): Promise<ApiCard> {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
   if (input.fields_data !== undefined) patch['fields_data'] = input.fields_data
@@ -574,7 +565,7 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<A
  * get_stale_embedding_cards RPC because PostgREST .filter() does not support
  * column-vs-column comparison.
  */
-export async function getStaleEmbeddingCards(userId: string): Promise<CardRow[]> {
+export async function getStaleEmbeddingCards(userId: string): Promise<ApiCard[]> {
   const { data, error } = await supabaseAdmin.rpc('get_stale_embedding_cards', {
     p_user_id: userId,
   })

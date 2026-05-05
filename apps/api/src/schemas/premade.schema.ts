@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
-import { deckTypeEnum } from './deck.schema.ts'
-import { jlptLevelEnum } from './card.schema.ts'
+import { deckTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
 
 export const listPremadeDecksQuerySchema = z.object({
   deckType:  deckTypeEnum.optional(),

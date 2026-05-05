@@ -1,14 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import type { Database } from '@fsrs-japanese/shared-types'
 
 import { env } from '@/lib/env'
 
-export async function createSupabaseServerClient(): Promise<SupabaseClient<Database>> {
+// Untyped against the `Database` schema by design — see browser.ts for rationale.
+export async function createSupabaseServerClient(): Promise<SupabaseClient> {
   const cookieStore = await cookies()
 
-  return createServerClient<Database>(
+  return createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {

@@ -1,47 +1,39 @@
 /**
  * Content shapes for `ApiCard.fieldsData` (the JSONB column on `cards`).
  * These cross the wire — the frontend may discriminate on layout type and
- * read the specific fields. Keep narrow: only the keys the UI actually
- * needs to render.
+ * read the specific fields. Shapes are derived from Zod schemas in
+ * `schemas/field-shapes.schema.ts` so the validator and the type cannot drift.
  */
 
-import type { ExampleSentence, KanjiBreakdown, Mnemonic } from './card.types.ts'
+import type { z } from 'zod'
+
+import type { LayoutType } from './card.types.ts'
+import type {
+  WordFieldsSchema,
+  VocabularyFieldsDataSchema,
+  GrammarFieldsDataSchema,
+  SentenceFieldsDataSchema,
+  FieldsDataSchema,
+} from './schemas/field-shapes.schema.ts'
 
 /** Common base for vocabulary and grammar layouts. */
-export interface WordFields {
-  word: string
-  reading: string
-  meaning: string
-  partOfSpeech?: string | null
-  frequencyRank?: number | null
-}
+export type WordFields = z.infer<typeof WordFieldsSchema>
 
 /** fields_data shape for layout_type = 'vocabulary'. */
-export interface VocabularyFieldsData extends WordFields {
-  exampleSentences?: ExampleSentence[]
-  kanjiBreakdown?: KanjiBreakdown[]
-  pitchAccent?: string | null
-  mnemonics?: Mnemonic[]
-  collocations?: string[]
-  homophones?: string[]
-}
+export type VocabularyFieldsData = z.infer<typeof VocabularyFieldsDataSchema>
 
 /** fields_data shape for layout_type = 'grammar'. */
-export interface GrammarFieldsData extends WordFields {
-  exampleSentences?: ExampleSentence[]
-}
+export type GrammarFieldsData = z.infer<typeof GrammarFieldsDataSchema>
 
 /** fields_data shape for layout_type = 'sentence' (reserved for future use). */
-export type SentenceFieldsData = Record<string, unknown>
+export type SentenceFieldsData = z.infer<typeof SentenceFieldsDataSchema>
 
 /**
  * Discriminated union of all `fields_data` shapes by layout_type.
  * Use `getWordFields` / `getVocabularyFields` to narrow at the consumer site
  * instead of widening to `Record<string, unknown>`.
  */
-export type FieldsData = VocabularyFieldsData | GrammarFieldsData | SentenceFieldsData
-
-import type { LayoutType } from './card.types.ts'
+export type FieldsData = z.infer<typeof FieldsDataSchema>
 
 /** Narrow input — anything carrying both layoutType and fieldsData. */
 type FieldsCarrier = { layoutType: LayoutType; fieldsData: FieldsData }

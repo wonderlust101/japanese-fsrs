@@ -3,6 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 
 import { errorHandler } from './middleware/errorHandler.ts'
+import { env }          from './lib/env.ts'
 import authRouter    from './routes/auth.ts'
 import profileRouter from './routes/profile.ts'
 import decksRouter   from './routes/decks.ts'
@@ -13,10 +14,8 @@ import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
 
 // CORS_ORIGIN accepts a comma-separated list for multiple origins.
-// Default covers local Next.js dev server.
-const allowedOrigins = (process.env['CORS_ORIGIN'] ?? 'http://localhost:3000')
-  .split(',')
-  .map((s) => s.trim())
+// Default (in env schema) covers local Next.js dev server.
+const allowedOrigins = env.CORS_ORIGIN.split(',').map((s) => s.trim())
 
 export const app = express()
 

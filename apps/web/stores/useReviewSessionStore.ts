@@ -1,8 +1,12 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
-import type { ReviewRating } from '@fsrs-japanese/shared-types'
-import type { DueCard } from '@/lib/actions/reviews.actions'
+import type { ApiDueCard, SubmitReviewInput } from '@fsrs-japanese/shared-types'
+
+// User-grade rating (excludes 'manual'). The session store only ever holds
+// user-submitted ratings, so we narrow here to match the API's submitReviewSchema
+// — 'manual' is reserved for internal forget / reschedule operations.
+type UserRating = SubmitReviewInput['rating']
 
 // ── State (discriminated by phase) ────────────────────────────────────────────
 //
@@ -18,8 +22,8 @@ import type { DueCard } from '@/lib/actions/reviews.actions'
 // non-empty queue) at the type level.
 
 interface SessionHistoryEntry {
-  card:   DueCard
-  rating: ReviewRating
+  card:   ApiDueCard
+  rating: UserRating
 }
 
 interface IdleState {
@@ -29,7 +33,7 @@ interface IdleState {
 interface ActiveState {
   phase:          'active'
   sessionId:      string
-  queue:          DueCard[]
+  queue:          ApiDueCard[]
   currentIndex:   number
   showAnswer:     boolean
   sessionHistory: SessionHistoryEntry[]
@@ -46,9 +50,9 @@ type ReviewSessionState = IdleState | ActiveState | FinishedState
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 interface ReviewSessionActions {
-  startSession: (cards: DueCard[]) => void
+  startSession: (cards: ApiDueCard[]) => void
   flipCard:     () => void
-  submitRating: (rating: ReviewRating) => void
+  submitRating: (rating: UserRating) => void
   endSession:   () => void
   reset:        () => void
 }
@@ -116,10 +120,10 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
 // the discriminated union internally and projects a stable shape so callers
 // don't have to discriminate themselves.
 
-export const useReviewQueue      = (): DueCard[] =>
+export const useReviewQueue      = (): ApiDueCard[] =>
   useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : []))
 
-export const useCurrentCard      = (): DueCard | undefined =>
+export const useCurrentCard      = (): ApiDueCard | undefined =>
   useReviewSessionStore((s) => (s.phase === 'active' ? s.queue[s.currentIndex] : undefined))
 
 export const useCurrentIndex     = (): number =>

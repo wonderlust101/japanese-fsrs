@@ -26,12 +26,6 @@ const PREMADE_COLUMNS = [
   'updated_at',
 ].join(', ')
 
-// ─── Return shapes ────────────────────────────────────────────────────────────
-
-export type PremadeDeckRow  = ApiPremadeDeck
-export type SubscriptionRow = ApiPremadeSubscription
-export type SubscribeResult = ApiSubscribeResult
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 interface PremadeDeckDbRow {
@@ -48,7 +42,7 @@ interface PremadeDeckDbRow {
   updated_at:  string
 }
 
-function toPremadeRow(raw: PremadeDeckDbRow): PremadeDeckRow {
+function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
   return {
     id:          raw.id,
     name:        raw.name,
@@ -71,7 +65,7 @@ function toPremadeRow(raw: PremadeDeckDbRow): PremadeDeckRow {
  */
 export async function listPremadeDecks(
   filters: ListPremadeDecksQuery,
-): Promise<PremadeDeckRow[]> {
+): Promise<ApiPremadeDeck[]> {
   let query = supabaseAdmin
     .from('premade_decks')
     .select(PREMADE_COLUMNS)
@@ -95,7 +89,7 @@ export async function listPremadeDecks(
 /**
  * Returns a single active premade deck by ID. Throws 404 if missing or inactive.
  */
-export async function getPremadeDeck(id: string): Promise<PremadeDeckRow> {
+export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
   const { data, error } = await supabaseAdmin
     .from('premade_decks')
     .select(PREMADE_COLUMNS)
@@ -114,7 +108,7 @@ export async function getPremadeDeck(id: string): Promise<PremadeDeckRow> {
  * Returns the user's subscription list joined with each premade deck's metadata
  * and the linked forked deck's id and card_count.
  */
-export async function listSubscriptions(userId: string): Promise<SubscriptionRow[]> {
+export async function listSubscriptions(userId: string): Promise<ApiPremadeSubscription[]> {
   const { data: subs, error: subsError } = await supabaseAdmin
     .from('user_premade_subscriptions')
     .select('id, premade_deck_id, subscribed_at')
@@ -164,7 +158,7 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
   )
 
   return rows
-    .map<SubscriptionRow | null>((sub) => {
+    .map<ApiPremadeSubscription | null>((sub) => {
       const deck = deckBySrc.get(sub.premade_deck_id)
       const name = nameById.get(sub.premade_deck_id) ?? '(unknown deck)'
       if (deck === undefined) return null
@@ -177,7 +171,7 @@ export async function listSubscriptions(userId: string): Promise<SubscriptionRow
         subscribedAt:    sub.subscribed_at,
       }
     })
-    .filter((r): r is SubscriptionRow => r !== null)
+    .filter((r): r is ApiPremadeSubscription => r !== null)
 }
 
 interface SubscribeRpcRow {
@@ -197,7 +191,7 @@ interface SubscribeRpcRow {
 export async function subscribeToPremadeDeck(
   userId: string,
   premadeDeckId: string,
-): Promise<SubscribeResult> {
+): Promise<ApiSubscribeResult> {
   const { data, error } = await supabaseAdmin.rpc('subscribe_to_premade_deck', {
     p_user_id:         userId,
     p_premade_deck_id: premadeDeckId,

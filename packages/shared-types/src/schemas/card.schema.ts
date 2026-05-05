@@ -1,8 +1,9 @@
 import { z } from 'zod'
 
-import { CardType, JLPTLevel, LayoutType } from '@fsrs-japanese/shared-types'
+import { CardType } from '../fsrs.types.ts'
+import { JLPTLevel, LayoutType } from '../card.types.ts'
 
-import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../lib/sanitize.ts'
+import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../sanitize.ts'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 // Derived from the canonical `as const` objects in shared-types so a value
@@ -63,8 +64,10 @@ export const updateCardSchema = z.object({
 
 // ─── Param / query schemas ────────────────────────────────────────────────────
 
-export const cardIdParamSchema  = z.object({ id:     z.string().uuid('Invalid card ID') })
-export const deckIdParamSchema  = z.object({ deckId: z.string().uuid('Invalid deck ID') })
+export const cardIdParamSchema      = z.object({ id:     z.string().uuid('Invalid card ID') })
+/** Validates the nested-route :deckId param (e.g. /decks/:deckId/cards). Distinct
+ *  from deck.schema.ts's deckIdParamSchema, which validates the top-level :id param. */
+export const nestedDeckIdParamSchema = z.object({ deckId: z.string().uuid('Invalid deck ID') })
 
 export const cardStatusFilterEnum = z.enum(['all', 'new', 'learning', 'review', 'suspended'])
 
@@ -75,8 +78,16 @@ export const listCardsQuerySchema = z.object({
 })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+//
+// `*Input` is `z.infer` (post-parse) — defaults are filled, required fields all present.
+//   Server-side use: validates inputs and returns the canonical shape.
+// `*Payload` is `z.input` (pre-parse) — defaults are optional, matching what callers
+//   are allowed to send over the wire.
+//   Client-side use: typing the request body before serialization.
 
 export type CreateCardInput    = z.infer<typeof createCardSchema>
+export type CreateCardPayload  = z.input<typeof createCardSchema>
 export type UpdateCardInput    = z.infer<typeof updateCardSchema>
+export type UpdateCardPayload  = z.input<typeof updateCardSchema>
 export type ListCardsQuery     = z.infer<typeof listCardsQuerySchema>
 export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>

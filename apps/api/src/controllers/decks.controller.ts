@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express'
 
-import { createDeckSchema, updateDeckSchema, deckIdParamSchema } from '../schemas/deck.schema.ts'
+import { createDeckSchema, updateDeckSchema, deckIdParamSchema } from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
 
 export const list: RequestHandler = async (req, res, next): Promise<void> => {

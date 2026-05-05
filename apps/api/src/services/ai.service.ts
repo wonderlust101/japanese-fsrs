@@ -2,25 +2,25 @@ import OpenAI from 'openai'
 import { createHash } from 'node:crypto'
 
 import { redis } from '../db/redis.ts'
+import { env }   from '../lib/env.ts'
 import {
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
-} from '../schemas/ai.schema.ts'
+  sanitizeForPrompt,
+  type GeneratedCardData,
+  type GeneratedSentences,
+  type GeneratedMnemonic,
+} from '@fsrs-japanese/shared-types'
 import { AppError } from '../middleware/errorHandler.ts'
-import { sanitizeForPrompt } from '../lib/sanitize.ts'
-import type {
-  GeneratedCardData,
-  GeneratedSentences,
-  GeneratedMnemonic,
-} from '../schemas/ai.schema.ts'
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
-const openaiKey = process.env['OPENAI_API_KEY']
-if (!openaiKey) throw new Error('OPENAI_API_KEY environment variable is not set')
+if (env.OPENAI_API_KEY === undefined) {
+  throw new Error('OPENAI_API_KEY environment variable is not set')
+}
 
-const openai = new OpenAI({ apiKey: openaiKey })
+const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 

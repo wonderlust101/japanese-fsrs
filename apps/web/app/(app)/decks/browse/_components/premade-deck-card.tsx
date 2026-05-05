@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/Button'
-import type { PremadeDeckRow } from '@/lib/actions/premade.actions'
+import type { ApiPremadeDeck } from '@fsrs-japanese/shared-types'
 
 const JLPT_BADGE: Record<string, { bg: string; text: string; label: string }> = {
   N5:          { bg: 'var(--color-jlpt-n5-bg)',     text: 'var(--color-jlpt-n5-text)',     label: 'N5' },
@@ -15,7 +15,7 @@ const JLPT_BADGE: Record<string, { bg: string; text: string; label: string }> = 
 }
 
 interface Props {
-  deck:           PremadeDeckRow
+  deck:           ApiPremadeDeck
   forkedDeckId:   string | null
   onSubscribe:    () => void
   isSubscribing:  boolean

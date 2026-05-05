@@ -2,11 +2,11 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import type { DeckRow } from '@/lib/actions/decks.actions'
-import { getDeckStatsAction } from '@/lib/actions/decks.actions'
+import type { ApiDeck } from '@fsrs-japanese/shared-types'
+import { getDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 
-const BADGE: Record<DeckRow['deckType'], string> = {
+const BADGE: Record<ApiDeck['deckType'], string> = {
   vocabulary: 'bg-primary-100 text-primary-700',
   grammar:    'bg-success-100 text-success-700',
   kanji:      'bg-warning-100 text-warning-700',
@@ -14,14 +14,14 @@ const BADGE: Record<DeckRow['deckType'], string> = {
 }
 
 interface Props {
-  deck:  DeckRow
+  deck:  ApiDeck
   index: number
 }
 
 export function DeckCard({ deck, index }: Props): React.JSX.Element {
   const { data: stats } = useQuery({
     queryKey: queryKeys.decks.detail(deck.id),
-    queryFn:  () => getDeckStatsAction(deck.id),
+    queryFn:  () => getDeckAction(deck.id),
   })
 
   const cardCount = stats?.cardCount ?? deck.cardCount
