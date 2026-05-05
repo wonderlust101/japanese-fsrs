@@ -1,37 +1,40 @@
 /**
  * Wire-format types for the Express API (camelCase). These describe the JSON
  * shape that crosses the API → frontend boundary, derived from the API's
- * service-layer row types.
- *
- * Distinct from the richer `Card` / `Deck` types in card.types.ts and
- * deck.types.ts, which model the idealised domain. API types are the source
- * of truth for what HTTP responses actually contain today.
+ * service-layer row types. Source of truth for HTTP response payloads.
  */
 
-import type { State } from './fsrs.types.ts'
+import type { CardType, State } from './fsrs.types.ts'
+import type { JLPTLevel, LayoutType } from './card.types.ts'
+import type { FieldsData } from './database.types.helpers.ts'
 
 export interface ApiCard {
-  id:            string
-  userId:        string
-  deckId:        string
-  layoutType:    string
-  fieldsData:    Record<string, unknown>
-  cardType:      string
-  parentCardId:  string | null
-  tags:          string[] | null
-  jlptLevel:     string | null
-  state:         State
-  isSuspended:   boolean
-  due:           string
-  stability:     number
-  difficulty:    number
-  elapsedDays:   number
-  scheduledDays: number
-  reps:          number
-  lapses:        number
-  lastReview:    string | null
-  createdAt:     string
-  updatedAt:     string
+  id:             string
+  /** Null for premade source rows that flow through this DTO. */
+  userId:         string | null
+  /** Null for premade source rows; XOR with premadeDeckId. */
+  deckId:         string | null
+  premadeDeckId:  string | null
+  layoutType:     LayoutType
+  fieldsData:     FieldsData
+  cardType:       CardType
+  parentCardId:   string | null
+  tags:           string[]
+  jlptLevel:      JLPTLevel | null
+  state:          State
+  isSuspended:    boolean
+  due:            string
+  stability:      number
+  difficulty:     number
+  elapsedDays:    number
+  scheduledDays:  number
+  /** ts-fsrs v5+ progress through (re)learning steps within the current phase. */
+  learningSteps:  number
+  reps:           number
+  lapses:         number
+  lastReview:     string | null
+  createdAt:      string
+  updatedAt:      string
 }
 
 /** Subset of ApiCard returned by /reviews/due — content-only fields the UI needs.

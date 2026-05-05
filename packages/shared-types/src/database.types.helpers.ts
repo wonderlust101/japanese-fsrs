@@ -25,7 +25,8 @@
  *   const typed = card.data as TypedCardRow;
  */
 
-import type { ExampleSentence, KanjiBreakdown, Mnemonic } from './card.types.ts'
+import type { ExampleSentence, JLPTLevel, KanjiBreakdown, LayoutType, Mnemonic } from './card.types.ts'
+import type { CardType } from './fsrs.types.ts'
 import type { Database } from './database.types.ts'
 
 // ============================================================
@@ -217,11 +218,11 @@ export interface JlptGapRow {
 export interface SimilarCardRow {
   id: string
   deck_id: string
-  layout_type: string
-  card_type: string
+  layout_type: LayoutType
+  card_type: CardType
   fields_data: FieldsData // Typed JSONB
-  tags: string[] | null
-  jlpt_level: string | null
+  tags: string[]
+  jlpt_level: JLPTLevel | null
   similarity: number // Cosine distance
 }
 

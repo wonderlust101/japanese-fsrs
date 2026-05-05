@@ -52,7 +52,8 @@ export function ReviewCard(): React.JSX.Element | null {
 
   if (!card) return null
 
-  const fd              = card.fieldsData
+  // FieldsData is a discriminated union; widen to Record for cross-layout access.
+  const fd              = card.fieldsData as Record<string, unknown>
   const word            = (fd['word'] as string | undefined) ?? (fd['front'] as string | undefined) ?? ''
   const reading         = (fd['reading'] as string | undefined) ?? null
   const meaning         = (fd['meaning'] as string | undefined) ?? (fd['back'] as string | undefined) ?? ''

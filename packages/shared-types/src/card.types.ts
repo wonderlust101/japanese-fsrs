@@ -10,6 +10,15 @@ export const JLPTLevel = {
 } as const
 export type JLPTLevel = typeof JLPTLevel[keyof typeof JLPTLevel]
 
+/** Discriminator for cards.fields_data shape. Mirrors the layout_type enum on
+ *  the cards table (introduced in migration 20260502000004_align_card_schema). */
+export const LayoutType = {
+  Vocabulary: 'vocabulary',
+  Grammar:    'grammar',
+  Sentence:   'sentence',
+} as const
+export type LayoutType = typeof LayoutType[keyof typeof LayoutType]
+
 export interface ExampleSentence {
   ja: string
   en: string

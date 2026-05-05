@@ -36,7 +36,8 @@ interface Props {
 }
 
 export function CardListItem({ card, deckId }: Props): React.JSX.Element {
-  const fd      = card.fieldsData
+  // FieldsData is a discriminated union; widen to Record for cross-layout access.
+  const fd      = card.fieldsData as Record<string, unknown>
   const word    = (fd['word']    as string | undefined) ?? (fd['front'] as string | undefined) ?? '—'
   const reading = (fd['reading'] as string | undefined) ?? ''
   const meaning = (fd['meaning'] as string | undefined) ?? (fd['back']  as string | undefined) ?? ''

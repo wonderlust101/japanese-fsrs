@@ -9,7 +9,8 @@ interface Props { params: Promise<{ id: string; cardId: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id: deckId, cardId } = await params
   const card = await getCardAction(deckId, cardId)
-  const word = (card?.fieldsData['word'] ?? card?.fieldsData['front'] ?? 'Card') as string
+  const fd = (card?.fieldsData ?? {}) as Record<string, unknown>
+  const word = (fd['word'] ?? fd['front'] ?? 'Card') as string
   return { title: word }
 }
 

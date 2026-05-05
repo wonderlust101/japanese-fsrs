@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
-import { State, type ApiCard } from '@fsrs-japanese/shared-types'
+import { State, type ApiCard, type FieldsData } from '@fsrs-japanese/shared-types'
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
 // Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
@@ -27,6 +27,7 @@ export const CARD_COLUMNS = [
   'id',
   'user_id',
   'deck_id',
+  'premade_deck_id',
   'layout_type',
   'fields_data',
   'card_type',
@@ -40,6 +41,7 @@ export const CARD_COLUMNS = [
   'difficulty',
   'elapsed_days',
   'scheduled_days',
+  'learning_steps',
   'reps',
   'lapses',
   'last_review',
@@ -77,13 +79,14 @@ export interface CreateCardMeta {
 /** Raw snake_case row shape returned by SELECT CARD_COLUMNS. Single cast site for DB → domain. */
 export interface CardDbRow {
   id:              string
-  user_id:         string
-  deck_id:         string
+  user_id:         string | null
+  deck_id:         string | null
+  premade_deck_id: string | null
   layout_type:     LayoutType
   fields_data:     Record<string, unknown>
   card_type:       CardType
   parent_card_id:  string | null
-  tags:            string[] | null
+  tags:            string[]
   jlpt_level:      JlptLevel | null
   state:           State
   is_suspended:    boolean
@@ -92,6 +95,7 @@ export interface CardDbRow {
   difficulty:      number
   elapsed_days:    number
   scheduled_days:  number
+  learning_steps:  number
   reps:            number
   lapses:          number
   last_review:     string | null
@@ -104,8 +108,13 @@ export function toCardRow(raw: CardDbRow): CardRow {
     id:            raw.id,
     userId:        raw.user_id,
     deckId:        raw.deck_id,
+    premadeDeckId: raw.premade_deck_id,
     layoutType:    raw.layout_type,
-    fieldsData:    raw.fields_data,
+    // The DB enforces fields_data shape via cards_fields_data_shape CHECK
+    // (migration 20260504000007 M3): vocabulary/grammar layouts have
+    // {word, reading, meaning}; sentence is unconstrained. The cast moves the
+    // discriminated-union narrowing to the consumer.
+    fieldsData:    raw.fields_data as FieldsData,
     cardType:      raw.card_type,
     parentCardId:  raw.parent_card_id,
     tags:          raw.tags,
@@ -117,6 +126,7 @@ export function toCardRow(raw: CardDbRow): CardRow {
     difficulty:    raw.difficulty,
     elapsedDays:   raw.elapsed_days,
     scheduledDays: raw.scheduled_days,
+    learningSteps: raw.learning_steps,
     reps:          raw.reps,
     lapses:        raw.lapses,
     lastReview:    raw.last_review,
