@@ -4,7 +4,6 @@
   "private": true,
   "exports": {
     "./base": "./base.json",
-    "./nextjs": "./nextjs.json",
-    "./node": "./node.json"
+    "./nextjs": "./nextjs.json"
   }
 }

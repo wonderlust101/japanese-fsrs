@@ -53,7 +53,12 @@ export type ApiSubscribeResult     = z.infer<typeof ApiSubscribeResultSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 
-/** Generic batch result. The element type T is supplied by the caller. */
+/**
+ * Generic batch result. Hand-written because Zod can't cleanly produce a
+ * generic schema/type pair — the runtime validator is the factory
+ * `ApiBatchResultSchema(item)` in `schemas/api.schema.ts`. Keep this interface
+ * and that factory in sync; both must accept the same shape.
+ */
 export interface ApiBatchResult<T = unknown> {
   results: T[]
   errors:  Array<{ cardId: string; error: string }>

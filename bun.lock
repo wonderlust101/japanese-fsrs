@@ -12,6 +12,7 @@
         "web": "^0.0.2",
       },
       "devDependencies": {
+        "@fsrs-japanese/tsconfig": "workspace:*",
         "@types/bun": "latest",
         "eslint": "10.2.1",
         "typescript": "^5",
@@ -34,6 +35,7 @@
         "zod": "^4.4.3",
       },
       "devDependencies": {
+        "@fsrs-japanese/tsconfig": "workspace:*",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.6",
         "@types/supertest": "^7.2.0",
@@ -51,9 +53,11 @@
         "next": "^15.3.1",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
+        "zod": "^4.4.3",
         "zustand": "^5.0.3",
       },
       "devDependencies": {
+        "@fsrs-japanese/tsconfig": "workspace:*",
         "@tailwindcss/postcss": "^4.1.5",
         "@types/node": "^22",
         "@types/react": "^19",
@@ -69,6 +73,9 @@
       "dependencies": {
         "ts-fsrs": "^5.3.2",
         "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@fsrs-japanese/tsconfig": "workspace:*",
       },
     },
     "packages/tsconfig": {

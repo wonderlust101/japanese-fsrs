@@ -17,6 +17,7 @@
     "db:types": "supabase gen types typescript --project-id kukkptyopjdtuzgzamua > apps/api/src/db/database.types.ts"
   },
   "devDependencies": {
+    "@fsrs-japanese/tsconfig": "workspace:*",
     "@types/bun": "latest",
     "eslint": "10.2.1",
     "typescript": "^5",

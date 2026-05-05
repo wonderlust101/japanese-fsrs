@@ -1,3 +1,3 @@
 {
-  "extends": "./packages/tsconfig/base.json"
+  "extends": "@fsrs-japanese/tsconfig/base"
 }

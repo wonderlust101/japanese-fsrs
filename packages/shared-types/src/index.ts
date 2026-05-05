@@ -35,15 +35,8 @@ export type {
 
 // JSONB content shape for ApiCard.fieldsData. Consumers narrow via
 // `getWordFields` / `getVocabularyFields` instead of widening.
-export type { FieldsData, WordFields, VocabularyFieldsData, GrammarFieldsData } from './field-shapes.ts'
+export type { FieldsData, WordFields } from './field-shapes.ts'
 export { getWordFields, getVocabularyFields } from './field-shapes.ts'
-
-// JSONB and content shape schemas — apps that validate API responses import these.
-export {
-  WordFieldsSchema, VocabularyFieldsDataSchema, GrammarFieldsDataSchema,
-  SentenceFieldsDataSchema, FieldsDataSchema,
-  ExampleSentenceSchema, KanjiBreakdownSchema,
-} from './schemas/field-shapes.schema.ts'
 
 // API response schemas — apps validate every API response body against these.
 export {
@@ -54,8 +47,7 @@ export {
   ApiHeatmapDaySchema, ApiLayoutAccuracySchema, ApiStreakStatsSchema,
   ApiJlptGapSchema, ApiMilestoneForecastSchema,
   ApiReviewedCardSchema, ApiReviewSubmitResponseSchema,
-  ApiAuthTokensSchema, ApiSignUpResultSchema,
-  SessionLeechSchema, SessionSummarySchema,
+  SessionSummarySchema,
   ProfileSchema,
   voidResponseSchema,
 } from './schemas/api.schema.ts'
@@ -65,21 +57,21 @@ export {
 // request/response shapes that cross the API ↔ web boundary.
 
 export {
-  cardTypeEnum, layoutTypeEnum, jlptLevelEnum, cardStatusFilterEnum,
+  cardTypeEnum, jlptLevelEnum,
   createCardSchema, updateCardSchema,
   cardIdParamSchema, nestedDeckIdParamSchema,
   listCardsQuerySchema,
 } from './schemas/card.schema.ts'
 export type {
-  CreateCardInput, CreateCardPayload,
+  CreateCardPayload,
   UpdateCardInput, UpdateCardPayload,
-  ListCardsQuery, CardStatusFilter,
+  CardStatusFilter,
 } from './schemas/card.schema.ts'
 
 export { deckTypeEnum, createDeckSchema, updateDeckSchema, deckIdParamSchema } from './schemas/deck.schema.ts'
 export type {
   CreateDeckInput, CreateDeckPayload,
-  UpdateDeckInput, UpdateDeckPayload,
+  UpdateDeckInput,
 } from './schemas/deck.schema.ts'
 
 export {
@@ -88,7 +80,6 @@ export {
 } from './schemas/ai.schema.ts'
 export type {
   GeneratedCardData, GeneratedSentences, GeneratedMnemonic,
-  GenerateCardInput, GenerateSentencesInput, GenerateMnemonicInput,
 } from './schemas/ai.schema.ts'
 
 export { updateProfileSchema } from './schemas/profile.schema.ts'
@@ -97,7 +88,7 @@ export type { UpdateProfileInput } from './schemas/profile.schema.ts'
 export {
   reviewRatingEnum, submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema,
 } from './schemas/review.schema.ts'
-export type { SubmitReviewInput, BatchReviewInput, UserRating } from './schemas/review.schema.ts'
+export type { SubmitReviewInput, UserRating } from './schemas/review.schema.ts'
 
 export {
   signupSchema, loginSchema, refreshSchema,
@@ -108,12 +99,9 @@ export type {
   CancelSignupInput, VerifyOtpInput, ResendOtpInput,
 } from './schemas/auth.schema.ts'
 
-// ─── Sanitization primitives ──────────────────────────────────────────────────
-// Lower-level utilities used by the schemas above and by services performing
-// server-side defence-in-depth. Re-exported so consumers don't have to reach
-// into deep paths.
+// ─── Sanitization primitive ───────────────────────────────────────────────────
+// Only `sanitizeForPrompt` has external consumers; the lower-level helpers
+// (stripHtml, looksLikeHtml, safeShortText, etc.) are used internally by the
+// schemas above and stay accessible via deep import inside the package.
 
-export {
-  stripHtml, looksLikeHtml, noMarkupRefine, stripMarkupTransform,
-  sanitizeForPrompt, safeShortText, deepHasMarkup, deepHasOversizedString,
-} from './sanitize.ts'
+export { sanitizeForPrompt } from './sanitize.ts'
