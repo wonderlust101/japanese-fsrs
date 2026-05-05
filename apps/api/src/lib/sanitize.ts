@@ -33,7 +33,7 @@ export function sanitizeForPrompt(input: string, maxLen = 100): string {
 }
 
 /** A short user-typed string with no markup, trimmed, length-bounded. */
-export const safeShortText = (max: number, min = 0) =>
+export const safeShortText = (max: number, min = 0): z.ZodType<string> =>
   z.string()
     .min(min)
     .max(max)

@@ -11,6 +11,7 @@ import cardsRouter   from './routes/cards.ts'
 import reviewsRouter   from './routes/reviews.ts'
 import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
+import adminRouter     from './routes/admin.ts'
 
 // CORS_ORIGIN accepts a comma-separated list for multiple origins.
 // Default covers local Next.js dev server.
@@ -46,9 +47,18 @@ app.use('/api/v1/decks',   decksRouter)
 app.use('/api/v1/premade-decks',        premadeRouter)
 app.use('/api/v1/ai',                   aiRouter)
 app.use('/api/v1/reviews',             reviewsRouter)
+// cardsRouter is mounted at two paths intentionally. Both are used by the
+// frontend (apps/web/lib/actions/cards.actions.ts):
+//   /api/v1/decks/:deckId/cards          — collection ops scoped to a deck
+//                                           (list, create, get-in-deck-context)
+//   /api/v1/cards/:id/...                — single-card ops independent of deck
+//                                           (patch, delete, similar, regenerate-embedding)
+// Removing either mount will break the frontend. The `mergeParams: true` on
+// the router (routes/cards.ts) lets handlers read req.params.deckId when present.
 app.use('/api/v1/decks/:deckId/cards', cardsRouter)
 app.use('/api/v1/cards',               cardsRouter)
 app.use('/api/v1/analytics',           analyticsRouter)
+app.use('/api/v1/admin',               adminRouter)
 
 // ── Global error handler — must be last ────────────────────────────────────
 app.use(errorHandler)

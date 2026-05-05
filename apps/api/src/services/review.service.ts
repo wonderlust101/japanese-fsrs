@@ -126,35 +126,27 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Car
 /**
  * Returns the number of cards due per day for the next `days` days (default 14).
  * Days with zero due cards are omitted — the frontend fills those gaps as 0.
+ *
+ * Aggregation runs server-side via the get_review_forecast RPC. Bucketing
+ * uses UTC calendar days, consistent with the heatmap and streak analytics.
  */
 export async function getReviewForecast(userId: string, days = 14): Promise<ForecastDay[]> {
-  const todayISO     = new Date().toISOString().slice(0, 10)
-  const windowEnd    = new Date()
-  windowEnd.setUTCDate(windowEnd.getUTCDate() + days)
-  const windowEndISO = windowEnd.toISOString()
-
-  const { data, error } = await supabaseAdmin
-    .from('cards')
-    .select('due')
-    .eq('user_id', userId)
-    .eq('is_suspended', false)
-    .gte('due', todayISO)
-    .lt('due', windowEndISO)
+  const { data, error } = await supabaseAdmin.rpc('get_review_forecast', {
+    p_user_id: userId,
+    p_days:    days,
+  })
 
   if (error !== null) {
     throw dbError('fetch review forecast', error)
   }
 
-  // Group by YYYY-MM-DD in TypeScript — avoids a new DB migration for GROUP BY.
-  const counts = new Map<string, number>()
-  for (const row of data ?? []) {
-    const date = (row as { due: string }).due.slice(0, 10)
-    counts.set(date, (counts.get(date) ?? 0) + 1)
-  }
-
-  return Array.from(counts.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }))
+  // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT comes back as
+  // a number in the JSON response (Supabase casts), but be defensive about it.
+  const rows = (data ?? []) as Array<{ date: string; count: number | string }>
+  return rows.map((r) => ({
+    date:  r.date,
+    count: typeof r.count === 'string' ? Number.parseInt(r.count, 10) : r.count,
+  }))
 }
 
 /**
@@ -240,26 +232,16 @@ export async function getSessionSummary(
     : null
 
   // ── Leech lookup ─────────────────────────────────────────────────────────────
-  // review_logs.card_id is nullable (set to NULL when a card is deleted, see
-  // migration 20260504000004), so filter orphan logs before deriving cardIds.
-  const cardIds = [...new Set(
-    logs
-      .map((l) => l.card_id as string | null)
-      .filter((id): id is string => id !== null),
-  )]
-
-  const reviewedAts = logs.map((l) => new Date(l.reviewed_at as string).getTime())
-  const minReviewedAt = new Date(Math.min(...reviewedAts)).toISOString()
-  const maxReviewedAtMs = Math.max(...reviewedAts)
-  const maxReviewedAt = new Date(maxReviewedAtMs + 5_000).toISOString()
-
+  // Match leeches on session_id directly (added in migration 20260509000001).
+  // Pre-L2 leeches with session_id IS NULL are intentionally excluded — the
+  // prior time-window heuristic was unreliable under clock skew or batch
+  // submissions, and pre-existing leeches without session_id can't be
+  // retroactively assigned to a session anyway.
   const { data: leechRows, error: leechError } = await supabaseAdmin
     .from('leeches')
     .select('id, card_id, diagnosis, prescription, resolved, created_at')
-    .in('card_id', cardIds)
+    .eq('session_id', sessionId)
     .eq('user_id', userId)
-    .gte('created_at', minReviewedAt)
-    .lte('created_at', maxReviewedAt)
 
   if (leechError !== null) {
     throw dbError('fetch session leeches', leechError)

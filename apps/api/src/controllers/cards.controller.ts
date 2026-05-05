@@ -122,3 +122,20 @@ export const similar: RequestHandler = async (req, res, next): Promise<void> => 
     next(err)
   }
 }
+
+/**
+ * POST /api/v1/cards/:id/regenerate-embedding
+ * Regenerates the semantic embedding for a card via OpenAI.
+ * Called when a card's content (word, reading, meaning) has been updated
+ * and the cached embedding is stale.
+ * Returns 204 No Content on success.
+ */
+export const regenerateEmbedding: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const { id } = cardIdParamSchema.parse(req.params)
+    await cardService.regenerateEmbedding(id, req.user.id)
+    res.status(204).end()
+  } catch (err) {
+    next(err)
+  }
+}

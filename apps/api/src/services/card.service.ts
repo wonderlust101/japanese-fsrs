@@ -1,8 +1,24 @@
+import OpenAI from 'openai'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
 import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
 import { State, type ApiCard } from '@fsrs-japanese/shared-types'
+
+// ─── OpenAI embeddings client ─────────────────────────────────────────────────
+// Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
+// load time because some test runs / non-embedding paths don't need OpenAI;
+// the generateEmbedding() callsite throws if the key is missing.
+//
+// EMBEDDING_MODEL must produce 1536-dim vectors to match the
+// `cards.embedding vector(1536)` column type. Switching to a model with a
+// different dimension requires a schema migration.
+const EMBEDDING_MODEL = process.env['OPENAI_EMBEDDING_MODEL'] ?? 'text-embedding-3-small'
+const openaiKey = process.env['OPENAI_API_KEY']
+const openai = openaiKey !== undefined && openaiKey.length > 0
+  ? new OpenAI({ apiKey: openaiKey })
+  : null
 
 // ─── Column projection ────────────────────────────────────────────────────────
 // Excludes tokens, parsed_at, embedding — internal/heavy fields not needed by clients.
@@ -260,7 +276,16 @@ export async function createCard(
     throw dbError('create card', error)
   }
 
-  return toCardRow(data as unknown as CardDbRow)
+  const created = toCardRow(data as unknown as CardDbRow)
+
+  // Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
+  // network error, malformed fields) must not block card creation.
+  // The card remains usable for FSRS; only similarity search is delayed.
+  void backfillEmbedding(created.id, userId, fieldsData).catch((err: unknown) => {
+    console.error('[card] embedding backfill failed', { cardId: created.id, err })
+  })
+
+  return created
 }
 
 const SHARED_CARD_FIELDS = ['word', 'reading', 'meaning'] as const
@@ -270,6 +295,14 @@ type SharedFieldKey = (typeof SHARED_CARD_FIELDS)[number]
  * Propagates shared content fields (word, reading, meaning) from the just-
  * updated card to its siblings (cards sharing parent_card_id or rooted at
  * updatedCard.id).
+ *
+ * IMPORTANT: Embeddings are intentionally NOT synced. Each sibling card
+ * maintains its own embedding because they represent different cognitive
+ * modalities (recognition, production, listening). When content fields
+ * change, embeddings become stale; regeneration is manual via the
+ * admin endpoint POST /api/v1/cards/:id/regenerate-embedding.
+ * Stale embeddings degrade gracefully (semantic search becomes less precise),
+ * but do not break core FSRS functionality.
  *
  * NOTE: Concurrent edits to two sibling cards by the same user can race —
  * each call's sibling-fetch sees pre-update data, and the later UPDATE
@@ -418,4 +451,185 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<C
   }
 
   return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))
+}
+
+/**
+ * Returns all cards belonging to a user that have stale embeddings.
+ *
+ * A stale embedding has embedding_updated_at < updated_at (i.e. content was
+ * modified after the embedding was last computed). Backed by the
+ * get_stale_embedding_cards RPC because PostgREST .filter() does not support
+ * column-vs-column comparison.
+ */
+export async function getStaleEmbeddingCards(userId: string): Promise<CardRow[]> {
+  const { data, error } = await supabaseAdmin.rpc('get_stale_embedding_cards', {
+    p_user_id: userId,
+  })
+
+  if (error !== null) {
+    throw dbError('fetch stale embedding cards', error)
+  }
+
+  return (data ?? []).map((row: unknown) => toCardRow(row as CardDbRow))
+}
+
+/**
+ * Regenerates the embedding for a single card.
+ *
+ * Loads the card (with ownership check), then delegates to backfillEmbedding.
+ * Throws 404 if card not found or not owned by user.
+ */
+export async function regenerateEmbedding(cardId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('cards')
+    .select('id, user_id, fields_data')
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .single()
+
+  if (error !== null || data === null) {
+    throw new AppError(404, 'Card not found')
+  }
+
+  const cardData = data as unknown as { fields_data: Record<string, unknown> }
+  await backfillEmbedding(cardId, userId, cardData.fields_data)
+}
+
+/**
+ * Builds embedding text from a card's fields_data, computes the embedding via
+ * OpenAI, and writes it to the card row with a fresh embedding_updated_at.
+ *
+ * Used by createCard() (fire-and-forget) and regenerateEmbedding() (synchronous).
+ * Throws if OpenAI is misconfigured, the API call fails, or the DB update fails;
+ * callers decide whether to surface or swallow these errors.
+ *
+ * Returns silently (no-op) if the card has no embeddable content — a sentence-
+ * layout card with only example sentences, for example, intentionally does not
+ * have a word/reading/meaning to embed yet.
+ */
+async function backfillEmbedding(
+  cardId: string,
+  userId: string,
+  fieldsData: Record<string, unknown>,
+): Promise<void> {
+  const text = buildEmbeddingText(fieldsData)
+  if (text === null) return
+
+  const embedding = await generateEmbedding(text)
+
+  const { error } = await supabaseAdmin
+    .from('cards')
+    .update({
+      embedding,
+      embedding_updated_at: new Date().toISOString(),
+    })
+    .eq('id', cardId)
+    .eq('user_id', userId)
+
+  if (error !== null) {
+    throw dbError('update card embedding', error)
+  }
+}
+
+/**
+ * Builds the embedding input string from a card's fields_data.
+ *
+ * Returns a labelled "word: ... | reading: ... | meaning: ..." form so the
+ * embedding model can disambiguate fields rather than treating the
+ * concatenation as a single bag of tokens. Returns null if no labelled fields
+ * are present (e.g. sentence-layout cards before content is filled in).
+ */
+function buildEmbeddingText(fieldsData: Record<string, unknown>): string | null {
+  const word    = typeof fieldsData['word']    === 'string' ? fieldsData['word']    : ''
+  const reading = typeof fieldsData['reading'] === 'string' ? fieldsData['reading'] : ''
+  const meaning = typeof fieldsData['meaning'] === 'string' ? fieldsData['meaning'] : ''
+
+  const parts: string[] = []
+  if (word)    parts.push(`word: ${word}`)
+  if (reading) parts.push(`reading: ${reading}`)
+  if (meaning) parts.push(`meaning: ${meaning}`)
+
+  return parts.length > 0 ? parts.join(' | ') : null
+}
+
+/**
+ * Backfills embeddings for premade source cards (user_id IS NULL,
+ * premade_deck_id NOT NULL) that don't have one yet.
+ *
+ * Iterates serially to respect OpenAI rate limits and to make per-card
+ * failures recoverable: a failed card is logged and skipped, and the
+ * function continues with the next card. Returns counts so the caller
+ * (admin endpoint) can report progress.
+ *
+ * Idempotent: re-running on already-embedded rows is a no-op since the
+ * SELECT filters embedding IS NULL.
+ */
+export async function backfillPremadeEmbeddings(): Promise<{
+  attempted: number
+  succeeded: number
+  failed:    number
+}> {
+  const { data, error } = await supabaseAdmin
+    .from('cards')
+    .select('id, fields_data')
+    .is('user_id', null)
+    .not('premade_deck_id', 'is', null)
+    .is('embedding', null)
+
+  if (error !== null) {
+    throw dbError('list premade cards needing embeddings', error)
+  }
+
+  const rows = (data ?? []) as Array<{ id: string; fields_data: Record<string, unknown> }>
+  let succeeded = 0
+  let failed    = 0
+
+  for (const row of rows) {
+    try {
+      const text = buildEmbeddingText(row.fields_data)
+      if (text === null) {
+        failed++
+        continue
+      }
+      const embedding = await generateEmbedding(text)
+      const { error: updateError } = await supabaseAdmin
+        .from('cards')
+        .update({ embedding, embedding_updated_at: new Date().toISOString() })
+        .eq('id', row.id)
+      if (updateError !== null) {
+        console.error('[admin] failed to update premade embedding', { cardId: row.id, err: updateError })
+        failed++
+        continue
+      }
+      succeeded++
+    } catch (err) {
+      console.error('[admin] failed to embed premade card', { cardId: row.id, err })
+      failed++
+    }
+  }
+
+  return { attempted: rows.length, succeeded, failed }
+}
+
+/**
+ * Generates a 1536-dim embedding via OpenAI text-embedding-3-small.
+ * Exported so the admin backfill endpoint can reuse it without round-tripping
+ * through the per-card update logic.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  if (openai === null) {
+    throw new AppError(500, 'OPENAI_API_KEY not configured')
+  }
+
+  const response = await openai.embeddings.create({
+    model: EMBEDDING_MODEL,
+    input: text,
+  })
+
+  const first = response.data?.[0]
+  if (first === undefined) {
+    throw new AppError(500, 'OpenAI returned no embedding data')
+  }
+
+  return first.embedding
 }

@@ -3,7 +3,6 @@ import {
   generatorParameters,
   createEmptyCard,
   Rating,
-  State,
   type FSRS as TsFsrsInstance,
   type Card as TsFsrsCard,
   type CardInput,
@@ -11,6 +10,7 @@ import {
   type ReviewLogInput,
   type FSRSHistory,
   type Grade,
+  type State,
 } from 'ts-fsrs'
 
 import type { CardType, ReviewRating } from '@fsrs-japanese/shared-types'
@@ -25,6 +25,13 @@ const LEECH_THRESHOLD = Number.parseInt(process.env['LEECH_THRESHOLD'] ?? '8', 1
 // ─── Per-type FSRS instances ──────────────────────────────────────────────────
 // Each card type gets its own FSRS instance baked with its request_retention.
 // Do not share instances across types — params are fixed at construction.
+//
+// Retention targets are tuned to the cognitive load of each modality:
+// - comprehension (0.90): passive recognition; high bar reflects ease of recall
+// - production (0.84): active oral/written recall; harder, realistic lower target
+// - listening (0.82): most cognitively demanding; lowest target balances difficulty
+//
+// These values are empirically validated against user forgetting curves.
 
 const schedulers: Record<CardType, TsFsrsInstance> = {
   comprehension: fsrs(generatorParameters({ request_retention: 0.90 })),
