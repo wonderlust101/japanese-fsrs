@@ -1,12 +1,16 @@
 import { z } from 'zod'
 
+import { CardType, JLPTLevel, LayoutType } from '@fsrs-japanese/shared-types'
+
 import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../lib/sanitize.ts'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
+// Derived from the canonical `as const` objects in shared-types so a value
+// added there propagates here automatically — no second source of truth.
 
-export const cardTypeEnum   = z.enum(['comprehension', 'production', 'listening'])
-export const layoutTypeEnum = z.enum(['vocabulary', 'grammar', 'sentence'])
-export const jlptLevelEnum  = z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'])
+export const cardTypeEnum   = z.enum(Object.values(CardType)   as [CardType,   ...CardType[]])
+export const layoutTypeEnum = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]])
+export const jlptLevelEnum  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  ...JLPTLevel[]])
 
 // ─── Shared field-validation primitives ───────────────────────────────────────
 
@@ -75,7 +79,4 @@ export const listCardsQuerySchema = z.object({
 export type CreateCardInput    = z.infer<typeof createCardSchema>
 export type UpdateCardInput    = z.infer<typeof updateCardSchema>
 export type ListCardsQuery     = z.infer<typeof listCardsQuerySchema>
-export type CardType           = z.infer<typeof cardTypeEnum>
-export type LayoutType         = z.infer<typeof layoutTypeEnum>
-export type JlptLevel          = z.infer<typeof jlptLevelEnum>
 export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>

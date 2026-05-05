@@ -3,22 +3,22 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
+import type { ExampleSentence } from '@fsrs-japanese/shared-types'
+
 import { Button } from '@/components/ui/Button'
 import { useGenerateSentences } from '@/lib/api/ai'
 import { updateCardAction } from '@/lib/actions/cards.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { RegeneratePanel } from './regenerate-panel'
 
-export interface Sentence { ja: string; en: string; furigana: string }
-
 interface Props {
   cardId:         string
-  sentences:      Sentence[]
+  sentences:      ExampleSentence[]
   fieldsData:     Record<string, unknown>
 }
 
 export function ExampleSentences({ cardId, sentences, fieldsData }: Props): React.JSX.Element {
-  const [pending, setPending] = useState<Sentence[] | null>(null)
+  const [pending, setPending] = useState<ExampleSentence[] | null>(null)
   const [saving,  setSaving]  = useState(false)
 
   const queryClient = useQueryClient()
@@ -88,7 +88,7 @@ export function ExampleSentences({ cardId, sentences, fieldsData }: Props): Reac
   )
 }
 
-function SentenceList({ sentences, dimmed = false }: { sentences: Sentence[]; dimmed?: boolean }): React.JSX.Element {
+function SentenceList({ sentences, dimmed = false }: { sentences: ExampleSentence[]; dimmed?: boolean }): React.JSX.Element {
   if (sentences.length === 0) {
     return <p className="text-sm text-neutral-400">No example sentences yet.</p>
   }

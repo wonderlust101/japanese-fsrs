@@ -4,19 +4,14 @@ import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
 import { DUE_CARD_COLUMNS, toApiDueCard, type DueCardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type { SubmitReviewInput } from '../schemas/review.schema.ts'
-import { State, type ApiDueCard, type SessionSummary, type SessionLeech } from '@fsrs-japanese/shared-types'
-
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export interface ForecastDay {
-  date:  string  // YYYY-MM-DD
-  count: number
-}
-
-export interface BatchResult {
-  results: ProcessReviewResult[]
-  errors:  Array<{ cardId: string; error: string }>
-}
+import {
+  State,
+  type ApiDueCard,
+  type ApiForecastDay,
+  type ApiBatchResult,
+  type SessionSummary,
+  type SessionLeech,
+} from '@fsrs-japanese/shared-types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,7 +125,7 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Api
  * Aggregation runs server-side via the get_review_forecast RPC. Bucketing
  * uses UTC calendar days, consistent with the heatmap and streak analytics.
  */
-export async function getReviewForecast(userId: string, days = 14): Promise<ForecastDay[]> {
+export async function getReviewForecast(userId: string, days = 14): Promise<ApiForecastDay[]> {
   const { data, error } = await supabaseAdmin.rpc('get_review_forecast', {
     p_user_id: userId,
     p_days:    days,
@@ -159,7 +154,7 @@ export async function getReviewForecast(userId: string, days = 14): Promise<Fore
 export async function submitBatch(
   reviews: SubmitReviewInput[],
   userId:  string,
-): Promise<BatchResult> {
+): Promise<ApiBatchResult<ProcessReviewResult>> {
   const results: ProcessReviewResult[]              = []
   const errors:  Array<{ cardId: string; error: string }> = []
 

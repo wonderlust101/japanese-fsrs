@@ -1,13 +1,11 @@
 'use server'
 
+import type { ApiAuthTokens } from '@fsrs-japanese/shared-types'
+
 import { apiCall } from '@/lib/api/client'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export interface AuthTokens {
-  accessToken:  string
-  refreshToken: string
-  expiresIn:    number
-}
+export type AuthTokens = ApiAuthTokens
 
 export async function loginAction(email: string, password: string): Promise<AuthTokens> {
   const supabase = await createSupabaseServerClient()

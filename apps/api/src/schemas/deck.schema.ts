@@ -1,9 +1,11 @@
 import { z } from 'zod'
 
+import { DeckType } from '@fsrs-japanese/shared-types'
+
 import { safeShortText } from '../lib/sanitize.ts'
 
-// Mirrors the deck_type DB enum exactly.
-export const deckTypeEnum = z.enum(['vocabulary', 'grammar', 'kanji', 'mixed'])
+// Derived from the canonical DeckType const in shared-types.
+export const deckTypeEnum = z.enum(Object.values(DeckType) as [DeckType, ...DeckType[]])
 
 export const createDeckSchema = z.object({
   name:        safeShortText(100, 1),
@@ -24,6 +26,5 @@ export const deckIdParamSchema = z.object({
   id: z.string().uuid('Invalid deck ID'),
 })
 
-export type DeckType          = z.infer<typeof deckTypeEnum>
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>
 export type UpdateDeckInput   = z.infer<typeof updateDeckSchema>

@@ -32,6 +32,8 @@ export type {
   ApiJlptGap,
   ApiMilestoneForecast,
   ApiReviewSubmitResponse,
+  ApiAuthTokens,
+  ApiSignUpResult,
 } from './api.types.ts'
 
 export type { Database, Json } from './database.types.ts'

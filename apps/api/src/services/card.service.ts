@@ -3,14 +3,17 @@ import OpenAI from 'openai'
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { getInitialFsrsState } from './fsrs.service.ts'
-import type { UpdateCardInput, CardType, LayoutType, JlptLevel } from '../schemas/card.schema.ts'
+import type { UpdateCardInput } from '../schemas/card.schema.ts'
 import {
   State,
   type ApiCard,
   type ApiCardListItem,
   type ApiDueCard,
   type ApiSimilarCard,
+  type CardType,
   type FieldsData,
+  type JLPTLevel,
+  type LayoutType,
 } from '@fsrs-japanese/shared-types'
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
@@ -103,7 +106,7 @@ export interface CreateCardMeta {
   card_type:      CardType
   layout_type:    LayoutType
   tags:           string[] | undefined
-  jlpt_level:     JlptLevel | undefined
+  jlpt_level:     JLPTLevel | undefined
   parent_card_id: string | undefined
 }
 
@@ -120,7 +123,7 @@ export interface CardDbRow {
   card_type:       CardType
   parent_card_id:  string | null
   tags:            string[]
-  jlpt_level:      JlptLevel | null
+  jlpt_level:      JLPTLevel | null
   state:           State
   is_suspended:    boolean
   due:             string

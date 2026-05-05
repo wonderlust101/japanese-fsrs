@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import type { JlptLevel, UpdateProfileInput } from '../schemas/profile.schema.ts'
-import type { Profile } from '@fsrs-japanese/shared-types'
+import type { UpdateProfileInput } from '../schemas/profile.schema.ts'
+import type { JLPTLevel, Profile } from '@fsrs-japanese/shared-types'
 
 export type { Profile }
 
@@ -30,7 +30,7 @@ const PROFILE_COLUMNS = [
 interface ProfileDbRow {
   id:                    string
   native_language:       string
-  jlpt_target:           JlptLevel | null
+  jlpt_target:           JLPTLevel | null
   study_goal:            string | null
   daily_new_cards_limit: number
   daily_review_limit:    number

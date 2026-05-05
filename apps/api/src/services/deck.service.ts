@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { State, type ApiDeck, type ApiDeckWithStats } from '@fsrs-japanese/shared-types'
-import type { CreateDeckInput, UpdateDeckInput, DeckType } from '../schemas/deck.schema.ts'
+import { State, type ApiDeck, type ApiDeckWithStats, type DeckType } from '@fsrs-japanese/shared-types'
+import type { CreateDeckInput, UpdateDeckInput } from '../schemas/deck.schema.ts'
 
 // ─── Column projections ───────────────────────────────────────────────────────
 // Keep these in sync with the return interfaces below. Never use select('*').

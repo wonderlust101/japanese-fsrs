@@ -1,9 +1,14 @@
 import { z } from 'zod'
 
+import { ReviewRating } from '@fsrs-japanese/shared-types'
+
 // 'manual' is explicitly excluded — it is only valid for internal fsrs.service
 // operations (forgetCard, rescheduleFromHistory). The Zod layer rejects it here
 // so it can never be submitted by a user via the HTTP API.
-export const reviewRatingEnum = z.enum(['again', 'hard', 'good', 'easy'])
+type UserReviewRating = Exclude<ReviewRating, typeof ReviewRating.Manual>
+const userReviewRatings = Object.values(ReviewRating)
+  .filter((r): r is UserReviewRating => r !== ReviewRating.Manual) as [UserReviewRating, ...UserReviewRating[]]
+export const reviewRatingEnum = z.enum(userReviewRatings)
 
 export const submitReviewSchema = z.object({
   cardId:       z.string().uuid('Invalid card ID'),

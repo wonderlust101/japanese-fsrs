@@ -1,17 +1,8 @@
+import type { ApiAuthTokens, ApiSignUpResult } from '@fsrs-japanese/shared-types'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { SignupInput, LoginInput, RefreshInput, CancelSignupInput, VerifyOtpInput, ResendOtpInput } from '../schemas/auth.schema.ts'
-
-export interface AuthTokens {
-  accessToken:  string
-  refreshToken: string
-  expiresIn:    number
-}
-
-export interface SignUpResult {
-  email:  string
-  userId: string
-}
 
 /**
  * Registers a new user and triggers the 6-digit OTP verification email.
@@ -31,7 +22,7 @@ export interface SignUpResult {
  * Requires the Supabase project to have "Confirm email" enabled and the email
  * template configured to send OTP tokens (not magic links).
  */
-export async function signUp(input: SignupInput): Promise<SignUpResult> {
+export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
   const { data, error } = await supabaseAdmin.auth.signUp({
     email:    input.email,
     password: input.password,
@@ -93,7 +84,7 @@ export async function cancelSignup(input: CancelSignupInput): Promise<void> {
  * Uses the standard Supabase auth flow; the service role client is required
  * because the anon key is not available server-side.
  */
-export async function signInWithPassword(input: LoginInput): Promise<AuthTokens> {
+export async function signInWithPassword(input: LoginInput): Promise<ApiAuthTokens> {
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({
     email:    input.email,
     password: input.password,
@@ -114,7 +105,7 @@ export async function signInWithPassword(input: LoginInput): Promise<AuthTokens>
  * Exchanges a valid refresh token for a new access/refresh token pair.
  * The old refresh token is invalidated by Supabase upon success.
  */
-export async function refreshSession(input: RefreshInput): Promise<AuthTokens> {
+export async function refreshSession(input: RefreshInput): Promise<ApiAuthTokens> {
   const { data, error } = await supabaseAdmin.auth.refreshSession({
     refresh_token: input.refreshToken,
   })
@@ -135,7 +126,7 @@ export async function refreshSession(input: RefreshInput): Promise<AuthTokens> {
  * Returns an access/refresh token pair on success so the caller can
  * establish a session without a second round-trip.
  */
-export async function verifyOtp(input: VerifyOtpInput): Promise<AuthTokens> {
+export async function verifyOtp(input: VerifyOtpInput): Promise<ApiAuthTokens> {
   const { data, error } = await supabaseAdmin.auth.verifyOtp({
     email: input.email,
     token: input.token,

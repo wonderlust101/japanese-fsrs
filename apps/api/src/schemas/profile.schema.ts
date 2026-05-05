@@ -1,11 +1,13 @@
 import { z } from 'zod'
 
+import { JLPTLevel } from '@fsrs-japanese/shared-types'
+
 import { safeShortText } from '../lib/sanitize.ts'
 
-// Mirrors the jlpt_level DB enum exactly — all six values, no extras.
+// Derived from the canonical JLPTLevel const in shared-types.
 // CLAUDE.md: 'beyond_jlpt' is the correct value for native/non-JLPT vocabulary;
 // never use null to mean "not on JLPT".
-export const jlptLevelEnum = z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'])
+export const jlptLevelEnum = z.enum(Object.values(JLPTLevel) as [JLPTLevel, ...JLPTLevel[]])
 
 export const updateProfileSchema = z.object({
   jlpt_target:           jlptLevelEnum.optional(),
@@ -18,5 +20,4 @@ export const updateProfileSchema = z.object({
   native_language:       safeShortText(10, 2).optional(),
 }).strict()
 
-export type JlptLevel         = z.infer<typeof jlptLevelEnum>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>

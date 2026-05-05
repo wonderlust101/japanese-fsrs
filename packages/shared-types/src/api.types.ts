@@ -102,8 +102,8 @@ export interface ApiForecastDay {
   count: number
 }
 
-export interface ApiBatchResult {
-  results: unknown[]
+export interface ApiBatchResult<T = unknown> {
+  results: T[]
   errors:  Array<{ cardId: string; error: string }>
 }
 
@@ -183,4 +183,17 @@ export interface ApiReviewSubmitResponse {
     scheduledDays: number
     state:         State
   }
+}
+
+// ─── Auth wire formats ────────────────────────────────────────────────────────
+
+export interface ApiAuthTokens {
+  accessToken:  string
+  refreshToken: string
+  expiresIn:    number
+}
+
+export interface ApiSignUpResult {
+  email:  string
+  userId: string
 }

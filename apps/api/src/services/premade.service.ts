@@ -1,12 +1,12 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
-import type { DeckType } from '../schemas/deck.schema.ts'
-import type { JlptLevel } from '../schemas/card.schema.ts'
 import type {
   ApiPremadeDeck,
   ApiPremadeSubscription,
   ApiSubscribeResult,
+  DeckType,
+  JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ interface PremadeDeckDbRow {
   name:        string
   description: string | null
   deck_type:   DeckType
-  jlpt_level:  JlptLevel | null
+  jlpt_level:  JLPTLevel | null
   domain:      string | null
   card_count:  number
   version:     number

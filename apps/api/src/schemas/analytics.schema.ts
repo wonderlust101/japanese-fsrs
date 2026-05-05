@@ -10,6 +10,7 @@ export const HeatmapRpcRowSchema = z.object({
   count:     z.coerce.number(),
 })
 export const HeatmapRpcSchema = z.array(HeatmapRpcRowSchema)
+export type HeatmapRpcRow = z.infer<typeof HeatmapRpcRowSchema>
 
 export const AccuracyRpcRowSchema = z.object({
   layout:     z.string(),
@@ -17,6 +18,7 @@ export const AccuracyRpcRowSchema = z.object({
   successful: z.coerce.number(),
 })
 export const AccuracyRpcSchema = z.array(AccuracyRpcRowSchema)
+export type AccuracyRpcRow = z.infer<typeof AccuracyRpcRowSchema>
 
 export const StreakRpcRowSchema = z.object({
   current_streak:   z.coerce.number().nullable(),
@@ -24,6 +26,7 @@ export const StreakRpcRowSchema = z.object({
   last_review_date: z.string().nullable(),
 })
 export const StreakRpcSchema = z.array(StreakRpcRowSchema)
+export type StreakRpcRow = z.infer<typeof StreakRpcRowSchema>
 
 export const JlptGapRpcRowSchema = z.object({
   jlpt_level: z.string(),
@@ -32,6 +35,7 @@ export const JlptGapRpcRowSchema = z.object({
   due:        z.coerce.number(),
 })
 export const JlptGapRpcSchema = z.array(JlptGapRpcRowSchema)
+export type JlptGapRpcRow = z.infer<typeof JlptGapRpcRowSchema>
 
 export const MilestoneForecastRpcRowSchema = z.object({
   jlpt_level:                z.string(),
@@ -42,3 +46,4 @@ export const MilestoneForecastRpcRowSchema = z.object({
   projected_completion_date: z.string().nullable(),
 })
 export const MilestoneForecastRpcSchema = z.array(MilestoneForecastRpcRowSchema)
+export type MilestoneForecastRpcRow = z.infer<typeof MilestoneForecastRpcRowSchema>
