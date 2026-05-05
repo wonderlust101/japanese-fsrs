@@ -1,4 +1,4 @@
-import type { Card } from './card.types.ts'
+import type { ApiCard } from './api.types.ts'
 
 export const ReviewRating = {
   Manual: 'manual', // forget / reschedule operations; never a user-facing rating
@@ -36,7 +36,7 @@ export interface ReviewLog {
 
 /** Entry in the Zustand session `completed` array after a card is rated. */
 export interface ReviewResult {
-  card: Card
+  card: ApiCard
   rating: ReviewRating
 }
 

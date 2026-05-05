@@ -1,8 +1,8 @@
 export { State, CardType } from './fsrs.types.ts'
 export type { FsrsCardState } from './fsrs.types.ts'
 
-export { JLPTLevel, RegisterTag } from './card.types.ts'
-export type { Card, ExampleSentence, KanjiBreakdown, Mnemonic } from './card.types.ts'
+export { JLPTLevel } from './card.types.ts'
+export type { ExampleSentence, KanjiBreakdown, Mnemonic } from './card.types.ts'
 
 export { DeckType } from './deck.types.ts'
 export type { Deck, PremadeDeck, UserPremadeSubscription } from './deck.types.ts'
