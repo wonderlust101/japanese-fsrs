@@ -30,7 +30,7 @@ export const deckIdParamSchema = z.object({
 export const listDecksQuerySchema = z.object({
   limit:  z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().uuid().optional(),
-})
+}).strict()
 
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>
 export type CreateDeckPayload = z.input<typeof createDeckSchema>

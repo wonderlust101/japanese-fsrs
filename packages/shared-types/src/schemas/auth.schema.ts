@@ -6,29 +6,29 @@ export const signupSchema = z.object({
   email:       z.email(),
   password:    z.string().min(8).max(128),
   displayName: safeShortText(30, 2),
-})
+}).strict()
 
 export const loginSchema = z.object({
   email:    z.email(),
   password: z.string().min(1),
-})
+}).strict()
 
 export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
-})
+}).strict()
 
 export const cancelSignupSchema = z.object({
   userId: z.string().uuid(),
-})
+}).strict()
 
 export const verifyOtpSchema = z.object({
   email: z.email(),
   token: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must be digits only'),
-})
+}).strict()
 
 export const resendOtpSchema = z.object({
   email: z.email(),
-})
+}).strict()
 
 export type SignupInput       = z.infer<typeof signupSchema>
 export type LoginInput        = z.infer<typeof loginSchema>
