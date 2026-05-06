@@ -68,3 +68,18 @@ export const milestones: RequestHandler = async (req, res, next): Promise<void> 
     next(err)
   }
 }
+
+/**
+ * GET /api/v1/analytics/dashboard
+ * Bundled response combining heatmap, accuracy, streak, JLPT gap, and
+ * milestone forecast in a single round-trip. The granular endpoints above
+ * remain available for partial reloads.
+ */
+export const dashboard: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const data = await analyticsService.getDashboardData(req.user.id)
+    res.json(data)
+  } catch (err) {
+    next(err)
+  }
+}

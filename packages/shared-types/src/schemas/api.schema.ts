@@ -206,6 +206,20 @@ export const ApiMilestoneForecastSchema = z.object({
   projectedCompletionDate: z.string().nullable(),
 })
 
+/**
+ * Bundled response for GET /api/v1/analytics/dashboard. Combines the five
+ * granular analytics responses into one envelope so the analytics page makes
+ * a single round-trip instead of five. The granular endpoints remain available
+ * for partial refreshes.
+ */
+export const ApiAnalyticsDashboardSchema = z.object({
+  heatmap:    z.array(ApiHeatmapDaySchema),
+  accuracy:   z.array(ApiLayoutAccuracySchema),
+  streak:     ApiStreakStatsSchema,
+  jlptGap:    z.array(ApiJlptGapSchema),
+  milestones: z.array(ApiMilestoneForecastSchema),
+})
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const ApiAuthTokensSchema = z.object({

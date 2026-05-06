@@ -1,12 +1,6 @@
 'use client'
 
-import {
-  useHeatmapData,
-  useAccuracyByLayout,
-  useStreak,
-  useJlptGap,
-  useMilestoneForecast,
-} from '@/lib/api/analytics'
+import { useAnalyticsDashboard } from '@/lib/api/analytics'
 import { useReviewForecast } from '@/lib/api/reviews'
 import { RetentionHeatmap }  from './RetentionHeatmap'
 import { AccuracyBreakdown } from './AccuracyBreakdown'
@@ -16,43 +10,46 @@ import { ReviewForecastChart } from './ReviewForecastChart'
 import { JLPTProgressBars }  from './JLPTProgressBars'
 
 export function AnalyticsDashboard(): React.JSX.Element {
-  const heatmap   = useHeatmapData()
-  const accuracy  = useAccuracyByLayout()
-  const streak    = useStreak()
-  const jlptGap   = useJlptGap()
+  const dashboard = useAnalyticsDashboard()
   const forecast  = useReviewForecast()
-  const milestones = useMilestoneForecast()
+
+  const heatmap    = dashboard.data?.heatmap    ?? []
+  const accuracy   = dashboard.data?.accuracy   ?? []
+  const streak     = dashboard.data?.streak
+  const jlptGap    = dashboard.data?.jlptGap    ?? []
+  const milestones = dashboard.data?.milestones ?? []
+  const isLoading  = dashboard.isLoading
 
   return (
     <div className="space-y-6">
       {/* Top stat row — what users come back for daily */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <StreakCard
-          currentStreak={streak.data?.currentStreak ?? 0}
-          longestStreak={streak.data?.longestStreak ?? 0}
-          isLoading={streak.isLoading}
+          currentStreak={streak?.currentStreak ?? 0}
+          longestStreak={streak?.longestStreak ?? 0}
+          isLoading={isLoading}
         />
         <TodayProgressCard
-          heatmap={heatmap.data ?? []}
-          isLoading={heatmap.isLoading}
+          heatmap={heatmap}
+          isLoading={isLoading}
         />
       </div>
 
       {/* Heatmap */}
-      <RetentionHeatmap data={heatmap.data ?? []} isLoading={heatmap.isLoading} />
+      <RetentionHeatmap data={heatmap} isLoading={isLoading} />
 
       {/* Review forecast */}
       <ReviewForecastChart data={forecast.data ?? []} isLoading={forecast.isLoading} />
 
       {/* JLPT gap + milestone forecast (merged per row) */}
       <JLPTProgressBars
-        gap={jlptGap.data ?? []}
-        milestones={milestones.data ?? []}
-        isLoading={jlptGap.isLoading || milestones.isLoading}
+        gap={jlptGap}
+        milestones={milestones}
+        isLoading={isLoading}
       />
 
       {/* Accuracy by layout */}
-      <AccuracyBreakdown data={accuracy.data ?? []} isLoading={accuracy.isLoading} />
+      <AccuracyBreakdown data={accuracy} isLoading={isLoading} />
     </div>
   )
 }

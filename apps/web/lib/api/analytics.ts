@@ -7,6 +7,7 @@ import type {
   ApiStreakStats,
   ApiJlptGap,
   ApiMilestoneForecast,
+  ApiAnalyticsDashboard,
 } from '@fsrs-japanese/shared-types'
 
 import { queryKeys } from './queryKeys'
@@ -17,7 +18,22 @@ import {
   getStreakAction,
   getJlptGapAction,
   getMilestoneForecastAction,
+  getDashboardAction,
 } from '../actions/analytics.actions'
+
+/**
+ * Bundled fetch for the analytics page — combines heatmap, accuracy, streak,
+ * JLPT gap, and milestone forecast into a single round-trip. Prefer this
+ * hook for the dashboard view; the granular hooks below remain available
+ * for partial-refresh scenarios.
+ */
+export function useAnalyticsDashboard(): UseQueryResult<ApiAnalyticsDashboard, Error> {
+  return useQuery({
+    queryKey:  queryKeys.analytics.dashboard(),
+    queryFn:   getDashboardAction,
+    staleTime: staleTimes.analytics,
+  })
+}
 
 export function useHeatmapData(): UseQueryResult<ApiHeatmapDay[], Error> {
   return useQuery({

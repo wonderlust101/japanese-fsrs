@@ -1,27 +1,17 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow } from '../lib/db.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { processReview, type ProcessReviewResult } from './fsrs.service.ts'
-import { DUE_CARD_COLUMNS, toApiDueCard, type DueCardDbRow } from './card.service.ts'
+import { processReviewBatch, type ProcessReviewResult } from './fsrs.service.ts'
+import { toApiDueCard, type DueCardDbRow } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
-import {
-  State,
-  type ApiDueCard,
-  type ApiForecastDay,
-  type ApiBatchResult,
-  type SessionSummary,
-  type SessionLeech,
-  type SubmitReviewInput,
+import type {
+  ApiDueCard,
+  ApiForecastDay,
+  ApiBatchResult,
+  SessionSummary,
+  SessionLeech,
+  SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Returns UTC midnight of the current day as an ISO string. */
-function startOfTodayISO(): string {
-  const d = new Date()
-  d.setUTCHours(0, 0, 0, 0)
-  return d.toISOString()
-}
 
 // ─── Service functions ────────────────────────────────────────────────────────
 
@@ -40,83 +30,24 @@ function startOfTodayISO(): string {
  *   - New cards fill up to min(remainingNew, remainingTotal - overdueCount).
  */
 export async function getDueCards(userId: string, profile: Profile): Promise<ApiDueCard[]> {
-  const todayISO = startOfTodayISO()
-
-  // ── Count today's reviews ──────────────────────────────────────────────────
-  const [totalResult, newResult] = await Promise.all([
-    supabaseAdmin
-      .from('review_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('reviewed_at', todayISO),
-    supabaseAdmin
-      .from('review_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('state_before', 0)
-      .gte('reviewed_at', todayISO),
-  ])
-
-  if (totalResult.error !== null) {
-    throw dbError("count today's reviews", totalResult.error)
-  }
-  if (newResult.error !== null) {
-    throw dbError("count today's new reviews", newResult.error)
-  }
-
-  const totalReviewedToday = totalResult.count ?? 0
-  const newReviewedToday   = newResult.count   ?? 0
-
-  const remainingTotal = Math.max(0, profile.dailyReviewLimit   - totalReviewedToday)
-  const remainingNew   = Math.max(0, profile.dailyNewCardsLimit - newReviewedToday)
-
-  if (remainingTotal === 0) return []
-
-  // ── Fetch overdue non-new cards ────────────────────────────────────────────
-  const now = new Date().toISOString()
-
-  // Non-new cards (Learning, Review, Relearning) that aren't suspended.
-  const { data: overdueData, error: overdueError } = await supabaseAdmin
-    .from('cards')
-    .select(DUE_CARD_COLUMNS)
-    .eq('user_id', userId)
-    .in('state', [State.Learning, State.Review, State.Relearning])
-    .eq('is_suspended', false)
-    .lte('due', now)
-    .order('due', { ascending: true })
-    .limit(remainingTotal)
-
-  if (overdueError !== null) {
-    throw dbError('fetch due cards', overdueError)
-  }
-
-  const overdueCards = (overdueData ?? []).map(
-    (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // get_due_cards until `supabase gen types` runs post-deploy.
+  const { data, error } = await supabaseAdmin.rpc(
+    'get_due_cards' as never,
+    asPayload({
+      p_user_id:               userId,
+      p_daily_review_limit:    profile.dailyReviewLimit,
+      p_daily_new_cards_limit: profile.dailyNewCardsLimit,
+    }),
   )
 
-  // ── Fetch new cards ────────────────────────────────────────────────────────
-  const newSlots = Math.min(remainingNew, remainingTotal - overdueCards.length)
-
-  if (newSlots <= 0) return overdueCards
-
-  const { data: newData, error: newError } = await supabaseAdmin
-    .from('cards')
-    .select(DUE_CARD_COLUMNS)
-    .eq('user_id', userId)
-    .eq('state', State.New)
-    .eq('is_suspended', false)
-    .order('created_at', { ascending: true })
-    .limit(newSlots)
-
-  if (newError !== null) {
-    throw dbError('fetch new cards', newError)
+  if (error !== null) {
+    throw dbError('fetch due cards', error)
   }
 
-  const newCards = (newData ?? []).map(
+  return ((data ?? []) as DueCardDbRow[]).map(
     (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
   )
-
-  return [...overdueCards, ...newCards]
 }
 
 /**
@@ -147,38 +78,19 @@ export async function getReviewForecast(userId: string, days = 14): Promise<ApiF
 }
 
 /**
- * Processes a batch of offline-buffered review submissions sequentially.
+ * Processes a batch of offline-buffered review submissions in a single
+ * round-trip via the `process_review_batch` RPC. Per-review races on the
+ * same card_id are still serialized — the RPC takes a row lock per card
+ * before applying its update (matching `process_review`).
  *
- * Sequential (not parallel) to avoid race conditions when the same card
- * appears more than once in the batch. Partial failures are collected in
- * `errors` rather than aborting the whole batch.
+ * Partial failures are collected in `errors` rather than aborting the
+ * whole batch; preserves the existing wire contract.
  */
 export async function submitBatch(
   reviews: SubmitReviewInput[],
   userId:  string,
 ): Promise<ApiBatchResult<ProcessReviewResult>> {
-  const results: ProcessReviewResult[]              = []
-  const errors:  Array<{ cardId: string; error: string }> = []
-
-  for (const review of reviews) {
-    try {
-      const result = await processReview(
-        review.cardId,
-        review.rating,
-        userId,
-        review.reviewTimeMs,
-        review.sessionId,
-      )
-      results.push(result)
-    } catch (err) {
-      errors.push({
-        cardId: review.cardId,
-        error:  err instanceof Error ? err.message : 'Unknown error',
-      })
-    }
-  }
-
-  return { results, errors }
+  return processReviewBatch(reviews, userId)
 }
 
 /**

@@ -18,6 +18,8 @@ import {
   type CardType,
   type ReviewRating,
   type ApiReviewedCard,
+  type ApiBatchResult,
+  type SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
@@ -136,6 +138,41 @@ interface ReviewLogRow {
   last_review_before: string | null
   reps_before: number | null
   lapses_before: number | null
+}
+
+// Column projections for review_logs SELECTs. Avoid select('*') so payload
+// scales with `ReviewLogRow` (the type) rather than the full row width.
+const REVIEW_LOG_FULL_COLUMNS = [
+  'id',
+  'card_id',
+  'user_id',
+  'rating',
+  'review_time_ms',
+  'stability_after',
+  'difficulty_after',
+  'due_after',
+  'scheduled_days_after',
+  'reviewed_at',
+  'state_before',
+  'stability_before',
+  'difficulty_before',
+  'due_before',
+  'scheduled_days_before',
+  'learning_steps_before',
+  'elapsed_days_before',
+  'last_review_before',
+  'reps_before',
+  'lapses_before',
+].join(', ')
+
+/** Slim review_logs projection used by rescheduleFromHistory — only the two
+ *  fields the FSRSHistory mapper consumes. ~10× payload reduction for cards
+ *  with long review history. */
+const REVIEW_LOG_HISTORY_COLUMNS = 'rating, reviewed_at'
+
+interface ReviewLogHistoryRow {
+  rating:      string
+  reviewed_at: string
 }
 
 /** Convert a DB card row to the CardInput shape ts-fsrs expects. */
@@ -290,6 +327,177 @@ export async function processReview(
 }
 
 /**
+ * Processes a batch of reviews in a single round-trip via the
+ * `process_review_batch` RPC. Pre-fetches all target cards in one query,
+ * runs ts-fsrs scheduling per review in JS, then submits all post-schedule
+ * states + before-snapshots as one JSONB payload.
+ *
+ * Per-review failures are caught inside the RPC's per-iteration EXCEPTION
+ * block and surfaced via the `errors` array, preserving the contract of
+ * the previous serial implementation. Pre-RPC validation failures (missing
+ * card, suspended card) skip the RPC entry and go straight to `errors`.
+ */
+export async function processReviewBatch(
+  reviews: SubmitReviewInput[],
+  userId:  string,
+): Promise<ApiBatchResult<ProcessReviewResult>> {
+  if (reviews.length === 0) {
+    return { results: [], errors: [] }
+  }
+
+  const cardIds = reviews.map((r) => r.cardId)
+
+  const { data: cardData, error: fetchError } = await supabaseAdmin
+    .from('cards')
+    .select(FSRS_SELECT_COLUMNS)
+    .in('id', cardIds)
+    .eq('user_id', userId)
+
+  if (fetchError !== null) {
+    throw dbError('fetch cards for batch review', fetchError)
+  }
+
+  const cardMap = new Map<string, FsrsCardRow>(
+    (cardData ?? []).map((row) => {
+      const r = narrowRow<FsrsCardRow>(row)
+      return [r.id, r]
+    }),
+  )
+
+  // RPC payload row mirrors the per-review fields process_review takes,
+  // packed flat per the JSONB shape declared in the migration.
+  interface BatchRpcRow {
+    card_id:                 string
+    rating:                  ReviewRating
+    review_time_ms:          number | null
+    session_id:              string | null
+    p_state:                 number
+    p_due:                   string
+    p_stability:             number
+    p_difficulty:            number
+    p_elapsed_days:          number
+    p_scheduled_days:        number
+    p_learning_steps:        number
+    p_reps:                  number
+    p_lapses:                number
+    p_last_review:           string
+    p_state_before:          number
+    p_stability_before:      number
+    p_difficulty_before:     number
+    p_due_before:            string
+    p_scheduled_days_before: number
+    p_learning_steps_before: number
+    p_elapsed_days_before:   number
+    p_last_review_before:    string | null
+    p_reps_before:           number
+    p_lapses_before:         number
+  }
+
+  const batch:  BatchRpcRow[]                              = []
+  const errors: Array<{ cardId: string; error: string }>   = []
+
+  for (const review of reviews) {
+    const row = cardMap.get(review.cardId)
+    if (row === undefined) {
+      errors.push({ cardId: review.cardId, error: 'Card not found' })
+      continue
+    }
+    if (row.user_id === null) {
+      errors.push({ cardId: review.cardId, error: 'Cannot review a premade source card' })
+      continue
+    }
+    if (row.is_suspended) {
+      errors.push({ cardId: review.cardId, error: 'Card is suspended; unsuspend it before reviewing' })
+      continue
+    }
+
+    const scheduler              = getScheduler(row.card_type)
+    const grade                  = mapRatingToGrade(review.rating)
+    const reviewedAt             = new Date()
+    const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
+
+    batch.push({
+      card_id:                 review.cardId,
+      rating:                  review.rating,
+      review_time_ms:          review.reviewTimeMs ?? null,
+      session_id:              review.sessionId ?? null,
+      p_state:                 updated.state,
+      p_due:                   updated.due.toISOString(),
+      p_stability:             updated.stability,
+      p_difficulty:            updated.difficulty,
+      p_elapsed_days:          updated.elapsed_days,
+      p_scheduled_days:        updated.scheduled_days,
+      p_learning_steps:        updated.learning_steps,
+      p_reps:                  updated.reps,
+      p_lapses:                updated.lapses,
+      p_last_review:           reviewedAt.toISOString(),
+      p_state_before:          row.state,
+      p_stability_before:      row.stability,
+      p_difficulty_before:     row.difficulty,
+      p_due_before:            row.due,
+      p_scheduled_days_before: row.scheduled_days,
+      p_learning_steps_before: row.learning_steps,
+      p_elapsed_days_before:   row.elapsed_days,
+      p_last_review_before:    row.last_review ?? null,
+      p_reps_before:           row.reps,
+      p_lapses_before:         row.lapses,
+    })
+  }
+
+  const results: ProcessReviewResult[] = []
+
+  if (batch.length > 0) {
+    interface BatchResultRow {
+      card_id:        string
+      success:        boolean
+      error_message:  string | null
+      due:            string | null
+      stability:      number | null
+      difficulty:     number | null
+      scheduled_days: number | null
+      state:          number | null
+    }
+
+    // Function name cast: database.types.ts is auto-generated and won't include
+    // process_review_batch until `supabase gen types` runs post-deploy.
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+      'process_review_batch' as never,
+      asPayload({
+        p_user_id:         userId,
+        p_reviews:         batch,
+        p_leech_threshold: LEECH_THRESHOLD,
+      }),
+    )
+
+    if (rpcError !== null) {
+      throw dbError('persist review batch', rpcError)
+    }
+
+    for (const raw of (rpcData ?? []) as BatchResultRow[]) {
+      const r = narrowRow<BatchResultRow>(raw)
+      if (r.success && r.due !== null && r.stability !== null && r.difficulty !== null
+          && r.scheduled_days !== null && r.state !== null) {
+        results.push({
+          id:            r.card_id,
+          due:           r.due,
+          stability:     r.stability,
+          difficulty:    r.difficulty,
+          scheduledDays: r.scheduled_days,
+          state:         r.state,
+        })
+      } else {
+        errors.push({
+          cardId: r.card_id,
+          error:  r.error_message ?? 'Unknown error',
+        })
+      }
+    }
+  }
+
+  return { results, errors }
+}
+
+/**
  * Undoes a specific review log entry and restores the card to its pre-review state.
  *
  * Requires non-null before-snapshot fields on the log. Logs written before
@@ -311,7 +519,7 @@ export async function rollbackReview(
       .single(),
     supabaseAdmin
       .from('review_logs')
-      .select('*')
+      .select(REVIEW_LOG_FULL_COLUMNS)
       .eq('id', reviewLogId)
       .eq('card_id', cardId)
       .eq('user_id', userId)
@@ -514,7 +722,7 @@ export async function rescheduleFromHistory(
       .single(),
     supabaseAdmin
       .from('review_logs')
-      .select('*')
+      .select(REVIEW_LOG_HISTORY_COLUMNS)
       .eq('card_id', cardId)
       .eq('user_id', userId)
       .neq('rating', 'manual')
@@ -530,7 +738,7 @@ export async function rescheduleFromHistory(
   }
 
   const row = narrowRow<FsrsCardRow>(cardResult.data)
-  const logs = narrowRow<ReviewLogRow[]>(logsResult.data ?? [])
+  const logs = narrowRow<ReviewLogHistoryRow[]>(logsResult.data ?? [])
 
   if (logs.length === 0) {
     throw new AppError(409, 'No eligible review logs to reschedule from')

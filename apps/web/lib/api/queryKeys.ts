@@ -16,6 +16,7 @@ export const queryKeys = {
     summary:  (id: string) => ['reviews', 'summary', id]   as const,
   },
   analytics: {
+    dashboard:  () => ['analytics', 'dashboard']  as const,
     heatmap:    () => ['analytics', 'heatmap']    as const,
     accuracy:   () => ['analytics', 'accuracy']   as const,
     jlptGap:    () => ['analytics', 'jlpt-gap']   as const,

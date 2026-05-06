@@ -8,11 +8,13 @@ import {
   ApiStreakStatsSchema,
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
+  ApiAnalyticsDashboardSchema,
   type ApiHeatmapDay,
   type ApiLayoutAccuracy,
   type ApiStreakStats,
   type ApiJlptGap,
   type ApiMilestoneForecast,
+  type ApiAnalyticsDashboard,
 } from '@fsrs-japanese/shared-types'
 
 import { apiCall, apiCallSafe } from '@/lib/api/client'
@@ -54,5 +56,26 @@ export async function getMilestoneForecastAction(): Promise<ApiMilestoneForecast
     z.array(ApiMilestoneForecastSchema),
     {},
     [],
+  )
+}
+
+const dashboardFallback: ApiAnalyticsDashboard = {
+  heatmap:    [],
+  accuracy:   [],
+  streak:     { currentStreak: 0, longestStreak: 0, lastReviewDate: null },
+  jlptGap:    [],
+  milestones: [],
+}
+
+/**
+ * Bundled fetch for the analytics page — collapses 5 prior round-trips
+ * (heatmap + accuracy + streak + jlpt-gap + milestones) into one request.
+ */
+export async function getDashboardAction(): Promise<ApiAnalyticsDashboard> {
+  return apiCallSafe<ApiAnalyticsDashboard>(
+    '/api/v1/analytics/dashboard',
+    ApiAnalyticsDashboardSchema,
+    {},
+    dashboardFallback,
   )
 }

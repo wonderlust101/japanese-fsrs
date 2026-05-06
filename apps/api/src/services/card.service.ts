@@ -609,8 +609,11 @@ export async function backfillPremadeEmbeddings(): Promise<{
 
   interface PremadeEmbedRow { id: string; fields_data: Record<string, unknown> }
   const rows = narrowRow<PremadeEmbedRow[]>(data ?? [])
-  let succeeded = 0
-  let failed    = 0
+
+  // OpenAI calls stay sequential to respect rate limits; the DB writes are
+  // collected and flushed once via bulk_update_card_embeddings.
+  const updates: Array<{ id: string; embedding: string }> = []
+  let failed = 0
 
   for (const row of rows) {
     try {
@@ -620,19 +623,31 @@ export async function backfillPremadeEmbeddings(): Promise<{
         continue
       }
       const embedding = await generateEmbedding(text)
-      const { error: updateError } = await supabaseAdmin
-        .from('cards')
-        .update({ embedding: embedding as unknown as string, embedding_updated_at: new Date().toISOString() })
-        .eq('id', row.id)
-      if (updateError !== null) {
-        console.error('[admin] failed to update premade embedding', { cardId: row.id, err: updateError })
-        failed++
-        continue
-      }
-      succeeded++
+      // pgvector accepts the literal-array form as TEXT and casts at the SQL
+      // boundary inside bulk_update_card_embeddings.
+      updates.push({ id: row.id, embedding: `[${embedding.join(',')}]` })
     } catch (err) {
       console.error('[admin] failed to embed premade card', { cardId: row.id, err })
       failed++
+    }
+  }
+
+  let succeeded = 0
+  if (updates.length > 0) {
+    // Function name cast: database.types.ts is auto-generated and won't include
+    // bulk_update_card_embeddings until `supabase gen types` runs post-deploy.
+    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+      'bulk_update_card_embeddings' as never,
+      asPayload({ p_updates: updates }),
+    )
+    if (rpcError !== null) {
+      console.error('[admin] bulk embedding update failed', { err: rpcError })
+      failed += updates.length
+    } else {
+      succeeded = (rpcData as unknown as number) ?? 0
+      // Any update that didn't land (id mismatch, vector parse error, etc.)
+      // counts as failed for the caller's diagnostic count.
+      failed += updates.length - succeeded
     }
   }
 

@@ -23,6 +23,7 @@ import type {
   ApiStreakStatsSchema,
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
+  ApiAnalyticsDashboardSchema,
   ApiReviewedCardSchema,
   ApiReviewSubmitResponseSchema,
   ApiAuthTokensSchema,
@@ -80,6 +81,9 @@ export type ApiJlptGap = z.infer<typeof ApiJlptGapSchema>
 
 /** Per-JLPT-level milestone projection from the user's 30-day pace. */
 export type ApiMilestoneForecast = z.infer<typeof ApiMilestoneForecastSchema>
+
+/** Bundled analytics response for the dashboard view (one round-trip). */
+export type ApiAnalyticsDashboard = z.infer<typeof ApiAnalyticsDashboardSchema>
 
 // ─── Review submit wire format ────────────────────────────────────────────────
 

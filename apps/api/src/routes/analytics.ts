@@ -5,6 +5,7 @@ import * as analyticsController from '../controllers/analytics.controller.ts'
 
 const router = Router()
 
+router.get('/dashboard',  authMiddleware, analyticsController.dashboard)
 router.get('/heatmap',    authMiddleware, analyticsController.heatmap)
 router.get('/accuracy',   authMiddleware, analyticsController.accuracy)
 router.get('/streak',     authMiddleware, analyticsController.streak)

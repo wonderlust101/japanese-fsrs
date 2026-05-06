@@ -120,8 +120,15 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
 // the discriminated union internally and projects a stable shape so callers
 // don't have to discriminate themselves.
 
+// Stable references for the "phase doesn't match" fallback path. A fresh `[]`
+// literal in a Zustand selector triggers React's useSyncExternalStore loop
+// detection ("getServerSnapshot should be cached") because every render
+// produces a new reference.
+const EMPTY_QUEUE:   readonly ApiDueCard[]         = []
+const EMPTY_HISTORY: readonly SessionHistoryEntry[] = []
+
 export const useReviewQueue      = (): ApiDueCard[] =>
-  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : []))
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : EMPTY_QUEUE as ApiDueCard[]))
 
 export const useCurrentCard      = (): ApiDueCard | undefined =>
   useReviewSessionStore((s) => (s.phase === 'active' ? s.queue[s.currentIndex] : undefined))
@@ -134,7 +141,9 @@ export const useShowAnswer       = (): boolean =>
 
 export const useSessionHistory   = (): SessionHistoryEntry[] =>
   useReviewSessionStore((s) =>
-    s.phase === 'active' || s.phase === 'finished' ? s.sessionHistory : [],
+    s.phase === 'active' || s.phase === 'finished'
+      ? s.sessionHistory
+      : (EMPTY_HISTORY as SessionHistoryEntry[]),
   )
 
 export const useIsSessionStarted = (): boolean =>

@@ -1,10 +1,13 @@
+import { z } from 'zod'
 import type { ZodType } from 'zod'
-import type {
-  ApiHeatmapDay,
-  ApiLayoutAccuracy,
-  ApiStreakStats,
-  ApiJlptGap,
-  ApiMilestoneForecast,
+import {
+  ApiAnalyticsDashboardSchema,
+  type ApiHeatmapDay,
+  type ApiLayoutAccuracy,
+  type ApiStreakStats,
+  type ApiJlptGap,
+  type ApiMilestoneForecast,
+  type ApiAnalyticsDashboard,
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
@@ -15,6 +18,7 @@ import {
   HeatmapRpcSchema,
   AccuracyRpcSchema,
   StreakRpcSchema,
+  StreakRpcRowSchema,
   JlptGapRpcSchema,
   MilestoneForecastRpcSchema,
 } from '../schemas/analytics.schema.ts'
@@ -120,4 +124,84 @@ export async function getMilestoneForecast(userId: string): Promise<ApiMilestone
     daysRemaining:           r.days_remaining,
     projectedCompletionDate: r.projected_completion_date,
   }))
+}
+
+// ─── Bundled dashboard ────────────────────────────────────────────────────────
+
+/**
+ * Bundled response from the get_dashboard_data RPC. The RPC returns the five
+ * analytics result sets in a single JSONB envelope (snake_case at the SQL
+ * boundary), validated here, then reshaped into the camelCase wire format.
+ */
+const DashboardRpcEnvelopeSchema = z.object({
+  heatmap:    HeatmapRpcSchema,
+  accuracy:   AccuracyRpcSchema,
+  // Streak's RPC returns a single row; the wrapper inlines it as a single object.
+  streak:     StreakRpcRowSchema.nullable(),
+  jlpt_gap:   JlptGapRpcSchema,
+  milestones: MilestoneForecastRpcSchema,
+})
+
+/**
+ * Bundles heatmap, accuracy, streak, JLPT gap, and milestone forecast into
+ * one round-trip via the get_dashboard_data RPC. Returns the same camelCase
+ * shapes the granular endpoints return — clients can drop in seamlessly.
+ */
+export async function getDashboardData(userId: string): Promise<ApiAnalyticsDashboard> {
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // get_dashboard_data until `supabase gen types` runs post-deploy.
+  const { data, error } = await supabaseAdmin.rpc(
+    'get_dashboard_data' as never,
+    asPayload({ p_user_id: userId }),
+  )
+
+  if (error !== null) throw dbError('fetch dashboard data', error)
+
+  const env = DashboardRpcEnvelopeSchema.parse(data)
+
+  // Reshape each section to the camelCase wire format using the existing
+  // mappers' field renames. A small amount of duplication here vs. calling
+  // the granular service functions; trade-off is one round-trip not five.
+  const heatmap: ApiHeatmapDay[] = env.heatmap.map((r) => ({
+    date:      r.date,
+    retention: r.retention,
+    count:     r.count,
+  }))
+
+  const accuracy: ApiLayoutAccuracy[] = env.accuracy.map((r) => {
+    const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
+    return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
+  })
+
+  const streak: ApiStreakStats = env.streak === null
+    ? { currentStreak: 0, longestStreak: 0, lastReviewDate: null }
+    : {
+        currentStreak:  env.streak.current_streak  ?? 0,
+        longestStreak:  env.streak.longest_streak  ?? 0,
+        lastReviewDate: env.streak.last_review_date,
+      }
+
+  const jlptGap: ApiJlptGap[] = env.jlpt_gap.map((r) => {
+    const progressPct = r.total === 0 ? 0 : Math.round((r.learned / r.total) * 1000) / 10
+    return {
+      jlptLevel:   r.jlpt_level,
+      total:       r.total,
+      learned:     r.learned,
+      due:         r.due,
+      progressPct,
+    }
+  })
+
+  const milestones: ApiMilestoneForecast[] = env.milestones.map((r) => ({
+    jlptLevel:               r.jlpt_level,
+    total:                   r.total,
+    learned:                 r.learned,
+    dailyPace:               r.daily_pace ?? 0,
+    daysRemaining:           r.days_remaining,
+    projectedCompletionDate: r.projected_completion_date,
+  }))
+
+  // Final shape validation against the wire-format schema — guarantees the
+  // output matches what the controller declares it returns.
+  return ApiAnalyticsDashboardSchema.parse({ heatmap, accuracy, streak, jlptGap, milestones })
 }
