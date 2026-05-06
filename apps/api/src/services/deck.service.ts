@@ -74,9 +74,9 @@ function toRow(raw: DeckDbRow): ApiDeck {
 
 /**
  * Returns a cursor-paginated list of decks owned by the given user.
- * Backed by the `list_decks_paginated` RPC (migration 20260522000000), which
- * uses tuple comparison `(updated_at, id) < (cursor_at, cursor_id)` so two
- * decks updated in the same batch don't drop out at page boundaries.
+ * Backed by the `list_decks_paginated` RPC (migrations 20260522000000 +
+ * 20260523000000). Orders by `(created_at DESC, id DESC)` — both keys are
+ * immutable, so the cursor is provably stable across concurrent UPDATEs.
  */
 export async function listDecks(
   userId:  string,
