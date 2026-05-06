@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
@@ -12,6 +14,47 @@ import type {
   SessionLeech,
   SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
+
+// ─── RPC envelope schemas ─────────────────────────────────────────────────────
+// Module-level Zod schemas for the RPC return shapes consumed below. Mirrors
+// the DashboardRpcEnvelopeSchema precedent in analytics.service.ts: parsed at
+// runtime so any future shape drift surfaces as a clean ZodError instead of
+// a silent type lie via `narrowRow<T>(row: unknown): T`.
+
+const ForecastRpcRowSchema = z.object({
+  date:  z.string(),
+  // BIGINT comes back as a string from PostgREST; INT comes back as a number.
+  count: z.union([z.string(), z.number()]),
+})
+
+/**
+ * Session-summary RPC envelope. `card_id: z.string()` (non-null) is correct
+ * only because `get_session_summary` filters `WHERE l.card_id IS NOT NULL` in
+ * the leeches CTE (added in migration 20260519000000). If that filter ever
+ * changes, this schema must be updated to mark `card_id: z.string().nullable()`.
+ */
+const SessionSummaryEnvelopeSchema = z.object({
+  total:         z.number(),
+  breakdown:     z.object({
+    again: z.number(),
+    hard:  z.number(),
+    good:  z.number(),
+    easy:  z.number(),
+  }),
+  total_time_ms: z.number(),
+  next_due_at:   z.string().nullable(),
+  leeches: z.array(z.object({
+    leech_id:     z.string(),
+    card_id:      z.string(),
+    deck_id:      z.string().nullable(),
+    word:         z.string().nullable(),
+    reading:      z.string().nullable(),
+    diagnosis:    z.string().nullable(),
+    prescription: z.string().nullable(),
+    resolved:     z.boolean(),
+    created_at:   z.string(),
+  })),
+})
 
 // ─── Service functions ────────────────────────────────────────────────────────
 
@@ -30,10 +73,8 @@ import type {
  *   - New cards fill up to min(remainingNew, remainingTotal - overdueCount).
  */
 export async function getDueCards(userId: string, profile: Profile): Promise<ApiDueCard[]> {
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // get_due_cards until `supabase gen types` runs post-deploy.
   const { data, error } = await supabaseAdmin.rpc(
-    'get_due_cards' as never,
+    'get_due_cards',
     asPayload({
       p_user_id:               userId,
       p_daily_review_limit:    profile.dailyReviewLimit,
@@ -67,10 +108,9 @@ export async function getReviewForecast(userId: string, days = 14): Promise<ApiF
     throw dbError('fetch review forecast', error)
   }
 
-  // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT comes back as
-  // a number in the JSON response (Supabase casts), but be defensive about it.
-  interface ForecastRpcRow { date: string; count: number | string }
-  const rows = narrowRow<ForecastRpcRow[]>(data ?? [])
+  // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT can serialize
+  // as either a string or a number; the schema accepts both and we normalize.
+  const rows = z.array(ForecastRpcRowSchema).parse(data ?? [])
   return rows.map((r) => ({
     date:  r.date,
     count: typeof r.count === 'string' ? Number.parseInt(r.count, 10) : r.count,
@@ -106,28 +146,8 @@ export async function getSessionSummary(
   sessionId: string,
   userId:    string,
 ): Promise<SessionSummary> {
-  interface SessionSummaryEnvelope {
-    total:         number
-    breakdown:     { again: number; hard: number; good: number; easy: number }
-    total_time_ms: number
-    next_due_at:   string | null
-    leeches: Array<{
-      leech_id:     string
-      card_id:      string
-      deck_id:      string | null
-      word:         string | null
-      reading:      string | null
-      diagnosis:    string | null
-      prescription: string | null
-      resolved:     boolean
-      created_at:   string
-    }>
-  }
-
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // get_session_summary until `supabase gen types` runs post-deploy.
   const { data, error } = await supabaseAdmin.rpc(
-    'get_session_summary' as never,
+    'get_session_summary',
     asPayload({ p_session_id: sessionId, p_user_id: userId }),
   )
 
@@ -138,7 +158,7 @@ export async function getSessionSummary(
     throw dbError('fetch session summary', error)
   }
 
-  const env = narrowRow<SessionSummaryEnvelope>(data)
+  const env = SessionSummaryEnvelopeSchema.parse(data)
 
   const accuracyPct = env.total === 0
     ? 0

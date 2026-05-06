@@ -148,10 +148,8 @@ const DashboardRpcEnvelopeSchema = z.object({
  * shapes the granular endpoints return — clients can drop in seamlessly.
  */
 export async function getDashboardData(userId: string): Promise<ApiAnalyticsDashboard> {
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // get_dashboard_data until `supabase gen types` runs post-deploy.
   const { data, error } = await supabaseAdmin.rpc(
-    'get_dashboard_data' as never,
+    'get_dashboard_data',
     asPayload({ p_user_id: userId }),
   )
 

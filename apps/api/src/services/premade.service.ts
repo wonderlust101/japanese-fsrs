@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
@@ -177,12 +179,15 @@ export async function listSubscriptions(userId: string): Promise<ApiPremadeSubsc
     .filter((r): r is ApiPremadeSubscription => r !== null)
 }
 
-interface SubscribeRpcRow {
-  subscription_id: string
-  deck_id:         string
-  card_count:      number
-  already_existed: boolean
-}
+// RPC envelope schema for subscribe_to_premade_deck. Validated at runtime via
+// .parse() so a future signature drift surfaces as a ZodError instead of
+// silently passing through `narrowRow`.
+const SubscribeRpcRowSchema = z.object({
+  subscription_id: z.string(),
+  deck_id:         z.string(),
+  card_count:      z.number(),
+  already_existed: z.boolean(),
+})
 
 /**
  * Subscribes the user to a premade deck via the subscribe_to_premade_deck RPC.
@@ -220,7 +225,8 @@ export async function subscribeToPremadeDeck(
     throw dbError('subscribe to premade deck', error)
   }
 
-  const row = narrowRow<SubscribeRpcRow[] | null>(data)?.[0]
+  const rows = z.array(SubscribeRpcRowSchema).parse(data ?? [])
+  const row  = rows[0]
   if (row === undefined) {
     throw new AppError(500, 'Subscribe RPC returned no row')
   }
@@ -243,9 +249,7 @@ export async function unsubscribeFromPremadeDeck(
   userId: string,
   premadeDeckId: string,
 ): Promise<void> {
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // unsubscribe_from_premade_deck until `supabase gen types` runs post-deploy.
-  const { error } = await supabaseAdmin.rpc('unsubscribe_from_premade_deck' as never, asPayload({
+  const { error } = await supabaseAdmin.rpc('unsubscribe_from_premade_deck', asPayload({
     p_user_id:         userId,
     p_premade_deck_id: premadeDeckId,
   }))

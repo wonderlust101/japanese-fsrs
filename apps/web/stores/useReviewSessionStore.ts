@@ -127,8 +127,8 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
 const EMPTY_QUEUE:   readonly ApiDueCard[]         = []
 const EMPTY_HISTORY: readonly SessionHistoryEntry[] = []
 
-export const useReviewQueue      = (): ApiDueCard[] =>
-  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : EMPTY_QUEUE as ApiDueCard[]))
+export const useReviewQueue      = (): readonly ApiDueCard[] =>
+  useReviewSessionStore((s) => (s.phase === 'active' ? s.queue : EMPTY_QUEUE))
 
 export const useCurrentCard      = (): ApiDueCard | undefined =>
   useReviewSessionStore((s) => (s.phase === 'active' ? s.queue[s.currentIndex] : undefined))
@@ -139,11 +139,11 @@ export const useCurrentIndex     = (): number =>
 export const useShowAnswer       = (): boolean =>
   useReviewSessionStore((s) => (s.phase === 'active' ? s.showAnswer : false))
 
-export const useSessionHistory   = (): SessionHistoryEntry[] =>
+export const useSessionHistory   = (): readonly SessionHistoryEntry[] =>
   useReviewSessionStore((s) =>
     s.phase === 'active' || s.phase === 'finished'
       ? s.sessionHistory
-      : (EMPTY_HISTORY as SessionHistoryEntry[]),
+      : EMPTY_HISTORY,
   )
 
 export const useIsSessionStarted = (): boolean =>

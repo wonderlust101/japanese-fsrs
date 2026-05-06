@@ -22,10 +22,28 @@ import {
   type SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
+import { z } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { env }           from '../lib/env.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+
+// ─── RPC envelope schema ──────────────────────────────────────────────────────
+// Per-row return shape from process_review_batch. Validated at runtime so a
+// future signature drift surfaces as a ZodError instead of silently passing
+// through `narrowRow`. Mirrors DashboardRpcEnvelopeSchema in analytics.service.
+
+const BatchResultRowSchema = z.object({
+  card_id:        z.string(),
+  success:        z.boolean(),
+  error_message:  z.string().nullable(),
+  due:            z.string().nullable(),
+  stability:      z.number().nullable(),
+  difficulty:     z.number().nullable(),
+  scheduled_days: z.number().nullable(),
+  state:          z.number().nullable(),
+})
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -447,21 +465,8 @@ export async function processReviewBatch(
   const results: ProcessReviewResult[] = []
 
   if (batch.length > 0) {
-    interface BatchResultRow {
-      card_id:        string
-      success:        boolean
-      error_message:  string | null
-      due:            string | null
-      stability:      number | null
-      difficulty:     number | null
-      scheduled_days: number | null
-      state:          number | null
-    }
-
-    // Function name cast: database.types.ts is auto-generated and won't include
-    // process_review_batch until `supabase gen types` runs post-deploy.
     const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
-      'process_review_batch' as never,
+      'process_review_batch',
       asPayload({
         p_user_id:         userId,
         p_reviews:         batch,
@@ -473,8 +478,8 @@ export async function processReviewBatch(
       throw dbError('persist review batch', rpcError)
     }
 
-    for (const raw of (rpcData ?? []) as BatchResultRow[]) {
-      const r = narrowRow<BatchResultRow>(raw)
+    const rows = z.array(BatchResultRowSchema).parse(rpcData ?? [])
+    for (const r of rows) {
       if (r.success && r.due !== null && r.stability !== null && r.difficulty !== null
           && r.scheduled_days !== null && r.state !== null) {
         results.push({

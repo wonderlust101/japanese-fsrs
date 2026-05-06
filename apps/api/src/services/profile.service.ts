@@ -110,9 +110,7 @@ export async function updateProfile(
 ): Promise<Profile> {
   const { interests, ...profileFields } = input
 
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // update_profile_with_interests until `supabase gen types` runs post-deploy.
-  const { error } = await supabaseAdmin.rpc('update_profile_with_interests' as never, asPayload({
+  const { error } = await supabaseAdmin.rpc('update_profile_with_interests', asPayload({
     p_user_id:   userId,
     p_patch:     profileFields,
     p_interests: interests ?? null,

@@ -240,10 +240,8 @@ export async function listCards(
   cursor?: string,
   status?: CardStatusFilter,
 ): Promise<CardListResult> {
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // list_cards_paginated until `supabase gen types` runs post-deploy.
   const { data, error } = await supabaseAdmin.rpc(
-    'list_cards_paginated' as never,
+    'list_cards_paginated',
     asPayload({
       p_user_id:       userId,
       p_deck_id:       deckId,
@@ -370,9 +368,7 @@ export async function updateCard(
   userId: string,
   input: UpdateCardInput,
 ): Promise<ApiCard> {
-  // Function name cast: database.types.ts is auto-generated and won't include
-  // update_card_with_sibling_sync until `supabase gen types` runs post-deploy.
-  const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync' as never, asPayload({
+  const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
     p_card_id:     cardId,
     p_user_id:     userId,
     p_fields_data: input.fields_data ?? null,
@@ -612,17 +608,15 @@ export async function backfillPremadeEmbeddings(): Promise<{
 
   let succeeded = 0
   if (updates.length > 0) {
-    // Function name cast: database.types.ts is auto-generated and won't include
-    // bulk_update_card_embeddings until `supabase gen types` runs post-deploy.
     const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
-      'bulk_update_card_embeddings' as never,
+      'bulk_update_card_embeddings',
       asPayload({ p_updates: updates }),
     )
     if (rpcError !== null) {
       console.error('[admin] bulk embedding update failed', { err: rpcError })
       failed += updates.length
     } else {
-      succeeded = (rpcData as unknown as number) ?? 0
+      succeeded = rpcData ?? 0
       // Any update that didn't land (id mismatch, vector parse error, etc.)
       // counts as failed for the caller's diagnostic count.
       failed += updates.length - succeeded

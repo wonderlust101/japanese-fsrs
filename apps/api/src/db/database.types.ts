@@ -12,11 +12,35 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       cards: {
         Row: {
-          audio_url: string | null
           card_type: Database["public"]["Enums"]["card_type"]
           created_at: string
           deck_id: string | null
@@ -34,19 +58,16 @@ export type Database = {
           layout_type: Database["public"]["Enums"]["layout_type"]
           learning_steps: number
           parent_card_id: string | null
-          parsed_at: string | null
           premade_deck_id: string | null
           reps: number
           scheduled_days: number
           stability: number
           state: number
           tags: string[]
-          tokens: Json
           updated_at: string
           user_id: string | null
         }
         Insert: {
-          audio_url?: string | null
           card_type?: Database["public"]["Enums"]["card_type"]
           created_at?: string
           deck_id?: string | null
@@ -64,19 +85,16 @@ export type Database = {
           layout_type?: Database["public"]["Enums"]["layout_type"]
           learning_steps?: number
           parent_card_id?: string | null
-          parsed_at?: string | null
           premade_deck_id?: string | null
           reps?: number
           scheduled_days?: number
           stability?: number
           state?: number
           tags?: string[]
-          tokens?: Json
           updated_at?: string
           user_id?: string | null
         }
         Update: {
-          audio_url?: string | null
           card_type?: Database["public"]["Enums"]["card_type"]
           created_at?: string
           deck_id?: string | null
@@ -94,14 +112,12 @@ export type Database = {
           layout_type?: Database["public"]["Enums"]["layout_type"]
           learning_steps?: number
           parent_card_id?: string | null
-          parsed_at?: string | null
           premade_deck_id?: string | null
           reps?: number
           scheduled_days?: number
           stability?: number
           state?: number
           tags?: string[]
-          tokens?: Json
           updated_at?: string
           user_id?: string | null
         }
@@ -193,36 +209,6 @@ export type Database = {
           },
         ]
       }
-      grammar_pattern_vocabulary: {
-        Row: {
-          card_id: string
-          grammar_pattern_id: string
-        }
-        Insert: {
-          card_id: string
-          grammar_pattern_id: string
-        }
-        Update: {
-          card_id?: string
-          grammar_pattern_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "grammar_pattern_vocabulary_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grammar_pattern_vocabulary_grammar_pattern_id_fkey"
-            columns: ["grammar_pattern_id"]
-            isOneToOne: false
-            referencedRelation: "grammar_patterns"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       grammar_patterns: {
         Row: {
           created_at: string
@@ -245,7 +231,7 @@ export type Database = {
           stability: number
           state: number
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -268,7 +254,7 @@ export type Database = {
           stability?: number
           state?: number
           updated_at?: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           created_at?: string
@@ -291,7 +277,7 @@ export type Database = {
           stability?: number
           state?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -312,7 +298,7 @@ export type Database = {
       }
       leeches: {
         Row: {
-          card_id: string
+          card_id: string | null
           created_at: string
           diagnosis: string | null
           id: string
@@ -323,7 +309,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          card_id: string
+          card_id?: string | null
           created_at?: string
           diagnosis?: string | null
           id?: string
@@ -334,7 +320,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          card_id?: string
+          card_id?: string | null
           created_at?: string
           diagnosis?: string | null
           id?: string
@@ -596,6 +582,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bulk_update_card_embeddings: {
+        Args: { p_updates: Json }
+        Returns: number
+      }
       find_similar_cards: {
         Args: { p_card_id: string; p_limit?: number; p_user_id: string }
         Returns: {
@@ -615,6 +605,24 @@ export type Database = {
           layout: string
           successful: number
           total: number
+        }[]
+      }
+      get_dashboard_data: { Args: { p_user_id: string }; Returns: Json }
+      get_due_cards: {
+        Args: {
+          p_daily_new_cards_limit: number
+          p_daily_review_limit: number
+          p_user_id: string
+        }
+        Returns: {
+          card_type: Database["public"]["Enums"]["card_type"]
+          deck_id: string
+          due: string
+          fields_data: Json
+          id: string
+          jlpt_level: Database["public"]["Enums"]["jlpt_level"]
+          layout_type: Database["public"]["Enums"]["layout_type"]
+          state: number
         }[]
       }
       get_heatmap_data: {
@@ -652,6 +660,10 @@ export type Database = {
           date: string
         }[]
       }
+      get_session_summary: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
       get_stale_embedding_cards: {
         Args: { p_user_id: string }
         Returns: {
@@ -684,6 +696,26 @@ export type Database = {
           current_streak: number
           last_review_date: string
           longest_streak: number
+        }[]
+      }
+      list_cards_paginated: {
+        Args: {
+          p_cursor?: string
+          p_deck_id: string
+          p_limit: number
+          p_status_filter?: string
+          p_user_id: string
+        }
+        Returns: {
+          card_type: Database["public"]["Enums"]["card_type"]
+          due: string
+          fields_data: Json
+          id: string
+          is_suspended: boolean
+          jlpt_level: Database["public"]["Enums"]["jlpt_level"]
+          layout_type: Database["public"]["Enums"]["layout_type"]
+          state: number
+          tags: string[]
         }[]
       }
       process_forget: {
@@ -746,6 +778,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      process_review_batch: {
+        Args: { p_leech_threshold: number; p_reviews: Json; p_user_id: string }
+        Returns: {
+          card_id: string
+          difficulty: number
+          due: string
+          error_message: string
+          scheduled_days: number
+          stability: number
+          state: number
+          success: boolean
+        }[]
+      }
       subscribe_to_premade_deck: {
         Args: { p_premade_deck_id: string; p_user_id: string }
         Returns: {
@@ -754,6 +799,26 @@ export type Database = {
           deck_id: string
           subscription_id: string
         }[]
+      }
+      unsubscribe_from_premade_deck: {
+        Args: { p_premade_deck_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      update_card_with_sibling_sync: {
+        Args: {
+          p_card_id: string
+          p_card_type?: Database["public"]["Enums"]["card_type"]
+          p_fields_data?: Json
+          p_jlpt_level?: Database["public"]["Enums"]["jlpt_level"]
+          p_layout_type?: Database["public"]["Enums"]["layout_type"]
+          p_tags?: string[]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      update_profile_with_interests: {
+        Args: { p_interests?: string[]; p_patch: Json; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
@@ -887,6 +952,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       card_type: ["comprehension", "production", "listening"],
