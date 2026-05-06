@@ -1,0 +1,2 @@
+- Fix: Subscribe to a new deck, then delete that deck, then subscribe again, I am unable to subscribe to the deck again.
+- Delete Grammar Pattern Feature

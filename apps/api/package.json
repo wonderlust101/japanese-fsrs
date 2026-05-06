@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "embeddings:backfill": "bun run scripts/backfill-premade-embeddings.ts"
+    "embeddings:backfill": "bun run scripts/backfill-premade-embeddings.ts",
+    "gen:types": "bunx supabase gen types typescript --linked > src/db/database.types.ts"
   },
   "dependencies": {
     "@fsrs-japanese/shared-types": "workspace:*",
