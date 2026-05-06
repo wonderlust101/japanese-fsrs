@@ -8,7 +8,6 @@ import { queryKeys } from '@/lib/api/queryKeys'
 
 const BADGE: Record<ApiDeck['deckType'], string> = {
   vocabulary: 'bg-primary-100 text-primary-700',
-  grammar:    'bg-success-100 text-success-700',
   kanji:      'bg-warning-100 text-warning-700',
   mixed:      'bg-neutral-100 text-neutral-600',
 }

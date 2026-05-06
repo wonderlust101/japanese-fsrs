@@ -81,6 +81,7 @@ supabase db push                 # Dry-run by default; approve when prompted
 | `20260504000009` | 2026-05-04 | Security hardening: auth.uid() guards on SECURITY DEFINER RPCs |
 | `20260505000000` | 2026-05-05 | Type fix: daily_pace NUMERIC → FLOAT8 for TypeScript alignment |
 | `20260505000001` | 2026-05-05 | Clarify grammar_patterns design: user_id NOT NULL constraint |
+| `20260520000000` | 2026-05-20 | Remove unused grammar-pattern feature: drop `grammar_patterns` table, JLPT Grammar premade deck (with seed cards), and `deck_type='grammar'` enum value. User forks of the grammar deck migrated to `deck_type='vocabulary'`. |
 
 See the full audit in [`/home/sergei/.claude/plans/polymorphic-finding-badger.md`](../../../home/sergei/.claude/plans/polymorphic-finding-badger.md).
 
