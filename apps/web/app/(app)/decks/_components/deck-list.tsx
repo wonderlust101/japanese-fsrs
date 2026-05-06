@@ -15,10 +15,12 @@ import { listDecksAction }    from '@/lib/actions/decks.actions'
 export function DeckListView(): React.JSX.Element {
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  const { data: decks, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: queryKeys.decks.list(),
-    queryFn:  listDecksAction,
+    queryFn:  () => listDecksAction(),
   })
+
+  const decks = data?.items ?? []
 
   return (
     <>
@@ -33,9 +35,9 @@ export function DeckListView(): React.JSX.Element {
           Array.from({ length: 3 }).map((_, i) => <DeckCardSkeleton key={i} />)
         )}
 
-        {!isLoading && decks?.length === 0 && <EmptyState />}
+        {!isLoading && decks.length === 0 && <EmptyState />}
 
-        {decks?.map((deck, index) => (
+        {decks.map((deck, index) => (
           <DeckCard key={deck.id} deck={deck} index={index} />
         ))}
       </div>

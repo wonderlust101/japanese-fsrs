@@ -26,7 +26,14 @@ export const deckIdParamSchema = z.object({
   id: z.string().uuid('Invalid deck ID'),
 })
 
+// Cursor pagination for GET /api/v1/decks. Mirrors the cards-list query shape.
+export const listDecksQuerySchema = z.object({
+  limit:  z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().uuid().optional(),
+})
+
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>
 export type CreateDeckPayload = z.input<typeof createDeckSchema>
 export type UpdateDeckInput   = z.infer<typeof updateDeckSchema>
 export type UpdateDeckPayload = z.input<typeof updateDeckSchema>
+export type ListDecksQuery    = z.infer<typeof listDecksQuerySchema>

@@ -1,12 +1,15 @@
 import type { RequestHandler } from 'express'
 
-import { createDeckSchema, updateDeckSchema, deckIdParamSchema } from '@fsrs-japanese/shared-types'
+import {
+  createDeckSchema, updateDeckSchema, deckIdParamSchema, listDecksQuerySchema,
+} from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
 
 export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const decks = await deckService.listDecks(req.user.id)
-    res.json(decks)
+    const { limit, cursor } = listDecksQuerySchema.parse(req.query)
+    const result = await deckService.listDecks(req.user.id, limit, cursor)
+    res.json(result)
   } catch (err) {
     next(err)
   }

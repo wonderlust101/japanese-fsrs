@@ -9,6 +9,7 @@ import type {
     ApiCard,
     ApiCardListItem,
     ApiDueCard,
+    ApiList,
     ApiSimilarCard,
     CardStatusFilter,
     CardType,
@@ -428,7 +429,10 @@ export async function deleteCard(cardId: string, userId: string): Promise<void> 
  * card_type, fields_data, tags, jlpt_level, similarity) — not the full 21
  * fields of ApiCard. The return type mirrors the actual RPC shape.
  */
-export async function getSimilarCards(cardId: string, userId: string): Promise<ApiSimilarCard[]> {
+export async function getSimilarCards(
+  cardId: string,
+  userId: string,
+): Promise<ApiList<ApiSimilarCard>> {
   const { data, error } = await supabaseAdmin.rpc('find_similar_cards', {
     p_card_id: cardId,
     p_user_id: userId,
@@ -438,7 +442,7 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<A
     throw dbError('find similar cards', error)
   }
 
-  return (data ?? []).map((row) => ({
+  const items: ApiSimilarCard[] = (data ?? []).map((row) => ({
     id:         row.id,
     deckId:     row.deck_id,
     layoutType: row.layout_type,
@@ -448,6 +452,8 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<A
     jlptLevel:  row.jlpt_level,
     similarity: row.similarity,
   }))
+  // Bounded by find_similar_cards (top-K); no cursor pagination.
+  return { items, nextCursor: null, hasMore: false }
 }
 
 /**

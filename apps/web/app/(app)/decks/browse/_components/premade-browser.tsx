@@ -40,10 +40,13 @@ export function PremadeBrowser(): React.JSX.Element {
   const [snack,  setSnack]    = useState<SnackbarState | null>(null)
   const [error,  setError]    = useState<string | null>(null)
 
-  const { data: decks = [],         isLoading } = usePremadeDecks()
-  const { data: subscriptions = [] }            = useMySubscriptions()
+  const { data: decksResult, isLoading } = usePremadeDecks()
+  const { data: subsResult }             = useMySubscriptions()
   const subscribe   = useSubscribeToPremadeDeck()
   const unsubscribe = useUnsubscribeFromPremadeDeck()
+
+  const decks         = decksResult?.items ?? []
+  const subscriptions = subsResult?.items  ?? []
 
   const subscribedMap = useMemo(() => {
     const m = new Map<string, string>()

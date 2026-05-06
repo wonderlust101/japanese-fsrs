@@ -14,7 +14,7 @@ import {
 } from '../actions/reviews.actions'
 import type {
   SessionSummary,
-  ApiDueCard, ApiForecastDay, ApiReviewedCard,
+  ApiDueCard, ApiForecastDay, ApiList, ApiReviewedCard,
   SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
@@ -44,7 +44,7 @@ export function useSubmitReview(): UseMutationResult<{ card: ApiReviewedCard }, 
   })
 }
 
-export function useDueCards(): UseQueryResult<ApiDueCard[]> {
+export function useDueCards(): UseQueryResult<ApiList<ApiDueCard>> {
   return useQuery({
     queryKey: queryKeys.reviews.due(),
     queryFn:  getDueCardsAction,
@@ -52,7 +52,7 @@ export function useDueCards(): UseQueryResult<ApiDueCard[]> {
   })
 }
 
-export function useReviewForecast(): UseQueryResult<ApiForecastDay[]> {
+export function useReviewForecast(): UseQueryResult<ApiList<ApiForecastDay>> {
   return useQuery({
     queryKey: queryKeys.reviews.forecast(),
     queryFn:  getReviewForecastAction,

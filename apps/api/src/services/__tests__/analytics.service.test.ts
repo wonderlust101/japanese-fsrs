@@ -43,10 +43,12 @@ describe('analytics.service — getAccuracyByLayout', () => {
     }
 
     const out = await getAccuracyByLayout('user-1')
-    expect(out).toHaveLength(3)
-    expect(out[0]).toEqual({ layout: 'comprehension', total: 7,   successful: 5,  accuracyPct: 71.4 })
-    expect(out[1]).toEqual({ layout: 'production',    total: 100, successful: 87, accuracyPct: 87 })
-    expect(out[2]).toEqual({ layout: 'listening',     total: 0,   successful: 0,  accuracyPct: 0 })
+    expect(out.items).toHaveLength(3)
+    expect(out.nextCursor).toBeNull()
+    expect(out.hasMore).toBe(false)
+    expect(out.items[0]).toEqual({ layout: 'comprehension', total: 7,   successful: 5,  accuracyPct: 71.4 })
+    expect(out.items[1]).toEqual({ layout: 'production',    total: 100, successful: 87, accuracyPct: 87 })
+    expect(out.items[2]).toEqual({ layout: 'listening',     total: 0,   successful: 0,  accuracyPct: 0 })
   })
 })
 
@@ -77,7 +79,7 @@ describe('analytics.service — getJlptGap', () => {
       error: null,
     }
     const out = await getJlptGap('user-1')
-    expect(out[0]).toEqual({ jlptLevel: 'N5', total: 1000, learned: 820, due: 12, progressPct: 82 })
-    expect(out[1]).toEqual({ jlptLevel: 'N4', total: 0,    learned: 0,   due: 0,  progressPct: 0 })
+    expect(out.items[0]).toEqual({ jlptLevel: 'N5', total: 1000, learned: 820, due: 12, progressPct: 82 })
+    expect(out.items[1]).toEqual({ jlptLevel: 'N4', total: 0,    learned: 0,   due: 0,  progressPct: 0 })
   })
 })

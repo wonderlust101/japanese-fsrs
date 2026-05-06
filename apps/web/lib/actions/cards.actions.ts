@@ -10,9 +10,11 @@ import {
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
+  apiListEnvelope,
   voidResponseSchema,
   type ApiCard,
   type ApiCardListItem,
+  type ApiList,
   type ApiSimilarCard,
   type CardStatusFilter,
   type CreateCardPayload,
@@ -91,8 +93,13 @@ export async function getCardAction(deckId: string, cardId: string): Promise<Api
   )
 }
 
-export async function getSimilarCardsAction(cardId: string): Promise<ApiSimilarCard[]> {
-  return apiCallSafe<ApiSimilarCard[]>(`/api/v1/cards/${cardId}/similar`, z.array(ApiSimilarCardSchema), {}, [])
+export async function getSimilarCardsAction(cardId: string): Promise<ApiList<ApiSimilarCard>> {
+  return apiCallSafe<ApiList<ApiSimilarCard>>(
+    `/api/v1/cards/${cardId}/similar`,
+    apiListEnvelope(ApiSimilarCardSchema),
+    {},
+    { items: [], nextCursor: null, hasMore: false },
+  )
 }
 
 export async function updateCardAction(cardId: string, payload: UpdateCardPayload): Promise<void> {

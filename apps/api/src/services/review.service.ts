@@ -10,6 +10,7 @@ import type {
   ApiDueCard,
   ApiForecastDay,
   ApiBatchResult,
+  ApiList,
   SessionSummary,
   SessionLeech,
   SubmitReviewInput,
@@ -72,7 +73,10 @@ const SessionSummaryEnvelopeSchema = z.object({
  *   - Overdue cards fill up to remainingTotal.
  *   - New cards fill up to min(remainingNew, remainingTotal - overdueCount).
  */
-export async function getDueCards(userId: string, profile: Profile): Promise<ApiDueCard[]> {
+export async function getDueCards(
+  userId:  string,
+  profile: Profile,
+): Promise<ApiList<ApiDueCard>> {
   const { data, error } = await supabaseAdmin.rpc(
     'get_due_cards',
     asPayload({
@@ -86,9 +90,11 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Api
     throw dbError('fetch due cards', error)
   }
 
-  return ((data ?? []) as DueCardDbRow[]).map(
+  const items = ((data ?? []) as DueCardDbRow[]).map(
     (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
   )
+  // Bounded by FSRS daily caps; no cursor pagination.
+  return { items, nextCursor: null, hasMore: false }
 }
 
 /**
@@ -98,7 +104,10 @@ export async function getDueCards(userId: string, profile: Profile): Promise<Api
  * Aggregation runs server-side via the get_review_forecast RPC. Bucketing
  * uses UTC calendar days, consistent with the heatmap and streak analytics.
  */
-export async function getReviewForecast(userId: string, days = 14): Promise<ApiForecastDay[]> {
+export async function getReviewForecast(
+  userId: string,
+  days   = 14,
+): Promise<ApiList<ApiForecastDay>> {
   const { data, error } = await supabaseAdmin.rpc('get_review_forecast', {
     p_user_id: userId,
     p_days:    days,
@@ -110,11 +119,13 @@ export async function getReviewForecast(userId: string, days = 14): Promise<ApiF
 
   // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT can serialize
   // as either a string or a number; the schema accepts both and we normalize.
-  const rows = z.array(ForecastRpcRowSchema).parse(data ?? [])
-  return rows.map((r) => ({
+  const rows  = z.array(ForecastRpcRowSchema).parse(data ?? [])
+  const items = rows.map((r) => ({
     date:  r.date,
     count: typeof r.count === 'string' ? Number.parseInt(r.count, 10) : r.count,
   }))
+  // Fixed forecast window (`days`); no cursor pagination.
+  return { items, nextCursor: null, hasMore: false }
 }
 
 /**

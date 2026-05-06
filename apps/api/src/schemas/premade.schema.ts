@@ -6,6 +6,8 @@ export const listPremadeDecksQuerySchema = z.object({
   deckType:  deckTypeEnum.optional(),
   jlptLevel: jlptLevelEnum.optional(),
   domain:    z.string().trim().min(1).max(50).optional(),
+  limit:     z.coerce.number().int().min(1).max(100).default(50),
+  cursor:    z.string().uuid().optional(),
 }).strict()
 
 export const premadeDeckIdParamSchema = z.object({

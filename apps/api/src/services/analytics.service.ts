@@ -2,12 +2,13 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import {
   ApiAnalyticsDashboardSchema,
-  type ApiHeatmapDay,
-  type ApiLayoutAccuracy,
-  type ApiStreakStats,
-  type ApiJlptGap,
-  type ApiMilestoneForecast,
   type ApiAnalyticsDashboard,
+  type ApiHeatmapDay,
+  type ApiJlptGap,
+  type ApiLayoutAccuracy,
+  type ApiList,
+  type ApiMilestoneForecast,
+  type ApiStreakStats,
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
@@ -44,14 +45,20 @@ async function callRpc<T>(
 
 // ─── Service functions ────────────────────────────────────────────────────────
 
+/** Wrap a fixed-dimension array (no real cursor pagination) in the universal list envelope. */
+function bounded<T>(items: T[]): ApiList<T> {
+  return { items, nextCursor: null, hasMore: false }
+}
+
 /**
  * Returns daily retention rates for the last 365 days.
  *
  * Days with zero reviews are omitted from the result — the frontend fills those
  * gaps as 0, consistent with the forecast data pattern.
  */
-export async function getHeatmapData(userId: string): Promise<ApiHeatmapDay[]> {
-  return callRpc('get_heatmap_data', { p_user_id: userId }, HeatmapRpcSchema, 'heatmap data')
+export async function getHeatmapData(userId: string): Promise<ApiList<ApiHeatmapDay>> {
+  const rows = await callRpc('get_heatmap_data', { p_user_id: userId }, HeatmapRpcSchema, 'heatmap data')
+  return bounded(rows)
 }
 
 /**
@@ -61,12 +68,13 @@ export async function getHeatmapData(userId: string): Promise<ApiHeatmapDay[]> {
  * (comprehension | production | listening). accuracyPct is the percentage of
  * reviews rated "good" or "easy".
  */
-export async function getAccuracyByLayout(userId: string): Promise<ApiLayoutAccuracy[]> {
-  const rows = await callRpc('get_accuracy_by_layout', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
-  return rows.map((r) => {
+export async function getAccuracyByLayout(userId: string): Promise<ApiList<ApiLayoutAccuracy>> {
+  const rows  = await callRpc('get_accuracy_by_layout', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
+  const items = rows.map((r) => {
     const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
     return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
   })
+  return bounded(items)
 }
 
 /**
@@ -90,9 +98,9 @@ export async function getStreak(userId: string): Promise<ApiStreakStats> {
  * Returns per-JLPT-level totals plus learned and due counts. progressPct is
  * computed in the service layer so the RPC stays focused on aggregation.
  */
-export async function getJlptGap(userId: string): Promise<ApiJlptGap[]> {
-  const rows = await callRpc('get_jlpt_gap', { p_user_id: userId }, JlptGapRpcSchema, 'JLPT gap')
-  return rows.map((r) => {
+export async function getJlptGap(userId: string): Promise<ApiList<ApiJlptGap>> {
+  const rows  = await callRpc('get_jlpt_gap', { p_user_id: userId }, JlptGapRpcSchema, 'JLPT gap')
+  const items = rows.map((r) => {
     const progressPct = r.total === 0 ? 0 : Math.round((r.learned / r.total) * 1000) / 10
     return {
       jlptLevel:   r.jlpt_level,
@@ -102,6 +110,7 @@ export async function getJlptGap(userId: string): Promise<ApiJlptGap[]> {
       progressPct,
     }
   })
+  return bounded(items)
 }
 
 /**
@@ -109,14 +118,14 @@ export async function getJlptGap(userId: string): Promise<ApiJlptGap[]> {
  * over the last 30 days. Levels with no projectable data return
  * `daysRemaining = null` and `projectedCompletionDate = null`.
  */
-export async function getMilestoneForecast(userId: string): Promise<ApiMilestoneForecast[]> {
+export async function getMilestoneForecast(userId: string): Promise<ApiList<ApiMilestoneForecast>> {
   const rows = await callRpc(
     'get_milestone_forecast',
     { p_user_id: userId },
     MilestoneForecastRpcSchema,
     'milestone forecast',
   )
-  return rows.map((r) => ({
+  const items = rows.map((r) => ({
     jlptLevel:               r.jlpt_level,
     total:                   r.total,
     learned:                 r.learned,
@@ -124,6 +133,7 @@ export async function getMilestoneForecast(userId: string): Promise<ApiMilestone
     daysRemaining:           r.days_remaining,
     projectedCompletionDate: r.projected_completion_date,
   }))
+  return bounded(items)
 }
 
 // ─── Bundled dashboard ────────────────────────────────────────────────────────
@@ -200,6 +210,14 @@ export async function getDashboardData(userId: string): Promise<ApiAnalyticsDash
   }))
 
   // Final shape validation against the wire-format schema — guarantees the
-  // output matches what the controller declares it returns.
-  return ApiAnalyticsDashboardSchema.parse({ heatmap, accuracy, streak, jlptGap, milestones })
+  // output matches what the controller declares it returns. Each inner array
+  // is wrapped in the universal list envelope; the dashboard itself is a
+  // multi-key bundle (one round-trip carrying five sub-results).
+  return ApiAnalyticsDashboardSchema.parse({
+    heatmap:    bounded(heatmap),
+    accuracy:   bounded(accuracy),
+    streak,
+    jlptGap:    bounded(jlptGap),
+    milestones: bounded(milestones),
+  })
 }

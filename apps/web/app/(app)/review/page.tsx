@@ -10,8 +10,11 @@ export default function ReviewHubPage(): React.JSX.Element {
   const router = useRouter()
   const { startSession } = useSessionActions()
 
-  const { data: dueCards = [], isLoading: loadingDue } = useDueCards()
-  const { data: forecast = [] }                         = useReviewForecast()
+  const { data: dueResult, isLoading: loadingDue } = useDueCards()
+  const { data: forecastResult }                    = useReviewForecast()
+
+  const dueCards = dueResult?.items      ?? []
+  const forecast = forecastResult?.items ?? []
 
   function handleStart() {
     if (dueCards.length === 0) return

@@ -155,6 +155,26 @@ export const ApiBatchResultSchema = <T>(
     errors:  z.array(z.object({ cardId: z.string(), error: z.string() })),
   })
 
+/**
+ * Universal list response envelope. Every endpoint that returns a list of
+ * resources wraps its items in this shape. `nextCursor` is null and
+ * `hasMore` is false on endpoints that aren't actually cursor-paginated
+ * (bounded responses, fixed-dimension analytics arrays); the shape stays
+ * uniform so adding pagination later is non-breaking.
+ */
+export const apiListEnvelope = <T>(
+  item: z.ZodType<T>,
+): z.ZodObject<{
+  items:      z.ZodArray<z.ZodType<T>>
+  nextCursor: z.ZodNullable<z.ZodString>
+  hasMore:    z.ZodBoolean
+}> =>
+  z.object({
+    items:      z.array(item),
+    nextCursor: z.string().nullable(),
+    hasMore:    z.boolean(),
+  })
+
 export const ApiReviewedCardSchema = z.object({
   id:            z.string(),
   due:           z.string(),
@@ -213,11 +233,11 @@ export const ApiMilestoneForecastSchema = z.object({
  * for partial refreshes.
  */
 export const ApiAnalyticsDashboardSchema = z.object({
-  heatmap:    z.array(ApiHeatmapDaySchema),
-  accuracy:   z.array(ApiLayoutAccuracySchema),
+  heatmap:    apiListEnvelope(ApiHeatmapDaySchema),
+  accuracy:   apiListEnvelope(ApiLayoutAccuracySchema),
   streak:     ApiStreakStatsSchema,
-  jlptGap:    z.array(ApiJlptGapSchema),
-  milestones: z.array(ApiMilestoneForecastSchema),
+  jlptGap:    apiListEnvelope(ApiJlptGapSchema),
+  milestones: apiListEnvelope(ApiMilestoneForecastSchema),
 })
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

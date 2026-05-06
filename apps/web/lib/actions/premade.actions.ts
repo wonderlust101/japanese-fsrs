@@ -1,28 +1,42 @@
 'use server'
 
-import { z } from 'zod'
-
 import { apiCall, apiCallSafe } from '@/lib/api/client'
 import {
   ApiPremadeDeckSchema,
   ApiPremadeSubscriptionSchema,
   ApiSubscribeResultSchema,
+  apiListEnvelope,
   voidResponseSchema,
+  type ApiList,
   type ApiPremadeDeck,
   type ApiPremadeSubscription,
   type ApiSubscribeResult,
 } from '@fsrs-japanese/shared-types'
 
-export async function listPremadeDecksAction(): Promise<ApiPremadeDeck[]> {
-  return apiCallSafe<ApiPremadeDeck[]>('/api/v1/premade-decks', z.array(ApiPremadeDeckSchema), {}, [])
+const EMPTY_PREMADE_PAGE: ApiList<ApiPremadeDeck>          = { items: [], nextCursor: null, hasMore: false }
+const EMPTY_SUBS_PAGE:    ApiList<ApiPremadeSubscription> = { items: [], nextCursor: null, hasMore: false }
+
+export async function listPremadeDecksAction(
+  options: { limit?: number; cursor?: string } = {},
+): Promise<ApiList<ApiPremadeDeck>> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 50))
+  if (options.cursor !== undefined) params.set('cursor', options.cursor)
+
+  return apiCallSafe<ApiList<ApiPremadeDeck>>(
+    `/api/v1/premade-decks?${params.toString()}`,
+    apiListEnvelope(ApiPremadeDeckSchema),
+    {},
+    EMPTY_PREMADE_PAGE,
+  )
 }
 
-export async function listMySubscriptionsAction(): Promise<ApiPremadeSubscription[]> {
-  return apiCallSafe<ApiPremadeSubscription[]>(
+export async function listMySubscriptionsAction(): Promise<ApiList<ApiPremadeSubscription>> {
+  return apiCallSafe<ApiList<ApiPremadeSubscription>>(
     '/api/v1/premade-decks/subscriptions/me',
-    z.array(ApiPremadeSubscriptionSchema),
+    apiListEnvelope(ApiPremadeSubscriptionSchema),
     {},
-    [],
+    EMPTY_SUBS_PAGE,
   )
 }
 

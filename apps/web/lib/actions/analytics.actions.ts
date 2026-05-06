@@ -1,7 +1,5 @@
 'use server'
 
-import { z } from 'zod'
-
 import {
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -9,8 +7,10 @@ import {
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
   ApiAnalyticsDashboardSchema,
+  apiListEnvelope,
   type ApiHeatmapDay,
   type ApiLayoutAccuracy,
+  type ApiList,
   type ApiStreakStats,
   type ApiJlptGap,
   type ApiMilestoneForecast,
@@ -19,19 +19,21 @@ import {
 
 import { apiCall, apiCallSafe } from '@/lib/api/client'
 
-export async function getHeatmapAction(): Promise<ApiHeatmapDay[]> {
-  return apiCall<ApiHeatmapDay[]>(
+const emptyList = <T>(): ApiList<T> => ({ items: [], nextCursor: null, hasMore: false })
+
+export async function getHeatmapAction(): Promise<ApiList<ApiHeatmapDay>> {
+  return apiCall<ApiList<ApiHeatmapDay>>(
     '/api/v1/analytics/heatmap',
-    z.array(ApiHeatmapDaySchema),
+    apiListEnvelope(ApiHeatmapDaySchema),
     {},
     'Failed to fetch heatmap data',
   )
 }
 
-export async function getAccuracyAction(): Promise<ApiLayoutAccuracy[]> {
-  return apiCall<ApiLayoutAccuracy[]>(
+export async function getAccuracyAction(): Promise<ApiList<ApiLayoutAccuracy>> {
+  return apiCall<ApiList<ApiLayoutAccuracy>>(
     '/api/v1/analytics/accuracy',
-    z.array(ApiLayoutAccuracySchema),
+    apiListEnvelope(ApiLayoutAccuracySchema),
     {},
     'Failed to fetch accuracy data',
   )
@@ -46,25 +48,30 @@ export async function getStreakAction(): Promise<ApiStreakStats> {
   )
 }
 
-export async function getJlptGapAction(): Promise<ApiJlptGap[]> {
-  return apiCallSafe<ApiJlptGap[]>('/api/v1/analytics/jlpt-gap', z.array(ApiJlptGapSchema), {}, [])
+export async function getJlptGapAction(): Promise<ApiList<ApiJlptGap>> {
+  return apiCallSafe<ApiList<ApiJlptGap>>(
+    '/api/v1/analytics/jlpt-gap',
+    apiListEnvelope(ApiJlptGapSchema),
+    {},
+    emptyList<ApiJlptGap>(),
+  )
 }
 
-export async function getMilestoneForecastAction(): Promise<ApiMilestoneForecast[]> {
-  return apiCallSafe<ApiMilestoneForecast[]>(
+export async function getMilestoneForecastAction(): Promise<ApiList<ApiMilestoneForecast>> {
+  return apiCallSafe<ApiList<ApiMilestoneForecast>>(
     '/api/v1/analytics/milestones',
-    z.array(ApiMilestoneForecastSchema),
+    apiListEnvelope(ApiMilestoneForecastSchema),
     {},
-    [],
+    emptyList<ApiMilestoneForecast>(),
   )
 }
 
 const dashboardFallback: ApiAnalyticsDashboard = {
-  heatmap:    [],
-  accuracy:   [],
+  heatmap:    emptyList<ApiHeatmapDay>(),
+  accuracy:   emptyList<ApiLayoutAccuracy>(),
   streak:     { currentStreak: 0, longestStreak: 0, lastReviewDate: null },
-  jlptGap:    [],
-  milestones: [],
+  jlptGap:    emptyList<ApiJlptGap>(),
+  milestones: emptyList<ApiMilestoneForecast>(),
 }
 
 /**

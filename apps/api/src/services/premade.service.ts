@@ -5,6 +5,7 @@ import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import type {
+  ApiList,
   ApiPremadeDeck,
   ApiPremadeSubscription,
   ApiSubscribeResult,
@@ -63,32 +64,34 @@ function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns active premade decks, optionally filtered by deck_type, jlpt_level, or domain.
+ * Returns a cursor-paginated list of active premade decks, optionally filtered.
+ * Backed by the `list_premade_decks_paginated` RPC (migration 20260522000000).
+ * Order: (jlpt_level ASC NULLS LAST, name ASC, id ASC).
  */
 export async function listPremadeDecks(
   filters: ListPremadeDecksQuery,
-): Promise<ApiPremadeDeck[]> {
-  let query = supabaseAdmin
-    .from('premade_decks')
-    .select(PREMADE_COLUMNS)
-    .eq('is_active', true)
-    .order('jlpt_level', { ascending: true })
-    .order('name',       { ascending: true })
-    // Defensive cap — the curated catalogue is small (single-digit decks today).
-    // If it ever grows past this, real pagination is the answer.
-    .limit(20)
-
-  if (filters.deckType  !== undefined) query = query.eq('deck_type',  filters.deckType)
-  if (filters.jlptLevel !== undefined) query = query.eq('jlpt_level', filters.jlptLevel)
-  if (filters.domain    !== undefined) query = query.eq('domain',     filters.domain)
-
-  const { data, error } = await query
+): Promise<ApiList<ApiPremadeDeck>> {
+  const { data, error } = await supabaseAdmin.rpc('list_premade_decks_paginated', asPayload({
+    p_limit:      filters.limit + 1,
+    p_cursor:     filters.cursor    ?? null,
+    p_deck_type:  filters.deckType  ?? null,
+    p_jlpt_level: filters.jlptLevel ?? null,
+    p_domain:     filters.domain    ?? null,
+  }))
 
   if (error !== null) {
     throw dbError('list premade decks', error)
   }
 
-  return (data ?? []).map((row) => toPremadeRow(narrowRow<PremadeDeckDbRow>(row)))
+  const rows    = (data ?? []) as PremadeDeckDbRow[]
+  const hasMore = rows.length > filters.limit
+  const items   = rows.slice(0, filters.limit).map((row) => toPremadeRow(narrowRow<PremadeDeckDbRow>(row)))
+
+  return {
+    items,
+    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    hasMore,
+  }
 }
 
 /**
@@ -112,8 +115,11 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
 /**
  * Returns the user's subscription list joined with each premade deck's metadata
  * and the linked forked deck's id and card_count.
+ * Internal helper — `subscriptionsList` wraps the result in the universal
+ * list envelope. Other in-process callers (subscribe race fallback) need the
+ * raw array.
  */
-export async function listSubscriptions(userId: string): Promise<ApiPremadeSubscription[]> {
+async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscription[]> {
   const { data: subs, error: subsError } = await supabaseAdmin
     .from('user_premade_subscriptions')
     .select('id, premade_deck_id, subscribed_at')
@@ -179,6 +185,18 @@ export async function listSubscriptions(userId: string): Promise<ApiPremadeSubsc
     .filter((r): r is ApiPremadeSubscription => r !== null)
 }
 
+/**
+ * Public list endpoint for the user's premade-deck subscriptions, wrapped in
+ * the universal list envelope. Subscriptions are bounded by the catalogue
+ * size, so `nextCursor` is always null and `hasMore` is always false.
+ */
+export async function listSubscriptions(
+  userId: string,
+): Promise<ApiList<ApiPremadeSubscription>> {
+  const items = await listSubscriptionsRaw(userId)
+  return { items, nextCursor: null, hasMore: false }
+}
+
 // RPC envelope schema for subscribe_to_premade_deck. Validated at runtime via
 // .parse() so a future signature drift surfaces as a ZodError instead of
 // silently passing through `narrowRow`.
@@ -211,7 +229,7 @@ export async function subscribeToPremadeDeck(
     // and the unique (user_id, premade_deck_id) constraint fired on this one.
     // The user is in fact subscribed; surface the existing record.
     if (error.code === '23505') {
-      const existing = (await listSubscriptions(userId))
+      const existing = (await listSubscriptionsRaw(userId))
         .find((s) => s.premadeDeckId === premadeDeckId)
       if (existing !== undefined) {
         return {

@@ -1,7 +1,5 @@
 'use server'
 
-import { z } from 'zod'
-
 import { apiCall } from '@/lib/api/client'
 import {
   ApiBatchResultSchema,
@@ -10,18 +8,20 @@ import {
   ApiReviewSubmitResponseSchema,
   ApiReviewedCardSchema,
   SessionSummarySchema,
+  apiListEnvelope,
   type SessionSummary,
   type ApiDueCard,
   type ApiForecastDay,
+  type ApiList,
   type ApiBatchResult,
   type ApiReviewedCard,
   type SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
-export async function getDueCardsAction(): Promise<ApiDueCard[]> {
-  return apiCall<ApiDueCard[]>(
+export async function getDueCardsAction(): Promise<ApiList<ApiDueCard>> {
+  return apiCall<ApiList<ApiDueCard>>(
     '/api/v1/reviews/due',
-    z.array(ApiDueCardSchema),
+    apiListEnvelope(ApiDueCardSchema),
     {},
     'Failed to fetch due cards',
   )
@@ -61,10 +61,10 @@ export async function submitBatchAction(
   )
 }
 
-export async function getReviewForecastAction(): Promise<ApiForecastDay[]> {
-  return apiCall<ApiForecastDay[]>(
+export async function getReviewForecastAction(): Promise<ApiList<ApiForecastDay>> {
+  return apiCall<ApiList<ApiForecastDay>>(
     '/api/v1/reviews/forecast',
-    z.array(ApiForecastDaySchema),
+    apiListEnvelope(ApiForecastDaySchema),
     {},
     'Failed to fetch forecast',
   )

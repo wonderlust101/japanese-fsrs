@@ -4,7 +4,7 @@ import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
   State,
-  type ApiDeck, type ApiDeckWithStats, type DeckType,
+  type ApiDeck, type ApiDeckWithStats, type ApiList, type DeckType,
   type CreateDeckInput, type UpdateDeckInput,
 } from '@fsrs-japanese/shared-types'
 
@@ -55,23 +55,35 @@ function toRow(raw: DeckDbRow): ApiDeck {
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns all decks owned by the given user, ordered by most recently updated.
+ * Returns a cursor-paginated list of decks owned by the given user.
+ * Backed by the `list_decks_paginated` RPC (migration 20260522000000), which
+ * uses tuple comparison `(updated_at, id) < (cursor_at, cursor_id)` so two
+ * decks updated in the same batch don't drop out at page boundaries.
  */
-export async function listDecks(userId: string): Promise<ApiDeck[]> {
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .select(DECK_COLUMNS)
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
-    // Defensive cap — well above realistic usage. If a power user ever brushes
-    // up against this, the answer is real pagination, not a higher number.
-    .limit(200)
+export async function listDecks(
+  userId:  string,
+  limit:   number,
+  cursor?: string,
+): Promise<ApiList<ApiDeck>> {
+  const { data, error } = await supabaseAdmin.rpc('list_decks_paginated', asPayload({
+    p_user_id: userId,
+    p_limit:   limit + 1,
+    p_cursor:  cursor ?? null,
+  }))
 
   if (error !== null) {
     throw dbError('list decks', error)
   }
 
-  return (data ?? []).map((row) => toRow(narrowRow<DeckDbRow>(row)))
+  const rows    = (data ?? []) as DeckDbRow[]
+  const hasMore = rows.length > limit
+  const items   = rows.slice(0, limit).map((row) => toRow(narrowRow<DeckDbRow>(row)))
+
+  return {
+    items,
+    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    hasMore,
+  }
 }
 
 /**

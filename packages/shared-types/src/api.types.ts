@@ -65,6 +65,19 @@ export interface ApiBatchResult<T = unknown> {
   errors:  Array<{ cardId: string; error: string }>
 }
 
+/**
+ * Universal list-response envelope. Hand-written for the same reason as
+ * `ApiBatchResult` — runtime validator is the factory `apiListEnvelope(item)`
+ * in `schemas/api.schema.ts`. Endpoints that aren't actually cursor-paginated
+ * (bounded responses, fixed-dimension analytics arrays) set
+ * `nextCursor: null` and `hasMore: false`; the shape stays uniform.
+ */
+export interface ApiList<T = unknown> {
+  items:      T[]
+  nextCursor: string | null
+  hasMore:    boolean
+}
+
 // ─── Analytics wire formats ───────────────────────────────────────────────────
 
 /** Single day in the retention heatmap. Days with zero reviews are omitted. */

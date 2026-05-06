@@ -1,19 +1,32 @@
 'use server'
 
-import { z } from 'zod'
-
 import { apiCall, apiCallSafe } from '@/lib/api/client'
 import {
   ApiDeckSchema,
   ApiDeckWithStatsSchema,
+  apiListEnvelope,
   voidResponseSchema,
   type ApiDeck,
   type ApiDeckWithStats,
+  type ApiList,
   type CreateDeckPayload,
 } from '@fsrs-japanese/shared-types'
 
-export async function listDecksAction(): Promise<ApiDeck[]> {
-  return apiCallSafe<ApiDeck[]>('/api/v1/decks', z.array(ApiDeckSchema), {}, [])
+const EMPTY_DECKS_PAGE: ApiList<ApiDeck> = { items: [], nextCursor: null, hasMore: false }
+
+export async function listDecksAction(
+  options: { limit?: number; cursor?: string } = {},
+): Promise<ApiList<ApiDeck>> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 50))
+  if (options.cursor !== undefined) params.set('cursor', options.cursor)
+
+  return apiCallSafe<ApiList<ApiDeck>>(
+    `/api/v1/decks?${params.toString()}`,
+    apiListEnvelope(ApiDeckSchema),
+    {},
+    EMPTY_DECKS_PAGE,
+  )
 }
 
 export async function getDeckAction(deckId: string): Promise<ApiDeckWithStats | null> {

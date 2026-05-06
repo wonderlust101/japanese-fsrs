@@ -42,11 +42,13 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
     queryFn:  () => getCardAction(deckId, cardId),
   })
 
-  const { data: similar, isLoading: loadingSimilar } = useQuery({
+  const { data: similarResult, isLoading: loadingSimilar } = useQuery({
     queryKey: queryKeys.cards.similar(cardId),
     queryFn:  () => getSimilarCardsAction(cardId),
     enabled:  showSimilar,
   })
+
+  const similar = similarResult?.items
 
   // ── Extract fieldsData fields ──────────────────────────────────────────────
   // Narrow on layoutType for typed access; fall back to free-form lookups

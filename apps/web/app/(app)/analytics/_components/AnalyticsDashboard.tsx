@@ -13,11 +13,11 @@ export function AnalyticsDashboard(): React.JSX.Element {
   const dashboard = useAnalyticsDashboard()
   const forecast  = useReviewForecast()
 
-  const heatmap    = dashboard.data?.heatmap    ?? []
-  const accuracy   = dashboard.data?.accuracy   ?? []
+  const heatmap    = dashboard.data?.heatmap.items    ?? []
+  const accuracy   = dashboard.data?.accuracy.items   ?? []
   const streak     = dashboard.data?.streak
-  const jlptGap    = dashboard.data?.jlptGap    ?? []
-  const milestones = dashboard.data?.milestones ?? []
+  const jlptGap    = dashboard.data?.jlptGap.items    ?? []
+  const milestones = dashboard.data?.milestones.items ?? []
   const isLoading  = dashboard.isLoading
 
   return (
@@ -39,7 +39,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
       <RetentionHeatmap data={heatmap} isLoading={isLoading} />
 
       {/* Review forecast */}
-      <ReviewForecastChart data={forecast.data ?? []} isLoading={forecast.isLoading} />
+      <ReviewForecastChart data={forecast.data?.items ?? []} isLoading={forecast.isLoading} />
 
       {/* JLPT gap + milestone forecast (merged per row) */}
       <JLPTProgressBars

@@ -17,20 +17,21 @@ import {
   unsubscribeFromPremadeDeckAction,
 } from '../actions/premade.actions'
 import type {
+  ApiList,
   ApiPremadeDeck,
   ApiPremadeSubscription,
   ApiSubscribeResult,
 } from '@fsrs-japanese/shared-types'
 
-export function usePremadeDecks(): UseQueryResult<ApiPremadeDeck[], Error> {
+export function usePremadeDecks(): UseQueryResult<ApiList<ApiPremadeDeck>, Error> {
   return useQuery({
     queryKey:  queryKeys.premadeDecks.list(),
-    queryFn:   listPremadeDecksAction,
+    queryFn:   () => listPremadeDecksAction(),
     staleTime: staleTimes.deckList,
   })
 }
 
-export function useMySubscriptions(): UseQueryResult<ApiPremadeSubscription[], Error> {
+export function useMySubscriptions(): UseQueryResult<ApiList<ApiPremadeSubscription>, Error> {
   return useQuery({
     queryKey:  queryKeys.premadeDecks.subscriptions(),
     queryFn:   listMySubscriptionsAction,

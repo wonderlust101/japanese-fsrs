@@ -22,6 +22,7 @@ export type {
   ApiSubscribeResult,
   ApiForecastDay,
   ApiBatchResult,
+  ApiList,
   ApiHeatmapDay,
   ApiLayoutAccuracy,
   ApiStreakStats,
@@ -44,7 +45,7 @@ export {
   ApiCardSchema, ApiDueCardSchema, ApiCardListItemSchema, ApiSimilarCardSchema,
   ApiDeckSchema, ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema, ApiPremadeSubscriptionSchema, ApiSubscribeResultSchema,
-  ApiForecastDaySchema, ApiBatchResultSchema,
+  ApiForecastDaySchema, ApiBatchResultSchema, apiListEnvelope,
   ApiHeatmapDaySchema, ApiLayoutAccuracySchema, ApiStreakStatsSchema,
   ApiJlptGapSchema, ApiMilestoneForecastSchema, ApiAnalyticsDashboardSchema,
   ApiReviewedCardSchema, ApiReviewSubmitResponseSchema,
@@ -69,10 +70,14 @@ export type {
   CardStatusFilter,
 } from './schemas/card.schema.ts'
 
-export { deckTypeEnum, createDeckSchema, updateDeckSchema, deckIdParamSchema } from './schemas/deck.schema.ts'
+export {
+  deckTypeEnum, createDeckSchema, updateDeckSchema, deckIdParamSchema,
+  listDecksQuerySchema,
+} from './schemas/deck.schema.ts'
 export type {
   CreateDeckInput, CreateDeckPayload,
   UpdateDeckInput,
+  ListDecksQuery,
 } from './schemas/deck.schema.ts'
 
 export {

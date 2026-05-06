@@ -4,6 +4,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import type {
   ApiHeatmapDay,
   ApiLayoutAccuracy,
+  ApiList,
   ApiStreakStats,
   ApiJlptGap,
   ApiMilestoneForecast,
@@ -35,7 +36,7 @@ export function useAnalyticsDashboard(): UseQueryResult<ApiAnalyticsDashboard, E
   })
 }
 
-export function useHeatmapData(): UseQueryResult<ApiHeatmapDay[], Error> {
+export function useHeatmapData(): UseQueryResult<ApiList<ApiHeatmapDay>, Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.heatmap(),
     queryFn:   getHeatmapAction,
@@ -43,7 +44,7 @@ export function useHeatmapData(): UseQueryResult<ApiHeatmapDay[], Error> {
   })
 }
 
-export function useAccuracyByLayout(): UseQueryResult<ApiLayoutAccuracy[], Error> {
+export function useAccuracyByLayout(): UseQueryResult<ApiList<ApiLayoutAccuracy>, Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.accuracy(),
     queryFn:   getAccuracyAction,
@@ -59,7 +60,7 @@ export function useStreak(): UseQueryResult<ApiStreakStats, Error> {
   })
 }
 
-export function useJlptGap(): UseQueryResult<ApiJlptGap[], Error> {
+export function useJlptGap(): UseQueryResult<ApiList<ApiJlptGap>, Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.jlptGap(),
     queryFn:   getJlptGapAction,
@@ -67,7 +68,7 @@ export function useJlptGap(): UseQueryResult<ApiJlptGap[], Error> {
   })
 }
 
-export function useMilestoneForecast(): UseQueryResult<ApiMilestoneForecast[], Error> {
+export function useMilestoneForecast(): UseQueryResult<ApiList<ApiMilestoneForecast>, Error> {
   return useQuery({
     queryKey:  queryKeys.analytics.milestones(),
     queryFn:   getMilestoneForecastAction,

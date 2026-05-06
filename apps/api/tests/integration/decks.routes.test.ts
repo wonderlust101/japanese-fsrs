@@ -69,10 +69,12 @@ describeIntegration('decks routes — wire shape', () => {
       .get('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
     expect(listRes.status).toBe(200)
-    expect(Array.isArray(listRes.body)).toBe(true)
-    expect(listRes.body.length).toBeGreaterThan(0)
+    expect(Array.isArray(listRes.body.items)).toBe(true)
+    expect(listRes.body.items.length).toBeGreaterThan(0)
+    expect(listRes.body.hasMore).toBe(false)
+    expect(listRes.body.nextCursor).toBeNull()
 
-    const keys = Object.keys(listRes.body[0]).sort()
+    const keys = Object.keys(listRes.body.items[0]).sort()
     expect(keys).toEqual(API_DECK_KEYS)
   })
 

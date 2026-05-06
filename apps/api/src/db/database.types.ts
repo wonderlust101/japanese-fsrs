@@ -631,6 +631,46 @@ export type Database = {
           tags: string[]
         }[]
       }
+      list_decks_paginated: {
+        Args: {
+          p_cursor?: string
+          p_limit: number
+          p_user_id: string
+        }
+        Returns: {
+          card_count: number
+          created_at: string
+          deck_type: Database["public"]["Enums"]["deck_type"]
+          description: string
+          id: string
+          is_premade_fork: boolean
+          name: string
+          source_premade_id: string
+          updated_at: string
+        }[]
+      }
+      list_premade_decks_paginated: {
+        Args: {
+          p_cursor?: string
+          p_deck_type?: Database["public"]["Enums"]["deck_type"]
+          p_domain?: string
+          p_jlpt_level?: Database["public"]["Enums"]["jlpt_level"]
+          p_limit: number
+        }
+        Returns: {
+          card_count: number
+          created_at: string
+          deck_type: Database["public"]["Enums"]["deck_type"]
+          description: string
+          domain: string
+          id: string
+          is_active: boolean
+          jlpt_level: Database["public"]["Enums"]["jlpt_level"]
+          name: string
+          updated_at: string
+          version: number
+        }[]
+      }
       process_forget: {
         Args: {
           p_card_id: string
