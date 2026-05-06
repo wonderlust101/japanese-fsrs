@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
   State,
   type ApiDeck, type ApiDeckWithStats, type DeckType,
@@ -188,15 +189,24 @@ export async function updateDeck(
 /**
  * Deletes a deck and all of its cards (cascade is set in the DB schema).
  *
- * Confirms ownership via a SELECT before deleting so we can distinguish
- * "not found / wrong owner" from a delete failure.
+ * For premade-fork decks, delegates to `unsubscribeFromPremadeDeck` so the
+ * matching `user_premade_subscriptions` row is also removed atomically. The
+ * subscription has no FK to `decks` (only to `premade_decks`), so a plain
+ * deck DELETE would leave it orphaned and break the next subscribe attempt
+ * via the unique-constraint on (user_id, premade_deck_id).
  *
  * Throws 404 if the deck does not exist or does not belong to the user.
  */
 export async function deleteDeck(deckId: string, userId: string): Promise<void> {
+  interface DeckOwnerRow {
+    id:                string
+    is_premade_fork:   boolean
+    source_premade_id: string | null
+  }
+
   const { data, error: fetchError } = await supabaseAdmin
     .from('decks')
-    .select('id')
+    .select('id, is_premade_fork, source_premade_id')
     .eq('id', deckId)
     .eq('user_id', userId)
     .single()
@@ -205,10 +215,20 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
     throw new AppError(404, 'Deck not found')
   }
 
+  const deck = narrowRow<DeckOwnerRow>(data)
+
+  // Premade fork → use the unsubscribe path so deck + subscription delete
+  // atomically (via the unsubscribe_from_premade_deck RPC).
+  if (deck.is_premade_fork && deck.source_premade_id !== null) {
+    await unsubscribeFromPremadeDeck(userId, deck.source_premade_id)
+    return
+  }
+
   const { error: deleteError } = await supabaseAdmin
     .from('decks')
     .delete()
     .eq('id', deckId)
+    .eq('user_id', userId)
 
   if (deleteError !== null) {
     throw dbError('delete deck', deleteError)
