@@ -13,7 +13,14 @@ mock.module('../../db/supabase.ts', () => ({
     rpc:  mock((fn: string, params: unknown) => {
       state.rpcCalls.push({ fn, params })
       const r = state.rpcResponses[fn] ?? { data: null, error: null }
-      return Promise.resolve(r)
+      // Mimic the supabase-js PostgrestFilterBuilder shape: thenable AND
+      // chainable with `.limit(...)`. Each chained method returns the same
+      // object so the eventual `await` lands on the same `r`.
+      const builder: { limit: (n: number) => typeof builder; then: (resolve: (v: typeof r) => void) => void } = {
+        limit: () => builder,
+        then:  (resolve) => resolve(r),
+      }
+      return builder
     }),
   },
 }))

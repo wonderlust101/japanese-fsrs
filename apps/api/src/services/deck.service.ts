@@ -62,6 +62,9 @@ export async function listDecks(userId: string): Promise<ApiDeck[]> {
     .select(DECK_COLUMNS)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
+    // Defensive cap — well above realistic usage. If a power user ever brushes
+    // up against this, the answer is real pagination, not a higher number.
+    .limit(200)
 
   if (error !== null) {
     throw dbError('list decks', error)

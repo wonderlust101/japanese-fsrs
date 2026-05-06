@@ -96,127 +96,73 @@ export async function submitBatch(
 /**
  * Returns aggregate stats for all reviews that share the given session_id.
  *
- * Leeches are matched by card_id + a time window anchored to the session's
- * reviewed_at range. A 5-second buffer is added to the upper bound because
- * leech rows are written inside the same DB transaction as the review log,
- * but their created_at may differ by a few milliseconds due to statement
- * ordering within the transaction.
+ * Backed by the `get_session_summary` RPC, which collapses logs aggregation,
+ * leech lookup, and card-detail enrichment into one round-trip and one
+ * SQL transaction. Leeches are matched on `session_id` directly (added in
+ * migration 20260509000001); pre-L2 leeches with NULL session_id are
+ * excluded.
  */
 export async function getSessionSummary(
   sessionId: string,
   userId:    string,
 ): Promise<SessionSummary> {
-  interface SessionLogRow {
-    card_id:        string
-    rating:         string
-    review_time_ms: number | null
-    reviewed_at:    string
-    due_after:      string
-  }
-  const { data: logsData, error: logsError } = await supabaseAdmin
-    .from('review_logs')
-    .select('card_id, rating, review_time_ms, reviewed_at, due_after')
-    .eq('session_id', sessionId)
-    .eq('user_id', userId)
-
-  if (logsError !== null) {
-    throw dbError('fetch session logs', logsError)
-  }
-  if (logsData === null || logsData.length === 0) {
-    throw new AppError(404, 'Session not found')
-  }
-  const logs = narrowRow<SessionLogRow[]>(logsData)
-
-  // ── Aggregate stats ──────────────────────────────────────────────────────────
-  const breakdown = { again: 0, hard: 0, good: 0, easy: 0 }
-  let totalTimeMs = 0
-
-  for (const log of logs) {
-    if (log.rating in breakdown) breakdown[log.rating as keyof typeof breakdown]++
-    totalTimeMs += log.review_time_ms ?? 0
+  interface SessionSummaryEnvelope {
+    total:         number
+    breakdown:     { again: number; hard: number; good: number; easy: number }
+    total_time_ms: number
+    next_due_at:   string | null
+    leeches: Array<{
+      leech_id:     string
+      card_id:      string
+      deck_id:      string | null
+      word:         string | null
+      reading:      string | null
+      diagnosis:    string | null
+      prescription: string | null
+      resolved:     boolean
+      created_at:   string
+    }>
   }
 
-  const total      = logs.length
-  const accuracyPct = total === 0
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // get_session_summary until `supabase gen types` runs post-deploy.
+  const { data, error } = await supabaseAdmin.rpc(
+    'get_session_summary' as never,
+    asPayload({ p_session_id: sessionId, p_user_id: userId }),
+  )
+
+  if (error !== null) {
+    if (error.code === '02000' || error.message.includes('session_not_found')) {
+      throw new AppError(404, 'Session not found')
+    }
+    throw dbError('fetch session summary', error)
+  }
+
+  const env = narrowRow<SessionSummaryEnvelope>(data)
+
+  const accuracyPct = env.total === 0
     ? 0
-    : Math.round(((breakdown.good + breakdown.easy) / total) * 1000) / 10
+    : Math.round(((env.breakdown.good + env.breakdown.easy) / env.total) * 1000) / 10
 
-  // Earliest scheduled due date across all cards reviewed in this session.
-  // ISO string sort is lexicographically correct for TIMESTAMPTZ values.
-  const nextDueAt = logs.length > 0
-    ? (logs.map((l) => l.due_after).sort()[0] ?? null)
-    : null
-
-  // ── Leech lookup ─────────────────────────────────────────────────────────────
-  // Match leeches on session_id directly (added in migration 20260509000001).
-  // Pre-L2 leeches with session_id IS NULL are intentionally excluded — the
-  // prior time-window heuristic was unreliable under clock skew or batch
-  // submissions, and pre-existing leeches without session_id can't be
-  // retroactively assigned to a session anyway.
-  interface LeechRow {
-    id:           string
-    card_id:      string
-    diagnosis:    string | null
-    prescription: string | null
-    resolved:     boolean
-    created_at:   string
-  }
-  const { data: leechData, error: leechError } = await supabaseAdmin
-    .from('leeches')
-    .select('id, card_id, diagnosis, prescription, resolved, created_at')
-    .eq('session_id', sessionId)
-    .eq('user_id', userId)
-
-  if (leechError !== null) {
-    throw dbError('fetch session leeches', leechError)
-  }
-  const leechRows = narrowRow<LeechRow[]>(leechData ?? [])
-
-  // Enrich leech rows with card display data (word, reading) and deckId for linking.
-  const cardDataMap = new Map<string, { deckId: string; word: string; reading: string | null }>()
-
-  if (leechRows.length > 0) {
-    const leechCardIds = leechRows.map((l) => l.card_id)
-
-    interface LeechCardRow { id: string; deck_id: string; fields_data: Record<string, unknown> }
-    const { data: cardData, error: cardError } = await supabaseAdmin
-      .from('cards')
-      .select('id, deck_id, fields_data')
-      .in('id', leechCardIds)
-
-    if (cardError !== null) {
-      throw dbError('fetch card data for leeches', cardError)
-    }
-
-    for (const c of narrowRow<LeechCardRow[]>(cardData ?? [])) {
-      const word    = typeof c.fields_data['word']    === 'string' ? c.fields_data['word']    : ''
-      const reading = typeof c.fields_data['reading'] === 'string' ? c.fields_data['reading'] : null
-      cardDataMap.set(c.id, { deckId: c.deck_id, word, reading })
-    }
-  }
-
-  const leeches: SessionLeech[] = leechRows.map((l) => {
-    const card = cardDataMap.get(l.card_id)
-    return {
-      leechId:      l.id,
-      cardId:       l.card_id,
-      deckId:       card?.deckId  ?? '',
-      word:         card?.word    ?? '',
-      reading:      card?.reading ?? null,
-      diagnosis:    l.diagnosis    ?? null,
-      prescription: l.prescription ?? null,
-      resolved:     l.resolved,
-      createdAt:    l.created_at,
-    }
-  })
+  const leeches: SessionLeech[] = env.leeches.map((l) => ({
+    leechId:      l.leech_id,
+    cardId:       l.card_id,
+    deckId:       l.deck_id   ?? '',
+    word:         l.word      ?? '',
+    reading:      l.reading   ?? null,
+    diagnosis:    l.diagnosis ?? null,
+    prescription: l.prescription ?? null,
+    resolved:     l.resolved,
+    createdAt:    l.created_at,
+  }))
 
   return {
     sessionId,
-    totalCards: total,
-    totalTimeMs,
+    totalCards:      env.total,
+    totalTimeMs:     env.total_time_ms,
     accuracyPct,
-    nextDueAt,
-    ratingBreakdown: breakdown,
+    nextDueAt:       env.next_due_at,
+    ratingBreakdown: env.breakdown,
     leeches,
   }
 }

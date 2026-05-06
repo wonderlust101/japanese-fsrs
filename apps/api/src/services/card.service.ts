@@ -224,6 +224,13 @@ async function assertDeckOwnership(deckId: string, userId: string): Promise<void
 /**
  * Returns a cursor-paginated list of cards in a deck owned by the user.
  * Optional `status` filter: 'new', 'learning' (includes relearning), 'review', 'suspended'.
+ *
+ * Backed by the `list_cards_paginated` RPC, which folds the deck-ownership
+ * check, cursor resolution, and the page query into one round-trip and
+ * uses tuple comparison `(created_at, id) < (cursor_at, cursor_id)` so that
+ * cards sharing a `created_at` (e.g. siblings cloned in subscribe_to_premade_deck)
+ * don't drop out at page boundaries.
+ *
  * Throws 404 if the deck does not exist or belongs to a different user.
  */
 export async function listCards(
@@ -233,58 +240,27 @@ export async function listCards(
   cursor?: string,
   status?: CardStatusFilter,
 ): Promise<CardListResult> {
-  await assertDeckOwnership(deckId, userId)
-
-  let query = supabaseAdmin
-    .from('cards')
-    .select(CARD_LIST_COLUMNS)
-    .eq('deck_id', deckId)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
-    .limit(limit + 1)
-
-  // Translate the status-shaped filter param (URL-stable) into state + is_suspended.
-  // 'suspended' is orthogonal to FSRS state, so it gets its own branch.
-  // 'all' and undefined intentionally apply no filter; the explicit branch +
-  // exhaustive default makes a future enum addition fail compilation here.
-  if (status === undefined || status === 'all') {
-    // no-op
-  } else if (status === 'new') {
-    query = query.eq('state', State.New).eq('is_suspended', false)
-  } else if (status === 'learning') {
-    query = query.in('state', [State.Learning, State.Relearning]).eq('is_suspended', false)
-  } else if (status === 'review') {
-    query = query.eq('state', State.Review).eq('is_suspended', false)
-  } else if (status === 'suspended') {
-    query = query.eq('is_suspended', true)
-  } else {
-      throw new Error(`Unhandled card status filter: ${String(status)}`)
-  }
-
-  if (cursor !== undefined) {
-    // Scope the cursor lookup to the authenticated user so an attacker cannot
-    // probe whether a card UUID belongs to another user via response timing /
-    // result-shape differences.
-    const { data: cursorCard } = await supabaseAdmin
-      .from('cards')
-      .select('created_at')
-      .eq('id', cursor)
-      .eq('user_id', userId)
-      .single()
-
-    if (cursorCard !== null) {
-      query = query.lt('created_at', (cursorCard as { created_at: string }).created_at)
-    }
-  }
-
-  const { data, error } = await query
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // list_cards_paginated until `supabase gen types` runs post-deploy.
+  const { data, error } = await supabaseAdmin.rpc(
+    'list_cards_paginated' as never,
+    asPayload({
+      p_user_id:       userId,
+      p_deck_id:       deckId,
+      p_limit:         limit + 1,
+      p_cursor:        cursor ?? null,
+      p_status_filter: status ?? null,
+    }),
+  )
 
   if (error !== null) {
+    if (error.code === '02000' || error.message.includes('deck_not_found')) {
+      throw new AppError(404, 'Deck not found')
+    }
     throw dbError('list cards', error)
   }
 
-  const rows    = data ?? []
+  const rows    = (data ?? []) as CardListDbRow[]
   const hasMore = rows.length > limit
   const items   = rows
     .slice(0, limit)
@@ -486,9 +462,11 @@ export async function getSimilarCards(cardId: string, userId: string): Promise<A
  * column-vs-column comparison.
  */
 export async function getStaleEmbeddingCards(userId: string): Promise<ApiCard[]> {
-  const { data, error } = await supabaseAdmin.rpc('get_stale_embedding_cards', {
-    p_user_id: userId,
-  })
+  // Defensive cap: a user with thousands of stale cards shouldn't transfer
+  // them all in one call. Realistic ops paths re-embed in batches anyway.
+  const { data, error } = await supabaseAdmin
+    .rpc('get_stale_embedding_cards', { p_user_id: userId })
+    .limit(1000)
 
   if (error !== null) {
     throw dbError('fetch stale embedding cards', error)
