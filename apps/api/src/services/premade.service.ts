@@ -74,7 +74,7 @@ export async function listPremadeDecks(
     .order('name',       { ascending: true })
     // Defensive cap — the curated catalogue is small (single-digit decks today).
     // If it ever grows past this, real pagination is the answer.
-    .limit(50)
+    .limit(20)
 
   if (filters.deckType  !== undefined) query = query.eq('deck_type',  filters.deckType)
   if (filters.jlptLevel !== undefined) query = query.eq('jlpt_level', filters.jlptLevel)
