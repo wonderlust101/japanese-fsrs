@@ -1,23 +1,27 @@
 import OpenAI from 'openai';
+import { z } from 'zod';
 
 import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
 import { asPayload, narrowRow } from '../lib/db.ts';
 import { AppError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
-import type {
-    ApiCard,
-    ApiCardListItem,
-    ApiDueCard,
-    ApiList,
-    ApiSimilarCard,
-    CardStatusFilter,
-    CardType,
-    FieldsData,
-    JLPTLevel,
-    LayoutType,
+import {
     State,
-    UpdateCardInput,
+    cardTypeEnum,
+    jlptLevelEnum,
+    layoutTypeEnum,
+    type ApiCard,
+    type ApiCardListItem,
+    type ApiDueCard,
+    type ApiList,
+    type ApiSimilarCard,
+    type CardStatusFilter,
+    type CardType,
+    type FieldsData,
+    type JLPTLevel,
+    type LayoutType,
+    type UpdateCardInput,
 } from '@fsrs-japanese/shared-types';
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
@@ -207,6 +211,82 @@ export function toApiCardListItem(raw: CardListDbRow): ApiCardListItem {
   }
 }
 
+// ─── RPC envelope schemas ─────────────────────────────────────────────────────
+// Module-level Zod schemas for the RPC return shapes consumed below. Mirrors
+// the precedent in analytics.service.ts and review.service.ts: parsed at
+// runtime so any future column-rename surfaces as a clean ZodError instead of
+// a silent type lie via `narrowRow<T>(row: unknown): T`.
+
+/** Master schema mirroring CardDbRow (full SELECT CARD_COLUMNS shape). */
+const CardDbRowSchema = z.object({
+  id:              z.string(),
+  user_id:         z.string().nullable(),
+  deck_id:         z.string().nullable(),
+  premade_deck_id: z.string().nullable(),
+  layout_type:     layoutTypeEnum,
+  fields_data:     z.record(z.string(), z.unknown()),
+  card_type:       cardTypeEnum,
+  parent_card_id:  z.string().nullable(),
+  tags:            z.array(z.string()),
+  jlpt_level:      jlptLevelEnum.nullable(),
+  state:           z.nativeEnum(State),
+  is_suspended:    z.boolean(),
+  due:             z.string(),
+  stability:       z.number(),
+  difficulty:      z.number(),
+  elapsed_days:    z.number(),
+  scheduled_days:  z.number(),
+  learning_steps:  z.number(),
+  reps:            z.number(),
+  lapses:          z.number(),
+  last_review:     z.string().nullable(),
+  created_at:      z.string(),
+  updated_at:      z.string(),
+})
+
+/** Slim projection returned by the `list_cards_paginated` RPC. */
+const CardListRpcRowSchema = CardDbRowSchema.pick({
+  id:           true,
+  fields_data:  true,
+  layout_type:  true,
+  card_type:    true,
+  jlpt_level:   true,
+  state:        true,
+  is_suspended: true,
+  due:          true,
+  tags:         true,
+})
+
+/**
+ * Slim projection returned by the `get_due_cards` RPC. Exported so
+ * review.service.ts can validate the same shape without redefining it.
+ */
+export const DueCardRpcRowSchema = CardDbRowSchema.pick({
+  id:          true,
+  deck_id:     true,
+  card_type:   true,
+  jlpt_level:  true,
+  state:       true,
+  due:         true,
+  fields_data: true,
+  layout_type: true,
+})
+
+/** Distinct shape returned by the `find_similar_cards` RPC (no FSRS state). */
+const SimilarCardRpcRowSchema = z.object({
+  id:          z.string(),
+  deck_id:     z.string(),
+  layout_type: layoutTypeEnum,
+  card_type:   cardTypeEnum,
+  fields_data: z.record(z.string(), z.unknown()),
+  // RPC returns NULL for cards that haven't been tagged.
+  tags:        z.array(z.string()).nullable(),
+  jlpt_level:  jlptLevelEnum.nullable(),
+  similarity:  z.number(),
+})
+
+// ─── Internal helpers (cont.) ─────────────────────────────────────────────────
+
 /** Verifies a deck exists and belongs to the given user. Throws 404 otherwise. */
 async function assertDeckOwnership(deckId: string, userId: string): Promise<void> {
   const { data, error } = await supabaseAdmin
@@ -260,11 +340,9 @@ export async function listCards(
     throw dbError('list cards', error)
   }
 
-  const rows    = (data ?? []) as CardListDbRow[]
+  const rows    = z.array(CardListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
-  const items   = rows
-    .slice(0, limit)
-    .map((row) => toApiCardListItem(narrowRow<CardListDbRow>(row)))
+  const items   = rows.slice(0, limit).map(toApiCardListItem)
 
   return {
     items,
@@ -470,7 +548,8 @@ export async function getSimilarCards(
     throw dbError('find similar cards', error)
   }
 
-  const items: ApiSimilarCard[] = (data ?? []).map((row) => ({
+  const rows  = z.array(SimilarCardRpcRowSchema).parse(data ?? [])
+  const items: ApiSimilarCard[] = rows.map((row) => ({
     id:         row.id,
     deckId:     row.deck_id,
     layoutType: row.layout_type,
@@ -503,7 +582,8 @@ export async function getStaleEmbeddingCards(userId: string): Promise<ApiCard[]>
     throw dbError('fetch stale embedding cards', error)
   }
 
-  return (data ?? []).map((row: unknown) => toCardRow(narrowRow<CardDbRow>(row)))
+  const rows = z.array(CardDbRowSchema).parse(data ?? [])
+  return rows.map(toCardRow)
 }
 
 /**

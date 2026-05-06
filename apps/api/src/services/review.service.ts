@@ -1,10 +1,10 @@
 import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
+import { asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReviewBatch, type ProcessReviewResult } from './fsrs.service.ts'
-import { toApiDueCard, type DueCardDbRow } from './card.service.ts'
+import { toApiDueCard, DueCardRpcRowSchema } from './card.service.ts'
 import type { Profile } from './profile.service.ts'
 import type {
   ApiDueCard,
@@ -90,9 +90,8 @@ export async function getDueCards(
     throw dbError('fetch due cards', error)
   }
 
-  const items = ((data ?? []) as DueCardDbRow[]).map(
-    (row) => toApiDueCard(narrowRow<DueCardDbRow>(row)),
-  )
+  const rows  = z.array(DueCardRpcRowSchema).parse(data ?? [])
+  const items = rows.map(toApiDueCard)
   // Bounded by FSRS daily caps; no cursor pagination.
   return { items, nextCursor: null, hasMore: false }
 }

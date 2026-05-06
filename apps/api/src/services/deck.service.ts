@@ -1,9 +1,12 @@
+import { z } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
   State,
+  deckTypeEnum,
   type ApiDeck, type ApiDeckWithStats, type ApiList, type DeckType,
   type CreateDeckInput, type UpdateDeckInput,
 } from '@fsrs-japanese/shared-types'
@@ -36,6 +39,21 @@ interface DeckDbRow {
   created_at:        string
   updated_at:        string
 }
+
+// ─── RPC envelope schema ──────────────────────────────────────────────────────
+// Mirrors the analytics.service.ts / review.service.ts precedent: parse the
+// RPC result so any future column drift surfaces as a clean ZodError.
+const DeckListRpcRowSchema = z.object({
+  id:                z.string(),
+  name:              z.string(),
+  description:       z.string().nullable(),
+  deck_type:         deckTypeEnum,
+  is_premade_fork:   z.boolean(),
+  source_premade_id: z.string().nullable(),
+  card_count:        z.number(),
+  created_at:        z.string(),
+  updated_at:        z.string(),
+})
 
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
 function toRow(raw: DeckDbRow): ApiDeck {
@@ -75,9 +93,9 @@ export async function listDecks(
     throw dbError('list decks', error)
   }
 
-  const rows    = (data ?? []) as DeckDbRow[]
+  const rows    = z.array(DeckListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
-  const items   = rows.slice(0, limit).map((row) => toRow(narrowRow<DeckDbRow>(row)))
+  const items   = rows.slice(0, limit).map(toRow)
 
   return {
     items,

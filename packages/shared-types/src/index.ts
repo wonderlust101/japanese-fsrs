@@ -59,7 +59,7 @@ export {
 // request/response shapes that cross the API ↔ web boundary.
 
 export {
-  cardTypeEnum, jlptLevelEnum,
+  cardTypeEnum, jlptLevelEnum, layoutTypeEnum,
   createCardSchema, updateCardSchema,
   cardIdParamSchema, nestedDeckIdParamSchema,
   listCardsQuerySchema,

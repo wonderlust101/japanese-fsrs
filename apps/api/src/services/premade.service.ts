@@ -4,13 +4,15 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
-import type {
-  ApiList,
-  ApiPremadeDeck,
-  ApiPremadeSubscription,
-  ApiSubscribeResult,
-  DeckType,
-  JLPTLevel,
+import {
+  deckTypeEnum,
+  jlptLevelEnum,
+  type ApiList,
+  type ApiPremadeDeck,
+  type ApiPremadeSubscription,
+  type ApiSubscribeResult,
+  type DeckType,
+  type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -44,6 +46,23 @@ interface PremadeDeckDbRow {
   created_at:  string
   updated_at:  string
 }
+
+// ─── RPC envelope schema ──────────────────────────────────────────────────────
+// Mirrors the analytics / review precedent: parse the RPC result so any
+// future column drift surfaces as a clean ZodError.
+const PremadeDeckListRpcRowSchema = z.object({
+  id:          z.string(),
+  name:        z.string(),
+  description: z.string().nullable(),
+  deck_type:   deckTypeEnum,
+  jlpt_level:  jlptLevelEnum.nullable(),
+  domain:      z.string().nullable(),
+  card_count:  z.number(),
+  version:     z.number(),
+  is_active:   z.boolean(),
+  created_at:  z.string(),
+  updated_at:  z.string(),
+})
 
 function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
   return {
@@ -83,9 +102,9 @@ export async function listPremadeDecks(
     throw dbError('list premade decks', error)
   }
 
-  const rows    = (data ?? []) as PremadeDeckDbRow[]
+  const rows    = z.array(PremadeDeckListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > filters.limit
-  const items   = rows.slice(0, filters.limit).map((row) => toPremadeRow(narrowRow<PremadeDeckDbRow>(row)))
+  const items   = rows.slice(0, filters.limit).map(toPremadeRow)
 
   return {
     items,
