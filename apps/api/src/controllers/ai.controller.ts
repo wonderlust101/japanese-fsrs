@@ -43,7 +43,8 @@ export const generateSentences: RequestHandler = async (req, res, next): Promise
     const word    = (card.fieldsData['word'] as string | undefined) ?? ''
 
     if (word.length === 0) {
-      throw new AppError(400, 'Card has no `word` field to generate sentences for')
+      // 422 = well-formed body but the referenced card lacks the data we need.
+      throw new AppError(422, 'Card has no `word` field to generate sentences for')
     }
 
     const data = await aiService.generateSentences(
@@ -71,7 +72,8 @@ export const generateMnemonic: RequestHandler = async (req, res, next): Promise<
     const word    = (card.fieldsData['word'] as string | undefined) ?? ''
 
     if (word.length === 0) {
-      throw new AppError(400, 'Card has no `word` field to generate a mnemonic for')
+      // 422 = well-formed body but the referenced card lacks the data we need.
+      throw new AppError(422, 'Card has no `word` field to generate a mnemonic for')
     }
 
     const data = await aiService.generateMnemonic(

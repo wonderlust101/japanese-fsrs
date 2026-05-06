@@ -5,6 +5,9 @@ import {
   premadeDeckIdParamSchema,
 } from '../schemas/premade.schema.ts'
 import * as premadeService from '../services/premade.service.ts'
+import { cacheControl } from '../lib/http.ts'
+
+const PREMADE_MAX_AGE_SECONDS = 600
 
 /**
  * GET /api/v1/premade-decks
@@ -14,6 +17,7 @@ export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const filters = listPremadeDecksQuerySchema.parse(req.query)
     const data    = await premadeService.listPremadeDecks(filters)
+    cacheControl(res, PREMADE_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -28,6 +32,7 @@ export const get: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = premadeDeckIdParamSchema.parse(req.params)
     const data   = await premadeService.getPremadeDeck(id)
+    cacheControl(res, PREMADE_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -50,12 +55,15 @@ export const subscriptions: RequestHandler = async (req, res, next): Promise<voi
 /**
  * POST /api/v1/premade-decks/:id/subscribe
  * Subscribes the user and clones the source cards into a new personal deck.
- * Returns 201 on first subscribe and 200 on idempotent re-subscribe.
+ * Returns 201 + Location on first subscribe and 200 on idempotent re-subscribe.
  */
 export const subscribe: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = premadeDeckIdParamSchema.parse(req.params)
     const data   = await premadeService.subscribeToPremadeDeck(req.user.id, id)
+    if (!data.alreadyExisted) {
+      res.setHeader('Location', `/api/v1/decks/${data.deckId}`)
+    }
     res.status(data.alreadyExisted ? 200 : 201).json(data)
   } catch (err) {
     next(err)

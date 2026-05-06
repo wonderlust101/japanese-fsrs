@@ -1,7 +1,7 @@
 import { Router } from 'express'
 
 import { authMiddleware } from '../middleware/auth.ts'
-import { authRateLimitMiddleware } from '../middleware/rateLimit.ts'
+import { authRateLimitMiddleware, accountDeleteRateLimitMiddleware } from '../middleware/rateLimit.ts'
 import * as authController from '../controllers/auth.controller.ts'
 
 const router = Router()
@@ -17,6 +17,6 @@ router.post('/resend-otp',    authRateLimitMiddleware, authController.resendOtp)
 
 // Protected — requires a valid Bearer token.
 router.post('/logout',          authMiddleware, authController.logout)
-router.delete('/account',       authMiddleware, authController.deleteAccount)
+router.delete('/account',       authMiddleware, accountDeleteRateLimitMiddleware, authController.deleteAccount)
 
 export default router

@@ -78,6 +78,7 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
       parentCardId: input.parentCardId,
     })
 
+    res.setHeader('Location', `/api/v1/cards/${card.id}`)
     res.status(201).json(card)
   } catch (err) {
     next(err)

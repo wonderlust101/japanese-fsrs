@@ -29,6 +29,7 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input = createDeckSchema.parse(req.body)
     const deck  = await deckService.createDeck(req.user.id, input)
+    res.setHeader('Location', `/api/v1/decks/${deck.id}`)
     res.status(201).json(deck)
   } catch (err) {
     next(err)

@@ -1,6 +1,9 @@
 import type { RequestHandler } from 'express'
 
 import * as analyticsService from '../services/analytics.service.ts'
+import { cacheControl } from '../lib/http.ts'
+
+const ANALYTICS_MAX_AGE_SECONDS = 300
 
 /**
  * GET /api/v1/analytics/heatmap
@@ -10,6 +13,7 @@ import * as analyticsService from '../services/analytics.service.ts'
 export const heatmap: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getHeatmapData(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -23,6 +27,7 @@ export const heatmap: RequestHandler = async (req, res, next): Promise<void> => 
 export const accuracy: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getAccuracyByLayout(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -36,6 +41,7 @@ export const accuracy: RequestHandler = async (req, res, next): Promise<void> =>
 export const streak: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getStreak(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -49,6 +55,7 @@ export const streak: RequestHandler = async (req, res, next): Promise<void> => {
 export const jlptGap: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getJlptGap(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -63,6 +70,7 @@ export const jlptGap: RequestHandler = async (req, res, next): Promise<void> => 
 export const milestones: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getMilestoneForecast(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)
@@ -78,6 +86,7 @@ export const milestones: RequestHandler = async (req, res, next): Promise<void> 
 export const dashboard: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const data = await analyticsService.getDashboardData(req.user.id)
+    cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
     res.json(data)
   } catch (err) {
     next(err)

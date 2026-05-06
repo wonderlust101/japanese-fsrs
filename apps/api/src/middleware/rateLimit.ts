@@ -137,3 +137,53 @@ export const submitRateLimitMiddleware: RequestHandler = async (req, _res, next)
     next(err)
   }
 }
+
+// Sliding window: 3 account deletions per hour per user. Account deletion is
+// irreversible — this caps abuse from a stolen access token without
+// hampering legitimate retries on a flaky network.
+const accountDeleteRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, '1 h'),
+  prefix: 'ratelimit:account-delete',
+})
+
+/**
+ * Rate-limits DELETE /api/v1/auth/account — irreversible account deletion.
+ * Must run after authMiddleware (requires req.user).
+ */
+export const accountDeleteRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const { success } = await accountDeleteRatelimit.limit(`${req.user.id}:account-delete`)
+    if (!success) {
+      throw new AppError(429, 'Account deletion rate limit exceeded. Please wait before retrying.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
+// Sliding window: 10 unsubscribes per hour per user. Unsubscribe cascade-deletes
+// the forked deck and all of its cards — large blast radius.
+const unsubscribeRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, '1 h'),
+  prefix: 'ratelimit:unsubscribe',
+})
+
+/**
+ * Rate-limits DELETE /api/v1/premade-decks/:id/subscribe — cascade-deletes the
+ * forked deck and all of its cards.
+ * Must run after authMiddleware (requires req.user).
+ */
+export const unsubscribeRateLimitMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
+  try {
+    const { success } = await unsubscribeRatelimit.limit(`${req.user.id}:unsubscribe`)
+    if (!success) {
+      throw new AppError(429, 'Unsubscribe rate limit exceeded. Please wait before retrying.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
