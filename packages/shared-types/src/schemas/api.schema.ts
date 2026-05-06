@@ -252,8 +252,10 @@ export const ApiAuthTokensSchema = z.object({
 })
 
 export const ApiSignUpResultSchema = z.object({
-  email:  z.string(),
-  userId: z.string(),
+  email: z.string(),
+  // Null when the email is already registered — the API surfaces a generic
+  // success shape to avoid leaking account existence to anonymous callers.
+  userId: z.string().nullable(),
 })
 
 // ─── Sessions / leeches (live in review.types.ts; cross the wire) ─────────────

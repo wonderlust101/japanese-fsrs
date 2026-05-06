@@ -31,8 +31,8 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
     const first = await request(app)
       .post('/api/v1/auth/signup')
       .send({ email, password: 'integration-pass-1', displayName: 'Integration User' })
-    expect([201, 400, 409]).toContain(first.status)
-    if (first.status === 201) {
+    expect([201, 400]).toContain(first.status)
+    if (first.status === 201 && first.body.userId !== null) {
       createdUserIds.push(first.body.userId)
       const cancel = await request(app)
         .post('/api/v1/auth/cancel-signup')
@@ -43,24 +43,28 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
     const second = await request(app)
       .post('/api/v1/auth/signup')
       .send({ email, password: 'integration-pass-2', displayName: 'Integration User' })
-    expect([201, 409]).toContain(second.status)
-    if (second.status === 201) createdUserIds.push(second.body.userId)
+    expect(second.status).toBe(201)
+    if (second.body.userId !== null) createdUserIds.push(second.body.userId)
   })
 
-  it('rejects a duplicate email with 409', async () => {
+  it('returns a generic success shape for duplicate emails (no enumeration leak)', async () => {
     const email = `integration-dup-${Date.now()}@example.test`
 
     const first = await request(app)
       .post('/api/v1/auth/signup')
       .send({ email, password: 'integration-pass-1', displayName: 'Integration User' })
-    if (first.status === 201) createdUserIds.push(first.body.userId)
+    expect(first.status).toBe(201)
+    if (first.body.userId !== null) createdUserIds.push(first.body.userId)
 
     const dup = await request(app)
       .post('/api/v1/auth/signup')
       .send({ email, password: 'integration-pass-2', displayName: 'Integration User' })
-    // Either the user already exists (409) or the email is unconfirmed and
-    // GoTrue silently re-issues an OTP — both are acceptable from the API
-    // surface, but we expect a non-201 response.
-    expect([409, 400]).toContain(dup.status)
+    // The API must not surface a different status / shape for the duplicate
+    // path — that would leak account existence to anonymous callers.
+    expect(dup.status).toBe(201)
+    expect(dup.body).toHaveProperty('email', email)
+    expect(dup.body).toHaveProperty('userId')
+    // userId is null on the duplicate path; the cancel-signup step is a no-op.
+    expect(dup.body.userId).toBeNull()
   })
 })

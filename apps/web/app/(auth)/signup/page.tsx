@@ -18,10 +18,11 @@ import { signupSchema } from '@fsrs-japanese/shared-types'
 const OTP_RESEND_COOLDOWN = 60 // seconds
 
 // Maps backend error messages to user-friendly strings.
+// Note: the API no longer returns "Email already registered" — duplicate
+// signups are silently accepted to prevent account enumeration. The map
+// retains broad fallbacks for transient/unknown failures only.
 const SIGNUP_ERRORS: Record<string, string> = {
-  'Email address already registered': 'An account with this email already exists.',
-  'User already registered':          'An account with this email already exists.',
-  'Too many requests':                'Too many attempts. Please wait a moment and try again.',
+  'Too many requests': 'Too many attempts. Please wait a moment and try again.',
 }
 
 function friendlySignupError(message: string): string {
@@ -43,7 +44,10 @@ function friendlyOtpError(message: string): string {
 
 type SignupViewState =
   | { view: 'signup' }
-  | { view: 'verify'; userId: string }
+  // userId is null when the email was already registered — the verify step
+  // still renders so the response is indistinguishable to an attacker, but
+  // OTP entry will fail with "invalid code".
+  | { view: 'verify'; userId: string | null }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -51,12 +55,12 @@ export default function SignupPage(): React.JSX.Element {
   const [viewState, setViewState] = useState<SignupViewState>({ view: 'signup' })
   const [email,     setEmail]     = useState('')
 
-  function handleSuccess(newUserId: string) {
+  function handleSuccess(newUserId: string | null) {
     setViewState({ view: 'verify', userId: newUserId })
   }
 
   function handleBack() {
-    if (viewState.view === 'verify') {
+    if (viewState.view === 'verify' && viewState.userId !== null) {
       fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/auth/cancel-signup`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,7 +93,9 @@ export default function SignupPage(): React.JSX.Element {
 interface SignupFormProps {
   email:         string
   onEmailChange: (email: string) => void
-  onSuccess:     (userId: string) => void
+  // userId is null when the email is already registered — the API does not
+  // distinguish that path from a fresh signup, so the page keeps flowing.
+  onSuccess:     (userId: string | null) => void
 }
 
 function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
@@ -159,7 +165,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         return
       }
 
-      const body = await res.json() as { userId: string }
+      const body = await res.json() as { userId: string | null }
       onSuccess(body.userId)
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' })

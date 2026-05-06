@@ -31,24 +31,30 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
     options:  { data: { display_name: input.displayName } },
   })
 
+  // Account-enumeration policy: anonymous callers must not be able to
+  // distinguish a fresh signup from one whose email is already registered.
+  // Both paths return the same shape; only the `userId` field differs (null
+  // when the email was already taken). The OTP step then fails identically
+  // for the duplicate case, surfacing as "invalid code".
   if (error !== null) {
-    const msg = error.message ?? ''
-    // GoTrue 422 = email already registered; some versions surface this
-    // as "User already registered" at status 400 instead.
+    const msg = (error.message ?? '').toLowerCase()
     const isDuplicate =
       error.status === 422 ||
-      msg.toLowerCase().includes('already registered') ||
-      msg.toLowerCase().includes('already exists')
-    if (isDuplicate) throw new AppError(409, 'Email already registered')
+      msg.includes('already registered') ||
+      msg.includes('already exists')
+    if (isDuplicate) {
+      console.info('[auth.service] signup attempt on existing email', { email: input.email })
+      return { email: input.email, userId: null }
+    }
     console.error('[auth.service] signup failed', { name: error.name, message: error.message })
     throw new AppError(400, 'Signup failed')
   }
 
-  // When the email is already confirmed, GoTrue returns user: null (no error)
-  // to avoid leaking account existence to anonymous clients. From the server
-  // side we can safely surface this as a conflict.
+  // GoTrue returns user: null when the email is already confirmed — same
+  // duplicate case from a different code path. Treat it identically.
   if (data.user === null) {
-    throw new AppError(409, 'Email address already registered')
+    console.info('[auth.service] signup returned null user (already-confirmed email)', { email: input.email })
+    return { email: input.email, userId: null }
   }
 
   return { email: data.user.email ?? input.email, userId: data.user.id }

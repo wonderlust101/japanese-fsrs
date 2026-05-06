@@ -176,6 +176,9 @@ Comprehension, production, and listening layouts have separate `generatorParamet
 - Every controller handler must call `next(error)` on failure — do not `res.json()` errors directly except in the global error handler.
 - Auth middleware (`apps/api/src/middleware/auth.ts`) must be applied to every protected route. Never skip it.
 - AI endpoints must go through the rate limiter middleware before the controller handler.
+- Request and response bodies are **camelCase on the wire** (both directions). The DB columns and SQL RPC parameter names stay snake_case; the camelCase ↔ snake_case transform lives at the service layer (the `toRow` / `toCardRow` / `toPremadeRow` helpers for responses, explicit patch maps for inputs).
+- List endpoints return `{ items, nextCursor, hasMore }`. Bounded responses (analytics, due cards, forecast, similar cards, subscriptions) set `nextCursor: null` and `hasMore: false` so the shape stays uniform.
+- `POST /api/v1/auth/signup` deliberately returns the same 201 shape for fresh and duplicate-email signups (`userId` is null on the duplicate path). This closes the account-enumeration vector — do not "improve" the DX by surfacing a different error for duplicates.
 
 ### Database
 - Never write raw SQL in route handlers. All queries go through service functions in `apps/api/src/services/`.
