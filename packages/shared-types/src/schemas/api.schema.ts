@@ -184,9 +184,12 @@ export const ApiReviewedCardSchema = z.object({
   state:         stateSchema,
 })
 
-export const ApiReviewSubmitResponseSchema = z.object({
-  card: ApiReviewedCardSchema,
-})
+/**
+ * Response of POST /api/v1/reviews/submit. The raw reviewed-card shape (no
+ * wrapper) — kept as an exported alias so callers that imported the old
+ * symbol remain compatible.
+ */
+export const ApiReviewSubmitResponseSchema = ApiReviewedCardSchema
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,4 @@
 import type { RequestHandler } from 'express'
-import type { ApiReviewSubmitResponse } from '@fsrs-japanese/shared-types'
 
 import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '@fsrs-japanese/shared-types'
 import * as reviewService  from '../services/review.service.ts'
@@ -24,13 +23,14 @@ export const getDue: RequestHandler = async (req, res, next): Promise<void> => {
 /**
  * POST /api/v1/reviews/submit
  * Submits a single review rating and updates the card's FSRS scheduling state.
- * Returns the updated scheduling fields wrapped in `{ card: ... }`.
+ * Returns the updated scheduling fields raw (matches the create/update endpoints
+ * for decks and cards).
  */
 export const submit: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { cardId, rating, reviewTimeMs, sessionId } = submitReviewSchema.parse(req.body)
     const result = await processReview(cardId, rating, req.user.id, reviewTimeMs, sessionId)
-    res.json({ card: result } satisfies ApiReviewSubmitResponse)
+    res.json(result)
   } catch (err) {
     next(err)
   }

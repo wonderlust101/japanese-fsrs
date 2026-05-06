@@ -32,8 +32,8 @@ export async function submitReviewAction(
   rating:        SubmitReviewInput['rating'],
   reviewTimeMs?: SubmitReviewInput['reviewTimeMs'],
   sessionId?:    SubmitReviewInput['sessionId'],
-): Promise<{ card: ApiReviewedCard }> {
-  return apiCall<{ card: ApiReviewedCard }>(
+): Promise<ApiReviewedCard> {
+  return apiCall<ApiReviewedCard>(
     '/api/v1/reviews/submit',
     ApiReviewSubmitResponseSchema,
     { method: 'POST', body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }) },

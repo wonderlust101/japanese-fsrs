@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'express'
+import type { Request, RequestHandler } from 'express'
 
 import {
   createCardSchema,
@@ -27,13 +27,15 @@ export const list: RequestHandler = async (req, res, next): Promise<void> => {
 }
 
 /**
- * GET /api/v1/cards/:id
- * Returns a single card by ID.
+ * GET /api/v1/cards/:id  (or /api/v1/decks/:deckId/cards/:id)
+ * Returns a single card by ID. When the deck-scoped path is used, the card
+ * must also belong to that deck — protects the dual-mount router from
+ * cross-deck lookups (see app.ts:48).
  */
 export const get: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
-    const card   = await cardService.getCard(id, req.user.id)
+    const card   = await cardService.getCard(id, req.user.id, scopedDeckId(req))
     res.json(card)
   } catch (err) {
     next(err)
@@ -83,14 +85,14 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
 }
 
 /**
- * PATCH /api/v1/cards/:id
+ * PATCH /api/v1/cards/:id  (or /api/v1/decks/:deckId/cards/:id)
  * Partially updates a card's content fields. FSRS state is never modified here.
  */
 export const update: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
     const input  = updateCardSchema.parse(req.body)
-    const card   = await cardService.updateCard(id, req.user.id, input)
+    const card   = await cardService.updateCard(id, req.user.id, input, scopedDeckId(req))
     res.json(card)
   } catch (err) {
     next(err)
@@ -98,13 +100,13 @@ export const update: RequestHandler = async (req, res, next): Promise<void> => {
 }
 
 /**
- * DELETE /api/v1/cards/:id
+ * DELETE /api/v1/cards/:id  (or /api/v1/decks/:deckId/cards/:id)
  * Deletes a card. The DB trigger decrements the parent deck's card_count.
  */
 export const remove: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
-    await cardService.deleteCard(id, req.user.id)
+    await cardService.deleteCard(id, req.user.id, scopedDeckId(req))
     res.status(204).end()
   } catch (err) {
     next(err)
@@ -112,14 +114,14 @@ export const remove: RequestHandler = async (req, res, next): Promise<void> => {
 }
 
 /**
- * GET /api/v1/cards/:id/similar
+ * GET /api/v1/cards/:id/similar  (or /api/v1/decks/:deckId/cards/:id/similar)
  * Returns semantically similar cards via pgvector cosine distance.
  * Returns an empty array if the card has no embedding yet.
  */
 export const similar: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
-    const cards  = await cardService.getSimilarCards(id, req.user.id)
+    const cards  = await cardService.getSimilarCards(id, req.user.id, scopedDeckId(req))
     res.json(cards)
   } catch (err) {
     next(err)
@@ -127,7 +129,7 @@ export const similar: RequestHandler = async (req, res, next): Promise<void> => 
 }
 
 /**
- * POST /api/v1/cards/:id/regenerate-embedding
+ * POST /api/v1/cards/:id/regenerate-embedding  (or deck-scoped)
  * Regenerates the semantic embedding for a card via OpenAI.
  * Called when a card's content (word, reading, meaning) has been updated
  * and the cached embedding is stale.
@@ -136,9 +138,20 @@ export const similar: RequestHandler = async (req, res, next): Promise<void> => 
 export const regenerateEmbedding: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
-    await cardService.regenerateEmbedding(id, req.user.id)
+    await cardService.regenerateEmbedding(id, req.user.id, scopedDeckId(req))
     res.status(204).end()
   } catch (err) {
     next(err)
   }
+}
+
+/**
+ * Validates and returns the optional `:deckId` path param when the request
+ * came in via the deck-scoped mount. Returns undefined when the request
+ * came in via the flat /cards/:id mount.
+ */
+function scopedDeckId(req: Request): string | undefined {
+  const raw = req.params['deckId']
+  if (typeof raw !== 'string') return undefined
+  return nestedDeckIdParamSchema.parse({ deckId: raw }).deckId
 }

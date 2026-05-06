@@ -23,7 +23,7 @@ import type {
 // optional and may be undefined post-Zod inference.
 type SubmitReviewVariables = SubmitReviewInput
 
-export function useSubmitReview(): UseMutationResult<{ card: ApiReviewedCard }, Error, SubmitReviewVariables> {
+export function useSubmitReview(): UseMutationResult<ApiReviewedCard, Error, SubmitReviewVariables> {
   const queryClient = useQueryClient()
 
   return useMutation({

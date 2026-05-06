@@ -275,15 +275,24 @@ export async function listCards(
 
 /**
  * Returns a single card by ID.
- * Throws 404 if the card does not exist or belongs to a different user.
+ * Throws 404 if the card does not exist or belongs to a different user, or
+ * (when `expectedDeckId` is provided) does not belong to that deck. The
+ * deck-scoping is what makes the dual-mount card router safe — see app.ts:48.
  */
-export async function getCard(cardId: string, userId: string): Promise<ApiCard> {
-  const { data, error } = await supabaseAdmin
+export async function getCard(
+  cardId:          string,
+  userId:          string,
+  expectedDeckId?: string,
+): Promise<ApiCard> {
+  let query = supabaseAdmin
     .from('cards')
     .select(CARD_COLUMNS)
     .eq('id', cardId)
     .eq('user_id', userId)
-    .single()
+
+  if (expectedDeckId !== undefined) query = query.eq('deck_id', expectedDeckId)
+
+  const { data, error } = await query.single()
 
   if (error !== null || data === null) {
     throw new AppError(404, 'Card not found')
@@ -366,10 +375,18 @@ export async function createCard(
  * Throws 404 if the card does not exist or belongs to a different user.
  */
 export async function updateCard(
-  cardId: string,
-  userId: string,
-  input: UpdateCardInput,
+  cardId:          string,
+  userId:          string,
+  input:           UpdateCardInput,
+  expectedDeckId?: string,
 ): Promise<ApiCard> {
+  // When the caller routed through /decks/:deckId/cards/:id, verify the card
+  // actually belongs to that deck before mutating. The RPC itself doesn't
+  // take a deck filter; one extra SELECT is the cost of the safety check.
+  if (expectedDeckId !== undefined) {
+    await getCard(cardId, userId, expectedDeckId)
+  }
+
   const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
     p_card_id:     cardId,
     p_user_id:     userId,
@@ -398,13 +415,19 @@ export async function updateCard(
  * The DB trigger decrements decks.card_count automatically.
  * Throws 404 if the card does not exist or belongs to a different user.
  */
-export async function deleteCard(cardId: string, userId: string): Promise<void> {
-  const { data, error: fetchError } = await supabaseAdmin
+export async function deleteCard(
+  cardId:          string,
+  userId:          string,
+  expectedDeckId?: string,
+): Promise<void> {
+  let fetch = supabaseAdmin
     .from('cards')
     .select('id')
     .eq('id', cardId)
     .eq('user_id', userId)
-    .single()
+  if (expectedDeckId !== undefined) fetch = fetch.eq('deck_id', expectedDeckId)
+
+  const { data, error: fetchError } = await fetch.single()
 
   if (fetchError !== null || data === null) {
     throw new AppError(404, 'Card not found')
@@ -430,9 +453,14 @@ export async function deleteCard(cardId: string, userId: string): Promise<void> 
  * fields of ApiCard. The return type mirrors the actual RPC shape.
  */
 export async function getSimilarCards(
-  cardId: string,
-  userId: string,
+  cardId:          string,
+  userId:          string,
+  expectedDeckId?: string,
 ): Promise<ApiList<ApiSimilarCard>> {
+  if (expectedDeckId !== undefined) {
+    await getCard(cardId, userId, expectedDeckId)
+  }
+
   const { data, error } = await supabaseAdmin.rpc('find_similar_cards', {
     p_card_id: cardId,
     p_user_id: userId,
@@ -484,13 +512,19 @@ export async function getStaleEmbeddingCards(userId: string): Promise<ApiCard[]>
  * Loads the card (with ownership check), then delegates to backfillEmbedding.
  * Throws 404 if card not found or not owned by user.
  */
-export async function regenerateEmbedding(cardId: string, userId: string): Promise<void> {
-  const { data, error } = await supabaseAdmin
+export async function regenerateEmbedding(
+  cardId:          string,
+  userId:          string,
+  expectedDeckId?: string,
+): Promise<void> {
+  let fetch = supabaseAdmin
     .from('cards')
     .select('id, user_id, fields_data')
     .eq('id', cardId)
     .eq('user_id', userId)
-    .single()
+  if (expectedDeckId !== undefined) fetch = fetch.eq('deck_id', expectedDeckId)
+
+  const { data, error } = await fetch.single()
 
   if (error !== null || data === null) {
     throw new AppError(404, 'Card not found')

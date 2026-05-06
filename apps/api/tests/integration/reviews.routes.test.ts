@@ -67,13 +67,12 @@ describeIntegration('reviews — submit advances FSRS state', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({ cardId, rating: 'good' })
     expect(submitRes.status).toBe(200)
-    // The controller wraps the result as { card: ProcessReviewResult }; this
-    // test previously read the unwrapped shape and was silently broken.
-    expect(submitRes.body.card.id).toBe(cardId)
+    // Controller returns the reviewed-card raw (no `{ card: ... }` wrapper).
+    expect(submitRes.body.id).toBe(cardId)
     // After a Good rating from New, FSRS moves the card off state 0 and
     // assigns positive stability.
-    expect(submitRes.body.card.state).toBeGreaterThan(0)
-    expect(submitRes.body.card.stability).toBeGreaterThan(stabilityBefore)
+    expect(submitRes.body.state).toBeGreaterThan(0)
+    expect(submitRes.body.stability).toBeGreaterThan(stabilityBefore)
   })
 
   it('rejects a "manual" rating at the validation layer', async () => {
