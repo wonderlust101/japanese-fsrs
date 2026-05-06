@@ -108,8 +108,6 @@ supabase db reset                    # Reset local DB and re-seed
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` in each app before running locally.
-
 ### `apps/api/.env`
 ```
 PORT=3001

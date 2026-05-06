@@ -67,6 +67,9 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })
+      // Removing a card must drop it from the review queue immediately.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
       router.push(`/decks/${deckId}`)
     },
   })

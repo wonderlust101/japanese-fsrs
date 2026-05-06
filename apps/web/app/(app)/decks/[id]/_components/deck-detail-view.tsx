@@ -51,6 +51,11 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     mutationFn: () => deleteDeckAction(deckId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
+      // Deck deletion cascades to all its cards (or unsubscribes premade
+      // forks); both paths can change the review queue contents.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.premadeDecks.subscriptions() })
       router.push('/decks')
     },
   })

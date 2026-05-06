@@ -53,6 +53,11 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })
+      // New card lands in state=0 with due=NOW(); it belongs in the review
+      // queue immediately. Without these invalidations the /review page
+      // keeps its stale snapshot for the full 5-minute staleTime window.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
       router.push(`/decks/${deckId}`)
     },
   })
