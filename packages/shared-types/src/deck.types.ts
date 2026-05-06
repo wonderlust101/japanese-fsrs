@@ -1,6 +1,5 @@
 export const DeckType = {
   Vocabulary: 'vocabulary',
-  Grammar: 'grammar',
   Kanji: 'kanji',
   Mixed: 'mixed',
 } as const

@@ -209,93 +209,6 @@ export type Database = {
           },
         ]
       }
-      grammar_patterns: {
-        Row: {
-          created_at: string
-          deck_id: string
-          difficulty: number
-          due: string
-          elapsed_days: number
-          example_sentences: Json
-          id: string
-          is_suspended: boolean
-          jlpt_level: Database["public"]["Enums"]["jlpt_level"] | null
-          lapses: number
-          last_review: string | null
-          learning_steps: number
-          meaning: string
-          notes: string | null
-          pattern: string
-          reps: number
-          scheduled_days: number
-          stability: number
-          state: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          deck_id: string
-          difficulty?: number
-          due?: string
-          elapsed_days?: number
-          example_sentences?: Json
-          id?: string
-          is_suspended?: boolean
-          jlpt_level?: Database["public"]["Enums"]["jlpt_level"] | null
-          lapses?: number
-          last_review?: string | null
-          learning_steps?: number
-          meaning: string
-          notes?: string | null
-          pattern: string
-          reps?: number
-          scheduled_days?: number
-          stability?: number
-          state?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          deck_id?: string
-          difficulty?: number
-          due?: string
-          elapsed_days?: number
-          example_sentences?: Json
-          id?: string
-          is_suspended?: boolean
-          jlpt_level?: Database["public"]["Enums"]["jlpt_level"] | null
-          lapses?: number
-          last_review?: string | null
-          learning_steps?: number
-          meaning?: string
-          notes?: string | null
-          pattern?: string
-          reps?: number
-          scheduled_days?: number
-          stability?: number
-          state?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "grammar_patterns_deck_id_fkey"
-            columns: ["deck_id"]
-            isOneToOne: false
-            referencedRelation: "decks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grammar_patterns_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       leeches: {
         Row: {
           card_id: string | null
@@ -823,7 +736,7 @@ export type Database = {
     }
     Enums: {
       card_type: "comprehension" | "production" | "listening"
-      deck_type: "vocabulary" | "grammar" | "kanji" | "mixed"
+      deck_type: "vocabulary" | "kanji" | "mixed"
       jlpt_level: "N5" | "N4" | "N3" | "N2" | "N1" | "beyond_jlpt"
       layout_type: "vocabulary" | "grammar" | "sentence"
       review_rating: "again" | "hard" | "good" | "easy" | "manual"
@@ -958,7 +871,7 @@ export const Constants = {
   public: {
     Enums: {
       card_type: ["comprehension", "production", "listening"],
-      deck_type: ["vocabulary", "grammar", "kanji", "mixed"],
+      deck_type: ["vocabulary", "kanji", "mixed"],
       jlpt_level: ["N5", "N4", "N3", "N2", "N1", "beyond_jlpt"],
       layout_type: ["vocabulary", "grammar", "sentence"],
       review_rating: ["again", "hard", "good", "easy", "manual"],

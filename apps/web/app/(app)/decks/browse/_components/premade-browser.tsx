@@ -14,18 +14,16 @@ import { PremadeDeckCard } from './premade-deck-card'
 import { Snackbar } from './snackbar'
 import type { ApiPremadeDeck } from '@fsrs-japanese/shared-types'
 
-type Filter = 'all' | 'vocabulary' | 'grammar' | 'kanji'
+type Filter = 'all' | 'vocabulary' | 'kanji'
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all',        label: 'All' },
   { id: 'vocabulary', label: 'Vocabulary' },
-  { id: 'grammar',    label: 'Grammar' },
   { id: 'kanji',      label: 'Kanji' },
 ]
 
 const SECTION_LABEL: Record<ApiPremadeDeck['deckType'], string> = {
   vocabulary: 'Vocabulary',
-  grammar:    'Grammar',
   kanji:      'Kanji',
   mixed:      'Mixed',
 }
