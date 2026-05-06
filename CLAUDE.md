@@ -184,6 +184,16 @@ Comprehension, production, and listening layouts have separate `generatorParamet
 - All tables have Row Level Security enabled. When writing new migrations, always add RLS policies. Do not disable RLS.
 - FSRS state fields (`stability`, `difficulty`, `due`, `state`, etc.) on the `cards` table must only be updated via `fsrs.service.ts`. Do not update them directly elsewhere.
 
+### Migration conventions
+- **Forward-only.** Never edit a migration that has been applied to any remote. The catch-up migration `20260503000004_add_premade_deck_id_to_cards.sql` exists only because the initial schema was edited post-apply — don't repeat that.
+- **Indexes on populated tables use `CONCURRENTLY`.** Tolerate the slower build to avoid the SHARE lock on writes. Cannot run inside an explicit transaction; Supabase CLI handles each migration as its own statement, which is compatible.
+- **CHECK constraints on populated tables use `NOT VALID + VALIDATE`.** First `ADD CONSTRAINT … CHECK (…) NOT VALID` (cheap, no scan), then `ALTER TABLE … VALIDATE CONSTRAINT …` separately so the validation lock is brief and isolated.
+- **Every new SECURITY DEFINER function needs an explicit `GRANT EXECUTE … TO service_role`** in the same migration. Supabase's auto-grant machinery doesn't fire for `supabase db push`; without the explicit grant, callers hit `42501`.
+- **Backfills with `INSERT … SELECT` filter against the FK target** (e.g. `LEFT JOIN cards … WHERE cards.id IS NOT NULL`). `ON CONFLICT DO NOTHING` only catches PK conflicts, not FK violations — an unknown UUID in a source array will abort the whole migration.
+- **`ALTER TYPE … ADD VALUE` is irreversible** without rebuilding the type. Use `ADD VALUE IF NOT EXISTS` so `supabase db reset` is re-runnable; document the addition in a comment block at the top of the migration.
+- **Destructive column drops require an explicit comment** stating either "no data exists at this point" or naming the column whose values are being preserved. Never drop a `NOT NULL` content column without first proving the data is either gone or migrated.
+- **Pin `SET search_path = ''` on every SECURITY DEFINER function**, and fully qualify references (`public.cards`, `public.review_logs`, …). Triggers invoked by SECURITY DEFINER functions inherit the empty search path; trigger functions must do the same.
+
 ### Frontend
 - Use the App Router only. Do not add anything to `pages/`.
 - Do not call the OpenAI API or Supabase directly from client components. All AI calls go through the Express API. Supabase is only called client-side for auth session management.
