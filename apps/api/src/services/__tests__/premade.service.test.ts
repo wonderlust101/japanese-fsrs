@@ -113,9 +113,10 @@ describe('premade.service — subscribeToPremadeDeck', () => {
 })
 
 describe('premade.service — unsubscribeFromPremadeDeck', () => {
-  it('deletes the forked deck and the subscription row', async () => {
+  it('invokes the unsubscribe RPC exactly once', async () => {
     await unsubscribeFromPremadeDeck('user-1', 'pre-1')
-    expect(state.deletedDeckCalls).toBe(1)
-    expect(state.deletedSubCalls).toBe(1)
+    expect(state.rpcCalls).toBe(1)
+    expect(state.deletedDeckCalls).toBe(0)
+    expect(state.deletedSubCalls).toBe(0)
   })
 })

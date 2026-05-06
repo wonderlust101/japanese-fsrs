@@ -376,87 +376,16 @@ export async function createCard(
   return created
 }
 
-const SHARED_CARD_FIELDS = ['word', 'reading', 'meaning'] as const
-type SharedFieldKey = (typeof SHARED_CARD_FIELDS)[number]
-
 /**
- * Propagates shared content fields (word, reading, meaning) from the just-
- * updated card to its siblings (cards sharing parent_card_id or rooted at
- * updatedCard.id).
+ * Applies a partial update to a card's content fields and atomically
+ * propagates the shared sub-fields (word, reading, meaning) to sibling
+ * cards via the update_card_with_sibling_sync RPC.
  *
- * IMPORTANT: Embeddings are intentionally NOT synced. Each sibling card
- * maintains its own embedding because they represent different cognitive
- * modalities (recognition, production, listening). When content fields
- * change, embeddings become stale; regeneration is manual via the
- * admin endpoint POST /api/v1/cards/:id/regenerate-embedding.
- * Stale embeddings degrade gracefully (semantic search becomes less precise),
- * but do not break core FSRS functionality.
+ * Siblings are cards sharing parent_card_id with the target, plus the root
+ * card itself. Each sibling maintains its own embedding (different cognitive
+ * modalities); embeddings are intentionally NOT synced and become stale on
+ * content change — regenerate via POST /api/v1/cards/:id/regenerate-embedding.
  *
- * NOTE: Concurrent edits to two sibling cards by the same user can race —
- * each call's sibling-fetch sees pre-update data, and the later UPDATE
- * overwrites the earlier one (last-write-wins). Affects only same-user
- * concurrent edits to siblings; not a privilege boundary. Optimistic
- * concurrency on `fields_data` would close the gap; deferred for now.
- */
-async function syncSharedFields(updatedCard: ApiCard, userId: string): Promise<void> {
-  const sharedValues: Partial<Record<SharedFieldKey, unknown>> = {}
-  for (const key of SHARED_CARD_FIELDS) {
-    if (key in updatedCard.fieldsData) {
-      sharedValues[key] = updatedCard.fieldsData[key]
-    }
-  }
-  if (Object.keys(sharedValues).length === 0) return
-
-  const rootId = updatedCard.parentCardId ?? updatedCard.id
-
-  // Two parameterised queries — sibling = same parent OR same root id — and
-  // merge in JS. Avoids building a PostgREST `.or()` DSL string from a UUID,
-  // which would be injectable if the column type ever changed.
-  const [byParent, byId] = await Promise.all([
-    supabaseAdmin
-      .from('cards')
-      .select('id, fields_data')
-      .eq('user_id', userId)
-      .eq('parent_card_id', rootId)
-      .neq('id', updatedCard.id),
-    supabaseAdmin
-      .from('cards')
-      .select('id, fields_data')
-      .eq('user_id', userId)
-      .eq('id', rootId)
-      .neq('id', updatedCard.id),
-  ])
-
-  if (byParent.error !== null || byId.error !== null) return
-
-  interface SiblingRow {
-    id:          string
-    fields_data: Record<string, unknown>
-  }
-  const all = [...(byParent.data ?? []), ...(byId.data ?? [])]
-    .map((row) => narrowRow<SiblingRow>(row))
-
-  const seen = new Set<string>()
-  const siblings = all.filter((row) => {
-    if (seen.has(row.id)) return false
-    seen.add(row.id)
-    return true
-  })
-  if (siblings.length === 0) return
-
-  const now = new Date().toISOString()
-  await Promise.all(siblings.map((sibling) => {
-    const merged = { ...sibling.fields_data, ...sharedValues }
-    return supabaseAdmin
-      .from('cards')
-      .update(asPayload({ fields_data: merged, updated_at: now }))
-      .eq('id', sibling.id)
-      .eq('user_id', userId)
-  }))
-}
-
-/**
- * Applies a partial update to a card's content fields.
  * FSRS state fields must only be modified via fsrs.service.ts.
  * Throws 404 if the card does not exist or belongs to a different user.
  */
@@ -465,38 +394,28 @@ export async function updateCard(
   userId: string,
   input: UpdateCardInput,
 ): Promise<ApiCard> {
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-
-  if (input.fields_data !== undefined) patch['fields_data'] = input.fields_data
-  if (input.layout_type !== undefined) patch['layout_type'] = input.layout_type
-  if (input.card_type   !== undefined) patch['card_type']   = input.card_type
-  if (input.tags        !== undefined) patch['tags']        = input.tags
-  if (input.jlpt_level  !== undefined) patch['jlpt_level']  = input.jlpt_level
-
-  const { data, error } = await supabaseAdmin
-    .from('cards')
-    .update(asPayload(patch))
-    .eq('id', cardId)
-    .eq('user_id', userId)
-    .select(CARD_COLUMNS)
-    .single()
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // update_card_with_sibling_sync until `supabase gen types` runs post-deploy.
+  const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync' as never, asPayload({
+    p_card_id:     cardId,
+    p_user_id:     userId,
+    p_fields_data: input.fields_data ?? null,
+    p_layout_type: input.layout_type ?? null,
+    p_card_type:   input.card_type   ?? null,
+    p_tags:        input.tags        ?? null,
+    p_jlpt_level:  input.jlpt_level  ?? null,
+  }))
 
   if (error !== null) {
-    if (error.code === 'PGRST116') throw new AppError(404, 'Card not found')
+    // RPC raises 'card_not_found' with SQLSTATE 02000 (no_data_found) when
+    // the row is missing or owned by another user.
+    if (error.code === '02000' || error.message.includes('card_not_found')) {
+      throw new AppError(404, 'Card not found')
+    }
     throw dbError('update card', error)
   }
 
-  if (data === null) {
-    throw new AppError(404, 'Card not found')
-  }
-
-  const updated = toCardRow(narrowRow<CardDbRow>(data))
-
-  if (input.fields_data !== undefined) {
-    await syncSharedFields(updated, userId)
-  }
-
-  return updated
+  return getCard(cardId, userId)
 }
 
 /**
@@ -521,6 +440,7 @@ export async function deleteCard(cardId: string, userId: string): Promise<void> 
     .from('cards')
     .delete()
     .eq('id', cardId)
+    .eq('user_id', userId)
 
   if (deleteError !== null) {
     throw dbError('delete card', deleteError)

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow } from '../lib/db.ts'
+import { narrowRow, asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import type {
@@ -231,7 +231,8 @@ export async function subscribeToPremadeDeck(
 }
 
 /**
- * Unsubscribes the user from a premade deck and deletes the linked forked deck.
+ * Unsubscribes the user from a premade deck and deletes the linked forked deck
+ * via the unsubscribe_from_premade_deck RPC (atomic on the SQL side).
  *
  * Idempotent: returns silently if no subscription or fork exists.
  */
@@ -239,25 +240,14 @@ export async function unsubscribeFromPremadeDeck(
   userId: string,
   premadeDeckId: string,
 ): Promise<void> {
-  // Delete the forked deck first — its cascade removes the user's personal cards.
-  const { error: deckError } = await supabaseAdmin
-    .from('decks')
-    .delete()
-    .eq('user_id', userId)
-    .eq('source_premade_id', premadeDeckId)
-    .eq('is_premade_fork', true)
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // unsubscribe_from_premade_deck until `supabase gen types` runs post-deploy.
+  const { error } = await supabaseAdmin.rpc('unsubscribe_from_premade_deck' as never, asPayload({
+    p_user_id:         userId,
+    p_premade_deck_id: premadeDeckId,
+  }))
 
-  if (deckError !== null) {
-    throw dbError('delete forked deck', deckError)
-  }
-
-  const { error: subError } = await supabaseAdmin
-    .from('user_premade_subscriptions')
-    .delete()
-    .eq('user_id', userId)
-    .eq('premade_deck_id', premadeDeckId)
-
-  if (subError !== null) {
-    throw dbError('delete subscription', subError)
+  if (error !== null) {
+    throw dbError('unsubscribe from premade deck', error)
   }
 }

@@ -68,24 +68,6 @@ async function fetchInterests(userId: string): Promise<string[]> {
   return (data ?? []).map((r) => (r as { interest: string }).interest)
 }
 
-/** Atomically replaces the user's interest set: delete-then-insert. The
- *  surrounding update should run before this so the profile FK exists. */
-async function replaceInterests(userId: string, interests: string[]): Promise<void> {
-  const { error: deleteError } = await supabaseAdmin
-    .from('user_interests')
-    .delete()
-    .eq('user_id', userId)
-  if (deleteError !== null) throw dbError('clear user interests', deleteError)
-
-  if (interests.length === 0) return
-
-  const rows = [...new Set(interests)].map((interest) => ({ user_id: userId, interest }))
-  const { error: insertError } = await supabaseAdmin
-    .from('user_interests')
-    .insert(rows)
-  if (insertError !== null) throw dbError('insert user interests', insertError)
-}
-
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
@@ -115,12 +97,9 @@ export async function getProfile(userId: string): Promise<Profile> {
 }
 
 /**
- * Applies a partial update to the user's profile and returns the updated row.
- *
- * Only the fields present in `input` are written — callers send only what
- * changed (true PATCH semantics). `updated_at` is always refreshed, even when
- * the DB trigger would do the same, so the returned row is always current.
- * `interests` is rewritten in user_interests via delete-then-insert.
+ * Applies a partial update to the user's profile via the
+ * update_profile_with_interests RPC, which atomically writes the profile
+ * patch and (when `interests` is provided) replaces the user_interests set.
  *
  * @param userId - The authenticated user's UUID from auth.users
  * @param input  - Validated partial update from `updateProfileSchema`
@@ -131,34 +110,20 @@ export async function updateProfile(
 ): Promise<Profile> {
   const { interests, ...profileFields } = input
 
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .update(asPayload({
-      ...profileFields,
-      updated_at: new Date().toISOString(),
-    }))
-    .eq('id', userId)
-    .select(PROFILE_COLUMNS)
-    .single()
+  // Function name cast: database.types.ts is auto-generated and won't include
+  // update_profile_with_interests until `supabase gen types` runs post-deploy.
+  const { error } = await supabaseAdmin.rpc('update_profile_with_interests' as never, asPayload({
+    p_user_id:   userId,
+    p_patch:     profileFields,
+    p_interests: interests ?? null,
+  }))
 
-  // Supabase returns PGRST116 when .single() finds no matching row — the only
-  // realistic cause here is a missing profile (see getProfile for why that's unusual).
   if (error !== null) {
-    if (error.code === 'PGRST116') throw new AppError(404, 'Profile not found')
+    if (error.code === '02000' || error.message.includes('profile_not_found')) {
+      throw new AppError(404, 'Profile not found')
+    }
     throw dbError('update profile', error)
   }
 
-  if (data === null) {
-    throw new AppError(404, 'Profile not found')
-  }
-
-  if (interests !== undefined) {
-    await replaceInterests(userId, interests)
-  }
-
-  // Re-read interests so callers see the persisted set even when `interests`
-  // was unchanged in this call.
-  const finalInterests = interests ?? await fetchInterests(userId)
-
-  return toProfile(narrowRow<ProfileDbRow>(data), finalInterests)
+  return getProfile(userId)
 }

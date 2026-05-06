@@ -15,12 +15,10 @@ import { AppError, dbError } from '../middleware/errorHandler.ts'
  * The account is created but unconfirmed; the user must enter the 6-digit
  * OTP on the signup page, which verifies it directly via the browser client.
  *
- * The `on_auth_user_created` trigger inserts into `profiles` on auth.users
- * INSERT. The explicit upsert below is defense-in-depth and is a no-op when
- * the trigger ran correctly.
- *
- * If the profile write fails, the auth user is deleted to avoid an orphaned
- * account with no profile row.
+ * Profile row creation is handled by the `on_auth_user_created` trigger,
+ * which fires inside the auth.users INSERT transaction. If the trigger
+ * raises, the INSERT rolls back and no email is sent — no compensating
+ * delete needed on this side.
  *
  * Requires the Supabase project to have "Confirm email" enabled and the email
  * template configured to send OTP tokens (not magic links).
@@ -52,18 +50,7 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
     throw new AppError(409, 'Email address already registered')
   }
 
-  const userId = data.user.id
-
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .upsert({ id: userId }, { onConflict: 'id', ignoreDuplicates: true })
-
-  if (profileError !== null) {
-    await supabaseAdmin.auth.admin.deleteUser(userId)
-    throw new AppError(500, 'Account creation failed: could not initialize profile')
-  }
-
-  return { email: data.user.email ?? input.email, userId }
+  return { email: data.user.email ?? input.email, userId: data.user.id }
 }
 
 /**
