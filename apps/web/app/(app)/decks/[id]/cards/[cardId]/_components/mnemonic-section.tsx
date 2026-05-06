@@ -33,7 +33,7 @@ export function MnemonicSection({ cardId, mnemonic, fieldsData }: Props): React.
     setSaving(true)
     try {
       await updateCardAction(cardId, {
-        fields_data: { ...fieldsData, mnemonic: pending },
+        fieldsData: { ...fieldsData, mnemonic: pending },
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(cardId) })
       setPending(null)

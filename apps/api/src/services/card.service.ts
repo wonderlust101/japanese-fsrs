@@ -5,17 +5,18 @@ import { env }           from '../lib/env.ts';
 import { asPayload, narrowRow } from '../lib/db.ts';
 import { AppError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
-import type { CardStatusFilter, UpdateCardInput } from '@fsrs-japanese/shared-types'
-import {
-    type ApiCard,
-    type ApiCardListItem,
-    type ApiDueCard,
-    type ApiSimilarCard,
-    type CardType,
-    type FieldsData,
-    type JLPTLevel,
-    type LayoutType,
-    State
+import type {
+    ApiCard,
+    ApiCardListItem,
+    ApiDueCard,
+    ApiSimilarCard,
+    CardStatusFilter,
+    CardType,
+    FieldsData,
+    JLPTLevel,
+    LayoutType,
+    State,
+    UpdateCardInput,
 } from '@fsrs-japanese/shared-types';
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
@@ -96,11 +97,11 @@ export interface CardListResult {
 }
 
 export interface CreateCardMeta {
-  card_type:      CardType
-  layout_type:    LayoutType
-  tags:           string[] | undefined
-  jlpt_level:     JLPTLevel | undefined
-  parent_card_id: string | undefined
+  cardType:     CardType
+  layoutType:   LayoutType
+  tags:         string[] | undefined
+  jlptLevel:    JLPTLevel | undefined
+  parentCardId: string | undefined
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -315,11 +316,11 @@ export async function createCard(
       // fieldsData is Record<string, unknown> from the controller; the
       // generated Insert type expects Json. JSON-serialisable at runtime.
       fields_data:    asPayload(fieldsData),
-      card_type:      meta.card_type,
-      layout_type:    meta.layout_type,
-      tags:           meta.tags           ?? [],
-      jlpt_level:     meta.jlpt_level     ?? null,
-      parent_card_id: meta.parent_card_id ?? null,
+      card_type:      meta.cardType,
+      layout_type:    meta.layoutType,
+      tags:           meta.tags         ?? [],
+      jlpt_level:     meta.jlptLevel    ?? null,
+      parent_card_id: meta.parentCardId ?? null,
       // FSRS initial state. is_suspended uses the column default (FALSE).
       state:          fsrs.state,
       due:            fsrs.due,
@@ -371,11 +372,11 @@ export async function updateCard(
   const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
     p_card_id:     cardId,
     p_user_id:     userId,
-    p_fields_data: input.fields_data ?? null,
-    p_layout_type: input.layout_type ?? null,
-    p_card_type:   input.card_type   ?? null,
-    p_tags:        input.tags        ?? null,
-    p_jlpt_level:  input.jlpt_level  ?? null,
+    p_fields_data: input.fieldsData ?? null,
+    p_layout_type: input.layoutType ?? null,
+    p_card_type:   input.cardType   ?? null,
+    p_tags:        input.tags       ?? null,
+    p_jlpt_level:  input.jlptLevel  ?? null,
   }))
 
   if (error !== null) {

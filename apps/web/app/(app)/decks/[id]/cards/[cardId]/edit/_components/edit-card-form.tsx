@@ -50,9 +50,9 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
 
   const saveMutation = useMutation({
     mutationFn: () => updateCardAction(card.id, {
-      fields_data: { ...fd, word: word.trim(), reading: reading.trim(), meaning: meaning.trim() },
-      jlpt_level:  jlptLevel === '' ? null : jlptLevel,
-      tags:        tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0),
+      fieldsData: { ...fd, word: word.trim(), reading: reading.trim(), meaning: meaning.trim() },
+      jlptLevel:  jlptLevel === '' ? null : jlptLevel,
+      tags:       tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0),
     }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(card.id) })

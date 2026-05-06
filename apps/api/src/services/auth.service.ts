@@ -27,7 +27,8 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
   const { data, error } = await supabaseAdmin.auth.signUp({
     email:    input.email,
     password: input.password,
-    options:  { data: { display_name: input.display_name } },
+    // GoTrue's `raw_user_meta_data` stays snake_case (their internal contract).
+    options:  { data: { display_name: input.displayName } },
   })
 
   if (error !== null) {

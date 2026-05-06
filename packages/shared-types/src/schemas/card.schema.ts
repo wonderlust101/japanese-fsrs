@@ -28,11 +28,11 @@ const tagsSchema = z.array(safeShortText(50, 1)).max(20)
 // ─── Shared metadata fields ───────────────────────────────────────────────────
 
 const cardMetaFields = {
-  card_type:      cardTypeEnum.default('comprehension'),
-  layout_type:    layoutTypeEnum.default('vocabulary'),
-  tags:           tagsSchema.optional(),
-  jlpt_level:     jlptLevelEnum.optional(),
-  parent_card_id: z.string().uuid('Invalid parent card ID').optional(),
+  cardType:     cardTypeEnum.default('comprehension'),
+  layoutType:   layoutTypeEnum.default('vocabulary'),
+  tags:         tagsSchema.optional(),
+  jlptLevel:    jlptLevelEnum.optional(),
+  parentCardId: z.string().uuid('Invalid parent card ID').optional(),
 }
 
 // ─── Create schemas ───────────────────────────────────────────────────────────
@@ -43,9 +43,9 @@ const aiCreateSchema = z.object({
   ...cardMetaFields,
 }).strict()
 
-// Manual path: client supplies fields_data directly.
+// Manual path: client supplies fieldsData directly.
 const manualCreateSchema = z.object({
-  fields_data: fieldsDataSchema,
+  fieldsData: fieldsDataSchema,
   ...cardMetaFields,
 }).strict()
 
@@ -55,11 +55,11 @@ export const createCardSchema = z.union([aiCreateSchema, manualCreateSchema])
 
 // All fields optional — only present keys are written (true PATCH semantics).
 export const updateCardSchema = z.object({
-  fields_data: fieldsDataSchema.optional(),
-  layout_type: layoutTypeEnum.optional(),
-  card_type:   cardTypeEnum.optional(),
-  tags:        tagsSchema.optional(),
-  jlpt_level:  jlptLevelEnum.nullable().optional(),
+  fieldsData: fieldsDataSchema.optional(),
+  layoutType: layoutTypeEnum.optional(),
+  cardType:   cardTypeEnum.optional(),
+  tags:       tagsSchema.optional(),
+  jlptLevel:  jlptLevelEnum.nullable().optional(),
 }).strict()
 
 // ─── Param / query schemas ────────────────────────────────────────────────────

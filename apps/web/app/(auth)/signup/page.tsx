@@ -97,7 +97,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
   const [password, setPassword]               = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [errors, setErrors]                   = useState<{
-    display_name?:    string
+    displayName?:     string
     email?:           string
     password?:        string
     confirmPassword?: string
@@ -114,14 +114,14 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
     const result = signupSchema.safeParse({
       email,
       password,
-      display_name: displayName.trim(),
+      displayName: displayName.trim(),
     })
     if (!result.success) {
       for (const issue of result.error.issues) {
         const key = issue.path[0]
-        if (key === 'email')        next.email        ??= issue.message
-        if (key === 'password')     next.password     ??= issue.message
-        if (key === 'display_name') next.display_name ??= issue.message
+        if (key === 'email')       next.email       ??= issue.message
+        if (key === 'password')    next.password    ??= issue.message
+        if (key === 'displayName') next.displayName ??= issue.message
       }
     }
 
@@ -148,7 +148,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ email, password, display_name: displayName.trim() }),
+          body:    JSON.stringify({ email, password, displayName: displayName.trim() }),
         },
       )
 
@@ -192,7 +192,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
           required
           placeholder="Your Name"
           hint="How you'll appear to yourself in the app"
-          error={errors.display_name}
+          error={errors.displayName}
         />
 
         <Input

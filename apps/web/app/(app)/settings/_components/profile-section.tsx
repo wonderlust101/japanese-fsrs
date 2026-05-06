@@ -53,7 +53,7 @@ export function ProfileSection({
     setNative(value)
     if (value === initialNativeLanguage) return
     try {
-      await updateProfileAction({ native_language: value })
+      await updateProfileAction({ nativeLanguage: value })
       onSaved('Native language saved')
     } catch (e) {
       setNative(initialNativeLanguage)

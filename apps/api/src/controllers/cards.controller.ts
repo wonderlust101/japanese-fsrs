@@ -65,15 +65,15 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
       // Record<string, unknown> shape that createCard / fields_data persistence accepts.
       fieldsData = generated as Record<string, unknown>
     } else {
-      fieldsData = input.fields_data
+      fieldsData = input.fieldsData
     }
 
     const card = await cardService.createCard(deckId, req.user.id, fieldsData, {
-      card_type:      input.card_type,
-      layout_type:    input.layout_type,
-      tags:           input.tags,
-      jlpt_level:     input.jlpt_level,
-      parent_card_id: input.parent_card_id,
+      cardType:     input.cardType,
+      layoutType:   input.layoutType,
+      tags:         input.tags,
+      jlptLevel:    input.jlptLevel,
+      parentCardId: input.parentCardId,
     })
 
     res.status(201).json(card)

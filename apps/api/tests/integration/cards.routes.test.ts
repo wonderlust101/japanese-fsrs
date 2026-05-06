@@ -33,7 +33,7 @@ async function seedUser(): Promise<SeededUser> {
   const deckRes = await request(app)
     .post('/api/v1/decks')
     .set('Authorization', `Bearer ${jwt}`)
-    .send({ name: 'Integration Deck', deck_type: 'vocabulary' })
+    .send({ name: 'Integration Deck', deckType: 'vocabulary' })
   if (deckRes.status !== 201) throw new Error(`createDeck failed: ${deckRes.status} ${JSON.stringify(deckRes.body)}`)
 
   return { userId, jwt, deckId: deckRes.body.id }
@@ -62,9 +62,9 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
       .post(`/api/v1/decks/${a.deckId}/cards`)
       .set('Authorization', `Bearer ${a.jwt}`)
       .send({
-        fields_data: { word: '猫', reading: 'ねこ', meaning: 'cat' },
-        layout_type: 'vocabulary',
-        card_type:   'comprehension',
+        fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -80,7 +80,7 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
     const updateRes = await request(app)
       .patch(`/api/v1/cards/${cardId}`)
       .set('Authorization', `Bearer ${a.jwt}`)
-      .send({ fields_data: { word: '猫', reading: 'ねこ', meaning: 'cat (updated)' } })
+      .send({ fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat (updated)' } })
     expect(updateRes.status).toBe(200)
     expect(updateRes.body.fieldsData.meaning).toBe('cat (updated)')
 
@@ -88,7 +88,7 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
     const crossUserRes = await request(app)
       .patch(`/api/v1/cards/${cardId}`)
       .set('Authorization', `Bearer ${b.jwt}`)
-      .send({ fields_data: { word: 'X' } })
+      .send({ fieldsData: { word: 'X' } })
     expect(crossUserRes.status).toBe(404)
 
     // Delete
@@ -114,8 +114,8 @@ describeIntegration('cards routes — cascading deletes', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '犬', reading: 'いぬ', meaning: 'dog' },
-        card_type:   'comprehension',
+        fieldsData: { word: '犬', reading: 'いぬ', meaning: 'dog' },
+        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -124,7 +124,7 @@ describeIntegration('cards routes — cascading deletes', () => {
     const reviewRes = await request(app)
       .post('/api/v1/reviews/submit')
       .set('Authorization', `Bearer ${u.jwt}`)
-      .send({ card_id: cardId, rating: 'good' })
+      .send({ cardId, rating: 'good' })
     expect(reviewRes.status).toBe(200)
 
     // Delete the card — review_log.card_id should become NULL (not deleted)
@@ -157,8 +157,8 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '本', reading: 'ほん', meaning: 'book' },
-        card_type:   'comprehension',
+        fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
+        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -179,8 +179,8 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .post(`/api/v1/decks/${a.deckId}/cards`)
       .set('Authorization', `Bearer ${a.jwt}`)
       .send({
-        fields_data: { word: '手', reading: 'て', meaning: 'hand' },
-        card_type:   'comprehension',
+        fieldsData: { word: '手', reading: 'て', meaning: 'hand' },
+        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -237,9 +237,9 @@ describeIntegration('cards routes — list wire shape', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '空', reading: 'そら', meaning: 'sky' },
-        layout_type: 'vocabulary',
-        card_type:   'comprehension',
+        fieldsData: { word: '空', reading: 'そら', meaning: 'sky' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 

@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { safeShortText } from '../sanitize.ts'
 
 export const signupSchema = z.object({
-  email:        z.email(),
-  password:     z.string().min(8).max(128),
-  display_name: safeShortText(30, 2),
+  email:       z.email(),
+  password:    z.string().min(8).max(128),
+  displayName: safeShortText(30, 2),
 })
 
 export const loginSchema = z.object({

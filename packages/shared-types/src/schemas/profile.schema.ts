@@ -16,19 +16,19 @@ export const TIMEZONE_REGEX = /^[A-Za-z]+(\/[A-Za-z0-9_+\-]+)+$/
 export const LANGUAGE_TAG_REGEX = /^[a-z]{2,3}(-([A-Z]{2}|[A-Z][a-z]{3}))?$/
 
 export const updateProfileSchema = z.object({
-  jlpt_target:           jlptLevelEnum.optional(),
-  study_goal:            safeShortText(500).optional(),
-  interests:             z.array(safeShortText(50, 1)).max(20).optional(),
-  daily_new_cards_limit: z.number().int().min(1).max(9999).optional(),
-  daily_review_limit:    z.number().int().min(1).max(9999).optional(),
-  retention_target:      z.number().min(0.6).max(0.99).optional(),
+  jlptTarget:         jlptLevelEnum.optional(),
+  studyGoal:          safeShortText(500).optional(),
+  interests:          z.array(safeShortText(50, 1)).max(20).optional(),
+  dailyNewCardsLimit: z.number().int().min(1).max(9999).optional(),
+  dailyReviewLimit:   z.number().int().min(1).max(9999).optional(),
+  retentionTarget:    z.number().min(0.6).max(0.99).optional(),
   timezone: safeShortText(100, 1)
     .refine(
       (s) => s === 'UTC' || TIMEZONE_REGEX.test(s),
       'Invalid IANA timezone (expected e.g. "America/New_York", "Etc/GMT+8")',
     )
     .optional(),
-  native_language: safeShortText(10, 2)
+  nativeLanguage: safeShortText(10, 2)
     .refine(
       (s) => LANGUAGE_TAG_REGEX.test(s),
       'Invalid language tag (expected ISO 639-1/3, optionally with region or script — e.g. "en", "en-US", "zh-Hans")',

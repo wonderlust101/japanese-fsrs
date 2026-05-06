@@ -10,15 +10,15 @@ export const deckTypeEnum = z.enum(Object.values(DeckType) as [DeckType, ...Deck
 export const createDeckSchema = z.object({
   name:        safeShortText(100, 1),
   description: safeShortText(500).optional(),
-  deck_type:   deckTypeEnum.default('vocabulary'),
+  deckType:    deckTypeEnum.default('vocabulary'),
 }).strict()
 
 // Every field is optional — only present keys are written (true PATCH semantics).
 export const updateDeckSchema = z.object({
   name:        safeShortText(100, 1).optional(),
   description: safeShortText(500).nullable().optional(),
-  deck_type:   deckTypeEnum.optional(),
-  is_public:   z.boolean().optional(),
+  deckType:    deckTypeEnum.optional(),
+  isPublic:    z.boolean().optional(),
 }).strict()
 
 // Validates the :id route parameter is a well-formed UUID.

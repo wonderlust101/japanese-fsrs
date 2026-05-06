@@ -14,7 +14,7 @@ describe('auth.schema — signupSchema', () => {
     const result = signupSchema.safeParse({
       email:        'alice@example.com',
       password:     'a-strong-pass-123',
-      display_name: 'Alice',
+      displayName: 'Alice',
     })
     expect(result.success).toBe(true)
   })
@@ -23,7 +23,7 @@ describe('auth.schema — signupSchema', () => {
     const result = signupSchema.safeParse({
       email:        'not-an-email',
       password:     'a-strong-pass-123',
-      display_name: 'Alice',
+      displayName: 'Alice',
     })
     expect(result.success).toBe(false)
   })
@@ -32,7 +32,7 @@ describe('auth.schema — signupSchema', () => {
     const result = signupSchema.safeParse({
       email:        'alice@example.com',
       password:     'short',
-      display_name: 'Alice',
+      displayName: 'Alice',
     })
     expect(result.success).toBe(false)
   })

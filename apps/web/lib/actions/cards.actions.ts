@@ -66,10 +66,10 @@ export async function generateCardPreviewAction(word: string): Promise<Generated
   )
 }
 
-/** Save payload: the web only ever uses the manual (fields_data) branch of
+/** Save payload: the web only ever uses the manual (fieldsData) branch of
  *  CreateCardPayload, never the AI (word) branch — that flow goes through
  *  generateCardPreviewAction first. */
-type ManualCreateCardPayload = Extract<CreateCardPayload, { fields_data: unknown }>
+type ManualCreateCardPayload = Extract<CreateCardPayload, { fieldsData: unknown }>
 
 export async function saveCardAction(deckId: string, payload: ManualCreateCardPayload): Promise<void> {
   await apiCall<unknown>(

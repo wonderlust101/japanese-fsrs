@@ -69,15 +69,13 @@ describeIntegration('profile routes — wire shape', () => {
     expect(keys).toEqual(PROFILE_KEYS)
   })
 
-  it('PATCH /api/v1/profile accepts snake_case input and returns camelCase output', async () => {
+  it('PATCH /api/v1/profile accepts camelCase input and returns camelCase output', async () => {
     const u = await seedUser(); seeded.push(u)
 
-    // Request body stays snake_case (matches the rest of the API's request
-    // convention — see CLAUDE.md and card.controller.ts:input.card_type etc.).
     const res = await request(app)
       .patch('/api/v1/profile')
       .set('Authorization', `Bearer ${u.jwt}`)
-      .send({ daily_review_limit: 222, jlpt_target: 'N3' })
+      .send({ dailyReviewLimit: 222, jlptTarget: 'N3' })
     expect(res.status).toBe(200)
 
     const keys = Object.keys(res.body).sort()

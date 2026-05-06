@@ -34,7 +34,7 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
     mutationFn: () => createDeckAction({
       name:        name.trim(),
       description: description.trim() || undefined,
-      deck_type:   deckType,
+      deckType,
     }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })

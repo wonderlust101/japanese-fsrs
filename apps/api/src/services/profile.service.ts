@@ -108,11 +108,22 @@ export async function updateProfile(
   userId: string,
   input: UpdateProfileInput,
 ): Promise<Profile> {
-  const { interests, ...profileFields } = input
+  const { interests, ...rest } = input
+
+  // The wire-format input is camelCase; the RPC's `p_patch` JSONB is forwarded
+  // verbatim as a column-name patch and therefore expects snake_case keys.
+  const patch: Record<string, unknown> = {}
+  if (rest.jlptTarget         !== undefined) patch['jlpt_target']           = rest.jlptTarget
+  if (rest.studyGoal          !== undefined) patch['study_goal']            = rest.studyGoal
+  if (rest.dailyNewCardsLimit !== undefined) patch['daily_new_cards_limit'] = rest.dailyNewCardsLimit
+  if (rest.dailyReviewLimit   !== undefined) patch['daily_review_limit']    = rest.dailyReviewLimit
+  if (rest.retentionTarget    !== undefined) patch['retention_target']      = rest.retentionTarget
+  if (rest.timezone           !== undefined) patch['timezone']              = rest.timezone
+  if (rest.nativeLanguage     !== undefined) patch['native_language']       = rest.nativeLanguage
 
   const { error } = await supabaseAdmin.rpc('update_profile_with_interests', asPayload({
     p_user_id:   userId,
-    p_patch:     profileFields,
+    p_patch:     patch,
     p_interests: interests ?? null,
   }))
 

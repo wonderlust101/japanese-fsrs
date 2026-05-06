@@ -62,7 +62,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
-      .send({ name: 'Wire-shape Deck', description: 'check fields', deck_type: 'vocabulary' })
+      .send({ name: 'Wire-shape Deck', description: 'check fields', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
 
     const listRes = await request(app)
@@ -82,7 +82,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
-      .send({ name: 'Wire-shape Deck Detail', deck_type: 'vocabulary' })
+      .send({ name: 'Wire-shape Deck Detail', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
     const deckId = createRes.body.id
 
@@ -101,7 +101,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
-      .send({ name: 'Created Deck', deck_type: 'vocabulary' })
+      .send({ name: 'Created Deck', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
 
     const keys = Object.keys(createRes.body).sort()

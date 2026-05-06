@@ -30,7 +30,7 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
 
     const first = await request(app)
       .post('/api/v1/auth/signup')
-      .send({ email, password: 'integration-pass-1', display_name: 'Integration User' })
+      .send({ email, password: 'integration-pass-1', displayName: 'Integration User' })
     expect([201, 400, 409]).toContain(first.status)
     if (first.status === 201) {
       createdUserIds.push(first.body.userId)
@@ -42,7 +42,7 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
 
     const second = await request(app)
       .post('/api/v1/auth/signup')
-      .send({ email, password: 'integration-pass-2', display_name: 'Integration User' })
+      .send({ email, password: 'integration-pass-2', displayName: 'Integration User' })
     expect([201, 409]).toContain(second.status)
     if (second.status === 201) createdUserIds.push(second.body.userId)
   })
@@ -52,12 +52,12 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
 
     const first = await request(app)
       .post('/api/v1/auth/signup')
-      .send({ email, password: 'integration-pass-1', display_name: 'Integration User' })
+      .send({ email, password: 'integration-pass-1', displayName: 'Integration User' })
     if (first.status === 201) createdUserIds.push(first.body.userId)
 
     const dup = await request(app)
       .post('/api/v1/auth/signup')
-      .send({ email, password: 'integration-pass-2', display_name: 'Integration User' })
+      .send({ email, password: 'integration-pass-2', displayName: 'Integration User' })
     // Either the user already exists (409) or the email is unconfirmed and
     // GoTrue silently re-issues an OTP — both are acceptable from the API
     // surface, but we expect a non-201 response.

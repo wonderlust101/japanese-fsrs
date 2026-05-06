@@ -58,7 +58,7 @@ export function LearningSection({
   function changeJlpt(value: JlptLevel): void {
     const prev = jlpt
     setJlpt(value)
-    void commit('JLPT target', { jlpt_target: value }, () => setJlpt(prev))
+    void commit('JLPT target', { jlptTarget: value }, () => setJlpt(prev))
   }
 
   function changeDailyNew(value: number): void {
@@ -66,7 +66,7 @@ export function LearningSection({
   }
   function commitDailyNew(): void {
     if (dailyNew === initialDailyNew) return
-    void commit('Daily new cards', { daily_new_cards_limit: dailyNew }, () => setDailyNew(initialDailyNew))
+    void commit('Daily new cards', { dailyNewCardsLimit: dailyNew }, () => setDailyNew(initialDailyNew))
   }
 
   function changeDailyReview(value: number): void {
@@ -74,7 +74,7 @@ export function LearningSection({
   }
   function commitDailyReview(): void {
     if (dailyReview === initialDailyReview) return
-    void commit('Daily reviews', { daily_review_limit: dailyReview }, () => setDailyReview(initialDailyReview))
+    void commit('Daily reviews', { dailyReviewLimit: dailyReview }, () => setDailyReview(initialDailyReview))
   }
 
   function changeRetention(value: number): void {
@@ -82,7 +82,7 @@ export function LearningSection({
   }
   function commitRetention(): void {
     if (retention === initialRetention) return
-    void commit('Retention target', { retention_target: retention }, () => setRetention(initialRetention))
+    void commit('Retention target', { retentionTarget: retention }, () => setRetention(initialRetention))
   }
 
   function toggleInterest(name: string): void {

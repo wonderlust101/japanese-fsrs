@@ -134,7 +134,7 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
       user_id:     userId,
       name:        input.name,
       description: input.description ?? null,
-      deck_type:   input.deck_type,
+      deck_type:   input.deckType,
     })
     .select(DECK_COLUMNS)
     .single()
@@ -163,8 +163,8 @@ export async function updateDeck(
 
   if (input.name        !== undefined) patch['name']        = input.name
   if (input.description !== undefined) patch['description'] = input.description
-  if (input.deck_type   !== undefined) patch['deck_type']   = input.deck_type
-  if (input.is_public   !== undefined) patch['is_public']   = input.is_public
+  if (input.deckType    !== undefined) patch['deck_type']   = input.deckType
+  if (input.isPublic    !== undefined) patch['is_public']   = input.isPublic
 
   const { data, error } = await supabaseAdmin
     .from('decks')

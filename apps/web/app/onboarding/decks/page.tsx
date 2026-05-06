@@ -31,10 +31,10 @@ export default function DecksPage(): React.JSX.Element {
     const { level, goal, interests, schedule } = useOnboardingStore.getState()
 
     const payload: UpdateProfileInput = {
-      jlpt_target:          (level === 'beginner' || level === null) ? 'N5' : level,
-      ...(goal !== null ? { study_goal: goal } : {}),
+      jlptTarget:         (level === 'beginner' || level === null) ? 'N5' : level,
+      ...(goal !== null ? { studyGoal: goal } : {}),
       interests,
-      daily_new_cards_limit: SCHEDULE_TO_CARD_LIMIT[schedule ?? 'steady'] ?? 20,
+      dailyNewCardsLimit: SCHEDULE_TO_CARD_LIMIT[schedule ?? 'steady'] ?? 20,
     }
 
     mutate(payload)

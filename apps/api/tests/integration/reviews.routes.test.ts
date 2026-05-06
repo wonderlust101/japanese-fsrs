@@ -25,7 +25,7 @@ async function seedUser(): Promise<SeededUser> {
 
   const deckRes = await request(app)
     .post('/api/v1/decks').set('Authorization', `Bearer ${jwt}`)
-    .send({ name: 'Reviews Deck', deck_type: 'vocabulary' })
+    .send({ name: 'Reviews Deck', deckType: 'vocabulary' })
   if (deckRes.status !== 201) throw new Error(`createDeck failed: ${deckRes.status}`)
 
   return { userId, jwt, deckId: deckRes.body.id }
@@ -53,9 +53,9 @@ describeIntegration('reviews — submit advances FSRS state', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '本', reading: 'ほん', meaning: 'book' },
-        layout_type: 'vocabulary',
-        card_type:   'comprehension',
+        fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -83,9 +83,9 @@ describeIntegration('reviews — submit advances FSRS state', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '川', reading: 'かわ', meaning: 'river' },
-        layout_type: 'vocabulary',
-        card_type:   'comprehension',
+        fieldsData: { word: '川', reading: 'かわ', meaning: 'river' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -124,9 +124,9 @@ describeIntegration('reviews — due card wire shape', () => {
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .send({
-        fields_data: { word: '雪', reading: 'ゆき', meaning: 'snow' },
-        layout_type: 'vocabulary',
-        card_type:   'comprehension',
+        fieldsData: { word: '雪', reading: 'ゆき', meaning: 'snow' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 

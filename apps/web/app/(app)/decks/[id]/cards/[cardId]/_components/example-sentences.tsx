@@ -35,7 +35,7 @@ export function ExampleSentences({ cardId, sentences, fieldsData }: Props): Reac
     setSaving(true)
     try {
       await updateCardAction(cardId, {
-        fields_data: { ...fieldsData, exampleSentences: pending },
+        fieldsData: { ...fieldsData, exampleSentences: pending },
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(cardId) })
       setPending(null)
