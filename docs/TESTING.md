@@ -139,7 +139,7 @@ A test is an integration test if it:
 
 Integration tests require:
 - A local Supabase instance (`supabase start`) or a dedicated test project
-- `apps/api/.env` with valid `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET`
+- `apps/api/.env` with valid `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
 - `apps/api/.env` with valid `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
 
 Run database migrations before the first integration test run:

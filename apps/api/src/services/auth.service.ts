@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto'
+
 import type {
   ApiAuthTokens, ApiSignUpResult,
   SignupInput, LoginInput, RefreshInput,
@@ -114,9 +116,14 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
  */
 export async function cancelSignup(input: CancelSignupInput): Promise<void> {
   // Token check first. A wrong token must not produce a different
-  // observable behaviour from a valid-but-unknown userId.
+  // observable behaviour from a valid-but-unknown userId. Compared via
+  // timingSafeEqual so a partial-match timing oracle is closed even though
+  // the 122-bit UUID entropy makes practical exploitation infeasible.
   const storedToken = await redis.get<string>(cancelTokenKey(input.userId))
-  if (storedToken !== input.cancellationToken) return
+  if (storedToken === null || storedToken === undefined) return
+  const stored = Buffer.from(storedToken)
+  const sent   = Buffer.from(input.cancellationToken)
+  if (stored.length !== sent.length || !timingSafeEqual(stored, sent)) return
 
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(input.userId)
 

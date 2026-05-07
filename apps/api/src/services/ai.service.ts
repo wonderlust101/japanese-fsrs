@@ -18,6 +18,17 @@ import { AppError } from '../middleware/errorHandler.ts'
 
 const log = componentLogger('ai.service')
 
+// ─── Error-message scrubber ───────────────────────────────────────────────────
+// OpenAI's 401 / auth errors include a partial-mask of the API key in the
+// message ("Incorrect API key provided: sk-proj-AbCd***WXYZ"). Strip any
+// `sk-…` token so we don't echo even partial credential material into log
+// sinks. Pino's `*.token` redact path doesn't catch substrings inside
+// `err.message`. Also catches future api-key-formatted leaks.
+function scrubKeyish(input: unknown): string {
+  const msg = input instanceof Error ? input.message : String(input)
+  return msg.replace(/sk-[A-Za-z0-9_*-]+/g, '<redacted-key>')
+}
+
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 // Lazy: instantiate only when the API key is present so non-AI code paths and
 // most tests don't need to set it. Mirrors the precedent in card.service.ts.
@@ -138,8 +149,8 @@ Return JSON with these keys:
   } catch (err) {
     log.error({
       err: {
-        name:    err instanceof Error ? err.name    : 'Unknown',
-        message: err instanceof Error ? err.message : String(err),
+        name:    err instanceof Error ? err.name : 'Unknown',
+        message: scrubKeyish(err),
       },
     }, 'generateCard OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')
@@ -213,8 +224,8 @@ Constraints:
   } catch (err) {
     log.error({
       err: {
-        name:    err instanceof Error ? err.name    : 'Unknown',
-        message: err instanceof Error ? err.message : String(err),
+        name:    err instanceof Error ? err.name : 'Unknown',
+        message: scrubKeyish(err),
       },
     }, 'generateSentences OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')
@@ -286,8 +297,8 @@ Constraints:
   } catch (err) {
     log.error({
       err: {
-        name:    err instanceof Error ? err.name    : 'Unknown',
-        message: err instanceof Error ? err.message : String(err),
+        name:    err instanceof Error ? err.name : 'Unknown',
+        message: scrubKeyish(err),
       },
     }, 'generateMnemonic OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')

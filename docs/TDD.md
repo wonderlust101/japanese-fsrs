@@ -1088,7 +1088,6 @@ NODE_ENV=development
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_JWT_SECRET=your-jwt-secret
 
 # Upstash Redis
 UPSTASH_REDIS_REST_URL=https://your-redis.upstash.io

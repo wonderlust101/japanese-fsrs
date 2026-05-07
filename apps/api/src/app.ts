@@ -14,9 +14,9 @@ import reviewsRouter   from './routes/reviews.ts'
 import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
 
-// CORS_ORIGIN accepts a comma-separated list for multiple origins.
-// Default (in env schema) covers local Next.js dev server.
-const allowedOrigins = env.CORS_ORIGIN.split(',').map((s) => s.trim())
+// CORS_ORIGIN parses to string[] in env.ts (split + URL-validated).
+// Default covers local Next.js dev server.
+const allowedOrigins = env.CORS_ORIGIN
 
 export const app = express()
 
