@@ -32,6 +32,9 @@ export function useSubmitReview(): UseMutationResult<ApiReviewedCard, Error, Sub
 
     onError: (err, variables) => {
       console.error('[Review] Submission failed — queuing offline:', err)
+      // The queue assigns its own per-entry idempotency key. Direct submits
+      // already used a fresh key inside submitReviewAction; the queue path is
+      // distinct because a queued retry must use a stable key across attempts.
       offlineQueue.add(variables)
     },
 
@@ -77,9 +80,21 @@ export function useOfflineSync(): void {
     if (flushedRef.current || offlineQueue.size() === 0) return
     flushedRef.current = true
 
-    const queued = offlineQueue.drain()
-    void submitBatchAction(queued).catch(() => {
-      queued.forEach((r) => offlineQueue.add(r))
-    })
+    const { reviews, batchKey } = offlineQueue.drainBatch()
+    if (reviews.length === 0) return
+
+    // Strip queue-only metadata (queuedAt, idempotencyKey) before sending —
+    // the wire format is SubmitReviewInput. The batch idempotency key is
+    // sent in the header; per-entry keys stay in localStorage so a re-queue
+    // after a failed batch preserves them.
+    const wireReviews: SubmitReviewInput[] = reviews.map((r) => ({
+      cardId:       r.cardId,
+      rating:       r.rating,
+      reviewTimeMs: r.reviewTimeMs,
+    }))
+
+    void submitBatchAction(wireReviews, batchKey)
+      .then(() => offlineQueue.confirmBatch())
+      .catch(() => offlineQueue.replayBatch(reviews))
   }, [])
 }

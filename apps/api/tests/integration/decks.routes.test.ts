@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
@@ -62,6 +63,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ name: 'Wire-shape Deck', description: 'check fields', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
 
@@ -84,6 +86,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ name: 'Wire-shape Deck Detail', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
     const deckId = createRes.body.id
@@ -103,6 +106,7 @@ describeIntegration('decks routes — wire shape', () => {
     const createRes = await request(app)
       .post('/api/v1/decks')
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ name: 'Created Deck', deckType: 'vocabulary' })
     expect(createRes.status).toBe(201)
 

@@ -28,15 +28,24 @@ export async function getDueCardsAction(): Promise<ApiList<ApiDueCard>> {
 }
 
 export async function submitReviewAction(
-  cardId:        SubmitReviewInput['cardId'],
-  rating:        SubmitReviewInput['rating'],
-  reviewTimeMs?: SubmitReviewInput['reviewTimeMs'],
-  sessionId?:    SubmitReviewInput['sessionId'],
+  cardId:          SubmitReviewInput['cardId'],
+  rating:          SubmitReviewInput['rating'],
+  reviewTimeMs?:   SubmitReviewInput['reviewTimeMs'],
+  sessionId?:      SubmitReviewInput['sessionId'],
+  idempotencyKey?: string,
 ): Promise<ApiReviewedCard> {
+  // Server requires the header — generate one per call when the caller doesn't
+  // supply one. Direct-from-UI submits use a fresh key per click; offline-queue
+  // retries reuse the queue entry's stored key.
+  const key = idempotencyKey ?? crypto.randomUUID()
   return apiCall<ApiReviewedCard>(
     '/api/v1/reviews/submit',
     ApiReviewSubmitResponseSchema,
-    { method: 'POST', body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }) },
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': key },
+      body:    JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }),
+    },
     'Failed to submit review',
   )
 }
@@ -51,12 +60,18 @@ export async function getSessionSummaryAction(sessionId: string): Promise<Sessio
 }
 
 export async function submitBatchAction(
-  reviews: SubmitReviewInput[],
+  reviews:         SubmitReviewInput[],
+  idempotencyKey?: string,
 ): Promise<ApiBatchResult<ApiReviewedCard>> {
+  const key = idempotencyKey ?? crypto.randomUUID()
   return apiCall<ApiBatchResult<ApiReviewedCard>>(
     '/api/v1/reviews/batch',
     ApiBatchResultSchema(ApiReviewedCardSchema),
-    { method: 'POST', body: JSON.stringify({ reviews }) },
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': key },
+      body:    JSON.stringify({ reviews }),
+    },
     'Failed to submit batch',
   )
 }

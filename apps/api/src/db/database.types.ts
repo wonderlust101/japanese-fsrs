@@ -611,6 +611,34 @@ export type Database = {
           longest_streak: number
         }[]
       }
+      claim_idempotency_key: {
+        Args: {
+          p_key: string
+          p_request_hash: string
+          p_user_id: string
+        }
+        Returns: {
+          status: string
+          stored_status: number
+          stored_body: Json
+        }[]
+      }
+      delete_idempotency_key: {
+        Args: {
+          p_key: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      store_idempotency_response: {
+        Args: {
+          p_body: Json
+          p_key: string
+          p_status: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       list_cards_paginated: {
         Args: {
           p_cursor?: string

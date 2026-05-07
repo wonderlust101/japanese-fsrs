@@ -2,8 +2,10 @@ import type { RequestHandler } from 'express'
 
 import {
   createDeckSchema, updateDeckSchema, deckIdParamSchema, listDecksQuerySchema,
+  type ApiDeck,
 } from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
+import { withIdempotency } from '../lib/idempotency.ts'
 
 export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
@@ -28,9 +30,19 @@ export const get: RequestHandler = async (req, res, next): Promise<void> => {
 export const create: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input = createDeckSchema.parse(req.body)
-    const deck  = await deckService.createDeck(req.user.id, input)
-    res.setHeader('Location', `/api/v1/decks/${deck.id}`)
-    res.status(201).json(deck)
+    const { status, body } = await withIdempotency<ApiDeck>(
+      req.user.id,
+      req.header('idempotency-key'),
+      input,
+      async () => {
+        const deck = await deckService.createDeck(req.user.id, input)
+        return { status: 201, body: deck }
+      },
+    )
+    if (status === 201) {
+      res.setHeader('Location', `/api/v1/decks/${body.id}`)
+    }
+    res.status(status).json(body)
   } catch (err) {
     next(err)
   }

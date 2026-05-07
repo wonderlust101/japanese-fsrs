@@ -4,6 +4,7 @@ import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } fro
 import * as reviewService  from '../services/review.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { processReview }   from '../services/fsrs.service.ts'
+import { withIdempotency } from '../lib/idempotency.ts'
 
 /**
  * GET /api/v1/reviews/due
@@ -24,13 +25,24 @@ export const getDue: RequestHandler = async (req, res, next): Promise<void> => {
  * POST /api/v1/reviews/submit
  * Submits a single review rating and updates the card's FSRS scheduling state.
  * Returns the updated scheduling fields raw (matches the create/update endpoints
- * for decks and cards).
+ * for decks and cards). Requires `Idempotency-Key` header — same key + same
+ * body replays the original response without re-running FSRS.
  */
 export const submit: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { cardId, rating, reviewTimeMs, sessionId } = submitReviewSchema.parse(req.body)
-    const result = await processReview(cardId, rating, req.user.id, reviewTimeMs, sessionId)
-    res.json(result)
+    const input = submitReviewSchema.parse(req.body)
+    const { status, body } = await withIdempotency(
+      req.user.id,
+      req.header('idempotency-key'),
+      input,
+      async () => {
+        const result = await processReview(
+          input.cardId, input.rating, req.user.id, input.reviewTimeMs, input.sessionId,
+        )
+        return { status: 200, body: result }
+      },
+    )
+    res.status(status).json(body)
   } catch (err) {
     next(err)
   }
@@ -40,13 +52,23 @@ export const submit: RequestHandler = async (req, res, next): Promise<void> => {
  * POST /api/v1/reviews/batch
  * Submits a batch of offline-buffered reviews. Processes each review
  * sequentially to avoid races. Partial failures are returned in `errors`
- * without aborting the remainder of the batch.
+ * without aborting the remainder of the batch. Requires `Idempotency-Key`
+ * header — keyed per logical batch attempt; retries from the offline queue
+ * reuse the same key and replay the stored response.
  */
 export const batch: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const { reviews } = batchReviewSchema.parse(req.body)
-    const result      = await reviewService.submitBatch(reviews, req.user.id)
-    res.json(result)
+    const input = batchReviewSchema.parse(req.body)
+    const { status, body } = await withIdempotency(
+      req.user.id,
+      req.header('idempotency-key'),
+      input,
+      async () => {
+        const result = await reviewService.submitBatch(input.reviews, req.user.id)
+        return { status: 200, body: result }
+      },
+    )
+    res.status(status).json(body)
   } catch (err) {
     next(err)
   }

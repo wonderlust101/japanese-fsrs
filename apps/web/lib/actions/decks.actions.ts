@@ -42,10 +42,15 @@ export async function getDeckAction(deckId: string): Promise<ApiDeckWithStats | 
 export const getDeckWithStatsAction = getDeckAction
 
 export async function createDeckAction(payload: CreateDeckPayload): Promise<ApiDeck> {
+  const key = crypto.randomUUID()
   return apiCall<ApiDeck>(
     '/api/v1/decks',
     ApiDeckSchema,
-    { method: 'POST', body: JSON.stringify(payload) },
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': key },
+      body:    JSON.stringify(payload),
+    },
     'Failed to create deck',
   )
 }

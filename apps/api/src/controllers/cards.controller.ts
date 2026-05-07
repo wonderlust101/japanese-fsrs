@@ -7,9 +7,11 @@ import {
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
 } from '@fsrs-japanese/shared-types'
+import type { ApiCard } from '@fsrs-japanese/shared-types'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
+import { withIdempotency } from '../lib/idempotency.ts'
 
 /**
  * GET /api/v1/decks/:deckId/cards
@@ -54,32 +56,43 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
     const { deckId } = nestedDeckIdParamSchema.parse(req.params)
     const input      = createCardSchema.parse(req.body)
 
-    let fieldsData: Record<string, unknown>
+    const { status, body } = await withIdempotency<ApiCard>(
+      req.user.id,
+      req.header('idempotency-key'),
+      input,
+      async () => {
+        let fieldsData: Record<string, unknown>
 
-    if ('word' in input) {
-      const profile  = await profileService.getProfile(req.user.id)
-      const generated = await aiService.generateCard(
-        input.word,
-        profile.jlptTarget ?? 'N5',
-        profile.interests,
-      )
-      // GeneratedCardData has known string keys; widen to the JSONB-compatible
-      // Record<string, unknown> shape that createCard / fields_data persistence accepts.
-      fieldsData = generated as Record<string, unknown>
-    } else {
-      fieldsData = input.fieldsData
+        if ('word' in input) {
+          const profile  = await profileService.getProfile(req.user.id)
+          const generated = await aiService.generateCard(
+            input.word,
+            profile.jlptTarget ?? 'N5',
+            profile.interests,
+          )
+          // GeneratedCardData has known string keys; widen to the JSONB-compatible
+          // Record<string, unknown> shape that createCard / fields_data persistence accepts.
+          fieldsData = generated as Record<string, unknown>
+        } else {
+          fieldsData = input.fieldsData
+        }
+
+        const card = await cardService.createCard(deckId, req.user.id, fieldsData, {
+          cardType:     input.cardType,
+          layoutType:   input.layoutType,
+          tags:         input.tags,
+          jlptLevel:    input.jlptLevel,
+          parentCardId: input.parentCardId,
+        })
+
+        return { status: 201, body: card }
+      },
+    )
+
+    if (status === 201) {
+      res.setHeader('Location', `/api/v1/cards/${body.id}`)
     }
-
-    const card = await cardService.createCard(deckId, req.user.id, fieldsData, {
-      cardType:     input.cardType,
-      layoutType:   input.layoutType,
-      tags:         input.tags,
-      jlptLevel:    input.jlptLevel,
-      parentCardId: input.parentCardId,
-    })
-
-    res.setHeader('Location', `/api/v1/cards/${card.id}`)
-    res.status(201).json(card)
+    res.status(status).json(body)
   } catch (err) {
     next(err)
   }

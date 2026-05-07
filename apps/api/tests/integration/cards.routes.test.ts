@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
@@ -33,6 +34,7 @@ async function seedUser(): Promise<SeededUser> {
   const deckRes = await request(app)
     .post('/api/v1/decks')
     .set('Authorization', `Bearer ${jwt}`)
+    .set('Idempotency-Key', randomUUID())
     .send({ name: 'Integration Deck', deckType: 'vocabulary' })
   if (deckRes.status !== 201) throw new Error(`createDeck failed: ${deckRes.status} ${JSON.stringify(deckRes.body)}`)
 
@@ -61,6 +63,7 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
     const createRes = await request(app)
       .post(`/api/v1/decks/${a.deckId}/cards`)
       .set('Authorization', `Bearer ${a.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({
         fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
         layoutType: 'vocabulary',
@@ -113,6 +116,7 @@ describeIntegration('cards routes — cascading deletes', () => {
     const cardRes = await request(app)
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({
         fieldsData: { word: '犬', reading: 'いぬ', meaning: 'dog' },
         cardType:   'comprehension',
@@ -124,6 +128,7 @@ describeIntegration('cards routes — cascading deletes', () => {
     const reviewRes = await request(app)
       .post('/api/v1/reviews/submit')
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ cardId, rating: 'good' })
     expect(reviewRes.status).toBe(200)
 
@@ -156,6 +161,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const cardRes = await request(app)
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
         cardType:   'comprehension',
@@ -178,6 +184,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const cardRes = await request(app)
       .post(`/api/v1/decks/${a.deckId}/cards`)
       .set('Authorization', `Bearer ${a.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({
         fieldsData: { word: '手', reading: 'て', meaning: 'hand' },
         cardType:   'comprehension',
@@ -236,6 +243,7 @@ describeIntegration('cards routes — list wire shape', () => {
     const createRes = await request(app)
       .post(`/api/v1/decks/${u.deckId}/cards`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
       .send({
         fieldsData: { word: '空', reading: 'そら', meaning: 'sky' },
         layoutType: 'vocabulary',

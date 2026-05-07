@@ -74,10 +74,15 @@ export async function generateCardPreviewAction(word: string): Promise<Generated
 type ManualCreateCardPayload = Extract<CreateCardPayload, { fieldsData: unknown }>
 
 export async function saveCardAction(deckId: string, payload: ManualCreateCardPayload): Promise<void> {
+  const key = crypto.randomUUID()
   await apiCall<unknown>(
     `/api/v1/decks/${deckId}/cards`,
     voidResponseSchema,
-    { method: 'POST', body: JSON.stringify(payload) },
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': key },
+      body:    JSON.stringify(payload),
+    },
     'Failed to save card',
   )
 }
