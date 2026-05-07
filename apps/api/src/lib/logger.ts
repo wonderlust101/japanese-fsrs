@@ -6,15 +6,16 @@ const isDev = env.NODE_ENV === 'development'
 
 /**
  * Paths that pino's `redact` walks on every log line, removing the matched
- * field before serialization. This is the safety net — every per-call-site
- * fix in the codebase is the primary defence; this is what catches the
- * accidental future regression. Wildcards match any depth (one segment).
+ * field before serialization. This is the safety net for production logs —
+ * every per-call-site fix in the codebase is the primary defence; this is
+ * what catches the accidental future regression. Wildcards match any depth
+ * (one segment).
  *
  * Anything user-identifiable, secret, or session-bearing belongs here.
  * Add to this list when introducing a new sensitive field rather than
  * trusting downstream code to scrub it.
  */
-const REDACT_PATHS = [
+const REDACT_PATHS_PROD = [
   '*.email',
   '*.password',
   '*.passwordHash',
@@ -29,9 +30,21 @@ const REDACT_PATHS = [
   'res.headers["set-cookie"]',
 ]
 
+/**
+ * In dev, scrub only literal passwords. Tokens, emails, auth headers, and
+ * cookies are visible so a developer can correlate a request with the JWT
+ * that produced it, the email of the test user, etc. NEVER deploy with
+ * NODE_ENV=development; the prod list above is the wire-format contract for
+ * any persistent log sink.
+ */
+const REDACT_PATHS_DEV = [
+  '*.password',
+  '*.passwordHash',
+]
+
 const options: LoggerOptions = {
   level:     env.LOG_LEVEL ?? (isDev ? 'debug' : 'info'),
-  redact:    { paths: REDACT_PATHS, remove: true },
+  redact:    { paths: isDev ? REDACT_PATHS_DEV : REDACT_PATHS_PROD, remove: true },
   base:      { env: env.NODE_ENV },
   timestamp: pino.stdTimeFunctions.isoTime,
   ...(isDev && {
@@ -41,6 +54,8 @@ const options: LoggerOptions = {
         colorize:      true,
         translateTime: 'HH:MM:ss.l',
         ignore:        'pid,hostname',
+        // Don't truncate object output — full bodies, full ZodError issue arrays, etc.
+        singleLine:    false,
       },
     },
   }),

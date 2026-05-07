@@ -44,6 +44,19 @@ app.use(express.urlencoded({ extended: false, limit: '100kb' }))
 // log via `req.log`. Honors incoming X-Request-ID; sets it on the response.
 app.use(requestLogger)
 
+// Dev-only request body logger. Pino-http does not log request bodies, so
+// without this we only see method/url/headers. Production omits this so log
+// sinks stay free of PII; the prod redact config wouldn't catch fields we
+// haven't named yet (e.g. a future `creditCardNumber`).
+if (env.NODE_ENV === 'development') {
+  app.use((req, _res, next) => {
+    if (req.body !== undefined && req.body !== null && Object.keys(req.body).length > 0) {
+      req.log?.debug({ body: req.body }, 'request body')
+    }
+    next()
+  })
+}
+
 // ── API routes ──────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',    authRouter)
 app.use('/api/v1/profile', profileRouter)
