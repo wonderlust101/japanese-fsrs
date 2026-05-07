@@ -43,10 +43,14 @@ export async function listMySubscriptionsAction(): Promise<ApiList<ApiPremadeSub
 export async function subscribeToPremadeDeckAction(
   premadeDeckId: string,
 ): Promise<ApiSubscribeResult> {
+  const key = crypto.randomUUID()
   return apiCall<ApiSubscribeResult>(
     `/api/v1/premade-decks/${premadeDeckId}/subscribe`,
     ApiSubscribeResultSchema,
-    { method: 'POST' },
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': key },
+    },
     'Failed to subscribe',
   )
 }
