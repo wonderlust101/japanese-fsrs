@@ -1,0 +1,20 @@
+# Dependabot config (security audit FIND-DEP-06).
+#
+# Tracks GitHub Action SHAs so the floating-tag → commit-SHA pin doesn't
+# drift over time. Dependabot opens PRs that bump the SHA and update the
+# trailing comment in lockstep, preserving auditability.
+#
+# Bun's npm ecosystem is intentionally not enabled here: the existing
+# .github/workflows/security-audit.yml runs `bun audit` on every PR and
+# weekly cron, which catches advisories without the noise of routine
+# version bumps.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore(ci)

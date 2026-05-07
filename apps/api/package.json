@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@fsrs-japanese/shared-types": "workspace:*",
-    "@open-spaced-repetition/binding": "^0.3.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "cors": "^2.8.6",
