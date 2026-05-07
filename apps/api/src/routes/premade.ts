@@ -2,6 +2,7 @@ import { Router } from 'express'
 
 import { authMiddleware }                from '../middleware/auth.ts'
 import {
+  defaultUserRateLimitMiddleware,
   subscribeRateLimitMiddleware,
   unsubscribeRateLimitMiddleware,
 } from '../middleware/rateLimit.ts'
@@ -9,7 +10,7 @@ import * as premadeController            from '../controllers/premade.controller
 
 const router = Router()
 
-router.use(authMiddleware)
+router.use(authMiddleware, defaultUserRateLimitMiddleware)
 
 // Subscriptions list — must be defined before the `/:id` param route so the
 // literal segment isn't swallowed.

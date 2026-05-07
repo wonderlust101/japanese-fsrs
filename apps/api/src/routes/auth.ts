@@ -1,7 +1,11 @@
 import { Router } from 'express'
 
 import { authMiddleware } from '../middleware/auth.ts'
-import { authRateLimitMiddleware, accountDeleteRateLimitMiddleware } from '../middleware/rateLimit.ts'
+import {
+  authRateLimitMiddleware,
+  authOtpVerifyRateLimitMiddleware,
+  accountDeleteRateLimitMiddleware,
+} from '../middleware/rateLimit.ts'
 import * as authController from '../controllers/auth.controller.ts'
 
 const router = Router()
@@ -12,7 +16,7 @@ router.post('/signup',        authRateLimitMiddleware, authController.signup)
 router.post('/cancel-signup', authRateLimitMiddleware, authController.cancelSignup)
 router.post('/login',         authRateLimitMiddleware, authController.login)
 router.post('/refresh',       authRateLimitMiddleware, authController.refresh)
-router.post('/verify-otp',    authRateLimitMiddleware, authController.verifyOtp)
+router.post('/verify-otp',    authRateLimitMiddleware, authOtpVerifyRateLimitMiddleware, authController.verifyOtp)
 router.post('/resend-otp',    authRateLimitMiddleware, authController.resendOtp)
 
 // Protected — requires a valid Bearer token.

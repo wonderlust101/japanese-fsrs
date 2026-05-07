@@ -1,15 +1,21 @@
 import { Router } from 'express'
 
 import { authMiddleware }                                  from '../middleware/auth.ts'
-import { batchRateLimitMiddleware, submitRateLimitMiddleware } from '../middleware/rateLimit.ts'
+import {
+  batchRateLimitMiddleware,
+  defaultUserRateLimitMiddleware,
+  submitRateLimitMiddleware,
+} from '../middleware/rateLimit.ts'
 import * as reviewsController                              from '../controllers/reviews.controller.ts'
 
 const router = Router()
 
-router.get('/due',                          authMiddleware, reviewsController.getDue)
-router.post('/submit',                      authMiddleware, submitRateLimitMiddleware, reviewsController.submit)
-router.post('/batch',                       authMiddleware, batchRateLimitMiddleware, reviewsController.batch)
-router.get('/forecast',                     authMiddleware, reviewsController.forecast)
-router.get('/session-summary/:sessionId',   authMiddleware, reviewsController.sessionSummary)
+router.use(authMiddleware, defaultUserRateLimitMiddleware)
+
+router.get('/due',                          reviewsController.getDue)
+router.post('/submit',                      submitRateLimitMiddleware, reviewsController.submit)
+router.post('/batch',                       batchRateLimitMiddleware, reviewsController.batch)
+router.get('/forecast',                     reviewsController.forecast)
+router.get('/session-summary/:sessionId',   reviewsController.sessionSummary)
 
 export default router
