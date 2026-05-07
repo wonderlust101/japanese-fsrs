@@ -29,6 +29,26 @@ export class AppError extends Error {
 }
 
 /**
+ * 503 Service Unavailable. Thrown when an external dependency (OpenAI chat
+ * or embeddings) is degraded and the circuit breaker opened, OR when an AI
+ * call failed inline and we want to surface "transient — retry" semantics
+ * instead of the previous generic 502.
+ *
+ * The global error handler emits a `Retry-After` header and a structured
+ * body `{ error, code: 'service_unavailable', retryAfterSeconds }` so the
+ * frontend can branch on `code` rather than parsing free-text messages.
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(
+    message: string,
+    public readonly retryAfterSeconds: number,
+  ) {
+    super(503, message)
+    this.name = 'ServiceUnavailableError'
+  }
+}
+
+/**
  * Wrap a Supabase / external-SDK error into a generic 500 AppError, logging
  * the underlying error server-side. Use at every DB error site to keep
  * Postgres internals (table names, error codes, SQL hints) out of client
@@ -81,6 +101,23 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   // for the rare case where the error fires before requestLogger ran. The
   // optional widening lives in apps/api/src/types/express.d.ts.
   const log: Logger = req.log ?? apiLog
+
+  if (err instanceof ServiceUnavailableError) {
+    // Set the standards-compliant Retry-After header (RFC 7231) AND mirror
+    // it in the body so callers using a JSON parser (most browser fetch
+    // wrappers) can read the same number without sniffing headers.
+    res.setHeader('Retry-After', String(err.retryAfterSeconds))
+    log.error(
+      { err: { name: err.name, message: err.message }, statusCode: err.statusCode, retryAfterSeconds: err.retryAfterSeconds },
+      'ServiceUnavailableError',
+    )
+    res.status(503).json({
+      error:             err.message,
+      code:              'service_unavailable',
+      retryAfterSeconds: err.retryAfterSeconds,
+    })
+    return
+  }
 
   if (err instanceof AppError) {
     // 4xx are expected client errors; log at WARN so future Sentry hooks

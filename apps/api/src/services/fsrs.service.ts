@@ -220,9 +220,12 @@ function mapRatingToGrade(rating: ReviewRating): Grade {
     case 'hard':   return Rating.Hard
     case 'good':   return Rating.Good
     case 'easy':   return Rating.Easy
-    // 'manual' is never passed by users — Zod rejects it at submission. Map to
-    // Good defensively so the schedule still moves forward if somehow reached.
-    case 'manual': return Rating.Good
+    case 'manual':
+      // Unreachable at runtime — Zod rejects 'manual' at the /reviews/submit
+      // boundary. Throwing (vs the previous defensive Rating.Good fallback)
+      // turns a future Zod regression into a loud 500 instead of silently
+      // corrupting schedules with plausible-but-wrong intervals.
+      throw new Error('Rating "manual" is not allowed in user submissions; rejected at Zod boundary')
     default: {
       const _exhaustiveCheck: never = rating
       return _exhaustiveCheck

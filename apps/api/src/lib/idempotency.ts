@@ -101,9 +101,9 @@ export async function withIdempotency<T>(
   try {
     result = await worker()
   } catch (err) {
-    if (err instanceof AppError) {
-      // Store the error response so subsequent retries replay the same error
-      // rather than re-running the side-effect path.
+    // 4xx semantic errors are deterministic for the same input and SHOULD
+    // replay (validation, auth, not-found, conflict). Store the response.
+    if (err instanceof AppError && err.statusCode < 500) {
       const errBody = { error: err.message }
       const { error: storeError } = await supabaseAdmin.rpc('store_idempotency_response', asPayload({
         p_user_id: userId,
@@ -112,18 +112,20 @@ export async function withIdempotency<T>(
         p_body:    errBody,
       }))
       if (storeError !== null) {
-        log.error({ err: storeError }, 'store on AppError failed')
+        log.error({ err: storeError }, 'store on 4xx AppError failed')
       }
       throw err
     }
-    // Non-AppError (likely transient infra failure) — release the placeholder
-    // so retries can claim afresh once the underlying issue clears.
+    // 5xx AppError or non-AppError = transient. Release the placeholder so
+    // retries claim afresh once the underlying issue clears. Without this,
+    // a 503 from the OpenAI circuit breaker would be cached for 24h and
+    // block legitimate retries after the upstream recovers.
     const { error: delError } = await supabaseAdmin.rpc('delete_idempotency_key', asPayload({
       p_user_id: userId,
       p_key:     key,
     }))
     if (delError !== null) {
-      log.error({ err: delError }, 'delete on non-AppError failed')
+      log.error({ err: delError }, 'delete on 5xx/transient failed')
     }
     throw err
   }

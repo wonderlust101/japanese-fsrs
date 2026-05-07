@@ -323,3 +323,88 @@ describeIntegration('cards routes — list wire shape', () => {
     expect(keys).toEqual(API_CARD_LIST_ITEM_KEYS)
   })
 })
+
+// ─── Cross-deck access via the dual-mount router ─────────────────────────────
+//
+// The cards router is mounted twice (apps/api/src/app.ts:75-76):
+//   /api/v1/decks/:deckId/cards/:id  — deck-scoped
+//   /api/v1/cards/:id                — flat
+//
+// Every controller method on the deck-scoped mount has to thread
+// `scopedDeckId(req)` through to the service layer (see
+// apps/api/src/controllers/cards.controller.ts:170-174). Forgetting that
+// argument on any single method would let a card from deck A be touched
+// via deck B's URL — a real authorization regression. These tests run
+// the wrong-deck URL against every method and assert 404, so a future
+// regression dropping `scopedDeckId(req)` from any one call site fails
+// loudly instead of silently letting the request through.
+describeIntegration('cards routes — cross-deck access via dual-mount router', () => {
+  it('every card method returns 404 when accessed via another deck\'s URL', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Create a second deck owned by the SAME user. The cross-deck check is
+    // about deckId mismatch, not user mismatch — keeping ownership the same
+    // proves the failure is purely from the deck-scoping plumbing, not from
+    // RLS / user-id checks.
+    const otherDeckRes = await request(app)
+      .post('/api/v1/decks')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ name: 'Other Integration Deck', deckType: 'vocabulary' })
+    expect(otherDeckRes.status).toBe(201)
+    const otherDeckId = otherDeckRes.body.id
+
+    // Create a card in the user's primary deck.
+    const cardRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        fieldsData: { word: '橋', reading: 'はし', meaning: 'bridge' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(cardRes.status).toBe(201)
+    const cardId  = cardRes.body.id
+    const version = cardRes.body.version
+
+    // The card belongs to u.deckId — accessing it via otherDeckId on every
+    // method must 404. Each request authenticates as the same user so the
+    // failure is purely from the deck-scoping check.
+
+    const getRes = await request(app)
+      .get(`/api/v1/decks/${otherDeckId}/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(getRes.status).toBe(404)
+
+    const patchRes = await request(app)
+      .patch(`/api/v1/decks/${otherDeckId}/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(version))
+      .send({ fieldsData: { word: '橋', reading: 'はし', meaning: 'overpass' } })
+    expect(patchRes.status).toBe(404)
+
+    const deleteRes = await request(app)
+      .delete(`/api/v1/decks/${otherDeckId}/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(deleteRes.status).toBe(404)
+
+    const similarRes = await request(app)
+      .get(`/api/v1/decks/${otherDeckId}/cards/${cardId}/similar`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(similarRes.status).toBe(404)
+
+    const regenRes = await request(app)
+      .post(`/api/v1/decks/${otherDeckId}/cards/${cardId}/regenerate-embedding`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(regenRes.status).toBe(404)
+
+    // Sanity: the card is still reachable via its OWN deck-scoped URL —
+    // proves the cross-deck 404s above weren't from a bad cardId or a
+    // broken card on the row level.
+    const sanityRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(sanityRes.status).toBe(200)
+  })
+})

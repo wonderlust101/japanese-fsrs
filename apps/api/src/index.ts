@@ -1,6 +1,11 @@
 import { app } from './app.ts'
 import { env } from './lib/env.ts'
 import { logger } from './lib/logger.ts'
+import { probeOpenAIEmbeddingDimension } from './lib/startup-probe.ts'
+
+// Block startup on a wrong-dimension embedding model — see startup-probe.ts.
+// Transient OpenAI errors are non-fatal (logged + continue).
+await probeOpenAIEmbeddingDimension()
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'API server listening')

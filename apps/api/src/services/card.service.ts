@@ -5,8 +5,18 @@ import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
 import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
-import { AppError, dbError } from '../middleware/errorHandler.ts';
+import {
+  getRetryAfterSeconds,
+  isOpen as breakerIsOpen,
+  recordFailure as breakerRecordFailure,
+  recordSuccess as breakerRecordSuccess,
+} from '../lib/circuit-breaker.ts';
+import { AppError, ServiceUnavailableError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
+
+/** Breaker namespace for OpenAI embedding calls (separate from the chat
+ *  breaker — embedding outages and chat outages are independent). */
+const EMBEDDING_BREAKER = 'openai-embeddings'
 
 const log      = componentLogger('card.service');
 const adminLog = componentLogger('admin');
@@ -37,8 +47,9 @@ import {
 // `cards.embedding vector(1536)` column type. Switching to a model with a
 // different dimension requires a schema migration.
 const EMBEDDING_MODEL = env.OPENAI_EMBEDDING_MODEL
+// 15s timeout — see ai.service.ts for the rationale.
 const openai = env.OPENAI_API_KEY !== undefined
-  ? new OpenAI({ apiKey: env.OPENAI_API_KEY })
+  ? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 15_000 })
   : null
 
 // ─── Column projection ────────────────────────────────────────────────────────
@@ -444,7 +455,18 @@ export async function createCard(
   // Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
   // network error, malformed fields) must not block card creation.
   // The card remains usable for FSRS; only similarity search is delayed.
-  void backfillEmbedding(created.id, userId, fieldsData).catch((err: unknown) => {
+  //
+  // Breaker check before launching the async work: when the embeddings
+  // breaker is open, skip silently. Spawning doomed OpenAI calls during an
+  // outage burns quota and floods the log without fixing anything; the
+  // user can call POST /cards/:id/regenerate-embedding once OpenAI recovers.
+  void (async () => {
+    if (await breakerIsOpen(EMBEDDING_BREAKER)) {
+      log.warn({ cardId: created.id }, 'embedding skipped: breaker open')
+      return
+    }
+    await backfillEmbedding(created.id, userId, fieldsData)
+  })().catch((err: unknown) => {
     log.error({ cardId: created.id, err }, 'embedding backfill failed')
   })
 
@@ -478,7 +500,7 @@ export async function updateCard(
     await getCard(cardId, userId, expectedDeckId)
   }
 
-  const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
+  const { data, error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
     p_card_id:          cardId,
     p_user_id:          userId,
     p_expected_version: expectedVersion,
@@ -503,7 +525,16 @@ export async function updateCard(
     throw dbError('update card', error)
   }
 
-  return getCard(cardId, userId)
+  // RPC returns the freshly-updated target row (migration 20260528000000),
+  // so we skip the previous follow-up getCard() round-trip.
+  const rows = z.array(CardDbRowSchema).parse(data ?? [])
+  const updated = rows[0]
+  if (updated === undefined) {
+    // RPC succeeded but returned no row — only reachable if the row was
+    // concurrently deleted between UPDATE and RETURN QUERY. Map to 404.
+    throw new AppError(404, 'Card not found')
+  }
+  return toCardRow(updated)
 }
 
 /**
@@ -606,6 +637,13 @@ export async function regenerateEmbedding(
     throw new AppError(404, 'Card not found')
   }
 
+  // Synchronous user-triggered path — surface a clean 503 instead of waiting
+  // out the 15s OpenAI timeout when the breaker is open.
+  if (await breakerIsOpen(EMBEDDING_BREAKER)) {
+    const retryAfter = await getRetryAfterSeconds(EMBEDDING_BREAKER)
+    throw new ServiceUnavailableError('Embedding service temporarily unavailable; please retry shortly', retryAfter)
+  }
+
   const cardData = CardFieldsRowSchema.parse(data)
   await backfillEmbedding(cardId, userId, cardData.fields_data)
 }
@@ -630,7 +668,16 @@ async function backfillEmbedding(
   const text = buildEmbeddingText(fieldsData)
   if (text === null) return
 
-  const embedding = await generateEmbedding(text)
+  // Breaker accounting wraps the OpenAI call only — the DB UPDATE below isn't
+  // gated by it (Postgres outage would surface elsewhere).
+  let embedding: number[]
+  try {
+    embedding = await generateEmbedding(text)
+    await breakerRecordSuccess(EMBEDDING_BREAKER)
+  } catch (err) {
+    await breakerRecordFailure(EMBEDDING_BREAKER)
+    throw err
+  }
 
   const { error } = await supabaseAdmin
     .from('cards')

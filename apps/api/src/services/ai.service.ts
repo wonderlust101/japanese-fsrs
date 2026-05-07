@@ -14,7 +14,30 @@ import {
   type GeneratedMnemonic,
 } from '@fsrs-japanese/shared-types'
 import { componentLogger } from '../lib/logger.ts'
-import { AppError } from '../middleware/errorHandler.ts'
+import {
+  getRetryAfterSeconds,
+  isOpen as breakerIsOpen,
+  recordFailure as breakerRecordFailure,
+  recordSuccess as breakerRecordSuccess,
+} from '../lib/circuit-breaker.ts'
+import { AppError, ServiceUnavailableError } from '../middleware/errorHandler.ts'
+
+/** Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
+ *  all hit the same OpenAI completions backend, so one shared breaker is correct). */
+const CHAT_BREAKER = 'openai-chat'
+
+/** Default `Retry-After` when an inline OpenAI call fails before the breaker
+ *  opens. Long enough for a transient blip to clear; short enough that legit
+ *  retries resume quickly. */
+const INLINE_FAILURE_RETRY_SECONDS = 30
+
+/** Throws 503 if the chat breaker is currently open. */
+async function assertChatBreakerClosed(): Promise<void> {
+  if (await breakerIsOpen(CHAT_BREAKER)) {
+    const retryAfter = await getRetryAfterSeconds(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', retryAfter)
+  }
+}
 
 const log = componentLogger('ai.service')
 
@@ -34,8 +57,13 @@ function scrubKeyish(input: unknown): string {
 // most tests don't need to set it. Mirrors the precedent in card.service.ts.
 // Each generate function below null-checks before calling OpenAI.
 
+// Cap a single OpenAI HTTP request at 15s. The SDK default is 10 minutes,
+// which under degraded OpenAI conditions would tie a request worker up far
+// longer than the 30s server.requestTimeout (workers freed only when the
+// SDK gives up, not when Express closes the socket). 15s ≈ p99 latency for
+// chat/embedding calls plus headroom; SDK retries (default 2) cover blips.
 const openai = env.OPENAI_API_KEY !== undefined
-  ? new OpenAI({ apiKey: env.OPENAI_API_KEY })
+  ? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 15_000 })
   : null
 
 const CHAT_MODEL = env.OPENAI_CHAT_MODEL
@@ -115,6 +143,9 @@ export async function generateCard(
   const fromCache = await readCache(cacheKey, GeneratedCardDataSchema)
   if (fromCache !== null) return fromCache
 
+  // Breaker check after cache miss — a cache hit needs no upstream call.
+  await assertChatBreakerClosed()
+
   let response
   try {
     response = await openai.chat.completions.create({
@@ -153,15 +184,19 @@ Return JSON with these keys:
         message: scrubKeyish(err),
       },
     }, 'generateCard OpenAI request failed')
-    throw new AppError(502, 'AI service temporarily unavailable')
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {
-    throw new AppError(502, 'OpenAI returned an empty response')
+    // Empty response counts as a degraded backend; trip the breaker too.
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const result = GeneratedCardDataSchema.parse(JSON.parse(raw))
+  await breakerRecordSuccess(CHAT_BREAKER)
   await redis.set(cacheKey, JSON.stringify(result), { ex: CARD_CACHE_TTL })
   return result
 }
@@ -190,6 +225,8 @@ export async function generateSentences(
 
   const fromCache = await readCache(cacheKey, GeneratedSentencesSchema)
   if (fromCache !== null) return fromCache
+
+  await assertChatBreakerClosed()
 
   let response
   try {
@@ -228,15 +265,18 @@ Constraints:
         message: scrubKeyish(err),
       },
     }, 'generateSentences OpenAI request failed')
-    throw new AppError(502, 'AI service temporarily unavailable')
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {
-    throw new AppError(502, 'OpenAI returned an empty response')
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const result = GeneratedSentencesSchema.parse(JSON.parse(raw))
+  await breakerRecordSuccess(CHAT_BREAKER)
   await redis.set(cacheKey, JSON.stringify(result), { ex: SENTENCES_CACHE_TTL })
   return result
 }
@@ -266,6 +306,8 @@ export async function generateMnemonic(
 
   const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema)
   if (fromCache !== null) return fromCache
+
+  await assertChatBreakerClosed()
 
   let response
   try {
@@ -301,15 +343,18 @@ Constraints:
         message: scrubKeyish(err),
       },
     }, 'generateMnemonic OpenAI request failed')
-    throw new AppError(502, 'AI service temporarily unavailable')
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const raw = response.choices[0]?.message.content
   if (raw === null || raw === undefined) {
-    throw new AppError(502, 'OpenAI returned an empty response')
+    await breakerRecordFailure(CHAT_BREAKER)
+    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
   }
 
   const result = GeneratedMnemonicSchema.parse(JSON.parse(raw))
+  await breakerRecordSuccess(CHAT_BREAKER)
   await redis.set(cacheKey, JSON.stringify(result), { ex: MNEMONIC_CACHE_TTL })
   return result
 }

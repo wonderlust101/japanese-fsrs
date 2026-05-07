@@ -200,7 +200,7 @@ export async function updateDeck(
   if (input.deckType    !== undefined) patch['deck_type']   = input.deckType
   if (input.isPublic    !== undefined) patch['is_public']   = input.isPublic
 
-  const { error } = await supabaseAdmin.rpc('update_deck_with_version_check', asPayload({
+  const { data, error } = await supabaseAdmin.rpc('update_deck_with_version_check', asPayload({
     p_deck_id:          deckId,
     p_user_id:          userId,
     p_expected_version: expectedVersion,
@@ -221,27 +221,18 @@ export async function updateDeck(
     throw dbError('update deck', error)
   }
 
-  return getDeckRow(deckId, userId)
-}
-
-/**
- * Internal helper — fetches a deck row scoped to the user. Used after an RPC
- * write to return the refreshed shape without re-deriving stats. `getDeck`
- * (the public API) is the wrong tool here because it also fetches due/new
- * counts; `updateDeck` doesn't need those for a PATCH response.
- */
-async function getDeckRow(deckId: string, userId: string): Promise<ApiDeck> {
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .select(DECK_COLUMNS)
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .single()
-
-  if (error !== null || data === null) {
+  // RPC returns the freshly-updated row (migration 20260528000000), so we
+  // skip the previous follow-up SELECT round-trip. Stats columns (due/new
+  // counts) are intentionally NOT included in the PATCH response — those
+  // belong to GET /decks/:id and would require additional queries to compute.
+  const rows = z.array(DeckListRpcRowSchema).parse(data ?? [])
+  const updated = rows[0]
+  if (updated === undefined) {
+    // RPC succeeded but returned no row — only reachable if the row was
+    // concurrently deleted between UPDATE and RETURN QUERY.
     throw new AppError(404, 'Deck not found')
   }
-  return toRow(DeckListRpcRowSchema.parse(data))
+  return toRow(updated)
 }
 
 /**
