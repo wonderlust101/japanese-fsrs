@@ -14,30 +14,17 @@ import {
   type GeneratedMnemonic,
 } from '@fsrs-japanese/shared-types'
 import { componentLogger } from '../lib/logger.ts'
-import {
-  getRetryAfterSeconds,
-  isOpen as breakerIsOpen,
-  recordFailure as breakerRecordFailure,
-  recordSuccess as breakerRecordSuccess,
-} from '../lib/circuit-breaker.ts'
-import { AppError, ServiceUnavailableError } from '../middleware/errorHandler.ts'
+import { withBreaker } from '../lib/circuit-breaker.ts'
+import { AppError } from '../middleware/errorHandler.ts'
 
 /** Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
  *  all hit the same OpenAI completions backend, so one shared breaker is correct). */
 const CHAT_BREAKER = 'openai-chat'
 
-/** Default `Retry-After` when an inline OpenAI call fails before the breaker
- *  opens. Long enough for a transient blip to clear; short enough that legit
- *  retries resume quickly. */
-const INLINE_FAILURE_RETRY_SECONDS = 30
-
-/** Throws 503 if the chat breaker is currently open. */
-async function assertChatBreakerClosed(): Promise<void> {
-  if (await breakerIsOpen(CHAT_BREAKER)) {
-    const retryAfter = await getRetryAfterSeconds(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', retryAfter)
-  }
-}
+/** Single user-facing 503 message for all AI degradation paths (open breaker
+ *  or inline failure). Per-failure-mode messages don't help the end user — they
+ *  just need "retry shortly." Diagnostic specifics live in server logs. */
+const CHAT_UNAVAILABLE_MSG = 'AI service temporarily unavailable; please retry shortly'
 
 const log = componentLogger('ai.service')
 
@@ -143,25 +130,29 @@ export async function generateCard(
   const fromCache = await readCache(cacheKey, GeneratedCardDataSchema)
   if (fromCache !== null) return fromCache
 
-  // Breaker check after cache miss — a cache hit needs no upstream call.
-  await assertChatBreakerClosed()
-
-  let response
-  try {
-    response = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are a Japanese language expert generating SRS card data.
+  // Breaker integration runs only on a cache miss. A network exception, an
+  // empty response, or a Zod parse failure inside the inner fn all become
+  // 503 via withBreaker's catch path; specific diagnostic info goes to the
+  // log line below. The outer try/catch around the OpenAI call is kept
+  // solely to scrub `sk-…` tokens from `err.message` (the SDK leaks them
+  // in 401 messages).
+  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+    let response
+    try {
+      response = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a Japanese language expert generating SRS card data.
 Always respond with valid JSON.
 User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
 Generate content appropriate for the user's level and interests.`,
-        },
-        {
-          role: 'user',
-          content: `Generate complete card data for the Japanese word: ${safeWord}
+          },
+          {
+            role: 'user',
+            content: `Generate complete card data for the Japanese word: ${safeWord}
 
 Return JSON with these keys:
 {
@@ -174,29 +165,29 @@ Return JSON with these keys:
   "pitchAccent": string,
   "mnemonic": string (memorable association for ${safeLevel} learner)
 }`,
+          },
+        ],
+      })
+    } catch (err) {
+      log.error({
+        err: {
+          name:    err instanceof Error ? err.name : 'Unknown',
+          message: scrubKeyish(err),
         },
-      ],
-    })
-  } catch (err) {
-    log.error({
-      err: {
-        name:    err instanceof Error ? err.name : 'Unknown',
-        message: scrubKeyish(err),
-      },
-    }, 'generateCard OpenAI request failed')
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+      }, 'generateCard OpenAI request failed')
+      throw err
+    }
 
-  const raw = response.choices[0]?.message.content
-  if (raw === null || raw === undefined) {
-    // Empty response counts as a degraded backend; trip the breaker too.
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+    const raw = response.choices[0]?.message.content
+    if (raw === null || raw === undefined) {
+      throw new Error('OpenAI returned an empty response')
+    }
+    return GeneratedCardDataSchema.parse(JSON.parse(raw))
+  })
 
-  const result = GeneratedCardDataSchema.parse(JSON.parse(raw))
-  await breakerRecordSuccess(CHAT_BREAKER)
+  // Cache write outside the breaker — a Redis blip should not trip the
+  // OpenAI breaker. If the write fails, the work already succeeded; we just
+  // miss caching this entry and the next equivalent request hits OpenAI.
   await redis.set(cacheKey, JSON.stringify(result), { ex: CARD_CACHE_TTL })
   return result
 }
@@ -226,24 +217,23 @@ export async function generateSentences(
   const fromCache = await readCache(cacheKey, GeneratedSentencesSchema)
   if (fromCache !== null) return fromCache
 
-  await assertChatBreakerClosed()
-
-  let response
-  try {
-    response = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are a Japanese language expert generating natural example sentences for SRS flash cards.
+  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+    let response
+    try {
+      response = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a Japanese language expert generating natural example sentences for SRS flash cards.
 Always respond with valid JSON.
 User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
 Sentences must be natural, level-appropriate, and tied to the user's interests when possible.`,
-        },
-        {
-          role: 'user',
-          content: `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
+          },
+          {
+            role: 'user',
+            content: `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 {
@@ -255,28 +245,26 @@ Constraints:
 - Each "ja" must contain the target word.
 - "furigana" should give hiragana readings for kanji compounds in the sentence.
 - Vary the grammar pattern across sentences.`,
+          },
+        ],
+      })
+    } catch (err) {
+      log.error({
+        err: {
+          name:    err instanceof Error ? err.name : 'Unknown',
+          message: scrubKeyish(err),
         },
-      ],
-    })
-  } catch (err) {
-    log.error({
-      err: {
-        name:    err instanceof Error ? err.name : 'Unknown',
-        message: scrubKeyish(err),
-      },
-    }, 'generateSentences OpenAI request failed')
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+      }, 'generateSentences OpenAI request failed')
+      throw err
+    }
 
-  const raw = response.choices[0]?.message.content
-  if (raw === null || raw === undefined) {
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+    const raw = response.choices[0]?.message.content
+    if (raw === null || raw === undefined) {
+      throw new Error('OpenAI returned an empty response')
+    }
+    return GeneratedSentencesSchema.parse(JSON.parse(raw))
+  })
 
-  const result = GeneratedSentencesSchema.parse(JSON.parse(raw))
-  await breakerRecordSuccess(CHAT_BREAKER)
   await redis.set(cacheKey, JSON.stringify(result), { ex: SENTENCES_CACHE_TTL })
   return result
 }
@@ -307,24 +295,23 @@ export async function generateMnemonic(
   const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema)
   if (fromCache !== null) return fromCache
 
-  await assertChatBreakerClosed()
-
-  let response
-  try {
-    response = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are a Japanese language tutor crafting memorable mnemonics.
+  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+    let response
+    try {
+      response = await openai.chat.completions.create({
+        model: CHAT_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a Japanese language tutor crafting memorable mnemonics.
 Always respond with valid JSON.
 User level: ${safeLevel}. Native language: ${safeNative}. Interests: ${joinInterests(safeInterests)}.
 Mnemonics must be vivid, link sound + meaning, and reference the user's interests when possible.`,
-        },
-        {
-          role: 'user',
-          content: `Generate one memorable mnemonic for the Japanese word: ${safeWord}
+          },
+          {
+            role: 'user',
+            content: `Generate one memorable mnemonic for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 { "mnemonic": string }
@@ -333,28 +320,26 @@ Constraints:
 - Keep it under 200 characters.
 - Connect the reading to the meaning through a vivid image.
 - Use the user's native language for the mnemonic text.`,
+          },
+        ],
+      })
+    } catch (err) {
+      log.error({
+        err: {
+          name:    err instanceof Error ? err.name : 'Unknown',
+          message: scrubKeyish(err),
         },
-      ],
-    })
-  } catch (err) {
-    log.error({
-      err: {
-        name:    err instanceof Error ? err.name : 'Unknown',
-        message: scrubKeyish(err),
-      },
-    }, 'generateMnemonic OpenAI request failed')
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service temporarily unavailable; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+      }, 'generateMnemonic OpenAI request failed')
+      throw err
+    }
 
-  const raw = response.choices[0]?.message.content
-  if (raw === null || raw === undefined) {
-    await breakerRecordFailure(CHAT_BREAKER)
-    throw new ServiceUnavailableError('AI service returned an empty response; please retry shortly', INLINE_FAILURE_RETRY_SECONDS)
-  }
+    const raw = response.choices[0]?.message.content
+    if (raw === null || raw === undefined) {
+      throw new Error('OpenAI returned an empty response')
+    }
+    return GeneratedMnemonicSchema.parse(JSON.parse(raw))
+  })
 
-  const result = GeneratedMnemonicSchema.parse(JSON.parse(raw))
-  await breakerRecordSuccess(CHAT_BREAKER)
   await redis.set(cacheKey, JSON.stringify(result), { ex: MNEMONIC_CACHE_TTL })
   return result
 }

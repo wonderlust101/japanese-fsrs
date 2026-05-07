@@ -37,7 +37,8 @@ mock.module('../../db/redis.ts', () => ({
   },
 }))
 
-const { recordFailure, recordSuccess, isOpen, getRetryAfterSeconds } = await import('../circuit-breaker.ts')
+const { recordFailure, recordSuccess, isOpen, getRetryAfterSeconds, withBreaker } = await import('../circuit-breaker.ts')
+const { AppError, ServiceUnavailableError } = await import('../../middleware/errorHandler.ts')
 
 beforeEach(() => {
   storedCount = null
@@ -93,5 +94,117 @@ describe('circuit-breaker — getRetryAfterSeconds', () => {
   it('falls back to the full window when no key exists', async () => {
     // No failures recorded — TTL = -2 — falls back to WINDOW_SECONDS.
     expect(await getRetryAfterSeconds('test')).toBe(300)
+  })
+})
+
+// ─── withBreaker (the integration helper consumers use) ──────────────────────
+
+describe('withBreaker — open breaker', () => {
+  it('throws ServiceUnavailableError without running fn', async () => {
+    // Simulate an already-open breaker (10 failures, 250s left in window).
+    storedCount = 10
+    storedTtl   = 250
+
+    let ranInner = false
+    const promise = withBreaker('test', 'service down', async () => {
+      ranInner = true
+      return 'should not reach this'
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
+    expect(ranInner).toBe(false)
+
+    // Verify the thrown error carries the TTL-based retry-after.
+    try {
+      await withBreaker('test', 'service down', async () => 'unused')
+    } catch (err) {
+      expect(err).toBeInstanceOf(ServiceUnavailableError)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(250)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('service down')
+    }
+  })
+})
+
+describe('withBreaker — closed breaker', () => {
+  it('returns the inner fn result and records success on the breaker', async () => {
+    // Pre-condition: 10 failures recorded → breaker would be open.
+    // recordSuccess (called by withBreaker on inner success) must clear it.
+    storedCount = 10
+    storedTtl   = 250
+
+    // But to test the success path we need the breaker to look closed at the
+    // pre-check. Reset the state so isOpen returns false at probe time.
+    storedCount = null
+    storedTtl   = -2
+
+    const result = await withBreaker('test', 'service down', async () => 42)
+    expect(result).toBe(42)
+    // Counter remains null (recordSuccess on a closed breaker is a no-op).
+    expect(storedCount).toBeNull()
+  })
+
+  it('clears a stale counter when fn succeeds', async () => {
+    // Breaker has 5 failures (still closed at threshold 10) — a success
+    // should clear the counter so the partial window doesn't carry over.
+    storedCount = 5
+    storedTtl   = 250
+
+    const result = await withBreaker('test', 'service down', async () => 'ok')
+    expect(result).toBe('ok')
+    expect(storedCount).toBeNull()
+  })
+})
+
+describe('withBreaker — fn failure', () => {
+  it('wraps a plain Error as ServiceUnavailableError(30) and records failure', async () => {
+    const promise = withBreaker('test', 'service down', async () => {
+      throw new Error('network timeout')
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
+    // Counter incremented to 1 (the failure was recorded).
+    expect(storedCount).toBe(1)
+
+    // Verify the wrapped error carries the inline retry-after (30s, not the
+    // full window) — because the breaker wasn't yet open when fn ran.
+    try {
+      // Reset and re-run to capture the error.
+      storedCount = null
+      storedTtl   = -2
+      await withBreaker('test', 'service down', async () => {
+        throw new Error('network timeout')
+      })
+    } catch (err) {
+      expect(err).toBeInstanceOf(ServiceUnavailableError)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(30)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('service down')
+    }
+  })
+
+  it('propagates AppError unwrapped (preserves intentional inner errors)', async () => {
+    // Inner fn throws an intentional 500 — e.g. "API key not configured."
+    // withBreaker should NOT wrap this as 503; the original status carries
+    // semantic meaning the wrapping would erase.
+    const promise = withBreaker('test', 'service down', async () => {
+      throw new AppError(500, 'OPENAI_API_KEY not configured')
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(AppError)
+    // Failure still recorded (any inner throw counts).
+    expect(storedCount).toBe(1)
+
+    try {
+      storedCount = null
+      storedTtl   = -2
+      await withBreaker('test', 'service down', async () => {
+        throw new AppError(500, 'OPENAI_API_KEY not configured')
+      })
+    } catch (err) {
+      // It's exactly the original AppError — not a ServiceUnavailableError.
+      expect(err).toBeInstanceOf(AppError)
+      expect(err).not.toBeInstanceOf(ServiceUnavailableError)
+      expect((err as InstanceType<typeof AppError>).statusCode).toBe(500)
+      expect((err as InstanceType<typeof AppError>).message).toBe('OPENAI_API_KEY not configured')
+    }
   })
 })

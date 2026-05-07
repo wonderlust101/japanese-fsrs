@@ -5,18 +5,16 @@ import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
 import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
-import {
-  getRetryAfterSeconds,
-  isOpen as breakerIsOpen,
-  recordFailure as breakerRecordFailure,
-  recordSuccess as breakerRecordSuccess,
-} from '../lib/circuit-breaker.ts';
+import { withBreaker } from '../lib/circuit-breaker.ts';
 import { AppError, ServiceUnavailableError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
 
 /** Breaker namespace for OpenAI embedding calls (separate from the chat
  *  breaker — embedding outages and chat outages are independent). */
 const EMBEDDING_BREAKER = 'openai-embeddings'
+
+/** Single user-facing 503 message for the embedding-degradation paths. */
+const EMBEDDING_UNAVAILABLE_MSG = 'Embedding service temporarily unavailable; please retry shortly'
 
 const log      = componentLogger('card.service');
 const adminLog = componentLogger('admin');
@@ -453,20 +451,18 @@ export async function createCard(
   const created = toCardRow(CardDbRowSchema.parse(data))
 
   // Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
-  // network error, malformed fields) must not block card creation.
-  // The card remains usable for FSRS; only similarity search is delayed.
+  // network error, malformed fields) must not block card creation. The card
+  // remains usable for FSRS; only similarity search is delayed.
   //
-  // Breaker check before launching the async work: when the embeddings
-  // breaker is open, skip silently. Spawning doomed OpenAI calls during an
-  // outage burns quota and floods the log without fixing anything; the
-  // user can call POST /cards/:id/regenerate-embedding once OpenAI recovers.
-  void (async () => {
-    if (await breakerIsOpen(EMBEDDING_BREAKER)) {
-      log.warn({ cardId: created.id }, 'embedding skipped: breaker open')
+  // backfillEmbedding wraps its OpenAI call in `withBreaker`, so an open
+  // breaker surfaces as a `ServiceUnavailableError` here. We branch on it in
+  // the catch so expected outage-time skips log at warn (no Sentry alert)
+  // while genuine failures stay at error.
+  void backfillEmbedding(created.id, userId, fieldsData).catch((err: unknown) => {
+    if (err instanceof ServiceUnavailableError) {
+      log.warn({ cardId: created.id }, 'embedding backfill skipped: breaker open or call failed')
       return
     }
-    await backfillEmbedding(created.id, userId, fieldsData)
-  })().catch((err: unknown) => {
     log.error({ cardId: created.id, err }, 'embedding backfill failed')
   })
 
@@ -637,13 +633,9 @@ export async function regenerateEmbedding(
     throw new AppError(404, 'Card not found')
   }
 
-  // Synchronous user-triggered path — surface a clean 503 instead of waiting
-  // out the 15s OpenAI timeout when the breaker is open.
-  if (await breakerIsOpen(EMBEDDING_BREAKER)) {
-    const retryAfter = await getRetryAfterSeconds(EMBEDDING_BREAKER)
-    throw new ServiceUnavailableError('Embedding service temporarily unavailable; please retry shortly', retryAfter)
-  }
-
+  // backfillEmbedding wraps the OpenAI call in `withBreaker`, so an open
+  // breaker surfaces here as a clean 503 with `Retry-After` — no inline check
+  // needed.
   const cardData = CardFieldsRowSchema.parse(data)
   await backfillEmbedding(cardId, userId, cardData.fields_data)
 }
@@ -668,16 +660,13 @@ async function backfillEmbedding(
   const text = buildEmbeddingText(fieldsData)
   if (text === null) return
 
-  // Breaker accounting wraps the OpenAI call only — the DB UPDATE below isn't
-  // gated by it (Postgres outage would surface elsewhere).
-  let embedding: number[]
-  try {
-    embedding = await generateEmbedding(text)
-    await breakerRecordSuccess(EMBEDDING_BREAKER)
-  } catch (err) {
-    await breakerRecordFailure(EMBEDDING_BREAKER)
-    throw err
-  }
+  // Breaker wraps the OpenAI call only — Postgres-side failures bubble as
+  // dbError() below and aren't a signal about embedding-service health.
+  const embedding = await withBreaker(
+    EMBEDDING_BREAKER,
+    EMBEDDING_UNAVAILABLE_MSG,
+    () => generateEmbedding(text),
+  )
 
   const { error } = await supabaseAdmin
     .from('cards')
