@@ -21,7 +21,7 @@ type RatelimitResponse = Awaited<ReturnType<Ratelimit['limit']>>
  * (the signature of brute-force / scripted-abuse attempts) surface as a
  * security signal instead of being silent.
  */
-function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitResponse, limiter: string, key: string): void {
+export function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitResponse, limiter: string, key: string): void {
   res.setHeader('X-RateLimit-Limit',     String(r.limit))
   res.setHeader('X-RateLimit-Remaining', String(Math.max(0, r.remaining)))
   // r.reset is an epoch-ms timestamp; expose as epoch-seconds.
@@ -42,7 +42,7 @@ function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitResponse
  * a per-email and a per-IP check in parallel; the headers should reflect
  * whichever budget is closer to exhaustion so the client backs off correctly.
  */
-function tighter(a: RatelimitResponse, b: RatelimitResponse): RatelimitResponse {
+export function tighter(a: RatelimitResponse, b: RatelimitResponse): RatelimitResponse {
   if (!a.success || !b.success) return a.success ? b : a
   return a.remaining <= b.remaining ? a : b
 }

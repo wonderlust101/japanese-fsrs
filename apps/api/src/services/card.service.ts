@@ -579,29 +579,6 @@ export async function getSimilarCards(
 }
 
 /**
- * Returns all cards belonging to a user that have stale embeddings.
- *
- * A stale embedding has embedding_updated_at < updated_at (i.e. content was
- * modified after the embedding was last computed). Backed by the
- * get_stale_embedding_cards RPC because PostgREST .filter() does not support
- * column-vs-column comparison.
- */
-export async function getStaleEmbeddingCards(userId: string): Promise<ApiCard[]> {
-  // Defensive cap: a user with thousands of stale cards shouldn't transfer
-  // them all in one call. Realistic ops paths re-embed in batches anyway.
-  const { data, error } = await supabaseAdmin
-    .rpc('get_stale_embedding_cards', { p_user_id: userId })
-    .limit(1000)
-
-  if (error !== null) {
-    throw dbError('fetch stale embedding cards', error)
-  }
-
-  const rows = z.array(CardDbRowSchema).parse(data ?? [])
-  return rows.map(toCardRow)
-}
-
-/**
  * Regenerates the embedding for a single card.
  *
  * Loads the card (with ownership check), then delegates to backfillEmbedding.

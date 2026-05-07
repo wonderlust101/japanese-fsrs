@@ -9,7 +9,7 @@ import { Button }                from '@/components/ui/Button'
 import { FuriganaText }          from '@/components/ui/FuriganaText'
 import { queryKeys }             from '@/lib/api/queryKeys'
 import { getCardAction, getSimilarCardsAction } from '@/lib/actions/cards.actions'
-import { getWordFields, getVocabularyFields }   from '@fsrs-japanese/shared-types'
+import { getWordFields, getVocabularyFields, getSentenceFrontBack } from '@fsrs-japanese/shared-types'
 import { FsrsStats }             from './fsrs-stats'
 import { ExampleSentences }      from './example-sentences'
 import { KanjiBreakdown }        from './kanji-breakdown'
@@ -51,18 +51,17 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
   const similar = similarResult?.items
 
   // ── Extract fieldsData fields ──────────────────────────────────────────────
-  // Narrow on layoutType for typed access; fall back to free-form lookups
-  // for sentence-layout cards and the legacy singular `mnemonic` key (the
-  // ai.service emits it as a single string; the typed schema does not yet
-  // model a plural form).
+  // Narrow on layoutType for typed access. The free-form `mnemonic` key isn't
+  // modeled in the typed schema (ai.service emits it as a single string);
+  // narrow it from rawFd with a typeof guard.
   const wordFields  = card != null ? getWordFields(card) : null
   const vocabFields = card != null ? getVocabularyFields(card) : null
+  const sentence    = card != null ? getSentenceFrontBack(card) : null
   const rawFd       = (card?.fieldsData ?? {}) as Record<string, unknown>
-  const sentenceFd  = card != null && wordFields === null ? rawFd : null
 
-  const word    = wordFields?.word    ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '—')
+  const word    = wordFields?.word    ?? sentence?.front ?? '—'
   const reading = wordFields?.reading ?? ''
-  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back']  === 'string' ? sentenceFd['back']  : '')
+  const meaning = wordFields?.meaning ?? sentence?.back ?? ''
   const partOfSpeech    = wordFields?.partOfSpeech ?? undefined
   const pitchAccent     = vocabFields?.pitchAccent ?? undefined
   const exampleSentences = vocabFields?.exampleSentences
@@ -185,10 +184,10 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
             <ul className="space-y-2">
               {similar.map((c) => {
                 const cWordFields = getWordFields(c)
-                const cFd         = cWordFields === null ? c.fieldsData as Record<string, unknown> : null
-                const cWord       = cWordFields?.word    ?? (typeof cFd?.['front'] === 'string' ? cFd['front'] : '—')
+                const cSentence   = getSentenceFrontBack(c)
+                const cWord       = cWordFields?.word    ?? cSentence?.front ?? '—'
                 const cReading    = cWordFields?.reading ?? ''
-                const cMeaning    = cWordFields?.meaning ?? (typeof cFd?.['back']  === 'string' ? cFd['back']  : '')
+                const cMeaning    = cWordFields?.meaning ?? cSentence?.back  ?? ''
                 return (
                   <li key={c.id}>
                     <Link

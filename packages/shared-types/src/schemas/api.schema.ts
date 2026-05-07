@@ -99,6 +99,7 @@ export const ApiDeckSchema = z.object({
   cardCount:       z.number(),
   isPremadeFork:   z.boolean(),
   sourcePremadeId: z.string().nullable(),
+  version:         z.number(),
   createdAt:       z.string(),
   updatedAt:       z.string(),
 })
@@ -303,6 +304,7 @@ export const ProfileSchema = z.object({
   dailyReviewLimit:   z.number(),
   retentionTarget:    z.number(),
   timezone:           z.string(),
+  version:            z.number(),
   createdAt:          z.string(),
   updatedAt:          z.string(),
 })

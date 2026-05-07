@@ -6,6 +6,7 @@ import {
 } from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
+import { parseIfMatchVersion } from '../lib/http.ts'
 
 export const list: RequestHandler = async (req, res, next): Promise<void> => {
   try {
@@ -52,7 +53,8 @@ export const update: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = deckIdParamSchema.parse(req.params)
     const input  = updateDeckSchema.parse(req.body)
-    const deck   = await deckService.updateDeck(id, req.user.id, input)
+    const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+    const deck   = await deckService.updateDeck(id, req.user.id, input, expectedVersion)
     res.json(deck)
   } catch (err) {
     next(err)

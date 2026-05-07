@@ -54,6 +54,7 @@ const PROFILE_KEYS = [
   'studyGoal',
   'timezone',
   'updatedAt',
+  'version',
 ].sort()
 
 describeIntegration('profile routes — wire shape', () => {
@@ -72,9 +73,16 @@ describeIntegration('profile routes — wire shape', () => {
   it('PATCH /api/v1/profile accepts camelCase input and returns camelCase output', async () => {
     const u = await seedUser(); seeded.push(u)
 
+    // Read current version first — every PATCH now requires If-Match.
+    const before = await request(app)
+      .get('/api/v1/profile')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(before.status).toBe(200)
+
     const res = await request(app)
       .patch('/api/v1/profile')
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(before.body.version))
       .send({ dailyReviewLimit: 222, jlptTarget: 'N3' })
     expect(res.status).toBe(200)
 
@@ -84,5 +92,43 @@ describeIntegration('profile routes — wire shape', () => {
     // Response is camelCase and reflects the patched values.
     expect(res.body.dailyReviewLimit).toBe(222)
     expect(res.body.jlptTarget).toBe('N3')
+    expect(res.body.version).toBe(before.body.version + 1)
+  })
+})
+
+describeIntegration('profile routes — If-Match optimistic concurrency', () => {
+  it('rejects PATCH /profile without If-Match (428)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .patch('/api/v1/profile')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .send({ dailyReviewLimit: 100 })
+    expect(res.status).toBe(428)
+  })
+
+  it('returns 412 on stale If-Match', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const before = await request(app)
+      .get('/api/v1/profile')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(before.status).toBe(200)
+    const v1 = before.body.version
+
+    const first = await request(app)
+      .patch('/api/v1/profile')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ dailyReviewLimit: 150 })
+    expect(first.status).toBe(200)
+    expect(first.body.version).toBe(v1 + 1)
+
+    const stale = await request(app)
+      .patch('/api/v1/profile')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ dailyReviewLimit: 200 })
+    expect(stale.status).toBe(412)
   })
 })

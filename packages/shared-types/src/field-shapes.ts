@@ -55,3 +55,18 @@ export function getWordFields(card: FieldsCarrier): WordFields | null {
 export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData | null {
   return card.layoutType === 'vocabulary' ? (card.fieldsData as VocabularyFieldsData) : null
 }
+
+/**
+ * Returns the typed front/back text for sentence-layout cards. Reads the
+ * free-form fields_data record (the DB CHECK constraint enforces shape only on
+ * vocabulary/grammar layouts; sentence is unconstrained per
+ * SentenceFieldsDataSchema = z.record(string, unknown)). Coerces non-string
+ * values to empty strings. Returns null for non-sentence layouts.
+ */
+export function getSentenceFrontBack(card: FieldsCarrier): { front: string; back: string } | null {
+  if (card.layoutType !== 'sentence') return null
+  const fd = card.fieldsData as SentenceFieldsData
+  const front = typeof fd['front'] === 'string' ? fd['front'] : ''
+  const back  = typeof fd['back']  === 'string' ? fd['back']  : ''
+  return { front, back }
+}

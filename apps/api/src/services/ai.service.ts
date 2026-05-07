@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { createHash } from 'node:crypto'
+import type { ZodType } from 'zod'
 
 import { redis } from '../db/redis.ts'
 import { env }   from '../lib/env.ts'
@@ -18,12 +19,15 @@ import { AppError } from '../middleware/errorHandler.ts'
 const log = componentLogger('ai.service')
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
+// Lazy: instantiate only when the API key is present so non-AI code paths and
+// most tests don't need to set it. Mirrors the precedent in card.service.ts.
+// Each generate function below null-checks before calling OpenAI.
 
-if (env.OPENAI_API_KEY === undefined) {
-  throw new Error('OPENAI_API_KEY environment variable is not set')
-}
+const openai = env.OPENAI_API_KEY !== undefined
+  ? new OpenAI({ apiKey: env.OPENAI_API_KEY })
+  : null
 
-const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY })
+const CHAT_MODEL = env.OPENAI_CHAT_MODEL
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
@@ -49,6 +53,29 @@ function hashInterests(interests: string[]): string {
     .slice(0, 16)
 }
 
+/**
+ * Read + validate a cached AI payload. Returns null on miss OR on a corrupt
+ * cache entry — a parse / Zod failure logs WARN, deletes the bad key, and
+ * falls through to a fresh OpenAI call. Without this guard a single bad
+ * write (write-truncation, schema drift) would surface as a 500 to every
+ * subsequent request that hashes to the same key until TTL.
+ */
+async function readCache<T>(cacheKey: string, schema: ZodType<T>): Promise<T | null> {
+  const cached = await redis.get<unknown>(cacheKey)
+  if (cached === null) return null
+  try {
+    const payload = typeof cached === 'string' ? JSON.parse(cached) : cached
+    return schema.parse(payload)
+  } catch (err) {
+    log.warn({
+      cacheKey,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'corrupt AI cache entry; treating as miss')
+    await redis.del(cacheKey)
+    return null
+  }
+}
+
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
@@ -66,22 +93,21 @@ export async function generateCard(
   userLevel: string,
   interests: string[],
 ): Promise<GeneratedCardData> {
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
   const safeInterests = interests.map((s) => sanitizeForPrompt(s))
 
   const cacheKey = `card:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`
 
-  const cached = await redis.get<unknown>(cacheKey)
-  if (cached !== null) {
-    const payload = typeof cached === 'string' ? JSON.parse(cached) : cached
-    return GeneratedCardDataSchema.parse(payload)
-  }
+  const fromCache = await readCache(cacheKey, GeneratedCardDataSchema)
+  if (fromCache !== null) return fromCache
 
   let response
   try {
     response = await openai.chat.completions.create({
-      model: 'gpt-5.4-nano',
+      model: CHAT_MODEL,
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -142,6 +168,8 @@ export async function generateSentences(
   interests:  string[],
   count:      number,
 ): Promise<GeneratedSentences> {
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
   const safeInterests = interests.map((s) => sanitizeForPrompt(s))
@@ -149,16 +177,13 @@ export async function generateSentences(
 
   const cacheKey = `sentences:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}:${safeCount}`
 
-  const cached = await redis.get<unknown>(cacheKey)
-  if (cached !== null) {
-    const payload = typeof cached === 'string' ? JSON.parse(cached) : cached
-    return GeneratedSentencesSchema.parse(payload)
-  }
+  const fromCache = await readCache(cacheKey, GeneratedSentencesSchema)
+  if (fromCache !== null) return fromCache
 
   let response
   try {
     response = await openai.chat.completions.create({
-      model: 'gpt-5.4-nano',
+      model: CHAT_MODEL,
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -219,6 +244,8 @@ export async function generateMnemonic(
   nativeLanguage: string,
   interests:      string[],
 ): Promise<GeneratedMnemonic> {
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+
   const safeWord       = sanitizeForPrompt(word)
   const safeLevel      = sanitizeForPrompt(userLevel)
   const safeNative     = sanitizeForPrompt(nativeLanguage)
@@ -226,16 +253,13 @@ export async function generateMnemonic(
 
   const cacheKey = `mnemonic:${safeWord}:${userId}`
 
-  const cached = await redis.get<unknown>(cacheKey)
-  if (cached !== null) {
-    const payload = typeof cached === 'string' ? JSON.parse(cached) : cached
-    return GeneratedMnemonicSchema.parse(payload)
-  }
+  const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema)
+  if (fromCache !== null) return fromCache
 
   let response
   try {
     response = await openai.chat.completions.create({
-      model: 'gpt-5.4-nano',
+      model: CHAT_MODEL,
       response_format: { type: 'json_object' },
       messages: [
         {

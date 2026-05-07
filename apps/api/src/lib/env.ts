@@ -20,6 +20,7 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL:     z.url(),
   UPSTASH_REDIS_REST_TOKEN:   z.string().min(1),
   OPENAI_API_KEY:             z.string().min(1).optional(),
+  OPENAI_CHAT_MODEL:          z.string().default('gpt-5.4-nano'),
   OPENAI_EMBEDDING_MODEL:     z.string().default('text-embedding-3-small'),
   LEECH_THRESHOLD:            z.coerce.number().int().positive().default(8),
   CORS_ORIGIN:                z.string().default('http://localhost:3000'),

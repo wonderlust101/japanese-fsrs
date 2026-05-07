@@ -52,6 +52,7 @@ const API_DECK_KEYS = [
   'name',
   'sourcePremadeId',
   'updatedAt',
+  'version',
 ].sort()
 
 const API_DECK_WITH_STATS_KEYS = [...API_DECK_KEYS, 'dueCount', 'newCount'].sort()
@@ -112,5 +113,76 @@ describeIntegration('decks routes — wire shape', () => {
 
     const keys = Object.keys(createRes.body).sort()
     expect(keys).toEqual(API_DECK_KEYS)
+  })
+})
+
+describeIntegration('decks routes — If-Match optimistic concurrency', () => {
+  it('rejects PATCH /decks/:id without If-Match (428)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post('/api/v1/decks')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ name: 'IfMatch Deck', deckType: 'vocabulary' })
+    expect(createRes.status).toBe(201)
+    const deckId = createRes.body.id
+
+    const res = await request(app)
+      .patch(`/api/v1/decks/${deckId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .send({ name: 'Renamed' })
+    expect(res.status).toBe(428)
+  })
+
+  it('returns 412 on stale If-Match', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post('/api/v1/decks')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ name: 'Race Deck', deckType: 'vocabulary' })
+    expect(createRes.status).toBe(201)
+    const deckId = createRes.body.id
+    const v1     = createRes.body.version
+
+    const first = await request(app)
+      .patch(`/api/v1/decks/${deckId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ name: 'First rename' })
+    expect(first.status).toBe(200)
+    expect(first.body.version).toBe(v1 + 1)
+
+    // Re-using the original (now stale) version → 412.
+    const stale = await request(app)
+      .patch(`/api/v1/decks/${deckId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ name: 'Second rename' })
+    expect(stale.status).toBe(412)
+  })
+
+  it('200 + bumped version on current If-Match', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post('/api/v1/decks')
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({ name: 'Bump Deck', deckType: 'vocabulary' })
+    expect(createRes.status).toBe(201)
+    const deckId = createRes.body.id
+    const v1     = createRes.body.version
+
+    const res = await request(app)
+      .patch(`/api/v1/decks/${deckId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ description: 'updated description' })
+    expect(res.status).toBe(200)
+    expect(res.body.description).toBe('updated description')
+    expect(res.body.version).toBe(v1 + 1)
   })
 })

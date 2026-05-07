@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express'
 
 import { updateProfileSchema } from '@fsrs-japanese/shared-types'
 import * as profileService from '../services/profile.service.ts'
-import { cacheControl } from '../lib/http.ts'
+import { cacheControl, parseIfMatchVersion } from '../lib/http.ts'
 
 /**
  * GET /api/v1/profile
@@ -26,7 +26,8 @@ export const getProfile: RequestHandler = async (req, res, next): Promise<void> 
 export const updateProfile: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const input   = updateProfileSchema.parse(req.body)
-    const profile = await profileService.updateProfile(req.user.id, input)
+    const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+    const profile = await profileService.updateProfile(req.user.id, expectedVersion, input)
     res.json(profile)
   } catch (err) {
     next(err)

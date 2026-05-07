@@ -8,7 +8,7 @@ import {
   useShowAnswer,
   useSessionActions,
 } from '@/stores/useReviewSessionStore'
-import { CardType, getWordFields, getVocabularyFields } from '@fsrs-japanese/shared-types'
+import { CardType, getWordFields, getVocabularyFields, getSentenceFrontBack } from '@fsrs-japanese/shared-types'
 import type { UserRating } from '@fsrs-japanese/shared-types'
 
 const CARD_TYPE_LABEL: Record<string, string> = {
@@ -47,14 +47,12 @@ export function ReviewCard(): React.JSX.Element | null {
   if (!card) return null
 
   // Narrow on layoutType — vocabulary/grammar share WordFields; sentence falls
-  // back to free-form `front`/`back` keys.
+  // back to free-form `front`/`back` keys via getSentenceFrontBack.
   const wordFields = getWordFields(card)
-  const sentenceFd = wordFields === null
-    ? card.fieldsData as Record<string, unknown>
-    : null
-  const word    = wordFields?.word ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '')
+  const sentence   = getSentenceFrontBack(card)
+  const word    = wordFields?.word    ?? sentence?.front ?? ''
   const reading = wordFields?.reading ?? null
-  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back'] === 'string' ? sentenceFd['back'] : '')
+  const meaning = wordFields?.meaning ?? sentence?.back  ?? ''
   const firstSentence = getVocabularyFields(card)?.exampleSentences?.[0]
 
   return (

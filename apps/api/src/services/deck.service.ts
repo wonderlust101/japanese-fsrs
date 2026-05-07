@@ -22,6 +22,7 @@ const DECK_COLUMNS = [
   'is_premade_fork',
   'source_premade_id',
   'card_count',
+  'version',
   'created_at',
   'updated_at',
 ].join(', ')
@@ -36,6 +37,7 @@ interface DeckDbRow {
   is_premade_fork:   boolean
   source_premade_id: string | null
   card_count:        number
+  version:           number
   created_at:        string
   updated_at:        string
 }
@@ -51,6 +53,7 @@ const DeckListRpcRowSchema = z.object({
   is_premade_fork:   z.boolean(),
   source_premade_id: z.string().nullable(),
   card_count:        z.number(),
+  version:           z.number(),
   created_at:        z.string(),
   updated_at:        z.string(),
 })
@@ -65,6 +68,7 @@ function toRow(raw: DeckDbRow): ApiDeck {
     isPremadeFork:   raw.is_premade_fork,
     sourcePremadeId: raw.source_premade_id,
     cardCount:       raw.card_count,
+    version:         raw.version,
     createdAt:       raw.created_at,
     updatedAt:       raw.updated_at,
   }
@@ -177,42 +181,66 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
 }
 
 /**
- * Applies a partial update to a deck and returns the updated row.
+ * Applies a partial update to a deck via the `update_deck_with_version_check`
+ * RPC and returns the refreshed row.
  *
- * Throws 404 if the deck does not exist or does not belong to the user —
- * the ownership guard is baked into the WHERE clause rather than a
- * separate fetch, so a missing row and a wrong-owner row are indistinguishable
- * (intentional: avoids leaking deck existence to other users).
+ * Optimistic concurrency: caller must pass `expectedVersion` (from a prior
+ * detail-view fetch). Mismatch → 412. Missing deck or wrong owner → 404.
+ * Successful UPDATE bumps `version` by 1 inside the RPC.
  */
 export async function updateDeck(
-  deckId: string,
-  userId: string,
-  input: UpdateDeckInput,
+  deckId:          string,
+  userId:          string,
+  input:           UpdateDeckInput,
+  expectedVersion: number,
 ): Promise<ApiDeck> {
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-
+  const patch: Record<string, unknown> = {}
   if (input.name        !== undefined) patch['name']        = input.name
   if (input.description !== undefined) patch['description'] = input.description
   if (input.deckType    !== undefined) patch['deck_type']   = input.deckType
   if (input.isPublic    !== undefined) patch['is_public']   = input.isPublic
 
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .update(asPayload(patch))
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .select(DECK_COLUMNS)
-    .single()
+  const { error } = await supabaseAdmin.rpc('update_deck_with_version_check', asPayload({
+    p_deck_id:          deckId,
+    p_user_id:          userId,
+    p_expected_version: expectedVersion,
+    p_patch:            patch,
+  }))
 
   if (error !== null) {
-    if (error.code === 'PGRST116') throw new AppError(404, 'Deck not found')
+    // RPC raises 'deck_not_found' with SQLSTATE 02000 when the row is missing
+    // or owned by another user.
+    if (error.code === '02000' || error.message.includes('deck_not_found')) {
+      throw new AppError(404, 'Deck not found')
+    }
+    // RPC raises 'deck_version_mismatch' with SQLSTATE 22000 when the
+    // optimistic-concurrency check fails — caller's snapshot is stale.
+    if (error.code === '22000' || error.message.includes('deck_version_mismatch')) {
+      throw new AppError(412, 'Deck has been modified since you loaded it; refresh and retry')
+    }
     throw dbError('update deck', error)
   }
 
-  if (data === null) {
+  return getDeckRow(deckId, userId)
+}
+
+/**
+ * Internal helper — fetches a deck row scoped to the user. Used after an RPC
+ * write to return the refreshed shape without re-deriving stats. `getDeck`
+ * (the public API) is the wrong tool here because it also fetches due/new
+ * counts; `updateDeck` doesn't need those for a PATCH response.
+ */
+async function getDeckRow(deckId: string, userId: string): Promise<ApiDeck> {
+  const { data, error } = await supabaseAdmin
+    .from('decks')
+    .select(DECK_COLUMNS)
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .single()
+
+  if (error !== null || data === null) {
     throw new AppError(404, 'Deck not found')
   }
-
   return toRow(narrowRow<DeckDbRow>(data))
 }
 

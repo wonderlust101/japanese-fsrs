@@ -801,8 +801,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_deck_with_version_check: {
+        Args: {
+          p_deck_id: string
+          p_expected_version: number
+          p_patch: Json
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       update_profile_with_interests: {
-        Args: { p_interests?: string[]; p_patch: Json; p_user_id: string }
+        Args: {
+          p_expected_version: number
+          p_interests?: string[]
+          p_patch: Json
+          p_user_id: string
+        }
         Returns: undefined
       }
     }

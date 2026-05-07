@@ -7,6 +7,7 @@ import { LayoutDashboard, Library, BookOpen, BarChart2, Settings } from 'lucide-
 import type { LucideIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { signOutAction } from '@/lib/actions/auth.actions'
+import { getUserDisplayName } from '@/lib/supabase/user-metadata'
 import { cn } from '@/lib/utils'
 import { OfflineQueueBadge } from './offline-queue-badge'
 
@@ -54,8 +55,7 @@ export function Sidebar({ user }: { user: User | null }): React.JSX.Element {
     router.refresh()
   }
 
-  const fullName = user?.user_metadata?.['full_name'] as string | undefined
-  const displayLabel = fullName ?? user?.email ?? 'User'
+  const displayLabel = getUserDisplayName(user) ?? user?.email ?? 'User'
   const initial = displayLabel[0]?.toUpperCase() ?? '?'
 
   return (

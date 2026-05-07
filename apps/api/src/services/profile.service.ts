@@ -19,6 +19,7 @@ const PROFILE_COLUMNS = [
   'daily_review_limit',
   'retention_target',
   'timezone',
+  'version',
   'created_at',
   'updated_at',
 ].join(', ')
@@ -36,6 +37,7 @@ interface ProfileDbRow {
   daily_review_limit:    number
   retention_target:      number
   timezone:              string
+  version:               number
   created_at:            string
   updated_at:            string
 }
@@ -52,6 +54,7 @@ function toProfile(raw: ProfileDbRow, interests: string[]): Profile {
     dailyReviewLimit:    raw.daily_review_limit,
     retentionTarget:     raw.retention_target,
     timezone:            raw.timezone,
+    version:             raw.version,
     createdAt:           raw.created_at,
     updatedAt:           raw.updated_at,
   }
@@ -101,12 +104,18 @@ export async function getProfile(userId: string): Promise<Profile> {
  * update_profile_with_interests RPC, which atomically writes the profile
  * patch and (when `interests` is provided) replaces the user_interests set.
  *
- * @param userId - The authenticated user's UUID from auth.users
- * @param input  - Validated partial update from `updateProfileSchema`
+ * Optimistic concurrency: caller must pass `expectedVersion` from a prior
+ * GET /profile fetch. Mismatch → 412. Successful UPDATE bumps `version`
+ * by 1 inside the RPC.
+ *
+ * @param userId          - The authenticated user's UUID from auth.users
+ * @param expectedVersion - The `version` the caller saw last (If-Match header)
+ * @param input           - Validated partial update from `updateProfileSchema`
  */
 export async function updateProfile(
-  userId: string,
-  input: UpdateProfileInput,
+  userId:          string,
+  expectedVersion: number,
+  input:           UpdateProfileInput,
 ): Promise<Profile> {
   const { interests, ...rest } = input
 
@@ -122,14 +131,18 @@ export async function updateProfile(
   if (rest.nativeLanguage     !== undefined) patch['native_language']       = rest.nativeLanguage
 
   const { error } = await supabaseAdmin.rpc('update_profile_with_interests', asPayload({
-    p_user_id:   userId,
-    p_patch:     patch,
-    p_interests: interests ?? null,
+    p_user_id:          userId,
+    p_expected_version: expectedVersion,
+    p_patch:            patch,
+    p_interests:        interests ?? null,
   }))
 
   if (error !== null) {
     if (error.code === '02000' || error.message.includes('profile_not_found')) {
       throw new AppError(404, 'Profile not found')
+    }
+    if (error.code === '22000' || error.message.includes('profile_version_mismatch')) {
+      throw new AppError(412, 'Profile has been modified since you loaded it; refresh and retry')
     }
     throw dbError('update profile', error)
   }

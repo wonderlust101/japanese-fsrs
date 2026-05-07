@@ -118,10 +118,13 @@ SUPABASE_JWT_SECRET=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 OPENAI_API_KEY=
+OPENAI_CHAT_MODEL=
 OPENAI_EMBEDDING_MODEL=
 LEECH_THRESHOLD=8
 DEFAULT_RETENTION_TARGET=0.85
 ```
+
+`OPENAI_CHAT_MODEL` is optional; defaults to `gpt-5.4-nano`. Used for card / sentence / mnemonic generation. Swap without a rebuild.
 
 `OPENAI_EMBEDDING_MODEL` is optional; defaults to `text-embedding-3-small`. The chosen model **must produce 1536-dim vectors** to match the `cards.embedding vector(1536)` column type. Switching to a model with a different dimension requires a schema migration.
 
@@ -178,8 +181,8 @@ Comprehension, production, and listening layouts have separate `generatorParamet
 - AI endpoints must go through the rate limiter middleware before the controller handler.
 - All body and query Zod schemas use `.strict()` so unknown keys reject with a 400 Validation error. Path-param schemas don't need it — Express only fills declared slots.
 - List endpoints are cursor-paginated with a server-fixed sort over an immutable key (typically `created_at`) plus an `id` tiebreaker. If a client-controllable sort is ever needed, expose it as a Zod enum mapped to a `CASE` in the RPC — never accept raw column names.
-- Retry-able state-mutating POSTs (`/reviews/submit`, `/reviews/batch`, `/decks`, `/decks/:deckId/cards`) require an `Idempotency-Key: <uuid>` header. Same key + same body → replay; same key + different body → 422; same key + still in-flight → 409. Storage is per-user with a 24h TTL. Generate the key once per logical submission attempt; reuse it across retries (the offline review queue persists per-entry keys for this purpose).
-- `PATCH /api/v1/cards/:id` requires an `If-Match: <version>` header. The numeric `version` int is on every full-card response (not on list / due projections — only the detail view drives PATCH). Mismatch → 412 Precondition Failed; client refetches and retries. Missing header → 428 Precondition Required.
+- Retry-able state-mutating POSTs (`/reviews/submit`, `/reviews/batch`, `/decks`, `/decks/:deckId/cards`, `/premade-decks/:id/subscribe`) require an `Idempotency-Key: <uuid>` header. Same key + same body → replay; same key + different body → 422; same key + still in-flight → 409. Storage is per-user with a 24h TTL. Generate the key once per logical submission attempt; reuse it across retries (the offline review queue persists per-entry keys for this purpose).
+- `PATCH /api/v1/cards/:id`, `PATCH /api/v1/decks/:id`, and `PATCH /api/v1/profile` all require an `If-Match: <version>` header. The numeric `version` int is on every full-resource response (`ApiCard` / `ApiDeck` / `Profile`) but is intentionally omitted from list / due / forecast projections — only detail views drive PATCH. Mismatch → 412 Precondition Failed; client refetches and retries. Missing header → 428 Precondition Required.
 - Every authenticated route runs through a 240/min/user backstop (`defaultUserRateLimitMiddleware`). Stricter per-endpoint limiters apply on top — they trip first on costly endpoints. Auth endpoints run two parallel checks (5/15min per email + 30/15min per IP); OTP verify adds a third (5/hour per email). All limiters set `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, plus `Retry-After` on 429.
 - Logging: every API line goes through `pino` (`apps/api/src/lib/logger.ts`). Handlers use `req.log` (auto-tagged with `reqId` from `pino-http`); services use `componentLogger('component-name')` from `lib/logger.ts`. Never `console.log` in `apps/api/src` code. Sensitive paths (`email`, `password`, `*token*`, `authorization`/`cookie` headers) are auto-redacted by pino's `redact` config; do not log raw user identifiers — use the `userId` UUID instead. Every request honors `X-Request-ID` (or generates one) and echoes it back as a response header.
 - Request and response bodies are **camelCase on the wire** (both directions). The DB columns and SQL RPC parameter names stay snake_case; the camelCase ↔ snake_case transform lives at the service layer (the `toRow` / `toCardRow` / `toPremadeRow` helpers for responses, explicit patch maps for inputs).
@@ -293,4 +296,4 @@ Always refer to these files in the `/docs` directory before suggesting architect
 
 ---
 
-*Last updated: 2026-04-24*
+*Last updated: 2026-05-06*

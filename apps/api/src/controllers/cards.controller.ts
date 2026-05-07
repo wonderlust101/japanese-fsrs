@@ -1,7 +1,5 @@
 import type { Request, RequestHandler } from 'express'
 
-import { z } from 'zod'
-
 import {
   createCardSchema,
   updateCardSchema,
@@ -9,12 +7,12 @@ import {
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
 } from '@fsrs-japanese/shared-types'
-import { AppError } from '../middleware/errorHandler.ts'
 import type { ApiCard } from '@fsrs-japanese/shared-types'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
+import { parseIfMatchVersion } from '../lib/http.ts'
 
 /**
  * GET /api/v1/decks/:deckId/cards
@@ -173,21 +171,4 @@ function scopedDeckId(req: Request): string | undefined {
   const raw = req.params['deckId']
   if (typeof raw !== 'string') return undefined
   return nestedDeckIdParamSchema.parse({ deckId: raw }).deckId
-}
-
-const ifMatchVersionSchema = z.coerce.number().int().min(1)
-
-/**
- * Parses the `If-Match` header for optimistic concurrency on `PATCH /cards/:id`.
- * Missing → 428 Precondition Required (RFC 6585). Malformed → 400 via Zod.
- */
-function parseIfMatchVersion(rawHeader: string | undefined): number {
-  if (rawHeader === undefined) {
-    throw new AppError(428, 'If-Match header required for card edits')
-  }
-  const result = ifMatchVersionSchema.safeParse(rawHeader)
-  if (!result.success) {
-    throw new AppError(400, 'If-Match must be a positive integer version')
-  }
-  return result.data
 }

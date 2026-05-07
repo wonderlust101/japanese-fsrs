@@ -19,6 +19,10 @@ mock.module('../../db/redis.ts', () => ({
       state.redisStore.set(key, value)
       return 'OK'
     }),
+    del: mock(async (key: string) => {
+      state.redisStore.delete(key)
+      return 1
+    }),
   },
 }))
 
@@ -72,20 +76,43 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
   })
 })
 
-describe('ai.service — Zod rejection on malformed cached payload', () => {
-  it('generateCard rejects when cached JSON is missing required fields', async () => {
+describe('ai.service — corrupt cached payload is treated as miss', () => {
+  // Previous behavior: bad cache → ZodError surfaced as 500 to every caller
+  // that hashed to the corrupt key until TTL. New behavior: log + delete +
+  // fall through to a fresh OpenAI call. The OpenAI fetch isn't mocked here,
+  // so it may resolve (writing a fresh value at the same key) or reject;
+  // either way, the original corrupt entry must no longer be present.
+
+  it('generateCard removes the corrupt cache entry (does not surface ZodError)', async () => {
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    state.redisStore.set(`card:水:N5:${hash}`, JSON.stringify({ word: '水' /* missing reading + meaning */ }))
+    const key  = `card:水:N5:${hash}`
+    const corrupt = JSON.stringify({ word: '水' /* missing reading + meaning */ })
+    state.redisStore.set(key, corrupt)
 
-    await expect(generateCard('水', 'N5', [])).rejects.toThrow()
+    const result = await generateCard('水', 'N5', []).catch((err) => err)
+    // Whether OpenAI fell through successfully or errored, the corrupt
+    // entry must no longer be there — otherwise the next caller hits the
+    // same bad cache.
+    expect(state.redisStore.get(key)).not.toBe(corrupt)
+    // And specifically: any thrown error must NOT be a ZodError surfacing
+    // the corrupt-shape complaint to callers.
+    if (result instanceof Error) {
+      expect(result.name).not.toBe('ZodError')
+    }
   })
 
-  it('generateSentences rejects when cached JSON has the wrong shape', async () => {
+  it('generateSentences removes the corrupt cache entry (does not surface ZodError)', async () => {
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    state.redisStore.set(`sentences:水:N5:${hash}:3`, JSON.stringify({ wrong: 'shape' }))
+    const key  = `sentences:水:N5:${hash}:3`
+    const corrupt = JSON.stringify({ wrong: 'shape' })
+    state.redisStore.set(key, corrupt)
 
-    await expect(generateSentences('水', 'N5', [], 3)).rejects.toThrow()
+    const result = await generateSentences('水', 'N5', [], 3).catch((err) => err)
+    expect(state.redisStore.get(key)).not.toBe(corrupt)
+    if (result instanceof Error) {
+      expect(result.name).not.toBe('ZodError')
+    }
   })
 })

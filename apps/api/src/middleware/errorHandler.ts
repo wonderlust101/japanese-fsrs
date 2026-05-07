@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express'
+import type { Logger } from 'pino'
 import { ZodError } from 'zod'
 
 import { componentLogger } from '../lib/logger.ts'
@@ -77,8 +78,9 @@ function summarizeDbError(err: unknown): Record<string, unknown> {
  */
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   // pino-http decorates `req.log` per request; fall back to the module logger
-  // for the rare case where the error fires before requestLogger ran.
-  const log = (req.log as ReturnType<typeof componentLogger> | undefined) ?? apiLog
+  // for the rare case where the error fires before requestLogger ran. The
+  // optional widening lives in apps/api/src/types/express.d.ts.
+  const log: Logger = req.log ?? apiLog
 
   if (err instanceof AppError) {
     // 4xx are expected client errors; log at WARN so future Sentry hooks

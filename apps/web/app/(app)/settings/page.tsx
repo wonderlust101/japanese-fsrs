@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { getProfileAction } from '@/lib/actions/profile.actions'
 import { getAuthUser } from '@/lib/supabase/get-auth-user'
+import { getUserDisplayName } from '@/lib/supabase/user-metadata'
 import { SettingsView } from './_components/settings-view'
 
 export const dynamic = 'force-dynamic'
@@ -16,9 +17,7 @@ export default async function SettingsPage(): Promise<React.JSX.Element> {
     redirect('/login')
   }
 
-  const displayName = (user.user_metadata?.['display_name'] as string | undefined)
-    ?? (user.user_metadata?.['full_name'] as string | undefined)
-    ?? ''
+  const displayName = getUserDisplayName(user) ?? ''
 
   return (
     <SettingsView

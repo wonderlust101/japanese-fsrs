@@ -1,0 +1,1 @@
+- HNSW acts like a multi-layered social network for your Japanese vocabulary; instead of checking every single word, it follows a path of 'close friends' through increasingly detailed layers to find the most similar meaning in milliseconds. Implement when dictionary data is available.

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BarChart2, Library, ArrowRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { getAuthUser } from '@/lib/supabase/get-auth-user'
+import { getUserDisplayName } from '@/lib/supabase/user-metadata'
 import { TopBar } from '../_components/top-bar'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -85,10 +86,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   const user = await getAuthUser()
 
   const greeting = getGreeting()
-  const displayName = toDisplayName(
-    user?.email,
-    user?.user_metadata?.['display_name'] as string | undefined,
-  )
+  const displayName = toDisplayName(user?.email, getUserDisplayName(user))
 
   // MVP: real due-count query goes here once reviews are wired up
   const dueCount: number = 0

@@ -2,7 +2,7 @@ import { redirect }       from 'next/navigation'
 import type { Metadata }  from 'next'
 import { getDeckAction }  from '@/lib/actions/decks.actions'
 import { getCardAction }  from '@/lib/actions/cards.actions'
-import { getWordFields }  from '@fsrs-japanese/shared-types'
+import { getWordFields, getSentenceFrontBack } from '@fsrs-japanese/shared-types'
 import { CardDetailView } from './_components/card-detail-view'
 
 interface Props { params: Promise<{ id: string; cardId: string }> }
@@ -13,9 +13,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (card === null) return { title: 'Card' }
   const wordFields = getWordFields(card)
   if (wordFields !== null) return { title: wordFields.word }
-  const sentenceFd = card.fieldsData as Record<string, unknown>
-  const front = typeof sentenceFd['front'] === 'string' ? sentenceFd['front'] : 'Card'
-  return { title: front }
+  const sentence = getSentenceFrontBack(card)
+  return { title: sentence?.front || 'Card' }
 }
 
 export default async function CardDetailPage({ params }: Props): Promise<React.JSX.Element> {

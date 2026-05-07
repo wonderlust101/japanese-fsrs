@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
-import { getWordFields, State, type ApiCardListItem } from '@fsrs-japanese/shared-types';
+import { getWordFields, getSentenceFrontBack, State, type ApiCardListItem } from '@fsrs-japanese/shared-types';
 
 // ─── JLPT badge ───────────────────────────────────────────────────────────────
 
@@ -39,12 +39,10 @@ interface Props {
 
 export function CardListItem({ card, deckId }: Props): React.JSX.Element {
   const wordFields = getWordFields(card)
-  const sentenceFd = wordFields === null
-    ? card.fieldsData as Record<string, unknown>
-    : null
-  const word    = wordFields?.word    ?? (typeof sentenceFd?.['front'] === 'string' ? sentenceFd['front'] : '—')
+  const sentence   = getSentenceFrontBack(card)
+  const word    = wordFields?.word    ?? sentence?.front ?? '—'
   const reading = wordFields?.reading ?? ''
-  const meaning = wordFields?.meaning ?? (typeof sentenceFd?.['back']  === 'string' ? sentenceFd['back']  : '')
+  const meaning = wordFields?.meaning ?? sentence?.back  ?? ''
 
   const jlpt    = card.jlptLevel !== null ? JLPT_STYLE[card.jlptLevel] : undefined
 

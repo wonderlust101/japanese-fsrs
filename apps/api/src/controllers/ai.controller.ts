@@ -5,6 +5,7 @@ import {
   generateCardInputSchema,
   generateSentencesInputSchema,
   generateMnemonicInputSchema,
+  getWordFields,
 } from '@fsrs-japanese/shared-types'
 import * as aiService      from '../services/ai.service.ts'
 import * as cardService    from '../services/card.service.ts'
@@ -40,7 +41,7 @@ export const generateSentences: RequestHandler = async (req, res, next): Promise
     // Card lookup is scoped to user_id, so a wrong-owner request returns 404.
     const card    = await cardService.getCard(cardId, req.user.id)
     const profile = await profileService.getProfile(req.user.id)
-    const word    = (card.fieldsData['word'] as string | undefined) ?? ''
+    const word    = getWordFields(card)?.word ?? ''
 
     if (word.length === 0) {
       // 422 = well-formed body but the referenced card lacks the data we need.
@@ -69,7 +70,7 @@ export const generateMnemonic: RequestHandler = async (req, res, next): Promise<
 
     const card    = await cardService.getCard(cardId, req.user.id)
     const profile = await profileService.getProfile(req.user.id)
-    const word    = (card.fieldsData['word'] as string | undefined) ?? ''
+    const word    = getWordFields(card)?.word ?? ''
 
     if (word.length === 0) {
       // 422 = well-formed body but the referenced card lacks the data we need.

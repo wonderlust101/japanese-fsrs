@@ -36,9 +36,9 @@ export type {
 } from './api.types.ts'
 
 // JSONB content shape for ApiCard.fieldsData. Consumers narrow via
-// `getWordFields` / `getVocabularyFields` instead of widening.
+// `getWordFields` / `getVocabularyFields` / `getSentenceFrontBack` instead of widening.
 export type { FieldsData, WordFields } from './field-shapes.ts'
-export { getWordFields, getVocabularyFields } from './field-shapes.ts'
+export { getWordFields, getVocabularyFields, getSentenceFrontBack } from './field-shapes.ts'
 
 // API response schemas — apps validate every API response body against these.
 export {

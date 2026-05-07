@@ -137,7 +137,7 @@ export async function withIdempotency<T>(
     p_user_id: userId,
     p_key:     key,
     p_status:  result.status,
-    p_body:    result.body as never,
+    p_body:    result.body,
   }))
   if (storeError !== null) {
     // The work already committed; log and continue. Subsequent retries will
