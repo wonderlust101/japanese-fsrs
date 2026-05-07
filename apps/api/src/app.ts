@@ -3,6 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 
 import { errorHandler } from './middleware/errorHandler.ts'
+import { requestLogger } from './middleware/requestLogger.ts'
 import { env }          from './lib/env.ts'
 import authRouter    from './routes/auth.ts'
 import profileRouter from './routes/profile.ts'
@@ -37,6 +38,11 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '100kb' }))
 app.use(express.urlencoded({ extended: false, limit: '100kb' }))
+
+// Structured per-request logging (pino-http). Mounted after body parsers so
+// `req.id` is available to any subsequent middleware / handler that wants to
+// log via `req.log`. Honors incoming X-Request-ID; sets it on the response.
+app.use(requestLogger)
 
 // ── API routes ──────────────────────────────────────────────────────────────
 app.use('/api/v1/auth',    authRouter)

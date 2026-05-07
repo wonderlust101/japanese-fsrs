@@ -2,7 +2,10 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { narrowRow, asPayload } from '../lib/db.ts'
+import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+
+const log = componentLogger('premade.service')
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
 import {
   deckTypeEnum,
@@ -251,6 +254,10 @@ export async function subscribeToPremadeDeck(
       const existing = (await listSubscriptionsRaw(userId))
         .find((s) => s.premadeDeckId === premadeDeckId)
       if (existing !== undefined) {
+        log.info(
+          { userId, premadeDeckId, deckId: existing.deckId, cardCount: existing.cardCount, alreadyExisted: true },
+          'subscribed (race fallback)',
+        )
         return {
           subscriptionId: existing.id,
           deckId:         existing.deckId,
@@ -267,6 +274,17 @@ export async function subscribeToPremadeDeck(
   if (row === undefined) {
     throw new AppError(500, 'Subscribe RPC returned no row')
   }
+
+  log.info(
+    {
+      userId,
+      premadeDeckId,
+      deckId:         row.deck_id,
+      cardCount:      row.card_count,
+      alreadyExisted: row.already_existed,
+    },
+    'subscribed',
+  )
 
   return {
     subscriptionId: row.subscription_id,

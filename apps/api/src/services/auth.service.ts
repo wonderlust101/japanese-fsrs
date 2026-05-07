@@ -5,7 +5,10 @@ import type {
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+
+const log = componentLogger('auth.service')
 
 /**
  * Registers a new user and triggers the 6-digit OTP verification email.
@@ -43,17 +46,20 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
       msg.includes('already registered') ||
       msg.includes('already exists')
     if (isDuplicate) {
-      console.info('[auth.service] signup attempt on existing email', { email: input.email })
+      // Email is deliberately NOT logged here — see the account-enumeration
+      // policy above. Logging it would re-leak in the log layer what the
+      // wire response was hardened to hide.
+      log.info('signup attempt on existing email')
       return { email: input.email, userId: null }
     }
-    console.error('[auth.service] signup failed', { name: error.name, message: error.message })
+    log.error({ err: { name: error.name, message: error.message } }, 'signup failed')
     throw new AppError(400, 'Signup failed')
   }
 
   // GoTrue returns user: null when the email is already confirmed — same
   // duplicate case from a different code path. Treat it identically.
   if (data.user === null) {
-    console.info('[auth.service] signup returned null user (already-confirmed email)', { email: input.email })
+    log.info('signup returned null user (already-confirmed email)')
     return { email: input.email, userId: null }
   }
 
@@ -88,8 +94,13 @@ export async function signInWithPassword(input: LoginInput): Promise<ApiAuthToke
   })
 
   if (error !== null || data.session === null) {
+    // No identity field — the global error handler will log the 401 with
+    // the request id, which is sufficient correlation for incident response.
+    log.warn('login failed')
     throw new AppError(401, 'Invalid email or password')
   }
+
+  log.info({ userId: data.session.user.id }, 'login succeeded')
 
   return {
     accessToken:  data.session.access_token,
@@ -132,7 +143,7 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<ApiAuthTokens> {
 
   if (error !== null || data.session === null) {
     if (error !== null) {
-      console.error('[auth.service] verifyOtp failed', { name: error.name, message: error.message })
+      log.error({ err: { name: error.name, message: error.message } }, 'verifyOtp failed')
     }
     throw new AppError(400, 'Invalid or expired code')
   }
@@ -155,7 +166,7 @@ export async function resendOtp(input: ResendOtpInput): Promise<void> {
   })
 
   if (error !== null) {
-    console.error('[auth.service] resendOtp failed', { name: error.name, message: error.message })
+    log.error({ err: { name: error.name, message: error.message } }, 'resendOtp failed')
     throw new AppError(400, 'Failed to resend OTP')
   }
 }
@@ -184,4 +195,9 @@ export async function deleteAccount(userId: string): Promise<void> {
   if (error !== null) {
     throw dbError('delete account', error)
   }
+
+  // Audit-trail log for an irreversible action. Combined with the request-id
+  // header this gives forensic capability if a stolen-token deletion ever
+  // needs investigation.
+  log.info({ userId }, 'account deleted')
 }

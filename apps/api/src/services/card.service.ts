@@ -4,8 +4,12 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
 import { asPayload, narrowRow } from '../lib/db.ts';
+import { componentLogger } from '../lib/logger.ts';
 import { AppError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
+
+const log      = componentLogger('card.service');
+const adminLog = componentLogger('admin');
 import {
     State,
     cardTypeEnum,
@@ -437,7 +441,7 @@ export async function createCard(
   // network error, malformed fields) must not block card creation.
   // The card remains usable for FSRS; only similarity search is delayed.
   void backfillEmbedding(created.id, userId, fieldsData).catch((err: unknown) => {
-    console.error('[card] embedding backfill failed', { cardId: created.id, err })
+    log.error({ cardId: created.id, err }, 'embedding backfill failed')
   })
 
   return created
@@ -733,7 +737,7 @@ export async function backfillPremadeEmbeddings(): Promise<{
       // boundary inside bulk_update_card_embeddings.
       updates.push({ id: row.id, embedding: `[${embedding.join(',')}]` })
     } catch (err) {
-      console.error('[admin] failed to embed premade card', { cardId: row.id, err })
+      adminLog.error({ cardId: row.id, err }, 'failed to embed premade card')
       failed++
     }
   }
@@ -745,7 +749,7 @@ export async function backfillPremadeEmbeddings(): Promise<{
       asPayload({ p_updates: updates }),
     )
     if (rpcError !== null) {
-      console.error('[admin] bulk embedding update failed', { err: rpcError })
+      adminLog.error({ err: rpcError }, 'bulk embedding update failed')
       failed += updates.length
     } else {
       succeeded = rpcData ?? 0

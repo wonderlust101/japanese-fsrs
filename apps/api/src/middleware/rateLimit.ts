@@ -1,4 +1,4 @@
-import type { RequestHandler, Response } from 'express'
+import type { Request, RequestHandler, Response } from 'express'
 import { Ratelimit } from '@upstash/ratelimit'
 
 import { redis } from '../db/redis.ts'
@@ -16,8 +16,12 @@ type RatelimitResponse = Awaited<ReturnType<Ratelimit['limit']>>
  * middleware below regardless of success so well-behaved clients can pace
  * themselves on the headers from a 200 response, and pace recovery on
  * `Retry-After` from a 429.
+ *
+ * On 429, also emits a structured WARN log line so sustained limiter trips
+ * (the signature of brute-force / scripted-abuse attempts) surface as a
+ * security signal instead of being silent.
  */
-function applyRateLimitHeaders(res: Response, r: RatelimitResponse): void {
+function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitResponse, limiter: string, key: string): void {
   res.setHeader('X-RateLimit-Limit',     String(r.limit))
   res.setHeader('X-RateLimit-Remaining', String(Math.max(0, r.remaining)))
   // r.reset is an epoch-ms timestamp; expose as epoch-seconds.
@@ -25,6 +29,10 @@ function applyRateLimitHeaders(res: Response, r: RatelimitResponse): void {
   if (!r.success) {
     const retryAfterSec = Math.max(1, Math.ceil((r.reset - Date.now()) / 1000))
     res.setHeader('Retry-After', String(retryAfterSec))
+    req.log.warn(
+      { limiter, key, resetAt: r.reset, retryAfterSec },
+      '[rate-limit] hit',
+    )
   }
 }
 
@@ -53,8 +61,9 @@ const aiRatelimit = new Ratelimit({
  */
 export const aiRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await aiRatelimit.limit(`${req.user.id}:ai`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:ai`
+    const result = await aiRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'ai', key)
     if (!result.success) {
       throw new AppError(429, 'AI rate limit exceeded. Please wait before making another request.')
     }
@@ -78,8 +87,9 @@ const aiDailyQuotaRatelimit = new Ratelimit({
  */
 export const aiDailyQuotaMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await aiDailyQuotaRatelimit.limit(`${req.user.id}:ai-daily`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:ai-daily`
+    const result = await aiDailyQuotaRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'ai-daily', key)
     if (!result.success) {
       throw new AppError(429, 'Daily AI quota exceeded. Try again tomorrow.')
     }
@@ -123,12 +133,18 @@ export const authRateLimitMiddleware: RequestHandler = async (req, res, next): P
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
     const ip    = req.ip ?? 'unknown'
 
+    const emailKey = email || 'anon'
     const [emailResult, ipResult] = await Promise.all([
-      authEmailRatelimit.limit(email || 'anon'),
+      authEmailRatelimit.limit(emailKey),
       authIpRatelimit.limit(ip),
     ])
 
-    applyRateLimitHeaders(res, tighter(emailResult, ipResult))
+    // Report whichever of the two budgets is closer to exhaustion. The
+    // limiter label tags whichever one tripped (or 'auth' when both pass).
+    const tighterResult = tighter(emailResult, ipResult)
+    const trippedLabel  = !emailResult.success ? 'auth:email' : !ipResult.success ? 'auth:ip' : 'auth'
+    const trippedKey    = !emailResult.success ? emailKey : ip
+    applyRateLimitHeaders(req, res, tighterResult, trippedLabel, trippedKey)
 
     if (!emailResult.success || !ipResult.success) {
       throw new AppError(429, 'Too many auth attempts. Try again later.')
@@ -157,8 +173,9 @@ export const authOtpVerifyRateLimitMiddleware: RequestHandler = async (req, res,
   try {
     const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
-    const result = await authOtpVerifyRatelimit.limit(email || 'anon')
-    applyRateLimitHeaders(res, result)
+    const key = email || 'anon'
+    const result = await authOtpVerifyRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'auth:otp-verify', key)
     if (!result.success) {
       throw new AppError(429, 'Too many OTP attempts. Try again in an hour.')
     }
@@ -184,8 +201,9 @@ const defaultUserRatelimit = new Ratelimit({
  */
 export const defaultUserRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await defaultUserRatelimit.limit(`${req.user.id}:default`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:default`
+    const result = await defaultUserRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'default-user', key)
     if (!result.success) {
       throw new AppError(429, 'Request rate limit exceeded. Please slow down.')
     }
@@ -208,8 +226,9 @@ const batchRatelimit = new Ratelimit({
 
 export const batchRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await batchRatelimit.limit(`${req.user.id}:batch`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:batch`
+    const result = await batchRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'batch', key)
     if (!result.success) {
       throw new AppError(429, 'Batch sync rate limit exceeded. Please wait before retrying.')
     }
@@ -231,8 +250,9 @@ const subscribeRatelimit = new Ratelimit({
 
 export const subscribeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await subscribeRatelimit.limit(`${req.user.id}:subscribe`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:subscribe`
+    const result = await subscribeRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'subscribe', key)
     if (!result.success) {
       throw new AppError(429, 'Subscription rate limit exceeded. Please wait before retrying.')
     }
@@ -254,8 +274,9 @@ const submitRatelimit = new Ratelimit({
 
 export const submitRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await submitRatelimit.limit(`${req.user.id}:submit`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:submit`
+    const result = await submitRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'submit', key)
     if (!result.success) {
       throw new AppError(429, 'Submit rate limit exceeded. Please slow down.')
     }
@@ -278,8 +299,9 @@ const accountDeleteRatelimit = new Ratelimit({
 
 export const accountDeleteRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await accountDeleteRatelimit.limit(`${req.user.id}:account-delete`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:account-delete`
+    const result = await accountDeleteRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'account-delete', key)
     if (!result.success) {
       throw new AppError(429, 'Account deletion rate limit exceeded. Please wait before retrying.')
     }
@@ -301,8 +323,9 @@ const unsubscribeRatelimit = new Ratelimit({
 
 export const unsubscribeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await unsubscribeRatelimit.limit(`${req.user.id}:unsubscribe`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:unsubscribe`
+    const result = await unsubscribeRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'unsubscribe', key)
     if (!result.success) {
       throw new AppError(429, 'Unsubscribe rate limit exceeded. Please wait before retrying.')
     }
@@ -326,8 +349,9 @@ const similarSearchRatelimit = new Ratelimit({
 
 export const similarSearchRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await similarSearchRatelimit.limit(`${req.user.id}:similar`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:similar`
+    const result = await similarSearchRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'similar', key)
     if (!result.success) {
       throw new AppError(429, 'Similar-card search rate limit exceeded. Please slow down.')
     }
@@ -345,8 +369,9 @@ const analyticsDashboardRatelimit = new Ratelimit({
 
 export const analyticsDashboardRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await analyticsDashboardRatelimit.limit(`${req.user.id}:analytics-dashboard`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:analytics-dashboard`
+    const result = await analyticsDashboardRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'analytics-dashboard', key)
     if (!result.success) {
       throw new AppError(429, 'Dashboard rate limit exceeded. Please slow down.')
     }
@@ -369,8 +394,9 @@ const resourceDeleteRatelimit = new Ratelimit({
  */
 export const resourceDeleteRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    const result = await resourceDeleteRatelimit.limit(`${req.user.id}:resource-delete`)
-    applyRateLimitHeaders(res, result)
+    const key = `${req.user.id}:resource-delete`
+    const result = await resourceDeleteRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'resource-delete', key)
     if (!result.success) {
       throw new AppError(429, 'Resource-delete rate limit exceeded. Please slow down.')
     }

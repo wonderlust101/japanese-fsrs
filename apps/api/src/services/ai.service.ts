@@ -12,7 +12,10 @@ import {
   type GeneratedSentences,
   type GeneratedMnemonic,
 } from '@fsrs-japanese/shared-types'
+import { componentLogger } from '../lib/logger.ts'
 import { AppError } from '../middleware/errorHandler.ts'
+
+const log = componentLogger('ai.service')
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
@@ -107,10 +110,12 @@ Return JSON with these keys:
       ],
     })
   } catch (err) {
-    console.error('[ai.service] generateCard OpenAI request failed', {
-      name:    err instanceof Error ? err.name    : 'Unknown',
-      message: err instanceof Error ? err.message : String(err),
-    })
+    log.error({
+      err: {
+        name:    err instanceof Error ? err.name    : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    }, 'generateCard OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')
   }
 
@@ -181,10 +186,12 @@ Constraints:
       ],
     })
   } catch (err) {
-    console.error('[ai.service] generateSentences OpenAI request failed', {
-      name:    err instanceof Error ? err.name    : 'Unknown',
-      message: err instanceof Error ? err.message : String(err),
-    })
+    log.error({
+      err: {
+        name:    err instanceof Error ? err.name    : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    }, 'generateSentences OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')
   }
 
@@ -253,10 +260,12 @@ Constraints:
       ],
     })
   } catch (err) {
-    console.error('[ai.service] generateMnemonic OpenAI request failed', {
-      name:    err instanceof Error ? err.name    : 'Unknown',
-      message: err instanceof Error ? err.message : String(err),
-    })
+    log.error({
+      err: {
+        name:    err instanceof Error ? err.name    : 'Unknown',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    }, 'generateMnemonic OpenAI request failed')
     throw new AppError(502, 'AI service temporarily unavailable')
   }
 

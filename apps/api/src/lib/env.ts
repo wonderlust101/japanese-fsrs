@@ -23,6 +23,9 @@ const envSchema = z.object({
   OPENAI_EMBEDDING_MODEL:     z.string().default('text-embedding-3-small'),
   LEECH_THRESHOLD:            z.coerce.number().int().positive().default(8),
   CORS_ORIGIN:                z.string().default('http://localhost:3000'),
+  // Optional pino log level. When unset, the logger module defaults to
+  // 'debug' in development and 'info' in production / test.
+  LOG_LEVEL:                  z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).optional(),
 })
 
 export const env = envSchema.parse(process.env)

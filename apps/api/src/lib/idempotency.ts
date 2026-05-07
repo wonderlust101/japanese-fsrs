@@ -3,7 +3,10 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from './db.ts'
+import { componentLogger } from './logger.ts'
 import { AppError } from '../middleware/errorHandler.ts'
+
+const log = componentLogger('idempotency')
 
 /**
  * Wraps a state-mutating handler in a per-user replay store, so a network-blip
@@ -77,7 +80,7 @@ export async function withIdempotency<T>(
   }))
 
   if (error !== null) {
-    console.error('[idempotency] claim failed', { name: error.message, code: error.code })
+    log.error({ err: { name: error.message, code: error.code } }, 'claim failed')
     throw new AppError(500, 'Failed to claim idempotency key')
   }
 
@@ -113,7 +116,7 @@ export async function withIdempotency<T>(
         p_body:    errBody,
       }))
       if (storeError !== null) {
-        console.error('[idempotency] store on AppError failed', storeError)
+        log.error({ err: storeError }, 'store on AppError failed')
       }
       throw err
     }
@@ -124,7 +127,7 @@ export async function withIdempotency<T>(
       p_key:     key,
     }))
     if (delError !== null) {
-      console.error('[idempotency] delete on non-AppError failed', delError)
+      log.error({ err: delError }, 'delete on non-AppError failed')
     }
     throw err
   }
@@ -139,7 +142,7 @@ export async function withIdempotency<T>(
   if (storeError !== null) {
     // The work already committed; log and continue. Subsequent retries will
     // hit 'in_flight' until expiry, but the original response went out.
-    console.error('[idempotency] store on success failed', storeError)
+    log.error({ err: storeError }, 'store on success failed')
   }
 
   return result

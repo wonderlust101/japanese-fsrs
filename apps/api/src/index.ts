@@ -1,8 +1,9 @@
 import { app } from './app.ts'
 import { env } from './lib/env.ts'
+import { logger } from './lib/logger.ts'
 
 const server = app.listen(env.PORT, () => {
-  console.log(`API server listening on port ${env.PORT}`)
+  logger.info({ port: env.PORT }, 'API server listening')
 })
 
 // Slow-loris hardening. Cap a single in-flight request to 30s of total wall
