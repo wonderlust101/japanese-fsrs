@@ -49,7 +49,7 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const saveMutation = useMutation({
-    mutationFn: () => updateCardAction(card.id, {
+    mutationFn: () => updateCardAction(card.id, card.version, {
       fieldsData: { ...fd, word: word.trim(), reading: reading.trim(), meaning: meaning.trim() },
       jlptLevel:  jlptLevel === '' ? null : jlptLevel,
       tags:       tags.split(',').map((t) => t.trim()).filter((t) => t.length > 0),

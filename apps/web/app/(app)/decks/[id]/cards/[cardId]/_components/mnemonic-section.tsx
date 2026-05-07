@@ -10,12 +10,13 @@ import { queryKeys } from '@/lib/api/queryKeys'
 import { RegeneratePanel } from './regenerate-panel'
 
 interface Props {
-  cardId:     string
-  mnemonic:   string | undefined
-  fieldsData: Record<string, unknown>
+  cardId:      string
+  cardVersion: number
+  mnemonic:    string | undefined
+  fieldsData:  Record<string, unknown>
 }
 
-export function MnemonicSection({ cardId, mnemonic, fieldsData }: Props): React.JSX.Element {
+export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: Props): React.JSX.Element {
   const [pending, setPending] = useState<string | null>(null)
   const [saving,  setSaving]  = useState(false)
 
@@ -32,7 +33,7 @@ export function MnemonicSection({ cardId, mnemonic, fieldsData }: Props): React.
     if (pending === null) return
     setSaving(true)
     try {
-      await updateCardAction(cardId, {
+      await updateCardAction(cardId, cardVersion, {
         fieldsData: { ...fieldsData, mnemonic: pending },
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(cardId) })

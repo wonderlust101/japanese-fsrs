@@ -79,18 +79,21 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
     expect(getRes.status).toBe(200)
     expect(getRes.body.fieldsData.word).toBe('猫')
 
-    // Update
+    // Update — sends If-Match: <version> from the create response.
     const updateRes = await request(app)
       .patch(`/api/v1/cards/${cardId}`)
       .set('Authorization', `Bearer ${a.jwt}`)
+      .set('If-Match', String(createRes.body.version))
       .send({ fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat (updated)' } })
     expect(updateRes.status).toBe(200)
     expect(updateRes.body.fieldsData.meaning).toBe('cat (updated)')
+    expect(updateRes.body.version).toBe(createRes.body.version + 1)
 
     // Cross-user PATCH — must 404, never reveal the card to user B.
     const crossUserRes = await request(app)
       .patch(`/api/v1/cards/${cardId}`)
       .set('Authorization', `Bearer ${b.jwt}`)
+      .set('If-Match', String(updateRes.body.version))
       .send({ fieldsData: { word: 'X' } })
     expect(crossUserRes.status).toBe(404)
 
@@ -218,6 +221,64 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .post(`/api/v1/cards/${fakeUuid}/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
     expect(res.status).toBe(404)
+  })
+})
+
+describeIntegration('cards routes — If-Match optimistic concurrency', () => {
+  it('rejects PATCH /cards/:id without If-Match (428)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const cardRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        fieldsData: { word: '光', reading: 'ひかり', meaning: 'light' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(cardRes.status).toBe(201)
+    const cardId = cardRes.body.id
+
+    const res = await request(app)
+      .patch(`/api/v1/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .send({ fieldsData: { word: '光', reading: 'ひかり', meaning: 'glow' } })
+    expect(res.status).toBe(428)
+  })
+
+  it('returns 412 on stale If-Match', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const cardRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        fieldsData: { word: '影', reading: 'かげ', meaning: 'shadow' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(cardRes.status).toBe(201)
+    const cardId = cardRes.body.id
+    const v1     = cardRes.body.version
+
+    // First successful PATCH bumps version.
+    const first = await request(app)
+      .patch(`/api/v1/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ fieldsData: { word: '影', reading: 'かげ', meaning: 'shade' } })
+    expect(first.status).toBe(200)
+    expect(first.body.version).toBe(v1 + 1)
+
+    // Re-using the original (now stale) version → 412.
+    const stale = await request(app)
+      .patch(`/api/v1/cards/${cardId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(v1))
+      .send({ fieldsData: { word: '影', reading: 'かげ', meaning: 'silhouette' } })
+    expect(stale.status).toBe(412)
   })
 })
 

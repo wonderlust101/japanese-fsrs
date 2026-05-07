@@ -49,6 +49,10 @@ export const ApiCardSchema = z.object({
   lastReview:     z.string().nullable(),
   createdAt:      z.string(),
   updatedAt:      z.string(),
+  // Optimistic-concurrency version. Bumped on every PATCH; sent back as
+  // `If-Match: <version>` to gate the next update. List / due projections
+  // intentionally omit this field — only the detail view drives PATCH.
+  version:        z.number(),
 })
 
 export const ApiDueCardSchema = ApiCardSchema.pick({

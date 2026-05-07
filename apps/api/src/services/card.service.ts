@@ -62,6 +62,7 @@ export const CARD_COLUMNS = [
   'reps',
   'lapses',
   'last_review',
+  'version',
   'created_at',
   'updated_at',
 ].join(', ')
@@ -134,6 +135,7 @@ export interface CardDbRow {
   reps:            number
   lapses:          number
   last_review:     string | null
+  version:         number
   created_at:      string
   updated_at:      string
 }
@@ -165,6 +167,7 @@ export function toCardRow(raw: CardDbRow): ApiCard {
     reps:          raw.reps,
     lapses:        raw.lapses,
     lastReview:    raw.last_review,
+    version:       raw.version,
     createdAt:     raw.created_at,
     updatedAt:     raw.updated_at,
   }
@@ -240,6 +243,7 @@ const CardDbRowSchema = z.object({
   reps:            z.number(),
   lapses:          z.number(),
   last_review:     z.string().nullable(),
+  version:         z.number(),
   created_at:      z.string(),
   updated_at:      z.string(),
 })
@@ -456,6 +460,7 @@ export async function updateCard(
   cardId:          string,
   userId:          string,
   input:           UpdateCardInput,
+  expectedVersion: number,
   expectedDeckId?: string,
 ): Promise<ApiCard> {
   // When the caller routed through /decks/:deckId/cards/:id, verify the card
@@ -466,13 +471,14 @@ export async function updateCard(
   }
 
   const { error } = await supabaseAdmin.rpc('update_card_with_sibling_sync', asPayload({
-    p_card_id:     cardId,
-    p_user_id:     userId,
-    p_fields_data: input.fieldsData ?? null,
-    p_layout_type: input.layoutType ?? null,
-    p_card_type:   input.cardType   ?? null,
-    p_tags:        input.tags       ?? null,
-    p_jlpt_level:  input.jlptLevel  ?? null,
+    p_card_id:          cardId,
+    p_user_id:          userId,
+    p_expected_version: expectedVersion,
+    p_fields_data:      input.fieldsData ?? null,
+    p_layout_type:      input.layoutType ?? null,
+    p_card_type:        input.cardType   ?? null,
+    p_tags:             input.tags       ?? null,
+    p_jlpt_level:       input.jlptLevel  ?? null,
   }))
 
   if (error !== null) {
@@ -480,6 +486,11 @@ export async function updateCard(
     // the row is missing or owned by another user.
     if (error.code === '02000' || error.message.includes('card_not_found')) {
       throw new AppError(404, 'Card not found')
+    }
+    // RPC raises 'card_version_mismatch' with SQLSTATE 22000 when the
+    // optimistic-concurrency check fails — the caller's snapshot is stale.
+    if (error.code === '22000' || error.message.includes('card_version_mismatch')) {
+      throw new AppError(412, 'Card has been modified since you loaded it; refresh and retry')
     }
     throw dbError('update card', error)
   }

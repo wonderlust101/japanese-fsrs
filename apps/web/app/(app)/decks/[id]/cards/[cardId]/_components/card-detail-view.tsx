@@ -136,9 +136,10 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
         </section>
 
         {/* ── Example Sentences ───────────────────────────────────────── */}
-        {!isLoading && (
+        {!isLoading && card != null && (
           <ExampleSentences
             cardId={cardId}
+            cardVersion={card.version}
             sentences={exampleSentences ?? []}
             fieldsData={rawFd}
           />
@@ -150,9 +151,10 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
         )}
 
         {/* ── Mnemonic ────────────────────────────────────────────────── */}
-        {!isLoading && (
+        {!isLoading && card != null && (
           <MnemonicSection
             cardId={cardId}
+            cardVersion={card.version}
             mnemonic={mnemonic}
             fieldsData={rawFd}
           />

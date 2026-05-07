@@ -107,11 +107,19 @@ export async function getSimilarCardsAction(cardId: string): Promise<ApiList<Api
   )
 }
 
-export async function updateCardAction(cardId: string, payload: UpdateCardPayload): Promise<void> {
+export async function updateCardAction(
+  cardId:  string,
+  version: number,
+  payload: UpdateCardPayload,
+): Promise<void> {
   await apiCall<unknown>(
     `/api/v1/cards/${cardId}`,
     voidResponseSchema,
-    { method: 'PATCH', body: JSON.stringify(payload) },
+    {
+      method:  'PATCH',
+      headers: { 'If-Match': String(version) },
+      body:    JSON.stringify(payload),
+    },
     'Failed to update card',
   )
 }

@@ -1,5 +1,7 @@
 import type { Request, RequestHandler } from 'express'
 
+import { z } from 'zod'
+
 import {
   createCardSchema,
   updateCardSchema,
@@ -7,6 +9,7 @@ import {
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
 } from '@fsrs-japanese/shared-types'
+import { AppError } from '../middleware/errorHandler.ts'
 import type { ApiCard } from '@fsrs-japanese/shared-types'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
@@ -101,12 +104,14 @@ export const create: RequestHandler = async (req, res, next): Promise<void> => {
 /**
  * PATCH /api/v1/cards/:id  (or /api/v1/decks/:deckId/cards/:id)
  * Partially updates a card's content fields. FSRS state is never modified here.
+ * Requires `If-Match: <version>` (optimistic concurrency); mismatch → 412.
  */
 export const update: RequestHandler = async (req, res, next): Promise<void> => {
   try {
     const { id } = cardIdParamSchema.parse(req.params)
     const input  = updateCardSchema.parse(req.body)
-    const card   = await cardService.updateCard(id, req.user.id, input, scopedDeckId(req))
+    const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+    const card   = await cardService.updateCard(id, req.user.id, input, expectedVersion, scopedDeckId(req))
     res.json(card)
   } catch (err) {
     next(err)
@@ -168,4 +173,21 @@ function scopedDeckId(req: Request): string | undefined {
   const raw = req.params['deckId']
   if (typeof raw !== 'string') return undefined
   return nestedDeckIdParamSchema.parse({ deckId: raw }).deckId
+}
+
+const ifMatchVersionSchema = z.coerce.number().int().min(1)
+
+/**
+ * Parses the `If-Match` header for optimistic concurrency on `PATCH /cards/:id`.
+ * Missing → 428 Precondition Required (RFC 6585). Malformed → 400 via Zod.
+ */
+function parseIfMatchVersion(rawHeader: string | undefined): number {
+  if (rawHeader === undefined) {
+    throw new AppError(428, 'If-Match header required for card edits')
+  }
+  const result = ifMatchVersionSchema.safeParse(rawHeader)
+  if (!result.success) {
+    throw new AppError(400, 'If-Match must be a positive integer version')
+  }
+  return result.data
 }

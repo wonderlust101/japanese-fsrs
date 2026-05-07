@@ -13,11 +13,12 @@ import { RegeneratePanel } from './regenerate-panel'
 
 interface Props {
   cardId:         string
+  cardVersion:    number
   sentences:      ExampleSentence[]
   fieldsData:     Record<string, unknown>
 }
 
-export function ExampleSentences({ cardId, sentences, fieldsData }: Props): React.JSX.Element {
+export function ExampleSentences({ cardId, cardVersion, sentences, fieldsData }: Props): React.JSX.Element {
   const [pending, setPending] = useState<ExampleSentence[] | null>(null)
   const [saving,  setSaving]  = useState(false)
 
@@ -34,7 +35,7 @@ export function ExampleSentences({ cardId, sentences, fieldsData }: Props): Reac
     if (pending === null) return
     setSaving(true)
     try {
-      await updateCardAction(cardId, {
+      await updateCardAction(cardId, cardVersion, {
         fieldsData: { ...fieldsData, exampleSentences: pending },
       })
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.detail(cardId) })

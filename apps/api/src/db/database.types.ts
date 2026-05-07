@@ -66,6 +66,7 @@ export type Database = {
           tags: string[]
           updated_at: string
           user_id: string | null
+          version: number
         }
         Insert: {
           card_type?: Database["public"]["Enums"]["card_type"]
@@ -93,6 +94,7 @@ export type Database = {
           tags?: string[]
           updated_at?: string
           user_id?: string | null
+          version?: number
         }
         Update: {
           card_type?: Database["public"]["Enums"]["card_type"]
@@ -120,6 +122,7 @@ export type Database = {
           tags?: string[]
           updated_at?: string
           user_id?: string | null
+          version?: number
         }
         Relationships: [
           {
@@ -789,6 +792,7 @@ export type Database = {
         Args: {
           p_card_id: string
           p_card_type?: Database["public"]["Enums"]["card_type"]
+          p_expected_version: number
           p_fields_data?: Json
           p_jlpt_level?: Database["public"]["Enums"]["jlpt_level"]
           p_layout_type?: Database["public"]["Enums"]["layout_type"]
