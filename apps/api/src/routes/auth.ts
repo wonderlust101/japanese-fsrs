@@ -5,6 +5,7 @@ import {
   authRateLimitMiddleware,
   authOtpVerifyRateLimitMiddleware,
   accountDeleteRateLimitMiddleware,
+  passwordChangeRateLimitMiddleware,
 } from '../middleware/rateLimit.ts'
 import * as authController from '../controllers/auth.controller.ts'
 
@@ -21,6 +22,10 @@ router.post('/resend-otp',    authRateLimitMiddleware, authController.resendOtp)
 
 // Protected — requires a valid Bearer token.
 router.post('/logout',          authMiddleware, authController.logout)
+// Password change requires the current password (step-up). 5/15min/user
+// limiter bounds brute-forcing the current-password field.
+router.post('/change-password', authMiddleware, passwordChangeRateLimitMiddleware, authController.changePassword)
+// Account deletion also requires the current password (step-up).
 router.delete('/account',       authMiddleware, accountDeleteRateLimitMiddleware, authController.deleteAccount)
 
 export default router

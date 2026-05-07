@@ -1,6 +1,10 @@
 import type { RequestHandler } from 'express'
 
-import { signupSchema, loginSchema, refreshSchema, cancelSignupSchema, verifyOtpSchema, resendOtpSchema } from '@fsrs-japanese/shared-types'
+import {
+  signupSchema, loginSchema, refreshSchema, cancelSignupSchema,
+  verifyOtpSchema, resendOtpSchema,
+  changePasswordSchema, deleteAccountSchema,
+} from '@fsrs-japanese/shared-types'
 import * as authService from '../services/auth.service.ts'
 import { AppError } from '../middleware/errorHandler.ts'
 
@@ -79,9 +83,30 @@ export const logout: RequestHandler = async (req, res, next): Promise<void> => {
   }
 }
 
+export const changePassword: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const input = changePasswordSchema.parse(req.body)
+    const email = req.user.email
+    if (typeof email !== 'string' || email.length === 0) {
+      // Defensive: every authenticated Supabase user has an email. If we ever
+      // see a session without one, fail loudly rather than skipping the step-up.
+      throw new AppError(401, 'Invalid session')
+    }
+    await authService.changePassword(req.user.id, email, input.currentPassword, input.newPassword)
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+}
+
 export const deleteAccount: RequestHandler = async (req, res, next): Promise<void> => {
   try {
-    await authService.deleteAccount(req.user.id)
+    const input = deleteAccountSchema.parse(req.body)
+    const email = req.user.email
+    if (typeof email !== 'string' || email.length === 0) {
+      throw new AppError(401, 'Invalid session')
+    }
+    await authService.deleteAccount(req.user.id, email, input.currentPassword)
     res.status(204).send()
   } catch (err) {
     next(err)

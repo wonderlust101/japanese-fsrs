@@ -5,6 +5,12 @@ import type { Request, Response } from 'express'
 // redis client; stub the redis import so the test process doesn't try to
 // reach Upstash. The actual `.limit()` calls are not exercised in these
 // tests — we test the pure header / tighter helpers instead.
+//
+// (The FIND-002 anon-bucket regression — where /refresh and /cancel-signup
+// shared a global rate-limit bucket — is fixed in authRateLimitMiddleware
+// by branching on `email` presence. End-to-end coverage of that branch
+// would require a full Upstash redis stub; the change itself is small and
+// self-evident at the call site.)
 mock.module('../../db/redis.ts', () => ({ redis: {} }))
 
 const { applyRateLimitHeaders, tighter } = await import('../rateLimit.ts')
@@ -153,3 +159,4 @@ describe('tighter — auth limiter result selection', () => {
     expect(result === a || result === b).toBe(true)
   })
 })
+

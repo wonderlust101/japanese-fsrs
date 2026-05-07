@@ -44,10 +44,10 @@ function friendlyOtpError(message: string): string {
 
 type SignupViewState =
   | { view: 'signup' }
-  // userId is null when the email was already registered — the verify step
-  // still renders so the response is indistinguishable to an attacker, but
-  // OTP entry will fail with "invalid code".
-  | { view: 'verify'; userId: string | null }
+  // userId / cancellationToken are null when the email was already registered
+  // — the verify step still renders so the response is indistinguishable to
+  // an attacker, but OTP entry will fail with "invalid code".
+  | { view: 'verify'; userId: string | null; cancellationToken: string | null }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -55,16 +55,25 @@ export default function SignupPage(): React.JSX.Element {
   const [viewState, setViewState] = useState<SignupViewState>({ view: 'signup' })
   const [email,     setEmail]     = useState('')
 
-  function handleSuccess(newUserId: string | null) {
-    setViewState({ view: 'verify', userId: newUserId })
+  function handleSuccess(newUserId: string | null, cancellationToken: string | null) {
+    setViewState({ view: 'verify', userId: newUserId, cancellationToken })
   }
 
   function handleBack() {
-    if (viewState.view === 'verify' && viewState.userId !== null) {
+    if (
+      viewState.view === 'verify' &&
+      viewState.userId !== null &&
+      viewState.cancellationToken !== null
+    ) {
+      // Both fields are required server-side now (security audit FIND-005):
+      // a leaked userId alone cannot DoS the in-flight signup.
       fetch(`${env.NEXT_PUBLIC_API_URL}/api/v1/auth/cancel-signup`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ userId: viewState.userId }),
+        body:    JSON.stringify({
+          userId:            viewState.userId,
+          cancellationToken: viewState.cancellationToken,
+        }),
       }).catch(() => {})
     }
     setViewState({ view: 'signup' })
@@ -93,9 +102,10 @@ export default function SignupPage(): React.JSX.Element {
 interface SignupFormProps {
   email:         string
   onEmailChange: (email: string) => void
-  // userId is null when the email is already registered — the API does not
-  // distinguish that path from a fresh signup, so the page keeps flowing.
-  onSuccess:     (userId: string | null) => void
+  // userId / cancellationToken are null when the email is already registered
+  // — the API does not distinguish that path from a fresh signup, so the
+  // page keeps flowing.
+  onSuccess:     (userId: string | null, cancellationToken: string | null) => void
 }
 
 function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
@@ -165,8 +175,8 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         return
       }
 
-      const body = await res.json() as { userId: string | null }
-      onSuccess(body.userId)
+      const body = await res.json() as { userId: string | null; cancellationToken: string | null }
+      onSuccess(body.userId, body.cancellationToken)
     } catch {
       setErrors({ form: 'Something went wrong. Please try again.' })
       setLoading(false)

@@ -79,14 +79,24 @@ describe('auth.schema — resendOtpSchema and cancelSignupSchema', () => {
     expect(resendOtpSchema.safeParse({ email: 'alice@example.com' }).success).toBe(true)
   })
 
-  it('cancelSignup accepts a UUID userId', () => {
+  it('cancelSignup accepts a UUID userId + cancellationToken pair', () => {
     expect(cancelSignupSchema.safeParse({
-      userId: '00000000-0000-4000-8000-000000000001',
+      userId:            '00000000-0000-4000-8000-000000000001',
+      cancellationToken: '00000000-0000-4000-8000-000000000002',
     }).success).toBe(true)
   })
 
   it('cancelSignup rejects a non-UUID userId', () => {
-    expect(cancelSignupSchema.safeParse({ userId: 'abc' }).success).toBe(false)
+    expect(cancelSignupSchema.safeParse({
+      userId:            'abc',
+      cancellationToken: '00000000-0000-4000-8000-000000000002',
+    }).success).toBe(false)
+  })
+
+  it('cancelSignup rejects a missing cancellationToken', () => {
+    expect(cancelSignupSchema.safeParse({
+      userId: '00000000-0000-4000-8000-000000000001',
+    }).success).toBe(false)
   })
 })
 

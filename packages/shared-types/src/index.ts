@@ -99,10 +99,12 @@ export type { SubmitReviewInput, UserRating } from './schemas/review.schema.ts'
 export {
   signupSchema, loginSchema, refreshSchema,
   cancelSignupSchema, verifyOtpSchema, resendOtpSchema,
+  changePasswordSchema, deleteAccountSchema,
 } from './schemas/auth.schema.ts'
 export type {
   SignupInput, LoginInput, RefreshInput,
   CancelSignupInput, VerifyOtpInput, ResendOtpInput,
+  ChangePasswordInput, DeleteAccountInput,
 } from './schemas/auth.schema.ts'
 
 // ─── Sanitization primitive ───────────────────────────────────────────────────

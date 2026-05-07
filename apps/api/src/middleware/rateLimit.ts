@@ -118,14 +118,20 @@ const authIpRatelimit = new Ratelimit({
 })
 
 /**
- * Rate-limits public auth endpoints. Runs two parallel checks per request:
+ * Rate-limits public auth endpoints.
+ *
+ * When the body carries an `email` field (signup / login / verify-otp /
+ * resend-otp), runs two parallel checks:
  *   • per-email: 5 / 15 min — caps single-account brute force.
  *   • per-ip:   30 / 15 min — caps distributed credential stuffing while
  *                              staying generous for shared NAT/CGNAT.
  * Either tripping → 429 with the more-restrictive budget reflected in headers.
  *
- * `email` is read from the body when present; absent (refresh, cancel-signup)
- * → 'anon' so the email limiter still applies a global anonymous bucket.
+ * When the body has no email (refresh / cancel-signup), only the per-IP
+ * limiter applies. The previous `email || 'anon'` fallback created a single
+ * GLOBAL bucket shared across every email-less call from any client — an
+ * unauthenticated visitor could drain 5/15min and DoS legitimate calls
+ * system-wide. The IP limiter alone is sufficient defense for these flows.
  */
 export const authRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   try {
@@ -133,21 +139,28 @@ export const authRateLimitMiddleware: RequestHandler = async (req, res, next): P
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
     const ip    = req.ip ?? 'unknown'
 
-    const emailKey = email || 'anon'
-    const [emailResult, ipResult] = await Promise.all([
-      authEmailRatelimit.limit(emailKey),
-      authIpRatelimit.limit(ip),
-    ])
+    if (email) {
+      const [emailResult, ipResult] = await Promise.all([
+        authEmailRatelimit.limit(email),
+        authIpRatelimit.limit(ip),
+      ])
 
-    // Report whichever of the two budgets is closer to exhaustion. The
-    // limiter label tags whichever one tripped (or 'auth' when both pass).
-    const tighterResult = tighter(emailResult, ipResult)
-    const trippedLabel  = !emailResult.success ? 'auth:email' : !ipResult.success ? 'auth:ip' : 'auth'
-    const trippedKey    = !emailResult.success ? emailKey : ip
-    applyRateLimitHeaders(req, res, tighterResult, trippedLabel, trippedKey)
+      // Report whichever of the two budgets is closer to exhaustion. The
+      // limiter label tags whichever one tripped (or 'auth' when both pass).
+      const tighterResult = tighter(emailResult, ipResult)
+      const trippedLabel  = !emailResult.success ? 'auth:email' : !ipResult.success ? 'auth:ip' : 'auth'
+      const trippedKey    = !emailResult.success ? email : ip
+      applyRateLimitHeaders(req, res, tighterResult, trippedLabel, trippedKey)
 
-    if (!emailResult.success || !ipResult.success) {
-      throw new AppError(429, 'Too many auth attempts. Try again later.')
+      if (!emailResult.success || !ipResult.success) {
+        throw new AppError(429, 'Too many auth attempts. Try again later.')
+      }
+    } else {
+      const ipResult = await authIpRatelimit.limit(ip)
+      applyRateLimitHeaders(req, res, ipResult, 'auth:ip', ip)
+      if (!ipResult.success) {
+        throw new AppError(429, 'Too many auth attempts. Try again later.')
+      }
     }
     next()
   } catch (err) {
@@ -279,6 +292,31 @@ export const submitRateLimitMiddleware: RequestHandler = async (req, res, next):
     applyRateLimitHeaders(req, res, result, 'submit', key)
     if (!result.success) {
       throw new AppError(429, 'Submit rate limit exceeded. Please slow down.')
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ─── Password-change limit ────────────────────────────────────────────────────
+
+// Sliding window: 5 password-change attempts per 15 mins per user. Bounds
+// brute-force of the `currentPassword` field on POST /api/v1/auth/change-password
+// while leaving room for typo retries.
+const passwordChangeRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, '15 m'),
+  prefix: 'ratelimit:password-change',
+})
+
+export const passwordChangeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
+  try {
+    const key = `${req.user.id}:password-change`
+    const result = await passwordChangeRatelimit.limit(key)
+    applyRateLimitHeaders(req, res, result, 'password-change', key)
+    if (!result.success) {
+      throw new AppError(429, 'Password-change rate limit exceeded. Please wait before retrying.')
     }
     next()
   } catch (err) {

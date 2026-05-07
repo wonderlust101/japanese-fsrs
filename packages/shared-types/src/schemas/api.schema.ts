@@ -261,6 +261,10 @@ export const ApiSignUpResultSchema = z.object({
   // Null when the email is already registered — the API surfaces a generic
   // success shape to avoid leaking account existence to anonymous callers.
   userId: z.string().nullable(),
+  // Server-issued one-time secret, paired with userId, required by /cancel-signup.
+  // Null on the duplicate-email path (mirrors userId) so wire-level enumeration
+  // surfaces only what userId already does.
+  cancellationToken: z.string().nullable(),
 })
 
 // ─── Sessions / leeches (live in review.types.ts; cross the wire) ─────────────

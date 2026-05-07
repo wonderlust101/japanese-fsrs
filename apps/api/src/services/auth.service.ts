@@ -5,10 +5,38 @@ import type {
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { redis } from '../db/redis.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 const log = componentLogger('auth.service')
+
+// ─── Cancellation token for /signup → /cancel-signup ──────────────────────────
+
+/** Redis key for an unconfirmed signup's cancellation token. */
+const cancelTokenKey = (userId: string): string => `signup-cancel:${userId}`
+
+/** TTL for the cancellation token. Covers normal OTP-flow window with margin;
+ *  Supabase's own unconfirmed-account expiry is comparable. */
+const CANCEL_TOKEN_TTL_SECONDS = 3600
+
+// ─── Step-up auth helper ──────────────────────────────────────────────────────
+
+/**
+ * Verifies the user's current password by attempting a fresh sign-in. The
+ * service-role client does not carry per-user session state, so the returned
+ * tokens are discarded — this is purely a verification primitive.
+ *
+ * Throws AppError(401, 'Current password is incorrect') on failure. Generic
+ * message regardless of root cause (unknown email, wrong password, locked
+ * account) so the failure mode does not leak account state.
+ */
+async function verifyCurrentPassword(email: string, password: string): Promise<void> {
+  const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password })
+  if (error !== null || data.session === null) {
+    throw new AppError(401, 'Current password is incorrect')
+  }
+}
 
 /**
  * Registers a new user and triggers the 6-digit OTP verification email.
@@ -50,7 +78,7 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
       // policy above. Logging it would re-leak in the log layer what the
       // wire response was hardened to hide.
       log.info('signup attempt on existing email')
-      return { email: input.email, userId: null }
+      return { email: input.email, userId: null, cancellationToken: null }
     }
     log.error({ err: { name: error.name, message: error.message } }, 'signup failed')
     throw new AppError(400, 'Signup failed')
@@ -60,26 +88,52 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
   // duplicate case from a different code path. Treat it identically.
   if (data.user === null) {
     log.info('signup returned null user (already-confirmed email)')
-    return { email: input.email, userId: null }
+    return { email: input.email, userId: null, cancellationToken: null }
   }
 
-  return { email: data.user.email ?? input.email, userId: data.user.id }
+  // Issue a one-time cancellation token paired with the new userId. A leaked
+  // userId alone (e.g. via a screenshot of the response) is no longer
+  // sufficient to delete the in-flight signup; the matching token must also
+  // be presented at /cancel-signup. Stored in Redis with a 1h TTL.
+  const cancellationToken = crypto.randomUUID()
+  await redis.set(cancelTokenKey(data.user.id), cancellationToken, { ex: CANCEL_TOKEN_TTL_SECONDS })
+
+  return {
+    email: data.user.email ?? input.email,
+    userId: data.user.id,
+    cancellationToken,
+  }
 }
 
 /**
  * Deletes an unconfirmed user when they abandon the OTP verification step.
- * Silently no-ops if the user does not exist or has already confirmed their
- * email — this prevents the endpoint from being used to delete real accounts.
+ * Silently no-ops if the user does not exist, has already confirmed their
+ * email, or the cancellation token does not match — this prevents the endpoint
+ * from being used to delete real accounts AND closes the third-party-DoS
+ * vector where a leaked userId could trigger deletion of an in-flight signup.
  */
 export async function cancelSignup(input: CancelSignupInput): Promise<void> {
+  // Token check first. A wrong token must not produce a different
+  // observable behaviour from a valid-but-unknown userId.
+  const storedToken = await redis.get<string>(cancelTokenKey(input.userId))
+  if (storedToken !== input.cancellationToken) return
+
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(input.userId)
 
-  if (error !== null || data.user === null) return
+  if (error !== null || data.user === null) {
+    // Token matched something stale; clear it.
+    await redis.del(cancelTokenKey(input.userId))
+    return
+  }
 
   // Guard: never delete an account that has already been confirmed.
-  if (data.user.email_confirmed_at !== null && data.user.email_confirmed_at !== undefined) return
+  if (data.user.email_confirmed_at !== null && data.user.email_confirmed_at !== undefined) {
+    await redis.del(cancelTokenKey(input.userId))
+    return
+  }
 
   await supabaseAdmin.auth.admin.deleteUser(input.userId)
+  await redis.del(cancelTokenKey(input.userId))
 }
 
 /**
@@ -185,11 +239,41 @@ export async function signOut(jwt: string): Promise<void> {
 }
 
 /**
+ * Updates the user's password after step-up verification of the current one.
+ * The current-password check protects against session-token compromise being
+ * escalated to permanent account takeover (see security audit FIND-001).
+ */
+export async function changePassword(
+  userId:          string,
+  email:           string,
+  currentPassword: string,
+  newPassword:     string,
+): Promise<void> {
+  await verifyCurrentPassword(email, currentPassword)
+
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword })
+  if (error !== null) {
+    throw dbError('change password', error)
+  }
+
+  log.info({ userId }, 'password changed')
+}
+
+/**
  * Permanently deletes the user's account and all linked data.
  * The auth.users → profiles cascade chain wipes profile, decks, cards,
  * subscriptions, and review logs in a single Supabase admin call.
+ *
+ * Step-up: requires the current password. Same rationale as changePassword —
+ * a stolen access token must not be enough to nuke the account.
  */
-export async function deleteAccount(userId: string): Promise<void> {
+export async function deleteAccount(
+  userId:          string,
+  email:           string,
+  currentPassword: string,
+): Promise<void> {
+  await verifyCurrentPassword(email, currentPassword)
+
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
   if (error !== null) {

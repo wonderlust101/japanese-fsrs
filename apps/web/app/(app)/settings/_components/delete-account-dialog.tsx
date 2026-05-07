@@ -7,52 +7,63 @@ import { Dialog } from '@/components/ui/Dialog'
 
 interface Props {
   open:      boolean
-  email:     string
   onClose:   () => void
-  onConfirm: () => void | Promise<void>
+  // Receives the typed current password and is responsible for calling the
+  // server action. If onConfirm throws, the dialog stays open and the input
+  // is preserved so the user can retry without retyping everything.
+  onConfirm: (currentPassword: string) => void | Promise<void>
 }
 
-export function DeleteAccountDialog({ open, email, onClose, onConfirm }: Props): React.JSX.Element {
-  const [typed, setTyped]         = useState('')
+export function DeleteAccountDialog({ open, onClose, onConfirm }: Props): React.JSX.Element {
+  const [password, setPassword]     = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const matches = typed.trim().toLowerCase() === email.toLowerCase()
-
   async function handle(): Promise<void> {
-    if (!matches) return
+    if (password.length === 0) return
     setSubmitting(true)
     try {
-      await onConfirm()
+      await onConfirm(password)
+      // Success path — dialog closure is the parent's responsibility (it
+      // navigates away after deletion). Clear local state defensively.
+      setPassword('')
+    } catch {
+      // Parent surfaces the toast; keep dialog open + password preserved
+      // so the user can correct and retry.
     } finally {
       setSubmitting(false)
-      setTyped('')
     }
   }
 
+  function handleClose(): void {
+    setPassword('')
+    onClose()
+  }
+
   return (
-    <Dialog open={open} onClose={onClose} title="Delete account">
+    <Dialog open={open} onClose={handleClose} title="Delete account">
       <div className="space-y-4 text-sm">
         <p className="text-neutral-700">
           This permanently deletes your account, profile, all decks, all cards, and your full review history. <strong>This cannot be undone.</strong>
         </p>
         <p className="text-neutral-700">
-          To confirm, type your email address (<code className="font-mono text-xs text-neutral-900">{email}</code>) below.
+          To confirm, enter your current password.
         </p>
         <input
-          type="text"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          autoComplete="off"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          placeholder="••••••••"
           className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-danger-100"
         />
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" size="sm" onClick={onClose} disabled={submitting}>
+          <Button variant="secondary" size="sm" onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
           <Button
             variant="danger"
             size="sm"
-            disabled={!matches}
+            disabled={password.length === 0}
             loading={submitting}
             onClick={() => void handle()}
           >
