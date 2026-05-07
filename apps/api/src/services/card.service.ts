@@ -389,6 +389,23 @@ export async function createCard(
 ): Promise<ApiCard> {
   await assertDeckOwnership(deckId, userId)
 
+  // Reject parent_card_id pointing to a card the caller doesn't own. Without
+  // this, an attacker who learned a victim's card UUID could create a child
+  // card whose parent_card_id points into the victim's row (security audit
+  // FIND-A-01). Sibling-sync is already user-scoped, so the practical impact
+  // is small, but the integrity gap is worth closing.
+  if (meta.parentCardId !== undefined) {
+    const { data: parent, error: parentError } = await supabaseAdmin
+      .from('cards')
+      .select('id')
+      .eq('id', meta.parentCardId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (parentError !== null || parent === null) {
+      throw new AppError(404, 'Parent card not found')
+    }
+  }
+
   const fsrs = getInitialFsrsState()
 
   const { data, error } = await supabaseAdmin
