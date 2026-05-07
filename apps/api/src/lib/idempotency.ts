@@ -34,17 +34,13 @@ const log = componentLogger('idempotency')
 
 const idempotencyKeySchema = z.string().uuid('Idempotency-Key must be a UUID')
 
-interface ClaimRow {
-  status:        'fresh' | 'replay' | 'conflict' | 'in_flight'
-  stored_status: number | null
-  stored_body:   unknown
-}
-
 const ClaimRowSchema = z.object({
   status:        z.enum(['fresh', 'replay', 'conflict', 'in_flight']),
   stored_status: z.number().nullable(),
   stored_body:   z.unknown(),
 })
+
+type ClaimRow = z.infer<typeof ClaimRowSchema>
 
 export interface IdempotencyResult<T> {
   status: number

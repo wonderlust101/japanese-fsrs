@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
-import { asPayload, narrowRow } from '../lib/db.ts';
+import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
 import { AppError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
@@ -116,33 +116,9 @@ export interface CreateCardMeta {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Raw snake_case row shape returned by SELECT CARD_COLUMNS. Single cast site for DB → domain. */
-export interface CardDbRow {
-  id:              string
-  user_id:         string | null
-  deck_id:         string | null
-  premade_deck_id: string | null
-  layout_type:     LayoutType
-  fields_data:     Record<string, unknown>
-  card_type:       CardType
-  parent_card_id:  string | null
-  tags:            string[]
-  jlpt_level:      JLPTLevel | null
-  state:           State
-  is_suspended:    boolean
-  due:             string
-  stability:       number
-  difficulty:      number
-  elapsed_days:    number
-  scheduled_days:  number
-  learning_steps:  number
-  reps:            number
-  lapses:          number
-  last_review:     string | null
-  version:         number
-  created_at:      string
-  updated_at:      string
-}
+/** Raw snake_case row shape returned by SELECT CARD_COLUMNS. Inferred from
+ *  CardDbRowSchema below — the schema is the single source of truth. */
+export type CardDbRow = z.infer<typeof CardDbRowSchema>
 
 export function toCardRow(raw: CardDbRow): ApiCard {
   return {
@@ -222,7 +198,7 @@ export function toApiCardListItem(raw: CardListDbRow): ApiCardListItem {
 // Module-level Zod schemas for the RPC return shapes consumed below. Mirrors
 // the precedent in analytics.service.ts and review.service.ts: parsed at
 // runtime so any future column-rename surfaces as a clean ZodError instead of
-// a silent type lie via `narrowRow<T>(row: unknown): T`.
+// silently propagating bad data.
 
 /** Master schema mirroring CardDbRow (full SELECT CARD_COLUMNS shape). */
 const CardDbRowSchema = z.object({
@@ -291,6 +267,17 @@ const SimilarCardRpcRowSchema = z.object({
   tags:        z.array(z.string()).nullable(),
   jlpt_level:  jlptLevelEnum.nullable(),
   similarity:  z.number(),
+})
+
+/** Slim direct-read schemas for one-off SELECTs that don't need the full row. */
+const CardFieldsRowSchema = z.object({
+  id:          z.string(),
+  user_id:     z.string().nullable(),
+  fields_data: z.record(z.string(), z.unknown()),
+})
+const PremadeEmbedRowSchema = z.object({
+  id:          z.string(),
+  fields_data: z.record(z.string(), z.unknown()),
 })
 
 // ─── Internal helpers (cont.) ─────────────────────────────────────────────────
@@ -384,7 +371,7 @@ export async function getCard(
     throw new AppError(404, 'Card not found')
   }
 
-  return toCardRow(narrowRow<CardDbRow>(data))
+  return toCardRow(CardDbRowSchema.parse(data))
 }
 
 /**
@@ -435,7 +422,7 @@ export async function createCard(
     throw dbError('create card', error)
   }
 
-  const created = toCardRow(narrowRow<CardDbRow>(data))
+  const created = toCardRow(CardDbRowSchema.parse(data))
 
   // Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
   // network error, malformed fields) must not block card creation.
@@ -602,8 +589,7 @@ export async function regenerateEmbedding(
     throw new AppError(404, 'Card not found')
   }
 
-  interface CardFieldsRow { fields_data: Record<string, unknown> }
-  const cardData = narrowRow<CardFieldsRow>(data)
+  const cardData = CardFieldsRowSchema.parse(data)
   await backfillEmbedding(cardId, userId, cardData.fields_data)
 }
 
@@ -694,8 +680,7 @@ export async function backfillPremadeEmbeddings(): Promise<{
     throw dbError('list premade cards needing embeddings', error)
   }
 
-  interface PremadeEmbedRow { id: string; fields_data: Record<string, unknown> }
-  const rows = narrowRow<PremadeEmbedRow[]>(data ?? [])
+  const rows = z.array(PremadeEmbedRowSchema).parse(data ?? [])
 
   // OpenAI calls stay sequential to respect rate limits; the DB writes are
   // collected and flushed once via bulk_update_card_embeddings.

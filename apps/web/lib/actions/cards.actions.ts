@@ -1,7 +1,5 @@
 'use server'
 
-import { z } from 'zod'
-
 import { apiCall, apiCallSafe } from '@/lib/api/client'
 import {
   ApiCardSchema,
@@ -26,32 +24,20 @@ import {
 
 // ─── Card list ────────────────────────────────────────────────────────────────
 
-const CardListPageSchema = z.object({
-  items:      z.array(ApiCardListItemSchema),
-  nextCursor: z.string().nullable(),
-  hasMore:    z.boolean(),
-})
-
-export interface CardListPage {
-  items:      ApiCardListItem[]
-  nextCursor: string | null
-  hasMore:    boolean
-}
-
-const EMPTY_PAGE: CardListPage = { items: [], nextCursor: null, hasMore: false }
+const EMPTY_PAGE: ApiList<ApiCardListItem> = { items: [], nextCursor: null, hasMore: false }
 
 export async function listCardsAction(
   deckId:  string,
   options: { limit?: number; cursor?: string; status?: CardStatusFilter },
-): Promise<CardListPage> {
+): Promise<ApiList<ApiCardListItem>> {
   const params = new URLSearchParams()
   params.set('limit', String(options.limit ?? 50))
   if (options.cursor !== undefined)                             params.set('cursor', options.cursor)
   if (options.status !== undefined && options.status !== 'all') params.set('status', options.status)
 
-  return apiCallSafe<CardListPage>(
+  return apiCallSafe<ApiList<ApiCardListItem>>(
     `/api/v1/decks/${deckId}/cards?${params.toString()}`,
-    CardListPageSchema,
+    apiListEnvelope(ApiCardListItemSchema),
     {},
     EMPTY_PAGE,
   )

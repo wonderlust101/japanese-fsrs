@@ -1,7 +1,9 @@
+import { z } from 'zod'
+
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
+import { asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import type { JLPTLevel, Profile, UpdateProfileInput } from '@fsrs-japanese/shared-types'
+import { jlptLevelEnum, type Profile, type UpdateProfileInput } from '@fsrs-japanese/shared-types'
 
 export type { Profile }
 
@@ -27,20 +29,24 @@ const PROFILE_COLUMNS = [
 // ─── Internal DB row shape ────────────────────────────────────────────────────
 
 /** Raw snake_case row shape returned by SELECT PROFILE_COLUMNS. Internal —
- *  the boundary type is the camelCase shared `Profile`. */
-interface ProfileDbRow {
-  id:                    string
-  native_language:       string
-  jlpt_target:           JLPTLevel | null
-  study_goal:            string | null
-  daily_new_cards_limit: number
-  daily_review_limit:    number
-  retention_target:      number
-  timezone:              string
-  version:               number
-  created_at:            string
-  updated_at:            string
-}
+ *  the boundary type is the camelCase shared `Profile`. Schema-as-source so
+ *  any column drift surfaces as a ZodError at parse time. */
+const ProfileDbRowSchema = z.object({
+  id:                    z.string(),
+  native_language:       z.string(),
+  jlpt_target:           jlptLevelEnum.nullable(),
+  study_goal:            z.string().nullable(),
+  daily_new_cards_limit: z.number(),
+  daily_review_limit:    z.number(),
+  retention_target:      z.number(),
+  timezone:              z.string(),
+  version:               z.number(),
+  created_at:            z.string(),
+  updated_at:            z.string(),
+})
+type ProfileDbRow = z.infer<typeof ProfileDbRowSchema>
+
+const InterestRowSchema = z.object({ interest: z.string() })
 
 /** Maps a raw DB row + interests array to the camelCase wire-format Profile. */
 function toProfile(raw: ProfileDbRow, interests: string[]): Profile {
@@ -68,7 +74,7 @@ async function fetchInterests(userId: string): Promise<string[]> {
     .select('interest')
     .eq('user_id', userId)
   if (error !== null) throw dbError('fetch user interests', error)
-  return (data ?? []).map((r) => (r as { interest: string }).interest)
+  return z.array(InterestRowSchema).parse(data ?? []).map((r) => r.interest)
 }
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -96,7 +102,7 @@ export async function getProfile(userId: string): Promise<Profile> {
     throw new AppError(404, 'Profile not found')
   }
 
-  return toProfile(narrowRow<ProfileDbRow>(profileResult.data), interests)
+  return toProfile(ProfileDbRowSchema.parse(profileResult.data), interests)
 }
 
 /**

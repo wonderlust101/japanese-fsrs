@@ -3,6 +3,7 @@ import {
   generatorParameters,
   createEmptyCard,
   Rating,
+  State,
   type FSRS as TsFsrsInstance,
   type Card as TsFsrsCard,
   type CardInput,
@@ -10,7 +11,6 @@ import {
   type ReviewLogInput,
   type FSRSHistory,
   type Grade,
-  type State,
 } from 'ts-fsrs'
 
 import {
@@ -26,13 +26,13 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { env }           from '../lib/env.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
+import { asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
 // Per-row return shape from process_review_batch. Validated at runtime so a
-// future signature drift surfaces as a ZodError instead of silently passing
-// through `narrowRow`. Mirrors DashboardRpcEnvelopeSchema in analytics.service.
+// future signature drift surfaces as a ZodError. Mirrors
+// DashboardRpcEnvelopeSchema in analytics.service.
 
 const BatchResultRowSchema = z.object({
   card_id:        z.string(),
@@ -116,47 +116,49 @@ const FSRS_SELECT_COLUMNS = [
   'last_review',
 ].join(', ')
 
-/** Row shape returned by the SELECT above. */
-interface FsrsCardRow {
-  id: string
-  user_id: string | null
-  card_type: string
-  state: State
-  is_suspended: boolean
-  due: string
-  stability: number
-  difficulty: number
-  elapsed_days: number
-  scheduled_days: number
-  learning_steps: number
-  reps: number
-  lapses: number
-  last_review: string | null
-}
+/** Row shape returned by the SELECT above. Schema-as-source so a column drift
+ *  surfaces as a ZodError at parse time rather than a silent type mismatch. */
+const FsrsCardRowSchema = z.object({
+  id:             z.string(),
+  user_id:        z.string().nullable(),
+  card_type:      z.string(),
+  state:          z.nativeEnum(State),
+  is_suspended:   z.boolean(),
+  due:            z.string(),
+  stability:      z.number(),
+  difficulty:     z.number(),
+  elapsed_days:   z.number(),
+  scheduled_days: z.number(),
+  learning_steps: z.number(),
+  reps:           z.number(),
+  lapses:         z.number(),
+  last_review:    z.string().nullable(),
+})
+type FsrsCardRow = z.infer<typeof FsrsCardRowSchema>
 
 /** review_logs row shape — includes before-snapshot columns added in migration 20260502000001. */
-interface ReviewLogRow {
-  id: string
-  card_id: string
-  user_id: string
-  rating: string
-  review_time_ms: number | null
-  stability_after: number
-  difficulty_after: number
-  due_after: string
-  scheduled_days_after: number
-  reviewed_at: string
-  state_before: number | null
-  stability_before: number | null
-  difficulty_before: number | null
-  due_before: string | null
-  scheduled_days_before: number | null
-  learning_steps_before: number | null
-  elapsed_days_before: number | null
-  last_review_before: string | null
-  reps_before: number | null
-  lapses_before: number | null
-}
+const ReviewLogRowSchema = z.object({
+  id:                    z.string(),
+  card_id:               z.string(),
+  user_id:               z.string(),
+  rating:                z.string(),
+  review_time_ms:        z.number().nullable(),
+  stability_after:       z.number(),
+  difficulty_after:      z.number(),
+  due_after:             z.string(),
+  scheduled_days_after:  z.number(),
+  reviewed_at:           z.string(),
+  state_before:          z.number().nullable(),
+  stability_before:      z.number().nullable(),
+  difficulty_before:     z.number().nullable(),
+  due_before:            z.string().nullable(),
+  scheduled_days_before: z.number().nullable(),
+  learning_steps_before: z.number().nullable(),
+  elapsed_days_before:   z.number().nullable(),
+  last_review_before:    z.string().nullable(),
+  reps_before:           z.number().nullable(),
+  lapses_before:         z.number().nullable(),
+})
 
 // Column projections for review_logs SELECTs. Avoid select('*') so payload
 // scales with `ReviewLogRow` (the type) rather than the full row width.
@@ -188,10 +190,10 @@ const REVIEW_LOG_FULL_COLUMNS = [
  *  with long review history. */
 const REVIEW_LOG_HISTORY_COLUMNS = 'rating, reviewed_at'
 
-interface ReviewLogHistoryRow {
-  rating:      string
-  reviewed_at: string
-}
+const ReviewLogHistoryRowSchema = z.object({
+  rating:      z.string(),
+  reviewed_at: z.string(),
+})
 
 /** Convert a DB card row to the CardInput shape ts-fsrs expects. */
 function buildFsrsCard(row: FsrsCardRow): CardInput {
@@ -274,7 +276,7 @@ export async function processReview(
     throw new AppError(404, 'Card not found')
   }
 
-  const row = narrowRow<FsrsCardRow>(data)
+  const row = FsrsCardRowSchema.parse(data)
 
   if (row.user_id === null) {
     throw new AppError(403, 'Cannot review a premade source card')
@@ -376,10 +378,7 @@ export async function processReviewBatch(
   }
 
   const cardMap = new Map<string, FsrsCardRow>(
-    (cardData ?? []).map((row) => {
-      const r = narrowRow<FsrsCardRow>(row)
-      return [r.id, r]
-    }),
+    z.array(FsrsCardRowSchema).parse(cardData ?? []).map((r) => [r.id, r]),
   )
 
   // RPC payload row mirrors the per-review fields process_review takes,
@@ -538,8 +537,8 @@ export async function rollbackReview(
     throw new AppError(404, 'Review log not found')
   }
 
-  const row = narrowRow<FsrsCardRow>(cardResult.data)
-  const log = narrowRow<ReviewLogRow>(logResult.data)
+  const row = FsrsCardRowSchema.parse(cardResult.data)
+  const log = ReviewLogRowSchema.parse(logResult.data)
 
   if (
     log.state_before      === null ||
@@ -625,7 +624,7 @@ export async function forgetCard(
     throw new AppError(404, 'Card not found')
   }
 
-  const row = narrowRow<FsrsCardRow>(data)
+  const row = FsrsCardRowSchema.parse(data)
 
   if (row.user_id === null) {
     throw new AppError(403, 'Cannot reset a premade source card')
@@ -742,8 +741,8 @@ export async function rescheduleFromHistory(
     throw dbError('fetch review logs', logsResult.error)
   }
 
-  const row = narrowRow<FsrsCardRow>(cardResult.data)
-  const logs = narrowRow<ReviewLogHistoryRow[]>(logsResult.data ?? [])
+  const row = FsrsCardRowSchema.parse(cardResult.data)
+  const logs = z.array(ReviewLogHistoryRowSchema).parse(logsResult.data ?? [])
 
   if (logs.length === 0) {
     throw new AppError(409, 'No eligible review logs to reschedule from')

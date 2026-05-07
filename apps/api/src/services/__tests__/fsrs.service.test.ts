@@ -127,16 +127,30 @@ describe('fsrs.service — rollbackReview', () => {
       cards: { data: cardRow, error: null },
       review_logs: {
         // Pre-migration log: state_before is null even though card_id matches.
+        // Full ReviewLogRowSchema shape — every required field is present
+        // (after-fields populated with dummy non-nulls; before-fields nulled
+        // out to exercise the rollback-not-possible branch).
         data: {
           id: 'log-1',
           card_id: 'card-1',
           user_id: 'user-1',
           rating: 'good',
+          review_time_ms: null,
+          stability_after: 5,
+          difficulty_after: 3,
+          due_after: new Date().toISOString(),
+          scheduled_days_after: 1,
           reviewed_at: new Date().toISOString(),
           state_before: null,
-          due_before: null,
           stability_before: null,
           difficulty_before: null,
+          due_before: null,
+          scheduled_days_before: null,
+          learning_steps_before: null,
+          elapsed_days_before: null,
+          last_review_before: null,
+          reps_before: null,
+          lapses_before: null,
         },
         error: null,
       },

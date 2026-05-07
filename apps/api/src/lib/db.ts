@@ -1,20 +1,15 @@
 /**
- * Boundary helpers for supabase-js.
+ * Boundary helper for supabase-js.
  *
- * supabase-js cannot infer row shapes when `.select()` is built at runtime
- * (e.g. `[...].join(', ')` to centralize column projections). It also types
- * `.update()` / `.insert()` / `.rpc()` payloads with exact-property checks
- * derived from the generated `Database` types, which reject our snake_case
- * partial patches even when shape-compatible at runtime.
+ * supabase-js types `.update()` / `.insert()` / `.rpc()` payloads with exact-
+ * property checks derived from the generated `Database` types, which reject
+ * snake_case partial patches built dynamically at runtime even when they're
+ * shape-compatible.
  *
- * Use these helpers instead of inline `as unknown as T` / `as never` so the
- * boundary is documented in one place.
+ * Inbound paths (rows returned from `.select()` / `.rpc()`) are validated at
+ * runtime via Zod schemas in each service file — there is no `narrowRow`
+ * type-only escape hatch. Outbound payloads use `asPayload` below.
  */
-
-/** Cast a Supabase row of unknown shape to a manually-maintained DB row interface. */
-export function narrowRow<T>(row: unknown): T {
-  return row as T
-}
 
 /** Coerce an update / insert / RPC payload to `never` to bypass over-strict generated types. */
 export function asPayload<T>(payload: T): never {

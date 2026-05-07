@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
+import { asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
   State,
   deckTypeEnum,
-  type ApiDeck, type ApiDeckWithStats, type ApiList, type DeckType,
+  type ApiDeck, type ApiDeckWithStats, type ApiList,
   type CreateDeckInput, type UpdateDeckInput,
 } from '@fsrs-japanese/shared-types'
 
@@ -29,22 +29,15 @@ const DECK_COLUMNS = [
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-interface DeckDbRow {
-  id:                string
-  name:              string
-  description:       string | null
-  deck_type:         DeckType
-  is_premade_fork:   boolean
-  source_premade_id: string | null
-  card_count:        number
-  version:           number
-  created_at:        string
-  updated_at:        string
-}
+/** Raw snake_case deck row. Inferred from DeckListRpcRowSchema (the schema
+ *  is shared between the list_decks_paginated RPC and direct .from('decks')
+ *  reads, since the column projections match). */
+type DeckDbRow = z.infer<typeof DeckListRpcRowSchema>
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
 // Mirrors the analytics.service.ts / review.service.ts precedent: parse the
-// RPC result so any future column drift surfaces as a clean ZodError.
+// RPC result so any future column drift surfaces as a clean ZodError. Shared
+// with direct .from('decks').select(...) reads.
 const DeckListRpcRowSchema = z.object({
   id:                z.string(),
   name:              z.string(),
@@ -56,6 +49,13 @@ const DeckListRpcRowSchema = z.object({
   version:           z.number(),
   created_at:        z.string(),
   updated_at:        z.string(),
+})
+
+/** Slim projection used by deleteDeck to detect premade-fork ownership. */
+const DeckOwnerRowSchema = z.object({
+  id:                z.string(),
+  is_premade_fork:   z.boolean(),
+  source_premade_id: z.string().nullable(),
 })
 
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
@@ -150,7 +150,7 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
   }
 
   return {
-    ...toRow(narrowRow<DeckDbRow>(deckResult.data)),
+    ...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
     dueCount: dueResult.count ?? 0,
     newCount: newResult.count ?? 0,
   }
@@ -177,7 +177,7 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
     throw dbError('create deck', error)
   }
 
-  return toRow(narrowRow<DeckDbRow>(data))
+  return toRow(DeckListRpcRowSchema.parse(data))
 }
 
 /**
@@ -241,7 +241,7 @@ async function getDeckRow(deckId: string, userId: string): Promise<ApiDeck> {
   if (error !== null || data === null) {
     throw new AppError(404, 'Deck not found')
   }
-  return toRow(narrowRow<DeckDbRow>(data))
+  return toRow(DeckListRpcRowSchema.parse(data))
 }
 
 /**
@@ -256,12 +256,6 @@ async function getDeckRow(deckId: string, userId: string): Promise<ApiDeck> {
  * Throws 404 if the deck does not exist or does not belong to the user.
  */
 export async function deleteDeck(deckId: string, userId: string): Promise<void> {
-  interface DeckOwnerRow {
-    id:                string
-    is_premade_fork:   boolean
-    source_premade_id: string | null
-  }
-
   const { data, error: fetchError } = await supabaseAdmin
     .from('decks')
     .select('id, is_premade_fork, source_premade_id')
@@ -273,7 +267,7 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
     throw new AppError(404, 'Deck not found')
   }
 
-  const deck = narrowRow<DeckOwnerRow>(data)
+  const deck = DeckOwnerRowSchema.parse(data)
 
   // Premade fork → use the unsubscribe path so deck + subscription delete
   // atomically (via the unsubscribe_from_premade_deck RPC).

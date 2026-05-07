@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
-import { narrowRow, asPayload } from '../lib/db.ts'
+import { asPayload } from '../lib/db.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
@@ -14,8 +14,6 @@ import {
   type ApiPremadeDeck,
   type ApiPremadeSubscription,
   type ApiSubscribeResult,
-  type DeckType,
-  type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -36,23 +34,15 @@ const PREMADE_COLUMNS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface PremadeDeckDbRow {
-  id:          string
-  name:        string
-  description: string | null
-  deck_type:   DeckType
-  jlpt_level:  JLPTLevel | null
-  domain:      string | null
-  card_count:  number
-  version:     number
-  is_active:   boolean
-  created_at:  string
-  updated_at:  string
-}
+/** Raw snake_case premade-deck row. Inferred from PremadeDeckListRpcRowSchema
+ *  (the schema is shared between the list_premade_decks_paginated RPC and
+ *  direct .from('premade_decks') reads). */
+type PremadeDeckDbRow = z.infer<typeof PremadeDeckListRpcRowSchema>
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
-// Mirrors the analytics / review precedent: parse the RPC result so any
-// future column drift surfaces as a clean ZodError.
+// Mirrors the analytics / review precedent: parse the RPC result so any future
+// column drift surfaces as a clean ZodError. Shared with direct
+// .from('premade_decks').select(...) reads.
 const PremadeDeckListRpcRowSchema = z.object({
   id:          z.string(),
   name:        z.string(),
@@ -65,6 +55,19 @@ const PremadeDeckListRpcRowSchema = z.object({
   is_active:   z.boolean(),
   created_at:  z.string(),
   updated_at:  z.string(),
+})
+
+/** Slim direct-read schemas used by listSubscriptionsRaw. */
+const SubscriptionDbRowSchema = z.object({
+  id:              z.string(),
+  premade_deck_id: z.string(),
+  subscribed_at:   z.string(),
+})
+const PremadeNameRowSchema = z.object({ id: z.string(), name: z.string() })
+const ForkedDeckRowSchema = z.object({
+  id:                z.string(),
+  source_premade_id: z.string(),
+  card_count:        z.number(),
 })
 
 function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
@@ -131,7 +134,7 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
     throw new AppError(404, 'Premade deck not found')
   }
 
-  return toPremadeRow(narrowRow<PremadeDeckDbRow>(data))
+  return toPremadeRow(PremadeDeckListRpcRowSchema.parse(data))
 }
 
 /**
@@ -152,8 +155,7 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
     throw dbError('list subscriptions', subsError)
   }
 
-  interface SubscriptionDbRow { id: string; premade_deck_id: string; subscribed_at: string }
-  const rows = narrowRow<SubscriptionDbRow[]>(subs ?? [])
+  const rows = z.array(SubscriptionDbRowSchema).parse(subs ?? [])
   if (rows.length === 0) return []
 
   const premadeIds = rows.map((r) => r.premade_deck_id)
@@ -178,15 +180,12 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
     throw dbError('load forked decks', decksResult.error)
   }
 
-  interface PremadeNameRow { id: string; name: string }
-  interface ForkedDeckRow  { id: string; source_premade_id: string; card_count: number }
-
   const nameById  = new Map<string, string>(
-    narrowRow<PremadeNameRow[]>(premadeDecksResult.data ?? [])
+    z.array(PremadeNameRowSchema).parse(premadeDecksResult.data ?? [])
       .map((p) => [p.id, p.name]),
   )
   const deckBySrc = new Map<string, { id: string; cardCount: number }>(
-    narrowRow<ForkedDeckRow[]>(decksResult.data ?? [])
+    z.array(ForkedDeckRowSchema).parse(decksResult.data ?? [])
       .map((d) => [d.source_premade_id, { id: d.id, cardCount: d.card_count }]),
   )
 
@@ -220,8 +219,7 @@ export async function listSubscriptions(
 }
 
 // RPC envelope schema for subscribe_to_premade_deck. Validated at runtime via
-// .parse() so a future signature drift surfaces as a ZodError instead of
-// silently passing through `narrowRow`.
+// .parse() so a future signature drift surfaces as a ZodError.
 const SubscribeRpcRowSchema = z.object({
   subscription_id: z.string(),
   deck_id:         z.string(),

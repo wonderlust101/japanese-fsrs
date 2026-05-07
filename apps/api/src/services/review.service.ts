@@ -19,8 +19,7 @@ import type {
 // ─── RPC envelope schemas ─────────────────────────────────────────────────────
 // Module-level Zod schemas for the RPC return shapes consumed below. Mirrors
 // the DashboardRpcEnvelopeSchema precedent in analytics.service.ts: parsed at
-// runtime so any future shape drift surfaces as a clean ZodError instead of
-// a silent type lie via `narrowRow<T>(row: unknown): T`.
+// runtime so any future shape drift surfaces as a clean ZodError.
 
 const ForecastRpcRowSchema = z.object({
   date:  z.string(),
