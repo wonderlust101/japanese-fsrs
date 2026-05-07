@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Library, BookOpen, BarChart2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { OfflineQueueBadge } from './offline-queue-badge'
+
 interface Tab {
   href: string
   label: string
@@ -38,7 +40,10 @@ export function MobileBottomBar(): React.JSX.Element {
               active ? 'text-primary-600' : 'text-neutral-500 hover:text-neutral-800',
             ].join(' ')}
           >
-            <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
+            <span className="relative inline-flex">
+              <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
+              {href === '/review' && <OfflineQueueBadge floating />}
+            </span>
             {label}
           </Link>
         )

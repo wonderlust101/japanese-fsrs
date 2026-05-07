@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button }            from '@/components/ui/Button'
 import { useDueCards, useReviewForecast } from '@/lib/api/reviews'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
+import { OfflineQueueBanner } from './_components/offline-queue-banner'
 
 export default function ReviewHubPage(): React.JSX.Element {
   const router = useRouter()
@@ -24,6 +25,7 @@ export default function ReviewHubPage(): React.JSX.Element {
 
   return (
     <div className="flex flex-col items-center px-4 py-12 gap-8 max-w-xl mx-auto">
+      <OfflineQueueBanner />
       <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-8 flex flex-col items-center gap-4">
         <p className="text-5xl font-bold text-neutral-900">
           {loadingDue ? '—' : dueCards.length}

@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useRef }                    from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query'
 
 import { queryKeys }  from './queryKeys'
-import { offlineQueue } from '../offline-queue'
+import { offlineQueue, MAX_ATTEMPTS } from '../offline-queue'
 import {
   submitReviewAction,
   submitBatchAction,
@@ -73,28 +73,108 @@ export function useSessionSummary(sessionId: string | null): UseQueryResult<Sess
   })
 }
 
+/**
+ * Drains the offline queue exactly once per mount, unless the queue has
+ * tipped into the "stuck" state (5+ consecutive failed attempts). When stuck,
+ * auto-drain skips and the user must explicitly tap "Retry now" via the
+ * `useOfflineQueueStatus` hook to clear the flag and try again.
+ */
 export function useOfflineSync(): void {
   const flushedRef = useRef(false)
 
   useEffect(() => {
-    if (flushedRef.current || offlineQueue.size() === 0) return
+    if (flushedRef.current) return
+    if (offlineQueue.isStuck()) return
+    if (offlineQueue.size() === 0) return
     flushedRef.current = true
 
-    const { reviews, batchKey } = offlineQueue.drainBatch()
-    if (reviews.length === 0) return
-
-    // Strip queue-only metadata (queuedAt, idempotencyKey) before sending —
-    // the wire format is SubmitReviewInput. The batch idempotency key is
-    // sent in the header; per-entry keys stay in localStorage so a re-queue
-    // after a failed batch preserves them.
-    const wireReviews: SubmitReviewInput[] = reviews.map((r) => ({
-      cardId:       r.cardId,
-      rating:       r.rating,
-      reviewTimeMs: r.reviewTimeMs,
-    }))
-
-    void submitBatchAction(wireReviews, batchKey)
-      .then(() => offlineQueue.confirmBatch())
-      .catch(() => offlineQueue.replayBatch(reviews))
+    void runOfflineDrain()
   }, [])
+}
+
+/** Single-flight drain shared by useOfflineSync (auto) and retryNow (manual). */
+async function runOfflineDrain(): Promise<void> {
+  const { reviews, batchKey } = offlineQueue.drainBatch()
+  if (reviews.length === 0) return
+
+  // Strip queue-only metadata (queuedAt, idempotencyKey) before sending —
+  // the wire format is SubmitReviewInput. The batch idempotency key is
+  // sent in the header; per-entry keys stay in localStorage so a re-queue
+  // after a failed batch preserves them.
+  const wireReviews: SubmitReviewInput[] = reviews.map((r) => ({
+    cardId:       r.cardId,
+    rating:       r.rating,
+    reviewTimeMs: r.reviewTimeMs,
+  }))
+
+  try {
+    await submitBatchAction(wireReviews, batchKey)
+    offlineQueue.confirmBatch()
+  } catch {
+    offlineQueue.replayBatch(reviews)
+    offlineQueue.recordFailure()
+  }
+}
+
+/**
+ * Reactive view of the offline queue: count of pending entries and whether
+ * the queue has hit the stuck threshold. `retryNow` and `discardPending`
+ * back the buttons in the stuck-state banner.
+ */
+export interface OfflineQueueStatus {
+  count:           number
+  attempts:        number
+  stuck:           boolean
+  retryNow:        () => void
+  discardPending:  () => void
+}
+
+interface QueueSnapshot {
+  count:    number
+  attempts: number
+}
+
+const SERVER_SNAPSHOT: QueueSnapshot = { count: 0, attempts: 0 }
+let cachedSnapshot: QueueSnapshot = SERVER_SNAPSHOT
+
+function getSnapshot(): QueueSnapshot {
+  const next: QueueSnapshot = {
+    count:    offlineQueue.size(),
+    attempts: offlineQueue.attempts(),
+  }
+  // Stable identity — useSyncExternalStore re-renders only when reference changes.
+  if (cachedSnapshot.count === next.count && cachedSnapshot.attempts === next.attempts) {
+    return cachedSnapshot
+  }
+  cachedSnapshot = next
+  return next
+}
+
+function getServerSnapshot(): QueueSnapshot {
+  return SERVER_SNAPSHOT
+}
+
+export function useOfflineQueueStatus(): OfflineQueueStatus {
+  const snapshot = useSyncExternalStore(
+    (listener) => offlineQueue.subscribe(listener),
+    getSnapshot,
+    getServerSnapshot,
+  )
+
+  const retryNow = useCallback(() => {
+    offlineQueue.resetAttempts()
+    void runOfflineDrain()
+  }, [])
+
+  const discardPending = useCallback(() => {
+    offlineQueue.clear()
+  }, [])
+
+  return {
+    count:    snapshot.count,
+    attempts: snapshot.attempts,
+    stuck:    snapshot.attempts >= MAX_ATTEMPTS,
+    retryNow,
+    discardPending,
+  }
 }

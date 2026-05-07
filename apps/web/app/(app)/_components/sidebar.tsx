@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { signOutAction } from '@/lib/actions/auth.actions'
 import { cn } from '@/lib/utils'
+import { OfflineQueueBadge } from './offline-queue-badge'
 
 interface NavItem {
   href: string
@@ -22,7 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/analytics', label: 'Analytics', Icon: BarChart2 },
 ]
 
-function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
+function NavLink({ href, label, Icon, active, trailing }: NavItem & { active: boolean; trailing?: React.ReactNode }) {
   return (
     <Link
       href={href}
@@ -35,7 +36,8 @@ function NavLink({ href, label, Icon, active }: NavItem & { active: boolean }) {
       )}
     >
       <Icon size={18} strokeWidth={1.5} aria-hidden="true" />
-      {label}
+      <span>{label}</span>
+      {trailing}
     </Link>
   )
 }
@@ -71,6 +73,7 @@ export function Sidebar({ user }: { user: User | null }): React.JSX.Element {
             key={item.href}
             {...item}
             active={pathname === item.href || pathname.startsWith(item.href + '/')}
+            trailing={item.href === '/review' ? <OfflineQueueBadge /> : undefined}
           />
         ))}
       </nav>
