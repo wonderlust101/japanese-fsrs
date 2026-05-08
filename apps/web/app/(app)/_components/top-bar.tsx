@@ -1,8 +1,38 @@
-// Contextual page header. Each (app) page renders its own <TopBar> with
-// page-specific content (title, actions, breadcrumbs). Not a global element.
+'use client'
+
+import { Logo } from '@/components/ui/Logo'
+import { useMobileNavStore } from '@/stores/useMobileNavStore'
+
+import { OfflineQueueBadge } from './offline-queue-badge'
+
+/**
+ * Per-page chrome rendered by every (app) page via <TopBar>{title/actions}</TopBar>.
+ *
+ * On mobile (< lg) the bar carries the global chrome (hamburger + brand mark)
+ * in addition to whatever the page declares as children. The hamburger opens
+ * the MobileDrawer; the floating OfflineQueueBadge attached to it preserves
+ * offline-queue visibility from the retired bottom bar.
+ *
+ * On desktop (lg+) the sidebar handles brand and nav, so this bar collapses
+ * to just the page-declared children.
+ */
 export function TopBar({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const open = useMobileNavStore((s) => s.open)
+
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-14 bg-warm-paper-raised/95 backdrop-blur-sm border-b border-soft-hairline shrink-0">
+    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-14 bg-cream-inset border-b border-soft-hairline shrink-0">
+      <button
+        type="button"
+        onClick={open}
+        aria-label="Open menu"
+        className="lg:hidden relative flex items-center justify-center w-10 h-10 -ml-2 rounded-md text-sumi-ink hover:bg-soft-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
+      >
+        <span aria-hidden="true" className="text-xl leading-none">☰</span>
+        <OfflineQueueBadge floating />
+      </button>
+
+      <Logo size={22} wordmarkSize="sm" className="lg:hidden" />
+
       {children}
     </header>
   )
