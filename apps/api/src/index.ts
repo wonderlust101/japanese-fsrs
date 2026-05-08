@@ -11,6 +11,33 @@ const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'API server listening')
 })
 
+// Catch listen-time errors (EADDRINUSE on a hot redeploy, EACCES on a low
+// port) before they bubble as uncaughtException — without this listener
+// the process crashes before any structured log line is written.
+server.on('error', (err) => {
+  logger.fatal({ err: { name: err.name, message: err.message }, port: env.PORT }, 'HTTP server error')
+  process.exit(1)
+})
+
+// Defence-in-depth: every floating promise in apps/api/src is currently
+// guarded (audit 2026-05-07), but any future regression should produce a
+// structured pino line instead of Node's default stderr dump so log
+// aggregators can correlate the crash with surrounding request lines.
+process.on('unhandledRejection', (reason) => {
+  logger.fatal(
+    { reason: reason instanceof Error
+        ? { name: reason.name, message: reason.message, stack: reason.stack }
+        : { detail: String(reason) } },
+    'unhandled promise rejection',
+  )
+  process.exit(1)
+})
+
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err: { name: err.name, message: err.message, stack: err.stack } }, 'uncaught exception')
+  process.exit(1)
+})
+
 // Slow-loris hardening. Cap a single in-flight request to 30s of total wall
 // time so a half-open connection that drips bytes can't park a worker
 // indefinitely. Belt-and-braces: most deployment platforms (Vercel/Fly)

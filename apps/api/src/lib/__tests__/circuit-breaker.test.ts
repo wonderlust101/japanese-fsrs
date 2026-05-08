@@ -190,8 +190,10 @@ describe('withBreaker — fn failure', () => {
     })
 
     await expect(promise).rejects.toBeInstanceOf(AppError)
-    // Failure still recorded (any inner throw counts).
-    expect(storedCount).toBe(1)
+    // Deterministic AppError doesn't pollute the breaker counter — retrying
+    // the same request won't fix a config bug, so this throw is excluded
+    // from the failure window.
+    expect(storedCount).toBeNull()
 
     try {
       storedCount = null
@@ -205,6 +207,33 @@ describe('withBreaker — fn failure', () => {
       expect(err).not.toBeInstanceOf(ServiceUnavailableError)
       expect((err as InstanceType<typeof AppError>).statusCode).toBe(500)
       expect((err as InstanceType<typeof AppError>).message).toBe('OPENAI_API_KEY not configured')
+    }
+  })
+
+  it('inner ServiceUnavailableError is propagated AND records failure', async () => {
+    // ServiceUnavailableError extends AppError, so the skip-AppError clause
+    // in withBreaker would over-match without the explicit subclass check.
+    // This test locks that down: SUE thrown directly by the inner fn must
+    // still count against the breaker because it IS the degradation signal.
+    const promise = withBreaker('test', 'service down', async () => {
+      throw new ServiceUnavailableError('upstream tipped over', 60)
+    })
+
+    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
+    expect(storedCount).toBe(1)
+
+    try {
+      storedCount = null
+      storedTtl   = -2
+      await withBreaker('test', 'service down', async () => {
+        throw new ServiceUnavailableError('upstream tipped over', 60)
+      })
+    } catch (err) {
+      // The original SUE is propagated unwrapped — its retryAfterSeconds (60)
+      // is preserved, NOT replaced with INLINE_RETRY_AFTER_SECONDS (30).
+      expect(err).toBeInstanceOf(ServiceUnavailableError)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(60)
+      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('upstream tipped over')
     }
   })
 })

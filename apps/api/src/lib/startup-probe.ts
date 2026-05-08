@@ -39,18 +39,15 @@ export async function probeOpenAIEmbeddingDimension(): Promise<void> {
   // the probe behaviour.
   const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 10_000 })
 
-  let dim: number
+  // Narrow try: only the SDK call should be downgraded to warn-and-continue.
+  // The post-response logic (data-shape checks, dim read) shouldn't be silently
+  // swallowed if it ever throws — that would be a bug, not a transient outage.
+  let response: Awaited<ReturnType<typeof client.embeddings.create>>
   try {
-    const response = await client.embeddings.create({
+    response = await client.embeddings.create({
       model: env.OPENAI_EMBEDDING_MODEL,
       input: 'probe',
     })
-    const first = response.data[0]
-    if (first === undefined) {
-      log.warn('embedding probe returned no data; continuing startup')
-      return
-    }
-    dim = first.embedding.length
   } catch (err) {
     log.warn(
       {
@@ -62,6 +59,14 @@ export async function probeOpenAIEmbeddingDimension(): Promise<void> {
     )
     return
   }
+
+  const first = response.data[0]
+  if (first === undefined) {
+    log.warn('embedding probe returned no data; continuing startup')
+    return
+  }
+
+  const dim = first.embedding.length
 
   if (dim !== REQUIRED_EMBEDDING_DIM) {
     log.fatal(

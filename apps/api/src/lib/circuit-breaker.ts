@@ -100,10 +100,16 @@ export async function getRetryAfterSeconds(name: string): Promise<number> {
  *     where `ttl` is the remaining failure-window seconds. `fn` is not run.
  *   - Inner success → records success (closes the breaker if it was open),
  *     returns `fn`'s value.
- *   - Inner throws `AppError`         → records failure, re-throws verbatim.
- *     This preserves intentional 4xx/5xx errors from the inner fn (e.g. an
- *     `AppError(500, 'OPENAI_API_KEY not configured')` is a config bug, not
- *     a transient outage — it should not be wrapped as 503).
+ *   - Inner throws non-`ServiceUnavailableError` `AppError` → re-throws
+ *     verbatim WITHOUT recording a failure. Deterministic application errors
+ *     (e.g. `AppError(500, 'OPENAI_API_KEY not configured')` config bug,
+ *     `AppError(502, 'OpenAI returned an empty response')` upstream malformed
+ *     content) shouldn't trip the breaker because retrying the same request
+ *     won't help — and tripping the breaker on a config error would mask the
+ *     underlying issue by fast-failing every subsequent caller.
+ *   - Inner throws `ServiceUnavailableError` directly → records failure,
+ *     re-throws verbatim (preserves the original `retryAfterSeconds`). This
+ *     IS the breaker's signal of degradation and must count.
  *   - Inner throws anything else (network, ZodError, plain `Error`) →
  *     records failure, wraps as `ServiceUnavailableError(serviceMessage,
  *     INLINE_RETRY_AFTER_SECONDS)`.
@@ -131,6 +137,14 @@ export async function withBreaker<T>(
     await recordSuccess(name)
     return result
   } catch (err) {
+    // Skip the failure record for deterministic AppError throws — they're
+    // not infrastructure outages, just deliberate semantic errors from the
+    // inner fn that retrying won't fix. ServiceUnavailableError extends
+    // AppError, so the second clause is critical: it IS the breaker's
+    // signal of degradation and MUST count.
+    if (err instanceof AppError && !(err instanceof ServiceUnavailableError)) {
+      throw err
+    }
     await recordFailure(name)
     if (err instanceof AppError) throw err
     throw new ServiceUnavailableError(serviceMessage, INLINE_RETRY_AFTER_SECONDS)

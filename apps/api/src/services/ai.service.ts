@@ -180,7 +180,11 @@ Return JSON with these keys:
 
     const raw = response.choices[0]?.message.content
     if (raw === null || raw === undefined) {
-      throw new Error('OpenAI returned an empty response')
+      // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+      // 200 with malformed content. Using AppError (vs plain Error) prevents
+      // withBreaker from counting this against the chat breaker — see the
+      // skip-AppError branch in lib/circuit-breaker.ts.
+      throw new AppError(502, 'OpenAI returned an empty response')
     }
     return GeneratedCardDataSchema.parse(JSON.parse(raw))
   })
@@ -260,7 +264,11 @@ Constraints:
 
     const raw = response.choices[0]?.message.content
     if (raw === null || raw === undefined) {
-      throw new Error('OpenAI returned an empty response')
+      // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+      // 200 with malformed content. Using AppError (vs plain Error) prevents
+      // withBreaker from counting this against the chat breaker — see the
+      // skip-AppError branch in lib/circuit-breaker.ts.
+      throw new AppError(502, 'OpenAI returned an empty response')
     }
     return GeneratedSentencesSchema.parse(JSON.parse(raw))
   })
@@ -335,7 +343,11 @@ Constraints:
 
     const raw = response.choices[0]?.message.content
     if (raw === null || raw === undefined) {
-      throw new Error('OpenAI returned an empty response')
+      // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+      // 200 with malformed content. Using AppError (vs plain Error) prevents
+      // withBreaker from counting this against the chat breaker — see the
+      // skip-AppError branch in lib/circuit-breaker.ts.
+      throw new AppError(502, 'OpenAI returned an empty response')
     }
     return GeneratedMnemonicSchema.parse(JSON.parse(raw))
   })

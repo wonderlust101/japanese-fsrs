@@ -22,8 +22,9 @@ export class AppError extends Error {
   constructor(
     public readonly statusCode: number,
     message: string,
+    options?: { cause?: unknown },
   ) {
-    super(message)
+    super(message, options)
     this.name = 'AppError'
   }
 }
@@ -59,7 +60,7 @@ export class ServiceUnavailableError extends AppError {
  */
 export function dbError(action: string, err: unknown): AppError {
   dbLog.error({ action, err: summarizeDbError(err) }, `${action} failed`)
-  return new AppError(500, `Failed to ${action}`)
+  return new AppError(500, `Failed to ${action}`, { cause: err })
 }
 
 /**
