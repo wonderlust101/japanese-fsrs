@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.ts",
+    "dev": "bun --hot src/index.ts | pino-pretty",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "test": "bun test",
     "typecheck": "tsc --noEmit",

@@ -1,4 +1,4 @@
-# CLAUDE.md (docs/)
+# CLAUDE.md (docs/)og
 
 > **Canonical AI-assistant instructions live in [`/CLAUDE.md`](../CLAUDE.md) at the repo root.**
 >

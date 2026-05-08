@@ -9,80 +9,14 @@
 
 ## Table of Contents
 
-1. [Overview](#1-overview)
-2. [Goals & Success Metrics](#2-goals--success-metrics)
-3. [User Personas](#3-user-personas)
-4. [Feature Breakdown](#4-feature-breakdown)
-5. [Non-Functional Requirements](#5-non-functional-requirements)
-6. [Out of Scope](#6-out-of-scope)
-7. [Appendix: Future Roadmap](#7-appendix-future-roadmap)
+1. [Feature Breakdown](#4-feature-breakdown)
+2. [Non-Functional Requirements](#5-non-functional-requirements)
+3. [Out of Scope](#6-out-of-scope)
+4. [Appendix: Future Roadmap](#7-appendix-future-roadmap)
 
 ---
 
-## 1. Overview
-
-### 1.1 Problem Statement
-
-Existing spaced repetition tools (Anki, Bunpro, jpdb.io, Migaku) treat Japanese as a generic language. They fail to account for the unique layered complexity of Japanese — kanji, readings, pitch accent, register, and the deep interdependencies between vocabulary and grammar. Anki requires heavy manual setup; Bunpro covers grammar but not vocabulary depth; jpdb.io has no AI; Migaku requires complex external tooling. No single tool provides an intelligent, fully integrated Japanese acquisition experience.
-
-### 1.2 Solution
-
-An AI-native spaced repetition application built specifically for Japanese learners. The core engine is an implementation of the FSRS (Free Spaced Repetition Scheduler) algorithm tuned for Japanese-specific review layouts. AI augments every layer — card generation, weakness diagnosis, personalized mnemonics, and contextual sentence creation — in a single, self-contained application.
-
-### 1.3 Target Audience
-
-Japanese learners from beginner (N5) through advanced (post-N1), with particular emphasis on self-study learners who have tried and outgrown Anki's generic approach.
-
----
-
-## 2. Goals & Success Metrics
-
-### 2.1 Product Goals
-
-- Provide the most intelligent and frictionless Japanese SRS experience available
-- Reduce setup time compared to Anki from hours to minutes
-- Surface actionable insights about a learner's weaknesses automatically
-- Cover vocabulary, kanji, grammar, and listening in a single unified platform
-
-### 2.2 Success Metrics
-
-| Metric | Target |
-|---|---|
-| Day-7 retention rate | ≥ 65% of new users still active |
-| Day-30 retention rate | ≥ 40% of new users still active |
-| Average daily review completion rate | ≥ 80% of scheduled reviews completed |
-| Card retention accuracy (target) | ≥ 85% at user-configured retention target |
-| AI-generated card acceptance rate | ≥ 75% of AI-generated cards accepted without edit |
-| Time-to-first-review after signup | ≤ 5 minutes |
-
----
-
-## 3. User Personas
-
-### 3.1 The Frustrated Anki User — *"Kenji"*
-- Has been using Anki for 1–2 years
-- Has thousands of cards but no structured weakness analysis
-- Tired of manual card creation and plugin management
-- Wants intelligence built in, not bolted on
-
-### 3.2 The JLPT Candidate — *"Sofia"*
-- Targeting N3 or N2 within 6–12 months
-- Needs structured alignment to JLPT vocabulary and grammar lists
-- Motivated by clear progress milestones and gap analysis
-
-### 3.3 The Immersion Learner — *"Marcus"*
-- Watches anime and reads manga as primary study method
-- Wants to mine vocabulary from real content efficiently
-- Values example sentences from actual media over textbook Japanese
-
-### 3.4 The Absolute Beginner — *"Yuki"*
-- Just started learning Japanese
-- Overwhelmed by the number of tools and approaches available
-- Needs guidance, sensible defaults, and a clear learning path without configuration
-
----
-
-## 4. Feature Breakdown
+## 1. Feature Breakdown
 
 > **Priority Legend**
 > - 🟢 **P0** — Core, must ship at launch
@@ -91,7 +25,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.1 Core SRS Engine
+### 1.1 Core SRS Engine
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -106,7 +40,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.2 Card & Deck Intelligence
+### 1.2 Card & Deck Intelligence
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -121,7 +55,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.3 AI Learning Features
+### 1.3 AI Learning Features
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -131,7 +65,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.4 Immersion & Mining
+### 1.4 Immersion & Mining
 
 | ID | Feature | Priority | Notes |
 |---|---|---|---|
@@ -144,7 +78,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.5 Grammar Layout & Bridging
+### 1.5 Grammar Layout & Bridging
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -155,7 +89,7 @@ Japanese learners from beginner (N5) through advanced (post-N1), with particular
 
 ---
 
-### 4.6 Premade Decks
+### 1.6 Premade Decks
 
 Premade decks solve the cold-start problem for new users. Instead of arriving at a blank app, users can immediately start reviewing high-quality, curated content.
 
@@ -186,18 +120,7 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 
 ---
 
-### 4.7 Audio & Listening
-
-| ID | Feature | Priority | Notes |
-|---|---|---|---|
-| AUD-01 | Native audio on every card — human samples where available, TTS fallback | 🟢 P0 | |
-| AUD-02 | Listening-first card mode — audio presented before text | 🟢 P0 | |
-| AUD-03 | Audio-only review sessions — no text, pure listening comprehension | 🟡 P1 | |
-| AUD-04 | Shadowing mode — record pronunciation and receive AI pitch accent and phoneme feedback | 🔴 **P2 — Non-Priority** | Deferred; requires audio ML pipeline and careful UX |
-
----
-
-### 4.8 Personalization & Profiles
+### 1.7 Personalization & Profiles
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -208,7 +131,7 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 
 ---
 
-### 4.9 Progress & Analytics
+### 1.8 Progress & Analytics
 
 | ID | Feature | Priority |
 |---|---|---|
@@ -221,83 +144,35 @@ Premade decks solve the cold-start problem for new users. Instead of arriving at
 
 ---
 
-### 4.10 Social & Community
+## 2. Non-Functional Requirements
 
-> All features in this section are **🔴 P2 — Non-Priority** and deferred to a future release. They are documented here for roadmap awareness.
-
-| ID | Feature | Notes |
-|---|---|---|
-| SOC-01 | Shared deck marketplace with quality ratings | Deferred — moderation complexity |
-| SOC-02 | Community mnemonic voting — users submit and upvote mnemonics per card | Deferred — requires user-generated content infrastructure |
-| SOC-03 | Study group streaks and shared accountability | Deferred — social features require critical mass |
-| SOC-04 | Content-linked public decks for specific manga, novels, or shows | Deferred — licensing and maintenance concerns |
-
----
-
-## 5. Non-Functional Requirements
-
-### 5.1 Performance
+### 2.1 Performance
 - Review session load time: ≤ 500ms for first card
 - AI card generation: ≤ 3 seconds per card
 - API response time (p95): ≤ 200ms for non-AI endpoints
 - Offline review capability: users should be able to complete reviews without internet, syncing on reconnect
 
-### 5.2 Reliability
+### 2.2 Reliability
 - Uptime target: 99.9% monthly
 - Review data must never be lost — all review results persisted before UI advances
 - FSRS scheduling state must be consistent across devices
 
-### 5.3 Security
+### 2.3 Security
 - All user data encrypted at rest and in transit
 - JWT-based session management via Supabase Auth; every API request verifies the token server-side — tokens are never trusted without server-side validation
 - Account verification at signup uses a **6-digit OTP sent to the user's email**, entered on the same device and browser where signup was initiated — this prevents the "device breakage" pattern inherent in magic link flows, where opening the link on a different device leaves the user without a session on the device they signed up from
 - Sessions are scoped per-device; logout invalidates only the current device session and does not sign the user out elsewhere
 - No user review data is shared with third parties or used for AI training without explicit opt-in
 
-### 5.4 Accessibility
+### 2.4 Accessibility
 - WCAG 2.1 AA compliance
 - Full keyboard navigation for review sessions
 - Screen reader support for card content and UI chrome
 
-### 5.5 Internationalization
+### 2.5 Internationalization
 - UI language: English at launch
 - All Japanese text rendered correctly across platforms (CJK font fallback stacks)
 - Furigana rendering support throughout the app
 
----
-
-## 6. Out of Scope
-
-The following are explicitly out of scope and will not be considered for any near-term release:
-
-- Native mobile applications (iOS / Android) — web-first only at launch
-- Chinese or Korean SRS support
-- Video content integration or video player
-- Paid tutoring or human review features
-- Automated JLPT test simulation
-- Integration with physical flashcard printing
-
----
 
 *End of PRD v1.3.0*
-
----
-
-## 7. Appendix: Future Roadmap
-
-Features listed here are deferred to v1.4 or beyond to ensure a focused MVP delivery.
-
-| ID | Feature | Status |
-|---|---|---|
-| AI-03 | Confusion pair detection and proactive drilling | Deferred (v1.4) |
-| AI-04 | Weak point pattern analysis with macro insights | Deferred (v1.4) |
-| AI-06 | Grammar point linking (Vocabulary → Grammar) | Deferred (v1.4) |
-| AI-07 | Semantic similarity search (pgvector) | Deferred (v1.4) |
-| PERS-04 | Vocabulary domain tracking (visual radar) | Deferred (v1.4) |
-| IMM-01 | Browser extension for sentence mining | Deferred (P2) |
-| IMM-02 | Subtitle mining (.srt extraction) | Deferred (P2) |
-| AUD-03 | Audio-only review sessions | Deferred (v1.4) |
-| SOC-01 | Shared deck marketplace | Deferred (P2) |
-| SOC-02 | Community mnemonic voting | Deferred (P2) |
-| SOC-03 | Study group streaks | Deferred (P2) |
-| SOC-04 | Content-linked public decks | Deferred (P2) |
