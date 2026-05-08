@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-08T00:00:00Z",
+  "title": "Design System: Tomo",
+  "extensions": {
+    "colorMeta": {
+      "inari-vermillion": {
+        "role": "primary",
+        "displayName": "Inari Vermillion",
+        "canonical": "oklch(0.51 0.143 17)",
+        "tonalRamp": ["#3D1217", "#5A1822", "#7E1F2A", "#922A38", "#B03646", "#D78085", "#F0CDCE", "#F8E5E5"]
+      },
+      "inari-vermillion-deep": {
+        "role": "primary",
+        "displayName": "Inari Vermillion Deep",
+        "canonical": "oklch(0.35 0.118 17)",
+        "tonalRamp": ["#3D1217", "#5A1822", "#7E1F2A", "#922A38", "#B03646", "#D78085", "#F0CDCE", "#F8E5E5"]
+      },
+      "vermillion-wash": {
+        "role": "primary",
+        "displayName": "Vermillion Wash",
+        "canonical": "oklch(0.93 0.025 17)",
+        "tonalRamp": ["#3D1217", "#5A1822", "#7E1F2A", "#922A38", "#B03646", "#D78085", "#F0CDCE", "#F8E5E5"]
+      },
+      "warm-paper-base": {
+        "role": "neutral",
+        "displayName": "Warm Paper Base",
+        "canonical": "oklch(0.98 0.005 80)",
+        "tonalRamp": ["#2A2421", "#42382F", "#5C4F44", "#7C7066", "#A29A91", "#C7C0B7", "#E5DCD0", "#FBF8F4"]
+      },
+      "warm-paper-raised": {
+        "role": "neutral",
+        "displayName": "Warm Paper Raised",
+        "canonical": "oklch(0.99 0.005 80)",
+        "tonalRamp": ["#2A2421", "#42382F", "#5C4F44", "#7C7066", "#A29A91", "#C7C0B7", "#E5DCD0", "#FDFBF7"]
+      },
+      "cream-inset": {
+        "role": "neutral",
+        "displayName": "Cream Inset",
+        "canonical": "oklch(0.95 0.012 80)",
+        "tonalRamp": ["#2A2421", "#42382F", "#5C4F44", "#7C7066", "#A29A91", "#C7C0B7", "#E5DCD0", "#F4EFE6"]
+      },
+      "soft-hairline": {
+        "role": "neutral",
+        "displayName": "Soft Hairline",
+        "canonical": "oklch(0.89 0.014 80)",
+        "tonalRamp": ["#2A2421", "#42382F", "#5C4F44", "#7C7066", "#A29A91", "#C7C0B7", "#E5DCD0", "#F4EFE6"]
+      },
+      "faded-sumi": {
+        "role": "neutral",
+        "displayName": "Faded Sumi",
+        "canonical": "oklch(0.45 0.012 55)",
+        "tonalRamp": ["#1F1A18", "#2A2421", "#42382F", "#5C4F44", "#6B5F58", "#A29A91", "#E5DCD0", "#F4EFE6"]
+      },
+      "sumi-ink": {
+        "role": "neutral",
+        "displayName": "Sumi Ink",
+        "canonical": "oklch(0.18 0.005 40)",
+        "tonalRamp": ["#1F1A18", "#2A2421", "#42382F", "#5C4F44", "#6B5F58", "#A29A91", "#E5DCD0", "#F4EFE6"]
+      },
+      "aizome-indigo": {
+        "role": "secondary",
+        "displayName": "Aizome Indigo",
+        "canonical": "oklch(0.36 0.080 262)",
+        "tonalRamp": ["#0A1124", "#11203D", "#162E55", "#1B3A6B", "#3A538A", "#6B7FA8", "#A8B5CC", "#DCE3EE"]
+      },
+      "jlpt-n5-fresh-leaf": {
+        "role": "tertiary",
+        "displayName": "JLPT N5 Fresh Leaf",
+        "canonical": "oklch(0.50 0.144 145)",
+        "tonalRamp": ["#052E16", "#0A4521", "#15803D", "#16A34A", "#22C55E", "#4ADE80", "#86EFAC", "#DCFCE7"]
+      },
+      "jlpt-n4-deep-emerald": {
+        "role": "tertiary",
+        "displayName": "JLPT N4 Deep Emerald",
+        "canonical": "oklch(0.40 0.105 165)",
+        "tonalRamp": ["#022C22", "#064E3B", "#065F46", "#047857", "#10B981", "#6EE7B7", "#A7F3D0", "#D1FAE5"]
+      },
+      "jlpt-n3-clear-blue": {
+        "role": "tertiary",
+        "displayName": "JLPT N3 Clear Blue",
+        "canonical": "oklch(0.46 0.221 261)",
+        "tonalRamp": ["#172554", "#1E3A8A", "#1E40AF", "#1D4ED8", "#3B82F6", "#93C5FD", "#BFDBFE", "#DBEAFE"]
+      },
+      "jlpt-n2-deep-violet": {
+        "role": "tertiary",
+        "displayName": "JLPT N2 Deep Violet",
+        "canonical": "oklch(0.49 0.243 296)",
+        "tonalRamp": ["#2E1065", "#3B0764", "#581C87", "#6D28D9", "#7C3AED", "#8B5CF6", "#C4B5FD", "#EDE9FE"]
+      },
+      "jlpt-n1-saturated-red": {
+        "role": "tertiary",
+        "displayName": "JLPT N1 Saturated Red",
+        "canonical": "oklch(0.45 0.207 27)",
+        "tonalRamp": ["#450A0A", "#7F1D1D", "#991B1B", "#B91C1C", "#DC2626", "#EF4444", "#FCA5A5", "#FEE2E2"]
+      },
+      "jlpt-beyond-amber-warn": {
+        "role": "tertiary",
+        "displayName": "JLPT Beyond Amber-Warn",
+        "canonical": "oklch(0.43 0.118 51)",
+        "tonalRamp": ["#451A03", "#78350F", "#92400E", "#B45309", "#D97706", "#F59E0B", "#FCD34D", "#FEF3C7"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero word on the review card, big streak numbers, auth-screen wordmark. Used sparingly; the largest type on any screen. Latin via the chosen humanist sans (DM Sans / GT Walsheim / Inter Display class), Japanese via Noto Sans JP." },
+      "body": { "displayName": "Body", "purpose": "Default reading text (sentences, mnemonics, grammar explanations, button labels, body copy). Latin via the chosen humanist sans, Japanese via Noto Sans JP. The previous Inter is being replaced by a slightly warmer humanist sans to better match the hand-brushed character of the kitsune mark." },
+      "japanese": { "displayName": "Japanese", "purpose": "All Japanese content across hierarchy levels. Auto-applied via the [lang='ja'] selector. Also used for the kanji navigation glyphs (家 / 本 / 復 / 統 / 設) per the Kanji-as-Nav Rule." },
+      "mono": { "displayName": "Mono", "purpose": "Code blocks, hash-like data (review-time milliseconds, card UUIDs in dev tools), and any monospace contexts. Currently dormant in product chrome; available when needed." }
+    },
+    "shadows": [
+      { "name": "card-resting", "value": "0 4px 12px rgba(70, 30, 35, 0.07)", "purpose": "Workhorse shadow for deck cards, review cards, dialog containers. Warm-tinted toward Inari Vermillion (per the Warm-Tint Shadow Rule). Hover lifts to a slightly stronger shadow." },
+      { "name": "modal-lift", "value": "0 8px 24px rgba(70, 30, 35, 0.10)", "purpose": "Stronger lift for the auth-screen card, modal dialogs, and the future landing-page hero. Same warm tint at higher opacity." },
+      { "name": "soft-hairline", "value": "0 1px 3px rgba(70, 30, 35, 0.05)", "purpose": "Lightest possible separation, reserved for hint-of-lift moments." },
+      { "name": "focus-ring", "value": "0 0 0 3px #F8E5E5", "purpose": "Keyboard focus indicator on buttons, inputs, nav items. Vermillion Wash halo replacing the previous indigo-200." }
+    ],
+    "motion": [
+      { "name": "page-enter", "value": "page-enter 250ms cubic-bezier(0, 0, 0.2, 1) both", "purpose": "Page or card entrance: fade in plus 10px upward translate. Used with stagger (animationDelay: index * 50ms) on deck card lists." },
+      { "name": "card-reveal", "value": "card-reveal 250ms cubic-bezier(0, 0, 0.2, 1) both", "purpose": "Review-card answer reveal: fade in plus -8px translate. Triggers when the user presses Space or 'Show Answer'." },
+      { "name": "otp-shake", "value": "otp-shake 300ms ease-out", "purpose": "OTP digit input error feedback: horizontal shake on incorrect verification code." },
+      { "name": "ease-out-quart", "value": "cubic-bezier(0, 0, 0.2, 1)", "purpose": "Default easing for entrance and reveal animations. Decelerates into rest. Never bounce, never elastic, per the design laws." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Inari Vermillion CTA. The most expressive button in the system; reserved for the single most important action on a screen, never used twice in the same view (Single-Primary Rule). Carries the brand red into action.",
+      "html": "<button class=\"ds-btn-primary\">Sign in</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; padding: 0 1rem; font-family: 'DM Sans', 'GT Walsheim', 'Inter Display', system-ui, sans-serif; font-size: 1rem; font-weight: 500; color: #FDFBF7; background: #B03646; border: none; border-radius: 10px; transition: background-color 0.15s ease, transform 0.15s ease; cursor: pointer; } .ds-btn-primary:hover { background: #7E1F2A; } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px #F8E5E5; } .ds-btn-primary:disabled { opacity: 0.4; pointer-events: none; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Warm Paper Raised surface with hairline border. Used for 'Cancel' and lower-emphasis CTAs adjacent to a Primary. The 1px Soft Hairline border is the only place the system uses a card-shaped border (cards themselves never have borders).",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; padding: 0 1rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; font-size: 1rem; font-weight: 500; color: #1F1A18; background: #FDFBF7; border: 1px solid #E5DCD0; border-radius: 10px; transition: background-color 0.15s ease, transform 0.15s ease; cursor: pointer; } .ds-btn-secondary:hover { background: #F4EFE6; } .ds-btn-secondary:active { transform: scale(0.98); } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px #F8E5E5; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Transparent at rest, hovers to Cream Inset. Used for icon-only buttons, tertiary text actions, and the mid-review 'Show Answer' affordance per the Show-Answer Quiet Rule.",
+      "html": "<button class=\"ds-btn-ghost\">View all</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; padding: 0 1rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; font-size: 1rem; font-weight: 500; color: #6B5F58; background: transparent; border: none; border-radius: 10px; transition: background-color 0.15s ease, color 0.15s ease; cursor: pointer; } .ds-btn-ghost:hover { background: #F4EFE6; color: #1F1A18; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 3px #F8E5E5; }"
+    },
+    {
+      "name": "Danger Ghost Button",
+      "kind": "button",
+      "refersTo": "button-danger-ghost",
+      "description": "Replaces the previous filled red Danger button (which collided semantically with the brand color). Destructive actions read as serious-but-quiet rather than alarming. Filled Primary remains available for typed-confirmation destructive actions ('Delete deck' after the user types DELETE).",
+      "html": "<button class=\"ds-btn-danger-ghost\">Delete account</button>",
+      "css": ".ds-btn-danger-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 2.5rem; padding: 0 1rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; font-size: 1rem; font-weight: 500; color: #7E1F2A; background: transparent; border: none; border-radius: 10px; transition: background-color 0.15s ease; cursor: pointer; } .ds-btn-danger-ghost:hover { background: #F8E5E5; } .ds-btn-danger-ghost:focus-visible { outline: none; box-shadow: 0 0 0 3px #F8E5E5; }"
+    },
+    {
+      "name": "Labeled Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A recessed page in a notebook. Cream Inset background makes it read as cut into the page rather than floating above it. Focus shifts the border to Inari Vermillion with a Vermillion Wash halo.",
+      "html": "<div class=\"ds-input-field\"><label class=\"ds-input-label\" for=\"ds-i1\">Email</label><input class=\"ds-input\" id=\"ds-i1\" type=\"email\" placeholder=\"you@example.com\" /></div>",
+      "css": ".ds-input-field { display: flex; flex-direction: column; gap: 0.375rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; } .ds-input-label { font-size: 0.8125rem; font-weight: 500; color: #6B5F58; } .ds-input { width: 100%; height: 2.5rem; padding: 0 0.75rem; font-family: inherit; font-size: 1rem; color: #1F1A18; background: #F4EFE6; border: 1px solid #E5DCD0; border-radius: 10px; transition: border-color 0.15s, box-shadow 0.15s; } .ds-input::placeholder { color: #6B5F58; } .ds-input:focus { outline: none; border-color: #B03646; box-shadow: 0 0 0 3px #F8E5E5; }"
+    },
+    {
+      "name": "Deck Card",
+      "kind": "card",
+      "refersTo": "card-deck",
+      "description": "List-row card with deck title, type pill, optional description, stats row, and progress bar. Hover lifts shadow only; no scale, no border change, no color shift. The vocabulary deck-type pill now uses Aizome Indigo on Cream Inset, replacing the previous indigo-100/700 that would have been the SaaS trap.",
+      "html": "<a class=\"ds-card-deck\" href=\"#\"><div class=\"ds-card-deck-header\"><span class=\"ds-card-deck-title\">JLPT N5 Vocabulary</span><span class=\"ds-badge ds-badge-vocab\">vocabulary</span></div><p class=\"ds-card-deck-desc\">Curated 800-card deck covering JLPT N5 vocabulary.</p><div class=\"ds-card-deck-stats\"><span>800 cards</span><span> &middot; </span><span class=\"ds-card-deck-due\">12 due</span><span> &middot; </span><span>24 new</span></div><div class=\"ds-card-deck-bar\"><div class=\"ds-card-deck-bar-fill\"></div></div></a>",
+      "css": ".ds-card-deck { display: block; background: #FDFBF7; border-radius: 14px; box-shadow: 0 4px 12px rgba(70, 30, 35, 0.07); padding: 1.25rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; text-decoration: none; color: inherit; transition: box-shadow 0.15s ease; } .ds-card-deck:hover { box-shadow: 0 6px 16px rgba(70, 30, 35, 0.10); } .ds-card-deck-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; } .ds-card-deck-title { font-size: 1rem; font-weight: 600; color: #1F1A18; margin-right: auto; } .ds-badge { font-size: 0.6875rem; font-weight: 500; padding: 0.125rem 0.5rem; border-radius: 9999px; } .ds-badge-vocab { background: #F4EFE6; color: #1B3A6B; } .ds-card-deck-desc { font-size: 0.8125rem; color: #6B5F58; margin: 0 0 0.75rem 0; } .ds-card-deck-stats { font-size: 0.6875rem; color: #6B5F58; margin-bottom: 0.75rem; } .ds-card-deck-due { color: #B91C1C; font-weight: 500; } .ds-card-deck-bar { height: 4px; background: #F4EFE6; border-radius: 9999px; overflow: hidden; } .ds-card-deck-bar-fill { height: 100%; width: 38%; background: #B03646; }"
+    },
+    {
+      "name": "Review Card",
+      "kind": "card",
+      "refersTo": "card-review",
+      "description": "Signature surface. A single page from a notebook: focal Japanese word centered at Display size, supporting chrome restrained, the answer reveals below an answer-divider on Space. The Show Answer control is a true Ghost button (transparent default, Cream Inset on hover) so the Rating buttons that follow can be the loudest moment of the screen.",
+      "html": "<div class=\"ds-card-review\"><div class=\"ds-card-review-chrome\"><span class=\"ds-card-review-tag\">Reading</span></div><div class=\"ds-card-review-focus\"><p class=\"ds-card-review-word\" lang=\"ja\">食べる</p><button class=\"ds-card-review-reveal\">Show Answer</button><span class=\"ds-card-review-hint\">or press Space</span></div></div>",
+      "css": ".ds-card-review { width: 100%; max-width: 640px; background: #FDFBF7; border-radius: 14px; box-shadow: 0 4px 12px rgba(70, 30, 35, 0.07); font-family: 'DM Sans', 'Inter', system-ui, sans-serif; overflow: hidden; } .ds-card-review-chrome { padding: 1.25rem 1.25rem 0; } .ds-card-review-tag { display: inline-block; font-size: 0.6875rem; font-weight: 500; color: #6B5F58; background: #F4EFE6; border-radius: 9999px; padding: 0.125rem 0.625rem; } .ds-card-review-focus { display: flex; flex-direction: column; align-items: center; padding: 2rem 3rem; } .ds-card-review-word { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; font-size: 3rem; font-weight: 500; color: #1F1A18; margin: 0 0 2rem 0; text-align: center; } .ds-card-review-reveal { padding: 0.5rem 1.5rem; background: transparent; border: none; border-radius: 10px; font-family: inherit; font-size: 0.8125rem; font-weight: 500; color: #6B5F58; cursor: pointer; transition: background 0.15s, color 0.15s; } .ds-card-review-reveal:hover { background: #F4EFE6; color: #1F1A18; } .ds-card-review-hint { margin-top: 0.375rem; font-size: 0.6875rem; color: #6B5F58; }"
+    },
+    {
+      "name": "Active Sidebar Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Sidebar nav item in active state, with the new Kanji-as-Nav glyph (家 'house' for Dashboard). The kanji renders in Noto Sans JP and is double-duty: identity icon AND vocabulary the user is studying. Active state uses Vermillion Wash background and Inari Vermillion text. Default state is Faded Sumi text on transparent background, hovering to Cream Inset and Sumi Ink. Replaces the previous lucide-react icons completely.",
+      "html": "<a class=\"ds-nav-item ds-nav-item-active\" href=\"#\" aria-current=\"page\"><span class=\"ds-nav-glyph\" lang=\"ja\" aria-hidden=\"true\">家</span><span class=\"ds-nav-label\">Dashboard</span></a>",
+      "css": ".ds-nav-item { display: inline-flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.75rem; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 500; border-radius: 10px; text-decoration: none; color: #6B5F58; transition: background-color 0.15s, color 0.15s; min-width: 160px; } .ds-nav-glyph { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; font-size: 1.125rem; font-weight: 500; flex-shrink: 0; width: 1.5rem; text-align: center; line-height: 1; } .ds-nav-item:hover { background: #F4EFE6; color: #1F1A18; } .ds-nav-item-active { background: #F8E5E5; color: #B03646; }"
+    },
+    {
+      "name": "Rating Button Row",
+      "kind": "custom",
+      "refersTo": "rating-button-row",
+      "description": "Signature surface. Four FSRS rating buttons with four redundant signaling channels: background color, glyph, label, keyboard number. The OKLCH lightness sweep across the four backgrounds (Sumi Ink #1F1A18 → Beyond Amber #92400E → N5 Fresh Leaf #15803D → Aizome Indigo #1B3A6B) means the row also reads as a tonal gradient when hue is unavailable, supporting deuteranopia and protanopia users. Per the Four-Channel Rating Rule, every button ships all four channels.",
+      "html": "<div class=\"ds-rating-row\"><button class=\"ds-rating ds-rating-again\"><span class=\"ds-rating-glyph\" aria-hidden=\"true\">↺</span><span class=\"ds-rating-label\">Again</span><span class=\"ds-rating-key\">1</span></button><button class=\"ds-rating ds-rating-hard\"><span class=\"ds-rating-glyph\" aria-hidden=\"true\">◐</span><span class=\"ds-rating-label\">Hard</span><span class=\"ds-rating-key\">2</span></button><button class=\"ds-rating ds-rating-good\"><span class=\"ds-rating-glyph\" aria-hidden=\"true\">✓</span><span class=\"ds-rating-label\">Good</span><span class=\"ds-rating-key\">3</span></button><button class=\"ds-rating ds-rating-easy\"><span class=\"ds-rating-glyph\" aria-hidden=\"true\">☆</span><span class=\"ds-rating-label\">Easy</span><span class=\"ds-rating-key\">4</span></button></div>",
+      "css": ".ds-rating-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; width: 100%; max-width: 640px; font-family: 'DM Sans', 'Inter', system-ui, sans-serif; } .ds-rating { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; height: 4rem; border: none; border-radius: 10px; color: #FDFBF7; font-family: inherit; font-weight: 500; cursor: pointer; transition: filter 0.15s; } .ds-rating-glyph { font-size: 1rem; line-height: 1; opacity: 0.85; } .ds-rating-label { font-size: 0.8125rem; } .ds-rating-key { font-size: 0.6875rem; opacity: 0.7; } .ds-rating-again { background: #1F1A18; } .ds-rating-hard { background: #92400E; } .ds-rating-good { background: #15803D; } .ds-rating-easy { background: #1B3A6B; } .ds-rating:hover { filter: brightness(0.9); } .ds-rating:focus-visible { outline: none; box-shadow: 0 0 0 2px #FDFBF7, 0 0 0 4px currentColor; }"
+    },
+    {
+      "name": "Furigana Text",
+      "kind": "custom",
+      "refersTo": "furigana-text",
+      "description": "Signature primitive. Semantic <ruby>/<rt> markup for Japanese reading hints over kanji. The reading is now rendered in Faded Sumi (rather than full Sumi Ink) so the kanji body remains the primary focus and the reading reads as supporting cast. Screen readers depend on this semantic markup for correct pronunciation; visual approximations are forbidden per the Furigana Rule.",
+      "html": "<ruby class=\"ds-furigana\" lang=\"ja\">食<rt class=\"ds-furigana-rt\">た</rt>べる</ruby>",
+      "css": ".ds-furigana { font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', sans-serif; font-size: 1.25rem; ruby-align: center; color: #1F1A18; } .ds-furigana-rt { font-size: 0.4em; font-weight: 400; font-style: normal; color: #6B5F58; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Iwanami Practice Notebook",
+    "overview": "Tomo's new visual system is built on three pillars: a deep saturated red carried as identity, a warm-paper neutral that softens every surface (no #FFFFFF anywhere), and a single warm humanist sans paired with Noto Sans JP for bilingual typography. The three references that anchor the system are Iwanami Shoten (the Japanese publisher whose pocket-book covers carry saturated solid colors against cream interiors with refined typography), Are.na (editorial neutrality, blocks-of-content over chrome, generous whitespace), and iA Writer (Japanese-typography-aware quiet design, paper-first, monospace-as-considered-choice). All three share a single value: typography and color do the heavy lifting; chrome stays out of the way. The system is being explicitly migrated out of the previous 'Familiar Indigo Default' lane. Default Tech Indigo #6366F1 is retired. Lucide-react icon language is retired (icons must now be hand-drawn, kanji-as-glyph, Unicode-at-semantic-value, or text-only). Cool slate neutrals are retired in favor of warm-paper neutrals tinted toward the brand red. Filled red Danger buttons are retired in favor of Danger Ghost. Color-only rating differentiation is retired in favor of four redundant signaling channels (color + glyph + label + keyboard number). The mood is the Iwanami pocket book on a kissaten table on a quiet morning: saturated red on cream paper, hand-brushed kanji for the wordmark, a single readable sans for everything else, motion that responds rather than performs.",
+    "keyCharacteristics": [
+      "One identity color (Inari Vermillion #B03646), one ink color (Sumi Ink #1F1A18), one paper neutral (Warm Paper #FBF8F4), and one supporting color (Aizome Indigo #1B3A6B). Each has a deliberate job.",
+      "All neutrals are tinted toward the brand red (a faint warm cast). No #FFFFFF. No cool slate.",
+      "One Latin humanist sans (DM Sans / GT Walsheim / Söhne / Inter Display class) + Noto Sans JP across all hierarchy levels. JetBrains Mono retained for code-and-data surfaces only.",
+      "Motion is Responsive by default: feedback, transitions, and small reveal moments. No scroll-driven choreography in product chrome; brand surfaces may opt up to Choreographed.",
+      "The kitsune mark is the central identity asset. It surfaces at six allowed positions per PRODUCT.md Principle #6 (wordmark, favicon, auth, OG, app icon, milestone illustrations) and nowhere else.",
+      "Icons are kanji glyphs (in navigation), Unicode glyphs at semantic value (in Rating buttons), hand-drawn SVG (everywhere else), or text-only ('Show / Hide' instead of an eye). Lucide-react is retired.",
+      "Borders are reserved for input fields and hairline dividers. Cards use shadow only. No side-stripe borders, no gradient text, no glassmorphic surfaces."
+    ],
+    "rules": [
+      { "name": "The Vermillion Tax Rule", "body": "Inari Vermillion is precious on product surfaces. Every new product screen must justify each red element it introduces; the default answer to 'should this be red?' is 'no.' Brand surfaces (auth, landing, OG, milestone illustrations) operate under a different budget: red is allowed to dominate 30–60% of the surface as a saturated solid field. The split is the strategy.", "section": "colors" },
+      { "name": "The No-Pure-White Rule", "body": "#FFFFFF is banned everywhere. Card surfaces use Warm Paper Raised (#FDFBF7); page surfaces use Warm Paper Base (#FBF8F4); the favicon plate uses #F7F7F7 (the off-white from the brand asset). Pure white reads as cool-clinical-screen and breaks the ink-and-paper mood.", "section": "colors" },
+      { "name": "The Aizome Distinction Rule", "body": "Aizome Indigo (#1B3A6B) is the destination; Default Tech Indigo (#6366F1) is the retired trap. They are not interchangeable. Aizome is dark-navy-ink (low chroma at lightness ~30%); Default Tech Indigo is bright-saturated-violet (high chroma at lightness ~65%). If a surface's 'indigo' reads as bright tech-violet, it is the trap; rework toward the dark navy-ink value.", "section": "colors" },
+      { "name": "The JLPT Spectrum Rule", "body": "The six JLPT level badges (N5 Fresh Leaf → N4 Deep Emerald → N3 Clear Blue → N2 Deep Violet → N1 Saturated Red → Beyond Amber-Warn) are preserved as-is from the previous system. Two of the spectrum colors (N5 Fresh Leaf and Beyond Amber-Warn) are also repurposed as Rating button fills (Good and Hard); the cross-use is deliberate (both axes encode 'difficulty level') and bounded.", "section": "colors" },
+      { "name": "The Single-Sans Rule", "body": "One Latin sans family across the entire system, varied by weight and (occasionally) style. Adding a second Latin family (e.g., a serif for display) is rejected. The character contrast that an editorial-serif system would carry is provided here by weight contrast within a single family, not by family contrast. Minimum scale ratio between hierarchy steps is 1.25.", "section": "typography" },
+      { "name": "The Lang-Attr Rule", "body": "Japanese content must always be wrapped in an element with lang='ja', which automatically swaps the font stack to Noto Sans JP. Never override the font family on Japanese content with a Latin family. Never use a Latin family on a parent that contains Japanese children: the cascade will produce mojibake-quality glyph rendering.", "section": "typography" },
+      { "name": "The Furigana Rule", "body": "Furigana renders only through the <FuriganaText> component (semantic <ruby>/<rt> markup). Visual approximations (positioned spans, vertical-align hacks, decorative SVG) are forbidden because they break screen-reader pronunciation.", "section": "typography" },
+      { "name": "The Hand-Calligraphic Exception", "body": "The wordmark and the kanji rendered inside the kitsune logo are hand-brushed (not typeset). They are not subject to the Single-Sans Rule because they are images, not text. Klee One, brush-style display fonts, and bespoke calligraphy are permitted in identity surfaces only (the wordmark, the favicon, the auth screen, the OG image, milestone illustrations) and must never appear in body or chrome typography.", "section": "typography" },
+      { "name": "The Body-Reading Rule", "body": "Cap body line length at 65–75 characters per line for readability. On long-form surfaces (grammar explanations, mnemonic readouts, the future landing page), enforce this with max-width: 70ch or similar; on dense product surfaces (deck list, settings), the rule applies less strictly because content lines are typically short by composition.", "section": "typography" },
+      { "name": "The Shadow-Over-Border Rule", "body": "Card-shaped surfaces use shadow, never border, for separation. Borders are reserved for inputs and hairline dividers. A card with both shadow and border is wrong; pick one.", "section": "elevation" },
+      { "name": "The Flat-At-Rest Rule", "body": "Surfaces are flat at rest; shadows respond to state (focus, hover, dialog presentation), not to decoration. Buttons, badges, and nav items are part of the resting plane.", "section": "elevation" },
+      { "name": "The Warm-Tint Shadow Rule", "body": "Shadow color carries a faint warm cast that matches the warm-paper neutrals. A pure-neutral-black shadow on warm paper looks gray and cold; a warm-tinted shadow harmonizes with the page. Practical implementation: shadow color uses rgba(70, 30, 35, X) or OKLCH equivalent at low chroma toward hue ~25 (the same hue family as the warm-paper neutrals), not rgba(0, 0, 0, X).", "section": "elevation" },
+      { "name": "The Single-Primary Rule", "body": "A given screen has at most one Primary button visible at any moment. If the design needs two, one of them is the wrong variant; downgrade to Secondary, Ghost, or Danger Ghost. The Vermillion Tax Rule forbids spending the brand red twice on a single product surface.", "section": "components" },
+      { "name": "The Lucide Tax Rule", "body": "Every icon today is lucide-react at strokeWidth=1.5. New work replaces them with one of: a hand-drawn SVG sprite (designed during implementation), a single kanji glyph (per the Navigation section), a Unicode glyph at semantic value (↺ ◐ ✓ ☆ for the Rating row), or a text-only affordance ('Show / Hide' instead of an eye icon). The migration is gradual, but no new lucide imports may land. The cost of crossing this line is the entire visual identity collapsing back into the AI-SaaS lane.", "section": "components" },
+      { "name": "The Show-Answer Quiet Rule", "body": "The mid-review 'Show Answer' affordance is a Ghost button (transparent default, Cream Inset on hover), not a Primary. The four Rating buttons that follow are the loudest moment of the screen; the reveal control must not compete.", "section": "components" },
+      { "name": "The Kanji-as-Nav Rule", "body": "Navigation icons in the Sidebar and Mobile Bottom Bar are single kanji glyphs (Noto Sans JP), not lucide icons or hand-drawn marks. The kanji must always be paired with an English label; the glyph alone is never sufficient. The proposed mapping (家 / 本 / 復 / 統 / 設 for Dashboard / Decks / Review / Analytics / Settings) is the canonical set.", "section": "components" },
+      { "name": "The Four-Channel Rating Rule", "body": "Rating buttons (FSRS Again / Hard / Good / Easy) ship four redundant signaling channels: background color, glyph icon, label text, and keyboard number. A button missing any channel is incomplete. Never ship a color-only rating row again; the previous design failed deuteranopia and protanopia users.", "section": "components" },
+      { "name": "The Danger Ghost Rule", "body": "Filled red Danger buttons are retired (the previous bg-danger-500 variant). Destructive actions use the Danger Ghost variant (transparent + Inari Vermillion Deep text). Filled Primary buttons remain available for 'destructive but expected' actions where the user has already typed a confirmation token (e.g., typing DELETE in an input before the deletion button enables).", "section": "components" }
+    ],
+    "dos": [
+      "Do use Inari Vermillion (#B03646) sparingly on product surfaces (≤10% of any screen) and freely on brand surfaces (30–60%). The split is the strategy.",
+      "Do use Warm Paper Raised (#FDFBF7) for card surfaces and Warm Paper Base (#FBF8F4) for the page background. Replace every legacy #FFFFFF and every #F9FAFB (Cool Slate Page) during the implementation pass.",
+      "Do use Sumi Ink (#1F1A18) for primary text and Faded Sumi (#6B5F58) for secondary text. The previous neutral-900 (#111827) is replaced everywhere.",
+      "Do preserve the JLPT Difficulty Spectrum across all surfaces. It is the one piece of the previous system that survives intact.",
+      "Do use exactly one Primary button per screen, per the Single-Primary Rule.",
+      "Do ship Rating buttons with four redundant signaling channels (color + glyph + label + key), per the Four-Channel Rating Rule.",
+      "Do use kanji glyphs for nav icons (家 / 本 / 復 / 統 / 設) per the Kanji-as-Nav Rule. Always paired with an English label.",
+      "Do wrap Japanese strings in lang='ja' (or render through <FuriganaText>). The lang-selector handles font-family swapping; bypassing it produces wrong glyph metrics and breaks screen readers.",
+      "Do keep elevation quiet and warm-tinted. Card Resting Shadow is the workhorse; reach for Modal Lift Shadow only on dialogs, the auth panel, and brand-register hero cards.",
+      "Do honor prefers-reduced-motion end-to-end. The contract from the previous system carries forward: every keyframe is opt-out, never opt-in.",
+      "Do treat the brand mark (the kitsune + 友) as a fixed identity asset. Render it from apps/web/public/brand/logo.svg. Do not stretch, recolor for decoration, or reduce below 14px equivalent."
+    ],
+    "donts": [
+      "Don't use Default Tech Indigo (#6366F1) anywhere. It is retired. If a previous component still references bg-primary-500, --color-primary-500, or any indigo token, that token is slated for removal during implementation; new work must not reach for it.",
+      "Don't confuse Aizome Indigo (#1B3A6B, the deep ink-blue secondary) with Default Tech Indigo (#6366F1, the retired trap). They are not interchangeable.",
+      "Don't use #FFFFFF literally. The card surface is Warm Paper Raised (#FDFBF7); the favicon plate is #F7F7F7. Pure white reads as cool-clinical-screen and breaks the mood.",
+      "Don't import any new lucide-react icons. The Lucide Tax Rule applies. Use kanji glyphs (nav), Unicode glyphs (rating row), hand-drawn SVG (everywhere else), or text affordances ('Show / Hide' instead of an eye).",
+      "Don't ship a Rating button row without per-button glyphs. The Four-Channel Rating Rule applies. Color alone fails deuteranopia and protanopia users.",
+      "Don't ship a filled red Danger button. The Danger Ghost Rule applies. Destructive actions read as serious-but-quiet, not alarming.",
+      "Don't use more than one Primary button on a screen. The Single-Primary Rule applies.",
+      "Don't write generic AI-SaaS marketing copy ('AI-Enhanced Japanese SRS', 'AI-powered ✨', 'Premium ✨ AI-Powered!'). Per PRODUCT.md Principle #7 (Invisible AI, visible craft).",
+      "Don't mimic Anki's punitive utilitarianism. Flat blue defaults, raw HTML cards, 'serious learners only' minimalism are the joy-vacuum.",
+      "Don't stack a border and a shadow on the same card-shaped surface. Pick one.",
+      "Don't introduce side-stripe borders (border-left greater than 1px as a colored callout), gradient text (background-clip: text over a gradient), or glassmorphic surfaces (decorative backdrop-filter: blur). These are universal absolute bans.",
+      "Don't add a sparkle icon, an 'AI mode' toggle, a 'Generated by GPT' footer, or any visible AI labeling to chrome. Per PRODUCT.md Principle #7.",
+      "Don't use a serif Latin font in body or chrome typography. The Single-Sans Rule applies. Hand-calligraphic and brush-style fonts are the only typographic exception, and only on identity surfaces.",
+      "Don't ship the kanji nav glyphs without an English label beside them. The Kanji-as-Nav Rule requires both."
+    ]
+  }
+}
