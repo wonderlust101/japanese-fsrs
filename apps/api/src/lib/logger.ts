@@ -25,6 +25,13 @@ const REDACT_PATHS_PROD = [
   '*.refresh_token',
   '*.refreshToken',
   '*.idempotencyKey',
+  // User-supplied vocabulary content (Japanese words, readings, meanings,
+  // example sentences, mnemonics) lives in the JSONB `fieldsData` blob.
+  // Redacting at the top-level field name keeps user content out of log
+  // sinks even if a future debug log line attaches a card or fieldsData
+  // payload as structured context. Pino's `remove: true` (below) deletes
+  // the field entirely on serialization.
+  '*.fieldsData',
   'req.headers.authorization',
   'req.headers.cookie',
   'res.headers["set-cookie"]',

@@ -134,10 +134,14 @@ const deep: RequestHandler = async (_req, res): Promise<void> => {
     pingUpstash(),
     ...BREAKER_NAMES.map((name) => getBreakerSnapshot(name)),
   ])
-  const breakers: Record<BreakerName, BreakerSnapshot> = {} as Record<BreakerName, BreakerSnapshot>
-  BREAKER_NAMES.forEach((name, idx) => {
-    breakers[name] = snapshots[idx]!
-  })
+  // Build the breakers map from a typed key tuple. Object.fromEntries widens
+  // keys to `string`, so the final cast narrows to `Record<BreakerName, …>` —
+  // a defensible cast since both sides are real types. Compare to the
+  // previous pattern which cast `{}` (an empty object) to a fully-keyed
+  // record and relied on the forEach to make the type true at runtime.
+  const breakers = Object.fromEntries(
+    BREAKER_NAMES.map((name, idx) => [name, snapshots[idx]!] as const),
+  ) as Record<BreakerName, BreakerSnapshot>
   res.json({
     live: { ok: true },
     ready: { supabase, upstash, shuttingDown: isShuttingDown() },

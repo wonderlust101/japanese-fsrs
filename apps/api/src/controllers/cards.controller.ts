@@ -7,7 +7,11 @@ import {
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
 } from '@fsrs-japanese/shared-types'
-import type { ApiCard } from '@fsrs-japanese/shared-types'
+import type {
+  ApiCard,
+  FieldsData,
+  GeneratedCardData,
+} from '@fsrs-japanese/shared-types'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
@@ -53,19 +57,19 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
     req.header('idempotency-key'),
     input,
     async () => {
-      let fieldsData: Record<string, unknown>
+      // The createCard service accepts either validated FieldsData (manual
+      // path) or raw GeneratedCardData (AI path) — see services/card.service.ts.
+      // No widening cast needed; the union preserves type info to the boundary.
+      let fieldsData: FieldsData | GeneratedCardData
 
       if ('word' in input) {
-        const profile  = await profileService.getProfile(req.user.id)
-        const generated = await aiService.generateCard(
+        const profile = await profileService.getProfile(req.user.id)
+        fieldsData = await aiService.generateCard(
           input.word,
           profile.jlptTarget ?? 'N5',
           profile.interests,
           { signal: req.signal },
         )
-        // GeneratedCardData has known string keys; widen to the JSONB-compatible
-        // Record<string, unknown> shape that createCard / fields_data persistence accepts.
-        fieldsData = generated as Record<string, unknown>
       } else {
         fieldsData = input.fieldsData
       }

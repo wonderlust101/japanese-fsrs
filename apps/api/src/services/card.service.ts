@@ -31,6 +31,7 @@ import {
     type CardStatusFilter,
     type CardType,
     type FieldsData,
+    type GeneratedCardData,
     type JLPTLevel,
     type LayoutType,
     type UpdateCardInput,
@@ -387,10 +388,15 @@ export async function getCard(
  * Throws 404 if the deck does not exist or belongs to a different user.
  */
 export async function createCard(
-  deckId: string,
-  userId: string,
-  fieldsData: Record<string, unknown>,
-  meta: CreateCardMeta,
+  deckId:     string,
+  userId:     string,
+  // Accepts either the validated wire-format FieldsData (manual creation
+  // path) or the raw GeneratedCardData from the AI generator. Both are
+  // JSONB-compatible; the DB-side `cards_fields_data_shape` CHECK constraint
+  // enforces the minimum keys required per `layout_type`. The asPayload()
+  // call below bridges to Supabase's Json type.
+  fieldsData: FieldsData | GeneratedCardData,
+  meta:       CreateCardMeta,
 ): Promise<ApiCard> {
   await assertDeckOwnership(deckId, userId)
 
