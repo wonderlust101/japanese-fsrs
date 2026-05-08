@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
+import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
@@ -58,6 +59,12 @@ const DeckOwnerRowSchema = z.object({
   source_premade_id: z.string().nullable(),
 })
 
+/** Cursor payload for the decks-list endpoint. The `list_decks_paginated`
+ *  RPC re-derives the sort timestamp from the row pointed to by `id`, so the
+ *  cursor only needs to carry `id` today. Object shape preserves room for
+ *  future fields without breaking the wire contract. */
+const deckListCursorSchema = z.object({ id: z.string().uuid() })
+
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
 function toRow(raw: DeckDbRow): ApiDeck {
   return {
@@ -87,10 +94,14 @@ export async function listDecks(
   limit:   number,
   cursor?: string,
 ): Promise<ApiList<ApiDeck>> {
+  // Decode opaque cursor → bare id for the RPC. See lib/http.ts for the
+  // cursor format rationale.
+  const cursorId = cursor !== undefined ? decodeCursor(cursor, deckListCursorSchema).id : null
+
   const { data, error } = await supabaseAdmin.rpc('list_decks_paginated', asPayload({
     p_user_id: userId,
     p_limit:   limit + 1,
-    p_cursor:  cursor ?? null,
+    p_cursor:  cursorId,
   }))
 
   if (error !== null) {
@@ -100,10 +111,11 @@ export async function listDecks(
   const rows    = z.array(DeckListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
   const items   = rows.slice(0, limit).map(toRow)
+  const lastId  = items[items.length - 1]?.id
 
   return {
     items,
-    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
     hasMore,
   }
 }

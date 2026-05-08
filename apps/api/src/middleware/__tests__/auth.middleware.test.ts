@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test'
+import { describe, it, expect, mock, beforeEach } from 'bun:test'
 
 // Must be registered before any module that transitively imports supabase.ts.
 // The real module throws at load time when env vars are absent.
@@ -20,6 +20,15 @@ mock.module('../../db/supabase.ts', () => ({
 // the modules that depend on it are evaluated.
 const { app }            = await import('../../app.ts')
 const { default: request } = await import('supertest')
+
+// authMiddleware caches verified bearers for 30s. Reset between tests so any
+// future test that mocks `auth.getUser` to return a success doesn't get its
+// stub bypassed by a leftover entry from a prior case.
+const { _clearTokenCacheForTests } = await import('../auth.ts')
+
+beforeEach(() => {
+  _clearTokenCacheForTests()
+})
 
 describe('authMiddleware — unauthenticated requests', () => {
   it('returns 401 when the Authorization header is absent', async () => {

@@ -121,6 +121,10 @@ export async function generateCard(
   opts?: { signal?: AbortSignal },
 ): Promise<GeneratedCardData> {
   if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
+  // Capture the narrowed (non-null) reference into a local. The inner closure
+  // below sees `openai` widened back to `OpenAI | null` — the local survives
+  // the closure boundary as a non-null without needing a `!` assertion.
+  const client = openai
 
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
@@ -140,7 +144,7 @@ export async function generateCard(
   const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai!.chat.completions.create({
+      response = await client.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [
@@ -221,6 +225,7 @@ export async function generateSentences(
   opts?:      { signal?: AbortSignal },
 ): Promise<GeneratedSentences> {
   if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
+  const client = openai  // see generateCard for the narrowing rationale.
 
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
@@ -235,7 +240,7 @@ export async function generateSentences(
   const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai!.chat.completions.create({
+      response = await client.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [
@@ -310,6 +315,7 @@ export async function generateMnemonic(
   opts?:          { signal?: AbortSignal },
 ): Promise<GeneratedMnemonic> {
   if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
+  const client = openai  // see generateCard for the narrowing rationale.
 
   const safeWord       = sanitizeForPrompt(word)
   const safeLevel      = sanitizeForPrompt(userLevel)
@@ -324,7 +330,7 @@ export async function generateMnemonic(
   const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai!.chat.completions.create({
+      response = await client.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [

@@ -134,14 +134,16 @@ const deep: RequestHandler = async (_req, res): Promise<void> => {
     pingUpstash(),
     ...BREAKER_NAMES.map((name) => getBreakerSnapshot(name)),
   ])
-  // Build the breakers map from a typed key tuple. Object.fromEntries widens
-  // keys to `string`, so the final cast narrows to `Record<BreakerName, …>` —
-  // a defensible cast since both sides are real types. Compare to the
-  // previous pattern which cast `{}` (an empty object) to a fully-keyed
-  // record and relied on the forEach to make the type true at runtime.
-  const breakers = Object.fromEntries(
-    BREAKER_NAMES.map((name, idx) => [name, snapshots[idx]!] as const),
-  ) as Record<BreakerName, BreakerSnapshot>
+  // Build the breakers map from a typed key tuple. The forEach + null-check
+  // avoids the non-null assertion on `snapshots[idx]`: TS can't prove the
+  // index is in-range despite Promise.all guaranteeing it, so an explicit
+  // skip is the type-safe form. Pre-allocated as a partial; the forEach
+  // fills every key on the symmetric Promise.all path.
+  const breakers = {} as Record<BreakerName, BreakerSnapshot>
+  BREAKER_NAMES.forEach((name, idx) => {
+    const snap = snapshots[idx]
+    if (snap !== undefined) breakers[name] = snap
+  })
   res.json({
     live: { ok: true },
     ready: { supabase, upstash, shuttingDown: isShuttingDown() },

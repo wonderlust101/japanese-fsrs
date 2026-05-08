@@ -65,6 +65,7 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
       .set('Authorization', `Bearer ${a.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -121,6 +122,7 @@ describeIntegration('cards routes — cascading deletes', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '犬', reading: 'いぬ', meaning: 'dog' },
         cardType:   'comprehension',
       })
@@ -166,6 +168,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
         cardType:   'comprehension',
       })
@@ -190,6 +193,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .set('Authorization', `Bearer ${a.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '手', reading: 'て', meaning: 'hand' },
         cardType:   'comprehension',
       })
@@ -237,6 +241,7 @@ describeIntegration('cards routes — If-Match optimistic concurrency', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '光', reading: 'ひかり', meaning: 'light' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -259,6 +264,7 @@ describeIntegration('cards routes — If-Match optimistic concurrency', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '影', reading: 'かげ', meaning: 'shadow' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -310,6 +316,7 @@ describeIntegration('cards routes — list wire shape', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '空', reading: 'そら', meaning: 'sky' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -364,6 +371,7 @@ describeIntegration('cards routes — cross-deck access via dual-mount router', 
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '橋', reading: 'はし', meaning: 'bridge' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',

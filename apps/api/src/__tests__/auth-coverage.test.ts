@@ -6,12 +6,26 @@ import { describe, it, expect, mock } from 'bun:test'
 mock.module('../db/supabase.ts', () => ({
   supabaseAdmin: { auth: { getUser: mock(async () => ({ data: { user: null }, error: null })) } },
 }))
+// Mirror the real module shape: redis.ts exports both `redis` (Proxy-wrapped
+// with the upstash breaker) and `rawRedis` (un-wrapped, used by the
+// circuit-breaker module to break the import cycle). Any module imported by
+// the route loader below that touches `rawRedis` (e.g. lib/circuit-breaker.ts)
+// crashes at module-load with `SyntaxError: Export named 'rawRedis' not found`
+// unless both names are present here.
 mock.module('../db/redis.ts', () => ({
   redis: {
     get: mock(async () => null),
     set: mock(async () => 'OK'),
     del: mock(async () => 1),
     eval: mock(async () => null),
+  },
+  rawRedis: {
+    get:    mock(async () => null),
+    set:    mock(async () => 'OK'),
+    del:    mock(async () => 1),
+    getdel: mock(async () => null),
+    incr:   mock(async () => 1),
+    ttl:    mock(async () => -2),
   },
 }))
 

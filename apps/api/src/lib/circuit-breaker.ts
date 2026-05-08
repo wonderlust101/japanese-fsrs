@@ -120,14 +120,17 @@ export async function recordFailure(name: string): Promise<void> {
  * Clear the failure counter on a successful call. Only emits a `warn` log
  * when the breaker was actually open (count ≥ threshold) — successful calls
  * during normal operation stay silent.
+ *
+ * Atomic via `GETDEL` so a concurrent `recordFailure` cannot `INCR` between
+ * the read and the delete (which would silently discard a fresh failure).
+ * Single round-trip is also one fewer Redis op than the previous get+del pair.
  */
 export async function recordSuccess(name: string): Promise<void> {
   const config = configFor(name)
   const key    = failureKey(name)
-  const raw    = await redis.get<number | string>(key)
+  const raw    = await redis.getdel<number | string>(key)
   if (raw === null || raw === undefined) return
   const count = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw
-  await redis.del(key)
   invalidateIsOpenCache(name)  // breaker may have just transitioned closed
   if (Number.isFinite(count) && count >= config.threshold) {
     log.warn({ name }, 'circuit breaker closed')

@@ -57,6 +57,7 @@ describeIntegration('reviews — submit advances FSRS state', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -88,6 +89,7 @@ describeIntegration('reviews — submit advances FSRS state', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '川', reading: 'かわ', meaning: 'river' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -130,6 +132,7 @@ describeIntegration('reviews — Idempotency-Key replay', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '夢', reading: 'ゆめ', meaning: 'dream' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -153,6 +156,7 @@ describeIntegration('reviews — Idempotency-Key replay', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '光', reading: 'ひかり', meaning: 'light' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',
@@ -199,6 +203,7 @@ describeIntegration('reviews — due card wire shape', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
       .send({
+        mode: 'manual',
         fieldsData: { word: '雪', reading: 'ゆき', meaning: 'snow' },
         layoutType: 'vocabulary',
         cardType:   'comprehension',

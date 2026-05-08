@@ -234,14 +234,26 @@ function mapRatingToGrade(rating: ReviewRating): Grade {
   }
 }
 
-/** Map a rating string from review_logs (including 'manual') to the ts-fsrs Rating enum. */
+/**
+ * Map a rating string from review_logs (including 'manual') to the ts-fsrs
+ * Rating enum.
+ *
+ * The 'manual' case is explicit because rollbackReview() legitimately receives
+ * it — forgetCard() and rescheduleFromHistory() both write 'manual' to
+ * review_logs. The default branch THROWS rather than silently mapping unknown
+ * strings to Rating.Manual: a corrupt or future-unknown rating value should
+ * surface as a loud 500 with a stable code, not silently corrupt a rollback
+ * with a plausible-but-wrong grade.
+ */
 function mapRatingStringToEnum(rating: string): Rating {
   switch (rating) {
-    case 'again': return Rating.Again
-    case 'hard':  return Rating.Hard
-    case 'good':  return Rating.Good
-    case 'easy':  return Rating.Easy
-    default:      return Rating.Manual
+    case 'again':  return Rating.Again
+    case 'hard':   return Rating.Hard
+    case 'good':   return Rating.Good
+    case 'easy':   return Rating.Easy
+    case 'manual': return Rating.Manual
+    default:
+      throw new AppError(500, `Unknown rating "${rating}" in review_logs`, { code: 'FSRS_UNKNOWN_RATING_BUG' })
   }
 }
 

@@ -4,10 +4,10 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 // at module load; this `mock.module` swap must run BEFORE the import below.
 //
 // The stub models the small slice of Upstash semantics the breaker actually
-// touches: SET NX EX, INCR, GET, DEL, TTL. Unlike the previous single-key
-// stub, this one tracks per-key state via a Map so the half-open probe key
-// (`circuit:${name}:probe`) and the failure key (`circuit:${name}:failures`)
-// can coexist without aliasing each other.
+// touches: SET NX EX, INCR, GET, GETDEL, DEL, TTL. Unlike the previous
+// single-key stub, this one tracks per-key state via a Map so the half-open
+// probe key (`circuit:${name}:probe`) and the failure key
+// (`circuit:${name}:failures`) can coexist without aliasing each other.
 
 interface SetOptions { ex?: number; nx?: boolean }
 interface StoreEntry { value: string | number; ttl: number }
@@ -31,6 +31,14 @@ const fakeRedis = {
   get: async <T>(key: string): Promise<T | null> => {
     const entry = store.get(key)
     return entry === undefined ? null : (entry.value as unknown as T)
+  },
+  // GETDEL: atomically reads and removes the key. Used by `recordSuccess`
+  // to close the get→del race that an INCR could land between.
+  getdel: async <T>(key: string): Promise<T | null> => {
+    const entry = store.get(key)
+    if (entry === undefined) return null
+    store.delete(key)
+    return entry.value as unknown as T
   },
   del: async (key: string): Promise<number> => {
     const had = store.has(key) ? 1 : 0

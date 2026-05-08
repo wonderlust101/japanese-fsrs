@@ -6,6 +6,7 @@ import { openai, openaiSemaphore } from '../lib/openai.ts';
 import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
 import { withBreaker } from '../lib/circuit-breaker.ts';
+import { encodeCursor, decodeCursor } from '../lib/http.ts';
 import { AppError, ServiceUnavailableError, dbError } from '../middleware/errorHandler.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
 
@@ -275,6 +276,13 @@ const SimilarCardRpcRowSchema = z.object({
   similarity:  z.number(),
 })
 
+/** Cursor payload for the cards-list endpoint. The `list_cards_paginated`
+ *  RPC re-derives `created_at` from the row pointed to by `id`, so the cursor
+ *  itself only needs to carry `id` today. The shape is an object (not a bare
+ *  string) so future versions can add fields (e.g. embedding a sort marker)
+ *  without a wire break. */
+const cardListCursorSchema = z.object({ id: z.string().uuid() })
+
 /** Slim direct-read schemas for one-off SELECTs that don't need the full row. */
 const CardFieldsRowSchema = z.object({
   id:          z.string(),
@@ -323,13 +331,18 @@ export async function listCards(
   cursor?: string,
   status?: CardStatusFilter,
 ): Promise<CardListResult> {
+  // Decode the opaque cursor into the bare `id` the RPC expects. The RPC
+  // resolves the (created_at, id) tuple from the row internally; the API
+  // only needs to round-trip the id portion today.
+  const cursorId = cursor !== undefined ? decodeCursor(cursor, cardListCursorSchema).id : null
+
   const { data, error } = await supabaseAdmin.rpc(
     'list_cards_paginated',
     asPayload({
       p_user_id:       userId,
       p_deck_id:       deckId,
       p_limit:         limit + 1,
-      p_cursor:        cursor ?? null,
+      p_cursor:        cursorId,
       p_status_filter: status ?? null,
     }),
   )
@@ -344,10 +357,11 @@ export async function listCards(
   const rows    = z.array(CardListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
   const items   = rows.slice(0, limit).map(toApiCardListItem)
+  const lastId  = items[items.length - 1]?.id
 
   return {
     items,
-    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
     hasMore,
   }
 }

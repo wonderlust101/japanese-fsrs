@@ -3,7 +3,13 @@ import { Ratelimit } from '@upstash/ratelimit'
 
 import { redis } from '../db/redis.ts'
 import { env } from '../lib/env.ts'
+import { componentLogger } from '../lib/logger.ts'
 import { AppError } from './errorHandler.ts'
+
+// Module-scoped fallback logger. Used only when `req.log` is unexpectedly
+// missing (pino-http ran but failed to decorate, or the middleware order ever
+// changes). Mirrors the `req.log ?? apiLog` pattern in errorHandler.ts.
+const log = componentLogger('rate-limit')
 
 /**
  * Catch-block helper for rate-limit middlewares.
@@ -31,7 +37,7 @@ function failOpenOnInfraError(err: unknown, req: Request, next: NextFunction): v
     next(err)
     return
   }
-  req.log.warn(
+  ;(req.log ?? log).warn(
     {
       err: err instanceof Error
         ? { name: err.name, message: err.message }
@@ -81,7 +87,7 @@ export function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitR
   if (!r.success) {
     const retryAfterSec = Math.max(1, Math.ceil((r.reset - Date.now()) / 1000))
     res.setHeader('Retry-After', String(retryAfterSec))
-    req.log.warn(
+    ;(req.log ?? log).warn(
       { limiter, key, resetAt: r.reset, retryAfterSec },
       '[rate-limit] hit',
     )
@@ -236,13 +242,20 @@ const authOtpVerifyRatelimit = new Ratelimit({
  * 1M-deep search space; the standard 5/15min/email plus distributed IPs
  * could make sustained guessing feasible. 5/hour/email closes that.
  * Apply AFTER `authRateLimitMiddleware`.
+ *
+ * Email-missing fallback: keys off the request IP rather than a global
+ * `'anon'` bucket. The previous fallback shared one 5/hour budget across
+ * every email-less call from any client — a single malformed-body caller
+ * could DoS the whole flow system-wide. Mirrors the IP-keyed fallback
+ * pattern in `authRateLimitMiddleware`.
  */
 export const authOtpVerifyRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
   if (!RATE_LIMITING_ENABLED) { next(); return }
   try {
     const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
     const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
-    const key = email || 'anon'
+    const ip    = req.ip ?? 'unknown'
+    const key   = email || `ip:${ip}`
     const result = await authOtpVerifyRatelimit.limit(key)
     applyRateLimitHeaders(req, res, result, 'auth:otp-verify', key)
     if (!result.success) {

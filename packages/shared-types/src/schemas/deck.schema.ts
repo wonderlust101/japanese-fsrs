@@ -27,9 +27,10 @@ export const deckIdParamSchema = z.object({
 })
 
 // Cursor pagination for GET /api/v1/decks. Mirrors the cards-list query shape.
+// Opaque cursor — see lib/http.ts:encodeCursor.
 export const listDecksQuerySchema = z.object({
   limit:  z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.string().uuid().optional(),
+  cursor: z.string().min(1).max(512).optional(),
 }).strict()
 
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>

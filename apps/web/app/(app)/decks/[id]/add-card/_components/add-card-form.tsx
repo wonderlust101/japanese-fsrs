@@ -49,7 +49,7 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
     // The mutate caller passes `preview` explicitly (captured at click time
     // from the narrowed 'preview'-phase state) — no nullable closure needed.
     mutationFn: (preview: GeneratedCardData) =>
-      saveCardAction(deckId, { fieldsData: preview }),
+      saveCardAction(deckId, { mode: 'manual', fieldsData: preview }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) })

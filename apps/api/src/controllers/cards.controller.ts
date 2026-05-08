@@ -57,12 +57,14 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
     req.header('idempotency-key'),
     input,
     async () => {
-      // The createCard service accepts either validated FieldsData (manual
-      // path) or raw GeneratedCardData (AI path) — see services/card.service.ts.
-      // No widening cast needed; the union preserves type info to the boundary.
+      // createCardSchema is a discriminated union on `mode`; narrow on the
+      // discriminator so the chosen branch's fields are typed correctly and
+      // a future schema change can't silently mis-route requests. The
+      // createCard service accepts either validated FieldsData (manual path)
+      // or raw GeneratedCardData (AI path) — see services/card.service.ts.
       let fieldsData: FieldsData | GeneratedCardData
 
-      if ('word' in input) {
+      if (input.mode === 'ai') {
         const profile = await profileService.getProfile(req.user.id)
         fieldsData = await aiService.generateCard(
           input.word,

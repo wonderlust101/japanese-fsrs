@@ -39,17 +39,28 @@ const cardMetaFields = {
 
 // AI path: client sends a word; controller calls ai.service.generateCard.
 const aiCreateSchema = z.object({
+  mode: z.literal('ai'),
   word: safeShortText(50, 1),
   ...cardMetaFields,
 }).strict()
 
 // Manual path: client supplies fieldsData directly.
 const manualCreateSchema = z.object({
+  mode: z.literal('manual'),
   fieldsData: fieldsDataSchema,
   ...cardMetaFields,
 }).strict()
 
-export const createCardSchema = z.union([aiCreateSchema, manualCreateSchema])
+// Tagged union on `mode`. The previous z.union narrowed structurally on the
+// presence of `word` vs `fieldsData`, which was already safe due to .strict()
+// on both branches (a body with both keys 400'd). The explicit discriminator
+// makes the intent of every payload self-evident on the wire and forecloses
+// any future schema-evolution mishap that might re-introduce overlapping
+// fields between the two branches.
+export const createCardSchema = z.discriminatedUnion('mode', [
+  aiCreateSchema,
+  manualCreateSchema,
+])
 
 // ─── Update schema ────────────────────────────────────────────────────────────
 
@@ -73,7 +84,10 @@ export const cardStatusFilterEnum = z.enum(['all', 'new', 'learning', 'review', 
 
 export const listCardsQuerySchema = z.object({
   limit:  z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.string().uuid().optional(),
+  // Opaque base64url-encoded cursor (see lib/http.ts:encodeCursor). Length is
+  // bounded loosely; precise shape validation happens at decode time and a
+  // malformed value surfaces as a 400 with code 'CURSOR_INVALID'.
+  cursor: z.string().min(1).max(512).optional(),
   status: cardStatusFilterEnum.optional(),
 }).strict()
 

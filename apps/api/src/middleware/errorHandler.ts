@@ -21,6 +21,7 @@ const apiLog = componentLogger('api')
  * throw, remove the corresponding line.
  *
  *   400 Bad Request
+ *     CURSOR_INVALID                  Opaque pagination cursor failed decode / shape validation
  *     IDEMPOTENCY_KEY_INVALID         Idempotency-Key header is not a UUID
  *     IDEMPOTENCY_KEY_REQUIRED        Idempotency-Key header missing on retry-able POST
  *     IF_MATCH_INVALID                If-Match header present but malformed
@@ -88,6 +89,7 @@ const apiLog = componentLogger('api')
  *
  *   500 Internal Server Error
  *     FSRS_MANUAL_RATING_BUG          Zod let `rating: 'manual'` through (regression marker)
+ *     FSRS_UNKNOWN_RATING_BUG         review_logs.rating held an unknown string (corruption marker)
  *     IDEMPOTENCY_CLAIM_FAILED        DB error claiming idempotency key
  *     INTERNAL_SERVER_ERROR           Fallthrough — unexpected error (no AppError mapping)
  *     LOGOUT_FAILED                   Supabase admin signOut errored

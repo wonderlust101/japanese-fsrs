@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
+import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
@@ -57,6 +58,12 @@ const PremadeDeckListRpcRowSchema = z.object({
   updated_at:  z.string(),
 })
 
+/** Cursor payload for the premade-decks-list endpoint. The
+ *  `list_premade_decks_paginated` RPC re-derives the sort key from the row
+ *  pointed to by `id`, so the cursor only needs to carry `id` today. Object
+ *  shape leaves room to add fields without a wire-format break. */
+const premadeListCursorSchema = z.object({ id: z.string().uuid() })
+
 /** Slim direct-read schemas used by listSubscriptionsRaw. */
 const SubscriptionDbRowSchema = z.object({
   id:              z.string(),
@@ -96,9 +103,13 @@ function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
 export async function listPremadeDecks(
   filters: ListPremadeDecksQuery,
 ): Promise<ApiList<ApiPremadeDeck>> {
+  const cursorId = filters.cursor !== undefined
+    ? decodeCursor(filters.cursor, premadeListCursorSchema).id
+    : null
+
   const { data, error } = await supabaseAdmin.rpc('list_premade_decks_paginated', asPayload({
     p_limit:      filters.limit + 1,
-    p_cursor:     filters.cursor    ?? null,
+    p_cursor:     cursorId,
     p_deck_type:  filters.deckType  ?? null,
     p_jlpt_level: filters.jlptLevel ?? null,
     p_domain:     filters.domain    ?? null,
@@ -111,10 +122,11 @@ export async function listPremadeDecks(
   const rows    = z.array(PremadeDeckListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > filters.limit
   const items   = rows.slice(0, filters.limit).map(toPremadeRow)
+  const lastId  = items[items.length - 1]?.id
 
   return {
     items,
-    nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
+    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
     hasMore,
   }
 }

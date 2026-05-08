@@ -46,13 +46,20 @@ export const requestLogger = pinoHttp({
   // The redact config in lib/logger.ts strips authorization + cookie headers
   // on top of this. Dev: omit serializers so pino-http's defaults run, which
   // include headers, query, remote address, response headers, etc.
+  //
+  // Querystring is stripped from `url` in prod: pino's `redact` config matches
+  // by field name and cannot scrub substrings inside a URL string. If a future
+  // route ever accepted a token in querystring (OAuth callback, password-reset
+  // link, etc.) the raw `req.url` would carry it into every log line. The path
+  // itself stays visible for debugging; structured fields (reqId, method,
+  // statusCode) carry the rest.
   ...(isDev ? {} : {
     serializers: {
       req(req): { id: unknown; method: unknown; url: unknown; hasAuth: boolean } {
         return {
           id:      req.id,
           method:  req.method,
-          url:     req.url,
+          url:     typeof req.url === 'string' ? req.url.split('?')[0] : req.url,
           hasAuth: req.headers?.authorization !== undefined,
         }
       },
