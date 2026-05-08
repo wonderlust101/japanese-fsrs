@@ -1,9 +1,9 @@
-import OpenAI from 'openai'
 import { createHash } from 'node:crypto'
 import type { ZodType } from 'zod'
 
 import { redis } from '../db/redis.ts'
 import { env }   from '../lib/env.ts'
+import { openai } from '../lib/openai.ts'
 import {
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
@@ -15,6 +15,8 @@ import {
 } from '@fsrs-japanese/shared-types'
 import { componentLogger } from '../lib/logger.ts'
 import { withBreaker } from '../lib/circuit-breaker.ts'
+import { openaiSemaphore } from '../lib/openai.ts'
+import { scrubKeyish } from '../lib/scrub.ts'
 import { AppError } from '../middleware/errorHandler.ts'
 
 /** Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
@@ -28,30 +30,13 @@ const CHAT_UNAVAILABLE_MSG = 'AI service temporarily unavailable; please retry s
 
 const log = componentLogger('ai.service')
 
-// ─── Error-message scrubber ───────────────────────────────────────────────────
-// OpenAI's 401 / auth errors include a partial-mask of the API key in the
-// message ("Incorrect API key provided: sk-proj-AbCd***WXYZ"). Strip any
-// `sk-…` token so we don't echo even partial credential material into log
-// sinks. Pino's `*.token` redact path doesn't catch substrings inside
-// `err.message`. Also catches future api-key-formatted leaks.
-function scrubKeyish(input: unknown): string {
-  const msg = input instanceof Error ? input.message : String(input)
-  return msg.replace(/sk-[A-Za-z0-9_*-]+/g, '<redacted-key>')
-}
+// `scrubKeyish` lives in lib/scrub.ts so the global error handler can apply
+// the same redaction at its log boundaries (defense-in-depth: the inline
+// log here scrubs SDK 401 messages locally; lib/scrub.ts catches anything
+// that slips past as `cause` on a wrapped error).
 
-// ─── OpenAI client ────────────────────────────────────────────────────────────
-// Lazy: instantiate only when the API key is present so non-AI code paths and
-// most tests don't need to set it. Mirrors the precedent in card.service.ts.
-// Each generate function below null-checks before calling OpenAI.
-
-// Cap a single OpenAI HTTP request at 15s. The SDK default is 10 minutes,
-// which under degraded OpenAI conditions would tie a request worker up far
-// longer than the 30s server.requestTimeout (workers freed only when the
-// SDK gives up, not when Express closes the socket). 15s ≈ p99 latency for
-// chat/embedding calls plus headroom; SDK retries (default 2) cover blips.
-const openai = env.OPENAI_API_KEY !== undefined
-  ? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 15_000 })
-  : null
+// `openai` is the shared OpenAI client from lib/openai.ts — same instance
+// used by card.service.ts for embeddings. Null when OPENAI_API_KEY is unset.
 
 const CHAT_MODEL = env.OPENAI_CHAT_MODEL
 
@@ -87,7 +72,20 @@ function hashInterests(interests: string[]): string {
  * subsequent request that hashes to the same key until TTL.
  */
 async function readCache<T>(cacheKey: string, schema: ZodType<T>): Promise<T | null> {
-  const cached = await redis.get<unknown>(cacheKey)
+  // Cache is OPTIONAL — Upstash failures must not break the AI request path.
+  // A `redis.get` throw (e.g., breaker open from sustained Upstash issues)
+  // surfaces here; we log warn and return null so the caller falls through
+  // to the fresh OpenAI fetch.
+  let cached: unknown
+  try {
+    cached = await redis.get<unknown>(cacheKey)
+  } catch (err) {
+    log.warn({
+      cacheKey,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'AI cache read failed; treating as miss')
+    return null
+  }
   if (cached === null) return null
   try {
     const payload = typeof cached === 'string' ? JSON.parse(cached) : cached
@@ -97,7 +95,9 @@ async function readCache<T>(cacheKey: string, schema: ZodType<T>): Promise<T | n
       cacheKey,
       err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
     }, 'corrupt AI cache entry; treating as miss')
-    await redis.del(cacheKey)
+    // Best-effort delete; if the del also fails (e.g. same Upstash issue),
+    // the corrupt entry will eventually TTL out — don't fail the request.
+    await redis.del(cacheKey).catch(() => undefined)
     return null
   }
 }
@@ -118,8 +118,9 @@ export async function generateCard(
   word: string,
   userLevel: string,
   interests: string[],
+  opts?: { signal?: AbortSignal },
 ): Promise<GeneratedCardData> {
-  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
 
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
@@ -136,10 +137,10 @@ export async function generateCard(
   // log line below. The outer try/catch around the OpenAI call is kept
   // solely to scrub `sk-…` tokens from `err.message` (the SDK leaks them
   // in 401 messages).
-  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+  const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai.chat.completions.create({
+      response = await openai!.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [
@@ -167,7 +168,7 @@ Return JSON with these keys:
 }`,
           },
         ],
-      })
+      }, { signal: opts?.signal })
     } catch (err) {
       log.error({
         err: {
@@ -184,15 +185,24 @@ Return JSON with these keys:
       // 200 with malformed content. Using AppError (vs plain Error) prevents
       // withBreaker from counting this against the chat breaker — see the
       // skip-AppError branch in lib/circuit-breaker.ts.
-      throw new AppError(502, 'OpenAI returned an empty response')
+      throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
     }
     return GeneratedCardDataSchema.parse(JSON.parse(raw))
-  })
+  }))
 
   // Cache write outside the breaker — a Redis blip should not trip the
   // OpenAI breaker. If the write fails, the work already succeeded; we just
   // miss caching this entry and the next equivalent request hits OpenAI.
+  // Cache write is best-effort — see the comment above the breaker call.
+  // Without this swallow a Redis blip after a successful OpenAI generation
+  // would surface to the user, who'd retry and re-bill the OpenAI call.
   await redis.set(cacheKey, JSON.stringify(result), { ex: CARD_CACHE_TTL })
+    .catch((err: unknown) => {
+      log.warn({
+        cacheKey,
+        err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+      }, 'AI cache write failed; result still returned')
+    })
   return result
 }
 
@@ -208,8 +218,9 @@ export async function generateSentences(
   userLevel:  string,
   interests:  string[],
   count:      number,
+  opts?:      { signal?: AbortSignal },
 ): Promise<GeneratedSentences> {
-  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
 
   const safeWord      = sanitizeForPrompt(word)
   const safeLevel     = sanitizeForPrompt(userLevel)
@@ -221,10 +232,10 @@ export async function generateSentences(
   const fromCache = await readCache(cacheKey, GeneratedSentencesSchema)
   if (fromCache !== null) return fromCache
 
-  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+  const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai.chat.completions.create({
+      response = await openai!.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [
@@ -251,7 +262,7 @@ Constraints:
 - Vary the grammar pattern across sentences.`,
           },
         ],
-      })
+      }, { signal: opts?.signal })
     } catch (err) {
       log.error({
         err: {
@@ -268,12 +279,18 @@ Constraints:
       // 200 with malformed content. Using AppError (vs plain Error) prevents
       // withBreaker from counting this against the chat breaker — see the
       // skip-AppError branch in lib/circuit-breaker.ts.
-      throw new AppError(502, 'OpenAI returned an empty response')
+      throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
     }
     return GeneratedSentencesSchema.parse(JSON.parse(raw))
-  })
+  }))
 
   await redis.set(cacheKey, JSON.stringify(result), { ex: SENTENCES_CACHE_TTL })
+    .catch((err: unknown) => {
+      log.warn({
+        cacheKey,
+        err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+      }, 'AI cache write failed; result still returned')
+    })
   return result
 }
 
@@ -290,8 +307,9 @@ export async function generateMnemonic(
   userLevel:      string,
   nativeLanguage: string,
   interests:      string[],
+  opts?:          { signal?: AbortSignal },
 ): Promise<GeneratedMnemonic> {
-  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured')
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
 
   const safeWord       = sanitizeForPrompt(word)
   const safeLevel      = sanitizeForPrompt(userLevel)
@@ -303,10 +321,10 @@ export async function generateMnemonic(
   const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema)
   if (fromCache !== null) return fromCache
 
-  const result = await withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+  const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
     let response
     try {
-      response = await openai.chat.completions.create({
+      response = await openai!.chat.completions.create({
         model: CHAT_MODEL,
         response_format: { type: 'json_object' },
         messages: [
@@ -330,7 +348,7 @@ Constraints:
 - Use the user's native language for the mnemonic text.`,
           },
         ],
-      })
+      }, { signal: opts?.signal })
     } catch (err) {
       log.error({
         err: {
@@ -347,11 +365,17 @@ Constraints:
       // 200 with malformed content. Using AppError (vs plain Error) prevents
       // withBreaker from counting this against the chat breaker — see the
       // skip-AppError branch in lib/circuit-breaker.ts.
-      throw new AppError(502, 'OpenAI returned an empty response')
+      throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
     }
     return GeneratedMnemonicSchema.parse(JSON.parse(raw))
-  })
+  }))
 
   await redis.set(cacheKey, JSON.stringify(result), { ex: MNEMONIC_CACHE_TTL })
+    .catch((err: unknown) => {
+      log.warn({
+        cacheKey,
+        err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+      }, 'AI cache write failed; result still returned')
+    })
   return result
 }

@@ -36,7 +36,7 @@ const CANCEL_TOKEN_TTL_SECONDS = 3600
 async function verifyCurrentPassword(email: string, password: string): Promise<void> {
   const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password })
   if (error !== null || data.session === null) {
-    throw new AppError(401, 'Current password is incorrect')
+    throw new AppError(401, 'Current password is incorrect', { code: 'AUTH_CURRENT_PASSWORD_INVALID' })
   }
 }
 
@@ -83,7 +83,7 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
       return { email: input.email, userId: null, cancellationToken: null }
     }
     log.error({ err: { name: error.name, message: error.message } }, 'signup failed')
-    throw new AppError(400, 'Signup failed')
+    throw new AppError(400, 'Signup failed', { code: 'SIGNUP_FAILED' })
   }
 
   // GoTrue returns user: null when the email is already confirmed — same
@@ -97,13 +97,28 @@ export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
   // userId alone (e.g. via a screenshot of the response) is no longer
   // sufficient to delete the in-flight signup; the matching token must also
   // be presented at /cancel-signup. Stored in Redis with a 1h TTL.
+  //
+  // Token storage is best-effort: by the time we get here the Supabase auth
+  // user is already committed. If Redis is unavailable, returning the token
+  // anyway would be useless (cancelSignup couldn't validate it), so we
+  // return null and the user can't cancel until Supabase's own unconfirmed-
+  // signup expiry fires. The OTP flow itself still works.
   const cancellationToken = crypto.randomUUID()
-  await redis.set(cancelTokenKey(data.user.id), cancellationToken, { ex: CANCEL_TOKEN_TTL_SECONDS })
+  let storedToken: string | null = cancellationToken
+  try {
+    await redis.set(cancelTokenKey(data.user.id), cancellationToken, { ex: CANCEL_TOKEN_TTL_SECONDS })
+  } catch (err) {
+    log.warn({
+      userId: data.user.id,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'cancellation-token write failed; signup proceeds without cancel option')
+    storedToken = null
+  }
 
   return {
     email: data.user.email ?? input.email,
     userId: data.user.id,
-    cancellationToken,
+    cancellationToken: storedToken,
   }
 }
 
@@ -119,8 +134,21 @@ export async function cancelSignup(input: CancelSignupInput): Promise<void> {
   // observable behaviour from a valid-but-unknown userId. Compared via
   // timingSafeEqual so a partial-match timing oracle is closed even though
   // the 122-bit UUID entropy makes practical exploitation infeasible.
-  const storedToken = await redis.get<string>(cancelTokenKey(input.userId))
-  if (storedToken === null || storedToken === undefined) return
+  //
+  // Best-effort read: if Redis is unavailable we treat it as "no token
+  // exists" — same outcome as a wrong token or unknown userId. The caller
+  // gets a 204; the unconfirmed signup expires on Supabase's own timer.
+  let storedToken: string | null = null
+  try {
+    storedToken = await redis.get<string>(cancelTokenKey(input.userId)) ?? null
+  } catch (err) {
+    log.warn({
+      userId: input.userId,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'cancellation-token read failed; treating as no-token')
+    return
+  }
+  if (storedToken === null) return
   const stored = Buffer.from(storedToken)
   const sent   = Buffer.from(input.cancellationToken)
   if (stored.length !== sent.length || !timingSafeEqual(stored, sent)) return
@@ -158,7 +186,7 @@ export async function signInWithPassword(input: LoginInput): Promise<ApiAuthToke
     // No identity field — the global error handler will log the 401 with
     // the request id, which is sufficient correlation for incident response.
     log.warn('login failed')
-    throw new AppError(401, 'Invalid email or password')
+    throw new AppError(401, 'Invalid email or password', { code: 'AUTH_INVALID_CREDENTIALS' })
   }
 
   log.info({ userId: data.session.user.id }, 'login succeeded')
@@ -180,7 +208,7 @@ export async function refreshSession(input: RefreshInput): Promise<ApiAuthTokens
   })
 
   if (error !== null || data.session === null) {
-    throw new AppError(401, 'Invalid or expired refresh token')
+    throw new AppError(401, 'Invalid or expired refresh token', { code: 'AUTH_REFRESH_INVALID' })
   }
 
   return {
@@ -206,7 +234,7 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<ApiAuthTokens> {
     if (error !== null) {
       log.error({ err: { name: error.name, message: error.message } }, 'verifyOtp failed')
     }
-    throw new AppError(400, 'Invalid or expired code')
+    throw new AppError(400, 'Invalid or expired code', { code: 'OTP_INVALID' })
   }
 
   return {
@@ -228,7 +256,7 @@ export async function resendOtp(input: ResendOtpInput): Promise<void> {
 
   if (error !== null) {
     log.error({ err: { name: error.name, message: error.message } }, 'resendOtp failed')
-    throw new AppError(400, 'Failed to resend OTP')
+    throw new AppError(400, 'Failed to resend OTP', { code: 'OTP_RESEND_FAILED' })
   }
 }
 
@@ -241,7 +269,7 @@ export async function signOut(jwt: string): Promise<void> {
   const { error } = await supabaseAdmin.auth.admin.signOut(jwt, 'local')
 
   if (error !== null) {
-    throw new AppError(500, 'Logout failed')
+    throw new AppError(500, 'Logout failed', { code: 'LOGOUT_FAILED' })
   }
 }
 

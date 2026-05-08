@@ -16,7 +16,7 @@ export const authMiddleware: RequestHandler = async (req, _res, next): Promise<v
     const authHeader = req.headers.authorization
 
     if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
-      throw new AppError(401, 'Missing or malformed Authorization header')
+      throw new AppError(401, 'Missing or malformed Authorization header', { code: 'AUTH_HEADER_MISSING' })
     }
 
     const token = authHeader.slice('Bearer '.length)
@@ -24,7 +24,7 @@ export const authMiddleware: RequestHandler = async (req, _res, next): Promise<v
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
 
     if (error !== null || user === null) {
-      throw new AppError(401, 'Invalid or expired token')
+      throw new AppError(401, 'Invalid or expired token', { code: 'AUTH_TOKEN_INVALID' })
     }
 
     req.user = user

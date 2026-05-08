@@ -54,12 +54,12 @@ export async function withIdempotency<T>(
   worker:         () => Promise<IdempotencyResult<T>>,
 ): Promise<IdempotencyResult<T>> {
   if (rawHeader === undefined) {
-    throw new AppError(400, 'Idempotency-Key header is required')
+    throw new AppError(400, 'Idempotency-Key header is required', { code: 'IDEMPOTENCY_KEY_REQUIRED' })
   }
 
   const keyResult = idempotencyKeySchema.safeParse(rawHeader)
   if (!keyResult.success) {
-    throw new AppError(400, 'Idempotency-Key must be a UUID')
+    throw new AppError(400, 'Idempotency-Key must be a UUID', { code: 'IDEMPOTENCY_KEY_INVALID' })
   }
   const key = keyResult.data
 
@@ -77,17 +77,17 @@ export async function withIdempotency<T>(
 
   if (error !== null) {
     log.error({ err: { name: error.message, code: error.code } }, 'claim failed')
-    throw new AppError(500, 'Failed to claim idempotency key')
+    throw new AppError(500, 'Failed to claim idempotency key', { code: 'IDEMPOTENCY_CLAIM_FAILED' })
   }
 
   const rows = z.array(ClaimRowSchema).parse(data ?? [])
   const claim: ClaimRow = rows[0] ?? { status: 'fresh', stored_status: null, stored_body: null }
 
   if (claim.status === 'conflict') {
-    throw new AppError(422, 'Idempotency-Key reused with a different request body')
+    throw new AppError(422, 'Idempotency-Key reused with a different request body', { code: 'IDEMPOTENCY_KEY_CONFLICT' })
   }
   if (claim.status === 'in_flight') {
-    throw new AppError(409, 'Idempotent request already in flight; please retry shortly')
+    throw new AppError(409, 'Idempotent request already in flight; please retry shortly', { code: 'IDEMPOTENCY_IN_FLIGHT' })
   }
   if (claim.status === 'replay') {
     return {

@@ -99,7 +99,7 @@ export async function getProfile(userId: string): Promise<Profile> {
   ])
 
   if (profileResult.error !== null || profileResult.data === null) {
-    throw new AppError(404, 'Profile not found')
+    throw new AppError(404, 'Profile not found', { code: 'PROFILE_NOT_FOUND' })
   }
 
   return toProfile(ProfileDbRowSchema.parse(profileResult.data), interests)
@@ -144,11 +144,11 @@ export async function updateProfile(
   }))
 
   if (error !== null) {
-    if (error.code === '02000' || error.message.includes('profile_not_found')) {
-      throw new AppError(404, 'Profile not found')
+    if (error.code === '02000' && error.message.includes('profile_not_found')) {
+      throw new AppError(404, 'Profile not found', { code: 'PROFILE_NOT_FOUND' })
     }
-    if (error.code === '22000' || error.message.includes('profile_version_mismatch')) {
-      throw new AppError(412, 'Profile has been modified since you loaded it; refresh and retry')
+    if (error.code === '22000' && error.message.includes('profile_version_mismatch')) {
+      throw new AppError(412, 'Profile has been modified since you loaded it; refresh and retry', { code: 'VERSION_CONFLICT' })
     }
     throw dbError('update profile', error)
   }

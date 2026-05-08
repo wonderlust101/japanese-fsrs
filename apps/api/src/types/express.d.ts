@@ -9,6 +9,12 @@ declare global {
       /** Set by pino-http requestLogger; widened to optional so the global
        *  errorHandler can fall back when an error fires before the middleware ran. */
       log: Logger | undefined
+      /** AbortSignal that aborts when the underlying socket is destroyed
+       *  (client disconnect or server.requestTimeout). Available on Node 18+
+       *  via IncomingMessage.signal but not surfaced by @types/express;
+       *  declared here for use by handlers that thread `req.signal` to
+       *  downstream calls (currently OpenAI). */
+      signal: AbortSignal
     }
   }
 }

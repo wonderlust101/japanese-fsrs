@@ -4,46 +4,81 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 // at module load; this `mock.module` swap must run BEFORE the import below.
 //
 // The stub models the small slice of Upstash semantics the breaker actually
-// touches: SET NX EX, INCR, GET, DEL, TTL. Only one key is ever held at a
-// time across these tests (the breaker writes to one key per name, and we
-// reset between tests), so a single `storedCount` / `storedTtl` pair is enough.
-
-let storedCount: number | null = null
-let storedTtl: number = -2
+// touches: SET NX EX, INCR, GET, DEL, TTL. Unlike the previous single-key
+// stub, this one tracks per-key state via a Map so the half-open probe key
+// (`circuit:${name}:probe`) and the failure key (`circuit:${name}:failures`)
+// can coexist without aliasing each other.
 
 interface SetOptions { ex?: number; nx?: boolean }
+interface StoreEntry { value: string | number; ttl: number }
+const store = new Map<string, StoreEntry>()
 
-mock.module('../../db/redis.ts', () => ({
-  redis: {
-    set: async (_key: string, _value: number, opts?: SetOptions): Promise<string | null> => {
-      if (opts?.nx === true && storedCount !== null) return null
-      storedCount = 0
-      storedTtl   = opts?.ex ?? -1
-      return 'OK'
-    },
-    incr: async (_key: string): Promise<number> => {
-      if (storedCount === null) storedCount = 0
-      storedCount += 1
-      return storedCount
-    },
-    get: async <T>(_key: string): Promise<T | null> => storedCount as unknown as T | null,
-    del: async (_key: string): Promise<number> => {
-      const had = storedCount !== null ? 1 : 0
-      storedCount = null
-      storedTtl   = -2
-      return had
-    },
-    ttl: async (_key: string): Promise<number> => storedTtl,
+const fakeRedis = {
+  set: async (key: string, value: number | string, opts?: SetOptions): Promise<string | null> => {
+    if (opts?.nx === true && store.has(key)) return null
+    store.set(key, { value, ttl: opts?.ex ?? -1 })
+    return 'OK'
   },
+  incr: async (key: string): Promise<number> => {
+    const entry = store.get(key)
+    const cur   = entry === undefined
+      ? 0
+      : (typeof entry.value === 'number' ? entry.value : Number.parseInt(entry.value, 10) || 0)
+    const next  = cur + 1
+    store.set(key, { value: next, ttl: entry?.ttl ?? -1 })
+    return next
+  },
+  get: async <T>(key: string): Promise<T | null> => {
+    const entry = store.get(key)
+    return entry === undefined ? null : (entry.value as unknown as T)
+  },
+  del: async (key: string): Promise<number> => {
+    const had = store.has(key) ? 1 : 0
+    store.delete(key)
+    return had
+  },
+  ttl: async (key: string): Promise<number> => store.get(key)?.ttl ?? -2,
+}
+
+// Mock both `redis` and `rawRedis` exports — circuit-breaker.ts imports
+// `rawRedis` (not `redis`) to avoid recursion through its own breaker; without
+// the rawRedis mock, the breaker's internal calls would see `undefined` and
+// throw on every method invocation.
+mock.module('../../db/redis.ts', () => ({
+  redis: fakeRedis,
+  rawRedis: fakeRedis,
 }))
 
-const { recordFailure, recordSuccess, isOpen, getRetryAfterSeconds, withBreaker } = await import('../circuit-breaker.ts')
+const { recordFailure, recordSuccess, isOpen, getRetryAfterSeconds, withBreaker, invalidateIsOpenCache } = await import('../circuit-breaker.ts')
 const { AppError, ServiceUnavailableError } = await import('../../middleware/errorHandler.ts')
 
 beforeEach(() => {
-  storedCount = null
-  storedTtl   = -2
+  store.clear()
+  // Clear the in-memory isOpen cache between tests so pre-set state is visible.
+  invalidateIsOpenCache('test')
 })
+
+// ─── Test helpers ──────────────────────────────────────────────────────────
+
+const failureKey = (name: string): string => `circuit:${name}:failures`
+const probeKey   = (name: string): string => `circuit:${name}:probe`
+
+function presetFailures(name: string, count: number, ttl: number): void {
+  store.set(failureKey(name), { value: count, ttl })
+}
+function presetProbe(name: string, ttl = 5): void {
+  store.set(probeKey(name), { value: '1', ttl })
+}
+function getCount(name: string): number | null {
+  const entry = store.get(failureKey(name))
+  if (entry === undefined) return null
+  return typeof entry.value === 'number' ? entry.value : Number.parseInt(entry.value, 10) || null
+}
+function isProbeHeld(name: string): boolean {
+  return store.has(probeKey(name))
+}
+
+// ─── Counter / state primitives ────────────────────────────────────────────
 
 describe('circuit-breaker — closed state', () => {
   it('isOpen is false when no failures have been recorded', async () => {
@@ -84,130 +119,146 @@ describe('circuit-breaker — recovery via recordSuccess', () => {
   })
 })
 
-describe('circuit-breaker — getRetryAfterSeconds', () => {
-  it('returns the TTL set by the first failure', async () => {
+describe('circuit-breaker — getRetryAfterSeconds (with jitter)', () => {
+  // The 'test' namespace falls back to FALLBACK_CONFIG (window=300s).
+  // Production adds 0–29s jitter to thwart thundering-herd retries.
+  it('returns base TTL plus jitter (0–29s) after a recorded failure', async () => {
     await recordFailure('test')
-    // Stub stores opts.ex (300 = WINDOW_SECONDS in the impl).
-    expect(await getRetryAfterSeconds('test')).toBe(300)
+    const v = await getRetryAfterSeconds('test')
+    expect(v).toBeGreaterThanOrEqual(300)
+    expect(v).toBeLessThan(330)
   })
 
-  it('falls back to the full window when no key exists', async () => {
-    // No failures recorded — TTL = -2 — falls back to WINDOW_SECONDS.
-    expect(await getRetryAfterSeconds('test')).toBe(300)
+  it('falls back to full window plus jitter when no key exists', async () => {
+    const v = await getRetryAfterSeconds('test')
+    expect(v).toBeGreaterThanOrEqual(300)
+    expect(v).toBeLessThan(330)
   })
 })
 
-// ─── withBreaker (the integration helper consumers use) ──────────────────────
+// ─── withBreaker — half-open probe behaviour ──────────────────────────────
+//
+// New post-Phase-B semantics: when the breaker is open, the FIRST caller
+// acquires a probe slot via SET-NX and runs `fn` as a probe. Concurrent
+// callers see the probe held and fast-fail until either the probe completes
+// (releasing the slot) or PROBE_TTL_SECONDS expires.
 
-describe('withBreaker — open breaker', () => {
-  it('throws ServiceUnavailableError without running fn', async () => {
-    // Simulate an already-open breaker (10 failures, 250s left in window).
-    storedCount = 10
-    storedTtl   = 250
+describe('withBreaker — open breaker, half-open probe', () => {
+  it('first caller acquires probe and runs fn; probe success closes breaker', async () => {
+    presetFailures('test', 10, 250)  // open
+    expect(await isOpen('test')).toBe(true)
 
     let ranInner = false
-    const promise = withBreaker('test', 'service down', async () => {
+    const result = await withBreaker('test', 'service down', async () => {
       ranInner = true
-      return 'should not reach this'
+      return 'probe-ok'
     })
 
-    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
-    expect(ranInner).toBe(false)
+    expect(result).toBe('probe-ok')
+    expect(ranInner).toBe(true)
+    // Probe success → recordSuccess clears failures, releaseProbe clears probe.
+    expect(getCount('test')).toBeNull()
+    expect(isProbeHeld('test')).toBe(false)
+    expect(await isOpen('test')).toBe(false)
+  })
 
-    // Verify the thrown error carries the TTL-based retry-after.
+  it('concurrent caller fast-fails when probe is held by another', async () => {
+    presetFailures('test', 10, 250)  // open
+    presetProbe('test')              // another caller's probe in flight
+
+    let ranInner = false
+    let captured: unknown
     try {
-      await withBreaker('test', 'service down', async () => 'unused')
+      await withBreaker('test', 'service down', async () => {
+        ranInner = true
+        return 'should not reach this'
+      })
     } catch (err) {
-      expect(err).toBeInstanceOf(ServiceUnavailableError)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(250)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('service down')
+      captured = err
     }
+
+    expect(captured).toBeInstanceOf(ServiceUnavailableError)
+    expect(ranInner).toBe(false)
+    // Probe key still held — we didn't release it (we never had it).
+    expect(isProbeHeld('test')).toBe(true)
+    // Failures unchanged — the other prober owns failure-recording for this attempt.
+    expect(getCount('test')).toBe(10)
+  })
+
+  it('probe failure releases the slot but keeps breaker open', async () => {
+    presetFailures('test', 10, 250)
+
+    let captured: unknown
+    try {
+      await withBreaker('test', 'service down', async () => {
+        throw new Error('still failing')
+      })
+    } catch (err) {
+      captured = err
+    }
+
+    expect(captured).toBeInstanceOf(ServiceUnavailableError)
+    // Probe failure: recordFailure increments (10 → 11) so breaker stays open.
+    expect(getCount('test')).toBe(11)
+    // Probe slot released — another caller can probe after PROBE_TTL_SECONDS.
+    expect(isProbeHeld('test')).toBe(false)
+    expect(await isOpen('test')).toBe(true)
   })
 })
 
 describe('withBreaker — closed breaker', () => {
-  it('returns the inner fn result and records success on the breaker', async () => {
-    // Pre-condition: 10 failures recorded → breaker would be open.
-    // recordSuccess (called by withBreaker on inner success) must clear it.
-    storedCount = 10
-    storedTtl   = 250
-
-    // But to test the success path we need the breaker to look closed at the
-    // pre-check. Reset the state so isOpen returns false at probe time.
-    storedCount = null
-    storedTtl   = -2
-
+  it('returns the inner fn result; counter stays clear on success', async () => {
     const result = await withBreaker('test', 'service down', async () => 42)
     expect(result).toBe(42)
-    // Counter remains null (recordSuccess on a closed breaker is a no-op).
-    expect(storedCount).toBeNull()
+    expect(getCount('test')).toBeNull()
   })
 
-  it('clears a stale counter when fn succeeds', async () => {
-    // Breaker has 5 failures (still closed at threshold 10) — a success
-    // should clear the counter so the partial window doesn't carry over.
-    storedCount = 5
-    storedTtl   = 250
-
+  it('does NOT eagerly clear a partial-failure counter on closed-path success (TTL-based reset)', async () => {
+    // Closed-path optimization: when isOpen=false at the start of the call,
+    // the success path skips recordSuccess to save a Redis round-trip per
+    // call. The failure counter clears via TTL (config.windowSeconds) instead
+    // of eagerly. Eager clearing only happens on the half-open probe path.
+    presetFailures('test', 5, 250)  // closed (under threshold 10)
     const result = await withBreaker('test', 'service down', async () => 'ok')
     expect(result).toBe('ok')
-    expect(storedCount).toBeNull()
+    expect(getCount('test')).toBe(5)
   })
 })
 
 describe('withBreaker — fn failure', () => {
   it('wraps a plain Error as ServiceUnavailableError(30) and records failure', async () => {
-    const promise = withBreaker('test', 'service down', async () => {
-      throw new Error('network timeout')
-    })
-
-    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
-    // Counter incremented to 1 (the failure was recorded).
-    expect(storedCount).toBe(1)
-
-    // Verify the wrapped error carries the inline retry-after (30s, not the
-    // full window) — because the breaker wasn't yet open when fn ran.
+    let captured: unknown
     try {
-      // Reset and re-run to capture the error.
-      storedCount = null
-      storedTtl   = -2
       await withBreaker('test', 'service down', async () => {
         throw new Error('network timeout')
       })
     } catch (err) {
-      expect(err).toBeInstanceOf(ServiceUnavailableError)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(30)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('service down')
+      captured = err
     }
+    expect(captured).toBeInstanceOf(ServiceUnavailableError)
+    expect((captured as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(30)
+    expect((captured as InstanceType<typeof ServiceUnavailableError>).message).toBe('service down')
+    expect(getCount('test')).toBe(1)
   })
 
   it('propagates AppError unwrapped (preserves intentional inner errors)', async () => {
     // Inner fn throws an intentional 500 — e.g. "API key not configured."
     // withBreaker should NOT wrap this as 503; the original status carries
     // semantic meaning the wrapping would erase.
-    const promise = withBreaker('test', 'service down', async () => {
-      throw new AppError(500, 'OPENAI_API_KEY not configured')
-    })
-
-    await expect(promise).rejects.toBeInstanceOf(AppError)
-    // Deterministic AppError doesn't pollute the breaker counter — retrying
-    // the same request won't fix a config bug, so this throw is excluded
-    // from the failure window.
-    expect(storedCount).toBeNull()
-
+    let captured: unknown
     try {
-      storedCount = null
-      storedTtl   = -2
       await withBreaker('test', 'service down', async () => {
         throw new AppError(500, 'OPENAI_API_KEY not configured')
       })
     } catch (err) {
-      // It's exactly the original AppError — not a ServiceUnavailableError.
-      expect(err).toBeInstanceOf(AppError)
-      expect(err).not.toBeInstanceOf(ServiceUnavailableError)
-      expect((err as InstanceType<typeof AppError>).statusCode).toBe(500)
-      expect((err as InstanceType<typeof AppError>).message).toBe('OPENAI_API_KEY not configured')
+      captured = err
     }
+    expect(captured).toBeInstanceOf(AppError)
+    expect(captured).not.toBeInstanceOf(ServiceUnavailableError)
+    expect((captured as InstanceType<typeof AppError>).statusCode).toBe(500)
+    expect((captured as InstanceType<typeof AppError>).message).toBe('OPENAI_API_KEY not configured')
+    // Deterministic AppError does NOT trip the breaker.
+    expect(getCount('test')).toBeNull()
   })
 
   it('inner ServiceUnavailableError is propagated AND records failure', async () => {
@@ -215,25 +266,19 @@ describe('withBreaker — fn failure', () => {
     // in withBreaker would over-match without the explicit subclass check.
     // This test locks that down: SUE thrown directly by the inner fn must
     // still count against the breaker because it IS the degradation signal.
-    const promise = withBreaker('test', 'service down', async () => {
-      throw new ServiceUnavailableError('upstream tipped over', 60)
-    })
-
-    await expect(promise).rejects.toBeInstanceOf(ServiceUnavailableError)
-    expect(storedCount).toBe(1)
-
+    let captured: unknown
     try {
-      storedCount = null
-      storedTtl   = -2
       await withBreaker('test', 'service down', async () => {
         throw new ServiceUnavailableError('upstream tipped over', 60)
       })
     } catch (err) {
-      // The original SUE is propagated unwrapped — its retryAfterSeconds (60)
-      // is preserved, NOT replaced with INLINE_RETRY_AFTER_SECONDS (30).
-      expect(err).toBeInstanceOf(ServiceUnavailableError)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(60)
-      expect((err as InstanceType<typeof ServiceUnavailableError>).message).toBe('upstream tipped over')
+      captured = err
     }
+    expect(captured).toBeInstanceOf(ServiceUnavailableError)
+    // The original SUE is propagated unwrapped — its retryAfterSeconds (60)
+    // is preserved, NOT replaced with INLINE_RETRY_AFTER_SECONDS (30).
+    expect((captured as InstanceType<typeof ServiceUnavailableError>).retryAfterSeconds).toBe(60)
+    expect((captured as InstanceType<typeof ServiceUnavailableError>).message).toBe('upstream tipped over')
+    expect(getCount('test')).toBe(1)
   })
 })

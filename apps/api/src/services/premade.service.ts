@@ -131,7 +131,7 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
     .single()
 
   if (error !== null || data === null) {
-    throw new AppError(404, 'Premade deck not found')
+    throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
   }
 
   return toPremadeRow(PremadeDeckListRpcRowSchema.parse(data))
@@ -244,7 +244,7 @@ export async function subscribeToPremadeDeck(
   })
 
   if (error !== null) {
-    if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found')
+    if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
     // Concurrent subscribe race: the other request committed the INSERT first
     // and the unique (user_id, premade_deck_id) constraint fired on this one.
     // The user is in fact subscribed; surface the existing record.
@@ -270,7 +270,7 @@ export async function subscribeToPremadeDeck(
   const rows = z.array(SubscribeRpcRowSchema).parse(data ?? [])
   const row  = rows[0]
   if (row === undefined) {
-    throw new AppError(500, 'Subscribe RPC returned no row')
+    throw new AppError(500, 'Subscribe RPC returned no row', { code: 'PREMADE_SUBSCRIBE_RPC_EMPTY' })
   }
 
   log.info(

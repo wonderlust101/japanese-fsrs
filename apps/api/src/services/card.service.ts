@@ -1,8 +1,8 @@
-import OpenAI from 'openai';
 import { z } from 'zod';
 
 import { supabaseAdmin } from '../db/supabase.ts';
 import { env }           from '../lib/env.ts';
+import { openai, openaiSemaphore } from '../lib/openai.ts';
 import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
 import { withBreaker } from '../lib/circuit-breaker.ts';
@@ -37,18 +37,14 @@ import {
 } from '@fsrs-japanese/shared-types';
 
 // ─── OpenAI embeddings client ─────────────────────────────────────────────────
-// Module-level singleton matching ai.service.ts:23 pattern. We don't throw at
-// load time because some test runs / non-embedding paths don't need OpenAI;
-// the generateEmbedding() callsite throws if the key is missing.
+// `openai` is the shared client from lib/openai.ts (same instance used by
+// ai.service.ts for chat completions). Null when OPENAI_API_KEY is unset;
+// generateEmbedding() throws with code 'OPENAI_KEY_MISSING' in that case.
 //
 // EMBEDDING_MODEL must produce 1536-dim vectors to match the
 // `cards.embedding vector(1536)` column type. Switching to a model with a
 // different dimension requires a schema migration.
 const EMBEDDING_MODEL = env.OPENAI_EMBEDDING_MODEL
-// 15s timeout — see ai.service.ts for the rationale.
-const openai = env.OPENAI_API_KEY !== undefined
-  ? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 15_000 })
-  : null
 
 // ─── Column projection ────────────────────────────────────────────────────────
 // Excludes tokens, parsed_at, embedding — internal/heavy fields not needed by clients.
@@ -301,7 +297,7 @@ async function assertDeckOwnership(deckId: string, userId: string): Promise<void
     .single()
 
   if (error !== null || data === null) {
-    throw new AppError(404, 'Deck not found')
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
 }
 
@@ -338,8 +334,8 @@ export async function listCards(
   )
 
   if (error !== null) {
-    if (error.code === '02000' || error.message.includes('deck_not_found')) {
-      throw new AppError(404, 'Deck not found')
+    if (error.code === '02000' && error.message.includes('deck_not_found')) {
+      throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
     }
     throw dbError('list cards', error)
   }
@@ -377,7 +373,7 @@ export async function getCard(
   const { data, error } = await query.single()
 
   if (error !== null || data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
 
   return toCardRow(CardDbRowSchema.parse(data))
@@ -411,7 +407,7 @@ export async function createCard(
       .eq('user_id', userId)
       .maybeSingle()
     if (parentError !== null || parent === null) {
-      throw new AppError(404, 'Parent card not found')
+      throw new AppError(404, 'Parent card not found', { code: 'CARD_NOT_FOUND' })
     }
   }
 
@@ -510,13 +506,13 @@ export async function updateCard(
   if (error !== null) {
     // RPC raises 'card_not_found' with SQLSTATE 02000 (no_data_found) when
     // the row is missing or owned by another user.
-    if (error.code === '02000' || error.message.includes('card_not_found')) {
-      throw new AppError(404, 'Card not found')
+    if (error.code === '02000' && error.message.includes('card_not_found')) {
+      throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
     }
     // RPC raises 'card_version_mismatch' with SQLSTATE 22000 when the
     // optimistic-concurrency check fails — the caller's snapshot is stale.
-    if (error.code === '22000' || error.message.includes('card_version_mismatch')) {
-      throw new AppError(412, 'Card has been modified since you loaded it; refresh and retry')
+    if (error.code === '22000' && error.message.includes('card_version_mismatch')) {
+      throw new AppError(412, 'Card has been modified since you loaded it; refresh and retry', { code: 'VERSION_CONFLICT' })
     }
     throw dbError('update card', error)
   }
@@ -528,7 +524,7 @@ export async function updateCard(
   if (updated === undefined) {
     // RPC succeeded but returned no row — only reachable if the row was
     // concurrently deleted between UPDATE and RETURN QUERY. Map to 404.
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
   return toCardRow(updated)
 }
@@ -554,7 +550,7 @@ export async function deleteCard(
   const { data, error: fetchError } = await fetch.single()
 
   if (fetchError !== null || data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
 
   const { error: deleteError } = await supabaseAdmin
@@ -619,6 +615,7 @@ export async function regenerateEmbedding(
   cardId:          string,
   userId:          string,
   expectedDeckId?: string,
+  opts?:           { signal?: AbortSignal },
 ): Promise<void> {
   let fetch = supabaseAdmin
     .from('cards')
@@ -630,14 +627,14 @@ export async function regenerateEmbedding(
   const { data, error } = await fetch.single()
 
   if (error !== null || data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
 
   // backfillEmbedding wraps the OpenAI call in `withBreaker`, so an open
   // breaker surfaces here as a clean 503 with `Retry-After` — no inline check
   // needed.
   const cardData = CardFieldsRowSchema.parse(data)
-  await backfillEmbedding(cardId, userId, cardData.fields_data)
+  await backfillEmbedding(cardId, userId, cardData.fields_data, opts)
 }
 
 /**
@@ -656,16 +653,24 @@ async function backfillEmbedding(
   cardId: string,
   userId: string,
   fieldsData: Record<string, unknown>,
+  opts?: { signal?: AbortSignal },
 ): Promise<void> {
   const text = buildEmbeddingText(fieldsData)
   if (text === null) return
 
   // Breaker wraps the OpenAI call only — Postgres-side failures bubble as
   // dbError() below and aren't a signal about embedding-service health.
-  const embedding = await withBreaker(
-    EMBEDDING_BREAKER,
-    EMBEDDING_UNAVAILABLE_MSG,
-    () => generateEmbedding(text),
+  // Forward `opts.signal` so a client disconnect short-circuits the
+  // (billable) embedding call. The post-create fire-and-forget at
+  // createCard() deliberately does NOT forward signal — that work is
+  // decoupled from the request lifecycle and the semaphore queue blocks
+  // until a slot frees (correct for background work).
+  const embedding = await openaiSemaphore.run({ signal: opts?.signal }, () =>
+    withBreaker(
+      EMBEDDING_BREAKER,
+      EMBEDDING_UNAVAILABLE_MSG,
+      () => generateEmbedding(text, opts),
+    ),
   )
 
   const { error } = await supabaseAdmin
@@ -782,19 +787,22 @@ export async function backfillPremadeEmbeddings(): Promise<{
  * Exported so the admin backfill endpoint can reuse it without round-tripping
  * through the per-card update logic.
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(
+  text: string,
+  opts?: { signal?: AbortSignal },
+): Promise<number[]> {
   if (openai === null) {
-    throw new AppError(500, 'OPENAI_API_KEY not configured')
+    throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
   }
 
   const response = await openai.embeddings.create({
     model: EMBEDDING_MODEL,
     input: text,
-  })
+  }, { signal: opts?.signal })
 
   const first = response.data?.[0]
   if (first === undefined) {
-    throw new AppError(500, 'OpenAI returned no embedding data')
+    throw new AppError(502, 'OpenAI returned no embedding data', { code: 'OPENAI_NO_EMBEDDING_DATA' })
   }
 
   return first.embedding

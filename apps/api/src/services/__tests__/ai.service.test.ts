@@ -9,21 +9,33 @@ interface MockState {
 }
 const state: MockState = { redisStore: new Map() }
 
+const fakeRedis = {
+  get: mock(async (key: string) => {
+    const v = state.redisStore.get(key)
+    return v === undefined ? null : v
+  }),
+  set: mock(async (key: string, value: string) => {
+    state.redisStore.set(key, value)
+    return 'OK'
+  }),
+  del: mock(async (key: string) => {
+    state.redisStore.delete(key)
+    return 1
+  }),
+  // Methods used by the circuit breaker (rawRedis path) — see Phase D in
+  // db/redis.ts for why two exports exist. Without these, withBreaker calls
+  // fail with "x is not a function".
+  incr: mock(async (key: string) => {
+    const v = Number(state.redisStore.get(key) ?? 0) + 1
+    state.redisStore.set(key, String(v))
+    return v
+  }),
+  ttl: mock(async (_key: string) => -2),
+}
+
 mock.module('../../db/redis.ts', () => ({
-  redis: {
-    get: mock(async (key: string) => {
-      const v = state.redisStore.get(key)
-      return v === undefined ? null : v
-    }),
-    set: mock(async (key: string, value: string) => {
-      state.redisStore.set(key, value)
-      return 'OK'
-    }),
-    del: mock(async (key: string) => {
-      state.redisStore.delete(key)
-      return 1
-    }),
-  },
+  redis: fakeRedis,
+  rawRedis: fakeRedis,
 }))
 
 const {

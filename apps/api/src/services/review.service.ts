@@ -138,8 +138,9 @@ export async function getReviewForecast(
 export async function submitBatch(
   reviews: SubmitReviewInput[],
   userId:  string,
+  opts?:   { signal?: AbortSignal | undefined },
 ): Promise<ApiBatchResult<ProcessReviewResult>> {
-  return processReviewBatch(reviews, userId)
+  return processReviewBatch(reviews, userId, opts)
 }
 
 /**
@@ -161,8 +162,8 @@ export async function getSessionSummary(
   )
 
   if (error !== null) {
-    if (error.code === '02000' || error.message.includes('session_not_found')) {
-      throw new AppError(404, 'Session not found')
+    if (error.code === '02000' && error.message.includes('session_not_found')) {
+      throw new AppError(404, 'Session not found', { code: 'SESSION_NOT_FOUND' })
     }
     throw dbError('fetch session summary', error)
   }

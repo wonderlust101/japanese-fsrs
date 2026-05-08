@@ -1,11 +1,45 @@
 import { app } from './app.ts'
 import { env } from './lib/env.ts'
 import { logger } from './lib/logger.ts'
-import { probeOpenAIEmbeddingDimension } from './lib/startup-probe.ts'
+import { summarizeErr } from './lib/scrub.ts'
+import { gracefulShutdown } from './lib/shutdown.ts'
+import {
+  probeOpenAIEmbeddingDimension,
+  probeSupabaseConnectivity,
+} from './lib/startup-probe.ts'
 
-// Block startup on a wrong-dimension embedding model — see startup-probe.ts.
-// Transient OpenAI errors are non-fatal (logged + continue).
-await probeOpenAIEmbeddingDimension()
+// Capture Node warnings (deprecations, MaxListenersExceededWarning,
+// experimental APIs) into the structured pino stream. Without this they
+// go to stderr — often a separate sink from stdout on deployment platforms,
+// which means they can be silently discarded. Registered as the first
+// executable statement so warnings emitted during the startup probes
+// below are still captured.
+process.on('warning', (warning) => {
+  logger.warn(
+    { name: warning.name, message: warning.message, stack: warning.stack },
+    'node warning emitted',
+  )
+})
+
+// Block startup on missing required dependencies and on configuration
+// mismatch. Two probes run in parallel:
+//   - Supabase connectivity: REQUIRED dep; fatal-and-exit on failure so ops
+//     gets a clear "API can't start" signal vs. "API running but 503'ing".
+//   - OpenAI embedding-dimension: configuration check (vector size matches
+//     DB column). Transient OpenAI failures are non-fatal (warn + continue);
+//     dimension mismatch is fatal.
+// Catch any unexpected throw here so it surfaces as a structured fatal log
+// (with redacted message + stack via summarizeErr) instead of bypassing pino
+// and landing as Node's default unhandled-rejection stderr dump.
+try {
+  await Promise.all([
+    probeSupabaseConnectivity(),
+    probeOpenAIEmbeddingDimension(),
+  ])
+} catch (err) {
+  logger.fatal({ err: summarizeErr(err) }, 'startup probe crashed')
+  process.exit(1)
+}
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT }, 'API server listening')
@@ -37,6 +71,17 @@ process.on('uncaughtException', (err) => {
   logger.fatal({ err: { name: err.name, message: err.message, stack: err.stack } }, 'uncaught exception')
   process.exit(1)
 })
+
+// Graceful shutdown — orchestrators (Vercel/Fly/Kubernetes) send SIGTERM
+// before SIGKILL. Without these handlers Node exits abruptly mid-request.
+// gracefulShutdown:
+//   1. Flips the `shuttingDown` flag so `_health/ready` returns 503
+//      immediately (LB stops sending new traffic).
+//   2. Calls server.close() — drains in-flight requests; refuses new ones.
+//   3. Hard-exits at the 25s safety net if drain hangs.
+// The handler is idempotent — multiple SIGTERMs are no-ops.
+process.on('SIGTERM', () => { void gracefulShutdown('SIGTERM', server, logger) })
+process.on('SIGINT',  () => { void gracefulShutdown('SIGINT',  server, logger) })
 
 // Slow-loris hardening. Cap a single in-flight request to 30s of total wall
 // time so a half-open connection that drips bytes can't park a worker

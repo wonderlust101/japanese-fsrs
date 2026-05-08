@@ -224,8 +224,9 @@ function mapRatingToGrade(rating: ReviewRating): Grade {
       // Unreachable at runtime — Zod rejects 'manual' at the /reviews/submit
       // boundary. Throwing (vs the previous defensive Rating.Good fallback)
       // turns a future Zod regression into a loud 500 instead of silently
-      // corrupting schedules with plausible-but-wrong intervals.
-      throw new Error('Rating "manual" is not allowed in user submissions; rejected at Zod boundary')
+      // corrupting schedules with plausible-but-wrong intervals. Stable
+      // `code` lets log filters route this without parsing message text.
+      throw new AppError(500, 'Rating "manual" is not allowed in user submissions; rejected at Zod boundary', { code: 'FSRS_MANUAL_RATING_BUG' })
     default: {
       const _exhaustiveCheck: never = rating
       return _exhaustiveCheck
@@ -276,17 +277,17 @@ export async function processReview(
     throw dbError('fetch card', fetchError)
   }
   if (data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
 
   const row = FsrsCardRowSchema.parse(data)
 
   if (row.user_id === null) {
-    throw new AppError(403, 'Cannot review a premade source card')
+    throw new AppError(403, 'Cannot review a premade source card', { code: 'PREMADE_CARD_NOT_REVIEWABLE' })
   }
 
   if (row.is_suspended) {
-    throw new AppError(409, 'Card is suspended; unsuspend it before reviewing')
+    throw new AppError(409, 'Card is suspended; unsuspend it before reviewing', { code: 'CARD_SUSPENDED' })
   }
 
   // ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
@@ -363,6 +364,7 @@ export async function processReview(
 export async function processReviewBatch(
   reviews: SubmitReviewInput[],
   userId:  string,
+  opts?:   { signal?: AbortSignal | undefined },
 ): Promise<ApiBatchResult<ProcessReviewResult>> {
   if (reviews.length === 0) {
     return { results: [], errors: [] }
@@ -417,6 +419,13 @@ export async function processReviewBatch(
   const errors: Array<{ cardId: string; error: string }>   = []
 
   for (const review of reviews) {
+    if (opts?.signal?.aborted) {
+      // Client cancelled mid-batch — stop building. The pre-RPC payload
+      // is dropped; reviews already pushed are also dropped (we don't
+      // call the RPC after break). Idempotency-Key replay from the
+      // offline queue re-attempts the full batch when the client returns.
+      break
+    }
     const row = cardMap.get(review.cardId)
     if (row === undefined) {
       errors.push({ cardId: review.cardId, error: 'Card not found' })
@@ -534,10 +543,10 @@ export async function rollbackReview(
   ])
 
   if (cardResult.error !== null || cardResult.data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
   if (logResult.error !== null || logResult.data === null) {
-    throw new AppError(404, 'Review log not found')
+    throw new AppError(404, 'Review log not found', { code: 'REVIEW_LOG_NOT_FOUND' })
   }
 
   const row = FsrsCardRowSchema.parse(cardResult.data)
@@ -549,7 +558,7 @@ export async function rollbackReview(
     log.stability_before  === null ||
     log.difficulty_before === null
   ) {
-    throw new AppError(409, 'This review cannot be rolled back')
+    throw new AppError(409, 'This review cannot be rolled back', { code: 'ROLLBACK_NOT_AVAILABLE' })
   }
 
   // The four _before fields above are written atomically — narrowed together by the guard.
@@ -624,13 +633,13 @@ export async function forgetCard(
     .single()
 
   if (fetchError !== null || data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
 
   const row = FsrsCardRowSchema.parse(data)
 
   if (row.user_id === null) {
-    throw new AppError(403, 'Cannot reset a premade source card')
+    throw new AppError(403, 'Cannot reset a premade source card', { code: 'PREMADE_CARD_NOT_RESETTABLE' })
   }
 
   const scheduler = getScheduler(row.card_type)
@@ -738,7 +747,7 @@ export async function rescheduleFromHistory(
   ])
 
   if (cardResult.error !== null || cardResult.data === null) {
-    throw new AppError(404, 'Card not found')
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
   if (logsResult.error !== null) {
     throw dbError('fetch review logs', logsResult.error)
@@ -748,7 +757,7 @@ export async function rescheduleFromHistory(
   const logs = z.array(ReviewLogHistoryRowSchema).parse(logsResult.data ?? [])
 
   if (logs.length === 0) {
-    throw new AppError(409, 'No eligible review logs to reschedule from')
+    throw new AppError(409, 'No eligible review logs to reschedule from', { code: 'RESCHEDULE_NO_HISTORY' })
   }
 
   // FSRSHistory.rating excludes Rating.Manual; the SELECT above filters
@@ -763,7 +772,7 @@ export async function rescheduleFromHistory(
   const result = scheduler.reschedule(emptyCard, history)
 
   if (result.reschedule_item === null) {
-    throw new AppError(409, 'Reschedule produced no result')
+    throw new AppError(409, 'Reschedule produced no result', { code: 'RESCHEDULE_NO_RESULT' })
   }
 
   const updated: TsFsrsCard = result.reschedule_item.card

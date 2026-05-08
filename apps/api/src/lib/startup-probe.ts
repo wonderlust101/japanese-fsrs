@@ -14,8 +14,10 @@
 
 import OpenAI from 'openai'
 
+import { supabaseAdmin } from '../db/supabase.ts'
 import { env } from './env.ts'
 import { componentLogger } from './logger.ts'
+import { TIMEOUTS } from './timeouts.ts'
 
 const log = componentLogger('startup-probe')
 
@@ -35,9 +37,10 @@ export async function probeOpenAIEmbeddingDimension(): Promise<void> {
   }
 
   // Dedicated short-timeout client just for the probe. Decoupled from the
-  // service-layer clients so a future refactor of either side doesn't drift
-  // the probe behaviour.
-  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: 10_000 })
+  // service-layer clients (lib/openai.ts) so a future refactor of either
+  // side doesn't drift the probe behaviour. Tighter timeout than the
+  // request-path client because misconfigurations should fail fast at boot.
+  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: TIMEOUTS.startupProbe })
 
   // Narrow try: only the SDK call should be downgraded to warn-and-continue.
   // The post-response logic (data-shape checks, dim read) shouldn't be silently
@@ -84,4 +87,42 @@ export async function probeOpenAIEmbeddingDimension(): Promise<void> {
     { model: env.OPENAI_EMBEDDING_MODEL, dim },
     'embedding-dimension probe passed',
   )
+}
+
+/**
+ * Verifies Supabase is reachable before serving traffic. Supabase is a
+ * REQUIRED dependency; if it's unreachable at boot, the API would start and
+ * serve 503s for every request after the breaker trips. Failing fast at
+ * startup gives ops a clear signal vs. a "running but useless" pod.
+ *
+ * Uses `auth.admin.listUsers` with the smallest page size — cheap, schema-
+ * independent, and exercises both the network path and the service-role key.
+ *
+ * The Supabase fetch wrapper in db/supabase.ts caps each call at 10s and
+ * adds 2 retries with jittered backoff. So the probe takes at most
+ * ~25s to fail; outside that window we exit and let the orchestrator
+ * decide on restart policy.
+ */
+export async function probeSupabaseConnectivity(): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 })
+    if (error !== null) {
+      log.fatal(
+        { err: { name: error.name, message: error.message } },
+        'Supabase unreachable at startup; refusing to start',
+      )
+      process.exit(1)
+    }
+    log.info('Supabase connectivity probe passed')
+  } catch (err) {
+    log.fatal(
+      {
+        err: err instanceof Error
+          ? { name: err.name, message: err.message }
+          : { detail: String(err) },
+      },
+      'Supabase unreachable at startup; refusing to start',
+    )
+    process.exit(1)
+  }
 }

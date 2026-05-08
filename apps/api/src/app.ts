@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler.ts'
 import { requestLogger } from './middleware/requestLogger.ts'
 import { env }          from './lib/env.ts'
 import authRouter    from './routes/auth.ts'
+import healthRouter  from './routes/health.ts'
 import profileRouter from './routes/profile.ts'
 import decksRouter   from './routes/decks.ts'
 import aiRouter      from './routes/ai.ts'
@@ -58,6 +59,11 @@ if (env.NODE_ENV === 'development') {
 }
 
 // ── API routes ──────────────────────────────────────────────────────────────
+// Health endpoints are mounted first and intentionally unauthenticated so
+// orchestrators (Kubernetes / Vercel / Fly) can probe liveness/readiness
+// without a bearer token. /_health/deep exposes breaker state — see
+// routes/health.ts for the security note.
+app.use('/api/v1/_health', healthRouter)
 app.use('/api/v1/auth',    authRouter)
 app.use('/api/v1/profile', profileRouter)
 app.use('/api/v1/decks',   decksRouter)

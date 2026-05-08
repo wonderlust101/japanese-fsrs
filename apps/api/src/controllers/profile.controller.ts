@@ -8,14 +8,10 @@ import { cacheControl, parseIfMatchVersion } from '../lib/http.ts'
  * GET /api/v1/profile
  * Returns the authenticated user's profile.
  */
-export const getProfile: RequestHandler = async (req, res, next): Promise<void> => {
-  try {
-    const profile = await profileService.getProfile(req.user.id)
-    cacheControl(res, 60)
-    res.json(profile)
-  } catch (err) {
-    next(err)
-  }
+export const getProfile: RequestHandler = async (req, res): Promise<void> => {
+  const profile = await profileService.getProfile(req.user.id)
+  cacheControl(res, 60)
+  res.json(profile)
 }
 
 /**
@@ -23,13 +19,9 @@ export const getProfile: RequestHandler = async (req, res, next): Promise<void> 
  * Partially updates the authenticated user's profile.
  * Only fields present in the request body are written.
  */
-export const updateProfile: RequestHandler = async (req, res, next): Promise<void> => {
-  try {
-    const input   = updateProfileSchema.parse(req.body)
-    const expectedVersion = parseIfMatchVersion(req.header('if-match'))
-    const profile = await profileService.updateProfile(req.user.id, expectedVersion, input)
-    res.json(profile)
-  } catch (err) {
-    next(err)
-  }
+export const updateProfile: RequestHandler = async (req, res): Promise<void> => {
+  const input   = updateProfileSchema.parse(req.body)
+  const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+  const profile = await profileService.updateProfile(req.user.id, expectedVersion, input)
+  res.json(profile)
 }

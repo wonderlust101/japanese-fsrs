@@ -176,6 +176,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const regenerateRes = await request(app)
       .post(`/api/v1/cards/${cardId}/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
     expect(regenerateRes.status).toBe(204)
   })
 
@@ -199,6 +200,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const regenerateRes = await request(app)
       .post(`/api/v1/cards/${cardId}/regenerate-embedding`)
       .set('Authorization', `Bearer ${b.jwt}`)
+      .set('Idempotency-Key', randomUUID())
     expect(regenerateRes.status).toBe(404)
   })
 
@@ -208,6 +210,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const res = await request(app)
       .post(`/api/v1/cards/nonexistent-card-id/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
     // cardIdParamSchema requires UUID — Zod returns 400 (errorHandler maps ZodError → 400).
     expect([400, 422]).toContain(res.status)
   })
@@ -220,6 +223,7 @@ describeIntegration('cards routes — regenerate-embedding', () => {
     const res = await request(app)
       .post(`/api/v1/cards/${fakeUuid}/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
     expect(res.status).toBe(404)
   })
 })
@@ -397,6 +401,7 @@ describeIntegration('cards routes — cross-deck access via dual-mount router', 
     const regenRes = await request(app)
       .post(`/api/v1/decks/${otherDeckId}/cards/${cardId}/regenerate-embedding`)
       .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
     expect(regenRes.status).toBe(404)
 
     // Sanity: the card is still reachable via its OWN deck-scoped URL —

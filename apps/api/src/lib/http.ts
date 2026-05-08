@@ -34,11 +34,11 @@ const ifMatchVersionSchema = z.coerce.number().int().min(1)
  */
 export function parseIfMatchVersion(rawHeader: string | undefined): number {
   if (rawHeader === undefined) {
-    throw new AppError(428, 'If-Match header required')
+    throw new AppError(428, 'If-Match header required', { code: 'IF_MATCH_REQUIRED' })
   }
   const result = ifMatchVersionSchema.safeParse(rawHeader)
   if (!result.success) {
-    throw new AppError(400, 'If-Match must be a positive integer version')
+    throw new AppError(400, 'If-Match must be a positive integer version', { code: 'IF_MATCH_INVALID' })
   }
   return result.data
 }

@@ -146,7 +146,7 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
 
   if (deckResult.error !== null || deckResult.data === null) {
     // PGRST116 = no rows from .single() — deck missing or wrong owner.
-    throw new AppError(404, 'Deck not found')
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
 
   return {
@@ -210,13 +210,13 @@ export async function updateDeck(
   if (error !== null) {
     // RPC raises 'deck_not_found' with SQLSTATE 02000 when the row is missing
     // or owned by another user.
-    if (error.code === '02000' || error.message.includes('deck_not_found')) {
-      throw new AppError(404, 'Deck not found')
+    if (error.code === '02000' && error.message.includes('deck_not_found')) {
+      throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
     }
     // RPC raises 'deck_version_mismatch' with SQLSTATE 22000 when the
     // optimistic-concurrency check fails — caller's snapshot is stale.
-    if (error.code === '22000' || error.message.includes('deck_version_mismatch')) {
-      throw new AppError(412, 'Deck has been modified since you loaded it; refresh and retry')
+    if (error.code === '22000' && error.message.includes('deck_version_mismatch')) {
+      throw new AppError(412, 'Deck has been modified since you loaded it; refresh and retry', { code: 'VERSION_CONFLICT' })
     }
     throw dbError('update deck', error)
   }
@@ -230,7 +230,7 @@ export async function updateDeck(
   if (updated === undefined) {
     // RPC succeeded but returned no row — only reachable if the row was
     // concurrently deleted between UPDATE and RETURN QUERY.
-    throw new AppError(404, 'Deck not found')
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
   return toRow(updated)
 }
@@ -255,7 +255,7 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
     .single()
 
   if (fetchError !== null || data === null) {
-    throw new AppError(404, 'Deck not found')
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
 
   const deck = DeckOwnerRowSchema.parse(data)
