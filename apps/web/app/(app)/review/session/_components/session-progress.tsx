@@ -17,11 +17,11 @@ export function SessionProgress(): React.JSX.Element {
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={`${completed} of ${total} cards reviewed`}
-      className="h-1.5 bg-neutral-200 shrink-0"
+      className="h-1.5 bg-cream-inset shrink-0"
     >
       <div
         style={{ width: `${percentage}%` }}
-        className="h-full bg-primary-500 transition-[width] duration-[300ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        className="h-full bg-inari-vermillion transition-[width] duration-[300ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
       />
     </div>
   )

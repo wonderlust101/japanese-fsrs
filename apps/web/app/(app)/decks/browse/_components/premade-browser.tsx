@@ -103,10 +103,10 @@ export function PremadeBrowser(): React.JSX.Element {
   return (
     <>
       <TopBar>
-        <h1 className="flex-1 text-base font-semibold text-neutral-900">Browse Premade Decks</h1>
+        <h1 className="flex-1 text-base font-semibold text-sumi-ink">Browse Premade Decks</h1>
         <Link
           href="/decks"
-          className="text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+          className="text-sm text-faded-sumi hover:text-sumi-ink transition-colors"
         >
           ← My Decks
         </Link>
@@ -120,7 +120,7 @@ export function PremadeBrowser(): React.JSX.Element {
             placeholder="Search premade decks…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm text-neutral-900 focus:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+            className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink focus:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash"
           />
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
@@ -132,8 +132,8 @@ export function PremadeBrowser(): React.JSX.Element {
                 className={[
                   'h-8 px-3 rounded-full text-sm font-medium transition-colors',
                   filter === f.id
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
+                    ? 'bg-inari-vermillion text-warm-paper-raised'
+                    : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
                 ].join(' ')}
               >
                 {f.label}
@@ -146,14 +146,14 @@ export function PremadeBrowser(): React.JSX.Element {
         {isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-36 rounded-[var(--radius-lg)] bg-neutral-100 animate-pulse" />
+              <div key={i} className="h-36 rounded-[var(--radius-lg)] bg-cream-inset animate-pulse" />
             ))}
           </div>
         )}
 
         {/* Empty result */}
         {!isLoading && filtered.length === 0 && (
-          <p className="py-12 text-center text-sm text-neutral-500">
+          <p className="py-12 text-center text-sm text-faded-sumi">
             No decks match those filters.
           </p>
         )}
@@ -161,7 +161,7 @@ export function PremadeBrowser(): React.JSX.Element {
         {/* Grouped grid */}
         {!isLoading && grouped.map(([type, list]) => (
           <section key={type} className="space-y-2">
-            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pt-2">
+            <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider pt-2">
               {SECTION_LABEL[type]}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -183,7 +183,7 @@ export function PremadeBrowser(): React.JSX.Element {
         <div
           role="alert"
           className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-[var(--radius-md)]
-                     bg-danger-50 border border-danger-200 text-sm text-danger-700 shadow-md"
+                     bg-error-tint border border-error-tint text-sm text-error shadow-md"
         >
           {error}
         </div>

@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="text-sm font-medium text-neutral-700">
+        <label htmlFor={id} className="text-sm font-medium text-sumi-ink">
           {label}
         </label>
 
@@ -35,12 +35,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             className={[
-              'w-full h-10 px-3 text-base text-neutral-900 bg-neutral-100 border rounded-[var(--radius-md)]',
-              'placeholder:text-neutral-400 transition-colors duration-150',
-              'focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-200',
+              'w-full h-10 px-3 text-base text-sumi-ink bg-cream-inset border rounded-[var(--radius-md)]',
+              'placeholder:text-faded-sumi transition-colors duration-150',
+              'focus:outline-none focus:border-inari-vermillion focus:ring-[3px] focus:ring-vermillion-wash',
               error
-                ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-100'
-                : 'border-neutral-300',
+                ? 'border-error focus:border-error focus:ring-error-tint'
+                : 'border-soft-hairline',
               isPassword ? 'pr-10' : '',
               className,
             ].join(' ')}
@@ -52,7 +52,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 focus:outline-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi hover:text-faded-sumi focus:outline-none"
               tabIndex={-1}
             >
               {showPassword ? (
@@ -72,13 +72,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {hint && !error && (
-          <p id={hintId} className="text-xs text-neutral-500">
+          <p id={hintId} className="text-xs text-faded-sumi">
             {hint}
           </p>
         )}
 
         {error && (
-          <p id={errorId} role="alert" className="text-xs text-danger-500">
+          <p id={errorId} role="alert" className="text-xs text-error">
             {error}
           </p>
         )}

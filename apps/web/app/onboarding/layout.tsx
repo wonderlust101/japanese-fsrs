@@ -20,7 +20,7 @@ export const metadata: Metadata = {
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col">
+    <div className="min-h-screen bg-warm-paper-base flex flex-col">
       <OnboardingHeader />
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">

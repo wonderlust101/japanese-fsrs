@@ -74,7 +74,7 @@ export function ProfileSection({
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold text-neutral-900">Profile</h2>
+      <h2 className="text-lg font-semibold text-sumi-ink">Profile</h2>
 
       <Field label="Display name">
         <input
@@ -83,7 +83,7 @@ export function ProfileSection({
           onChange={(e) => setDisplayName(e.target.value)}
           onBlur={commitDisplayName}
           maxLength={80}
-          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm text-neutral-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash"
         />
       </Field>
 
@@ -91,7 +91,7 @@ export function ProfileSection({
         <select
           value={native}
           onChange={(e) => void commitNative(e.target.value)}
-          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm text-neutral-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash"
         >
           {LANGUAGES.map((l) => (
             <option key={l.value} value={l.value}>{l.label}</option>
@@ -107,7 +107,7 @@ export function ProfileSection({
           onBlur={commitTimezone}
           maxLength={100}
           placeholder="e.g. America/New_York"
-          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm text-neutral-900 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary-200"
+          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash"
         />
       </Field>
     </div>
@@ -125,9 +125,9 @@ function Field({
 }): React.JSX.Element {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-neutral-700 mb-1">{label}</span>
+      <span className="block text-sm font-medium text-sumi-ink mb-1">{label}</span>
       {children}
-      {hint !== undefined && <span className="block mt-1 text-xs text-neutral-500">{hint}</span>}
+      {hint !== undefined && <span className="block mt-1 text-xs text-faded-sumi">{hint}</span>}
     </label>
   )
 }

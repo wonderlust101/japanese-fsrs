@@ -16,9 +16,9 @@ function toYMD(date: Date): string {
 }
 
 function dotColor(day: ApiHeatmapDay | undefined): string {
-  if (day === undefined || day.count === 0) return 'bg-neutral-200'
-  if (day.retention >= 85)                  return 'bg-primary-500'
-  return 'bg-warning-500'
+  if (day === undefined || day.count === 0) return 'bg-cream-inset'
+  if (day.retention >= 85)                  return 'bg-inari-vermillion'
+  return 'bg-jlpt-beyond-amber-warn'
 }
 
 function dotTitle(ymd: string, day: ApiHeatmapDay | undefined): string {
@@ -62,9 +62,9 @@ function HeatmapSkeleton() {
     <div className="animate-pulse space-y-1.5">
       {Array.from({ length: 12 }).map((_, i) => (
         <div key={i} className="flex items-center gap-1.5">
-          <div className="h-3 w-8 bg-neutral-200 rounded shrink-0" />
+          <div className="h-3 w-8 bg-cream-inset rounded shrink-0" />
           {Array.from({ length: 28 }).map((__, j) => (
-            <div key={j} className="h-3 w-3 bg-neutral-100 rounded-sm" />
+            <div key={j} className="h-3 w-3 bg-cream-inset rounded-sm" />
           ))}
         </div>
       ))}
@@ -83,7 +83,7 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
       aria-label="Retention heatmap"
       className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-4"
     >
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-faded-sumi">
         Retention Heatmap
       </h2>
 
@@ -93,7 +93,7 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
         <div className="space-y-1.5 overflow-x-auto">
           {months.map(({ year, month, days }) => (
             <div key={`${year}-${month}`} className="flex items-center gap-1.5">
-              <span className="text-xs text-neutral-400 w-8 shrink-0 select-none">
+              <span className="text-xs text-faded-sumi w-8 shrink-0 select-none">
                 {MONTH_ABBR[month]}
               </span>
               {days.map((d) => {
@@ -115,9 +115,9 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
 
       {/* Legend */}
       <div className="flex items-center gap-4 pt-1">
-        <LegendDot color="bg-neutral-200"  label="missed" />
-        <LegendDot color="bg-primary-500"  label="85%+"   />
-        <LegendDot color="bg-warning-500"  label="<85%"   />
+        <LegendDot color="bg-cream-inset"  label="missed" />
+        <LegendDot color="bg-inari-vermillion"  label="85%+"   />
+        <LegendDot color="bg-jlpt-beyond-amber-warn"  label="<85%"   />
       </div>
     </section>
   )
@@ -125,7 +125,7 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-xs text-neutral-500 select-none">
+    <span className="flex items-center gap-1.5 text-xs text-faded-sumi select-none">
       <span className={`h-2.5 w-2.5 rounded-sm ${color}`} aria-hidden="true" />
       {label}
     </span>

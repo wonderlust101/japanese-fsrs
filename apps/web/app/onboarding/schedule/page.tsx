@@ -45,10 +45,10 @@ export default function SchedulePage(): React.JSX.Element {
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="text-center">
-        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
           How much time per day?
         </h1>
-        <p className="mt-2 text-base text-neutral-500">
+        <p className="mt-2 text-base text-faded-sumi">
           Sets your daily new-card limit. You can always adjust this in Settings.
         </p>
       </div>
@@ -63,21 +63,21 @@ export default function SchedulePage(): React.JSX.Element {
             className={[
               'flex items-center justify-between p-5 rounded-[var(--radius-lg)] border-2',
               'transition-all duration-150 text-left',
-              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200',
+              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
               schedule === opt.value
-                ? 'border-primary-500 bg-primary-50 shadow-[var(--shadow-card)]'
-                : 'border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-[var(--shadow-card)]',
+                ? 'border-inari-vermillion bg-vermillion-wash shadow-[var(--shadow-card)]'
+                : 'border-soft-hairline bg-warm-paper-raised hover:border-soft-hairline hover:shadow-[var(--shadow-card)]',
             ].join(' ')}
           >
             <div>
-              <p className="font-medium text-neutral-900 text-base">{opt.label}</p>
-              <p className="mt-0.5 text-sm text-neutral-500">{opt.description}</p>
+              <p className="font-medium text-sumi-ink text-base">{opt.label}</p>
+              <p className="mt-0.5 text-sm text-faded-sumi">{opt.description}</p>
             </div>
             <div className="text-right shrink-0 ml-4">
-              <p className={`text-base font-semibold ${schedule === opt.value ? 'text-primary-600' : 'text-neutral-700'}`}>
+              <p className={`text-base font-semibold ${schedule === opt.value ? 'text-inari-vermillion' : 'text-sumi-ink'}`}>
                 {opt.time}
               </p>
-              <p className="text-xs text-neutral-400 mt-0.5">
+              <p className="text-xs text-faded-sumi mt-0.5">
                 {opt.newCards} new cards/day
               </p>
             </div>
@@ -89,10 +89,10 @@ export default function SchedulePage(): React.JSX.Element {
         type="button"
         onClick={() => router.push(NEXT_STEP[STEP_PATH])}
         disabled={schedule === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
-                   font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
+        className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
+                   font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
                    disabled:opacity-40 disabled:cursor-not-allowed
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
       >
         Continue →
       </button>

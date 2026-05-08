@@ -81,7 +81,7 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
         />
 
         {mutation.isError && (
-          <p role="alert" className="text-xs text-danger-500">
+          <p role="alert" className="text-xs text-error">
             {mutation.error?.message ?? 'Unknown error'}
           </p>
         )}

@@ -77,12 +77,12 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
       <TopBar>
         <Link
           href={`/decks/${deckId}`}
-          className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
+          className="flex items-center gap-1 text-sm text-faded-sumi hover:text-sumi-ink transition-colors shrink-0"
         >
           ← <span className="max-w-32 truncate">{deckName}</span>
         </Link>
-        <span className="text-neutral-300 shrink-0" aria-hidden="true">|</span>
-        <span className="flex-1 text-base font-semibold text-neutral-900 truncate" lang="ja">{word}</span>
+        <span className="text-faded-sumi shrink-0" aria-hidden="true">|</span>
+        <span className="flex-1 text-base font-semibold text-sumi-ink truncate" lang="ja">{word}</span>
         <Link href={`/decks/${deckId}/cards/${cardId}/edit`}>
           <Button variant="secondary" size="sm">Edit</Button>
         </Link>
@@ -94,11 +94,11 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
         <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-6 space-y-3">
           {isLoading ? (
             <div className="space-y-3 animate-pulse">
-              <div className="h-9 w-48 bg-neutral-200 rounded" />
-              <div className="h-6 w-72 bg-neutral-100 rounded" />
+              <div className="h-9 w-48 bg-cream-inset rounded" />
+              <div className="h-6 w-72 bg-cream-inset rounded" />
               <div className="flex gap-2">
-                <div className="h-5 w-16 bg-neutral-100 rounded-full" />
-                <div className="h-5 w-10 bg-neutral-100 rounded-full" />
+                <div className="h-5 w-16 bg-cream-inset rounded-full" />
+                <div className="h-5 w-10 bg-cream-inset rounded-full" />
               </div>
             </div>
           ) : (
@@ -110,13 +110,13 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
                   <span lang="ja" className="text-3xl font-bold leading-snug">{word}</span>
                 )}
                 {pitchAccent !== undefined && (
-                  <span className="text-sm text-neutral-400">{pitchAccent}</span>
+                  <span className="text-sm text-faded-sumi">{pitchAccent}</span>
                 )}
               </div>
-              <p className="text-xl text-neutral-700">{meaning}</p>
+              <p className="text-xl text-sumi-ink">{meaning}</p>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 {partOfSpeech !== undefined && (
-                  <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{partOfSpeech}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">{partOfSpeech}</span>
                 )}
                 {jlpt !== undefined && (
                   <span
@@ -127,7 +127,7 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
                   </span>
                 )}
                 {card?.tags?.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">{tag}</span>
+                  <span key={tag} className="px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">{tag}</span>
                 ))}
               </div>
             </>
@@ -164,7 +164,7 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
 
         {/* ── Similar Cards ───────────────────────────────────────────── */}
         <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-          <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Similar Cards</h2>
+          <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Similar Cards</h2>
           {!showSimilar && (
             <Button variant="secondary" size="sm" onClick={() => setShowSimilar(true)}>
               View Similar Cards
@@ -173,12 +173,12 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
           {showSimilar && loadingSimilar && (
             <div className="space-y-2 animate-pulse">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-14 bg-neutral-100 rounded-[var(--radius-md)]" />
+                <div key={i} className="h-14 bg-cream-inset rounded-[var(--radius-md)]" />
               ))}
             </div>
           )}
           {showSimilar && !loadingSimilar && (similar === undefined || similar.length === 0) && (
-            <p className="text-sm text-neutral-500">No similar cards found yet.</p>
+            <p className="text-sm text-faded-sumi">No similar cards found yet.</p>
           )}
           {showSimilar && !loadingSimilar && similar !== undefined && similar.length > 0 && (
             <ul className="space-y-2">
@@ -192,13 +192,13 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
                   <li key={c.id}>
                     <Link
                       href={`/decks/${c.deckId}/cards/${c.id}`}
-                      className="flex items-baseline gap-3 px-4 py-3 rounded-[var(--radius-md)] border border-neutral-200 hover:shadow-[var(--shadow-card)] transition-shadow"
+                      className="flex items-baseline gap-3 px-4 py-3 rounded-[var(--radius-md)] border border-soft-hairline hover:shadow-[var(--shadow-card)] transition-shadow"
                     >
-                      <span lang="ja" className="text-base font-bold text-neutral-900">{cWord}</span>
+                      <span lang="ja" className="text-base font-bold text-sumi-ink">{cWord}</span>
                       {cReading.length > 0 && (
-                        <span lang="ja" className="text-sm text-neutral-500">{cReading}</span>
+                        <span lang="ja" className="text-sm text-faded-sumi">{cReading}</span>
                       )}
-                      <span className="ml-auto text-sm text-neutral-700 truncate">{cMeaning}</span>
+                      <span className="ml-auto text-sm text-sumi-ink truncate">{cMeaning}</span>
                     </Link>
                   </li>
                 )

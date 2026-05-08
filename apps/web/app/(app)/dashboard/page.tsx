@@ -27,7 +27,7 @@ function toDisplayName(email: string | undefined, fullName: string | undefined):
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-base font-semibold text-neutral-800">{children}</h2>
+    <h2 className="text-base font-semibold text-sumi-ink">{children}</h2>
   )
 }
 
@@ -42,9 +42,9 @@ function StatCard({
 }) {
   return (
     <div className="bg-surface-raised rounded-[var(--radius-lg)] shadow-card p-5 flex flex-col gap-1">
-      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-neutral-900 mt-1">{value}</p>
-      <p className="text-xs text-neutral-400">{sublabel}</p>
+      <p className="text-xs font-medium text-faded-sumi uppercase tracking-wide">{label}</p>
+      <p className="text-2xl font-bold text-sumi-ink mt-1">{value}</p>
+      <p className="text-xs text-faded-sumi">{sublabel}</p>
     </div>
   )
 }
@@ -63,14 +63,14 @@ function EmptyStateCard({
   return (
     <div className="bg-surface-raised rounded-[var(--radius-lg)] shadow-card p-10 flex flex-col items-center gap-3 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-inset">
-        <Icon size={28} strokeWidth={1.5} className="text-neutral-400" aria-hidden="true" />
+        <Icon size={28} strokeWidth={1.5} className="text-faded-sumi" aria-hidden="true" />
       </div>
-      <p className="text-sm font-semibold text-neutral-700">{headline}</p>
-      <p className="text-sm text-neutral-500 max-w-xs">{body}</p>
+      <p className="text-sm font-semibold text-sumi-ink">{headline}</p>
+      <p className="text-sm text-faded-sumi max-w-xs">{body}</p>
       {cta && (
         <Link
           href={cta.href}
-          className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+          className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-inari-vermillion hover:text-inari-vermillion hover:underline"
         >
           {cta.label}
           <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
@@ -94,10 +94,10 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
   return (
     <>
       <TopBar>
-        <h1 className="text-md font-semibold text-neutral-900">Dashboard</h1>
+        <h1 className="text-md font-semibold text-sumi-ink">Dashboard</h1>
       </TopBar>
 
-      {/* surface-base is the page background (neutral-50), set globally on body */}
+      {/* surface-base is the page background (warm-paper-base), set globally on body */}
       <div className="p-4 lg:p-6 max-w-[960px] mx-auto space-y-6">
 
         {/* ── Hero greeting ──────────────────────────────────────────── */}
@@ -108,11 +108,11 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
           <div>
             <h2
               id="greeting-heading"
-              className="text-xl font-semibold text-neutral-900"
+              className="text-xl font-semibold text-sumi-ink"
             >
               {greeting}, {displayName}!
             </h2>
-            <p className="mt-1 text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-faded-sumi">
               {dueCount > 0
                 ? `You have ${dueCount} card${dueCount === 1 ? '' : 's'} due today.`
                 : "You’re all caught up — no cards due right now."}
@@ -124,8 +124,8 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
             href="/review"
             className={[
               'inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--radius-md)]',
-              'text-base font-medium text-white bg-primary-500 transition-all',
-              'hover:bg-primary-600 active:scale-[0.98] whitespace-nowrap',
+              'text-base font-medium text-warm-paper-raised bg-inari-vermillion transition-all',
+              'hover:bg-inari-vermillion-deep active:scale-[0.98] whitespace-nowrap',
               dueCount === 0 ? 'opacity-50 pointer-events-none' : '',
             ].join(' ')}
             aria-disabled={dueCount === 0}

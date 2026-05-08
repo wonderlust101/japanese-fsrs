@@ -48,19 +48,19 @@ export function JLPTProgressBars({ gap, milestones, isLoading }: Props): React.J
   const visible = ORDER.filter((lvl) => gapByLevel.has(lvl) || milestoneByLevel.has(lvl))
 
   return (
-    <section className="p-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-raised)] border border-neutral-200 shadow-[var(--shadow-card)]">
-      <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-4">
+    <section className="p-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-raised)] border border-soft-hairline shadow-[var(--shadow-card)]">
+      <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider mb-4">
         JLPT progress
       </h2>
 
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-9 bg-neutral-100 rounded animate-pulse" />
+            <div key={i} className="h-9 bg-cream-inset rounded animate-pulse" />
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-faded-sumi">
           Subscribe to a JLPT premade deck to start tracking your gap to each level.
         </p>
       ) : (
@@ -82,7 +82,7 @@ export function JLPTProgressBars({ gap, milestones, isLoading }: Props): React.J
                 >
                   {labelFor(lvl)}
                 </span>
-                <div className="relative h-3 rounded-full bg-neutral-100 overflow-hidden">
+                <div className="relative h-3 rounded-full bg-cream-inset overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"
                     style={{
@@ -96,14 +96,14 @@ export function JLPTProgressBars({ gap, milestones, isLoading }: Props): React.J
                   />
                 </div>
                 <div className="flex flex-col items-end text-xs tabular-nums">
-                  <span className="font-medium text-neutral-700">{pct}%</span>
-                  <span className="text-neutral-400">
+                  <span className="font-medium text-sumi-ink">{pct}%</span>
+                  <span className="text-faded-sumi">
                     {learned} / {total}
                   </span>
                 </div>
                 {projection !== null && (
-                  <span className="col-span-3 text-xs text-neutral-500 pl-12">
-                    Projected complete: <strong className="text-neutral-700">{formatDate(projection)}</strong>
+                  <span className="col-span-3 text-xs text-faded-sumi pl-12">
+                    Projected complete: <strong className="text-sumi-ink">{formatDate(projection)}</strong>
                   </span>
                 )}
               </li>

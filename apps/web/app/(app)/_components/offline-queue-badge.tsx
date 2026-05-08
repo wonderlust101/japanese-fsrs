@@ -19,8 +19,8 @@ export function OfflineQueueBadge({ floating = false }: Props): React.JSX.Elemen
   if (count === 0) return null
 
   const tone = stuck
-    ? 'bg-danger-500 text-white'
-    : 'bg-primary-500 text-white'
+    ? 'bg-error text-warm-paper-raised'
+    : 'bg-inari-vermillion text-warm-paper-raised'
 
   const ariaLabel = stuck
     ? `${count} review${count === 1 ? '' : 's'} stuck — tap Review to resolve`

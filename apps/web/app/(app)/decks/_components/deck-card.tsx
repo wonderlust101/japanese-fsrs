@@ -7,9 +7,9 @@ import { getDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 
 const BADGE: Record<ApiDeck['deckType'], string> = {
-  vocabulary: 'bg-primary-100 text-primary-700',
-  kanji:      'bg-warning-100 text-warning-700',
-  mixed:      'bg-neutral-100 text-neutral-600',
+  vocabulary: 'bg-vermillion-wash text-inari-vermillion',
+  kanji:      'bg-jlpt-beyond-bg text-jlpt-beyond-amber-warn',
+  mixed:      'bg-cream-inset text-faded-sumi',
 }
 
 interface Props {
@@ -39,12 +39,12 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
       >
         {/* Header row */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-semibold text-neutral-900 mr-auto">{deck.name}</span>
+          <span className="text-base font-semibold text-sumi-ink mr-auto">{deck.name}</span>
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${BADGE[deck.deckType]}`}>
             {deck.deckType}
           </span>
           {deck.isPremadeFork && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-500">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">
               premade
             </span>
           )}
@@ -52,7 +52,7 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
           <button
             type="button"
             onClick={(e) => e.preventDefault()}
-            className="text-neutral-400 hover:text-neutral-600 px-1 transition-colors"
+            className="text-faded-sumi hover:text-faded-sumi px-1 transition-colors"
             aria-label="Deck options"
           >
             ···
@@ -61,25 +61,25 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
 
         {/* Description */}
         {deck.description !== null && (
-          <p className="text-sm text-neutral-500 truncate">{deck.description}</p>
+          <p className="text-sm text-faded-sumi truncate">{deck.description}</p>
         )}
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 text-xs text-neutral-500">
+        <div className="flex items-center gap-3 text-xs text-faded-sumi">
           <span>{cardCount} cards</span>
           {stats !== undefined && stats !== null ? (
             <>
               <span>·</span>
-              <span className={dueCount > 0 ? 'text-danger-600 font-medium' : ''}>{dueCount} due</span>
+              <span className={dueCount > 0 ? 'text-error font-medium' : ''}>{dueCount} due</span>
               <span>·</span>
               <span>{newCount} new</span>
             </>
           ) : (
             <>
               <span>·</span>
-              <span className="w-10 h-3 bg-neutral-100 rounded animate-pulse inline-block align-middle" />
+              <span className="w-10 h-3 bg-cream-inset rounded animate-pulse inline-block align-middle" />
               <span>·</span>
-              <span className="w-8 h-3 bg-neutral-100 rounded animate-pulse inline-block align-middle" />
+              <span className="w-8 h-3 bg-cream-inset rounded animate-pulse inline-block align-middle" />
             </>
           )}
           <span className="ml-auto" />
@@ -87,21 +87,21 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
           <Link
             href={`/decks/${deck.id}/add-card`}
             onClick={(e) => e.stopPropagation()}
-            className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            className="text-inari-vermillion hover:text-inari-vermillion font-medium transition-colors"
           >
             + Add Card
           </Link>
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 w-full bg-neutral-100 rounded-full overflow-hidden">
+        <div className="h-1 w-full bg-cream-inset rounded-full overflow-hidden">
           <div
-            className="h-full bg-primary-500 rounded-full transition-[width] duration-300 ease-in-out"
+            className="h-full bg-inari-vermillion rounded-full transition-[width] duration-300 ease-in-out"
             style={{ width: `${progress}%` }}
           />
         </div>
         {stats !== undefined && stats !== null && (
-          <p className="text-xs text-neutral-400">{progress}% learned</p>
+          <p className="text-xs text-faded-sumi">{progress}% learned</p>
         )}
       </Link>
     </div>

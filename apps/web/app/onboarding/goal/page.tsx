@@ -27,10 +27,10 @@ export default function GoalPage(): React.JSX.Element {
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="text-center">
-        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
           What's your main goal?
         </h1>
-        <p className="mt-2 text-base text-neutral-500">
+        <p className="mt-2 text-base text-faded-sumi">
           Your goal shapes which vocabulary and grammar patterns we surface first.
         </p>
       </div>
@@ -44,15 +44,15 @@ export default function GoalPage(): React.JSX.Element {
             aria-pressed={goal === opt.value}
             className={[
               'text-left p-5 rounded-[var(--radius-lg)] border-2 transition-all duration-150',
-              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200',
+              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
               goal === opt.value
-                ? 'border-primary-500 bg-primary-50 shadow-[var(--shadow-card)]'
-                : 'border-neutral-200 bg-white hover:border-neutral-300 hover:shadow-[var(--shadow-card)]',
+                ? 'border-inari-vermillion bg-vermillion-wash shadow-[var(--shadow-card)]'
+                : 'border-soft-hairline bg-warm-paper-raised hover:border-soft-hairline hover:shadow-[var(--shadow-card)]',
             ].join(' ')}
           >
             <span className="text-2xl">{opt.emoji}</span>
-            <p className="mt-2 font-medium text-neutral-900 text-base">{opt.label}</p>
-            <p className="mt-0.5 text-sm text-neutral-500">{opt.description}</p>
+            <p className="mt-2 font-medium text-sumi-ink text-base">{opt.label}</p>
+            <p className="mt-0.5 text-sm text-faded-sumi">{opt.description}</p>
           </button>
         ))}
       </div>
@@ -61,10 +61,10 @@ export default function GoalPage(): React.JSX.Element {
         type="button"
         onClick={() => router.push(NEXT_STEP[STEP_PATH])}
         disabled={goal === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
-                   font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
+        className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
+                   font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
                    disabled:opacity-40 disabled:cursor-not-allowed
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
+                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
       >
         Continue →
       </button>

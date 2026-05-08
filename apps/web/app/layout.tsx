@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
+import { DM_Sans, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import './globals.css'
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-inter-loaded',
+  variable: '--font-dm-sans-loaded',
   display: 'swap',
 })
 
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${notoSansJP.variable} ${jetbrainsMono.variable}`}
+      className={`${dmSans.variable} ${notoSansJP.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <QueryProvider>{children}</QueryProvider>

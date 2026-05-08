@@ -25,7 +25,7 @@ export function DeckListView(): React.JSX.Element {
   return (
     <>
       <TopBar>
-        <h1 className="flex-1 text-base font-semibold text-neutral-900">My Decks</h1>
+        <h1 className="flex-1 text-base font-semibold text-sumi-ink">My Decks</h1>
         <Button size="sm" onClick={() => setDialogOpen(true)}>+ New Deck</Button>
       </TopBar>
       <CreateDeckDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
@@ -48,19 +48,19 @@ export function DeckListView(): React.JSX.Element {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center gap-4 py-20 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-cream-inset">
         <svg
           width="28" height="28" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="1.5"
           strokeLinecap="round" strokeLinejoin="round"
-          className="text-neutral-400" aria-hidden="true"
+          className="text-faded-sumi" aria-hidden="true"
         >
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
         </svg>
       </div>
-      <p className="text-base font-semibold text-neutral-700">No decks yet</p>
-      <p className="text-sm text-neutral-500 max-w-xs">
+      <p className="text-base font-semibold text-sumi-ink">No decks yet</p>
+      <p className="text-sm text-faded-sumi max-w-xs">
         Browse our premade decks to start studying in seconds, or create your own.
       </p>
       <Link href="/decks/browse">

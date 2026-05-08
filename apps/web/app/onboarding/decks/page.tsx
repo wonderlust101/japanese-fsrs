@@ -43,10 +43,10 @@ export default function DecksPage(): React.JSX.Element {
   return (
     <div className="flex flex-col items-center gap-8 text-center">
       <div>
-        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
           Your recommended decks
         </h1>
-        <p className="mt-2 text-base text-neutral-500">
+        <p className="mt-2 text-base text-faded-sumi">
           Based on your answers, we've chosen a few decks to get you started.
           You can swap or add more anytime from the Deck Library.
         </p>
@@ -62,21 +62,21 @@ export default function DecksPage(): React.JSX.Element {
           <div
             key={deck.name}
             className="flex items-center justify-between px-5 py-4 rounded-[var(--radius-lg)]
-                       bg-white border border-neutral-200 shadow-[var(--shadow-card)]"
+                       bg-warm-paper-raised border border-soft-hairline shadow-[var(--shadow-card)]"
           >
             <div className="text-left">
               <div className="flex items-center gap-2">
                 <span
                   className="text-xs font-semibold px-2 py-0.5 rounded-[var(--radius-sm)]
-                               bg-success-100 text-success-700"
+                               bg-jlpt-n5-bg text-jlpt-n4-deep-emerald"
                 >
                   {deck.badge}
                 </span>
-                <p className="text-base font-medium text-neutral-900">{deck.name}</p>
+                <p className="text-base font-medium text-sumi-ink">{deck.name}</p>
               </div>
-              <p className="mt-0.5 text-sm text-neutral-500">{deck.desc}</p>
+              <p className="mt-0.5 text-sm text-faded-sumi">{deck.desc}</p>
             </div>
-            <p className="shrink-0 ml-4 text-sm text-neutral-400 tabular-nums">
+            <p className="shrink-0 ml-4 text-sm text-faded-sumi tabular-nums">
               {deck.count} cards
             </p>
           </div>
@@ -85,7 +85,7 @@ export default function DecksPage(): React.JSX.Element {
 
       <div className="flex flex-col items-center gap-3 w-full">
         {error && (
-          <p role="alert" className="text-xs text-danger-500">
+          <p role="alert" className="text-xs text-error">
             {error?.message ?? 'Unknown error'}
           </p>
         )}
@@ -94,10 +94,10 @@ export default function DecksPage(): React.JSX.Element {
           type="button"
           onClick={handleAddAndStart}
           disabled={isPending}
-          className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
-                     font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
+          className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
+                     font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
                      disabled:opacity-40 disabled:cursor-not-allowed
-                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
+                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
         >
           {isPending ? 'Saving…' : 'Add all and start learning →'}
         </button>
@@ -105,7 +105,7 @@ export default function DecksPage(): React.JSX.Element {
           type="button"
           onClick={() => router.push('/dashboard')}
           disabled={isPending}
-          className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors
+          className="text-sm text-faded-sumi hover:text-faded-sumi transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Skip for now — I&apos;ll browse decks myself

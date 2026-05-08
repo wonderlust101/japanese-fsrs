@@ -36,15 +36,15 @@ export function SettingsView({ initialProfile, email, displayName }: Props): Rea
   return (
     <>
       <TopBar>
-        <h1 className="flex-1 text-base font-semibold text-neutral-900">Settings</h1>
+        <h1 className="flex-1 text-base font-semibold text-sumi-ink">Settings</h1>
       </TopBar>
 
       <div className="px-4 lg:px-6 py-6 max-w-[760px] mx-auto">
         {/* In-page anchor nav */}
-        <nav aria-label="Settings sections" className="flex gap-3 text-sm text-neutral-500 mb-6 border-b border-neutral-200 pb-3">
-          <a href="#profile"  className="hover:text-neutral-900">Profile</a>
-          <a href="#learning" className="hover:text-neutral-900">Learning</a>
-          <a href="#account"  className="hover:text-neutral-900">Account</a>
+        <nav aria-label="Settings sections" className="flex gap-3 text-sm text-faded-sumi mb-6 border-b border-soft-hairline pb-3">
+          <a href="#profile"  className="hover:text-sumi-ink">Profile</a>
+          <a href="#learning" className="hover:text-sumi-ink">Learning</a>
+          <a href="#account"  className="hover:text-sumi-ink">Account</a>
         </nav>
 
         <div className="space-y-10">
@@ -87,7 +87,7 @@ export function SettingsView({ initialProfile, email, displayName }: Props): Rea
             role="status"
             className={[
               'px-3 py-2 rounded-[var(--radius-md)] text-sm shadow',
-              t.kind === 'saved' ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700',
+              t.kind === 'saved' ? 'bg-jlpt-n5-bg text-jlpt-n4-deep-emerald' : 'bg-error-tint text-error',
             ].join(' ')}
           >
             {t.message}

@@ -86,11 +86,11 @@ export function AccountSection({ email, onSaved, onError }: Props): React.JSX.El
 
   return (
     <div className="space-y-5">
-      <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
+      <h2 className="text-lg font-semibold text-sumi-ink">Account</h2>
 
       <div>
-        <span className="block text-sm font-medium text-neutral-700">Email</span>
-        <p className="mt-1 text-sm text-neutral-600">{email}</p>
+        <span className="block text-sm font-medium text-sumi-ink">Email</span>
+        <p className="mt-1 text-sm text-faded-sumi">{email}</p>
       </div>
 
       <form onSubmit={changePassword} className="space-y-3">
@@ -133,14 +133,14 @@ export function AccountSection({ email, onSaved, onError }: Props): React.JSX.El
         >
           Sign out of all devices
         </Button>
-        <p className="mt-2 text-xs text-neutral-500">
+        <p className="mt-2 text-xs text-faded-sumi">
           Revokes every active session, including this one. You'll be redirected to login.
         </p>
       </div>
 
-      <div className="mt-8 pt-6 border-t border-danger-100">
-        <h3 className="text-sm font-semibold text-danger-700">Danger zone</h3>
-        <p className="mt-1 text-sm text-neutral-600">
+      <div className="mt-8 pt-6 border-t border-error-tint">
+        <h3 className="text-sm font-semibold text-error">Danger zone</h3>
+        <p className="mt-1 text-sm text-faded-sumi">
           Deleting your account permanently removes your decks, cards, and review history. This cannot be undone.
         </p>
         <Button

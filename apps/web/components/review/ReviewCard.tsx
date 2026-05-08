@@ -57,16 +57,16 @@ export function ReviewCard(): React.JSX.Element | null {
 
   return (
     <div className="flex flex-col items-center px-4 py-8 gap-4">
-      <div className="w-full max-w-[640px] rounded-[14px] shadow-[0_4px_12px_rgba(0,0,0,0.08)] bg-white flex flex-col overflow-hidden">
+      <div className="w-full max-w-[640px] rounded-[14px] shadow-card bg-warm-paper-raised flex flex-col overflow-hidden">
 
         <div className="flex items-center px-5 pt-5">
-          <span className="text-xs font-medium text-neutral-500 bg-neutral-100 rounded-full px-2.5 py-0.5">
+          <span className="text-xs font-medium text-faded-sumi bg-cream-inset rounded-full px-2.5 py-0.5">
             {CARD_TYPE_LABEL[card.cardType] ?? card.cardType}
           </span>
         </div>
 
         <div className="flex flex-col items-center px-12 pt-8 pb-8">
-          <p lang="ja" className="text-3xl font-japanese font-medium text-center text-neutral-900">
+          <p lang="ja" className="text-3xl font-japanese font-medium text-center text-sumi-ink">
             {word}
           </p>
 
@@ -74,17 +74,17 @@ export function ReviewCard(): React.JSX.Element | null {
             <div className="mt-8 flex flex-col items-center gap-1.5">
               <button
                 onClick={flipCard}
-                className="px-6 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-sm font-medium text-neutral-700 transition-colors"
+                className="px-6 py-2 rounded-lg bg-cream-inset hover:bg-cream-inset text-sm font-medium text-sumi-ink transition-colors"
               >
                 Show Answer
               </button>
-              <span className="text-xs text-neutral-400">or press Space</span>
+              <span className="text-xs text-faded-sumi">or press Space</span>
             </div>
           )}
         </div>
 
         {showAnswer && (
-          <div className="animate-card-reveal flex flex-col gap-4 px-12 pb-10 border-t border-neutral-100 pt-6">
+          <div className="animate-card-reveal flex flex-col gap-4 px-12 pb-10 border-t border-soft-hairline pt-6">
             {reading !== null && reading !== '' && (
               <FuriganaText
                 text={word}
@@ -93,16 +93,16 @@ export function ReviewCard(): React.JSX.Element | null {
               />
             )}
 
-            <p className="text-base text-neutral-700">{meaning}</p>
+            <p className="text-base text-sumi-ink">{meaning}</p>
 
             {firstSentence !== undefined && (
-              <div className="rounded-lg bg-neutral-50 p-4 flex flex-col gap-1">
+              <div className="rounded-lg bg-cream-inset p-4 flex flex-col gap-1">
                 <FuriganaText
                   text={firstSentence.ja}
                   reading={firstSentence.furigana}
-                  className="text-sm font-japanese text-neutral-800"
+                  className="text-sm font-japanese text-sumi-ink"
                 />
-                <p className="text-sm text-neutral-500">{firstSentence.en}</p>
+                <p className="text-sm text-faded-sumi">{firstSentence.en}</p>
               </div>
             )}
           </div>

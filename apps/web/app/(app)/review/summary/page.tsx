@@ -28,8 +28,8 @@ function formatTime(ms: number): string {
 function MetricCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-3xl font-bold text-neutral-900">{value}</span>
-      <span className="text-xs text-neutral-500 uppercase tracking-wide">{label}</span>
+      <span className="text-3xl font-bold text-sumi-ink">{value}</span>
+      <span className="text-xs text-faded-sumi uppercase tracking-wide">{label}</span>
     </div>
   )
 }
@@ -52,8 +52,8 @@ function formatNextDue(isoDate: string): string {
 function MetricSkeleton() {
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="h-9 w-16 rounded bg-neutral-100 animate-pulse" />
-      <div className="h-3 w-12 rounded bg-neutral-100 animate-pulse" />
+      <div className="h-9 w-16 rounded bg-cream-inset animate-pulse" />
+      <div className="h-3 w-12 rounded bg-cream-inset animate-pulse" />
     </div>
   )
 }
@@ -109,15 +109,15 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     <div className="flex flex-col items-center px-4 py-12 gap-6 max-w-xl mx-auto">
 
       {/* Header */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-8 flex flex-col items-center gap-2 text-center">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-8 flex flex-col items-center gap-2 text-center">
         <div className="text-4xl mb-1">✓</div>
-        <h1 className="text-2xl font-bold text-neutral-900">Session Complete</h1>
-        <p className="text-sm text-neutral-500">{today}</p>
+        <h1 className="text-2xl font-bold text-sumi-ink">Session Complete</h1>
+        <p className="text-sm text-faded-sumi">{today}</p>
       </div>
 
       {/* Metrics grid */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-6">
-        <div className="grid grid-cols-3 divide-x divide-neutral-100">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6">
+        <div className="grid grid-cols-3 divide-x divide-soft-hairline">
           {isLoading ? (
             <>
               <div className="px-4"><MetricSkeleton /></div>
@@ -125,7 +125,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
               <div className="px-4"><MetricSkeleton /></div>
             </>
           ) : isError || summary === undefined ? (
-            <div className="col-span-3 text-center text-sm text-neutral-500 py-4">
+            <div className="col-span-3 text-center text-sm text-faded-sumi py-4">
               Could not load session stats.
             </div>
           ) : (
@@ -145,17 +145,17 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       </div>
 
       {/* Rating Breakdown */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-6 flex flex-col gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
           Rating Breakdown
         </h2>
         {isLoading ? (
           <div className="flex flex-col gap-3">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="h-3 w-10 rounded bg-neutral-100 animate-pulse shrink-0" />
-                <div className="flex-1 h-2.5 rounded-full bg-neutral-100 animate-pulse" />
-                <div className="h-3 w-5 rounded bg-neutral-100 animate-pulse shrink-0" />
+                <div className="h-3 w-10 rounded bg-cream-inset animate-pulse shrink-0" />
+                <div className="flex-1 h-2.5 rounded-full bg-cream-inset animate-pulse" />
+                <div className="h-3 w-5 rounded bg-cream-inset animate-pulse shrink-0" />
               </div>
             ))}
           </div>
@@ -165,23 +165,23 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       </div>
 
       {/* Cards to Watch */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-6 flex flex-col gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
           Cards to Watch
         </h2>
 
         {isLoading ? (
           <div className="flex flex-col gap-3">
             {[0, 1].map((i) => (
-              <div key={i} className="h-10 rounded-lg bg-neutral-100 animate-pulse" />
+              <div key={i} className="h-10 rounded-lg bg-cream-inset animate-pulse" />
             ))}
           </div>
         ) : summary !== undefined && summary.leeches.length === 0 ? (
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-faded-sumi">
             No leeches today! Your retention is looking strong.
           </p>
         ) : summary !== undefined ? (
-          <ul className="flex flex-col divide-y divide-neutral-100">
+          <ul className="flex flex-col divide-y divide-soft-hairline">
             {summary.leeches.map((leech) => (
               <li key={leech.leechId}>
                 <Link
@@ -192,14 +192,14 @@ export default function ReviewSummaryPage(): React.JSX.Element {
                     <FuriganaText
                       text={leech.word}
                       reading={leech.reading}
-                      className="font-japanese text-base font-medium text-neutral-900 group-hover:text-primary-600 transition-colors"
+                      className="font-japanese text-base font-medium text-sumi-ink group-hover:text-inari-vermillion transition-colors"
                     />
                   ) : (
-                    <span lang="ja" className="font-japanese text-base font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">
+                    <span lang="ja" className="font-japanese text-base font-medium text-sumi-ink group-hover:text-inari-vermillion transition-colors">
                       {leech.word}
                     </span>
                   )}
-                  <span className="text-neutral-400 text-sm">→</span>
+                  <span className="text-faded-sumi text-sm">→</span>
                 </Link>
               </li>
             ))}
@@ -208,15 +208,15 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       </div>
 
       {/* Personal Bests */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-6 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
           Personal Bests
         </h2>
 
         {isLoading ? (
-          <div className="h-5 w-48 rounded bg-neutral-100 animate-pulse" />
+          <div className="h-5 w-48 rounded bg-cream-inset animate-pulse" />
         ) : summary !== undefined && summary.totalCards > 0 ? (
-          <div className="flex items-center gap-2 text-sm text-neutral-700">
+          <div className="flex items-center gap-2 text-sm text-sumi-ink">
             {isNewRecord.current ? (
               <>
                 <span className="text-yellow-500 text-base">★</span>
@@ -225,7 +225,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
               </>
             ) : (
               <>
-                <span className="text-neutral-400 text-base">★</span>
+                <span className="text-faded-sumi text-base">★</span>
                 <span>Best: <span className="font-semibold">{previousBest} cards</span> in one session</span>
               </>
             )}
@@ -234,18 +234,18 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       </div>
 
       {/* Next Review */}
-      <div className="w-full rounded-[14px] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] p-6 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-neutral-500">
+      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
           Next Review
         </h2>
         {isLoading ? (
-          <div className="h-5 w-48 rounded bg-neutral-100 animate-pulse" />
+          <div className="h-5 w-48 rounded bg-cream-inset animate-pulse" />
         ) : summary?.nextDueAt != null ? (
-          <p className="text-sm text-neutral-700">
+          <p className="text-sm text-sumi-ink">
             <span className="font-semibold">{formatNextDue(summary.nextDueAt)}</span>
           </p>
         ) : (
-          <p className="text-sm text-neutral-500">No upcoming reviews scheduled.</p>
+          <p className="text-sm text-faded-sumi">No upcoming reviews scheduled.</p>
         )}
       </div>
 

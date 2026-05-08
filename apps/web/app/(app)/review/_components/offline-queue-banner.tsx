@@ -24,7 +24,7 @@ export function OfflineQueueBanner(): React.JSX.Element | null {
     return (
       <div
         role="status"
-        className="w-full rounded-[var(--radius-lg)] border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700"
+        className="w-full rounded-[var(--radius-lg)] border border-soft-hairline bg-warm-paper-base px-4 py-3 text-sm text-sumi-ink"
       >
         🔄 {count} review{count === 1 ? '' : 's'} waiting to sync. Will retry automatically.
       </div>
@@ -35,12 +35,12 @@ export function OfflineQueueBanner(): React.JSX.Element | null {
     <>
       <div
         role="alert"
-        className="w-full rounded-[var(--radius-lg)] border border-danger-200 bg-danger-50 px-4 py-3 space-y-3"
+        className="w-full rounded-[var(--radius-lg)] border border-error-tint bg-error-tint px-4 py-3 space-y-3"
       >
-        <p className="text-sm font-medium text-danger-700">
+        <p className="text-sm font-medium text-error">
           ⚠️ {count} review{count === 1 ? '' : 's'} failed to sync after {MAX_ATTEMPTS} attempts.
         </p>
-        <p className="text-xs text-danger-700/80">
+        <p className="text-xs text-error/80">
           Auto-retry is paused. Try again, or discard the pending reviews if you don&apos;t need them.
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
@@ -54,7 +54,7 @@ export function OfflineQueueBanner(): React.JSX.Element | null {
       </div>
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Discard pending reviews?">
-        <p className="text-sm text-neutral-600 mb-5">
+        <p className="text-sm text-faded-sumi mb-5">
           {count} review{count === 1 ? '' : 's'} will not be applied to your FSRS schedule. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2">

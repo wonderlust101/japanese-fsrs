@@ -47,8 +47,8 @@ export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: P
   if (mnemonic === undefined && pending === null && !generate.isPending && !generate.isError) {
     return (
       <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Mnemonic</h2>
-        <p className="text-sm text-neutral-400">No mnemonic yet.</p>
+        <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Mnemonic</h2>
+        <p className="text-sm text-faded-sumi">No mnemonic yet.</p>
         <Button variant="ghost" size="sm" onClick={regenerate} loading={generate.isPending}>
           Generate mnemonic →
         </Button>
@@ -59,7 +59,7 @@ export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: P
   return (
     <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
       <header className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Mnemonic</h2>
+        <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Mnemonic</h2>
         <Button
           variant="ghost"
           size="sm"
@@ -80,12 +80,12 @@ export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: P
           isSaving={saving}
           isRegenerating={generate.isPending}
         >
-          <p className="text-base text-neutral-700 italic leading-relaxed">{pending}</p>
+          <p className="text-base text-sumi-ink italic leading-relaxed">{pending}</p>
         </RegeneratePanel>
       )}
 
       {generate.isError && pending === null && (
-        <p className="text-sm text-danger-700" role="alert">
+        <p className="text-sm text-error" role="alert">
           {generate.error?.message ?? 'Unknown error'}
         </p>
       )}
@@ -93,10 +93,10 @@ export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: P
       {mnemonic !== undefined && (
         <div>
           {pending !== null && (
-            <p className="text-xs text-neutral-400 mb-2">Current mnemonic:</p>
+            <p className="text-xs text-faded-sumi mb-2">Current mnemonic:</p>
           )}
           <p className={[
-            'text-base text-neutral-700 italic leading-relaxed',
+            'text-base text-sumi-ink italic leading-relaxed',
             pending !== null ? 'opacity-60' : '',
           ].join(' ')}>
             {mnemonic}

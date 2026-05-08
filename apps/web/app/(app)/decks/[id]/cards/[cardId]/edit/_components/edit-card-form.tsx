@@ -81,12 +81,12 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
       <TopBar>
         <Link
           href={`/decks/${deckId}/cards/${card.id}`}
-          className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
+          className="flex items-center gap-1 text-sm text-faded-sumi hover:text-sumi-ink transition-colors shrink-0"
         >
           ← <span lang="ja" className="max-w-32 truncate">{originalWord || deckName}</span>
         </Link>
-        <span className="text-neutral-300 shrink-0" aria-hidden="true">|</span>
-        <span className="flex-1 text-base font-semibold text-neutral-900">Edit Card</span>
+        <span className="text-faded-sumi shrink-0" aria-hidden="true">|</span>
+        <span className="flex-1 text-base font-semibold text-sumi-ink">Edit Card</span>
       </TopBar>
 
       <div className="max-w-[640px] mx-auto px-4 lg:px-6 py-6">
@@ -117,11 +117,11 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
             />
             {word.trim().length > 0 && reading.trim().length > 0 && (
               <div className="flex items-center gap-2 px-1">
-                <span className="text-xs text-neutral-400 shrink-0">Preview:</span>
+                <span className="text-xs text-faded-sumi shrink-0">Preview:</span>
                 <FuriganaText
                   text={word.trim()}
                   reading={reading.trim()}
-                  className="text-xl font-semibold text-neutral-900"
+                  className="text-xl font-semibold text-sumi-ink"
                 />
               </div>
             )}
@@ -156,12 +156,12 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
           />
 
           {saveMutation.isError && (
-            <p role="alert" className="text-sm text-danger-500">
+            <p role="alert" className="text-sm text-error">
               {saveMutation.error?.message ?? 'Unknown error'}
             </p>
           )}
 
-          <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+          <div className="flex items-center justify-between pt-2 border-t border-soft-hairline">
             <Button
               type="button"
               variant="danger"
@@ -197,13 +197,13 @@ export function EditCardForm({ card, deckId, deckName }: Props): React.JSX.Eleme
 
       {/* ── Delete confirmation dialog ─────────────────────────────────── */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Card">
-        <p className="text-sm text-neutral-600 mb-5">
+        <p className="text-sm text-faded-sumi mb-5">
           Permanently delete{' '}
-          <span lang="ja" className="font-semibold text-neutral-900">"{word || 'this card'}"</span>
+          <span lang="ja" className="font-semibold text-sumi-ink">"{word || 'this card'}"</span>
           ? This cannot be undone.
         </p>
         {deleteMutation.isError && (
-          <p role="alert" className="text-sm text-danger-500 mb-3">
+          <p role="alert" className="text-sm text-error mb-3">
             {deleteMutation.error?.message ?? 'Unknown error'}
           </p>
         )}

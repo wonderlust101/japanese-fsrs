@@ -185,7 +185,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-neutral-900 mb-6">Create account</h1>
+      <h1 className="text-xl font-semibold text-sumi-ink mb-6">Create account</h1>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input
@@ -235,7 +235,7 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         />
 
         {errors.form && (
-          <p role="alert" className="text-xs text-danger-500">
+          <p role="alert" className="text-xs text-error">
             {errors.form}
           </p>
         )}
@@ -245,9 +245,9 @@ function SignupForm({ email, onEmailChange, onSuccess }: SignupFormProps) {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-neutral-500">
+      <p className="mt-6 text-center text-sm text-faded-sumi">
         Already have an account?{' '}
-        <Link href="/login" className="text-primary-600 font-medium hover:underline">
+        <Link href="/login" className="text-inari-vermillion font-medium hover:underline">
           Sign in
         </Link>
       </p>
@@ -303,12 +303,12 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
 
   return (
     <div className="animate-page-enter">
-      <h1 className="text-xl font-semibold text-neutral-900 mb-2">
+      <h1 className="text-xl font-semibold text-sumi-ink mb-2">
         Check your email
       </h1>
-      <p className="text-sm text-neutral-500 mb-8">
+      <p className="text-sm text-faded-sumi mb-8">
         We sent a 6-digit code to{' '}
-        <span className="font-medium text-neutral-700">{email}</span>.
+        <span className="font-medium text-sumi-ink">{email}</span>.
         It expires in 1 minute.
       </p>
 
@@ -321,12 +321,12 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
         />
 
         {otpError && (
-          <p role="alert" className="text-xs text-danger-500 text-center">
+          <p role="alert" className="text-xs text-error text-center">
             {otpError}
           </p>
         )}
 
-        <div className="text-center text-sm text-neutral-500">
+        <div className="text-center text-sm text-faded-sumi">
           {remaining > 0 ? (
             <span>Resend in {remaining}s</span>
           ) : (
@@ -334,8 +334,8 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
               type="button"
               onClick={handleResend}
               disabled={resendMutation.isPending}
-              className="text-primary-600 font-medium hover:underline focus:outline-none
-                         focus-visible:ring-[3px] focus-visible:ring-primary-200 rounded"
+              className="text-inari-vermillion font-medium hover:underline focus:outline-none
+                         focus-visible:ring-[3px] focus-visible:ring-vermillion-wash rounded"
             >
               Resend code
             </button>
@@ -347,7 +347,7 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
             role="status"
             className={[
               'text-xs text-center',
-              resendMsg.startsWith('Could') ? 'text-danger-500' : 'text-success-700',
+              resendMsg.startsWith('Could') ? 'text-error' : 'text-jlpt-n4-deep-emerald',
             ].join(' ')}
           >
             {resendMsg}
@@ -355,13 +355,13 @@ function VerifyView({ email, onBack }: { email: string; onBack: () => void }) {
         )}
       </div>
 
-      <p className="mt-8 text-center text-sm text-neutral-500">
+      <p className="mt-8 text-center text-sm text-faded-sumi">
         Wrong email?{' '}
         <button
           type="button"
           onClick={onBack}
-          className="text-primary-600 font-medium hover:underline focus:outline-none
-                     focus-visible:ring-[3px] focus-visible:ring-primary-200 rounded"
+          className="text-inari-vermillion font-medium hover:underline focus:outline-none
+                     focus-visible:ring-[3px] focus-visible:ring-vermillion-wash rounded"
         >
           Go back
         </button>

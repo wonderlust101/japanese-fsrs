@@ -24,16 +24,16 @@ export function Dialog({ open, onClose, title, children }: DialogProps): React.J
       ref={ref}
       onClose={onClose}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      className="m-auto w-full max-w-md p-0 border-0 rounded-[var(--radius-xl)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-lg)] [&::backdrop]:bg-neutral-900/40"
+      className="m-auto w-full max-w-md p-0 border-0 rounded-[var(--radius-xl)] bg-[var(--color-surface-raised)] shadow-[var(--shadow-lg)] [&::backdrop]:bg-sumi-ink/40"
     >
       <div className="p-6">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-neutral-900">{title}</h2>
+          <h2 className="text-base font-semibold text-sumi-ink">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-neutral-400 hover:text-neutral-600 transition-colors text-lg leading-none"
+            className="text-faded-sumi hover:text-faded-sumi transition-colors text-lg leading-none"
           >
             ✕
           </button>

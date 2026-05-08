@@ -28,10 +28,10 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
 ]
 
 const DECK_TYPE_BADGE: Record<string, string> = {
-  vocabulary: 'bg-primary-100 text-primary-700',
-  grammar:    'bg-success-100 text-success-700',
-  kanji:      'bg-warning-100 text-warning-700',
-  mixed:      'bg-neutral-100 text-neutral-600',
+  vocabulary: 'bg-vermillion-wash text-inari-vermillion',
+  grammar:    'bg-jlpt-n5-bg text-jlpt-n4-deep-emerald',
+  kanji:      'bg-jlpt-beyond-bg text-jlpt-beyond-amber-warn',
+  mixed:      'bg-cream-inset text-faded-sumi',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -101,16 +101,16 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
       <TopBar>
         <Link
           href="/decks"
-          className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
+          className="flex items-center gap-1 text-sm text-faded-sumi hover:text-sumi-ink transition-colors shrink-0"
         >
           ← <span className="max-w-32 truncate">Decks</span>
         </Link>
-        <span className="text-neutral-300 shrink-0" aria-hidden="true">|</span>
-        <span className="flex-1 text-base font-semibold text-neutral-900 truncate">{deckName}</span>
+        <span className="text-faded-sumi shrink-0" aria-hidden="true">|</span>
+        <span className="flex-1 text-base font-semibold text-sumi-ink truncate">{deckName}</span>
         <button
           type="button"
           onClick={() => setDeleteOpen(true)}
-          className="text-neutral-400 hover:text-neutral-600 transition-colors px-1"
+          className="text-faded-sumi hover:text-faded-sumi transition-colors px-1"
           aria-label="Deck options"
         >
           ···
@@ -126,17 +126,17 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
               {deck && (
                 <span className={cn(
                   'inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize',
-                  DECK_TYPE_BADGE[deck.deckType] ?? 'bg-neutral-100 text-neutral-600',
+                  DECK_TYPE_BADGE[deck.deckType] ?? 'bg-cream-inset text-faded-sumi',
                 )}>
                   {deck.deckType}
                 </span>
               )}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-600">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-faded-sumi">
                 {deck ? (
                   <>
                     <span>{deck.cardCount} cards</span>
                     <span aria-hidden="true">·</span>
-                    <span className={deck.dueCount > 0 ? 'text-danger-600 font-medium' : ''}>
+                    <span className={deck.dueCount > 0 ? 'text-error font-medium' : ''}>
                       {deck.dueCount} due today
                     </span>
                     <span aria-hidden="true">·</span>
@@ -149,7 +149,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                     )}
                   </>
                 ) : (
-                  <span className="h-4 w-48 bg-neutral-100 rounded animate-pulse inline-block" />
+                  <span className="h-4 w-48 bg-cream-inset rounded animate-pulse inline-block" />
                 )}
               </div>
             </div>
@@ -171,8 +171,8 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                 className={cn(
                   'px-3 py-1.5 rounded-[var(--radius-md)] text-sm font-medium transition-colors',
                   status === tab.value
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-neutral-500 hover:bg-neutral-100',
+                    ? 'bg-vermillion-wash text-inari-vermillion'
+                    : 'text-faded-sumi hover:bg-cream-inset',
                 )}
               >
                 {tab.label}
@@ -192,11 +192,11 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
           ))}
 
           {!isLoading && cards.length === 0 && (
-            <li className="py-16 text-center text-sm text-neutral-500">
+            <li className="py-16 text-center text-sm text-faded-sumi">
               {status === 'all'
                 ? 'No cards yet. '
                 : `No ${status} cards. `}
-              <Link href={`/decks/${deckId}/add-card`} className="text-primary-600 hover:underline">
+              <Link href={`/decks/${deckId}/add-card`} className="text-inari-vermillion hover:underline">
                 Add a card
               </Link>
             </li>
@@ -225,13 +225,13 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 
       {/* ── Delete confirmation dialog ─────────────────────────────────── */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Deck">
-        <p className="text-sm text-neutral-600 mb-5">
+        <p className="text-sm text-faded-sumi mb-5">
           Permanently delete{' '}
-          <span className="font-semibold text-neutral-900">"{deckName}"</span>
+          <span className="font-semibold text-sumi-ink">"{deckName}"</span>
           {' '}and all its cards? This cannot be undone.
         </p>
         {deleteMutation.isError && (
-          <p role="alert" className="text-sm text-danger-500 mb-3">
+          <p role="alert" className="text-sm text-error mb-3">
             {deleteMutation.error?.message ?? 'Unknown error'}
           </p>
         )}

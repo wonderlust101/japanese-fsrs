@@ -26,7 +26,7 @@ export function MobileBottomBar(): React.JSX.Element {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="lg:hidden fixed bottom-0 inset-x-0 z-20 flex bg-neutral-0 border-t border-neutral-200"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-20 flex bg-warm-paper-raised border-t border-soft-hairline"
     >
       {TABS.map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(href + '/')
@@ -37,7 +37,7 @@ export function MobileBottomBar(): React.JSX.Element {
             aria-current={active ? 'page' : undefined}
             className={[
               'flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors',
-              active ? 'text-primary-600' : 'text-neutral-500 hover:text-neutral-800',
+              active ? 'text-inari-vermillion' : 'text-faded-sumi hover:text-sumi-ink',
             ].join(' ')}
           >
             <span className="relative inline-flex">

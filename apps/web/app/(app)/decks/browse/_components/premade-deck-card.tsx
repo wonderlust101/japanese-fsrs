@@ -26,7 +26,7 @@ export function PremadeDeckCard({ deck, forkedDeckId, onSubscribe, isSubscribing
   const jlpt = deck.jlptLevel !== null ? JLPT_BADGE[deck.jlptLevel] : undefined
 
   return (
-    <article className="flex flex-col p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-raised)] border border-neutral-200 shadow-[var(--shadow-card)]">
+    <article className="flex flex-col p-4 rounded-[var(--radius-lg)] bg-[var(--color-surface-raised)] border border-soft-hairline shadow-[var(--shadow-card)]">
       <header className="flex items-center gap-2">
         {jlpt !== undefined && (
           <span
@@ -37,25 +37,25 @@ export function PremadeDeckCard({ deck, forkedDeckId, onSubscribe, isSubscribing
           </span>
         )}
         {deck.domain !== null && (
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">
             {deck.domain}
           </span>
         )}
-        <span className="ml-auto text-xs text-neutral-400 tabular-nums">
+        <span className="ml-auto text-xs text-faded-sumi tabular-nums">
           {deck.cardCount} cards
         </span>
       </header>
 
-      <h3 className="mt-2 text-base font-semibold text-neutral-900 leading-snug">{deck.name}</h3>
+      <h3 className="mt-2 text-base font-semibold text-sumi-ink leading-snug">{deck.name}</h3>
 
       {deck.description !== null && (
-        <p className="mt-1 text-sm text-neutral-500 line-clamp-2">{deck.description}</p>
+        <p className="mt-1 text-sm text-faded-sumi line-clamp-2">{deck.description}</p>
       )}
 
       <footer className="mt-4 flex items-center gap-2">
         {subscribed ? (
           <>
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-success-700">
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-jlpt-n4-deep-emerald">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
@@ -63,7 +63,7 @@ export function PremadeDeckCard({ deck, forkedDeckId, onSubscribe, isSubscribing
             </span>
             <Link
               href={`/decks/${forkedDeckId}`}
-              className="ml-auto text-sm font-medium text-primary-600 hover:text-primary-700"
+              className="ml-auto text-sm font-medium text-inari-vermillion hover:text-inari-vermillion"
             >
               Open →
             </Link>

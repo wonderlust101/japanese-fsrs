@@ -42,10 +42,10 @@ export function DeleteAccountDialog({ open, onClose, onConfirm }: Props): React.
   return (
     <Dialog open={open} onClose={handleClose} title="Delete account">
       <div className="space-y-4 text-sm">
-        <p className="text-neutral-700">
+        <p className="text-sumi-ink">
           This permanently deletes your account, profile, all decks, all cards, and your full review history. <strong>This cannot be undone.</strong>
         </p>
-        <p className="text-neutral-700">
+        <p className="text-sumi-ink">
           To confirm, enter your current password.
         </p>
         <input
@@ -54,7 +54,7 @@ export function DeleteAccountDialog({ open, onClose, onConfirm }: Props): React.
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
           placeholder="••••••••"
-          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-neutral-300 bg-white text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-danger-100"
+          className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-error-tint"
         />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" size="sm" onClick={handleClose} disabled={submitting}>

@@ -3,10 +3,10 @@
 import type { UserRating } from '@fsrs-japanese/shared-types'
 
 const RATINGS: Array<{ value: UserRating; label: string; key: string; colors: string }> = [
-  { value: 'again', label: 'Again', key: '1', colors: 'bg-danger-500  hover:bg-danger-700  focus-visible:ring-danger-500'  },
-  { value: 'hard',  label: 'Hard',  key: '2', colors: 'bg-warning-500 hover:bg-warning-700 focus-visible:ring-warning-500' },
-  { value: 'good',  label: 'Good',  key: '3', colors: 'bg-success-500 hover:bg-success-700 focus-visible:ring-success-500' },
-  { value: 'easy',  label: 'Easy',  key: '4', colors: 'bg-primary-500 hover:bg-primary-700 focus-visible:ring-primary-500' },
+  { value: 'again', label: 'Again', key: '1', colors: 'bg-sumi-ink                focus-visible:ring-sumi-ink'                },
+  { value: 'hard',  label: 'Hard',  key: '2', colors: 'bg-jlpt-beyond-amber-warn focus-visible:ring-jlpt-beyond-amber-warn' },
+  { value: 'good',  label: 'Good',  key: '3', colors: 'bg-jlpt-n5-fresh-leaf     focus-visible:ring-jlpt-n5-fresh-leaf'     },
+  { value: 'easy',  label: 'Easy',  key: '4', colors: 'bg-aizome-indigo          focus-visible:ring-aizome-indigo'          },
 ]
 
 interface Props {
@@ -20,8 +20,8 @@ export function RatingButtons({ onRate }: Props): React.JSX.Element {
         <button
           key={value}
           onClick={() => onRate(value)}
-          className={`h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 text-white font-medium
-            cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+          className={`h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 text-warm-paper-raised font-medium
+            cursor-pointer transition hover:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
             ${colors}`}
         >
           <span className="text-sm">{label}</span>

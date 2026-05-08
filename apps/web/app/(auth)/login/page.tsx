@@ -39,7 +39,7 @@ export default function LoginPage(): React.JSX.Element {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-neutral-900 mb-6">Sign in</h1>
+      <h1 className="text-xl font-semibold text-sumi-ink mb-6">Sign in</h1>
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <Input
@@ -63,7 +63,7 @@ export default function LoginPage(): React.JSX.Element {
         />
 
         {errorMessage && (
-          <p role="alert" className="text-xs text-danger-500">
+          <p role="alert" className="text-xs text-error">
             {errorMessage}
           </p>
         )}
@@ -73,9 +73,9 @@ export default function LoginPage(): React.JSX.Element {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-neutral-500">
+      <p className="mt-6 text-center text-sm text-faded-sumi">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-primary-600 font-medium hover:underline">
+        <Link href="/signup" className="text-inari-vermillion font-medium hover:underline">
           Sign up
         </Link>
       </p>

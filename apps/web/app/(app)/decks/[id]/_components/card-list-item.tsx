@@ -17,12 +17,12 @@ const JLPT_STYLE: Record<string, { bg: string; text: string; label: string }> = 
 // ─── State dot ────────────────────────────────────────────────────────────────
 
 function dotClass(state: State, isSuspended: boolean): string {
-  if (isSuspended) return 'bg-neutral-300'
+  if (isSuspended) return 'bg-soft-hairline'
   switch (state) {
-    case State.New:        return 'bg-neutral-400'
+    case State.New:        return 'bg-faded-sumi'
     case State.Learning:
-    case State.Relearning: return 'bg-warning-500'
-    case State.Review:     return 'bg-success-500'
+    case State.Relearning: return 'bg-jlpt-beyond-amber-warn'
+    case State.Review:     return 'bg-jlpt-n5-fresh-leaf'
     default: {
       const _exhaustiveCheck: never = state
       return _exhaustiveCheck
@@ -50,15 +50,15 @@ export function CardListItem({ card, deckId }: Props): React.JSX.Element {
     <li>
       <Link
         href={`/decks/${deckId}/cards/${card.id}`}
-        className="flex flex-col gap-1.5 bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] border border-neutral-200 px-5 py-4 hover:shadow-[var(--shadow-card)] transition-shadow"
+        className="flex flex-col gap-1.5 bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] border border-soft-hairline px-5 py-4 hover:shadow-[var(--shadow-card)] transition-shadow"
       >
         {/* Row 1: word · reading · status dot */}
         <div className="flex items-baseline gap-3">
-          <span lang="ja" className="text-2xl font-bold text-neutral-900 leading-tight">
+          <span lang="ja" className="text-2xl font-bold text-sumi-ink leading-tight">
             {word}
           </span>
           {reading.length > 0 && (
-            <span lang="ja" className="text-sm text-neutral-500">
+            <span lang="ja" className="text-sm text-faded-sumi">
               {reading}
             </span>
           )}
@@ -70,7 +70,7 @@ export function CardListItem({ card, deckId }: Props): React.JSX.Element {
 
         {/* Row 2: meaning · JLPT badge · ··· */}
         <div className="flex items-center gap-2">
-          <span className="text-base text-neutral-700 truncate">{meaning}</span>
+          <span className="text-base text-sumi-ink truncate">{meaning}</span>
 
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {jlpt !== undefined && (
@@ -84,7 +84,7 @@ export function CardListItem({ card, deckId }: Props): React.JSX.Element {
             <button
               type="button"
               onClick={(e) => e.preventDefault()}
-              className="text-neutral-400 hover:text-neutral-600 transition-colors px-1 text-sm leading-none"
+              className="text-faded-sumi hover:text-faded-sumi transition-colors px-1 text-sm leading-none"
               aria-label="Card options"
             >
               ···

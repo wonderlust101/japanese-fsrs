@@ -22,16 +22,16 @@ export function RegeneratePanel({
   children,
 }: Props): React.JSX.Element {
   return (
-    <div className="rounded-[var(--radius-md)] border-2 border-dashed border-primary-300 bg-primary-50/40 p-4 space-y-3">
+    <div className="rounded-[var(--radius-md)] border-2 border-dashed border-inari-vermillion bg-vermillion-wash/40 p-4 space-y-3">
       <header className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-primary-700 uppercase tracking-wider">
+        <h3 className="text-xs font-semibold text-inari-vermillion uppercase tracking-wider">
           {title}
         </h3>
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss preview"
-          className="text-neutral-400 hover:text-neutral-600 text-lg leading-none"
+          className="text-faded-sumi hover:text-faded-sumi text-lg leading-none"
         >
           ✕
         </button>

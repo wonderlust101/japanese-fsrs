@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getAuthUser()
 
   return (
-    <div className="flex h-screen bg-neutral-50 overflow-hidden">
+    <div className="flex h-screen bg-warm-paper-base overflow-hidden">
       <Sidebar user={user} />
 
       {/* Main content column */}

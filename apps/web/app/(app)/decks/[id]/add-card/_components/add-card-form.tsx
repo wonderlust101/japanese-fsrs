@@ -85,18 +85,18 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
       <TopBar>
         <Link
           href={`/decks/${deckId}`}
-          className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
+          className="flex items-center gap-1 text-sm text-faded-sumi hover:text-sumi-ink transition-colors shrink-0"
         >
           ← <span className="max-w-40 truncate">{deckName}</span>
         </Link>
-        <span className="text-neutral-300 shrink-0" aria-hidden="true">|</span>
-        <span className="text-base font-medium text-neutral-900">Add New Card</span>
+        <span className="text-faded-sumi shrink-0" aria-hidden="true">|</span>
+        <span className="text-base font-medium text-sumi-ink">Add New Card</span>
       </TopBar>
 
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
 
         {/* ── Word input ────────────────────────────────────────────── */}
-        <div className="bg-neutral-0 rounded-[var(--radius-lg)] border border-neutral-200 p-6 space-y-4">
+        <div className="bg-warm-paper-raised rounded-[var(--radius-lg)] border border-soft-hairline p-6 space-y-4">
           <Input
             label="Japanese word or sentence"
             lang="ja"
@@ -156,7 +156,7 @@ export function AddCardForm({ deckId, deckName }: Props): React.JSX.Element {
 
         {/* ── Save error ───────────────────────────────────────────── */}
         {saveMutation.isError && (
-          <p role="alert" className="text-sm text-danger-500">
+          <p role="alert" className="text-sm text-error">
             {saveMutation.error?.message ?? 'Unknown error'}
           </p>
         )}

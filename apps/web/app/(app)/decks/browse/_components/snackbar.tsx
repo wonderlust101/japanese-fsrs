@@ -26,7 +26,7 @@ export function Snackbar({ message, actions, onTimeout, timeoutMs = 5000 }: Prop
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-[var(--radius-lg)] bg-neutral-900 text-white shadow-lg max-w-[calc(100vw-2rem)]"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-[var(--radius-lg)] bg-sumi-ink text-warm-paper-raised shadow-lg max-w-[calc(100vw-2rem)]"
     >
       <span className="text-sm">{message}</span>
       <div className="flex items-center gap-1">
@@ -35,7 +35,7 @@ export function Snackbar({ message, actions, onTimeout, timeoutMs = 5000 }: Prop
             <Link
               key={a.label}
               href={a.href}
-              className="px-2 py-1 rounded-[var(--radius-sm)] text-sm font-medium text-primary-200 hover:bg-white/10 transition-colors"
+              className="px-2 py-1 rounded-[var(--radius-sm)] text-sm font-medium text-vermillion-wash hover:bg-warm-paper-raised/10 transition-colors"
             >
               {a.label}
             </Link>
@@ -44,7 +44,7 @@ export function Snackbar({ message, actions, onTimeout, timeoutMs = 5000 }: Prop
               key={a.label}
               type="button"
               onClick={a.onClick}
-              className="px-2 py-1 rounded-[var(--radius-sm)] text-sm font-medium text-primary-200 hover:bg-white/10 transition-colors"
+              className="px-2 py-1 rounded-[var(--radius-sm)] text-sm font-medium text-vermillion-wash hover:bg-warm-paper-raised/10 transition-colors"
             >
               {a.label}
             </button>

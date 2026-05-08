@@ -95,7 +95,7 @@ export function LearningSection({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-neutral-900">Learning preferences</h2>
+      <h2 className="text-lg font-semibold text-sumi-ink">Learning preferences</h2>
 
       <Field label="JLPT target">
         <div className="flex flex-wrap gap-2">
@@ -108,8 +108,8 @@ export function LearningSection({
               className={[
                 'h-9 px-3 rounded-full text-sm font-medium transition-colors',
                 jlpt === lvl
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
+                  ? 'bg-inari-vermillion text-warm-paper-raised'
+                  : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
               ].join(' ')}
             >
               {lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}
@@ -185,8 +185,8 @@ export function LearningSection({
                 className={[
                   'h-8 px-3 rounded-full text-sm font-medium transition-colors',
                   active
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200',
+                    ? 'bg-inari-vermillion text-warm-paper-raised'
+                    : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
                 ].join(' ')}
               >
                 {name}
@@ -211,8 +211,8 @@ function Field({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="block text-sm font-medium text-neutral-700">{label}</span>
-        {hint !== undefined && <span className="text-xs text-neutral-500 tabular-nums">{hint}</span>}
+        <span className="block text-sm font-medium text-sumi-ink">{label}</span>
+        {hint !== undefined && <span className="text-xs text-faded-sumi tabular-nums">{hint}</span>}
       </div>
       {children}
     </div>

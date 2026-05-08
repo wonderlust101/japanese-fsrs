@@ -28,8 +28,8 @@ export function SessionHeader(): React.JSX.Element {
   }
 
   return (
-    <header className="flex items-center justify-between px-4 lg:px-6 h-14 shrink-0 border-b border-neutral-200 bg-neutral-50">
-      <span className="text-sm font-medium text-neutral-600 truncate">
+    <header className="flex items-center justify-between px-4 lg:px-6 h-14 shrink-0 border-b border-soft-hairline bg-warm-paper-base">
+      <span className="text-sm font-medium text-faded-sumi truncate">
         {deck?.name ?? 'Review Session'}
       </span>
 
@@ -38,7 +38,7 @@ export function SessionHeader(): React.JSX.Element {
         size="sm"
         onClick={handleEnd}
         aria-label="End session"
-        className="flex items-center gap-1.5 text-neutral-500 hover:text-neutral-800"
+        className="flex items-center gap-1.5 text-faded-sumi hover:text-sumi-ink"
       >
         <X size={16} strokeWidth={1.5} aria-hidden="true" />
         End Session

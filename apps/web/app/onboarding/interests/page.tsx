@@ -24,10 +24,10 @@ export default function InterestsPage(): React.JSX.Element {
   return (
     <div className="flex flex-col items-center gap-8">
       <div className="text-center">
-        <h1 className="text-xl font-semibold text-neutral-900 leading-tight">
+        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
           What are your interests?
         </h1>
-        <p className="mt-2 text-base text-neutral-500">
+        <p className="mt-2 text-base text-faded-sumi">
           We'll pull example sentences from topics you actually care about.
           You can select multiple.
         </p>
@@ -50,10 +50,10 @@ export default function InterestsPage(): React.JSX.Element {
               className={[
                 'flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-full)]',
                 'border-2 text-sm font-medium transition-all duration-150',
-                'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200',
+                'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
                 selected
-                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                  : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300',
+                  ? 'border-inari-vermillion bg-vermillion-wash text-inari-vermillion'
+                  : 'border-soft-hairline bg-warm-paper-raised text-sumi-ink hover:border-soft-hairline',
               ].join(' ')}
             >
               <span aria-hidden="true">{opt.emoji}</span>
@@ -67,14 +67,14 @@ export default function InterestsPage(): React.JSX.Element {
         <button
           type="button"
           onClick={() => router.push(NEXT_STEP[STEP_PATH])}
-          className="h-12 px-8 rounded-[var(--radius-md)] bg-primary-500 text-white text-base
-                     font-medium transition-colors hover:bg-primary-600 active:scale-[0.98]
-                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-200"
+          className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
+                     font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
+                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
         >
           Continue →
         </button>
         {interests.length === 0 && (
-          <p className="text-sm text-neutral-400">No selection is fine — we'll use general examples.</p>
+          <p className="text-sm text-faded-sumi">No selection is fine — we'll use general examples.</p>
         )}
       </div>
     </div>

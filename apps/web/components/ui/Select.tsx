@@ -21,7 +21,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     return (
       <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="text-sm font-medium text-neutral-700">{label}</label>
+        <label htmlFor={id} className="text-sm font-medium text-sumi-ink">{label}</label>
         <div className="relative">
           <select
             ref={ref}
@@ -29,12 +29,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             className={[
-              'w-full h-10 pl-3 pr-8 text-base text-neutral-900 bg-neutral-100 border rounded-[var(--radius-md)]',
+              'w-full h-10 pl-3 pr-8 text-base text-sumi-ink bg-cream-inset border rounded-[var(--radius-md)]',
               'appearance-none transition-colors duration-150',
-              'focus:outline-none focus:border-primary-500 focus:ring-[3px] focus:ring-primary-200',
+              'focus:outline-none focus:border-inari-vermillion focus:ring-[3px] focus:ring-vermillion-wash',
               error
-                ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-100'
-                : 'border-neutral-300',
+                ? 'border-error focus:border-error focus:ring-error-tint'
+                : 'border-soft-hairline',
               className,
             ].join(' ')}
             {...rest}
@@ -42,7 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <svg
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi"
             width="12" height="12" viewBox="0 0 12 12"
             fill="none" stroke="currentColor" strokeWidth="1.5"
             strokeLinecap="round" strokeLinejoin="round"
@@ -51,8 +51,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             <path d="M2 4l4 4 4-4" />
           </svg>
         </div>
-        {hint && !error && <p id={hintId} className="text-xs text-neutral-500">{hint}</p>}
-        {error           && <p id={errId}  role="alert" className="text-xs text-danger-500">{error}</p>}
+        {hint && !error && <p id={hintId} className="text-xs text-faded-sumi">{hint}</p>}
+        {error           && <p id={errId}  role="alert" className="text-xs text-error">{error}</p>}
       </div>
     )
   }

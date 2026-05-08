@@ -32,8 +32,8 @@ export function OnboardingHeader(): React.JSX.Element {
   return (
     <header className="w-full px-6 py-5 flex items-center justify-between">
       {/* Logo */}
-      <span className="text-base font-semibold text-neutral-700 tracking-tight select-none">
-        友<span className="text-primary-500">日</span>
+      <span className="text-base font-semibold text-sumi-ink tracking-tight select-none">
+        友<span className="text-inari-vermillion">日</span>
       </span>
 
       {/* Step indicator — hidden on Welcome screen, visible on all 5 steps */}
@@ -47,15 +47,15 @@ export function OnboardingHeader(): React.JSX.Element {
                 key={i}
                 className={[
                   'block w-2 h-2 rounded-full transition-colors duration-200',
-                  i < stepIndex  ? 'bg-primary-300' :
-                  i === stepIndex ? 'bg-primary-500' :
-                                    'bg-neutral-300',
+                  i < stepIndex  ? 'bg-inari-vermillion' :
+                  i === stepIndex ? 'bg-inari-vermillion' :
+                                    'bg-soft-hairline',
                 ].join(' ')}
               />
             ))}
           </div>
           <span
-            className="text-sm text-neutral-400 tabular-nums"
+            className="text-sm text-faded-sumi tabular-nums"
             aria-live="polite"
             aria-label={`Step ${stepIndex + 1} of ${total}`}
           >
@@ -71,8 +71,8 @@ export function OnboardingHeader(): React.JSX.Element {
         <button
           type="button"
           onClick={handleSkip}
-          className="text-sm text-neutral-400 hover:text-neutral-600 transition-colors
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300
+          className="text-sm text-faded-sumi hover:text-faded-sumi transition-colors
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inari-vermillion
                      rounded-md px-2 py-1"
         >
           Skip →
