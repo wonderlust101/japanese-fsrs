@@ -1,0 +1,82 @@
+'use client'
+
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+
+interface SampleCardProps {
+  /** The Japanese word the sample card displays. */
+  word:     string
+  /** Reading (hiragana/katakana). */
+  reading:  string
+  /** English meaning. */
+  meaning:  string
+  /** Small mono caption, e.g. "matched: 12 decks" or "next review in 4h". */
+  caption?: string
+  /** Identifier driving the cross-fade animation when content changes. */
+  changeKey?: string
+  className?: string
+}
+
+/**
+ * A small, real-looking SRS card preview. Used in the Goal step's preview
+ * pane (showing what kind of card the user would see) and on the Decks
+ * step (showing a representative card from the subscribed decks).
+ *
+ * Visually carries the same anatomy as the host Card primitive (top-stripe,
+ * sharp corners, hairline) but at smaller scale.
+ */
+export function SampleCard({
+  word,
+  reading,
+  meaning,
+  caption,
+  changeKey = `${word}-${reading}-${meaning}`,
+  className = '',
+}: SampleCardProps): React.JSX.Element {
+  const reducedMotion = useReducedMotion()
+
+  return (
+    <div
+      className={[
+        'relative rounded-[2px] bg-warm-paper-raised border border-soft-hairline',
+        'px-5 pt-6 pb-4 w-full',
+        className,
+      ].join(' ')}
+    >
+      {/* Top stripe */}
+      <span
+        aria-hidden="true"
+        className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[2px] bg-inari-vermillion"
+      />
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={changeKey}
+          initial={reducedMotion === true ? { opacity: 1 } : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reducedMotion === true ? { opacity: 0 } : { opacity: 0, y: -4 }}
+          transition={
+            reducedMotion === true
+              ? { duration: 0 }
+              : { duration: 0.24, ease: [0.16, 1, 0.3, 1] }
+          }
+        >
+          <ruby
+            lang="ja"
+            className="font-japanese text-2xl font-medium text-sumi-ink leading-tight"
+          >
+            {word}
+            <rt className="font-japanese text-[0.4em] text-faded-sumi font-normal">
+              {reading}
+            </rt>
+          </ruby>
+          <p className="mt-2 text-sm text-faded-sumi">{meaning}</p>
+          {caption !== undefined && (
+            <p className="mt-3 pt-3 border-t border-soft-hairline text-xs text-faded-sumi font-mono uppercase tracking-[0.06em]">
+              {caption}
+            </p>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}

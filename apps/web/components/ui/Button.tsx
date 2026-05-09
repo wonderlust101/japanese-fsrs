@@ -1,70 +1,164 @@
 import { forwardRef } from 'react'
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
-type ButtonSize = 'sm' | 'md' | 'lg'
+type ButtonVariant = 'primary' | 'secondary' | 'editorial' | 'ghost' | 'danger'
+type ButtonSize    = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant
-  size?: ButtonSize
-  loading?: boolean
+  variant?:      ButtonVariant
+  size?:         ButtonSize
+  iconOnly?:     boolean
+  leadingIcon?:  React.ReactNode
+  trailingIcon?: React.ReactNode
+  loading?:      boolean
+}
+
+function DefaultDangerIcon(): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+      aria-hidden="true"
+    >
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M5 5l6 6M11 5l-6 6" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash disabled:bg-inari-vermillion',
-  secondary:
-    'bg-warm-paper-raised text-sumi-ink border border-soft-hairline hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash disabled:bg-warm-paper-raised',
-  ghost:
-    'bg-transparent text-faded-sumi hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash',
-  danger:
-    'bg-error text-warm-paper-raised hover:bg-error-deep focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-error-tint disabled:bg-error',
+  primary: [
+    'bg-inari-vermillion text-warm-paper-raised',
+    'hover:bg-inari-vermillion-deep',
+    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+  ].join(' '),
+  secondary: [
+    'bg-warm-paper-raised text-sumi-ink border border-soft-hairline',
+    'hover:bg-cream-inset hover:border-faded-sumi',
+    'active:bg-soft-hairline',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+  ].join(' '),
+  editorial: [
+    'bg-transparent text-sumi-ink border border-soft-hairline',
+    'hover:bg-cream-inset hover:border-faded-sumi',
+    'active:bg-soft-hairline',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+  ].join(' '),
+  ghost: [
+    'bg-transparent text-faded-sumi',
+    'hover:bg-cream-inset hover:text-sumi-ink',
+    'active:bg-soft-hairline',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+  ].join(' '),
+  danger: [
+    'bg-sumi-ink text-warm-paper-raised',
+    'hover:bg-[#0E0A09]',
+    'active:bg-[#0E0A09] active:shadow-[inset_0_1px_2px_rgba(253,251,247,0.10)]',
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-warm-paper-raised focus-visible:outline-offset-2',
+  ].join(' '),
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
   sm: 'h-8 px-3 text-sm',
-  md: 'h-10 px-4 text-base',
-  lg: 'h-12 px-5 text-md',
+  md: 'h-10 px-4 text-sm',
+  lg: 'h-12 px-5 text-base',
+}
+
+const iconOnlySizeClasses: Record<ButtonSize, string> = {
+  sm: 'h-8 w-8',
+  md: 'h-10 w-10',
+  lg: 'h-12 w-12',
+}
+
+const gapClasses: Record<ButtonSize, string> = {
+  sm: 'gap-1.5',
+  md: 'gap-2',
+  lg: 'gap-2',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading = false, disabled, className = '', children, ...rest }, ref) => {
+  (
+    {
+      variant      = 'primary',
+      size         = 'md',
+      iconOnly     = false,
+      leadingIcon,
+      trailingIcon,
+      loading      = false,
+      disabled,
+      className    = '',
+      children,
+      ...rest
+    },
+    ref,
+  ) => {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      variant === 'danger' &&
+      leadingIcon === undefined &&
+      !iconOnly
+    ) {
+      console.warn('[Button] variant="danger" should be passed a `leadingIcon` prop. Falling back to default seal-mark glyph.')
+    }
+
+    const resolvedLeadingIcon =
+      variant === 'danger' && leadingIcon === undefined
+        ? <DefaultDangerIcon />
+        : leadingIcon
+
+    const sizeStyle = iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]
+
     return (
       <button
         ref={ref}
         disabled={disabled || loading}
+        aria-busy={loading ? true : undefined}
         className={[
-          'inline-flex items-center justify-center gap-2 font-medium rounded-[var(--radius-md)] transition-all duration-150',
-          'active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none',
+          'relative inline-flex items-center justify-center font-medium rounded-[2px]',
+          'transition-[background-color,border-color,box-shadow,color] duration-150 ease-out',
+          'disabled:opacity-60 disabled:pointer-events-none disabled:cursor-not-allowed',
           variantClasses[variant],
-          sizeClasses[size],
+          sizeStyle,
           className,
         ].join(' ')}
         {...rest}
       >
-        {loading ? (
-          <>
-            <svg
-              className="animate-spin h-4 w-4 shrink-0"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            <span>{children}</span>
-          </>
-        ) : (
-          children
+        <span
+          className={[
+            'inline-flex items-center justify-center',
+            iconOnly ? '' : gapClasses[size],
+            loading ? 'opacity-0' : '',
+          ].join(' ')}
+        >
+          {!iconOnly && resolvedLeadingIcon !== undefined && (
+            <span className="shrink-0 inline-flex" aria-hidden="true">
+              {resolvedLeadingIcon}
+            </span>
+          )}
+          {iconOnly ? (resolvedLeadingIcon ?? children) : children}
+          {!iconOnly && trailingIcon !== undefined && (
+            <span className="shrink-0 inline-flex" aria-hidden="true">
+              {trailingIcon}
+            </span>
+          )}
+        </span>
+        {loading && (
+          <span
+            className="absolute inset-0 inline-flex items-center justify-center gap-1"
+            aria-hidden="true"
+          >
+            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse" />
+            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse [animation-delay:200ms]" />
+            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse [animation-delay:400ms]" />
+          </span>
         )}
       </button>
     )
-  }
+  },
 )
 
 Button.displayName = 'Button'

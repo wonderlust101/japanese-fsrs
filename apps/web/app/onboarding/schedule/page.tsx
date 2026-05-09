@@ -1,101 +1,105 @@
 'use client'
 
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { NEXT_STEP, useOnboardingStore, type OnboardingSchedule } from '@/stores/onboarding.store'
+import { SelectionCard } from '@/components/ui/SelectionCard'
+import { DailyQuotaChart } from '@/components/srs/DailyQuotaChart'
+import { PaceIntensive, PaceLight, PaceSteady } from '@/components/icons/study-marks'
+import { StepCard, StepChild } from '../_components/step-card'
+import { StepFooter } from '../_components/step-footer'
+import { useNumberKey } from '../_components/use-number-key'
 
 const STEP_PATH = '/onboarding/schedule' as const
 
 interface ScheduleOption {
-  value: OnboardingSchedule
-  label: string
-  time: string
-  newCards: number
+  value:       OnboardingSchedule
+  Icon:        React.ComponentType<{ className?: string }>
+  label:       string
+  time:        string
+  newCards:    number
   description: string
 }
 
-const OPTIONS: ScheduleOption[] = [
-  {
-    value:       'light',
-    label:       'Light',
-    time:        '~5 min / day',
-    newCards:    5,
-    description: 'Casual review, low pressure',
-  },
-  {
-    value:       'steady',
-    label:       'Steady',
-    time:        '~15 min / day',
-    newCards:    20,
-    description: 'Consistent progress without burnout',
-  },
-  {
-    value:       'intensive',
-    label:       'Intensive',
-    time:        '~30 min+ / day',
-    newCards:    50,
-    description: 'Fastest path to fluency',
-  },
+const OPTIONS: ReadonlyArray<ScheduleOption> = [
+  { value: 'light',     Icon: PaceLight,     label: 'Light',     time: '~5 min / day',     newCards: 5,  description: 'Casual, low pressure' },
+  { value: 'steady',    Icon: PaceSteady,    label: 'Steady',    time: '~15 min / day',    newCards: 20, description: 'Consistent without burnout' },
+  { value: 'intensive', Icon: PaceIntensive, label: 'Intensive', time: '~30 min+ / day',   newCards: 50, description: 'Fastest path to fluency' },
 ]
 
 export default function SchedulePage(): React.JSX.Element {
-  const router      = useRouter()
-  const schedule    = useOnboardingStore((s) => s.schedule)
-  const setSchedule = useOnboardingStore((s) => s.actions.setSchedule)
+  const router            = useRouter()
+  const schedule          = useOnboardingStore((s) => s.schedule)
+  const setSchedule       = useOnboardingStore((s) => s.actions.setSchedule)
+  const applyStepDefault  = useOnboardingStore((s) => s.actions.applyStepDefault)
+
+  const handleSelect = useCallback(
+    (value: OnboardingSchedule) => {
+      // Re-tapping the currently-selected card deselects it.
+      setSchedule(schedule === value ? null : value)
+    },
+    [schedule, setSchedule],
+  )
+
+  const isSkipping = schedule === null
+
+  const handleContinue = useCallback(() => {
+    if (isSkipping) applyStepDefault(STEP_PATH)
+    router.push(NEXT_STEP[STEP_PATH])
+  }, [isSkipping, applyStepDefault, router])
+
+  const handleNumberKey = useCallback(
+    (i: number) => {
+      const opt = OPTIONS[i]
+      if (opt) handleSelect(opt.value)
+    },
+    [handleSelect],
+  )
+  useNumberKey(OPTIONS.length, handleNumberKey)
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
-          How much time per day?
-        </h1>
-        <p className="mt-2 text-base text-faded-sumi">
-          Sets your daily new-card limit. You can always adjust this in Settings.
-        </p>
-      </div>
-
-      <div className="w-full flex flex-col gap-3">
+    <StepCard
+      previewPane={<DailyQuotaChart pace={schedule} />}
+      heading="How much Japanese this week?"
+      subhead="Sets your daily new-card pace. The chart projects new cards plus reviews across a typical week."
+      footer={
+        <StepFooter
+          showBack
+          isSkipping={isSkipping}
+          continueLabel={isSkipping ? 'Skip this step' : 'Continue'}
+          onContinue={handleContinue}
+        />
+      }
+    >
+      <div className="flex flex-col gap-3">
         {OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => setSchedule(opt.value)}
-            aria-pressed={schedule === opt.value}
-            className={[
-              'flex items-center justify-between p-5 rounded-[var(--radius-lg)] border-2',
-              'transition-all duration-150 text-left',
-              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
-              schedule === opt.value
-                ? 'border-inari-vermillion bg-vermillion-wash shadow-[var(--shadow-card)]'
-                : 'border-soft-hairline bg-warm-paper-raised hover:border-soft-hairline hover:shadow-[var(--shadow-card)]',
-            ].join(' ')}
-          >
-            <div>
-              <p className="font-medium text-sumi-ink text-base">{opt.label}</p>
-              <p className="mt-0.5 text-sm text-faded-sumi">{opt.description}</p>
-            </div>
-            <div className="text-right shrink-0 ml-4">
-              <p className={`text-base font-semibold ${schedule === opt.value ? 'text-inari-vermillion' : 'text-sumi-ink'}`}>
-                {opt.time}
-              </p>
-              <p className="text-xs text-faded-sumi mt-0.5">
-                {opt.newCards} new cards/day
-              </p>
-            </div>
-          </button>
+          <StepChild key={opt.value}>
+            <SelectionCard
+              selected={schedule === opt.value}
+              onSelect={() => handleSelect(opt.value)}
+              layout="inline"
+              glyph={<opt.Icon className="text-inari-vermillion-deep" />}
+              label={opt.label}
+              description={opt.description}
+              trailing={
+                <span className="flex flex-col items-end gap-0.5">
+                  <span
+                    className={[
+                      'text-base font-mono font-medium tabular-nums',
+                      schedule === opt.value ? 'text-inari-vermillion' : 'text-sumi-ink',
+                    ].join(' ')}
+                  >
+                    {opt.time}
+                  </span>
+                  <span className="text-xs text-faded-sumi font-mono tabular-nums">
+                    {opt.newCards} new / day
+                  </span>
+                </span>
+              }
+            />
+          </StepChild>
         ))}
       </div>
-
-      <button
-        type="button"
-        onClick={() => router.push(NEXT_STEP[STEP_PATH])}
-        disabled={schedule === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
-                   font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
-                   disabled:opacity-40 disabled:cursor-not-allowed
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
-      >
-        Continue →
-      </button>
-    </div>
+    </StepCard>
   )
 }

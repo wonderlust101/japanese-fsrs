@@ -50,11 +50,14 @@ interface OnboardingAnswers {
 
 interface OnboardingState extends OnboardingAnswers {
   actions: {
-    setLevel:           (level: OnboardingLevel) => void
-    setGoal:            (goal: OnboardingGoal) => void
+    /** Pass `null` to clear the selection (re-tap a selected card to deselect). */
+    setLevel:           (level: OnboardingLevel | null) => void
+    /** Pass `null` to clear the selection. */
+    setGoal:            (goal: OnboardingGoal | null) => void
     setInterests:       (interests: string[]) => void
     toggleInterest:     (interest: string) => void
-    setSchedule:        (schedule: OnboardingSchedule) => void
+    /** Pass `null` to clear the selection. */
+    setSchedule:        (schedule: OnboardingSchedule | null) => void
     setSelectedDeckIds: (ids: string[]) => void
     /** Applies the sensible default for a single step and advances navigation. */
     applyStepDefault:   (step: OnboardingStepPath) => void
@@ -68,7 +71,7 @@ interface OnboardingState extends OnboardingAnswers {
 
 function stepDefault(step: OnboardingStepPath): Partial<OnboardingAnswers> {
   switch (step) {
-    case '/onboarding/level':     return { level: 'N5' }
+    case '/onboarding/level':     return { level: 'beginner' }
     case '/onboarding/goal':      return { goal: 'jlpt' }
     case '/onboarding/interests': return { interests: [] }
     case '/onboarding/schedule':  return { schedule: 'steady' }
@@ -114,7 +117,7 @@ export const useOnboardingStore = create<OnboardingState>()(
           applyAllDefaults: () => {
             const s = get()
             set({
-              level:    s.level    ?? 'N5',
+              level:    s.level    ?? 'beginner',
               goal:     s.goal     ?? 'jlpt',
               schedule: s.schedule ?? 'steady',
             })

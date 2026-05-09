@@ -1,4 +1,93 @@
-<!-- SPEC: written 2026-05-08 alongside Tomo's complete brand redesign. The brand layer (color palette, the kitsune mark, cultural anchoring, typographic direction) and the component layer (Buttons, Inputs, Cards, Review Card, Rating Buttons, Navigation, Furigana Text: visual and token specifications) are committed. The actual implementation in `apps/web/components/` and `apps/web/app/globals.css` does NOT yet match this spec. The Components section below describes what each component SHOULD become during the next implementation pass, not what currently exists. After the migration lands, run `$impeccable document` to verify the spec was implemented faithfully and to regenerate the `.impeccable/design.json` sidecar with shadow-DOM-renderable HTML/CSS for live-panel rendering. -->
+<!--
+NORTH STAR — added 2026-05-09. READ FIRST.
+
+Tomo is a Spaced Repetition System (SRS) study tool for Japanese.
+The visual identity backbone is THE CARD: the literal SRS unit, given
+weight and presence as the visual hero across auth and onboarding.
+
+Five committed direction axes:
+
+  1. Metaphor: card-stack. Every primary surface (auth, onboarding) is
+     delivered ON a card. Onboarding shows up to 2 fading cards stacked
+     behind the foreground card; the deck visibly depletes as the user
+     advances through the questionnaire. Cards are the unit; pages are not.
+
+  2. Card anatomy: 2px sharp corners, 1px Soft Hairline border, 2px
+     Inari Vermillion top-edge stripe, no drop shadow. Background is
+     warm-paper-raised. Depth comes from stacked cards behind, not blur.
+
+  3. Theme: light, but cooler/quieter than the previous warm-paper
+     read. Page background is a new --color-cool-paper-base that reads as
+     "tool surface" not "paper substrate." Cards stay on warm-paper-raised,
+     so card-vs-page contrast feels like an object resting on a table.
+
+  4. Typography: Bricolage Grotesque (variable, free via Google Fonts) for
+     all display use; DM Sans for body and chrome; Noto Sans JP for
+     Japanese; JetBrains Mono for SRS-data moments (intervals, retention
+     percentages, card counts). Mincho serif (DM Serif Display + Noto
+     Serif JP for display) is fully retired.
+
+  5. SRS visibility: each onboarding step's card has a left-side LIVE
+     PREVIEW PANE that updates as the user answers. Welcome cover shows a
+     continuously-animating forgetting curve. The user understands what
+     SRS does as a side-effect of answering questions, not via explainers.
+
+Anti-referenced (do NOT introduce or preserve):
+
+  - "Iwanami Bunko" / "TOMO BUNKO" / "TOMO PRESS" / "VOL. 一" / "二〇二六"
+    colophon language and any imprint-band / colophon-band chrome.
+  - Vertical 毎日の練習 mincho watermarks as ambient brand presence.
+  - Marginalia columns or manuscript-page-margin progress devices.
+  - Brushstroke ornaments under titles as decorative accents.
+  - Genkō yōshi (manuscript-paper) grid backdrops.
+  - Hanko stamps as decorative chrome (the kanji 友 inside a sumi-ink disc as
+    "stamp" motif specifically; the kitsune mark itself is unaffected).
+  - Mincho serif as a primary Latin display face. (Noto Serif JP is dropped
+    from font loading entirely.)
+  - Marginalia layer phrases (記して, 覚えた, 始める, ようこそ, etc.) as ambient
+    page atmosphere.
+  - Copy in a book/notebook metaphor: "Open your notebook," "This is your
+    notebook," "Tomo is your practice notebook," "first page," "first line."
+
+Surviving brand identity:
+
+  - Inari Vermillion (#B03646) palette — primary brand color.
+  - The kitsune mark (apps/web/public/brand/logo.svg + logo-cream.svg).
+  - The TOMO wordmark.
+  - Warm-paper-raised as card surface (token unchanged; framing changes).
+  - Sumi Ink, Faded Sumi, Cream Inset, Soft Hairline neutrals.
+  - JLPT spectrum colors (N5 through Beyond) for the level pill family.
+  - Four-channel rating buttons (color + glyph + label + key) for review.
+
+Future-deferred:
+
+  - Gamification chrome (streaks, mastery, milestones). NO reserved slots
+    in this redesign; gamification ships in a future effort with its own
+    component placement.
+  - Kanji-as-nav-icons (家 本 復 統 設). The proposal in the legacy spec
+    below is DEFERRED, not killed; revisit if the dashboard navigation gets
+    its own dedicated effort.
+-->
+
+<!-- SPEC: written 2026-05-08 alongside Tomo's complete brand redesign. The brand layer (color palette, the kitsune mark, cultural anchoring, typographic direction) and the component layer (Buttons, Inputs, Cards, Review Card, Rating Buttons, Navigation, Furigana Text: visual and token specifications) are committed. The actual implementation in `apps/web/components/` and `apps/web/app/globals.css` does NOT yet match this spec. The Components section below describes what each component SHOULD become during the next implementation pass, not what currently exists. After the migration lands, run `$impeccable document` to verify the spec was implemented faithfully and to regenerate the `.impeccable/design.json` sidecar with shadow-DOM-renderable HTML/CSS for live-panel rendering. NOTE: parts of this spec (the "Iwanami Practice Notebook" north-star, manuscript-paper grid, Bunko colophon language, mincho-as-display) have been ANTI-REFERENCED per the header above; treat the relevant sections as historical until the new positive direction lands. -->
+
+<!--
+DIVERGENCES SINCE 2026-05-08 SPEC: An iterative session on the /login surface evolved several spec axes. The current code on `apps/web/app/(auth)/login/page.tsx` and supporting components is the de-facto source of truth for these axes; this spec has not been re-derived. Re-run `$impeccable document` to refresh.
+
+  1. Typography. The single-humanist-sans rule was relaxed: `DM Serif Display` (Latin display) and `Noto Serif JP` (Japanese mincho) now load alongside DM Sans / Noto Sans JP. Display elements (h1, TOMO wordmark, vertical title 毎日の練習, italic positioning subtitles) use the serif pair. Form / body / chrome stays sans. Tokens: `--font-dm-serif`, `--font-noto-serif-jp`. Utility: `font-japanese-serif` with mincho fallback chain.
+
+  2. Type-scale syntax. Tokens migrated from Tailwind v3 slash syntax (`--text-xs: 0.6875rem / 1rem`) to v4 namespaced syntax (`--text-xs: 0.6875rem; --text-xs--line-height: 1rem;`). Pre-migration, every `text-{n}` utility silently mis-applied; post-migration sizes render as intended.
+
+  3. Button radius. `rounded-md` (10px) → `rounded-[2px]`. The new register is "paperback trade" — sharper corners feel like cut-paper objects. Active state replaces `scale[0.98]` press with inset shadow + bg darken.
+
+  4. Input surface. `bg-cream-inset` → `bg-warm-paper-raised` for default surface. Labels migrated to `text-xs uppercase tracking-[0.08em] text-faded-sumi font-medium` (small-caps fieldset legend register). Hint and error bumped to `text-sm` for readability.
+
+  5. New variants. `Button` gains `editorial` variant + `iconOnly` shape axis + danger swap to sumi-ink charcoal with required `leadingIcon` (default: hairline-X-in-circle seal). `Input` gains `script` prop (`'latin' | 'kana' | 'kanji' | 'mixed'`) for editorial language tuning, `leadingNode` / `trailingNode` slots, and a readonly state.
+
+  6. Login page composition. The `/login` surface now uses an Iwanami Bunko cover frame: three-band brand half (top imprint band + cream main area + bottom colophon band), vermillion title strip on left of cream area carrying vertical 毎日の練習, sumi-ink kitsune (via `tone="vermillion"` or `"sumi"` prop on KitsuneScene), sumi-e ink-wash blobs, hand-drawn brushstroke ornaments. Form half: genkō yōshi grid backdrop with radial-fade mask, hanko stamp (友印) at bottom-right corner, paired inset-shadow gutter (paper-fold metaphor) at the seam. Copy committed to a book metaphor (Open my notebook, This notebook isn't open to X yet, etc.). Many of these patterns belong in `Components` once stabilized.
+
+  7. Animation tokens. New: `--animate-button-dot-pulse` (Button loading state). Existing kanji-drift / ink-stroke / page-enter / otp-shake / card-reveal preserved.
+-->
 
 ---
 name: Tomo
@@ -258,30 +347,33 @@ The component library below is **prescribed**, not described. The current code i
 
 ### Buttons
 
-The button is **a block of color resting on warm paper**. It is not a glossy clickable thing; it is the page's voice acting on a control. Four variants (Primary, Secondary, Ghost, Danger Ghost), three sizes (sm, md, lg).
+The button is **a block of color resting on warm paper**. It is not a glossy clickable thing; it is the page's voice acting on a control. Five variants (Primary, Secondary, Editorial, Ghost, Danger), three sizes (sm, md, lg). Plus an `iconOnly` shape axis for square icon buttons.
 
-- **Shape:** Gently curved, 10px radius (`rounded-md`), uniform across variants and sizes.
-- **Sizes:** sm (`h-8 px-3 text-sm`), md (`h-10 px-4 text-base`, default), lg (`h-12 px-5 text-lg`).
-- **Primary:** Inari Vermillion (`#B03646`) background, Warm Paper Raised (`#FDFBF7`) text. Hovers to Inari Vermillion Deep (`#7E1F2A`). The most expressive button; reserved for the single most important action on a screen, never used twice in the same view.
-- **Secondary:** Warm Paper Raised (`#FDFBF7`) background, Sumi Ink (`#1F1A18`) text, 1px Soft Hairline (`#E5DCD0`) border. Hovers to Cream Inset (`#F4EFE6`) background. Used for "Cancel" and lower-emphasis CTAs adjacent to a Primary button.
-- **Ghost:** Transparent background, Faded Sumi (`#6B5F58`) text, no border. Hovers to Cream Inset (`#F4EFE6`) background and Sumi Ink text. Used for icon-only buttons, tertiary text actions, and the mid-review "Show Answer" affordance (per the Show-Answer Quiet Rule).
-- **Danger Ghost:** Transparent background, Inari Vermillion Deep (`#7E1F2A`) text. Hovers to Vermillion Wash (`#F8E5E5`) background. Replaces the previous filled Danger button; destructive actions read as serious-but-quiet rather than alarming. Filled Primary remains available for "destructive but expected" cases (e.g., "Delete deck" after the user types DELETE in a confirmation field), where the typed confirmation already carries the gravity.
-- **Focus:** All variants use a 3px Vermillion Wash (`#F8E5E5`) ring on `:focus-visible`. The previous indigo-200 halo is retired.
-- **Active state:** All variants press with `transform: scale(0.98)`. No additional color change; the press is felt, not announced.
-- **Disabled:** Opacity 0.4, pointer-events disabled.
-- **Loading:** Spinner SVG inline before the children. Children stay visible. The spinner is a hand-traced curve (designed during implementation), not a lucide-react default.
+- **Shape:** 2px radius (`rounded-[2px]`), uniform across variants and sizes. Paperback-trade register; cut-paper feel rather than soft pill.
+- **Sizes:** sm (`h-8 px-3 text-sm`), md (`h-10 px-4 text-sm`, default), lg (`h-12 px-5 text-base`).
+- **Primary:** Inari Vermillion (`#B03646`) background, Warm Paper Raised (`#FDFBF7`) text. Hovers to Inari Vermillion Deep (`#7E1F2A`). Reserved for the single most important action on a screen, never used twice in the same view.
+- **Secondary:** Warm Paper Raised (`#FDFBF7`) background, Sumi Ink (`#1F1A18`) text, 1px Soft Hairline (`#E5DCD0`) border. Hovers to Cream Inset (`#F4EFE6`) background, border darkens to Faded Sumi.
+- **Editorial:** Transparent background, Sumi Ink text, 1px Soft Hairline border. Same hover as Secondary (`bg-cream-inset`, border-faded-sumi). Used for chrome-fit affordances where the form-half background should show through.
+- **Ghost:** Transparent background, Faded Sumi text, no border. Hovers to Cream Inset background, Sumi Ink text.
+- **Danger:** Sumi Ink (`#1F1A18`) background, Warm Paper Raised text. Hovers to a deeper sumi (`#0E0A09`). The hue swap to charcoal makes destructive visually unmistakable from Primary vermillion. Requires a `leadingIcon` prop (default: hairline-X-in-circle seal-mark).
+- **Focus:** Non-danger variants use 1px Sumi Ink outline at `outline-offset-2` on `:focus-visible`. Danger uses Warm Paper Raised outline at the same offset (so the line reads against the dark fill). The previous 3px Vermillion Wash ring is retired.
+- **Active state:** Filled variants (Primary, Danger) get `box-shadow: inset 0 1px 2px rgba(31, 26, 24, 0.12)` and a deeper bg, no scale transform. The press is felt as ink, not as movement.
+- **Disabled:** Opacity 0.6, `cursor-not-allowed`, pointer-events disabled.
+- **Loading:** Three sumi-ink dots (`bg-current` so they match each variant's text color) pulse in a centered overlay; the children sit at `opacity-0` so width is preserved. Animation `--animate-button-dot-pulse` (1400ms ease-in-out infinite, staggered 0/200/400ms per dot).
 
 ### Inputs
 
 The input is **a recessed page in a notebook**. The Cream Inset background makes it read as cut into the page rather than floating above it.
 
-- **Style:** `h-10 px-3`, Cream Inset (`#F4EFE6`) background, 1px Soft Hairline (`#E5DCD0`) border, 10px radius (`rounded-md`), Sumi Ink (`#1F1A18`) text.
+- **Style:** Three sizes (sm `h-8 px-2.5 text-sm`, md `h-10 px-3 text-sm` default, lg `h-12 px-4 text-base`), Cream Inset (`#F4EFE6`) background, 1px Soft Hairline (`#E5DCD0`) border, 2px radius (`rounded-[2px]`), Sumi Ink (`#1F1A18`) text.
 - **Placeholder:** Faded Sumi (`#6B5F58`) at the same weight (no italic, no extra styling).
-- **Focus:** Border shifts to Inari Vermillion (`#B03646`); 3px Vermillion Wash (`#F8E5E5`) halo; background remains Cream Inset.
-- **Error:** Border shifts to JLPT N1 Saturated Red (`#B91C1C`); 3px tinted halo at low opacity; error message renders below at `text-xs` in JLPT N1 Saturated Red with `role="alert"`.
-- **Disabled:** Opacity 0.5, pointer-events disabled.
-- **Label:** Body Small, Faded Sumi or Sumi Ink depending on emphasis, 0.375rem gap between label and input.
-- **Password fields:** Use a small "Show / Hide" *text* affordance at the right edge, not a lucide eye icon. Per the Lucide Tax Rule (see Don'ts), any decorative or affordance-level icon must move away from lucide-react.
+- **Focus:** 1px Sumi Ink outline at `outline-offset-2` (matches Button's focus pattern). Border stays Soft Hairline. The previous border-becomes-vermillion + 3px wash halo pattern is retired.
+- **Error:** Border shifts to JLPT N1 Saturated Red (`#B91C1C`); error outline shifts to error-deep on focus; error message renders below at `text-sm` (not `text-xs`) in error red with a leading 12×12 hairline-X-in-circle glyph and `role="alert"`. Field-level errors via the `error` prop (used for "invalid credentials" → password field by convention).
+- **Disabled:** Opacity 0.6, `cursor-not-allowed`, pointer-events disabled.
+- **Read-only:** `border-transparent bg-transparent` — reads as plain page text, not a disabled control.
+- **Label:** `text-xs uppercase tracking-[0.08em] text-faded-sumi font-medium` (small-caps fieldset legend register), 0.375rem gap between label and input. Hint and error are `text-sm`.
+- **Slots:** `leadingNode` and `trailingNode` accept `ReactNode` for icons / units / actions. Padding adjusts to clear the slot. When `type="password"` and no `trailingNode` is provided, a default Show/Hide *text* affordance renders in the trailing slot (per the Lucide Tax Rule — never an eye icon).
+- **Japanese awareness:** `script` prop (`'latin' | 'kana' | 'kanji' | 'mixed'`) sets `lang`, `font-family` (`font-japanese` for non-latin), and letter-spacing (kana gets a slightly looser 0.025em tracking). The `lang` HTML attribute can also be passed directly; it wins for accessibility-bound behavior.
 
 ### Cards (Generic)
 

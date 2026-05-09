@@ -20,7 +20,7 @@ export function TopBar({ children }: { children: React.ReactNode }): React.JSX.E
   const open = useMobileNavStore((s) => s.open)
 
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-14 bg-cream-inset border-b border-soft-hairline shrink-0">
+    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-16 bg-cream-inset border-b border-soft-hairline shrink-0">
       <button
         type="button"
         onClick={open}
@@ -31,7 +31,7 @@ export function TopBar({ children }: { children: React.ReactNode }): React.JSX.E
         <OfflineQueueBadge floating />
       </button>
 
-      <Logo size={22} wordmarkSize="sm" className="lg:hidden" />
+      <Logo size={48} wordmarkSize="md" className="lg:hidden" />
 
       {children}
     </header>

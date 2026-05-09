@@ -2,9 +2,10 @@
 
 @theme {
   /* ── Fonts ────────────────────────────────────────────────────────── */
-  --font-dm-sans:      var(--font-dm-sans-loaded);
-  --font-noto-sans-jp: var(--font-noto-sans-jp-loaded);
-  --font-mono:         var(--font-jetbrains-mono-loaded);
+  --font-dm-sans:       var(--font-dm-sans-loaded);
+  --font-bricolage:     var(--font-bricolage-loaded);
+  --font-noto-sans-jp:  var(--font-noto-sans-jp-loaded);
+  --font-mono:          var(--font-jetbrains-mono-loaded);
 
   /* ── Brand palette: Inari Vermillion ──────────────────────────────── */
   --color-inari-vermillion:      #B03646;
@@ -14,7 +15,14 @@
   /* ── Brand palette: Aizome Indigo (deep navy ink, not Default Tech Indigo) ─ */
   --color-aizome-indigo:         #1B3A6B;
 
-  /* ── Warm paper neutrals (faint warm cast toward the brand red) ──── */
+  /* ── Cool tinted neutrals: page surface (the SRS-tool register) ────
+     These read as a tool surface, not a paper substrate. Cards live on
+     warm-paper-raised, so the cool page + warm card produces "object
+     resting on a tinted table" rather than "paper on paper." */
+  --color-cool-paper-base:   #F4F1EC;
+  --color-cool-paper-shade:  #EAE6DE;
+
+  /* ── Warm paper neutrals (faint warm cast; card surface tokens) ──── */
   --color-warm-paper-base:   #FBF8F4;
   --color-warm-paper-raised: #FDFBF7;
   --color-cream-inset:       #F4EFE6;
@@ -68,16 +76,27 @@
   --shadow-lg:    0 8px 24px rgba(70, 30, 35, 0.10);
   --shadow-focus: 0 0 0 3px var(--color-vermillion-wash);
 
-  /* ── Type scale (preserved; revision deferred to a later type-tuning pass) ─ */
-  --text-xs:   0.6875rem / 1rem;
-  --text-sm:   0.8125rem / 1.25rem;
-  --text-base: 0.9375rem / 1.5rem;
-  --text-md:   1.0625rem / 1.625rem;
-  --text-lg:   1.25rem   / 1.75rem;
-  --text-xl:   1.5rem    / 2rem;
-  --text-2xl:  2rem      / 2.5rem;
-  --text-3xl:  3rem      / 3.5rem;
-  --text-4xl:  4rem      / 4.5rem;
+  /* ── Type scale (Tailwind v4 syntax: font-size + matched line-height per token) ─ */
+  --text-xs:   0.6875rem;
+  --text-xs--line-height: 1rem;
+  --text-sm:   0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-md:   1.0625rem;
+  --text-md--line-height: 1.625rem;
+  --text-lg:   1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl:   1.5rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl:  2rem;
+  --text-2xl--line-height: 2.5rem;
+  --text-3xl:  3rem;
+  --text-3xl--line-height: 3.5rem;
+  --text-4xl:  4rem;
+  --text-4xl--line-height: 4.5rem;
+  --text-5xl:  4.5rem;
+  --text-5xl--line-height: 5rem;
 
   /* ── Onboarding page transition (preserved) ──────────────────────── */
   --animate-page-enter: page-enter 250ms cubic-bezier(0, 0, 0.2, 1) both;
@@ -112,6 +131,30 @@
     from { opacity: 0; transform: translateY(-8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  /* ── Forgetting curve breath: gentle 6s loop on the welcome cover ── */
+  --animate-curve-breath: curve-breath 6s ease-in-out infinite;
+
+  @keyframes curve-breath {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 1; }
+  }
+
+  /* ── Card slide-up: foreground card exits on Continue ────────────── */
+  --animate-card-slide-up: card-slide-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes card-slide-up {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-32px); }
+  }
+
+  /* ── Button loading dots (3-dot staggered pulse) ──────────────────── */
+  --animate-button-dot-pulse: button-dot-pulse 1400ms ease-in-out infinite;
+
+  @keyframes button-dot-pulse {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 1; }
+  }
 }
 
 /* ── Base ────────────────────────────────────────────────────────────── */
@@ -122,7 +165,7 @@ html {
 
 body {
   font-family: var(--font-dm-sans), system-ui, sans-serif;
-  background-color: var(--color-warm-paper-base);
+  background-color: var(--color-cool-paper-base);
   color: var(--color-sumi-ink);
 }
 
@@ -137,11 +180,24 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* Forgetting curve resolves to its full-saturation static rendering when
+     reduced motion is requested, so the welcome cover stays populated
+     without animating. */
+  .animate-curve-breath {
+    animation: none !important;
+    opacity: 1;
+  }
 }
 
 /* ── Review utilities ────────────────────────────────────────────────── */
 @utility font-japanese {
   font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+@utility font-display {
+  font-family: var(--font-bricolage), var(--font-dm-sans), system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 @utility animate-card-reveal {

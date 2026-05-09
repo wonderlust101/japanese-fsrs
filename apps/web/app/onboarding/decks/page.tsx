@@ -1,10 +1,15 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import type { UpdateProfileInput } from '@fsrs-japanese/shared-types'
+import { RecommendedDeckCard } from '@/components/ui/RecommendedDeckCard'
+import { DeckSummary } from '@/components/srs/DeckSummary'
 import { useOnboardingStore } from '@/stores/onboarding.store'
 import { updateProfileAction } from '@/lib/actions/profile.actions'
+import { StepCard, StepChild } from '../_components/step-card'
+import { StepFooter } from '../_components/step-footer'
 
 const SCHEDULE_TO_CARD_LIMIT: Record<string, number> = {
   light:     5,
@@ -12,10 +17,52 @@ const SCHEDULE_TO_CARD_LIMIT: Record<string, number> = {
   intensive: 50,
 }
 
+type LevelTone = 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'beyond' | 'kana'
+
+interface RecommendedDeck {
+  id:          string
+  name:        string
+  description: string
+  level:       LevelTone
+  levelLabel:  string
+  count:       number
+}
+
+// Hardcoded placeholder. Real recommendations are blocked on the
+// /onboarding/recommendations endpoint — tracked separately.
+const RECOMMENDED_DECKS: ReadonlyArray<RecommendedDeck> = [
+  { id: 'core-n5',         name: 'Core N5 Vocabulary',  description: 'Essential beginner vocab',          level: 'N5',   levelLabel: 'N5',   count: 800 },
+  { id: 'jlpt-n5-grammar', name: 'JLPT N5 Grammar',     description: 'Foundational grammar patterns',     level: 'N5',   levelLabel: 'N5',   count: 64 },
+  { id: 'kana',            name: 'Hiragana and Katakana', description: 'Both syllabaries with audio',     level: 'kana', levelLabel: 'Kana', count: 92 },
+]
+
 export default function DecksPage(): React.JSX.Element {
-  const router         = useRouter()
+  const router           = useRouter()
+  const schedule         = useOnboardingStore((s) => s.schedule)
   const applyAllDefaults = useOnboardingStore((s) => s.actions.applyAllDefaults)
   const reset            = useOnboardingStore((s) => s.actions.reset)
+
+  // Default-none: the user picks; nothing is pre-decided.
+  const [subscribedIds, setSubscribedIds] = useState<Set<string>>(
+    () => new Set<string>(),
+  )
+  const subscribedCount = subscribedIds.size
+
+  const totalCards = useMemo(
+    () => RECOMMENDED_DECKS.filter((d) => subscribedIds.has(d.id)).reduce((sum, d) => sum + d.count, 0),
+    [subscribedIds],
+  )
+
+  const paceNewPerDay = SCHEDULE_TO_CARD_LIMIT[schedule ?? 'steady'] ?? 20
+
+  function toggleSubscribed(id: string): void {
+    setSubscribedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: (payload: UpdateProfileInput) => updateProfileAction(payload),
@@ -25,92 +72,85 @@ export default function DecksPage(): React.JSX.Element {
     },
   })
 
-  function handleAddAndStart() {
-    applyAllDefaults()
+  const isSkipping = subscribedCount === 0
 
-    const { level, goal, interests, schedule } = useOnboardingStore.getState()
-
-    const payload: UpdateProfileInput = {
-      jlptTarget:         (level === 'beginner' || level === null) ? 'N5' : level,
-      ...(goal !== null ? { studyGoal: goal } : {}),
-      interests,
-      dailyNewCardsLimit: SCHEDULE_TO_CARD_LIMIT[schedule ?? 'steady'] ?? 20,
+  function handleContinue(): void {
+    if (isSkipping) {
+      // Skip the deck commitment, go straight to the dashboard. Matches
+      // the prior escape-link behavior: profile mutation is reserved for
+      // the explicit "Add and begin" path so unfinished onboardings don't
+      // land partial answers on the server.
+      router.push('/dashboard')
+      return
     }
 
+    applyAllDefaults()
+    const { level, goal, interests, schedule: pace } = useOnboardingStore.getState()
+
+    const payload: UpdateProfileInput = {
+      jlptTarget:         level === 'beginner' || level === null ? 'N5' : level,
+      ...(goal !== null ? { studyGoal: goal } : {}),
+      interests,
+      dailyNewCardsLimit: SCHEDULE_TO_CARD_LIMIT[pace ?? 'steady'] ?? 20,
+    }
     mutate(payload)
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 text-center">
-      <div>
-        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
-          Your recommended decks
-        </h1>
-        <p className="mt-2 text-base text-faded-sumi">
-          Based on your answers, we've chosen a few decks to get you started.
-          You can swap or add more anytime from the Deck Library.
-        </p>
-      </div>
+    <StepCard
+      previewPane={
+        <DeckSummary
+          allDecks={RECOMMENDED_DECKS}
+          subscribedIds={subscribedIds}
+          paceNewPerDay={paceNewPerDay}
+        />
+      }
+      heading="Your starter cards"
+      subhead="Based on your answers. The summary updates as you toggle decks on or off."
+      footer={
+        <div className="flex flex-col gap-4">
+          {error && (
+            <p role="alert" className="text-sm text-error">
+              {error.message ?? 'Something went wrong. Please try again.'}
+            </p>
+          )}
 
-      {/* Placeholder deck cards — will be API-driven once /onboarding endpoint exists */}
-      <div className="w-full flex flex-col gap-3">
-        {[
-          { name: 'Core N5 Vocabulary',  count: 800, badge: 'N5',   desc: 'Essential beginner vocab' },
-          { name: 'JLPT N5 Grammar',     count: 64,  badge: 'N5',   desc: 'Foundational grammar patterns' },
-          { name: 'Hiragana & Katakana', count: 92,  badge: 'Kana', desc: 'Both syllabaries with audio' },
-        ].map((deck) => (
-          <div
-            key={deck.name}
-            className="flex items-center justify-between px-5 py-4 rounded-[var(--radius-lg)]
-                       bg-warm-paper-raised border border-soft-hairline shadow-[var(--shadow-card)]"
-          >
-            <div className="text-left">
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-[var(--radius-sm)]
-                               bg-jlpt-n5-bg text-jlpt-n4-deep-emerald"
-                >
-                  {deck.badge}
-                </span>
-                <p className="text-base font-medium text-sumi-ink">{deck.name}</p>
-              </div>
-              <p className="mt-0.5 text-sm text-faded-sumi">{deck.desc}</p>
-            </div>
-            <p className="shrink-0 ml-4 text-sm text-faded-sumi tabular-nums">
-              {deck.count} cards
+          <StepFooter
+            showBack
+            isSkipping={isSkipping}
+            continueLabel={isSkipping ? "I'll browse decks myself" : 'Add and begin'}
+            continueLoading={isPending}
+            onContinue={handleContinue}
+          />
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        {RECOMMENDED_DECKS.map((deck) => (
+          <StepChild key={deck.id}>
+            <RecommendedDeckCard
+              name={deck.name}
+              description={deck.description}
+              level={deck.level}
+              levelLabel={deck.levelLabel}
+              count={deck.count}
+              subscribed={subscribedIds.has(deck.id)}
+              onToggle={() => toggleSubscribed(deck.id)}
+            />
+          </StepChild>
+        ))}
+
+        <StepChild>
+          <div className="flex items-center justify-between gap-4 pt-3 mt-1 border-t border-soft-hairline">
+            <p className="text-xs uppercase tracking-[0.08em] text-faded-sumi font-medium">
+              {subscribedCount} {subscribedCount === 1 ? 'deck' : 'decks'} selected
+            </p>
+            <p className="text-xs text-faded-sumi font-mono tabular-nums">
+              {totalCards.toLocaleString()} cards
             </p>
           </div>
-        ))}
+        </StepChild>
       </div>
-
-      <div className="flex flex-col items-center gap-3 w-full">
-        {error && (
-          <p role="alert" className="text-xs text-error">
-            {error?.message ?? 'Unknown error'}
-          </p>
-        )}
-
-        <button
-          type="button"
-          onClick={handleAddAndStart}
-          disabled={isPending}
-          className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
-                     font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
-                     disabled:opacity-40 disabled:cursor-not-allowed
-                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
-        >
-          {isPending ? 'Saving…' : 'Add all and start learning →'}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push('/dashboard')}
-          disabled={isPending}
-          className="text-sm text-faded-sumi hover:text-faded-sumi transition-colors
-                     disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Skip for now — I&apos;ll browse decks myself
-        </button>
-      </div>
-    </div>
+    </StepCard>
   )
 }

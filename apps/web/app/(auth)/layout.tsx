@@ -1,23 +1,17 @@
 import type { Metadata } from 'next'
+import { AuthShell } from './_components/auth-shell'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | 友日',
-    default: '友日',
+    template: '%s | TOMO',
+    default: 'TOMO',
   },
 }
 
+/**
+ * Auth layout. Delegates to AuthShell, which owns the persistent centered
+ * card chrome and the route-level CardStack that animates /login ↔ /signup.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="min-h-screen bg-warm-paper-base flex flex-col items-center justify-center px-4 py-12">
-      <div className="mb-8 text-center">
-        <span className="text-3xl font-bold text-inari-vermillion tracking-tight">友日</span>
-        <p className="mt-1 text-sm text-faded-sumi">AI-Enhanced Japanese SRS</p>
-      </div>
-
-      <div className="w-full max-w-sm bg-surface-raised rounded-[var(--radius-xl)] shadow-lg p-8">
-        {children}
-      </div>
-    </div>
-  )
+  return <AuthShell>{children}</AuthShell>
 }

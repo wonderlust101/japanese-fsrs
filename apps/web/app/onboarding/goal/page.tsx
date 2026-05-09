@@ -1,73 +1,131 @@
 'use client'
 
+import { useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { NEXT_STEP, useOnboardingStore, type OnboardingGoal } from '@/stores/onboarding.store'
+import { SelectionCard } from '@/components/ui/SelectionCard'
+import { SampleCard } from '@/components/srs/SampleCard'
+import {
+  BookOpen,
+  Briefcase,
+  SpeechBubble,
+  ToriiGate,
+} from '@/components/icons/study-marks'
+import { StepCard, StepChild } from '../_components/step-card'
+import { StepFooter } from '../_components/step-footer'
+import { useNumberKey } from '../_components/use-number-key'
 
 const STEP_PATH = '/onboarding/goal' as const
 
 interface GoalOption {
-  value: OnboardingGoal
-  emoji: string
-  label: string
+  value:       OnboardingGoal
+  Icon:        React.ComponentType<{ className?: string }>
+  label:       string
   description: string
 }
 
-const OPTIONS: GoalOption[] = [
-  { value: 'jlpt',       emoji: '🎯', label: 'Pass JLPT',              description: 'Structured exam preparation' },
-  { value: 'anime_manga',emoji: '🎌', label: 'Enjoy anime & manga',     description: 'Real content, natural Japanese' },
-  { value: 'novels',     emoji: '📖', label: 'Read novels',             description: 'Literary vocabulary & grammar' },
-  { value: 'life_work',  emoji: '🏢', label: 'Live / work in Japan',    description: 'Practical, everyday Japanese' },
+const OPTIONS: ReadonlyArray<GoalOption> = [
+  { value: 'jlpt',        Icon: ToriiGate,    label: 'Pass the JLPT',         description: 'Structured exam preparation' },
+  { value: 'anime_manga', Icon: SpeechBubble, label: 'Enjoy anime and manga', description: 'Real content, natural Japanese' },
+  { value: 'novels',      Icon: BookOpen,     label: 'Read novels',           description: 'Literary vocab and grammar' },
+  { value: 'life_work',   Icon: Briefcase,    label: 'Live or work in Japan', description: 'Practical, everyday Japanese' },
 ]
 
+interface GoalPreview {
+  matchedDecks: number
+  word:         string
+  reading:      string
+  meaning:      string
+}
+
+const GOAL_PREVIEW: Record<OnboardingGoal, GoalPreview> = {
+  jlpt:        { matchedDecks: 14, word: '生徒',     reading: 'せいと',         meaning: 'student' },
+  anime_manga: { matchedDecks:  9, word: '気持ち',   reading: 'きもち',         meaning: 'feeling, mood' },
+  novels:      { matchedDecks: 11, word: '記憶',     reading: 'きおく',         meaning: 'memory, recollection' },
+  life_work:   { matchedDecks:  8, word: '会議',     reading: 'かいぎ',         meaning: 'meeting, conference' },
+}
+
+const PLACEHOLDER_PREVIEW: GoalPreview = {
+  matchedDecks: 0,
+  word:         '友',
+  reading:      'とも',
+  meaning:      'friend',
+}
+
 export default function GoalPage(): React.JSX.Element {
-  const router  = useRouter()
-  const goal    = useOnboardingStore((s) => s.goal)
-  const setGoal = useOnboardingStore((s) => s.actions.setGoal)
+  const router            = useRouter()
+  const goal              = useOnboardingStore((s) => s.goal)
+  const setGoal           = useOnboardingStore((s) => s.actions.setGoal)
+  const applyStepDefault  = useOnboardingStore((s) => s.actions.applyStepDefault)
+
+  const handleSelect = useCallback(
+    (value: OnboardingGoal) => {
+      // Re-tapping the currently-selected card deselects it.
+      setGoal(goal === value ? null : value)
+    },
+    [goal, setGoal],
+  )
+
+  const isSkipping = goal === null
+
+  const handleContinue = useCallback(() => {
+    if (isSkipping) applyStepDefault(STEP_PATH)
+    router.push(NEXT_STEP[STEP_PATH])
+  }, [isSkipping, applyStepDefault, router])
+
+  const handleNumberKey = useCallback(
+    (i: number) => {
+      const opt = OPTIONS[i]
+      if (opt) handleSelect(opt.value)
+    },
+    [handleSelect],
+  )
+  useNumberKey(OPTIONS.length, handleNumberKey)
+
+  const preview = useMemo(
+    () => goal !== null ? GOAL_PREVIEW[goal] : PLACEHOLDER_PREVIEW,
+    [goal],
+  )
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
-          What's your main goal?
-        </h1>
-        <p className="mt-2 text-base text-faded-sumi">
-          Your goal shapes which vocabulary and grammar patterns we surface first.
-        </p>
-      </div>
-
-      <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <StepCard
+      previewPane={
+        <SampleCard
+          word={preview.word}
+          reading={preview.reading}
+          meaning={preview.meaning}
+          caption={
+            goal !== null
+              ? `${preview.matchedDecks} decks · ~12k cards`
+              : 'pick a goal to see a sample'
+          }
+          changeKey={goal ?? 'placeholder'}
+        />
+      }
+      heading="What are you here for?"
+      subhead="Your goal shapes the words and grammar we surface first. The preview shows a card you'd see early on."
+      footer={
+        <StepFooter
+          showBack
+          isSkipping={isSkipping}
+          continueLabel={isSkipping ? 'Skip this step' : 'Continue'}
+          onContinue={handleContinue}
+        />
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => setGoal(opt.value)}
-            aria-pressed={goal === opt.value}
-            className={[
-              'text-left p-5 rounded-[var(--radius-lg)] border-2 transition-all duration-150',
-              'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
-              goal === opt.value
-                ? 'border-inari-vermillion bg-vermillion-wash shadow-[var(--shadow-card)]'
-                : 'border-soft-hairline bg-warm-paper-raised hover:border-soft-hairline hover:shadow-[var(--shadow-card)]',
-            ].join(' ')}
-          >
-            <span className="text-2xl">{opt.emoji}</span>
-            <p className="mt-2 font-medium text-sumi-ink text-base">{opt.label}</p>
-            <p className="mt-0.5 text-sm text-faded-sumi">{opt.description}</p>
-          </button>
+          <StepChild key={opt.value}>
+            <SelectionCard
+              selected={goal === opt.value}
+              onSelect={() => handleSelect(opt.value)}
+              glyph={<opt.Icon className="text-inari-vermillion-deep" />}
+              label={opt.label}
+              description={opt.description}
+            />
+          </StepChild>
         ))}
       </div>
-
-      <button
-        type="button"
-        onClick={() => router.push(NEXT_STEP[STEP_PATH])}
-        disabled={goal === null}
-        className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
-                   font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
-                   disabled:opacity-40 disabled:cursor-not-allowed
-                   focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
-      >
-        Continue →
-      </button>
-    </div>
+    </StepCard>
   )
 }

@@ -1,82 +1,226 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { NEXT_STEP, useOnboardingStore } from '@/stores/onboarding.store'
+import { Pill } from '@/components/ui/Pill'
+import { SampleSentence } from '@/components/srs/SampleSentence'
+import { StepCard, StepChild } from '../_components/step-card'
+import { StepFooter } from '../_components/step-footer'
 
 const STEP_PATH = '/onboarding/interests' as const
 
-const INTEREST_OPTIONS = [
-  { value: 'anime',    label: 'Anime',    emoji: '🎬' },
-  { value: 'gaming',   label: 'Gaming',   emoji: '🎮' },
-  { value: 'food',     label: 'Food',     emoji: '🍜' },
-  { value: 'business', label: 'Business', emoji: '💼' },
-  { value: 'travel',   label: 'Travel',   emoji: '✈️' },
-  { value: 'music',    label: 'Music',    emoji: '🎵' },
-  { value: 'sports',   label: 'Sports',   emoji: '⚽' },
-  { value: 'tech',     label: 'Tech',     emoji: '💻' },
+const INTEREST_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'anime',      label: 'Anime' },
+  { value: 'gaming',     label: 'Gaming' },
+  { value: 'food',       label: 'Food' },
+  { value: 'business',   label: 'Business' },
+  { value: 'travel',     label: 'Travel' },
+  { value: 'music',      label: 'Music' },
+  { value: 'sports',     label: 'Sports' },
+  { value: 'tech',       label: 'Tech' },
+  { value: 'literature', label: 'Literature' },
+  { value: 'history',    label: 'History' },
 ]
 
+interface SentenceVariant {
+  chunks:      ReadonlyArray<{ base: string; reading: string } | string>
+  translation: string
+  caption:     string
+}
+
+const SENTENCE_BY_INTEREST: Record<string, SentenceVariant> = {
+  anime: {
+    chunks: [
+      'この',
+      { base: '主人公', reading: 'しゅじんこう' },
+      'は',
+      { base: '本当', reading: 'ほんとう' },
+      'に',
+      { base: '強', reading: 'つよ' },
+      'い。',
+    ],
+    translation: 'This protagonist is really strong.',
+    caption:     'flavor: anime',
+  },
+  gaming: {
+    chunks: [
+      { base: '最後', reading: 'さいご' },
+      'の',
+      { base: '敵', reading: 'てき' },
+      'を',
+      { base: '倒', reading: 'たお' },
+      'した。',
+    ],
+    translation: 'I defeated the final boss.',
+    caption:     'flavor: gaming',
+  },
+  food: {
+    chunks: [
+      'この',
+      { base: '料理', reading: 'りょうり' },
+      'は',
+      { base: '本当', reading: 'ほんとう' },
+      'に',
+      { base: '美味', reading: 'おい' },
+      'しい。',
+    ],
+    translation: 'This dish is really delicious.',
+    caption:     'flavor: food',
+  },
+  business: {
+    chunks: [
+      { base: '会議', reading: 'かいぎ' },
+      'は',
+      { base: '三時', reading: 'さんじ' },
+      'から',
+      { base: '始', reading: 'はじ' },
+      'まります。',
+    ],
+    translation: 'The meeting starts at 3.',
+    caption:     'flavor: business',
+  },
+  travel: {
+    chunks: [
+      { base: '京都', reading: 'きょうと' },
+      'まで',
+      { base: '電車', reading: 'でんしゃ' },
+      'で',
+      { base: '行', reading: 'い' },
+      'きます。',
+    ],
+    translation: 'I go to Kyoto by train.',
+    caption:     'flavor: travel',
+  },
+  music: {
+    chunks: [
+      'この',
+      { base: '曲', reading: 'きょく' },
+      'の',
+      { base: '歌詞', reading: 'かし' },
+      'は',
+      { base: '美', reading: 'うつく' },
+      'しい。',
+    ],
+    translation: "This song's lyrics are beautiful.",
+    caption:     'flavor: music',
+  },
+  sports: {
+    chunks: [
+      { base: '試合', reading: 'しあい' },
+      'に',
+      { base: '勝', reading: 'か' },
+      'てて',
+      { base: '嬉', reading: 'うれ' },
+      'しい。',
+    ],
+    translation: 'I am happy we won the match.',
+    caption:     'flavor: sports',
+  },
+  tech: {
+    chunks: [
+      'この',
+      { base: '機能', reading: 'きのう' },
+      'は',
+      { base: '便利', reading: 'べんり' },
+      'です。',
+    ],
+    translation: 'This feature is convenient.',
+    caption:     'flavor: tech',
+  },
+  literature: {
+    chunks: [
+      'その',
+      { base: '小説', reading: 'しょうせつ' },
+      'を',
+      { base: '一晩', reading: 'ひとばん' },
+      'で',
+      { base: '読', reading: 'よ' },
+      'み',
+      { base: '終', reading: 'お' },
+      'えた。',
+    ],
+    translation: 'I finished that novel in one night.',
+    caption:     'flavor: literature',
+  },
+  history: {
+    chunks: [
+      { base: '江戸時代', reading: 'えどじだい' },
+      'の',
+      { base: '建物', reading: 'たてもの' },
+      'です。',
+    ],
+    translation: 'It is a building from the Edo period.',
+    caption:     'flavor: history',
+  },
+}
+
+const PLACEHOLDER_SENTENCE: SentenceVariant = {
+  chunks: [
+    'まずは ',
+    { base: '基本', reading: 'きほん' },
+    'から ',
+    { base: '始', reading: 'はじ' },
+    'めましょう。',
+  ],
+  translation: "Let's start with the basics.",
+  caption:     'pick a topic to flavor your sentences',
+}
+
 export default function InterestsPage(): React.JSX.Element {
-  const router          = useRouter()
-  const interests       = useOnboardingStore((s) => s.interests)
-  const toggleInterest  = useOnboardingStore((s) => s.actions.toggleInterest)
+  const router         = useRouter()
+  const interests      = useOnboardingStore((s) => s.interests)
+  const toggleInterest = useOnboardingStore((s) => s.actions.toggleInterest)
+
+  // Show the sentence flavor for the most-recently-selected interest, or
+  // the placeholder when nothing is selected.
+  const previewKey = interests[interests.length - 1]
+  const preview = useMemo(
+    () => previewKey !== undefined ? (SENTENCE_BY_INTEREST[previewKey] ?? PLACEHOLDER_SENTENCE) : PLACEHOLDER_SENTENCE,
+    [previewKey],
+  )
+
+  const isSkipping = interests.length === 0
 
   return (
-    <div className="flex flex-col items-center gap-8">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold text-sumi-ink leading-tight">
-          What are your interests?
-        </h1>
-        <p className="mt-2 text-base text-faded-sumi">
-          We'll pull example sentences from topics you actually care about.
-          You can select multiple.
-        </p>
-      </div>
-
-      {/* Chip grid */}
+    <StepCard
+      previewPane={
+        <SampleSentence
+          chunks={preview.chunks}
+          translation={preview.translation}
+          caption={preview.caption}
+          changeKey={previewKey ?? 'placeholder'}
+        />
+      }
+      heading="What are you into?"
+      subhead="We'll pull example sentences from here. Pick any number, or none."
+      footer={
+        <StepFooter
+          showBack
+          isSkipping={isSkipping}
+          continueLabel={isSkipping ? 'Skip this step' : 'Continue'}
+          onContinue={() => router.push(NEXT_STEP[STEP_PATH])}
+        />
+      }
+    >
       <div
-        className="w-full flex flex-wrap gap-3 justify-center"
+        className="flex flex-wrap gap-2"
         role="group"
         aria-label="Interest topics"
       >
-        {INTEREST_OPTIONS.map((opt) => {
-          const selected = interests.includes(opt.value)
-          return (
-            <button
-              key={opt.value}
-              type="button"
+        {INTEREST_OPTIONS.map((opt) => (
+          <StepChild key={opt.value}>
+            <Pill
+              variant="interactive"
+              size="lg"
+              selected={interests.includes(opt.value)}
               onClick={() => toggleInterest(opt.value)}
-              aria-pressed={selected}
-              className={[
-                'flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-full)]',
-                'border-2 text-sm font-medium transition-all duration-150',
-                'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash',
-                selected
-                  ? 'border-inari-vermillion bg-vermillion-wash text-inari-vermillion'
-                  : 'border-soft-hairline bg-warm-paper-raised text-sumi-ink hover:border-soft-hairline',
-              ].join(' ')}
             >
-              <span aria-hidden="true">{opt.emoji}</span>
               {opt.label}
-            </button>
-          )
-        })}
+            </Pill>
+          </StepChild>
+        ))}
       </div>
-
-      <div className="flex flex-col items-center gap-2 w-full">
-        <button
-          type="button"
-          onClick={() => router.push(NEXT_STEP[STEP_PATH])}
-          className="h-12 px-8 rounded-[var(--radius-md)] bg-inari-vermillion text-warm-paper-raised text-base
-                     font-medium transition-colors hover:bg-inari-vermillion-deep active:scale-[0.98]
-                     focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-vermillion-wash"
-        >
-          Continue →
-        </button>
-        {interests.length === 0 && (
-          <p className="text-sm text-faded-sumi">No selection is fine — we'll use general examples.</p>
-        )}
-      </div>
-    </div>
+    </StepCard>
   )
 }
