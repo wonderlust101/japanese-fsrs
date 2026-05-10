@@ -16,10 +16,15 @@ interface Props {
  * section-grouped nav body in the middle, and the UserMenu account strip on
  * the bottom. Hidden on mobile; the MobileDrawer covers the same surfaces
  * under lg.
+ *
+ * Surface: Warm Paper Raised (the same warm-paper card surface used by the
+ * Card primitive). The sidebar reads as a tall panel of card material at
+ * the left edge of the cool-paper page; the cool-vs-warm contrast is what
+ * conveys the panel's separation from the page beneath.
  */
 export function Sidebar({ user }: Props): React.JSX.Element {
   return (
-    <aside className="hidden lg:flex flex-col w-72 shrink-0 h-screen bg-cream-inset border-r border-soft-hairline">
+    <aside className="hidden lg:flex flex-col w-72 shrink-0 h-screen bg-warm-paper-raised border-r border-soft-hairline">
       {/* Brand strip */}
       <div className="flex items-center h-16 px-4 border-b border-soft-hairline shrink-0">
         <Logo size={48} wordmarkSize="lg" />
@@ -27,8 +32,8 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 
       {/* Nav body */}
       <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-2">
-        {NAV_SECTIONS.map((section) => (
-          <NavSection key={section.label} label={section.label}>
+        {NAV_SECTIONS.map((section, index) => (
+          <NavSection key={section.label} label={section.label} isFirst={index === 0}>
             {section.items.map((item) => (
               <NavItem key={item.href} item={item} />
             ))}

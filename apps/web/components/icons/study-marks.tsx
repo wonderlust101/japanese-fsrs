@@ -176,21 +176,3 @@ export function PaceIntensive({ className = '' }: IconProps): React.JSX.Element 
     </svg>
   )
 }
-
-// ── Step header marks (compact, used in onboarding step header) ────────────
-
-export function StepNumber({ n, className = '' }: { n: number; className?: string }): React.JSX.Element {
-  // Tiny "step n" badge — circular outline + numeral
-  return (
-    <span
-      className={[
-        'inline-flex items-center justify-center w-6 h-6 rounded-full border border-current',
-        'text-[11px] font-mono tabular-nums leading-none',
-        className,
-      ].join(' ')}
-    >
-      {n}
-    </span>
-  )
-}
-

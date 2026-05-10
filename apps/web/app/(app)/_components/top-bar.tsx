@@ -1,5 +1,7 @@
 'use client'
 
+import { Menu } from 'lucide-react'
+
 import { Logo } from '@/components/ui/Logo'
 import { useMobileNavStore } from '@/stores/useMobileNavStore'
 
@@ -20,14 +22,14 @@ export function TopBar({ children }: { children: React.ReactNode }): React.JSX.E
   const open = useMobileNavStore((s) => s.open)
 
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-16 bg-cream-inset border-b border-soft-hairline shrink-0">
+    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-16 bg-warm-paper-raised border-b border-soft-hairline shrink-0">
       <button
         type="button"
         onClick={open}
         aria-label="Open menu"
-        className="lg:hidden relative flex items-center justify-center w-10 h-10 -ml-2 rounded-md text-sumi-ink hover:bg-soft-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
+        className="lg:hidden relative flex items-center justify-center w-11 h-11 -ml-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
       >
-        <span aria-hidden="true" className="text-xl leading-none">☰</span>
+        <Menu size={20} aria-hidden="true" />
         <OfflineQueueBadge floating />
       </button>
 

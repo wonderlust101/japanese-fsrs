@@ -6,6 +6,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
+import { ChevronRight, Flag, LogOut, Settings, User as UserIcon } from 'lucide-react'
+
 import { signOutAction }      from '@/lib/actions/auth.actions'
 import { getUserDisplayName } from '@/lib/supabase/user-metadata'
 
@@ -24,6 +26,11 @@ const NOOP = (): void => {}
  * (Sidebar and MobileDrawer). The trigger button shows the user's initial
  * badge and display name; tapping it opens a popover with Profile, Settings,
  * Report a bug, and Sign out. Click outside or Escape closes.
+ *
+ * Icons are the geometric ink-stroke set from `@/components/icons`, sized at
+ * 16px in the popover so they read as quiet leading marks beside the labels.
+ * On the trigger row the avatar disc replaces a leading icon — the initial
+ * carries identity at this position.
  */
 export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Element {
   const router       = useRouter()
@@ -77,9 +84,8 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
     router.refresh()
   }
 
-  const itemClass        = 'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors text-left'
-  const destructiveClass = 'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-inari-vermillion-deep hover:bg-vermillion-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors text-left w-full'
-  const glyphClass       = 'text-base font-medium w-5 text-center shrink-0'
+  const itemClass        = 'flex items-center gap-3 px-3 py-2 rounded-[2px] text-sm font-medium text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors text-left w-full'
+  const destructiveClass = 'flex items-center gap-3 px-3 py-2 rounded-[2px] text-sm font-medium text-inari-vermillion-deep hover:bg-vermillion-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors text-left w-full'
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -89,7 +95,7 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Account menu"
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-sumi-ink hover:bg-soft-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
+        className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-[2px] text-base font-medium text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
       >
         <span
           aria-hidden="true"
@@ -98,37 +104,36 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
           {initial}
         </span>
         <span className="truncate flex-1 text-left">{displayLabel}</span>
-        <span
+        <ChevronRight
+          size={16}
           aria-hidden="true"
-          className={`inline-block text-xs leading-none text-faded-sumi shrink-0 transition-transform duration-[200ms] ease-out ${
+          className={`shrink-0 text-faded-sumi transition-transform duration-[200ms] ease-out ${
             isOpen ? 'rotate-90' : ''
           }`}
-        >
-          ▸
-        </span>
+        />
       </button>
 
       {isOpen && (
         <div
           role="menu"
           aria-label="Account options"
-          className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-lg shadow-card p-1 flex flex-col animate-page-enter"
+          className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-[2px] border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
           <Link href="/profile" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <span lang="ja" aria-hidden="true" className={glyphClass}>私</span>
+            <UserIcon size={16} className="shrink-0 text-faded-sumi" />
             <span className="flex-1">Profile</span>
           </Link>
           <Link href="/settings" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <span lang="ja" aria-hidden="true" className={glyphClass}>設</span>
+            <Settings size={16} className="shrink-0 text-faded-sumi" />
             <span className="flex-1">Settings</span>
           </Link>
           <Link href="/report-bug" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <span lang="ja" aria-hidden="true" className={glyphClass}>報</span>
+            <Flag size={16} className="shrink-0 text-faded-sumi" />
             <span className="flex-1">Report a bug</span>
           </Link>
           <div className="my-1 mx-2 h-px bg-soft-hairline" aria-hidden="true" />
           <button type="button" role="menuitem" onClick={handleSignOut} className={destructiveClass}>
-            <span lang="ja" aria-hidden="true" className={glyphClass}>出</span>
+            <LogOut size={16} className="shrink-0" />
             <span className="flex-1">Sign out</span>
           </button>
         </div>

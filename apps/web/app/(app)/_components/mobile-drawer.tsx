@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
 import { Logo }              from '@/components/ui/Logo'
@@ -99,7 +100,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         aria-label="Main navigation"
         aria-hidden={!isOpen}
         className={[
-          'lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] bg-cream-inset flex flex-col',
+          'lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
           'transform transition-transform duration-[250ms] ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
@@ -111,16 +112,16 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
             type="button"
             onClick={close}
             aria-label="Close menu"
-            className="flex items-center justify-center w-10 h-10 -mr-2 rounded-md text-sumi-ink hover:bg-soft-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
+            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
           >
-            <span aria-hidden="true" className="text-xl leading-none">×</span>
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
         {/* Nav body */}
         <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-2">
-          {NAV_SECTIONS.map((section) => (
-            <NavSection key={section.label} label={section.label}>
+          {NAV_SECTIONS.map((section, index) => (
+            <NavSection key={section.label} label={section.label} isFirst={index === 0}>
               {section.items.map((item) => (
                 <NavItem key={item.href} item={item} onNavigate={close} />
               ))}
