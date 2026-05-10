@@ -1,5 +1,9 @@
+import type { Metadata } from 'next'
+
 import { SessionHeader }   from './_components/session-header'
 import { SessionProgress } from './_components/session-progress'
+
+export const metadata: Metadata = { title: 'Review session' }
 
 export default function ReviewSessionLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (

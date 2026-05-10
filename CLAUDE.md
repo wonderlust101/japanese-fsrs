@@ -142,7 +142,14 @@ Idempotent — only operates on rows where `embedding IS NULL`. Uses the existin
 NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=
 ```
+
+`NEXT_PUBLIC_SITE_URL` is the canonical public URL of the site (e.g.
+`https://tomo.app`). Used as `metadataBase` in `apps/web/app/layout.tsx` so
+Open Graph image URLs and the sitemap entry resolve absolutely. Falls back to
+`http://localhost:3000` when unset, which is correct for local dev but wrong
+for any deployed environment — set it in staging/production.
 
 ---
 

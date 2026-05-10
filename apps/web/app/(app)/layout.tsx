@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
+
 import { getAuthUser } from '@/lib/supabase/get-auth-user'
 import { Sidebar } from './_components/sidebar'
 import { MobileDrawer } from './_components/mobile-drawer'
+
+// Authenticated app surface — search engines should never index any of these
+// routes. Per-page titles set in each page.tsx flow through the root template.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 // The middleware already guarantees an authenticated user reaches this layout.
 // We fetch the user here only to pass display data (email) to the chrome.

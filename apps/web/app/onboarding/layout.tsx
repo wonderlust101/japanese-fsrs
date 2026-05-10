@@ -2,8 +2,12 @@
 import type { Metadata } from 'next'
 import { OnboardingShell } from './_components/onboarding-shell'
 
+// `title` covers /onboarding (the welcome page is a client component and can't
+// export its own metadata). Each onboarding step has its own per-segment
+// layout that overrides this title. Whole tree is `noindex` (private flow).
 export const metadata: Metadata = {
-  title: 'Get started — Tomo',
+  title: 'Welcome',
+  robots: { index: false, follow: false },
 }
 
 /**

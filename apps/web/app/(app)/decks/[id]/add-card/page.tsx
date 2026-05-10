@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getDeckAction } from '@/lib/actions/decks.actions'
 import { AddCardForm } from './_components/add-card-form'
+
+export const metadata: Metadata = { title: 'Add card' }
 
 interface Props {
   params: Promise<{ id: string }>

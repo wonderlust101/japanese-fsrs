@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import { AuthShell } from './_components/auth-shell'
 
+// Inherits the `%s | Tomo` template from the root layout (app/layout.tsx).
+// The whole auth tree is `noindex` because it's a private app's sign-in surface
+// — no SEO value, and indexing leaks user-flow URLs into search results.
 export const metadata: Metadata = {
-  title: {
-    template: '%s | TOMO',
-    default: 'TOMO',
-  },
+  robots: { index: false, follow: false },
 }
 
 /**
