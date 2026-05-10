@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 interface LogoProps {
   /**
    * Pixel height of the kitsune mark. Width auto-scales (the SVG is square).
@@ -13,6 +15,13 @@ interface LogoProps {
    *  - 'inverted': cream mark + warm-paper-raised wordmark (saturated brand fields, e.g. /login). */
   tone?: 'default' | 'inverted'
   className?: string
+  /**
+   * `priority` flag passed through to next/image. Set true on chrome/hero
+   * surfaces (sidebar mark, top-bar mark) so the brand image isn't lazy-loaded
+   * and competes for LCP. Defaults false (lazy) for decorative uses (Tomo
+   * watermark, in-flow brand marks).
+   */
+  priority?: boolean
 }
 
 /**
@@ -39,6 +48,7 @@ export function Logo({
   wordmarkSize = 'md',
   tone = 'default',
   className = '',
+  priority = false,
 }: LogoProps): React.JSX.Element {
   const resolvedSize  = Math.max(size, MIN_SIZE)
   const src           = tone === 'inverted' ? '/brand/logo-cream.svg' : '/brand/logo.svg'
@@ -46,12 +56,20 @@ export function Logo({
 
   return (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
-      <img
+      <Image
         src={src}
         alt={showWordmark ? '' : 'TOMO'}
         width={resolvedSize}
         height={resolvedSize}
         className="shrink-0"
+        priority={priority}
+        // SVGs are already vector; next/image's optimizer (raster resize +
+        // AVIF/WebP) provides no value for them and refuses by default
+        // without `images.dangerouslyAllowSVG` in next.config. Using
+        // `unoptimized` skips the optimizer cleanly without weakening
+        // global image security. We still get next/image's lazy-loading
+        // and proper width/height layout reservation.
+        unoptimized
       />
       {showWordmark && (
         <span

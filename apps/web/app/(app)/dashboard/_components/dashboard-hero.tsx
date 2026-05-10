@@ -37,7 +37,11 @@ interface DashboardHeroProps {
 export function DashboardHero({ variant }: DashboardHeroProps): React.JSX.Element {
   return (
     <section
-      aria-labelledby="hero-headline"
+      // Switched from aria-labelledby="hero-headline" to a literal aria-label
+      // because the hero's <h2 id="hero-headline"> is conditionally rendered
+      // (omitted in the loading variant) and a dangling labelledby reference
+      // is a worse accessibility outcome than a stable literal label.
+      aria-label="Today's practice"
       className={[
         'relative bg-warm-paper-raised',
         'border-l border-r border-b border-soft-hairline',

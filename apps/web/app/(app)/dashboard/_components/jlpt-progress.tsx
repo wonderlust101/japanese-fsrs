@@ -81,7 +81,7 @@ export function JlptProgress({ state, levels = [] }: JlptProgressProps): React.J
   if (state === 'loading') {
     return (
       <section aria-labelledby="jlpt-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="級" label="JLPT progress" rightContent={<SkeletonBlock width={96} height={11} />} />
+        <CardHeader id="jlpt-label" kanji="級" label="JLPT progress" rightContent={<SkeletonBlock width={96} height={11} />} />
         <ol className="space-y-4">
           {[...Array(6)].map((_, i) => (
             <li key={i} className="flex items-center gap-4">
@@ -99,7 +99,7 @@ export function JlptProgress({ state, levels = [] }: JlptProgressProps): React.J
   if (state === 'error') {
     return (
       <section aria-labelledby="jlpt-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="級" label="JLPT progress" />
+        <CardHeader id="jlpt-label" kanji="級" label="JLPT progress" />
         <ModuleError message="Couldn't load JLPT progress." />
       </section>
     )
@@ -108,7 +108,7 @@ export function JlptProgress({ state, levels = [] }: JlptProgressProps): React.J
   if (levels.length === 0) {
     return (
       <section aria-labelledby="jlpt-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="級" label="JLPT progress" />
+        <CardHeader id="jlpt-label" kanji="級" label="JLPT progress" />
         <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
           Empty journey. Subscribe to a deck to begin.{' '}
           <Link
@@ -198,7 +198,7 @@ function LevelRow({
         <span
           className={[
             'font-mono text-xs tracking-wide w-24 shrink-0',
-            isCurrent ? 'text-inari-vermillion' : 'text-faded-sumi/85',
+            isCurrent ? 'text-inari-vermillion' : 'text-faded-sumi',
           ].join(' ')}
         >
           {isCurrent ? 'current' : status}
@@ -230,7 +230,7 @@ function LevelRow({
         </div>
         <div className="flex items-baseline justify-between">
           <span className="font-mono text-xs tabular-nums text-faded-sumi">{percent}%</span>
-          <span className="font-mono text-xs text-faded-sumi/85 tracking-wide">{status}</span>
+          <span className="font-mono text-xs text-faded-sumi tracking-wide">{status}</span>
         </div>
       </div>
     </li>

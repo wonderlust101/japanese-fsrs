@@ -15,17 +15,27 @@ import Link from 'next/link'
 // ── CardHeader (kanji ornament + small-caps mono + right action + rule) ──────
 
 interface CardHeaderProps {
+  /**
+   * DOM id rendered on the inner <h2>. Pair with `aria-labelledby` on the
+   * <section> wrapper so screen readers announce the section by its kanji
+   * label. Required for any carded section that uses aria-labelledby.
+   */
+  id?: string
   /** Single kanji or 2-char compound. Single chars render at text-2xl, compounds at text-xl. */
   kanji:    string
   /** Small-caps mono label rendered after the kanji. */
   label:    string
   /** Optional count rendered after the label as " · {n}". */
   count?:   number
-  /** Optional right-aligned content (typically a Link or static span). */
+  /**
+   * Optional right-aligned content (typically a Link or static span). When
+   * the content is a tap target, CardHeader pads the slot to give it a
+   * proper hit area on touch — see the wrapping div below.
+   */
   rightContent?: React.ReactNode
 }
 
-export function CardHeader({ kanji, label, count, rightContent }: CardHeaderProps): React.JSX.Element {
+export function CardHeader({ id, kanji, label, count, rightContent }: CardHeaderProps): React.JSX.Element {
   // 2-char compounds render slightly smaller so the ornament's visual mass stays
   // balanced with single-kanji cards. text-2xl on 1-char vs text-xl on 2-char keeps
   // total ornament width comparable across the dashboard.
@@ -36,7 +46,7 @@ export function CardHeader({ kanji, label, count, rightContent }: CardHeaderProp
   return (
     <header className="mb-5">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className={`flex items-baseline ${kanjiGap}`}>
+        <h2 id={id} className={`flex items-baseline ${kanjiGap}`}>
           <span
             lang="ja"
             aria-hidden="true"
@@ -47,12 +57,16 @@ export function CardHeader({ kanji, label, count, rightContent }: CardHeaderProp
           <span className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi">
             {label}
             {count !== undefined && (
-              <span className="ml-1.5 text-faded-sumi/85">· {count}</span>
+              <span className="ml-1.5 text-faded-sumi">· {count}</span>
             )}
           </span>
         </h2>
         {rightContent !== undefined && (
-          <div className="shrink-0 font-mono text-xs text-faded-sumi tracking-wide">
+          // py-2 + negative -my-2 expands the tap-target hit area for action
+          // links inside the slot without changing the visual layout. WCAG
+          // 2.5.8 / 2.5.5 minimum touch target is now reachable for the
+          // small mono action links some cards inject here.
+          <div className="shrink-0 -my-2 py-2 font-mono text-xs text-faded-sumi tracking-wide">
             {rightContent}
           </div>
         )}

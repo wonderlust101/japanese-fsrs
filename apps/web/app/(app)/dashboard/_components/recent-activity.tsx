@@ -19,7 +19,7 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
   if (state === 'loading') {
     return (
       <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader kanji="履歴" label="Recent" rightContent={<SkeletonBlock width={72} height={11} />} />
+        <CardHeader id="activity-label" kanji="履歴" label="Recent" rightContent={<SkeletonBlock width={72} height={11} />} />
         <ul className="divide-y divide-soft-hairline/60">
           {[...Array(5)].map((_, i) => (
             <li key={i} className="py-2.5">
@@ -37,7 +37,7 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
   if (state === 'error') {
     return (
       <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader kanji="履歴" label="Recent" />
+        <CardHeader id="activity-label" kanji="履歴" label="Recent" />
         <ModuleError message="Couldn't load recent activity." />
       </section>
     )
@@ -46,7 +46,7 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
   if (rows.length === 0) {
     return (
       <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader kanji="履歴" label="Recent" />
+        <CardHeader id="activity-label" kanji="履歴" label="Recent" />
         <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
           No reviews logged yet. Today is a quiet page.
         </p>
@@ -56,7 +56,7 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
 
   return (
     <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-      <CardHeader kanji="履歴" label="Recent" rightContent={<span>last 7 days</span>} />
+      <CardHeader id="activity-label" kanji="履歴" label="Recent" rightContent={<span>last 7 days</span>} />
 
       <ul className="divide-y divide-soft-hairline/60">
         {rows.map((row) => (
@@ -83,7 +83,7 @@ function Row({ row }: { row: ActivityRow }): React.JSX.Element {
     return (
       <li className="flex items-baseline justify-between py-2.5 gap-4">
         <span className="text-sm text-faded-sumi">{row.date}</span>
-        <span className="font-mono text-sm text-faded-sumi/65 tabular-nums">
+        <span className="font-mono text-sm text-faded-sumi tabular-nums">
           rest day
         </span>
       </li>

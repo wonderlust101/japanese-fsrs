@@ -22,7 +22,7 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
   if (state === 'loading') {
     return (
       <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader kanji="弱点" label="Leeches forming" rightContent={<SkeletonBlock width={64} height={11} />} />
+        <CardHeader id="leeches-label" kanji="弱点" label="Leeches forming" rightContent={<SkeletonBlock width={64} height={11} />} />
         <ul className="-mx-2 sm:-mx-3 divide-y divide-soft-hairline/60">
           {[...Array(3)].map((_, i) => (
             <li key={i} className="px-2 sm:px-3 py-3">
@@ -40,7 +40,7 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
   if (state === 'error') {
     return (
       <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader kanji="弱点" label="Leeches forming" />
+        <CardHeader id="leeches-label" kanji="弱点" label="Leeches forming" />
         <ModuleError message="Couldn't load leeches." />
       </section>
     )
@@ -49,7 +49,7 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
   if (leeches.length === 0) {
     return (
       <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader kanji="弱点" label="Leeches forming" />
+        <CardHeader id="leeches-label" kanji="弱点" label="Leeches forming" />
         <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
           No leeches forming. Your cards are settling well.
         </p>

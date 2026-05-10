@@ -21,7 +21,7 @@ export function ForecastChart({ state, days = [] }: ForecastChartProps): React.J
   if (state === 'loading') {
     return (
       <section aria-labelledby="forecast-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="予測" label="Forecast" rightContent={<SkeletonBlock width={64} height={12} />} />
+        <CardHeader id="forecast-label" kanji="予測" label="Forecast" rightContent={<SkeletonBlock width={64} height={12} />} />
         <SkeletonBlock width="100%" height={CHART_HEIGHT + 50} />
       </section>
     )
@@ -30,7 +30,7 @@ export function ForecastChart({ state, days = [] }: ForecastChartProps): React.J
   if (state === 'error') {
     return (
       <section aria-labelledby="forecast-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="予測" label="Forecast" />
+        <CardHeader id="forecast-label" kanji="予測" label="Forecast" />
         <ModuleError message="Couldn't load this week's forecast." />
       </section>
     )

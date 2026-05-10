@@ -27,7 +27,7 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
   if (state === 'loading') {
     return (
       <section aria-labelledby="decks-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="教材" label="Decks" rightContent={<SkeletonBlock width={56} height={11} />} />
+        <CardHeader id="decks-label" kanji="教材" label="Decks" rightContent={<SkeletonBlock width={56} height={11} />} />
         <ul className="-mx-2 sm:-mx-3 divide-y divide-soft-hairline/60">
           {[60, 45, 70, 50].map((width, i) => (
             <li key={i} className="px-2 sm:px-3 py-5 space-y-3">
@@ -47,7 +47,7 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
   if (state === 'error') {
     return (
       <section aria-labelledby="decks-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="教材" label="Decks" />
+        <CardHeader id="decks-label" kanji="教材" label="Decks" />
         <ModuleError message="Couldn't load your decks." />
       </section>
     )
@@ -56,7 +56,7 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
   if (decks.length === 0) {
     return (
       <section aria-labelledby="decks-label" className={DATA_CARD_CHROME}>
-        <CardHeader kanji="教材" label="Decks" />
+        <CardHeader id="decks-label" kanji="教材" label="Decks" />
         <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
           Quiet shelf. Pick a deck to begin.{' '}
           <Link
@@ -161,7 +161,7 @@ function JlptBadge({ level }: { level: JlptLevel }): React.JSX.Element {
 function DueCount({ count }: { count: number }): React.JSX.Element {
   if (count === 0) {
     return (
-      <span className="font-mono text-sm text-faded-sumi/70 tabular-nums">
+      <span className="font-mono text-sm text-faded-sumi tabular-nums">
         0 due
       </span>
     )
