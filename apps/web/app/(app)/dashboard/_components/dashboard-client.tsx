@@ -16,6 +16,56 @@ import type { ModuleState } from './section-primitives'
 import { StatStrip } from './stat-strip'
 
 const DAY_GLYPHS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const
+const FORECAST_HORIZON_DAYS = 14
+
+/**
+ * Local-time YYYY-MM-DD key for matching API dates to generated calendar
+ * slots. Avoids the ISO-string timezone trap (toISOString() always returns
+ * UTC, which can shift the date by one day for users east of UTC late in
+ * the local day).
+ */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * Build a complete N-day forecast series starting from today. Maps API days
+ * by local-date key, then walks forward N days from today filling counts
+ * from the map. Days the API didn't return get count=0 (rendered as a 1px
+ * placeholder line at the baseline). Each entry carries the day-of-week
+ * glyph + calendar date number for the chart's stacked label rendering.
+ */
+function buildPaddedForecast(
+  apiDays: ReadonlyArray<{ date: string; count: number }>,
+  horizonDays: number,
+): { label: string; dateNum: number; count: number; isToday: boolean }[] {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const countByKey = new Map<string, number>()
+  for (const d of apiDays) {
+    countByKey.set(localDateKey(new Date(d.date)), d.count)
+  }
+
+  const out: { label: string; dateNum: number; count: number; isToday: boolean }[] = []
+  for (let i = 0; i < horizonDays; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() + i)
+    const key   = localDateKey(date)
+    const count = countByKey.get(key) ?? 0
+
+    out.push({
+      label:   DAY_GLYPHS[date.getDay()] ?? '',
+      dateNum: date.getDate(),
+      count,
+      isToday: i === 0,
+    })
+  }
+  return out
+}
 
 /**
  * Client wrapper that fetches dashboard data via TanStack Query and composes
@@ -108,21 +158,13 @@ export function DashboardClient(): React.JSX.Element {
     forecastQuery.isError   ? 'error'   :
     'default'
 
+  // Always generate a full 14-day series (today + next 13). Days the API
+  // didn't return get count=0 so the chart renders empty bars (1px placeholder
+  // at the baseline) instead of leaving gaps. The forecast component slices
+  // to 7 days on mobile and 14 on desktop; padding here means both viewports
+  // have a complete week regardless of how many days the API returned.
   const forecastDays = useMemo(() => {
-    const apiDays = forecastQuery.data?.items ?? []
-    const today   = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    return apiDays.map((d) => {
-      const date    = new Date(d.date)
-      const dayIdx  = date.getDay()
-      const isToday = date.toDateString() === today.toDateString()
-      return {
-        label:   DAY_GLYPHS[dayIdx] ?? '',
-        count:   d.count,
-        isToday,
-      }
-    })
+    return buildPaddedForecast(forecastQuery.data?.items ?? [], FORECAST_HORIZON_DAYS)
   }, [forecastQuery.data])
 
   // ── Active decks ────────────────────────────────────────────────────────

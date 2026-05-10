@@ -196,7 +196,7 @@ function LevelRow({
         <div className="flex-1 relative">
           <Bar percent={percent} fillClass={fillClass} />
           {isCurrent && (
-            <span aria-hidden="true" className="absolute left-0 right-0 -bottom-1 h-[2px] bg-inari-vermillion" />
+            <span aria-hidden="true" className="absolute left-0 right-0 -top-1 h-[2px] bg-inari-vermillion" />
           )}
         </div>
         <span className="font-mono text-xs tabular-nums text-faded-sumi w-10 text-right shrink-0">

@@ -1,7 +1,11 @@
 import { CardHeader, DATA_CARD_CHROME, ModuleError, type ModuleState, SkeletonBlock } from './section-primitives'
 
 interface ForecastDay {
+  /** Day-of-week glyph (SA, SU, MO, ...). */
   label:   string
+  /** Calendar date number (1-31), shown below the day glyph for context. */
+  dateNum: number
+  /** Card count for this day; 0 means the API didn't return a value (padded). */
   count:   number
   isToday: boolean
 }
@@ -119,18 +123,22 @@ function BarChart({ days }: { days: ForecastDay[] }): React.JSX.Element {
       {/* Baseline */}
       <hr aria-hidden="true" className="border-0 border-t border-soft-hairline" />
 
-      {/* Day glyphs */}
-      <ol className="mt-3 flex items-baseline gap-1 sm:gap-1.5 lg:gap-2">
+      {/* Day glyphs + calendar date numbers (stacked) */}
+      <ol className="mt-3 flex items-start gap-1 sm:gap-1.5 lg:gap-2">
         {days.map((d, i) => (
           <li
             key={i}
             className={[
-              'flex-1 text-center font-mono uppercase tracking-[0.06em] tabular-nums',
-              'text-[0.6875rem]',
+              'flex-1 text-center',
               d.isToday ? 'text-inari-vermillion font-medium' : 'text-faded-sumi',
             ].join(' ')}
           >
-            {d.label}
+            <div className="font-mono uppercase tracking-[0.06em] tabular-nums text-[0.6875rem]">
+              {d.label}
+            </div>
+            <div className="font-mono tabular-nums text-[0.625rem] mt-0.5 text-faded-sumi">
+              {d.isToday ? <span className="text-inari-vermillion">{d.dateNum}</span> : d.dateNum}
+            </div>
           </li>
         ))}
       </ol>
