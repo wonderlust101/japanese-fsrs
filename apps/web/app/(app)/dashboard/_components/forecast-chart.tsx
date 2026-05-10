@@ -40,17 +40,25 @@ export function ForecastChart({ state, days = [] }: ForecastChartProps): React.J
   const days14 = days.slice(0, 14)
   const total  = days14.reduce((sum, d) => sum + d.count, 0)
 
+  // When the dataset is fully empty, hide the "0 total" suffix in the header.
+  // Otherwise the header reads as "0 of something" while the body says "No
+  // forecast data." — a quiet copy contradiction.
+  const headerRightContent = days14.length > 0
+    ? (
+        <span className="tabular-nums">
+          <span className="text-sumi-ink">{total}</span>
+          <span className="ml-1">total</span>
+        </span>
+      )
+    : undefined
+
   return (
     <section aria-labelledby="forecast-label" className={DATA_CARD_CHROME}>
       <CardHeader
+        id="forecast-label"
         kanji="予測"
         label="Forecast"
-        rightContent={
-          <span className="tabular-nums">
-            <span className="text-sumi-ink">{total}</span>
-            <span className="ml-1">total</span>
-          </span>
-        }
+        rightContent={headerRightContent}
       />
 
       {/* Mobile / tablet: 7 days */}

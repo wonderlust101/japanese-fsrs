@@ -73,6 +73,7 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
   return (
     <section aria-labelledby="decks-label" className={DATA_CARD_CHROME}>
       <CardHeader
+        id="decks-label"
         kanji="教材"
         label="Decks"
         count={decks.length}

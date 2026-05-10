@@ -129,6 +129,7 @@ export function JlptProgress({ state, levels = [] }: JlptProgressProps): React.J
   return (
     <section aria-labelledby="jlpt-label" className={DATA_CARD_CHROME}>
       <CardHeader
+        id="jlpt-label"
         kanji="級"
         label="JLPT progress"
         rightContent={<span>{inProgress} of 6 in progress</span>}

@@ -69,7 +69,7 @@ export function NoteFromTomo({
           {state === 'default' && (insight === null || insight === undefined) && idiom !== undefined && <IdiomBody idiom={idiom} />}
           {state === 'default' && (insight === null || insight === undefined) && idiom === undefined && (
             <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
-              Tomo&apos;s note will appear here when configured.
+              A note from Tomo will appear here.
             </p>
           )}
         </div>

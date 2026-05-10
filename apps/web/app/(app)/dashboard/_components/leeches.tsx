@@ -60,6 +60,7 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
   return (
     <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
       <CardHeader
+        id="leeches-label"
         kanji="弱点"
         label="Leeches forming"
         count={leeches.length}
