@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
+import { FloatingLauncher } from '@/components/dev/FloatingLauncher'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import './globals.css'
 
@@ -104,7 +105,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
       className={`${dmSans.variable} ${bricolage.variable} ${notoSansJP.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          {children}
+          <FloatingLauncher />
+        </QueryProvider>
 </body>
     </html>
   )
