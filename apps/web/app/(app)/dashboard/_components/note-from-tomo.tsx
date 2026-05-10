@@ -67,9 +67,17 @@ export function NoteFromTomo({
           {state === 'error'   && <ModuleError message="Couldn't reach Tomo's note." />}
           {state === 'default' && insight !== null && insight !== undefined && <InsightBody insight={insight} />}
           {state === 'default' && (insight === null || insight === undefined) && idiom !== undefined && <IdiomBody idiom={idiom} />}
+          {state === 'default' && (insight === null || insight === undefined) && idiom === undefined && (
+            <p className="text-sm text-faded-sumi italic max-w-md leading-relaxed">
+              Tomo&apos;s note will appear here when configured.
+            </p>
+          )}
         </div>
 
-        {state === 'default' && (
+        {/* Sign-off only renders when a real body is present (insight or idiom).
+            Suppressed in loading / error / empty so we don't sign off on
+            nothing. */}
+        {state === 'default' && ((insight !== null && insight !== undefined) || idiom !== undefined) && (
           <div className="mt-7 pr-1 flex justify-end">
             <span
               lang="ja"
