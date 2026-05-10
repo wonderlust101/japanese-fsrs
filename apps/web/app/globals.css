@@ -52,6 +52,44 @@
   --color-jlpt-n1-saturated-red:  var(--color-jlpt-n1-text);
   --color-jlpt-beyond-amber-warn: var(--color-jlpt-beyond-text);
 
+  /* ── Deck level palette (warm earth tones, dashboard surface) ─────
+     Used by the dashboard's JLPT progress bars + deck-name pills.
+     Decoupled from the legacy --color-jlpt-{level}-* tokens (which
+     retain their saturated values for semantic uses elsewhere in the
+     app: rating buttons, retention heatmap, error states). The
+     dashboard uses these warm-muted tones to harmonize with the
+     warm-paper / sumi-ink / vermillion / aizome system.
+
+     Hue progression spans the color wheel (130 → 75 → 25 → 350 → 250
+     → 30) so adjacent levels never share a hue family. Lightness
+     descends mostly monotonically (0.62 → 0.55 → 0.55 → 0.48 → 0.40
+     → 0.32) so the palette degrades gracefully under colorblindness:
+     hue distinguishes for normal vision, lightness distinguishes for
+     red-green-blind / total-achromatic vision. */
+  /* v8 (final): moderate chroma boost (0.05-0.08 → 0.10-0.13). Tones
+     gain depth and presence without becoming vivid; reads as "muted
+     printed ink, less faded" rather than vintage paper. N1's hue
+     rotated 250→285 (cool blue → warm violet) so the entire palette
+     stays in warm hues. Lightness bumped slightly on N1 + beyond
+     to maintain perceptual balance with the moderate chroma. */
+  --color-deck-n5-mark:     oklch(0.62 0.11 130);  /* richer leaf-green */
+  --color-deck-n4-mark:     oklch(0.55 0.13 75);   /* richer clay-amber */
+  --color-deck-n3-mark:     oklch(0.55 0.12 25);   /* richer rose */
+  --color-deck-n2-mark:     oklch(0.48 0.12 350);  /* richer plum */
+  --color-deck-n1-mark:     oklch(0.42 0.10 285);  /* richer warm violet */
+  --color-deck-beyond-mark: oklch(0.35 0.10 40);   /* richer umber */
+
+  /* Lightened wash tones for badge backgrounds (text-mark on bg-wash).
+     Slight chroma bump so washes don't read as colorless against the
+     new mark tones. Lightness held at 0.91-0.94 to keep washes as
+     soft tints rather than saturated chips. */
+  --color-deck-n5-wash:     oklch(0.94 0.030 130);
+  --color-deck-n4-wash:     oklch(0.92 0.035 75);
+  --color-deck-n3-wash:     oklch(0.93 0.030 25);
+  --color-deck-n2-wash:     oklch(0.92 0.030 350);
+  --color-deck-n1-wash:     oklch(0.91 0.028 285);  /* hue 250→285 */
+  --color-deck-beyond-wash: oklch(0.91 0.025 40);
+
   /* ── Semantic aliases (form errors, surfaces) ─────────────────────── */
   --color-surface-base:    var(--color-warm-paper-base);
   --color-surface-raised:  var(--color-warm-paper-raised);
