@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 import { TopBar } from '../_components/top-bar'
 
+import { DashboardActions } from './_components/dashboard-actions'
 import { DashboardClient } from './_components/dashboard-client'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -24,36 +24,17 @@ function DashboardHeader({ dateLabel }: { dateLabel: string }): React.JSX.Elemen
       {/* Mobile: just the brand chrome (TopBar already injects hamburger + Logo) */}
       <span className="lg:hidden ml-auto" />
 
-      {/* Desktop: editorial date left, Add Card right, edge-aligned to body column */}
+      {/* Desktop: editorial date left, ?-glossary + Add card chrome right,
+          edge-aligned to the body column. DashboardActions is a client
+          component because it owns the keyboard-shortcut handler + glossary
+          popover state. */}
       <div className="hidden lg:flex flex-1 items-center justify-between max-w-[1360px] mx-auto">
         <p className="font-mono text-sm tracking-wide text-faded-sumi">
           {dateLabel}
         </p>
-        <AddCardAffordance />
+        <DashboardActions />
       </div>
     </>
-  )
-}
-
-function AddCardAffordance(): React.JSX.Element {
-  return (
-    <Link
-      href="/decks/new"
-      className={[
-        // h-10 (40px) brings the chip closer to the WCAG 2.5.5 44×44px touch
-        // target while keeping it visibly subordinate to the h-12 Start
-        // Review hero CTA. h-9 (36px) was below the AAA recommendation.
-        'inline-flex items-center gap-1.5 h-10 px-3.5 rounded-[2px]',
-        'bg-inari-vermillion text-warm-paper-raised',
-        'text-sm font-medium',
-        'transition-colors duration-150 ease-out',
-        'hover:bg-inari-vermillion-deep',
-        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-      ].join(' ')}
-    >
-      <span className="font-mono text-base leading-none translate-y-[-1px]" aria-hidden="true">+</span>
-      <span>Add card</span>
-    </Link>
   )
 }
 

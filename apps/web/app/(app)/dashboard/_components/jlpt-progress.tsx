@@ -25,7 +25,13 @@ interface JlptProgressProps {
  * Mobile (< 768px): label / bar / percent + status word stack as 3 lines per
  * level row.
  */
-const DISPLAY_ORDER: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']
+/**
+ * Display order: top → bottom = summit → foundation. Reading top-to-bottom
+ * scans from `beyond_jlpt` at the peak down to N5 at the base, which matches
+ * the climb-up mental model: "where you're heading" sits at the top, "where
+ * you started" sits at the bottom. The user's eye rises from the foundation.
+ */
+const DISPLAY_ORDER: JlptLevel[] = ['beyond_jlpt', 'N1', 'N2', 'N3', 'N4', 'N5']
 
 const LEVEL_LABEL: Record<JlptLevel, string> = {
   N5:          'N5',
