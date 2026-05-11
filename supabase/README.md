@@ -7,8 +7,7 @@ This directory contains Supabase configuration and PostgreSQL migrations for the
 ```
 supabase/
 ├── config.toml          # Local development configuration
-├── migrations/          # SQL migration files (applied in order)
-└── functions/           # Supabase Edge Functions (if using)
+└── migrations/          # SQL migration files (applied in order)
 ```
 
 ## Local Development Setup
@@ -83,27 +82,41 @@ supabase db push                 # Dry-run by default; approve when prompted
 | `20260505000001` | 2026-05-05 | Clarify grammar_patterns design: user_id NOT NULL constraint |
 | `20260520000000` | 2026-05-20 | Remove unused grammar-pattern feature: drop `grammar_patterns` table, JLPT Grammar premade deck (with seed cards), and `deck_type='grammar'` enum value. User forks of the grammar deck migrated to `deck_type='vocabulary'`. |
 
-See the full audit in [`/home/sergei/.claude/plans/polymorphic-finding-badger.md`](../../../home/sergei/.claude/plans/polymorphic-finding-badger.md).
-
 ## Generating TypeScript Types
 
-Generate type definitions from your schema:
+The generated Supabase `Database` type is API-local:
 
-```bash
-# For local schema
-supabase gen types typescript --local > packages/shared-types/src/database.types.ts
-
-# For remote schema
-supabase gen types typescript --project-id YOUR_PROJECT_ID > packages/shared-types/src/database.types.ts
+```text
+apps/api/src/db/database.types.ts
 ```
 
-Then use the helpers in `packages/shared-types/src/database.types.helpers.ts` to override JSONB and vector types:
+Do not generate raw database types into `packages/shared-types`. That package is
+for API/web contracts, validation schemas, and domain payload shapes. The web app
+intentionally uses Supabase only for auth and should not import the raw database
+schema.
+
+Generate types with the existing scripts:
+
+```bash
+# Hosted project configured in the root package script
+bun run db:types
+
+# Linked local Supabase project from the API workspace
+bun run --filter @fsrs-japanese/api gen:types
+```
+
+After generation, review and commit changes to `apps/api/src/db/database.types.ts`.
+API services should import the generated type from `apps/api/src/db/database.types.ts`.
+Shared request/response types should continue to come from
+`@fsrs-japanese/shared-types`.
+
+For JSONB fields, narrow through shared schemas/helpers instead of widening the
+generated database type:
 
 ```typescript
-import type { TypedCardRow, VocabularyFieldsData } from '@fsrs-japanese/shared-types';
+import { getVocabularyFields } from '@fsrs-japanese/shared-types'
 
-const card = (await supabase.from('cards').select().single()).data as TypedCardRow;
-const fields = card.fields_data as VocabularyFieldsData;
+const fields = getVocabularyFields(apiCard)
 ```
 
 ## Troubleshooting
@@ -124,7 +137,11 @@ supabase start
 ```
 
 ### Type generation shows `string` for NUMERIC fields
-Use `database.types.helpers.ts` to override types for NUMERIC columns (treated as `string` by Supabase for arbitrary precision). Change these to `FLOAT8` in the schema for `number` type mapping.
+Supabase emits PostgreSQL `NUMERIC` columns as `string` for arbitrary precision. If
+the application treats the value as a JavaScript `number`, prefer changing the
+schema to `FLOAT8` through a migration so generated types match runtime usage.
+For JSONB or vector columns that still need local narrowing/casting, keep that
+cast close to the service boundary that reads or writes the field.
 
 ## References
 

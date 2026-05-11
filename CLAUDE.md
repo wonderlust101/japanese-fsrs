@@ -6,7 +6,7 @@ This file provides context for AI coding assistants (Claude, Copilot, Cursor, et
 
 ## Project Overview
 
-**AI-Enhanced FSRS for Japanese** is a spaced repetition application built specifically for Japanese learners. It combines a Japanese-aware implementation of the FSRS v5 algorithm with OpenAI gpt-5.4 nano to deliver intelligent card generation, weakness diagnosis, personalized mnemonics, and contextual sentence creation — all in a single self-contained application.
+**Tomo** is a spaced repetition application built specifically for Japanese learners. It combines a Japanese-aware implementation of the FSRS v5 algorithm with OpenAI-backed card generation, contextual sentences, and personalized mnemonics in a single self-contained practice app. Product, brand, visual, and database truth live in `docs/PRODUCT.md`, `docs/DESIGN.md`, and `docs/DATABASE.md`.
 
 This is a **Bun monorepo** with two main apps:
 - `apps/web` — Next.js 15 frontend (App Router)
@@ -83,8 +83,18 @@ bun run build
 ```bash
 bun test                        # All workspaces
 bun --filter api test           # API tests only
-bun --filter web test           # Frontend tests only
 ```
+
+The frontend does not currently define a `test` script. Until the frontend test
+runner is added, use the web verification scripts:
+
+```bash
+bun run --filter @fsrs-japanese/web typecheck
+bun run --filter @fsrs-japanese/web lint
+bun run --filter @fsrs-japanese/web build
+```
+
+Detailed testing policy, mocking rules, and integration-test requirements live in [docs/TESTING.md](./docs/TESTING.md).
 
 ### Type checking
 ```bash
@@ -104,6 +114,8 @@ supabase db push                     # Push migrations to remote
 supabase db reset                    # Reset local DB and re-seed
 ```
 
+Exact schema, RPC, RLS, and migration rules live in [docs/DATABASE.md](./docs/DATABASE.md).
+
 ---
 
 ## Environment Variables
@@ -120,12 +132,15 @@ OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=
 OPENAI_EMBEDDING_MODEL=
 LEECH_THRESHOLD=8
-DEFAULT_RETENTION_TARGET=0.85
+CORS_ORIGIN=http://localhost:3000
+LOG_LEVEL=debug
 ```
 
 `OPENAI_CHAT_MODEL` is optional; defaults to `gpt-5.4-nano`. Used for card / sentence / mnemonic generation. Swap without a rebuild.
 
 `OPENAI_EMBEDDING_MODEL` is optional; defaults to `text-embedding-3-small`. The chosen model **must produce 1536-dim vectors** to match the `cards.embedding vector(1536)` column type. Switching to a model with a different dimension requires a schema migration.
+
+`CORS_ORIGIN` is optional; it defaults to `http://localhost:3000` and accepts a comma-separated list of absolute origins. `LOG_LEVEL` is optional; when unset, logging defaults to `debug` in development and `info` otherwise.
 
 ### Operations
 
@@ -147,30 +162,40 @@ NEXT_PUBLIC_SITE_URL=
 
 `NEXT_PUBLIC_SITE_URL` is the canonical public URL of the site (e.g.
 `https://tomo.app`). Used as `metadataBase` in `apps/web/app/layout.tsx` so
-Open Graph image URLs and the sitemap entry resolve absolutely. Falls back to
-`http://localhost:3000` when unset, which is correct for local dev but wrong
-for any deployed environment — set it in staging/production.
+Open Graph image URLs and the sitemap entry resolve absolutely. It is validated
+by `apps/web/lib/env.ts` and falls back to `http://localhost:3000` when unset,
+which is correct for local dev but wrong for any deployed environment — set it
+in staging/production.
 
 ---
 
-## Architecture Decisions
+## Architecture Notes
 
-### Why Express + Next.js separately?
-Next.js API routes are used only for auth callbacks and lightweight proxying. The heavy business logic (FSRS scheduling, AI calls, analytics queries) lives in the Express API so it can be scaled, tested, and deployed independently of the frontend.
+Full architecture boundaries live in [docs/TDD.md](./docs/TDD.md). Keep these routing decisions in mind while coding:
 
-### Why Zustand for client state?
-The review session must feel instantaneous. Zustand holds the entire review queue in memory and applies optimistic updates before the API responds. TanStack Query handles everything that is server-derived data (decks, analytics, due cards). The two layers do not overlap.
-
-### Why pgvector over a dedicated vector DB?
-The semantic similarity feature ("similar cards") does not require billions of vectors. Keeping embeddings in the same Supabase PostgreSQL database avoids a separate service, simplifies queries (join directly with card data), and reduces infrastructure complexity at this scale.
-
-### Why Upstash Redis?
-Serverless-compatible, no persistent connection needed. Used for three purposes: AI response caching (reduce OpenAI costs), rate limiting AI endpoints per user, and buffering offline review submissions for batch retry.
-
-### FSRS parameters are per layout
-Comprehension, production, and listening layouts have separate `generatorParameters` instances with different `request_retention` targets. Do not consolidate them into a single parameter set — each layout has measurably different forgetting curves in Japanese.
+- Next.js API routes are only for auth callbacks and lightweight proxying; business logic lives in the Express API.
+- Use TanStack Query for server-derived frontend data and Zustand for review/session-local state.
+- Keep embeddings in Supabase PostgreSQL with pgvector unless the technical design changes.
+- Upstash Redis supports AI response caching, rate limiting, and offline review retry buffering.
+- FSRS parameters are per cognitive modality (`comprehension`, `production`, `listening`); do not collapse them into one shared scheduler.
 
 ---
+
+## Coding Standards
+
+Before making code changes, read and apply the relevant standards:
+
+- **All code changes:** [docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md).
+- **Frontend changes under `apps/web`:** [docs/CODING_STANDARDS_FRONTEND.md](./docs/CODING_STANDARDS_FRONTEND.md).
+- **Backend/API changes under `apps/api`:** [docs/CODING_STANDARDS_BACKEND.md](./docs/CODING_STANDARDS_BACKEND.md).
+- **Database, migration, schema, or persistence changes:** [docs/DATABASE.md](./docs/DATABASE.md) plus the backend standards.
+- **UI, visual, accessibility, or interaction changes:** [docs/DESIGN.md](./docs/DESIGN.md) plus the frontend standards.
+
+Before finishing code work:
+
+- Verify the touched code against the same standards and report any checks you could not run.
+- Check whether documentation changed or needs to change. Update non-brand docs when routes/API behavior, architecture, schema/migrations/RPC/persistence, testing approach, active scope/status, or coding standards change.
+- Do not edit [docs/PRODUCT.md](./docs/PRODUCT.md) or [docs/DESIGN.md](./docs/DESIGN.md) unless the user explicitly asks for those files to change. If code changes affect product, brand, or design truth, report the documentation impact and ask before editing those files.
 
 ## Key Conventions
 
@@ -185,33 +210,24 @@ Comprehension, production, and listening layouts have separate `generatorParamet
 - Every controller handler must call `next(error)` on failure — do not `res.json()` errors directly except in the global error handler.
 - Auth middleware (`apps/api/src/middleware/auth.ts`) must be applied to every protected route. Never skip it.
 - AI endpoints must go through the rate limiter middleware before the controller handler.
-- All body and query Zod schemas use `.strict()` so unknown keys reject with a 400 Validation error. Path-param schemas don't need it — Express only fills declared slots.
-- List endpoints are cursor-paginated with a server-fixed sort over an immutable key (typically `created_at`) plus an `id` tiebreaker. If a client-controllable sort is ever needed, expose it as a Zod enum mapped to a `CASE` in the RPC — never accept raw column names.
-- Retry-able state-mutating POSTs (`/reviews/submit`, `/reviews/batch`, `/decks`, `/decks/:deckId/cards`, `/cards/:id/regenerate-embedding`, `/premade-decks/:id/subscribe`) require an `Idempotency-Key: <uuid>` header. Same key + same body → replay; same key + different body → 422; same key + still in-flight → 409. Storage is per-user with a 24h TTL. Generate the key once per logical submission attempt; reuse it across retries (the offline review queue persists per-entry keys for this purpose). The regenerate-embedding endpoint requires a key specifically because retries would otherwise re-bill the OpenAI embedding call — its idempotency hash uses the `cardId` from the URL.
-- `PATCH /api/v1/cards/:id`, `PATCH /api/v1/decks/:id`, and `PATCH /api/v1/profile` all require an `If-Match: <version>` header. The numeric `version` int is on every full-resource response (`ApiCard` / `ApiDeck` / `Profile`) but is intentionally omitted from list / due / forecast projections — only detail views drive PATCH. Mismatch → 412 Precondition Failed; client refetches and retries. Missing header → 428 Precondition Required.
-- Every authenticated route runs through a 240/min/user backstop (`defaultUserRateLimitMiddleware`). Stricter per-endpoint limiters apply on top — they trip first on costly endpoints. Auth endpoints run two parallel checks (5/15min per email + 30/15min per IP); OTP verify adds a third (5/hour per email). All limiters set `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, plus `Retry-After` on 429.
-- **Rate limiters fail OPEN on Upstash failure.** When the rate-limit middleware can't reach Upstash (network blip, regional Upstash incident, or `'upstash'` circuit breaker open), it logs a warn line and lets the request through rather than 503'ing every client. The trade-off is brief abuse-risk windows during Upstash outages in exchange for availability — the 30-failure / 60s Upstash breaker threshold bounds warn-log volume during sustained outages, and rate limiters resume normal enforcement once Upstash is reachable again. AppError throws (e.g., the legitimate 429 from a tripped limiter) still propagate normally — the fail-open path only catches infrastructure errors. Implemented via `failOpenOnInfraError` in `apps/api/src/middleware/rateLimit.ts`.
-- Rate limiters are gated to `NODE_ENV !== 'development'`. In dev, every middleware short-circuits with `next()` so local iteration doesn't trigger Upstash round-trips. In test + prod, rate limiting runs normally. The `tests/integration/ratelimit.routes.test.ts` integration suite gates itself on `NODE_ENV === 'production'` because it asserts on the actual 429 response.
-- **Graceful shutdown contract.** On SIGTERM / SIGINT, the API flips an internal `shuttingDown` flag (`apps/api/src/lib/shutdown.ts`). `_health/ready` immediately returns 503 with `{ shuttingDown: true, ... }` so the load balancer stops forwarding traffic at its next probe. `server.close()` is then called — new connections are refused; existing in-flight requests finish naturally. A 25-second hard-exit safety net caps the drain so the process never outlives the orchestrator's typical 30-second grace window. `_health/live` keeps returning 200 throughout drain so liveness probes don't trigger a kill before drain completes. `_health/deep` exposes `shuttingDown` in its `ready` sub-object for ops dashboards.
+- Body and query Zod schemas should reject unknown keys with `.strict()`.
+- Wire payloads are camelCase; database columns and SQL RPC parameters are snake_case. Transform at the service layer.
+- Retryable mutating POSTs use `Idempotency-Key`; optimistic PATCH routes use `If-Match`. Exact contracts live in [docs/DATABASE.md](./docs/DATABASE.md) and [docs/TDD.md](./docs/TDD.md).
+- Rate limiters fail open on Upstash infrastructure failure and are bypassed in development; preserve that availability behavior unless the technical design changes.
+- Graceful shutdown must keep readiness/liveness behavior consistent with `apps/api/src/lib/shutdown.ts`.
 - Logging: every API line goes through `pino` (`apps/api/src/lib/logger.ts`). Handlers use `req.log` (auto-tagged with `reqId` from `pino-http`); services use `componentLogger('component-name')` from `lib/logger.ts`. Never `console.log` in `apps/api/src` code. Sensitive paths (`email`, `password`, `*token*`, `authorization`/`cookie` headers) are auto-redacted by pino's `redact` config; do not log raw user identifiers — use the `userId` UUID instead. Every request honors `X-Request-ID` (or generates one) and echoes it back as a response header.
-- Request and response bodies are **camelCase on the wire** (both directions). The DB columns and SQL RPC parameter names stay snake_case; the camelCase ↔ snake_case transform lives at the service layer (the `toRow` / `toCardRow` / `toPremadeRow` helpers for responses, explicit patch maps for inputs).
-- List endpoints return `{ items, nextCursor, hasMore }`. Bounded responses (analytics, due cards, forecast, similar cards, subscriptions) set `nextCursor: null` and `hasMore: false` so the shape stays uniform.
 - `POST /api/v1/auth/signup` deliberately returns the same 201 shape for fresh and duplicate-email signups (`userId` is null on the duplicate path). This closes the account-enumeration vector — do not "improve" the DX by surfacing a different error for duplicates.
 
 ### Database
 - Never write raw SQL in route handlers. All queries go through service functions in `apps/api/src/services/`.
-- All tables have Row Level Security enabled. When writing new migrations, always add RLS policies. Do not disable RLS.
-- FSRS state fields (`stability`, `difficulty`, `due`, `state`, etc.) on the `cards` table must only be updated via `fsrs.service.ts`. Do not update them directly elsewhere.
+- Exact schema, RLS, indexes, triggers, RPCs, FSRS persistence, idempotency, and optimistic concurrency rules live in [docs/DATABASE.md](./docs/DATABASE.md).
+- All tables have Row Level Security enabled. New migrations must add matching RLS policies; do not disable RLS.
+- FSRS state fields on `cards` must only be updated through `fsrs.service.ts` and the approved database RPCs.
 
 ### Migration conventions
-- **Forward-only.** Never edit a migration that has been applied to any remote. The catch-up migration `20260503000004_add_premade_deck_id_to_cards.sql` exists only because the initial schema was edited post-apply — don't repeat that.
-- **Indexes on populated tables: prefer `CONCURRENTLY` *only when applying outside* `bunx supabase db push`.** The CLI runs migrations in a pipeline that PG treats as a transaction (SQLSTATE 25001 forbids `CONCURRENTLY` there). For migrations applied via `db push`, use plain `CREATE INDEX` / `DROP INDEX` and accept the brief SHARE lock — it's sub-second on our current data sizes. If you need true online indexing on a large table, split each statement into its own migration file and apply via `psql` directly (or `bunx supabase db remote commit` workflows).
-- **CHECK constraints on populated tables use `NOT VALID + VALIDATE`.** First `ADD CONSTRAINT … CHECK (…) NOT VALID` (cheap, no scan), then `ALTER TABLE … VALIDATE CONSTRAINT …` separately so the validation lock is brief and isolated.
-- **Every new SECURITY DEFINER function needs an explicit `GRANT EXECUTE … TO service_role`** in the same migration. Supabase's auto-grant machinery doesn't fire for `supabase db push`; without the explicit grant, callers hit `42501`.
-- **Backfills with `INSERT … SELECT` filter against the FK target** (e.g. `LEFT JOIN cards … WHERE cards.id IS NOT NULL`). `ON CONFLICT DO NOTHING` only catches PK conflicts, not FK violations — an unknown UUID in a source array will abort the whole migration.
-- **`ALTER TYPE … ADD VALUE` is irreversible** without rebuilding the type. Use `ADD VALUE IF NOT EXISTS` so `supabase db reset` is re-runnable; document the addition in a comment block at the top of the migration.
-- **Destructive column drops require an explicit comment** stating either "no data exists at this point" or naming the column whose values are being preserved. Never drop a `NOT NULL` content column without first proving the data is either gone or migrated.
-- **Pin `SET search_path = ''` on every SECURITY DEFINER function**, and fully qualify references (`public.cards`, `public.review_logs`, …). Triggers invoked by SECURITY DEFINER functions inherit the empty search path; trigger functions must do the same.
+- Migrations are forward-only. Never edit a migration that has been applied to any remote.
+- Follow [docs/DATABASE.md](./docs/DATABASE.md) for online-indexing, `NOT VALID`, enum, backfill, destructive-drop, and SECURITY DEFINER details.
+- Every new SECURITY DEFINER function needs explicit `GRANT EXECUTE ... TO service_role` and pinned `SET search_path = ''`.
 
 ### Frontend
 - Use the App Router only. Do not add anything to `pages/`.
@@ -229,48 +245,14 @@ Comprehension, production, and listening layouts have separate `generatorParamet
 - Card generation must use `response_format: { type: 'json_object' }` and parse the response. Always validate the shape before returning to the client.
 - Never pass raw user input directly into a prompt without sanitization. Strip HTML and trim whitespace first.
 
----
-
-## FSRS Quick Reference
-
-The FSRS state machine has 4 states:
-
-| State | Value | Description |
-|---|---|---|
-| New | 0 | Never reviewed |
-| Learning | 1 | Recently introduced, short intervals |
-| Review | 2 | In long-term memory, graduated |
-| Relearning | 3 | Lapsed, being relearned |
-
-Ratings map to `ts-fsrs` `Rating` enum:
-- `1` = Again
-- `2` = Hard
-- `3` = Good
-- `4` = Easy
-
-Always use the `Rating` enum constants from `ts-fsrs`, not raw integers.
-
-### FSRS Service Functions (`fsrs.service.ts`)
-
-| Function | Description | DB writes |
-|---|---|---|
-| `processReview(cardId, rating, userId, ms?)` | Normal review — schedules next interval via `f.next()` | Yes (RPC) |
-| `rollbackReview(cardId, userId, logId)` | Undo a specific review log; restores card to before-snapshot | Yes (direct update) |
-| `forgetCard(cardId, userId, resetCount?)` | Reset card to New state (Anki Forget) | Yes (RPC) |
-| `getRetrievability(stability, elapsedDays)` | Current recall probability (0–1) | None (pure math) |
-| `previewNextStates(row, cardType, now?)` | Preview all 4 rating outcomes without committing | None (pure math) |
-| `rescheduleFromHistory(cardId, userId)` | Replay full review history to recompute schedule | Yes (RPC) |
-| `getInitialFsrsState()` | Default field values for a new card row | None |
-
----
-
 ## Common Pitfalls
 
+- Exact FSRS state values, RPC behavior, and persistence rules live in [docs/DATABASE.md](./docs/DATABASE.md) and [docs/TDD.md](./docs/TDD.md).
 - **Use `f.next()` for all normal reviews, not `f.repeat()`.** `f.repeat()` computes all 4 rating outcomes simultaneously and is only valid inside `previewNextStates()`. Never call `f.repeat()` for an actual user review — it does not persist state and calling it more than once is not idempotent.
 - **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
 - **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
-- **Per-layout FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across layouts.
-- **Linked Card Sync:** When updating content fields (`word`, `reading`, `meaning`) on a card, those shared values must propagate to all sibling cards via `syncSharedFields` in `card.service.ts`. When updating FSRS state, synchronize `stability` and `difficulty` to sibling cards to prevent redundant reviews.
+- **Per-modality FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across `card_type` modalities.
+- **Linked Card Sync:** When updating content fields (`word`, `reading`, `meaning`) on a card, those shared values must propagate to sibling cards through the `update_card_with_sibling_sync` RPC used by `card.service.ts`.
 - **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.
 - **Zustand actions must be inside the `actions` sub-object** in each store definition. Do not add actions at the top level of the store interface.
@@ -280,29 +262,20 @@ Always use the `Rating` enum constants from `ts-fsrs`, not raw integers.
 - **Premade deck cards have `user_id = NULL`.** When a user subscribes to a premade deck, the subscription service creates personal copies of each card with FSRS state initialized to `new`. Never mutate the source premade cards — they are shared across all users.
 - **Do not allow FSRS state updates on premade deck source cards.** The `processReview` service must check `user_id != NULL` before writing. Only personal card copies should ever have FSRS state written.
 
----
-
-## Non-Priority Features (Do Not Implement Unless Explicitly Asked)
-
-The following features are documented in the PRD but are intentionally deferred. Do not implement them, suggest implementing them, or scaffold code for them without explicit instruction:
-
-- Browser extension for sentence mining
-- Subtitle / SRT file mining
-- Frequency-aware imports from external sources
-- In-app reading mode with popup dictionary
-- Immersion time tracker
-- Shadowing mode (pronunciation recording + AI feedback)
-- All social and community features (shared decks, mnemonic voting, study groups)
-
----
-
 ### Documentation Map
-Always refer to these files in the `/docs` directory before suggesting architectural changes or new features:
-- **Product Requirements:** [docs/PRD.md](./docs/PRD.md) - Features, user stories, and project scope.
-- **Technical Design:** [docs/TDD.md](./docs/TDD.md) - System architecture and FSRS implementation details.
-- **Design Specs:** [docs/UX-UI-SPEC.md](./docs/UX-UI-SPEC.md) - Visual guidelines and component behaviors.
-- **Coding Standards:** [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) - Linting, naming, and PR guidelines.
+Always refer to the canonical docs before suggesting architectural changes, product changes, or design changes:
+- **Product:** [docs/PRODUCT.md](./docs/PRODUCT.md) - protected source of truth for users, purpose, business model, brand, product principles, and accessibility commitments. Do not edit unless explicitly asked.
+- **Design:** [docs/DESIGN.md](./docs/DESIGN.md) - protected source of truth for visual system, tokens, typography, components, motion, and anti-patterns. Do not edit unless explicitly asked.
+- **Database:** [docs/DATABASE.md](./docs/DATABASE.md) - tables, constraints, RLS, indexes, triggers, and RPCs.
+- **Coding Standards:** [docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md) - mandatory cross-cutting coding standards.
+- **Frontend Standards:** [docs/CODING_STANDARDS_FRONTEND.md](./docs/CODING_STANDARDS_FRONTEND.md) - mandatory standards for `apps/web`.
+- **Backend Standards:** [docs/CODING_STANDARDS_BACKEND.md](./docs/CODING_STANDARDS_BACKEND.md) - mandatory standards for `apps/api`.
+- **Product Companion:** [docs/PRD.md](./docs/PRD.md) - requirement framing that defers to product/design/database truth.
+- **Technical Companion:** [docs/TDD.md](./docs/TDD.md) - architecture and implementation boundaries that defer to the database reference.
+- **Active Board:** [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md) - current project tasks and owner decisions in motion.
+- **Status Index:** [docs/IMPLEMENTATION_STATUS.md](./docs/IMPLEMENTATION_STATUS.md) - current status index; detailed code-inspected evidence lives in `docs/status/`.
+- **Testing:** [docs/TESTING.md](./docs/TESTING.md) - test tiers, locations, mocking, and execution guidance.
 
 ---
 
-*Last updated: 2026-05-06*
+*Last updated: 2026-05-10*

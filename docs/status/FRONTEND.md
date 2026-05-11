@@ -1,0 +1,22 @@
+# Frontend Status
+
+Refreshed by read-only code inspection on 2026-05-10. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
+
+| Capability | Status | Evidence |
+|---|---|---|
+| App shell, protected routes, dashboard, decks, review, analytics, settings | Implemented | `apps/web/app/(app)/layout.tsx`, `apps/web/app/(app)/dashboard/page.tsx`, `apps/web/app/(app)/decks/page.tsx`, `apps/web/app/(app)/review/page.tsx`, `apps/web/app/(app)/analytics/page.tsx`, `apps/web/app/(app)/settings/page.tsx` |
+| Login/signup UI with verify route | Implemented | `apps/web/app/(auth)/login/page.tsx`, `apps/web/app/(auth)/signup/page.tsx`, `apps/web/app/(auth)/signup/verify/page.tsx` |
+| Multi-step onboarding UI | Partial | Level, goal, interests, schedule, and decks pages exist under `apps/web/app/onboarding`; the decks step uses hardcoded placeholder recommendations and does not call premade subscribe routes. |
+| Premade deck browsing UI | Implemented | `apps/web/app/(app)/decks/browse/page.tsx`, `apps/web/app/(app)/decks/browse/_components/premade-browser.tsx` |
+| Review session UI | Implemented | `apps/web/app/(app)/review/session/page.tsx`, `apps/web/components/review/ReviewCard.tsx`, `apps/web/components/review/RatingButtons.tsx`, `apps/web/stores/useReviewSessionStore.ts` |
+| Offline review queue and replay | Implemented | `apps/web/lib/offline-queue.ts`, `apps/web/lib/api/reviews.ts`, `apps/web/app/(app)/review/_components/offline-queue-banner.tsx` |
+| Review summary page | Implemented | `apps/web/app/(app)/review/summary/page.tsx`, `apps/api/src/routes/reviews.ts` |
+| Analytics dashboard UI | Implemented | `apps/web/app/(app)/analytics/_components/*`, `apps/web/lib/api/analytics.ts` |
+| Dashboard placeholder-backed modules from code comments | Partial | `apps/web/app/(app)/dashboard/_components/dashboard-client.tsx` hardcodes active decks, leeches, recent activity, and Tomo note data while comments describe the missing APIs/hooks. |
+| Review personal-best persistence | Partial | `apps/web/app/(app)/review/summary/page.tsx` uses a `localStorage` placeholder for personal-best comparison; no durable user-scoped persistence was found. |
+| Public brand landing page | Partial | `apps/web/app/page.tsx` exists, but it currently redirects to `/onboarding`; no completed public brand surface was found. |
+| Public SEO and installability surfaces | Missing | Comments in `apps/web/app/layout.tsx` and `apps/web/app/sitemap.ts` reference `app/manifest.ts`, dynamic deck Open Graph images, JSON-LD, and expanded public sitemap routes; those surfaces were not found. |
+| Full frontend CSP nonce policy | Partial | `apps/web/next.config.ts` sets security headers and `frame-ancestors`, but comments state a fuller script/style CSP is deferred until Next.js nonce handling is designed. |
+| Product design-system migration to current Tomo brand | Partial | Brand assets and custom icon components exist in `apps/web/public/brand` and `apps/web/components/icons`; `lucide-react` remains in `apps/web/package.json` as a legacy dependency. |
+| Legal pages | Missing | No privacy or terms pages were found under `apps/web/app`; the Kanban board tracks this as active work. |
+| Custom error/not-found/loading pages | Partial | Static inspection found route pages and layouts, but no broad custom `not-found.tsx` or `error.tsx` coverage was verified. |

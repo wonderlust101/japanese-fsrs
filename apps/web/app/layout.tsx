@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
 import { FloatingLauncher } from '@/components/dev/FloatingLauncher'
 import { QueryProvider } from '@/components/providers/QueryProvider'
+import { env } from '@/lib/env'
 import './globals.css'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+const SITE_URL = env.NEXT_PUBLIC_SITE_URL
 const SITE_DESCRIPTION =
   'AI-enhanced spaced repetition for Japanese. Learn kanji, vocabulary, and grammar with FSRS scheduling tuned for the way Japanese forgetting curves actually behave.'
 

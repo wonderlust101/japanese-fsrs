@@ -1,8 +1,7 @@
 # Testing Strategy
-## AI-Enhanced FSRS for Japanese
+## Tomo
 
-**Version:** 1.3.0  
-**Last Updated:** 2026-04-28
+**Last Updated:** 2026-05-10
 
 ---
 
@@ -170,8 +169,10 @@ bun test apps/api/src
 # API integration tests only
 bun test apps/api/tests/integration
 
-# Frontend tests only
-bun test apps/web
+# Frontend verification until a frontend test runner exists
+bun run --filter @fsrs-japanese/web typecheck
+bun run --filter @fsrs-japanese/web lint
+bun run --filter @fsrs-japanese/web build
 
 # Watch mode (re-runs on file change)
 bun test --watch apps/api/src
@@ -210,11 +211,11 @@ bun test --watch apps/api/src
 ## 6. What Not to Test
 
 - **Implementation details:** test inputs and outputs, not which internal methods were called.
-- **Third-party library internals:** trust that `@open-spaced-repetition/binding`, Zod, and Supabase work correctly.
+- **Third-party library internals:** trust that `ts-fsrs`, Zod, and Supabase work correctly.
 - **Type correctness:** TypeScript catches type errors at compile time; do not write tests that only assert types.
 - **Trivial getters/setters:** a function that returns `this.value` does not need a test.
-- **The FSRS algorithm math:** `@open-spaced-repetition/binding` has its own test suite; test that `processReview` persists the result correctly, not that the scheduling math is right.
+- **The FSRS algorithm math:** `ts-fsrs` owns the scheduler math; test that `processReview` persists the result correctly, not that the scheduling math is right.
 
 ---
 
-*End of Testing Strategy v1.3.0*
+*End of Testing Strategy*

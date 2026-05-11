@@ -1,0 +1,618 @@
+# Database Schema Reference
+
+This document describes every table in the Supabase (PostgreSQL) database, the purpose of each column, and the constraints, indexes, triggers, and RPCs that govern them.
+
+> **Generated from:** migrations in `supabase/migrations/` through `20260528000002`.
+> **Database:** Supabase PostgreSQL with the `pgvector` extension.
+> **Convention:** All wire formats are camelCase; all DB columns are snake_case. The transform happens at the service layer (`toRow` / `toCardRow` / `toPremadeRow` for responses; explicit patch maps for inputs).
+
+---
+
+## Table of Contents
+
+- [Conventions & Cross-Cutting Concerns](#conventions--cross-cutting-concerns)
+- [Enum Types](#enum-types)
+- [Roles & Privileges](#roles--privileges)
+- [Tables](#tables)
+  - [`profiles`](#table-profiles)
+  - [`user_interests`](#table-user_interests)
+  - [`premade_decks`](#table-premade_decks)
+  - [`decks`](#table-decks)
+  - [`user_premade_subscriptions`](#table-user_premade_subscriptions)
+  - [`cards`](#table-cards)
+  - [`review_logs`](#table-review_logs)
+  - [`leeches`](#table-leeches)
+  - [`idempotency_keys`](#table-idempotency_keys)
+- [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
+- [Triggers](#triggers)
+- [Relationships Overview](#relationships-overview)
+- [Key Design Decisions](#key-design-decisions)
+
+---
+
+## Conventions & Cross-Cutting Concerns
+
+### Row-Level Security (RLS)
+Every application table has RLS enabled. The default access patterns are:
+
+| Role | Use case | Bypass RLS? |
+|---|---|---|
+| `service_role` | Used by the Express API via `supabaseAdmin`. | **Yes** |
+| `authenticated` | Used by the Next.js client (auth session only). | No — RLS policies apply. |
+| `anon` | Pre-login browse of `premade_decks` only. | No. |
+
+The Express API speaks to the database exclusively through `service_role`. RLS policies on application tables are therefore **defense-in-depth**: they prevent privilege escalation if the service-role key ever leaks but they are not the primary authorization layer. Authorization is enforced at the API boundary by `auth.middleware.ts`.
+
+### `SECURITY DEFINER` functions
+Most multi-step writes are wrapped in PL/pgSQL functions marked `SECURITY DEFINER` so they execute with the function owner's privileges (typically `postgres`) rather than the caller's. Every such function:
+- Pins `SET search_path = ''` and fully qualifies references (`public.cards`, `public.review_logs`, …) to defeat search-path injection.
+- Has an explicit `GRANT EXECUTE … TO service_role` in the same migration (Supabase's auto-grant doesn't fire for `supabase db push`).
+- Performs its own ownership check against `p_user_id` rather than relying on `auth.uid()` (the API authenticates first, then trusts the parameter).
+
+### Statement & lock timeouts
+The `service_role` connection has `statement_timeout = '10s'` and `lock_timeout = '2s'` (migration `20260512000000`). These compose under the 10s `supabase-js` fetch timeout in `apps/api/src/db/supabase.ts`.
+
+### Migration discipline
+- **Forward-only.** Never edit a migration that has been applied to any remote.
+- **Indexes on populated tables:** prefer plain `CREATE INDEX` (sub-second SHARE lock at current scale). Use `CONCURRENTLY` only when applying outside `bunx supabase db push` because the CLI runs migrations inside an implicit transaction (SQLSTATE 25001 forbids `CONCURRENTLY` there).
+- **CHECK constraints on populated tables:** use `NOT VALID + VALIDATE` (cheap add, isolated validation lock).
+- **Backfills:** filter against the FK target with `LEFT JOIN ... WHERE … IS NOT NULL` — `ON CONFLICT DO NOTHING` only catches PK conflicts, not FK violations.
+
+---
+
+## Enum Types
+
+| Enum | Values | Used By |
+|---|---|---|
+| `card_type` | `comprehension`, `production`, `listening` | `cards.card_type` |
+| `layout_type` | `vocabulary`, `grammar`, `sentence` | `cards.layout_type` |
+| `jlpt_level` | `N5`, `N4`, `N3`, `N2`, `N1`, `beyond_jlpt` | `cards`, `premade_decks`, `profiles.jlpt_target` |
+| `deck_type` | `vocabulary`, `kanji`, `mixed` | `decks`, `premade_decks` |
+| `review_rating` | `again`, `hard`, `good`, `easy`, `manual` | `review_logs.rating` |
+
+> `review_rating.manual` is only written by `process_forget()` (Anki Forget) and `rescheduleFromHistory()` internally. User-facing review submissions must be `again`/`hard`/`good`/`easy` and are rejected at the Zod schema layer.
+>
+> `jlpt_level.beyond_jlpt` covers native-level, domain-specific, and literary vocabulary not on any JLPT list. Do **not** use `NULL` to mean "not on JLPT" — use `beyond_jlpt` explicitly.
+>
+> `card_type` was migrated from a 5-value old enum (`recognition`, `production`, `reading`, `audio`, `grammar`) to the current 3-value modality enum in migration `20260502000004`. The old `deck_type` value `'grammar'` was removed in `20260520000000`.
+
+---
+
+## Roles & Privileges
+
+Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automatic per-table grant machinery does not fire when migrations are applied via `supabase db push`, so grants must be explicit.
+
+| Table | `service_role` | `authenticated` | `anon` |
+|---|---|---|---|
+| `profiles` | ALL | SELECT, UPDATE | — |
+| `user_interests` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
+| `decks` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
+| `cards` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
+| `review_logs` | ALL | SELECT, INSERT | — |
+| `leeches` | ALL | SELECT, INSERT, UPDATE | — |
+| `premade_decks` | ALL | SELECT | SELECT |
+| `user_premade_subscriptions` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
+| `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
+
+`profiles` deliberately omits `INSERT` from `authenticated` — rows are created exclusively by the `handle_new_user()` trigger. RPCs grant `EXECUTE` to `service_role` only; the API is the only legitimate caller.
+
+---
+
+## Tables
+
+### Table: `profiles`
+
+Extends `auth.users` with application-specific user preferences. Exactly one row per auth user, created automatically by the `handle_new_user()` trigger when a Supabase auth user signs up.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | — | Primary key. FK to `auth.users(id)` — cascades on user deletion. |
+| `native_language` | `TEXT` | NO | `'en'` | User's native language. ISO 639-1 (`en`), 639-3 (`eng`), with optional region (`en-US`) or script (`zh-Hans`) subtag. Validated by `profiles_native_language_iso639` CHECK. Used by the AI for mnemonic and explanation language selection. |
+| `jlpt_target` | `jlpt_level` | YES | `NULL` | The JLPT level the user is targeting. Drives JLPT-gap analytics and milestone forecast RPCs. |
+| `study_goal` | `TEXT` | YES | `NULL` | Free-form user-provided goal text. Displayed on the dashboard. |
+| `daily_new_cards_limit` | `INT` | NO | `20` | Maximum new cards introduced per day. Enforced by `get_due_cards()` RPC. CHECK ≥ 0. |
+| `daily_review_limit` | `INT` | NO | `200` | Maximum review cards shown per day. Enforced by `get_due_cards()` RPC. CHECK ≥ 0. |
+| `retention_target` | `FLOAT` | NO | `0.85` | Target recall probability (0–1) used as the global fallback for FSRS scheduling. CHECK `> 0 AND <= 1`. Per-layout FSRS instances may override this with their own `request_retention`. |
+| `timezone` | `TEXT` | NO | `'UTC'` | IANA timezone string (e.g. `Asia/Tokyo`, `Etc/GMT+8`). Validated by `profiles_timezone_iana` CHECK. Used to compute day boundaries for daily limits and streak calculations. |
+| `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_profile_with_interests()` on every successful PATCH. Required as `If-Match` header on `PATCH /api/v1/profile`. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `profiles_updated_at` trigger on every UPDATE. |
+
+**CHECK constraints:**
+- `profiles_retention_target_range`: `retention_target > 0 AND retention_target <= 1`
+- `profiles_daily_new_cards_limit_nonneg`: `daily_new_cards_limit >= 0`
+- `profiles_daily_review_limit_nonneg`: `daily_review_limit >= 0`
+- `profiles_timezone_iana`: regex `^UTC$|^[A-Za-z]+(/[A-Za-z0-9_+\-]+)+$` — accepts UTC and any `Region/Subregion[/...]` identifier including `Etc/GMT+N`. Membership in `pg_timezone_names` cannot be enforced (it's a STABLE view, not IMMUTABLE).
+- `profiles_native_language_iso639`: regex `^[a-z]{2,3}(-([A-Z]{2}|[A-Z][a-z]{3}))?$` — accepts ISO 639-1/639-3 with optional region or script subtag.
+
+**RLS policies:**
+- SELECT: `auth.uid() = id`
+- UPDATE: `auth.uid() = id` (USING + WITH CHECK)
+- INSERT: blocked entirely; only the `handle_new_user()` trigger can insert.
+
+**Common writes:**
+- `INSERT` from `handle_new_user()` trigger on `auth.users` insert.
+- `UPDATE` via `update_profile_with_interests(p_user_id, p_expected_version, p_patch, p_interests)` RPC.
+
+---
+
+### Table: `user_interests`
+
+Normalized junction table storing the user's declared interests (e.g. `'anime'`, `'cooking'`, `'business-japanese'`). Replaces the `profiles.interests TEXT[]` column removed in migration `20260504000007`. The AI uses interests when generating contextual example sentences.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `user_id` | `UUID` | NO | — | Part of composite PK. FK to `profiles(id)` — cascades on user deletion. |
+| `interest` | `TEXT` | NO | — | Part of composite PK. A single interest tag string (free-form). |
+
+**Primary key:** `(user_id, interest)` — guarantees deduplication.
+
+**RLS policy:** `auth.uid() = user_id` for ALL operations (SELECT, INSERT, UPDATE, DELETE).
+
+**Common writes:**
+- Replaced wholesale (DELETE + INSERT) by `update_profile_with_interests()` RPC. Passing `p_interests = NULL` leaves rows untouched; `'{}'` clears the set; `ARRAY[...]` replaces the set.
+
+---
+
+### Table: `premade_decks`
+
+Curated, system-owned decks provided by the application. `user_id` is never set on these rows — they belong to no individual user. Users subscribe to premade decks, which creates personal card copies via `subscribe_to_premade_deck()`. Premade source rows are never mutated by users.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `name` | `TEXT` | NO | — | Human-readable deck name (e.g. `'JLPT N5 Vocabulary'`). |
+| `description` | `TEXT` | YES | `NULL` | Optional longer description shown on the premade-deck browse page. |
+| `deck_type` | `deck_type` | NO | — | Category of content: `vocabulary`, `kanji`, or `mixed`. |
+| `jlpt_level` | `jlpt_level` | YES | `NULL` | JLPT level the deck targets, if applicable. Used to filter premade decks by JLPT goal. |
+| `domain` | `TEXT` | YES | `NULL` | Optional subject domain (e.g. `'business'`, `'anime'`). Used for filtering. |
+| `card_count` | `INT` | NO | `0` | Denormalized count of source cards. Maintained automatically by `update_deck_card_count()` trigger. CHECK ≥ 0. |
+| `version` | `INT` | NO | `1` | Content version. Incremented when curated cards are added or changed. Compared against `user_premade_subscriptions.last_seen_version` to detect when a subscriber needs new cards synced. CHECK ≥ 1. |
+| `is_active` | `BOOLEAN` | NO | `TRUE` | Catalog visibility flag — **the canonical lifecycle**. Premade decks are NEVER hard-deleted in normal ops; this boolean is toggled instead. When `FALSE`, the deck is hidden from the browse page and no new subscriptions are accepted. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `premade_decks_updated_at` trigger. |
+
+**CHECK constraints:**
+- `premade_decks_card_count_nonneg`: `card_count >= 0`
+- `premade_decks_version_positive`: `version >= 1`
+
+**Cascade asymmetry note:** If a premade deck IS hard-deleted (admin-only path), `decks.source_premade_id` is set to NULL (forks survive), `cards.premade_deck_id` cascades (source cards vanish), and `user_premade_subscriptions.premade_deck_id` cascades (subscription rows vanish, leaving forks orphaned). This is intentional — see the column comment on `is_active`.
+
+**RLS policies:**
+- SELECT: `is_active = TRUE` for all authenticated and anon users.
+- INSERT/UPDATE/DELETE: blocked. Premade decks are seeded via migration (`20260504000000_seed_premade_decks.sql`) or admin SQL only.
+
+---
+
+### Table: `decks`
+
+User-owned collections of cards. Each deck belongs to exactly one user. A deck may be a fork of a premade deck (created at subscription time via `subscribe_to_premade_deck()`) or a blank user-created deck.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `user_id` | `UUID` | NO | — | Owner of the deck. FK to `profiles(id)` — cascades on user deletion. |
+| `name` | `TEXT` | NO | — | User-visible deck name. |
+| `description` | `TEXT` | YES | `NULL` | Optional description shown in the deck list. |
+| `deck_type` | `deck_type` | NO | `'vocabulary'` | Category: `vocabulary`, `kanji`, or `mixed`. |
+| `is_public` | `BOOLEAN` | NO | `FALSE` | Currently always `FALSE`; public deck behavior must be specified before changing behavior. |
+| `is_premade_fork` | `BOOLEAN` | NO | `FALSE` | `TRUE` when this deck was created by subscribing to a premade deck. Drives the subscription sync UI and routes `deleteDeck` to `unsubscribe_from_premade_deck()` to prevent orphaned subscription rows. |
+| `source_premade_id` | `UUID` | YES | `NULL` | FK to `premade_decks(id)` — `SET NULL` on premade deletion so the user fork survives. Set only when `is_premade_fork = TRUE`. |
+| `card_count` | `INT` | NO | `0` | Denormalized count of cards in this deck. Maintained by `update_deck_card_count()` trigger. CHECK ≥ 0. |
+| `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_deck_with_version_check()` on every successful PATCH. Required as `If-Match` header on `PATCH /api/v1/decks/:id`. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `decks_updated_at` trigger. |
+
+**CHECK constraints:**
+- `decks_card_count_nonneg`: `card_count >= 0`
+
+**Indexes:**
+- `decks_user_updated_idx`: `(user_id, updated_at DESC)` — serves `list_decks_paginated()` ORDER BY index-only.
+- `decks_source_premade_id_idx`: `(source_premade_id) WHERE source_premade_id IS NOT NULL` — required for `ON DELETE SET NULL` cascades from `premade_decks` and for the JOIN inside `subscribe_to_premade_deck()`.
+
+**RLS policies:**
+- SELECT/INSERT/UPDATE/DELETE: `auth.uid() = user_id` (USING + WITH CHECK as appropriate).
+
+**Common writes:**
+- `INSERT`: directly via `POST /api/v1/decks` or via `subscribe_to_premade_deck()` RPC.
+- `UPDATE`: via `update_deck_with_version_check(p_deck_id, p_user_id, p_expected_version, p_patch)` RPC.
+- `DELETE`: directly when not a premade fork; via `unsubscribe_from_premade_deck()` when `is_premade_fork = TRUE`.
+
+---
+
+### Table: `user_premade_subscriptions`
+
+Junction table tracking which premade decks each user has subscribed to. A row is inserted here (and personal card copies are created) by `subscribe_to_premade_deck()` when a user calls `POST /api/v1/premade-decks/:id/subscribe`. The `last_seen_version` field drives update detection when a premade deck's content changes.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `user_id` | `UUID` | NO | — | The subscribing user. FK to `profiles(id)` — cascades on user deletion. |
+| `premade_deck_id` | `UUID` | NO | — | The subscribed deck. FK to `premade_decks(id)` — cascades on deck deletion. |
+| `subscribed_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the user subscribed. |
+| `last_seen_version` | `INT` | NO | `1` | The `premade_decks.version` at the time of last subscription sync. When `premade_decks.version > last_seen_version`, new cards are available to copy. |
+
+**Uniqueness:** `UNIQUE (user_id, premade_deck_id)` — one subscription per user per premade deck. Provides the leading-column index for `WHERE user_id = $1` lookups (the standalone `user_id` index was dropped in `20260517000000` as redundant).
+
+**Indexes:**
+- `user_premade_subscriptions_premade_deck_id_idx`: `(premade_deck_id)` — serves the FK-enforcement scan when a premade deck is deleted (the UNIQUE leads with `user_id` so cannot be used for this).
+
+**RLS policy:** `auth.uid() = user_id` for ALL operations.
+
+**Self-healing subscribe:** `subscribe_to_premade_deck()` handles four states atomically: (1) both subscription and fork exist → return existing; (2) subscription without fork → reuse subscription, recreate fork + cards (orphan repair); (3) neither exists → fresh subscribe; (4) deck without subscription → insert subscription, reuse deck. This was added in `20260521000000` to fix a "delete fork → re-subscribe = 500" bug caused by the missing FK from this table to `decks`.
+
+---
+
+### Table: `cards`
+
+The core SRS unit. Every card belongs to exactly one deck — either a user deck (`deck_id` set) or a premade deck (`premade_deck_id` set); the XOR constraint enforces this. Premade source cards have `user_id = NULL` and are shared across all users; personal card copies always have `user_id` set.
+
+This is the **hottest write table** in the system — every review is an UPDATE here.
+
+#### Ownership Columns
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `deck_id` | `UUID` | YES | `NULL` | FK to `decks(id)` — cascades on deck deletion. Set for user-owned cards; `NULL` for premade source cards. |
+| `premade_deck_id` | `UUID` | YES | `NULL` | FK to `premade_decks(id)` — cascades on premade deck deletion. Set for premade source cards; `NULL` for user-owned cards. |
+| `user_id` | `UUID` | YES | `NULL` | FK to `profiles(id)` — cascades on user deletion. `NULL` for premade source cards. **FSRS state must never be written when this is `NULL`** — `process_review()` and `process_forget()` raise `cannot_review_source_card` / `cannot_forget_source_card` if it is. |
+
+**XOR constraint:** `cards_deck_xor_premade`: `num_nonnulls(deck_id, premade_deck_id) = 1` — exactly one must be non-null.
+
+#### Content Columns
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `layout_type` | `layout_type` | NO | `'vocabulary'` | Determines the shape of `fields_data`. `vocabulary` and `grammar` layouts require `word`, `reading`, and `meaning` keys. `sentence` requires any non-empty object. |
+| `fields_data` | `JSONB` | NO | `'{}'` | Card content as a typed JSON object. Shape depends on `layout_type`. For vocabulary/grammar: `{ word, reading, meaning, ...optional fields }`. Validated by `cards_fields_data_shape` CHECK. |
+| `card_type` | `card_type` | NO | `'comprehension'` | Review modality: `comprehension` (JP → EN recognition), `production` (EN → JP recall), `listening` (audio/reading comprehension). Each modality uses a separate FSRS parameter instance with its own `request_retention`. |
+| `parent_card_id` | `UUID` | YES | `NULL` | Self-referential FK to `cards(id)`. Links sibling cards generated from the same vocabulary item. When `word`, `reading`, or `meaning` change on one sibling, they propagate to all siblings via `update_card_with_sibling_sync()`. `SET NULL` on parent deletion. |
+| `jlpt_level` | `jlpt_level` | YES | `NULL` | JLPT classification of the card's vocabulary. Use `beyond_jlpt` for native/domain-specific vocabulary not on any JLPT list — never `NULL` to mean "not on JLPT". |
+| `tags` | `TEXT[]` | NO | `'{}'` | User-defined or AI-assigned tags for filtering (e.g. `['N2', 'keigo', 'jlpt-prep']`). |
+
+**Shape CHECK:** `cards_fields_data_shape`:
+```sql
+(layout_type IN ('vocabulary', 'grammar')
+   AND fields_data ? 'word'
+   AND fields_data ? 'reading'
+   AND fields_data ? 'meaning')
+OR
+(layout_type = 'sentence' AND fields_data <> '{}'::jsonb)
+```
+
+#### FSRS Scheduling Columns
+
+These fields are the live FSRS state and **must only be written via `fsrs.service.ts`** (which calls `process_review()`, `process_forget()`, or `process_review_batch()` RPCs). The `state` integer is the single source of truth for which phase of the SRS cycle the card is in.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `state` | `INT` | NO | `0` | FSRS state: `0`=New, `1`=Learning, `2`=Review, `3`=Relearning. CHECK `BETWEEN 0 AND 3`. Replaces the old `status` enum (dropped in `20260504000004`). |
+| `due` | `TIMESTAMPTZ` | NO | `NOW()` | When the card is next due for review. Used by the due-card query. |
+| `stability` | `FLOAT` | NO | `0` | FSRS memory stability (half-life in days). Higher = longer review intervals. CHECK ≥ 0. |
+| `difficulty` | `FLOAT` | NO | `0` | FSRS item difficulty (0–10). Higher = harder; shorter intervals. CHECK ≥ 0. |
+| `elapsed_days` | `INT` | NO | `0` | Days since the previous review, as recorded by ts-fsrs at review time. CHECK ≥ 0. |
+| `scheduled_days` | `INT` | NO | `0` | The interval (in days) that was scheduled at the previous review. CHECK ≥ 0. |
+| `learning_steps` | `INT` | NO | `0` | Progress through the ts-fsrs v5 learning/relearning step sequence. **Must be persisted** — losing it resets a card in the learning phase back to step 0. CHECK ≥ 0. |
+| `reps` | `INT` | NO | `0` | Total number of times this card has been reviewed (all ratings). CHECK ≥ 0. |
+| `lapses` | `INT` | NO | `0` | Number of times the card transitioned from Review → Relearning (i.e. "Again" after graduating). Drives leech detection. CHECK ≥ 0 AND `lapses <= reps`. |
+| `last_review` | `TIMESTAMPTZ` | YES | `NULL` | Timestamp of the most recent review. `NULL` for cards never reviewed and after `process_forget()`. |
+| `is_suspended` | `BOOLEAN` | NO | `FALSE` | When `TRUE`, the card is excluded from review queues. Orthogonal to `state` — a suspended card retains its FSRS state. |
+
+**FSRS CHECK constraints:**
+- `cards_stability_nonneg`, `cards_difficulty_nonneg`, `cards_elapsed_days_nonneg`, `cards_scheduled_days_nonneg`, `cards_learning_steps_nonneg`, `cards_reps_nonneg`, `cards_lapses_nonneg`: each `≥ 0`.
+- `cards_state_range`: `state BETWEEN 0 AND 3`.
+- `cards_lapses_lte_reps`: `lapses <= reps` — logical invariant (a lapse is a subset of a rep).
+
+#### Embedding Columns
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `embedding` | `vector(1536)` | YES | `NULL` | OpenAI `text-embedding-3-small` embedding of the card's content. Used for the "similar cards" feature via cosine distance (`<=>` operator, **never** L2 distance `<->`). `NULL` until the embedding backfill runs. The 1536 dimension is hardcoded to match the default model — switching to a different-dim model requires a schema migration. |
+| `embedding_updated_at` | `TIMESTAMPTZ` | YES | `NULL` | When the embedding was last generated. When `embedding_updated_at < updated_at`, the embedding is stale (content changed after embedding was computed). `get_stale_embedding_cards()` returns this set for the regeneration job. |
+
+#### Metadata Columns
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_card_with_sibling_sync()` on every successful PATCH (including on sibling cards). Required as `If-Match` header on `PATCH /api/v1/cards/:id`. Intentionally omitted from list/due projections (only the detail view drives PATCH). |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. Used as the FIFO sort key for the new-cards queue. |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `cards_updated_at` trigger and explicitly set by FSRS RPCs so `embedding_updated_at < updated_at` staleness checks work correctly. |
+
+#### Indexes
+
+| Index | Columns / Predicate | Purpose |
+|---|---|---|
+| `cards_pkey` | `(id)` PRIMARY KEY | — |
+| `cards_due_active_idx` | `(user_id, state, due) WHERE is_suspended = FALSE` | **Hot path**: serves the overdue branch of `get_due_cards()` (`WHERE user_id = ? AND state IN (1,2,3) AND is_suspended = FALSE AND due <= NOW() ORDER BY due ASC`). |
+| `cards_user_new_creation_idx` | `(user_id, created_at) WHERE state = 0 AND is_suspended = FALSE` | **Hot path**: serves the new-cards branch of `get_due_cards()` (FIFO by `created_at ASC`). |
+| `cards_deck_pagination_idx` | `(deck_id, created_at DESC, id DESC)` | Makes `list_cards_paginated()` an index-only scan; eliminates in-memory sort on the deck-browser hot path. |
+| `cards_user_id_jlpt_level_idx` | `(user_id, jlpt_level) WHERE user_id IS NOT NULL` | Serves `get_jlpt_gap()` and `get_milestone_forecast()` aggregations. |
+| `cards_premade_deck_id_idx` | `(premade_deck_id)` | FK enforcement + scan during `subscribe_to_premade_deck()` source-card clone. |
+| `cards_parent_card_id_idx` | `(parent_card_id)` | Sibling lookup during `update_card_with_sibling_sync()`. |
+| `cards_embedding_idx` | `USING hnsw (embedding vector_cosine_ops) WHERE user_id IS NOT NULL` | HNSW index for cosine similarity (`<=>`) in `find_similar_cards()`. Premade source cards are excluded since the RPC filters `user_id = p_user_id`. |
+
+> **Removed indexes (worth knowing):** `cards_user_id_due_idx` (superseded by `cards_due_active_idx`), `cards_tags_gin_idx` (removed in `20260517000000` — no service code filters by tags and GIN write amplification on the hottest write table is expensive), `cards_fields_data_gin_idx` (removed in `20260509000002` — no service code uses JSONB containment).
+
+#### RLS Policies
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id OR user_id IS NULL` (own cards + premade source cards) |
+| INSERT | `auth.uid() = user_id AND EXISTS (SELECT 1 FROM decks WHERE id = deck_id AND user_id = auth.uid())` |
+| UPDATE | `auth.uid() = user_id AND user_id IS NOT NULL` (USING + WITH CHECK) |
+| DELETE | `auth.uid() = user_id AND user_id IS NOT NULL` |
+
+---
+
+### Table: `review_logs`
+
+Immutable, append-only audit trail of every review event. A row is inserted by `process_review()`, `process_review_batch()`, or `process_forget()` inside the same transaction as the card FSRS-state UPDATE. **Rows are never updated or deleted by application code.**
+
+`card_id` is **nullable** (`ON DELETE SET NULL`) — when a card is deleted, the FK is cleared so the historical review data is preserved for analytics. This is a deliberate asymmetry from every other FK in the schema; analytics queries must guard against `card_id IS NULL`.
+
+#### Identity Columns
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `card_id` | `UUID` | YES | — | FK to `cards(id)`. `SET NULL` on card deletion to preserve analytics history. |
+| `user_id` | `UUID` | NO | — | FK to `profiles(id)`. Cascades on user deletion. |
+| `rating` | `review_rating` | NO | — | The rating the user gave: `again`, `hard`, `good`, `easy`. `manual` is written by `process_forget()` only. |
+| `review_time_ms` | `INT` | YES | `NULL` | Time the user spent on the card in milliseconds. `NULL` if the client did not report it. CHECK `IS NULL OR >= 0`. |
+| `session_id` | `UUID` | YES | `NULL` | Client-generated UUID grouping all reviews from a single study session. Drives `get_session_summary()`. `NULL` for logs written before this column was added. |
+| `reviewed_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the review occurred. Used for analytics, streak calculations, and time-based reports. |
+
+#### After-Snapshot Columns (always populated)
+
+FSRS state *after* this review was applied.
+
+| Column | Type | Nullable | Purpose |
+|---|---|---|---|
+| `stability_after` | `FLOAT` | NO | Memory stability after this review. |
+| `difficulty_after` | `FLOAT` | NO | Item difficulty after this review. |
+| `due_after` | `TIMESTAMPTZ` | NO | Next due date scheduled by this review. |
+| `scheduled_days_after` | `INT` | NO | Interval in days scheduled by this review. |
+
+#### Before-Snapshot Columns (nullable)
+
+FSRS state *before* this review was applied. Required for `rollbackReview()` in `fsrs.service.ts`. `NULL` for rows written before migration `20260502000001` — those rows are not eligible for rollback (the service raises 409).
+
+| Column | Type | Nullable | Purpose |
+|---|---|---|---|
+| `state_before` | `INT` | YES | FSRS state (0–3) before the review. CHECK `IS NULL OR BETWEEN 0 AND 3`. |
+| `stability_before` | `FLOAT` | YES | Memory stability before the review. |
+| `difficulty_before` | `FLOAT` | YES | Item difficulty before the review. |
+| `due_before` | `TIMESTAMPTZ` | YES | Due date before the review. |
+| `scheduled_days_before` | `INT` | YES | Interval in days before the review. |
+| `learning_steps_before` | `INT` | YES | Learning step index before the review. |
+| `elapsed_days_before` | `INT` | YES | Elapsed days value before the review. |
+| `last_review_before` | `TIMESTAMPTZ` | YES | `last_review` timestamp before this review. |
+| `reps_before` | `INT` | YES | Total reps before this review. |
+| `lapses_before` | `INT` | YES | Total lapses before this review. |
+
+#### Indexes
+
+| Index | Columns / Predicate | Purpose |
+|---|---|---|
+| `review_logs_pkey` | `(id)` | — |
+| `review_logs_user_id_reviewed_at_idx` | `(user_id, reviewed_at)` | Streak, heatmap, daily-quota counts in `get_due_cards()`. |
+| `review_logs_card_id_idx` | `(card_id)` | Per-card history join in `get_accuracy_by_layout()` and rollback lookups. |
+| `review_logs_session_id_idx` | `(session_id)` | Session-summary lookups. |
+| `review_logs_user_graduations_idx` | `(user_id, reviewed_at) INCLUDE (state_before, rating) WHERE rating IN ('good', 'easy') AND state_before IS NOT NULL AND state_before < 2` | Partial covering index for `get_milestone_forecast()` — the "successful graduation" pattern (a learning-phase card answered Good/Easy). |
+
+#### RLS Policies
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id` |
+| INSERT | `auth.uid() = user_id` (defense-in-depth — actual writes go through service-role RPCs) |
+| UPDATE/DELETE | **No policy.** Logs are permanently append-only. |
+
+---
+
+### Table: `leeches`
+
+Tracks cards that have lapsed too many times (≥ `LEECH_THRESHOLD`, default 8 — set via `LEECH_THRESHOLD` env var). A leech record is created atomically inside `process_review()` / `process_review_batch()` when the threshold is crossed. The AI then asynchronously fills `diagnosis` and `prescription`.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion (changed from CASCADE in `20260519000000` to mirror `review_logs` and preserve AI-generated text for analytics). |
+| `user_id` | `UUID` | NO | — | FK to `profiles(id)` — cascades on user deletion. |
+| `diagnosis` | `TEXT` | YES | `NULL` | AI-generated explanation of *why* this card is a leech (e.g. "Confuses okurigana with similar kanji"). Populated asynchronously by `ai.service.ts`. |
+| `prescription` | `TEXT` | YES | `NULL` | AI-generated advice for fixing the leech (e.g. "Use the memory-palace technique for the radical"). Populated alongside `diagnosis`. |
+| `session_id` | `UUID` | YES | `NULL` | The review session in which the leech was first triggered. Written by `process_review()` so `get_session_summary()` can match leeches to sessions exactly rather than using a time-window heuristic. `NULL` for legacy rows. |
+| `resolved` | `BOOLEAN` | NO | `FALSE` | `TRUE` after the user marks the leech as resolved (e.g. after using the prescription). |
+| `resolved_at` | `TIMESTAMPTZ` | YES | `NULL` | When `resolved` was set to `TRUE`. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the leech was first detected. |
+
+**Partial unique index:** `leeches_card_user_unresolved_idx`: `UNIQUE (card_id, user_id) WHERE resolved = FALSE` — prevents duplicate unresolved leech records under race conditions. Note: PG treats `NULL` as distinct in UNIQUE, so multiple orphan rows (where `card_id = NULL` after card deletion) can coexist for the same `(user_id, resolved=FALSE)` combo, which is correct (they don't logically conflict).
+
+**Other indexes:**
+- `leeches_card_id_idx`: `(card_id)` — per-card lookup.
+- `leeches_user_id_unresolved_idx`: `(user_id) WHERE resolved = FALSE` — "list user's open leeches" hot path. The unique partial index can't serve this because it leads with `card_id`.
+- `leeches_session_id_idx`: `(session_id) WHERE session_id IS NOT NULL` — session-summary join.
+
+**Application-side guard:** Leech detection runs inside `process_review` (and `process_review_batch`) via the `IF p_lapses >= p_leech_threshold` block. Do **not** add leech checks elsewhere or you'll get duplicates.
+
+**RLS Policies:**
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id` |
+| INSERT | `auth.uid() = user_id` (defense-in-depth) |
+| UPDATE | `auth.uid() = user_id` (for resolving) |
+| DELETE | **No policy.** |
+
+---
+
+### Table: `idempotency_keys`
+
+Per-user replay store for idempotent POST endpoints. Required by:
+- `POST /api/v1/reviews/submit`
+- `POST /api/v1/reviews/batch`
+- `POST /api/v1/decks`
+- `POST /api/v1/decks/:deckId/cards`
+- `POST /api/v1/cards/:id/regenerate-embedding`
+- `POST /api/v1/premade-decks/:id/subscribe`
+
+Callers include an `Idempotency-Key: <uuid>` header. The same key + same request body → replays the stored response. Same key + different body → 422 conflict. Same key + still in-flight → 409. Keys expire after 24 hours; expired rows are cleaned up lazily on the next `claim_idempotency_key` call for the same user (no pg_cron required at this scale).
+
+This table is accessed **only** by three `SECURITY DEFINER` RPCs — there is no direct read/write path via the user-scoped JWT.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `user_id` | `UUID` | NO | — | Part of composite PK. Scopes keys per-user so two users cannot collide on the same UUID. |
+| `key` | `UUID` | NO | — | Part of composite PK. The idempotency key provided by the client in the `Idempotency-Key` header. |
+| `request_hash` | `TEXT` | NO | — | Hash of the canonical request body. Used to detect same-key-different-body conflicts (→ 422). |
+| `response_status` | `INT` | YES | `NULL` | HTTP status code of the completed response. `NULL` while the request is in-flight. Populated by `store_idempotency_response()`. |
+| `response_body` | `JSONB` | YES | `NULL` | Serialized response body. `NULL` while in-flight. Replayed verbatim on duplicate requests. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the key was first claimed. |
+| `expires_at` | `TIMESTAMPTZ` | NO | `NOW() + INTERVAL '24 hours'` | TTL. Rows are deleted lazily when `expires_at < NOW()` during the next `claim_idempotency_key` call for the same user. |
+
+**Indexes:**
+- `idempotency_keys_pkey`: `(user_id, key)` PRIMARY KEY.
+- `idempotency_keys_expires_at_idx`: `(expires_at)` — supports lazy cleanup.
+
+**RLS:** Enabled, but no user-facing policies. Access is exclusively through `SECURITY DEFINER` RPCs granted to `service_role`.
+
+**Lifecycle:**
+1. Service handler calls `claim_idempotency_key(p_user_id, p_key, p_request_hash)`. Returns one of:
+   - `'fresh'` → caller proceeds to run the worker.
+   - `'replay'` → caller returns `(stored_status, stored_body)` to client.
+   - `'conflict'` → caller responds 422.
+   - `'in_flight'` → caller responds 409.
+2. On worker success: `store_idempotency_response(user_id, key, status, body)` writes the result.
+3. On worker failure (non-`AppError` exception): `delete_idempotency_key(user_id, key)` releases the placeholder so the caller can retry.
+
+---
+
+## SECURITY DEFINER Functions / RPCs
+
+All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role` only (the API calls them via `supabaseAdmin`).
+
+### FSRS write path
+
+| Function | Purpose | Notes |
+|---|---|---|
+| `process_review(p_card_id, p_user_id, p_state, p_due, …, p_session_id)` | Atomic FSRS update + `review_logs` insert + leech detection. | Locks the card row with `SELECT … FOR UPDATE` so concurrent reviews of the same card serialize. Raises `card_not_found`, `cannot_review_source_card`, or `card_ownership_mismatch`. |
+| `process_review_batch(p_user_id, p_reviews JSONB, p_leech_threshold)` | Batches N `process_review` calls into one round-trip. Per-review subtransactions preserve "collect errors, continue" semantics. | Returns `(card_id, success, error_message, due, stability, difficulty, scheduled_days, state)` per row. |
+| `process_forget(p_card_id, p_user_id, …)` | Anki Forget — resets card to `state = 0` and writes a `manual` review log entry. | Same row lock + ownership check as `process_review`. |
+
+### Card writes
+
+| Function | Purpose | Notes |
+|---|---|---|
+| `update_card_with_sibling_sync(p_card_id, p_user_id, p_expected_version, p_fields_data, p_layout_type, p_card_type, p_tags, p_jlpt_level)` | Atomic target UPDATE + sibling sync of shared fields (`word`, `reading`, `meaning`). Raises `card_version_mismatch` (→ 412) if `version` doesn't match. | Sibling sync only fires when `fields_data` is patched and contains at least one shared key. Increments `version` on the target AND every touched sibling. |
+| `bulk_update_card_embeddings(p_updates JSONB)` | Ops-only path used by `backfillPremadeEmbeddings`. Flushes all newly-computed embeddings in one UPDATE. | Skips `SET search_path` because the `vector` type lives in the extensions schema. |
+| `get_stale_embedding_cards(p_user_id)` | Returns cards where `embedding_updated_at < updated_at` (content changed after embedding was computed). | Replaces a broken PostgREST `.filter()` call that didn't support column-vs-column comparison. |
+| `find_similar_cards(p_card_id, p_user_id, p_limit)` | Cosine-similarity search over the user's own cards. | Uses `<=>` (cosine distance, **not** `<->` L2). Backed by the partial HNSW index. |
+
+### Deck / profile / subscription writes
+
+| Function | Purpose | Notes |
+|---|---|---|
+| `update_deck_with_version_check(p_deck_id, p_user_id, p_expected_version, p_patch JSONB)` | Atomic deck PATCH with version check. Raises `deck_version_mismatch` (→ 412) on stale `If-Match`. | |
+| `update_profile_with_interests(p_user_id, p_expected_version, p_patch JSONB, p_interests TEXT[])` | Atomic profile PATCH + interests replace. Closes the silent-wipe-of-interests window. Raises `profile_version_mismatch` (→ 412). | `p_interests = NULL` → leave untouched; `'{}'` → clear; `ARRAY[…]` → replace. |
+| `subscribe_to_premade_deck(p_user_id, p_premade_deck_id)` | Atomic subscribe: subscription row + forked deck + bulk card clone. **Self-healing** for orphaned subscription/deck combos. Carries `embedding` + `embedding_updated_at` from source cards. | Returns `(subscription_id, deck_id, card_count, already_existed)`. |
+| `unsubscribe_from_premade_deck(p_user_id, p_premade_deck_id)` | Atomic deck DELETE + subscription DELETE. Idempotent. | The deck-delete cascades to user-owned cards via FK. |
+
+### Read RPCs
+
+| Function | Purpose | Returns |
+|---|---|---|
+| `get_due_cards(p_user_id, p_daily_review_limit, p_daily_new_cards_limit)` | Single-query replacement for the 2-counts + 2-selects review-queue load. Returns overdue cards ordered by `due ASC` followed by new cards ordered by `created_at ASC`, both capped by daily limits. | `(id, deck_id, card_type, jlpt_level, state, due, fields_data, layout_type)` |
+| `list_cards_paginated(p_user_id, p_deck_id, p_limit, p_cursor, p_status_filter)` | Tuple-cursor pagination over a deck's cards. Uses `(created_at, id) < (cursor_at, cursor_id)` so same-`created_at` neighbours don't straddle page boundaries. | Card detail rows. |
+| `list_decks_paginated(p_user_id, p_limit, p_cursor)` | Tuple-cursor pagination over the user's decks, ORDER BY `(updated_at DESC, id DESC)`. | Deck rows. |
+| `list_premade_decks_paginated(p_limit, p_cursor, p_deck_type, p_jlpt_level, p_domain)` | Tuple-cursor pagination over active premade decks, ORDER BY `(jlpt_level ASC NULLS LAST, name ASC, id ASC)`. | Premade deck rows. |
+| `get_dashboard_data(p_user_id)` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, `get_streak`, `get_jlpt_gap`, `get_milestone_forecast` into one JSONB envelope (5 RPCs → 1 round-trip). | JSONB envelope. |
+| `get_session_summary(p_session_id, p_user_id)` | Aggregate stats + leeches-with-card-context for a study session. Filters orphan leeches (`card_id IS NOT NULL`). Internal LIMIT 5000 caps the scan. | JSONB envelope. |
+| `get_review_forecast(p_user_id, p_days)` | Per-day count of cards due in the next N days. Server-side GROUP BY replaces 100+ KB of JS-side data shuffling. | `(date TEXT, count BIGINT)` |
+
+### Analytics RPCs
+
+| Function | Purpose | Returns |
+|---|---|---|
+| `get_heatmap_data(p_user_id)` | Per-day counts and retention % for the last 365 days (days with no reviews are omitted). | `(date TEXT, retention FLOAT, count BIGINT)` |
+| `get_accuracy_by_layout(p_user_id)` | Total reviews and successful reviews grouped by `card_type` (modality). | `(layout TEXT, total BIGINT, successful BIGINT)` |
+| `get_streak(p_user_id)` | Current streak (today or yesterday counts), longest streak, last review date. | `(current_streak INT, longest_streak INT, last_review_date DATE)` |
+| `get_jlpt_gap(p_user_id)` | Per-JLPT-level totals, learned (state ≥ 2), and currently-due counts. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, due BIGINT)` |
+| `get_milestone_forecast(p_user_id)` | Per-JLPT-level projected completion based on 30-day daily learning pace. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, daily_pace NUMERIC, days_remaining INT, projected_completion_date DATE)` |
+
+### Idempotency RPCs
+
+| Function | Purpose |
+|---|---|
+| `claim_idempotency_key(p_user_id, p_key, p_request_hash)` | Returns `'fresh'`, `'replay'`, `'conflict'`, or `'in_flight'`. Lazily deletes expired rows for the user. |
+| `store_idempotency_response(p_user_id, p_key, p_status, p_body)` | Writes the final status + body for a previously-claimed key. |
+| `delete_idempotency_key(p_user_id, p_key)` | Releases a placeholder so the caller can retry after a non-`AppError` exception. |
+
+---
+
+## Triggers
+
+| Trigger | Table | Event | Function | Purpose |
+|---|---|---|---|---|
+| `on_auth_user_created` | `auth.users` | AFTER INSERT | `handle_new_user()` | Auto-creates a `profiles` row for every new auth user. |
+| `profiles_updated_at` | `profiles` | BEFORE UPDATE | `set_updated_at()` | Sets `updated_at = NOW()`. |
+| `premade_decks_updated_at` | `premade_decks` | BEFORE UPDATE | `set_updated_at()` | Sets `updated_at = NOW()`. |
+| `decks_updated_at` | `decks` | BEFORE UPDATE | `set_updated_at()` | Sets `updated_at = NOW()`. |
+| `cards_updated_at` | `cards` | BEFORE UPDATE | `set_updated_at()` | Sets `updated_at = NOW()`. |
+| `cards_count_trigger` | `cards` | AFTER INSERT/DELETE | `update_deck_card_count()` | Maintains `decks.card_count` and `premade_decks.card_count` denormalized counters. |
+
+`set_updated_at()` is plain `LANGUAGE plpgsql` (no SECURITY DEFINER needed). `update_deck_card_count()` runs as the table owner via row-level invocation; it dispatches on `NEW.deck_id IS NOT NULL` (user card → updates `decks`) vs `NEW.premade_deck_id IS NOT NULL` (premade source → updates `premade_decks`).
+
+---
+
+## Relationships Overview
+
+```
+auth.users
+    │
+    └── profiles (1:1)
+            │
+            ├── user_interests              (1:N, cascade)
+            ├── decks                       (1:N, cascade)
+            │       └── cards               (1:N, cascade)  ←── parent_card_id (self-ref, SET NULL)
+            ├── user_premade_subscriptions  (1:N, cascade)
+            ├── review_logs                 (1:N, cascade)        [card_id is SET NULL on card delete]
+            ├── leeches                     (1:N, cascade)        [card_id is SET NULL on card delete]
+            └── idempotency_keys            (1:N, no FK — accessed via RPCs)
+
+premade_decks (system-owned, never hard-deleted in normal ops)
+    ├── cards (premade source cards: user_id IS NULL, deck_id IS NULL)   [CASCADE]
+    ├── decks.source_premade_id                                          [SET NULL — forks survive]
+    └── user_premade_subscriptions                                       [CASCADE]
+```
+
+**Notable cascade asymmetries:**
+- `review_logs.card_id` and `leeches.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
+- `decks.source_premade_id`: `SET NULL` so user forks survive a premade hard-delete.
+- `user_premade_subscriptions.premade_deck_id`: `CASCADE`, leaving forks "orphaned" on hard-delete (intentional — see `is_active` column comment).
+
+---
+
+## Key Design Decisions
+
+**`cards` dual-FK pattern (`deck_id` XOR `premade_deck_id`):** Premade source cards live in the same table as user-owned cards. The XOR CHECK constraint ensures a card belongs to exactly one "collection" at all times, while `user_id = NULL` signals that a card is a read-only system record. RLS unions both ("`auth.uid() = user_id OR user_id IS NULL`") so a single `SELECT * FROM cards` returns both kinds for browsing.
+
+**`fields_data JSONB` instead of discrete columns:** Card content was consolidated into a single JSONB column (migration `20260502000004`) to support different card layouts (`vocabulary`, `grammar`, `sentence`) without schema changes per layout. The `cards_fields_data_shape` CHECK enforces minimum key presence per `layout_type`. The previously-added `cards_fields_data_gin_idx` was dropped — no service code uses JSONB containment, and the GIN write amplification on the hottest write table was net-negative.
+
+**`state INT` instead of `status` enum:** The ts-fsrs library represents FSRS phase as an integer (0–3). Storing it directly eliminates a translation layer and allows the DB to verify state invariants using arithmetic (e.g. `state >= 2` for "graduated"). Suspension is a separate `is_suspended BOOLEAN` orthogonal to SRS phase.
+
+**`review_logs` before-snapshot:** Storing the full FSRS state before AND after each review enables `rollbackReview()` without re-running history. Rows written before migration `20260502000001` have `NULL` before-snapshots and are not rollback-eligible (the service raises 409).
+
+**FSRS writes go through RPCs, not table updates:** All FSRS state mutations (`process_review`, `process_review_batch`, `process_forget`) acquire `SELECT … FOR UPDATE` row locks before writing, ensuring concurrent reviews of the same card serialize cleanly. Direct UPDATE on FSRS columns from the service layer is an anti-pattern.
+
+**Optimistic concurrency with `version` columns:** `cards`, `decks`, and `profiles` carry an `INT version` column. PATCH endpoints require `If-Match: <version>` and the corresponding RPC raises `*_version_mismatch` (SQLSTATE 22000) on stale snapshots, mapped by the service layer to HTTP 412. List/due projections intentionally omit `version` — only the detail view drives PATCH.
+
+**Self-healing subscribe:** `subscribe_to_premade_deck()` handles all four combinations of (subscription exists?) × (fork deck exists?) atomically, recovering from orphaned state caused by `deleteDeck` skipping the subscription row (a real bug fixed in `20260521000000`).
+
+**`idempotency_keys` lazy TTL:** Rather than a background cron job, expired keys are deleted synchronously at the start of each `claim_idempotency_key` call, bounded per-user. This is safe at current scale and requires no pg_cron setup.
+
+**Pagination uses tuple cursors with stable secondary sort:** Every list RPC orders by `(primary_sort_col, id)` and uses tuple comparison (`(c.created_at, c.id) < (v_cursor_at, p_cursor)`) so rows sharing the primary sort value (e.g. cards bulk-cloned by `subscribe_to_premade_deck` with `created_at = NOW()`) don't fall through page boundaries.
+
+**Premade decks use `is_active` toggle, not hard-delete:** The cascade asymmetry between `decks.source_premade_id ON DELETE SET NULL` and `user_premade_subscriptions.premade_deck_id ON DELETE CASCADE` only matters during admin-only hard-delete ops. Normal lifecycle is `is_active = FALSE` (which the SELECT RLS policy filters on).
+
+**Statement & lock timeouts on `service_role`:** `statement_timeout = '10s'`, `lock_timeout = '2s'`. These compose under the 10s `supabase-js` fetch timeout to ensure a misbehaving query never hangs the API longer than the upstream HTTP timeout permits.

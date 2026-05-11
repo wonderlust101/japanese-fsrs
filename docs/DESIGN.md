@@ -168,7 +168,7 @@ The color strategy commits to a **Full palette**: Inari Vermillion + Sumi Ink + 
 - All neutrals are tinted toward the brand red (a faint warm cast). No `#FFFFFF`. No cool slate.
 - Bricolage Grotesque for display, DM Sans for body, Noto Sans JP for Japanese, JetBrains Mono for SRS data. Latin chrome and Japanese content auto-swap families via the `[lang="ja"]` selector.
 - Cards have no drop shadow at rest. Depth is conveyed by the card-stack composition, the warm-vs-cool surface contrast, and a 2px Inari Vermillion top stripe; not by elevation.
-- Motion is **Responsive** by default: feedback, transitions, small reveal moments, the stroke-draw on icon hover, the route-change settle on nav. No scroll-driven choreography in product chrome; brand surfaces (auth, onboarding, future landing page, OG image, milestone illustrations) may opt up to Choreographed.
+- Motion is **Responsive** by default: feedback, transitions, small reveal moments, the stroke-draw on icon hover, the route-change settle on nav. No scroll-driven choreography in product chrome; brand surfaces in active scope (auth, onboarding, OG image, milestone illustrations) may opt up to Choreographed.
 - The kitsune mark is the central identity asset. It surfaces at six allowed positions per PRODUCT.md Principle #6 (wordmark, favicon, auth, OG image, app icon, milestone illustrations) and nowhere else.
 - Icons are custom geometric ink-stroke SVGs (chrome and components) or Unicode glyphs at semantic value (Rating row only: ↺ ◐ ✓ ☆). The full contract lives in §Icon System.
 - Borders are reserved for inputs, hairline dividers, and cards. Side-stripe borders, gradient text, and glassmorphism are universally banned.
@@ -179,7 +179,7 @@ The palette commits to **Full palette** as a strategy: four named roles, each wi
 
 ### Primary
 
-- **Inari Vermillion** (`#B03646`): the brand identity color. Used on the kitsune mark, the wordmark, the 2px card top-stripe, primary CTAs, focus rings, active states, and milestone illustrations. On product surfaces it stays under ~10% of any given screen; on brand surfaces (auth, onboarding, future landing page, OG image) it can carry 30–60% of the surface as saturated solid fields. The split is the strategy.
+- **Inari Vermillion** (`#B03646`): the brand identity color. Used on the kitsune mark, the wordmark, the 2px card top-stripe, primary CTAs, focus rings, active states, and milestone illustrations. On product surfaces it stays under ~10% of any given screen; on brand surfaces in active scope (auth, onboarding, OG image) it can carry 30–60% of the surface as saturated solid fields. The split is the strategy.
 - **Inari Vermillion Deep** (`#7E1F2A`): hover state for primary CTAs. The ink-saturated version of the brand red, used when a brand surface needs a darker variant (e.g., a saturated solid hero where the lighter vermillion would feel washed). Also the text color for the Danger Ghost button variant.
 - **Vermillion Wash** (`#F8E5E5`): the lightest vermillion tint. Active-state surface for nav rows, focus-ring halo, brand-surface accent fields where a hint of color is enough.
 
@@ -204,7 +204,6 @@ The system runs **cool page, warm card** to make cards read as objects resting o
 - **Soft Hairline** (`#E5DCD0`): hairline borders — the 1px card border, the sidebar right edge, the answer-reveal divider, input default border, section dividers in the nav body.
 - **Faded Sumi** (`#6B5F58`): the secondary text color (descriptions, hints, stats labels, Ghost button default, Furigana reading text, default-state nav-icon stroke). Hits WCAG AA against Cool Paper Base and Warm Paper Raised.
 - **Sumi Ink** (`#1F1A18`): the primary text color. Deep ink-brown, not pure black. Carries the "ink on paper" character of the system. Contrast against Cool Paper Base is well into AAA. Also the background fill for the "Again" Rating button.
-
 ### Named Rules
 
 **The Vermillion Tax Rule.** Inari Vermillion is precious on product surfaces. Every new product screen must justify each red element it introduces; the default answer to "should this be red?" is "no." Brand surfaces (auth, landing, OG, milestone illustrations) operate under a different budget: red is allowed to dominate 30–60% of the surface as a saturated solid field. The split is the strategy.
@@ -250,7 +249,7 @@ The minimum scale ratio between hierarchy steps is 1.25; the gap between Body an
 
 **The Hand-Calligraphic Exception.** The wordmark and the kanji rendered inside the kitsune logo are hand-brushed (not typeset). They are not subject to the Two-Family Rule because they are *images*, not text. Brush-style display fonts and bespoke calligraphy are permitted in identity surfaces only (the wordmark, the favicon, the auth screen, the OG image, milestone illustrations) and must never appear in body or chrome typography.
 
-**The Body-Reading Rule.** Cap body line length at 65–75 characters per line for readability (per the shared design laws). On long-form surfaces (grammar explanations, mnemonic readouts, the future landing page), enforce this with `max-width: 70ch` or similar; on dense product surfaces (deck list, settings), the rule applies less strictly because content lines are typically short by composition.
+**The Body-Reading Rule.** Cap body line length at 65–75 characters per line for readability (per the shared design laws). On long-form learning surfaces (grammar explanations, mnemonic readouts), enforce this with `max-width: 70ch` or similar; on dense product surfaces (deck list, settings), the rule applies less strictly because content lines are typically short by composition.
 
 **The SRS-Data-Mono Rule.** Numeric SRS data — intervals, retention percentages, due-card counts, review-time milliseconds — renders in JetBrains Mono so columns of numbers align and individual digits read with equal weight. Prose containing SRS numbers stays in DM Sans; only the data itself drops to mono.
 
@@ -264,7 +263,7 @@ Shadow is reserved for **state and overlay**, never for ambient decoration. Ther
 
 - **Focus Ring** (`--shadow-focus`): 3px Vermillion Wash halo on `:focus-visible`. The keyboard navigation indicator. Brand surfaces may use a stronger ring at full Inari Vermillion.
 - **Popover Lift Shadow** (`--shadow-card`): warm-tinted soft shadow on overlays that detach from the page — the UserMenu account popover, dropdown menus, hover cards. Approximately `0 4px 12px rgba(70, 30, 35, 0.07)`.
-- **Modal Lift Shadow** (`--shadow-lg`): stronger warm-tinted shadow for modal dialogs (delete-account confirmation, error dialogs, the future image picker). Approximately `0 8px 24px rgba(70, 30, 35, 0.10)`.
+- **Modal Lift Shadow** (`--shadow-lg`): stronger warm-tinted shadow for modal dialogs (delete-account confirmation, error dialogs, and approved modal tools). Approximately `0 8px 24px rgba(70, 30, 35, 0.10)`.
 - **Soft Hairline Shadow** (`--shadow-sm`): the lightest possible separation, reserved for moments of hint-of-lift only — currently dormant in the system; available when needed.
 
 Cards (the SRS unit, deck cards in lists, the review card, the auth/onboarding card) use **none** of these at rest. They are flat objects with a 1px Soft Hairline border and a 2px Inari Vermillion top stripe. Hover, when it exists, never adds shadow to a card.
@@ -277,249 +276,9 @@ Cards (the SRS unit, deck cards in lists, the review card, the auth/onboarding c
 
 **The Warm-Tint Shadow Rule.** When shadow does appear, its color carries a faint warm cast that matches the warm-paper neutrals. A pure-neutral-black shadow on warm paper looks gray and cold; a warm-tinted shadow harmonizes. Practical implementation: shadow color uses OKLCH (or `rgba(70, 30, 35, X)` as a literal approximation) toward hue ~25, the same hue family as the warm-paper neutrals — never `rgba(0,0,0,X)`.
 
-## Icon System
-
-The icon system is **the chrome's quiet voice**. Where the kitsune mark is the brand's loud voice (identity surfaces only) and Japanese typography is the content's voice (the hero on every screen), icons are how the *interface* speaks: navigation rows, button affordances, popover items, status indicators. They must read as drawn-with-purpose without competing with the Japanese they accompany.
-
-The committed direction is **custom geometric ink-stroke SVGs**, drawn to a system contract, stored as inline React components, animated via `stroke-dasharray` for the choreographed hover and route-change motion that delivers the "personality in motion" energy from the dashboard-navigation redesign brief.
-
-### The Four Icon Vocabularies
-
-Tomo supports exactly four icon vocabularies. Each has a defined surface; mixing them on a single screen is wrong unless explicitly noted.
-
-| Vocabulary | Where it lives | Why |
-|---|---|---|
-| **Geometric ink-stroke SVG** | Default for *all* chrome and component icons: navigation rows, button leading slots, account menu, OfflineQueueBadge, empty-state illustrations | The system's standard. Quiet, drawn, consistent across sizes; the language inherits the ink-and-paper register without becoming painterly. |
-| **Unicode glyph at semantic value** | Rating buttons only (↺ ◐ ✓ ☆ for Again / Hard / Good / Easy) | The four-channel rating contract demands a glyph that is *part of the content layer*, not the icon system. Unicode at semantic value (not decoration) is the correct affordance there. |
-| **Text-only affordance** | Show / Hide on password inputs, "More" / "Less" disclosure controls | When a word is shorter and clearer than any icon, the word wins. The Lucide eye-toggle is the canonical anti-pattern. |
-| **The kitsune mark + Tomo wordmark** | Identity surfaces only (wordmark, favicon, auth screen, OG image, app icon, milestone illustrations) per PRODUCT.md Principle 6 | The brand mark is *not* an icon. It never appears in nav, never in chrome, never inside another component. The six allowed positions are exhaustive. |
-
-Anything else (lucide-react, Heroicons, Material Symbols, Phosphor, emoji as iconography, brushstroke sumi-e ink characters as iconography) is **off-system**. The Lucide Tax Rule applies: no new lucide imports may land; existing imports are migrated during their owning component's redesign pass.
-
-### Geometric Ink-Stroke Spec
-
-Every custom SVG icon ships to this contract. The contract is non-negotiable: violations cause the icon set to fragment visually and the choreographed motion to break.
-
-#### A. Container
-
-- **viewBox:** `0 0 24 24`. The standard size is 24px; smaller and larger renderings scale the SVG container, never the path data. (See §Sizing Scale.)
-- **Aspect ratio:** square. Non-square icons (a wide bar chart, a tall flag) compose inside a 24×24 box and accept the asymmetric whitespace; do not introduce 24×16 or 32×24 viewBoxes.
-- **Padding:** every stroke endpoint sits at least **2px inside the viewBox edge**. A path that ends at coordinate 0 or 24 reads as cropped against the container; the round-linecap adds optical mass at endpoints, so 2px inset gives the icon room to breathe.
-
-#### B. Stroke
-
-- **Default stroke width:** **`1.75px` at the 24px size.** This is the system rhythm. Lighter (1.25, 1.5) reads as too functional and pulls the language toward Lucide; heavier (2.0, 2.5) reads as childlike and competes with the Japanese content.
-- **stroke-linecap:** `round`. Square caps are banned everywhere in the icon system.
-- **stroke-linejoin:** `round`. Miter joins are banned everywhere in the icon system.
-- **No mixed stroke weights inside a single icon.** Every path in a given icon uses the same stroke width. A 1.75px main stroke with a 1.25px detail accent is wrong; simplify the icon until one weight carries it.
-- **Color:** `stroke="currentColor"` exclusively. Never hard-code a hex. The icon inherits its color from the parent's CSS `color` property, which lets the row's hover/active/focus states drive icon color without prop plumbing.
-
-#### C. Fill
-
-- **Default:** `fill="none"` on every path. The system's primary register is *outline*.
-- **Silhouette exception:** when the silhouette IS the meaning — the Dashboard hi-no-maru disc filled in active state; an arrow head; a stamped seal — a **single solid fill** is permitted. The fill uses `currentColor` (never a literal color).
-- **Never mix.** A stroke gear with a filled center hole reads as half-finished. If part of the icon needs to be filled, the *whole concept of the icon* leans into the silhouette register; if part needs to be outlined, every part is outlined.
-- **Active-state silhouette toggle (rare).** The Dashboard sun-disc is currently the only icon that toggles between outlined and filled to mark active state. Adding more requires explicit review; the system's preference is for the row treatment (Vermillion Wash bg) to carry active-state semantics, not the icon shape.
-
-#### D. Path Geometry
-
-- **Maximum 4 paths per icon.** A path is one continuous stroke. Dashboard = 2 paths (disc + horizon). Decks = 3 paths (one per offset card outline). Analytics = 3 or 4 paths (one per bar, optionally a baseline). If you find yourself at 5+ paths, the icon is doing too much; simplify the concept.
-- **`pathLength="100"` on every animatable path.** This normalizes dasharray math: regardless of actual path length, the parent component animates `stroke-dashoffset` from 100 to 0 to draw the stroke on. Without this, every icon's motion timing has to be hand-tuned per path.
-- **Coordinates rounded to 0.5px.** Sub-pixel coordinates (3.218, 11.776) compress poorly and read as anti-aliasing fuzz at small sizes. Round all coordinates to the nearest 0.5px during drawing, then nudge optically as needed.
-- **Optical balance over geometric correctness.** A "centered" circle with radius 9 in a 24×24 box reads as off-center (the stroke shifts the visual centroid). A bar chart with three bars of integer heights reads as too rigid. Eyeball every icon next to its siblings; nudge by 0.5–1px until it sits right.
-
-### Sizing Scale and Stroke Compensation
-
-Icons render at four canonical sizes. The stroke width scales **proportionally** so the visual weight stays consistent across sizes. The pathLength contract is unchanged.
-
-| Size | Use | Stroke (computed) | Stroke (rounded) |
-|---|---|---|---|
-| **16px** | Inline accents, popover menu items, small badges, OfflineQueueBadge counter | 16 / 13.7 ≈ 1.17 | **1.25px** |
-| **20px** | Compact list rows, sub-nav items, secondary chrome | 20 / 13.7 ≈ 1.46 | **1.5px** |
-| **24px** | **Default.** Sidebar nav rows, button leading slots, primary chrome | 24 / 13.7 ≈ 1.75 | **1.75px** |
-| **32px** | Feature emphasis, hero callouts, empty-state illustrations | 32 / 13.7 ≈ 2.34 | **2.25px** |
-
-**Scaling rule:** for any custom size *N*, stroke width is `N / 13.7`, rounded to the nearest 0.25px. Sizes outside this range (12px or smaller, 40px or larger) are off-system; rework the layout instead of forcing the icon to a non-standard size.
-
-**Implementation pattern.** A single React component renders the icon at any size by accepting a `size` prop (default 24) and computing the stroke width via the formula. The path data never changes; only the container `width`/`height` and the `strokeWidth` attribute scale.
-
-### Motion Contract
-
-The icon system is the primary delivery vehicle for the dashboard-navigation redesign's "personality in motion" energy. The motion is choreographed, not free-form, so future icons must behave consistently.
-
-#### Stroke-draw on hover
-
-- **Trigger:** pointer enters a hoverable parent (nav row, button); the parent applies a `data-state="hover"` or equivalent that the icon's CSS keys off.
-- **Mechanism:** each animatable path has `pathLength="100"`; the icon's CSS sets `stroke-dasharray: 100; stroke-dashoffset: 100` at rest, transitions `stroke-dashoffset` to `0` on hover.
-- **Timing:** **250ms ease-out-quart** for single-path icons. Multi-path icons stagger between paths by **40–60ms** (so a three-path Decks icon completes its draw in roughly 350ms total: 0ms / 50ms / 100ms start times, each with its own 250ms duration).
-- **Color transition:** the icon's color crossfades from Faded Sumi to Inari Vermillion in parallel with the stroke draw (`color` transition, 200ms ease-out).
-- **Reverse:** on pointer leave, the icon either snaps back (default) or reverses the draw at half speed (125ms). Preference: snap back to keep the system feeling responsive, not laggy.
-
-#### Route-change settle
-
-When a user navigates to a new page, the newly-active row's icon plays a **one-shot settle** on mount.
-
-- **Mechanism:** the icon mounts with `stroke-dashoffset: 100` (un-drawn), animates to `0` over 300ms ease-out-quart, with a 50ms delay so the row's Vermillion Wash bg fades in first.
-- **One-shot only.** After the settle completes, the icon is static. Looping or pulsing the active icon is forbidden — it would read as an attention-grabbing notification, not a confirmation of place.
-- **Multi-path icons** stagger as in hover (40–60ms between paths), but the parent waits for all paths to complete before considering the settle done.
-
-#### prefers-reduced-motion
-
-- All `stroke-dasharray` / `stroke-dashoffset` transitions become **instant** (duration 0).
-- Color transitions also become instant.
-- The visual end-state is identical (Inari Vermillion icon on Vermillion Wash row); only the journey collapses.
-
-#### Off-limits motion
-
-- **No bounce, elastic, or spring easings.** The Shared Design Laws ban these system-wide; the icon system inherits the ban.
-- **No loop animations.** An icon that pulses, rotates, or wobbles continuously is a notification or a loading indicator, not a chrome icon. Loading states use the existing `--animate-button-dot-pulse` token, which is independent of the icon system.
-- **No transform-based hover effects** (scale-up on hover, rotate-on-hover). They feel cute-not-considered and clash with the morning-ritual register. The stroke-draw is the system's hover language.
-
-### Storage and Implementation
-
-#### File layout
-
-- All custom icons live in `apps/web/components/icons/`.
-- One file per icon: `IconDashboard.tsx`, `IconReview.tsx`, `IconDecks.tsx`, etc.
-- Each file exports a single React component. **Inline path data** — never a sprite-sheet `<use>` reference. The stroke-dasharray motion contract requires per-path control, which `<use>` does not give us.
-- A barrel file `apps/web/components/icons/index.ts` re-exports every icon for ergonomic imports (`import { IconDashboard, IconReview } from '@/components/icons'`).
-
-#### Component contract
-
-```tsx
-interface IconProps {
-  /** Pixel size; both width and height. Default 24. */
-  size?:      number
-  /** Tailwind / utility classes. Use this to set color via text-* utilities. */
-  className?: string
-  /** Override stroke width. Default computed from size. Rarely used. */
-  strokeWidth?: number
-}
-```
-
-- **Never** accept a `color` prop. Color comes from the parent's `color` CSS property via `currentColor` — this lets row hover/active/focus states drive the icon without prop plumbing.
-- **Never** accept a `fill` or `stroke` prop. The contract dictates these.
-- **Never** wrap the SVG in a `<span>` or `<div>` for layout purposes. Icons are inline-block by default; layout adjustments belong on the parent.
-
-#### Accessibility
-
-- Every icon SVG has `aria-hidden="true"` set on the root `<svg>` element. Icons are decorative; the surrounding text label carries the meaning.
-- For icon-only buttons (the mobile drawer's `×` close, the hamburger `☰`), the **button** element receives an `aria-label`. The icon stays `aria-hidden`.
-- An icon is **never** the sole carrier of meaning. If a future affordance needs an icon-only design with no visible text, that affordance is wrong; add text or use a different control.
-
-### How to Draw a New Icon
-
-A step-by-step contract for contributors. Follow it in order.
-
-#### 1. Define the concept in two words.
-
-Not "user account settings" — "user silhouette." Not "data analytics" — "growing bars." Not "report a problem" — "raised flag." If you can't say it in two words, the icon will be too busy; rework the concept first.
-
-The two-word test catches over-specified icons before they reach paper.
-
-#### 2. Choose stroke or silhouette (not both).
-
-The system default is **stroke** (an outline drawn in 1–4 paths). Choose **silhouette** (a single filled shape) only when the filled shape IS the symbol — a sun-disc, a stamped seal, a directional arrowhead. Mixing on the same icon is forbidden.
-
-If you're unsure, default to stroke. Silhouettes are the system's exception, not its rule.
-
-#### 3. Sketch with 4 or fewer paths.
-
-Each path is one continuous stroke. The Dashboard sun-disc: 1 path (the circle) + 1 path (the horizon) = 2 paths. The Decks icon: 3 paths (one per card outline). The Settings icon's gear: should be 1 path (a single continuous outline that traces all spokes), not 5 separate spoke paths.
-
-If you reach 5+ paths, your icon is *doing too much* — drop a detail. The system reads cleanly because every icon is reduced to its essence.
-
-#### 4. Set up the SVG container.
-
-```html
-<svg
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="1.75"
-  stroke-linecap="round"
-  stroke-linejoin="round"
-  aria-hidden="true"
->
-  <path d="…" pathLength="100" />
-</svg>
-```
-
-Every value here is non-negotiable. The viewBox is 24×24, the default fill is none, the stroke is currentColor, the width is 1.75 (at 24px), the linecaps and linejoins are round, the aria-hidden is true, and every path has `pathLength="100"`.
-
-#### 5. Use a 2px endpoint inset.
-
-A path that ends at coordinate 0, 24, 0.5, or 23.5 reads as cropped. End every stroke at least 2px inside the viewBox: coordinates 2 to 22 are the working range. Round-linecap adds optical mass at endpoints, so 2px inset gives the icon room to breathe.
-
-The exception is silhouettes (filled shapes), where the geometry can extend to the viewBox edge if the concept demands it (a flag pole running floor-to-ceiling, a doorway frame).
-
-#### 6. Apply optical balance over geometric correctness.
-
-A 24×24 grid with 1.75px stroke means a "centered" circle with radius 9 reads as visually off-center. The stroke shifts the visual centroid. Eyeball the result; nudge by 0.5px until it sits right.
-
-The icon must **look** right, not be mathematically perfect. This is the opposite of pixel-perfect grid alignment. Tomo's icons are hand-tuned, not generated.
-
-#### 7. Match the system rhythm.
-
-Render the new icon side-by-side with three or four existing icons in the set. The new icon's visual weight, complexity, and emphasis must match the others. If it dominates the row, simplify. If it disappears, add weight to the strokes (within the 1.75px constraint — try a thicker silhouette element, or extend a path so it occupies more of the viewBox).
-
-The system rhythm is **quiet, considered, drawn**. A maximalist new icon will fight every existing icon next to it.
-
-#### 8. Verify at every size.
-
-Render the new icon at 16px, 20px, 24px, and 32px in succession. At 16px, the strokes must not collapse, paths must not visually overlap, and the silhouette must remain readable. If it fails the 16px test, simplify (reduce path count, increase relative spacing between elements, drop a detail). Tomo's icons must be legible from 16px to 32px without separate small-size variants.
-
-The exception is the Settings gear (a known small-size collapse case), which has a documented three-spoke fallback at <20px. Adding more such fallbacks requires explicit review.
-
-#### 9. Wire the stroke-draw motion.
-
-Each animatable path takes `pathLength="100"`. The parent component manages `stroke-dasharray` and `stroke-dashoffset` via CSS transitions. For multi-path icons, set per-path `transition-delay` to stagger the draw (40–60ms between paths).
-
-The canonical reference is `apps/web/components/icons/IconReview.tsx` (a single-path icon — the simplest case). For a multi-path reference, see `apps/web/components/icons/IconDecks.tsx`.
-
-#### 10. Ship as a barrel-exported React component.
-
-Add the new icon to `apps/web/components/icons/IconName.tsx`. Re-export from `apps/web/components/icons/index.ts`. Verify usage compiles: `import { IconName } from '@/components/icons'`.
-
-#### 11. Run `$impeccable document` after the icon lands.
-
-The `.impeccable/design.json` sidecar regenerates with the new icon's HTML/CSS for live-panel rendering. Skipping this step means the live panel and any future visual probes won't know about the icon.
-
-### What Icons Should Never Look Like
-
-The system's identity is defined as much by what it *isn't* as by what it is. The following families are **off-system**; an icon that looks like one of them is wrong, and the fix is to redraw it to the geometric ink-stroke contract.
-
-| Anti-reference | Why it's wrong for Tomo |
-|---|---|
-| **Lucide-react** (1.5px even-stroke functional vector) | Tomo isn't an enterprise SaaS dashboard; the Lucide language collapses the brand back into the AI-product-default lane. The Lucide Tax Rule formalizes the ban. |
-| **Material Symbols** (filled-then-rounded "all things to all people") | Material's icons aim for universal corporate legibility; Tomo's icons aim for considered ink-on-paper character. Universality is the enemy of identity here. |
-| **Heroicons** (solid-and-outline pair) | Tomo's icons have a single register (outline by default, silhouette as exception). Toggling solid vs outline for state is not the system; row treatment carries state. |
-| **Phosphor / Tabler / Feather / any utility set** | Same root issue as Lucide: utility sets serve any product, which means they serve *no* product distinctively. Tomo's icons are bespoke. |
-| **Emoji as iconography** | 🔥 streaks and 📚 decks read as phone-keyboard. The morning-ritual register doesn't tolerate it. |
-| **Skeumorphic illustration** (3D shadow, gloss, bevel) | Tomo is paper, not 2007 macOS. Flat ink on warm paper is the only acceptable rendering. |
-| **Brushstroke sumi-e ink characters as icons** | The brushstroke language belongs to the kitsune mark and identity surfaces *only*. Mixing brushstroke icons with the geometric ink-stroke set reads as inconsistent. The geometric set is *quiet ink*, not painterly ink. |
-| **Pixel-perfect grid alignment** (1px-perfect to a 16-grid) | Tomo's icons are optically balanced, not algorithmically aligned. A pixel-perfect icon often reads worse than a hand-tuned one. |
-| **Square-cornered terminals** | The round-linecap rule is non-negotiable. Square caps read as functional/utilitarian; round caps read as drawn. |
-| **Multiple stroke weights inside one icon** | The single-stroke-weight rule is non-negotiable. Mixed weights read as ill-considered or unfinished. |
-| **Color-coded family (red icons for danger, green for success)** | Color in icons is the row's job, not the icon's. Every icon ships in `currentColor`; the row's hover/active/focus state drives the color. An icon that hard-codes a color breaks every state contract. |
-
-### Named Rules
-
-**The Geometric Ink-Stroke Rule.** Every icon in product chrome and components is a custom geometric ink-stroke SVG conforming to the Geometric Ink-Stroke Spec above. Single kanji glyphs as navigation icons (the historical proposal of 家 / 本 / 復 / 統 / 設) are not part of the system; navigation uses the ink-stroke icon set just like any other surface.
-
-**The Single-Vocabulary Rule.** Within a single screen, all icons come from the same vocabulary: geometric ink-stroke (chrome and components) OR Unicode glyphs at semantic value (Rating row, exclusively). Mixing geometric ink-stroke with Unicode glyphs in the same surface reads as inconsistent. The kitsune mark is *not* an icon and stays in its identity-surface positions.
-
-**The PathLength-100 Rule.** Every animatable path in a custom icon ships with `pathLength="100"`. This normalizes the dasharray math across paths of different actual lengths and is what makes the choreographed stroke-draw motion timing-consistent across the icon set. Paths without `pathLength="100"` are non-conforming and break the motion contract.
-
-**The 4-Path Maximum.** A custom icon ships with at most four paths. If the concept needs more, the concept is too busy; simplify until it fits. The four-path ceiling is what keeps the icon set readable at 16px and consistent in rhythm with its siblings.
-
-**The Lucide Tax Rule.** No new `lucide-react` imports may land. Tomo's icons come from exactly two sources: the custom geometric ink-stroke set in `apps/web/components/icons/` (chrome and components) and Unicode glyphs at semantic value (the Rating row, exclusively). Legacy lucide imports in older components are migrated as those components are touched. The cost of crossing this line is the entire visual identity collapsing back into the AI-SaaS lane.
-
 ## Components
 
-The component library below is **prescribed**, not described. The current code in `apps/web/components/` and the chrome under `apps/web/app/(app)/_components/` does not yet match this section. Implementation must migrate to the spec below; afterward, run `$impeccable document` to verify the spec landed and to regenerate the `.impeccable/design.json` sidecar with shadow-DOM-renderable HTML/CSS for the live panel.
+The component library below is **prescribed**, not described. The current code in `apps/web/components/` and the chrome under `apps/web/app/(app)/_components/` differs from this section. Implementation must migrate to the spec below; afterward, run `$impeccable document` to verify the spec landed and to regenerate the `.impeccable/design.json` sidecar with shadow-DOM-renderable HTML/CSS for the live panel.
 
 ### Buttons
 
@@ -618,7 +377,7 @@ The four-button row that captures the FSRS rating after answer reveal. The most 
 
 ### Navigation
 
-Two surfaces — the desktop **Sidebar** (lg+) and the **MobileDrawer** (< lg) — share a vocabulary and differ only in container shape. The full redesign brief lives in `docs/briefs/dashboard-navigation-redesign.md`; this section is the prescribed component-level spec.
+Two surfaces — the desktop **Sidebar** (lg+) and the **MobileDrawer** (< lg) — share a vocabulary and differ only in container shape.
 
 Single kanji glyphs as navigation icons (a historical proposal of 家 / 本 / 復 / 統 / 設) are not part of the system. Navigation uses the **custom geometric ink-stroke icon set** defined in §Icon System.
 
