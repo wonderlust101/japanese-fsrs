@@ -4,7 +4,7 @@ kanban-plugin: board
 
 ---
 
-Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-10.
+Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-12.
 
 ## To Do
 
@@ -32,18 +32,20 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Add a leeches-list API such as `GET /api/v1/reviews/leeches?limit=5`.
 	  - Expose a `hasLeeches` signal for the dashboard Drill leeches CTA.
 	  - Wire the dashboard leeches card and drill entry point to real data.
-- [ ] **Replace dashboard placeholder data with real API-backed state**
-	  - Add or derive weekly review and retention summary data for dashboard stat tiles.
-	  - Add recent activity data for the last seven days.
-	  - Add dashboard deck stats including due, new, review, total, mastery, and last-reviewed data.
-	  - Coordinate with the leeches list and Tomo daily note cards so dashboard sections read from the same backend contracts.
+- [ ] **Finish dashboard backend-backed state**
+	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
+	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
+	  - Add dashboard deck rollups including due, new, review, total, mastery, and last-reviewed data.
+	  - Coordinate with the leeches list and the later Tomo daily note card so dashboard sections read from explicit backend contracts.
 	  - Issue type: implementation placeholder and data-contract gap.
-	  - Recommended action: define the dashboard response contracts first, then replace hardcoded client values one section at a time.
-	  - Done when dashboard stats, recent activity, deck summaries, leech signals, and Tomo note surfaces are no longer backed by hardcoded/demo data.
+	  - Current state: hero, forecast, basic deck shelf, and recent activity use live data; leeches and the temporary practice signal render unavailable states; dev-only preview controls still use sample data by design.
+	  - Recommended action: define the missing leech, deck-rollup, and note contracts before replacing unavailable states.
+	  - Done when deck rollups, leech signals, and the restored Tomo daily note surface are no longer backed by unavailable/demo data.
 - [ ] **Build Tomo daily note API and content source**
 	  - Add a route family such as `GET /api/v1/tomo/note`.
 	  - Support paid insight and free/fallback idiom variants as referenced in dashboard comments.
 	  - Add a curated idiom source and cache AI insight output safely.
+	  - The current dashboard practice-signal module is temporary; restore the dashboard area back to Tomo daily notes when this API lands.
 - [ ] **Define sentence-layout card workflow**
 	  - Replace the open, reserved sentence `fields_data` shape with a committed contract.
 	  - Add creation, validation, rendering, and review behavior for sentence-layout cards.
@@ -112,6 +114,10 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [ ] **Decide public exposure for rollback / forget / reschedule**
 	  - Service functions exist in `fsrs.service.ts`.
 	  - Decide whether to add user-facing API/UI routes or mark them internal-only.
+- [ ] **Revisit streaks for a later version**
+	  - Streak UI is intentionally deferred from the current dashboard and analytics scope.
+	  - Legacy backend streak RPC/API may remain for compatibility until a later product pass decides whether to remove, replace, or make it learner-timezone-aware.
+	  - If current scope must be fully streak-free, remove the remaining analytics `StreakCard` and any streak copy from `apps/web/app/(app)/analytics/_components/`.
 - [ ] **Verify custom system-page coverage**
 	  - Static inspection found route pages and layouts.
 	  - Confirm broad `error.tsx`, `not-found.tsx`, and loading coverage before moving the system-pages card to Done.
@@ -134,7 +140,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [x] **AI generation endpoints**
 	  - Card generation, contextual sentences, mnemonics, prompt sanitization, structured output validation, and response caching are implemented.
 - [x] **Analytics backend and UI**
-	  - Heatmap, accuracy, streak, JLPT gap, milestone forecast, review forecast, and bundled dashboard paths exist.
+	  - Heatmap, accuracy, JLPT gap, milestone forecast, review forecast, and bundled dashboard paths exist. Streaks are deferred from the current product scope.
 - [x] **Core frontend app shell**
 	  - Auth, onboarding, dashboard, decks, premade browse, review, review summary, analytics, and settings routes exist.
 - [x] **Offline review queue**

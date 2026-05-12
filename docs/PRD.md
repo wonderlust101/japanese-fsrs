@@ -22,13 +22,13 @@ The core job-to-be-done is: help learners retain Japanese vocabulary, kanji, and
 | Japanese content | Represent JLPT levels including `beyond_jlpt`; support vocabulary, grammar, and sentence field shapes; preserve Japanese typography, furigana, and CJK rendering. |
 | Personalization | Store native language, JLPT target, study goal, daily limits, retention target, timezone, and user interests. Use these preferences to shape review limits and AI output. |
 | AI learning assistance | Paid-tier features include card generation, contextual example sentences, mnemonics, and leech diagnosis or prescriptive learning guidance. AI should be visible through output quality, not through chrome or sparkle branding. |
-| Analytics | Provide retention heatmap, accuracy by cognitive modality, streaks, JLPT gap/progress, milestone forecasts, and review forecasts. |
+| Analytics | Provide retention heatmap, accuracy by cognitive modality, JLPT gap/progress, milestone forecasts, and review forecasts. Streaks are deferred to a later product version. |
 | Accessibility | Meet WCAG 2.1 AA as a floor; keep keyboard review canonical; support screen readers, `lang="ja"`, semantic furigana, reduced motion, and color-blind-safe review affordances. |
 | Business model | Keep the free tier a complete SRS with manual cards, premade decks, analytics, offline review, and accessibility. Gate AI assistance behind the paid tier. |
 
 ## Scope Guidance
 
-The current active scope is a complete daily-practice SRS: auth, onboarding, profile preferences, deck/card management, review scheduling, premade deck adoption, offline review recovery, core analytics, and accessible product chrome.
+The current active scope is a complete daily-practice SRS: auth, onboarding, profile preferences, deck/card management, review scheduling, premade deck adoption, offline review recovery, core analytics, and accessible product chrome. Streak surfaces are intentionally out of current scope and deferred to a later version.
 
 Active work is tracked in [KANBAN_BOARD.md](KANBAN_BOARD.md). When requirements change, update the board, [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), and the relevant [status/](status/) file together so planning and inspected status stay aligned.
 
@@ -43,4 +43,4 @@ Active work is tracked in [KANBAN_BOARD.md](KANBAN_BOARD.md). When requirements 
 
 ---
 
-*Last updated: 2026-05-10*
+*Last updated: 2026-05-12*

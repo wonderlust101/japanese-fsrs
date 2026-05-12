@@ -51,9 +51,9 @@ The free tier is not crippled. It is the same Tomo, with manually-prepared cards
 
 Three words: **encouraging, considered, joyful.**
 
-- **Encouraging**, not cheerleading. The app greets by name, acknowledges when a streak breaks without shame, celebrates specific small wins. It assumes the learner is competent and committed, then makes them feel that way.
+- **Encouraging**, not cheerleading. The app greets by name, acknowledges missed practice without shame, celebrates specific small wins. It assumes the learner is competent and committed, then makes them feel that way.
 - **Considered**, not minimal-by-default. Every screen earns its restraint. Whitespace is intentional, type pairings are deliberate, chrome serves the Japanese content rather than competing with it. *Quiet* without *empty.*
-- **Joyful**, not gamified. Small delights, a satisfying reveal animation, a streak bead that fills with care, a subtle ✦ when something goes well. Joy is structural; it is not a layer of confetti on top.
+- **Joyful**, not gamified. Small delights, a satisfying reveal animation, a progress bead that fills with care, a subtle ✦ when something goes well. Joy is structural; it is not a layer of confetti on top.
 
 Sample voice (real copy, not aspirational):
 
@@ -93,7 +93,7 @@ Tomo must explicitly NOT feel like:
 
 What is *not* anti-referenced is also load-bearing. Tomo may borrow texture from:
 
-- **Gentle gamification**: Duolingo-adjacent encouragement and streaks, but never guilt loops, never push-notification shame, never a talking mascot. The encouragement lives in the copy and in Tomo's silent presence on milestone moments, not in dialogue from a character.
+- **Gentle gamification**: Duolingo-adjacent encouragement and progress rituals, but never guilt loops, never push-notification shame, never a talking mascot. Streaks are deferred to a later product version; the current product should not rely on streak pressure. The encouragement lives in the copy and in Tomo's silent presence on milestone moments, not in dialogue from a character.
 - **Domain personality**: WaniKani-adjacent kanji-aware design touches, but never tribal pink-everywhere, never level-rank chrome.
 - **Traditional Japanese visual culture**: sumi-e brush qualities, hi-no-maru disc compositions, kissaten warmth, Inari vermillion, the cadence of hand-calligraphy. Never tourist-shop Japan, never anime-cute, never ironic-orientalism. The cultural references must serve learners, not perform Japaneseness for an outside audience.
 
@@ -103,7 +103,7 @@ All three must serve the *encouraging, considered, joyful* voice and never break
 
 1. **Two registers, one identity.** The product register is primary. Product surfaces and brand surfaces share the same voice, type system, and emotional temperature; a stranger should recognize the same Tomo across both.
 
-2. **Joy is structural, not decorative.** The opposite of Anki. Warmth is not a polish-pass nice-to-have; it shows up in the cadence of motion, the choice of words, the framing of streaks, the kindness of an empty-state. Remove the joy and Tomo loses its reason to exist.
+2. **Joy is structural, not decorative.** The opposite of Anki. Warmth is not a polish-pass nice-to-have; it shows up in the cadence of motion, the choice of words, the framing of progress, the kindness of an empty-state. Remove the joy and Tomo loses its reason to exist.
 
 3. **Refuse the AI-default; commit to ink and disc.** Indigo-gradient hero + glass cards + lucide-icon trio is the trap. The brand has formally committed away from it: the new primary is Muted Berry Red `#B03646`, the icon language must move toward something tactile (hand-drawn or sumi-adjacent, not stroke-1.5 utility), and chrome must read as ink-and-paper, not as 2024 SaaS. The current visual baseline is in the trap and is being deliberately migrated out.
 
@@ -111,7 +111,7 @@ All three must serve the *encouraging, considered, joyful* voice and never break
 
 5. **Morning calm; Japanese is the hero.** The default emotional register is bright/quiet/focused, a chosen ritual, not a guilt obligation. Density, color, and motion-energy decisions bias toward "calm desk at 7am" rather than "phone in bed at midnight" or "commute scramble." On every screen, the Japanese content (kanji, kana, sentences, furigana) is the most beautiful thing; chrome, controls, and metadata serve it.
 
-6. **Tomo is presence, not personality.** The kitsune mark lives at identity positions (wordmark, favicon, auth screen, OG image, app icon) and surfaces as illustration on a small set of emotional moments: first card learned, streak milestones, the daily review-summary screen, the 404 / empty-state pages. Tomo *never* speaks in copy, *never* narrates progress, *never* appears in normal review chrome (chrome belongs to the Japanese, not the fox). The role is *to be there when it matters, not to perform.* The Duolingo distinction is structural: an owl that talks is a character; a kitsune that's quietly present is identity.
+6. **Tomo is presence, not personality.** The kitsune mark lives at identity positions (wordmark, favicon, auth screen, OG image, app icon) and surfaces as illustration on a small set of emotional moments: first card learned, major progress milestones, the daily review-summary screen, the 404 / empty-state pages, and later streak milestones if streaks return. Tomo *never* speaks in copy, *never* narrates progress, *never* appears in normal review chrome (chrome belongs to the Japanese, not the fox). The role is *to be there when it matters, not to perform.* The Duolingo distinction is structural: an owl that talks is a character; a kitsune that's quietly present is identity.
 
 7. **Invisible AI, visible craft.** The intelligence is everywhere in the cards but nowhere in the chrome. The learner pays for AI-tier features and receives sharper cards, more personal sentences, and stickier mnemonics, not more visible "AI" branding. A surface that adds a sparkle icon, an "AI mode" toggle, or a "Generated by GPT" footer to justify the paid tier is wrong. The justification is in what the AI *makes*, not what it is *labeled.*
 

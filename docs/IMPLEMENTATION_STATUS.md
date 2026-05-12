@@ -2,9 +2,9 @@
 
 This is the current status index. Detailed implementation evidence is split by area under [status/](status/).
 
-Refreshed by read-only code inspection on 2026-05-10. This records current implementation evidence, not product intent. Product truth lives in [PRODUCT.md](PRODUCT.md), design truth in [DESIGN.md](DESIGN.md), database truth in [DATABASE.md](DATABASE.md), and active tasks in [KANBAN_BOARD.md](KANBAN_BOARD.md).
+Refreshed by code inspection on 2026-05-12. This records current implementation evidence, not product intent. Product truth lives in [PRODUCT.md](PRODUCT.md), design truth in [DESIGN.md](DESIGN.md), database truth in [DATABASE.md](DATABASE.md), and active tasks in [KANBAN_BOARD.md](KANBAN_BOARD.md).
 
-No tests or runtime flows were executed for this status refresh.
+`bun run typecheck` was executed for this refresh. No runtime flows were exercised.
 
 ## Status Legend
 

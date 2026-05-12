@@ -15,7 +15,7 @@ Current implementation summary lives in [IMPLEMENTATION_STATUS.md](IMPLEMENTATIO
 | Server state | TanStack Query v5 |
 | API | Express 5, TypeScript, Bun runtime |
 | Database | Supabase PostgreSQL with pgvector |
-| Cache/rate limits | Upstash Redis |
+| Cache/rate limits | Upstash Redis for production rate limits and AI/cache paths |
 | AI | OpenAI via `OPENAI_CHAT_MODEL` and `OPENAI_EMBEDDING_MODEL` |
 | SRS | `ts-fsrs` runtime scheduler |
 | Shared contracts | `packages/shared-types` Zod schemas and TypeScript types |
@@ -40,7 +40,7 @@ API route families are mounted under `/api/v1`: auth, profile, decks, premade de
 - `PATCH /cards/:id`, `PATCH /decks/:id`, and `PATCH /profile` use `If-Match: <version>` optimistic concurrency.
 - List endpoints use cursor pagination and return `{ items, nextCursor, hasMore }`.
 - Bounded responses such as due cards, analytics, forecasts, similar cards, and subscriptions keep the same envelope with `nextCursor: null` and `hasMore: false` where applicable.
-- All protected routes use auth middleware and the default per-user rate limiter. Costly AI, subscribe, delete, batch, and analytics-dashboard paths layer stricter limiters.
+- All protected routes use auth middleware. In production, they also use the default per-user rate limiter, with stricter production limiters layered onto costly AI, subscribe, delete, batch, and analytics-dashboard paths. Development and test bypass rate-limit checks so local iteration and integration suites do not call Upstash for every guarded route.
 
 ## Database And Scheduling
 
@@ -81,9 +81,9 @@ At minimum, risky changes should include focused tests around the affected layer
 
 - Zod schemas and pure helpers for wire-contract changes.
 - Service tests for business logic and database transform behavior.
-- Integration tests for route/database behavior, idempotency, optimistic concurrency, auth, and rate limiting.
+- Integration tests for route/database behavior, idempotency, optimistic concurrency, auth, and production-gated rate limiting.
 - UI tests or browser verification for user-facing workflow changes when available.
 
 ---
 
-*Last updated: 2026-05-10*
+*Last updated: 2026-05-12*

@@ -1,6 +1,6 @@
 # Testing Status
 
-Refreshed by read-only code inspection on 2026-05-10. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
+Refreshed by code inspection on 2026-05-12. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
 
 | Capability | Status | Evidence |
 |---|---|---|

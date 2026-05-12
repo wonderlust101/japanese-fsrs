@@ -1,6 +1,6 @@
 # Backend And Data Status
 
-Refreshed by read-only code inspection on 2026-05-10. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
+Refreshed by code inspection on 2026-05-12. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
 
 | Capability | Status | Evidence |
 |---|---|---|
@@ -15,17 +15,17 @@ Refreshed by read-only code inspection on 2026-05-10. See [../IMPLEMENTATION_STA
 | Full launch-size curated premade catalogue | Partial | Premade deck records and seed cards exist in `supabase/migrations/20260504000000_seed_premade_decks.sql`, but static inspection shows starter seed content, not the large catalogue described by older planning docs. |
 | Premade deck update/merge workflow | Partial | `premade_decks.version` and `user_premade_subscriptions.last_seen_version` exist in `docs/DATABASE.md`; no merge/update route was found in `apps/api/src/routes/premade.ts`. |
 | Onboarding deck recommendations API | Missing | `apps/web/app/onboarding/decks/page.tsx` references `/onboarding/recommendations`; no matching route family was found in `apps/api/src/routes/` or `apps/web/app/api/`. |
-| FSRS review submit, batch submit, due queue, review forecast | Implemented | `apps/api/src/routes/reviews.ts`, `apps/api/src/services/fsrs.service.ts`, `apps/api/src/services/review.service.ts`, `supabase/migrations/20260515000000_batch_query_rpcs.sql`, `supabase/migrations/20260508000002_get_review_forecast_rpc.sql` |
+| FSRS review submit, batch submit, due queue, review forecast | Implemented | `apps/api/src/routes/reviews.ts`, `apps/api/src/services/fsrs.service.ts`, `apps/api/src/services/review.service.ts`, `supabase/migrations/20260515000000_batch_query_rpcs.sql`, `supabase/migrations/20260529000000_learner_timezone_review_buckets.sql`, `supabase/migrations/20260530000000_review_forecast_actual_new_counts.sql` |
 | Review session summary including leeches | Implemented | `apps/api/src/routes/reviews.ts`, `apps/api/src/services/review.service.ts`, `supabase/migrations/20260516000000_pagination_and_session_summary_rpcs.sql`, `supabase/migrations/20260519000000_leech_cascade_and_premade_doc.sql` |
 | Service-level rollback, forget, and reschedule from history | Implemented | `apps/api/src/services/fsrs.service.ts`, `supabase/migrations/20260502000001_review_logs_before_snapshot.sql`, `supabase/migrations/20260502000003_process_forget_rpc.sql` |
 | Public API routes for rollback/forget/reschedule | Unknown | Service functions exist, but no matching route was found in `apps/api/src/routes/reviews.ts` or `apps/api/src/routes/cards.ts`. |
 | Leech flagging | Implemented | `apps/api/src/services/fsrs.service.ts`, `supabase/migrations/20260514000000_atomic_service_writes.sql`, `docs/DATABASE.md` |
 | Leeches list API and dashboard drill flag | Missing | `apps/web/app/(app)/dashboard/_components/dashboard-client.tsx` references a leeches-list API and `hasLeeches` flag; no matching route was found in `apps/api/src/routes/reviews.ts`. |
 | AI leech diagnosis and prescription | Partial | `leeches.diagnosis` and `leeches.prescription` columns exist, but no AI diagnose route/service path was found. |
-| Analytics heatmap, accuracy, streak, JLPT gap, milestones, bundled dashboard | Implemented | `apps/api/src/routes/analytics.ts`, `apps/api/src/services/analytics.service.ts`, `supabase/migrations/20260503000003_analytics_rpcs.sql`, `supabase/migrations/20260504000001_streak_jlpt_forecast_rpcs.sql` |
-| Dashboard weekly and recent activity APIs | Missing | Dashboard comments reference weekly summary and recent-activity data (`/api/v1/analytics/week-summary` or `/api/v1/analytics/recent`); `apps/api/src/routes/analytics.ts` has no matching endpoints. |
-| Dashboard deck stats API | Missing | Dashboard comments reference deck stats beyond `ApiDeckWithStats`; `apps/api/src/routes/decks.ts` only exposes the current deck CRUD/list/detail routes. |
+| Analytics heatmap, accuracy, JLPT gap, milestones, bundled dashboard | Implemented | `apps/api/src/routes/analytics.ts`, `apps/api/src/services/analytics.service.ts`, `supabase/migrations/20260503000003_analytics_rpcs.sql`, `supabase/migrations/20260504000001_streak_jlpt_forecast_rpcs.sql`, `supabase/migrations/20260529000000_learner_timezone_review_buckets.sql`. Legacy streak RPC/API still exists, but streaks are deferred from the current dashboard direction. |
+| Dashboard weekly summary API | Missing | Dashboard no longer requires a recent-activity endpoint because the frontend derives seven-day activity from heatmap data. No weekly summary route exists in `apps/api/src/routes/analytics.ts`. |
+| Dashboard deck rollup API | Missing | `GET /api/v1/decks` provides deck names and card counts for the dashboard, but due/new/review/mastery/last-reviewed rollups are not exposed as a dashboard-specific contract. |
 | Paid/free tier entitlement model | Missing | Dashboard comments reference `user.tier`, and product docs require paid AI gating, but no profile/subscription entitlement field or server-side AI tier gate was found. |
 | Idempotency for retryable mutating requests | Implemented | `apps/api/src/lib/idempotency.ts`, controller usage in decks/cards/reviews/premade, `supabase/migrations/20260524000000_idempotency_keys.sql` |
-| Rate limiting with fail-open infrastructure behavior | Implemented | `apps/api/src/middleware/rateLimit.ts`, `apps/api/src/lib/circuit-breaker.ts` |
+| Production-only rate limiting with fail-open infrastructure behavior | Implemented | `apps/api/src/middleware/rateLimit.ts`, `apps/api/src/lib/circuit-breaker.ts`; dev/test bypass the limiter path. |
 | Structured request logging and graceful shutdown | Implemented | `apps/api/src/middleware/requestLogger.ts`, `apps/api/src/lib/logger.ts`, `apps/api/src/lib/shutdown.ts`, `apps/api/src/routes/health.ts` |

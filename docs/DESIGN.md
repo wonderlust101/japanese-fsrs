@@ -185,7 +185,7 @@ The palette commits to **Full palette** as a strategy: four named roles, each wi
 
 ### Secondary
 
-- **Aizome Indigo** (`#1B3A6B`): the supporting color, drawn from traditional Japanese indigo dye (aizome). Used sparingly: for the streak hero number on the dashboard, the "Easy" rating button, the vocabulary deck-type badge text, and occasional editorial moments where a deep ink-blue carries more authority than red (long-form grammar explanations, mnemonic attribution panels, the JLPT N3 badge family). Aizome is *not* the retired Default Tech Indigo (`#6366F1`); see the Aizome Distinction Rule.
+- **Aizome Indigo** (`#1B3A6B`): the supporting color, drawn from traditional Japanese indigo dye (aizome). Used sparingly: for the "Easy" rating button, the vocabulary deck-type badge text, neutral/unleveled dashboard progress bars, and occasional editorial moments where a deep ink-blue carries more authority than red (long-form grammar explanations, mnemonic attribution panels, the JLPT N3 badge family). Aizome is *not* the retired Default Tech Indigo (`#6366F1`); see the Aizome Distinction Rule.
 
 ### Neutral (Cool Page + Warm Paper)
 
@@ -218,7 +218,7 @@ The system runs **cool page, warm card** to make cards read as objects resting o
 
 Two Latin families (Bricolage Grotesque for display, DM Sans for body), Noto Sans JP for Japanese, JetBrains Mono for SRS data. The display/body split lets headlines carry character while body type stays calmly readable.
 
-**Display — Bricolage Grotesque** (Google Fonts, variable, free). Used for headlines on auth and onboarding cards, the streak hero number, the "Welcome" register, and any large typographic moment that wants character. Bricolage is a contemporary humanist display face with subtle warmth and personality at large sizes; at small sizes it's not the right tool — that's DM Sans's job.
+**Display — Bricolage Grotesque** (Google Fonts, variable, free). Used for headlines on auth and onboarding cards, the dashboard masthead greeting, the "Welcome" register, and any large typographic moment that wants character. Bricolage is a contemporary humanist display face with subtle warmth and personality at large sizes; at small sizes it's not the right tool — that's DM Sans's job.
 
 **Body — DM Sans** (Google Fonts, free). Used for everything else: form labels, nav labels, body copy, button text, stats rows, hints, the chrome of the app. Humanist, screen-warm, well-rendered at small sizes, pairs cleanly with Noto Sans JP across mixed-script content.
 
@@ -230,7 +230,7 @@ Two Latin families (Bricolage Grotesque for display, DM Sans for body), Noto San
 
 The committed type scale is in `globals.css` (`--text-xs` through `--text-5xl`, with v4-namespaced line-height tokens). The roles map as:
 
-- **Display** (`--text-3xl` → `--text-5xl`, Bricolage Grotesque): hero word on the review card, big streak numbers, auth/onboarding card titles, milestone illustrations.
+- **Display** (`--text-3xl` → `--text-5xl`, Bricolage Grotesque): hero word on the review card, dashboard masthead lines, auth/onboarding card titles, milestone illustrations.
 - **Headline** (`--text-2xl`, Bricolage or DM Sans semibold): major page-section headings.
 - **Title** (`--text-xl`, DM Sans semibold): section titles, modal headers, deck-card titles.
 - **Body** (`--text-base`, DM Sans regular): default reading text — sentences, mnemonics, grammar explanations.
@@ -333,6 +333,20 @@ The `<Card>` primitive in `apps/web/components/ui/Card.tsx` ships three variants
 #### The card-stack composition
 
 On auth and onboarding, the foreground card sits in front of up to **two fading cards stacked behind**, offset by ~6–10px each, opacity stepping down from 100% → ~60% → ~30%. The stack visibly depletes as the user advances through onboarding (each completed step removes one card from the rear of the stack). This is the brand register's signature; product surfaces (dashboard, decks, analytics) typically show a single card or a list of cards, not a depleting stack.
+
+### Dashboard Surface
+
+The dashboard is the learner's morning desk, not a stats wall. It opens with a wide masthead that uses `/assets/dashboard/hero-garden-background.png`: a quiet study-desk image with the active objects biased to the right and low-detail paper texture under the greeting. The image is masked into Cool Paper Base and should never sit inside a card.
+
+- **Masthead:** learner-local date and greeting come from profile timezone. The copy may acknowledge yesterday or skipped days, but never uses streak pressure. The visible date block is a compact calendar object, not a leaderboard.
+- **Primary review hero:** the due queue remains the first interactive product object after the masthead. It is driven by `GET /api/v1/reviews/due` plus deck metadata and splits the route into new, review, and backlog counts.
+- **Forecast module:** the chart shows backlog, scheduled reviews, and actual new-card inventory as stacked segments. Mobile/tablet shows seven days; desktop shows fourteen. Future days can fade by distance, but labels and segment colors must stay legible.
+- **Active decks:** the shelf uses real deck names and card counts. Due/new/review/mastery/last-reviewed rollups are optional until the backend exposes a dedicated dashboard rollup contract; missing rollups should render as quieter metadata, not fake progress.
+- **Weak spots and recent activity:** recent activity is derived from heatmap data. Weak spots render an unavailable state until the leech-list API exists.
+- **Practice signal:** the current practice-signal card is temporary. Product intent is to restore this area to Tomo daily notes once the note API and content source exist. Until then, keep the module honest with unavailable/empty states and do not make Tomo speak in normal dashboard chrome.
+- **Dev-only preview controls:** dashboard preview controls are available only through the development launcher. They may use sample data to exercise loading, empty, error, unavailable, and high-volume states; no preview affordance ships in production.
+
+Streak UI is deferred to a later product version. Do not reintroduce streak hero numbers, streak beads, or streak-pressure copy into the current dashboard.
 
 ### Deck Card (List-Row)
 

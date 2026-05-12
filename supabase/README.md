@@ -81,6 +81,8 @@ supabase db push                 # Dry-run by default; approve when prompted
 | `20260505000000` | 2026-05-05 | Type fix: daily_pace NUMERIC → FLOAT8 for TypeScript alignment |
 | `20260505000001` | 2026-05-05 | Clarify grammar_patterns design: user_id NOT NULL constraint |
 | `20260520000000` | 2026-05-20 | Remove unused grammar-pattern feature: drop `grammar_patterns` table, JLPT Grammar premade deck (with seed cards), and `deck_type='grammar'` enum value. User forks of the grammar deck migrated to `deck_type='vocabulary'`. |
+| `20260529000000` | 2026-05-29 | Learner-timezone review buckets for due-card caps, heatmap data, forecast windows, and bundled dashboard data. |
+| `20260530000000` | 2026-05-30 | Split review forecast rows into backlog, scheduled review, and actual new-card inventory counts. |
 
 ## Generating TypeScript Types
 

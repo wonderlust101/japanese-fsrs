@@ -113,7 +113,7 @@ Extends `auth.users` with application-specific user preferences. Exactly one row
 | `daily_new_cards_limit` | `INT` | NO | `20` | Maximum new cards introduced per day. Enforced by `get_due_cards()` RPC. CHECK ≥ 0. |
 | `daily_review_limit` | `INT` | NO | `200` | Maximum review cards shown per day. Enforced by `get_due_cards()` RPC. CHECK ≥ 0. |
 | `retention_target` | `FLOAT` | NO | `0.85` | Target recall probability (0–1) used as the global fallback for FSRS scheduling. CHECK `> 0 AND <= 1`. Per-layout FSRS instances may override this with their own `request_retention`. |
-| `timezone` | `TEXT` | NO | `'UTC'` | IANA timezone string (e.g. `Asia/Tokyo`, `Etc/GMT+8`). Validated by `profiles_timezone_iana` CHECK. Used to compute day boundaries for daily limits and streak calculations. |
+| `timezone` | `TEXT` | NO | `'UTC'` | IANA timezone string (e.g. `Asia/Tokyo`, `Etc/GMT+8`). Validated by `profiles_timezone_iana` CHECK. Used to compute learner-local day boundaries for daily review caps, heatmap buckets, forecast buckets, and dashboard calendar copy. |
 | `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_profile_with_interests()` on every successful PATCH. Required as `If-Match` header on `PATCH /api/v1/profile`. |
 | `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
 | `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `profiles_updated_at` trigger on every UPDATE. |
@@ -361,7 +361,7 @@ Immutable, append-only audit trail of every review event. A row is inserted by `
 | `rating` | `review_rating` | NO | — | The rating the user gave: `again`, `hard`, `good`, `easy`. `manual` is written by `process_forget()` only. |
 | `review_time_ms` | `INT` | YES | `NULL` | Time the user spent on the card in milliseconds. `NULL` if the client did not report it. CHECK `IS NULL OR >= 0`. |
 | `session_id` | `UUID` | YES | `NULL` | Client-generated UUID grouping all reviews from a single study session. Drives `get_session_summary()`. `NULL` for logs written before this column was added. |
-| `reviewed_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the review occurred. Used for analytics, streak calculations, and time-based reports. |
+| `reviewed_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the review occurred. Used for analytics, learner-local heatmap buckets, daily cap accounting, and time-based reports. |
 
 #### After-Snapshot Columns (always populated)
 
@@ -396,7 +396,7 @@ FSRS state *before* this review was applied. Required for `rollbackReview()` in 
 | Index | Columns / Predicate | Purpose |
 |---|---|---|
 | `review_logs_pkey` | `(id)` | — |
-| `review_logs_user_id_reviewed_at_idx` | `(user_id, reviewed_at)` | Streak, heatmap, daily-quota counts in `get_due_cards()`. |
+| `review_logs_user_id_reviewed_at_idx` | `(user_id, reviewed_at)` | Heatmap, daily-quota counts in `get_due_cards()`, and legacy/deferred streak calculations. |
 | `review_logs_card_id_idx` | `(card_id)` | Per-card history join in `get_accuracy_by_layout()` and rollback lookups. |
 | `review_logs_session_id_idx` | `(session_id)` | Session-summary lookups. |
 | `review_logs_user_graduations_idx` | `(user_id, reviewed_at) INCLUDE (state_before, rating) WHERE rating IN ('good', 'easy') AND state_before IS NOT NULL AND state_before < 2` | Partial covering index for `get_milestone_forecast()` — the "successful graduation" pattern (a learning-phase card answered Good/Easy). |
@@ -522,21 +522,21 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 
 | Function | Purpose | Returns |
 |---|---|---|
-| `get_due_cards(p_user_id, p_daily_review_limit, p_daily_new_cards_limit)` | Single-query replacement for the 2-counts + 2-selects review-queue load. Returns overdue cards ordered by `due ASC` followed by new cards ordered by `created_at ASC`, both capped by daily limits. | `(id, deck_id, card_type, jlpt_level, state, due, fields_data, layout_type)` |
+| `get_due_cards(p_user_id, p_daily_review_limit, p_daily_new_cards_limit, p_timezone DEFAULT 'UTC')` | Single-query replacement for the 2-counts + 2-selects review-queue load. Counts today's reviews from learner-local midnight, then returns overdue cards ordered by `due ASC` followed by new cards ordered by `created_at ASC`, both capped by daily limits. | `(id, deck_id, card_type, jlpt_level, state, due, fields_data, layout_type)` |
 | `list_cards_paginated(p_user_id, p_deck_id, p_limit, p_cursor, p_status_filter)` | Tuple-cursor pagination over a deck's cards. Uses `(created_at, id) < (cursor_at, cursor_id)` so same-`created_at` neighbours don't straddle page boundaries. | Card detail rows. |
 | `list_decks_paginated(p_user_id, p_limit, p_cursor)` | Tuple-cursor pagination over the user's decks, ORDER BY `(updated_at DESC, id DESC)`. | Deck rows. |
 | `list_premade_decks_paginated(p_limit, p_cursor, p_deck_type, p_jlpt_level, p_domain)` | Tuple-cursor pagination over active premade decks, ORDER BY `(jlpt_level ASC NULLS LAST, name ASC, id ASC)`. | Premade deck rows. |
-| `get_dashboard_data(p_user_id)` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, `get_streak`, `get_jlpt_gap`, `get_milestone_forecast` into one JSONB envelope (5 RPCs → 1 round-trip). | JSONB envelope. |
+| `get_dashboard_data(p_user_id, p_timezone DEFAULT 'UTC')` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, legacy `get_streak`, `get_jlpt_gap`, and `get_milestone_forecast` into one JSONB envelope (5 RPCs → 1 round-trip). Heatmap bucketing uses learner-local days. Streak fields remain present for compatibility, but streaks are deferred from the current dashboard direction. | JSONB envelope. |
 | `get_session_summary(p_session_id, p_user_id)` | Aggregate stats + leeches-with-card-context for a study session. Filters orphan leeches (`card_id IS NOT NULL`). Internal LIMIT 5000 caps the scan. | JSONB envelope. |
-| `get_review_forecast(p_user_id, p_days)` | Per-day count of cards due in the next N days. Server-side GROUP BY replaces 100+ KB of JS-side data shuffling. | `(date TEXT, count BIGINT)` |
+| `get_review_forecast(p_user_id, p_days DEFAULT 14, p_timezone DEFAULT 'UTC')` | Learner-local forecast for the next N days. Overdue non-new cards are grouped into today's `backlog_count`; scheduled review cards stay on their due day; new cards count actual available new-card inventory today instead of projecting the daily new-card limit into every future day. | `(date TEXT, count BIGINT, backlog_count BIGINT, review_count BIGINT, new_count BIGINT)` |
 
 ### Analytics RPCs
 
 | Function | Purpose | Returns |
 |---|---|---|
-| `get_heatmap_data(p_user_id)` | Per-day counts and retention % for the last 365 days (days with no reviews are omitted). | `(date TEXT, retention FLOAT, count BIGINT)` |
+| `get_heatmap_data(p_user_id, p_timezone DEFAULT 'UTC')` | Per-day counts and retention % for the last 365 learner-local days (days with no reviews are omitted). | `(date TEXT, retention FLOAT, count BIGINT)` |
 | `get_accuracy_by_layout(p_user_id)` | Total reviews and successful reviews grouped by `card_type` (modality). | `(layout TEXT, total BIGINT, successful BIGINT)` |
-| `get_streak(p_user_id)` | Current streak (today or yesterday counts), longest streak, last review date. | `(current_streak INT, longest_streak INT, last_review_date DATE)` |
+| `get_streak(p_user_id)` | Legacy/deferred streak RPC. Buckets by UTC calendar day and returns current streak, longest streak, and last review date. Current dashboard work does not rely on streaks; remaining analytics usage should be treated as legacy cleanup if streaks stay deferred. | `(current_streak INT, longest_streak INT, last_review_date DATE)` |
 | `get_jlpt_gap(p_user_id)` | Per-JLPT-level totals, learned (state ≥ 2), and currently-due counts. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, due BIGINT)` |
 | `get_milestone_forecast(p_user_id)` | Per-JLPT-level projected completion based on 30-day daily learning pace. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, daily_pace NUMERIC, days_remaining INT, projected_completion_date DATE)` |
 

@@ -1,7 +1,7 @@
 # Testing Strategy
 ## Tomo
 
-**Last Updated:** 2026-05-10
+**Last Updated:** 2026-05-12
 
 ---
 
@@ -124,14 +124,14 @@ apps/api/
 
 A test is an integration test if it:
 - Talks to a real Supabase database (reads or writes actual rows)
-- Talks to a real Upstash Redis instance
+- Talks to a real Upstash Redis instance for production-gated rate-limit tests
 - Exercises a full API route end-to-end (including the database round-trip)
 - Requires environment variables from `.env` to be present
 
 **Good integration test targets:**
 - Full signup → login → protected-route round trips
 - `processReview` persisting FSRS state changes to the database
-- Rate limiting behavior across multiple requests
+- Production rate limiting behavior across multiple requests (`NODE_ENV=production`)
 - Supabase RLS policies (verifying that rows are only accessible to their owner)
 
 ### 3.3 Setup requirements
