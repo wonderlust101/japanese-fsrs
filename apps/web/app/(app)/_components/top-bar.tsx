@@ -18,11 +18,21 @@ import { OfflineQueueBadge } from './offline-queue-badge'
  * On desktop (lg+) the sidebar handles brand and nav, so this bar collapses
  * to just the page-declared children.
  */
-export function TopBar({ children }: { children: React.ReactNode }): React.JSX.Element {
+interface TopBarProps {
+  children?: React.ReactNode
+  desktopHidden?: boolean
+}
+
+export function TopBar({ children, desktopHidden = false }: TopBarProps): React.JSX.Element {
   const open = useMobileNavStore((s) => s.open)
 
   return (
-    <header className="sticky top-0 z-10 flex items-center gap-3 px-4 lg:px-6 h-16 bg-warm-paper-raised border-b border-soft-hairline shrink-0">
+    <header
+      className={[
+        'sticky top-0 z-10 flex h-16 shrink-0 items-center gap-3 border-b border-soft-hairline bg-warm-paper-raised px-4 lg:px-6',
+        desktopHidden ? 'lg:hidden' : '',
+      ].join(' ')}
+    >
       <button
         type="button"
         onClick={open}

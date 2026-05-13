@@ -5,25 +5,30 @@ import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 
 import { Logo }              from '@/components/ui/Logo'
+import { useDueCards }       from '@/lib/api/reviews'
 import { useMobileNavStore } from '@/stores/useMobileNavStore'
 
-import { NAV_SECTIONS } from './nav-config'
-import { NavItem }      from './nav-item'
-import { NavSection }   from './nav-section'
-import { UserMenu }     from './user-menu'
+import { HelpRow }              from './help-row'
+import { NAV_SECTIONS }         from './nav-config'
+import { NavItem }              from './nav-item'
+import { NavSection }           from './nav-section'
+import { TodayStripExpanded }   from './today-strip'
+import { UserMenu }             from './user-menu'
 
 interface Props {
   user: User | null
 }
 
+const MIN_PER_CARD = 0.5
+
 /**
- * Mobile chrome (< lg breakpoint). Slide-in drawer from the left containing
- * the same section-grouped nav as the Sidebar. Triggered by the hamburger in
- * TopBar; closed by tapping the backdrop, the close button, the Escape key,
- * or any nav row (which closes before the route change).
+ * Mobile chrome (< lg breakpoint). Slide-in drawer from the left with the
+ * V5.1 design: brand strip + bilingual today strip + kanji-led nav sections
+ * + Help row (mobile variant) + UserMenu.
  *
- * Renders unconditionally and uses `lg:hidden` + transform-based animation,
- * so the JSX is identical across breakpoints; CSS handles visibility.
+ * Triggered by the hamburger in TopBar; closed by tapping the backdrop, the
+ * close button, the Escape key, or any nav row (which closes before the
+ * route change).
  */
 export function MobileDrawer({ user }: Props): React.JSX.Element {
   const isOpen    = useMobileNavStore((s) => s.isOpen)
@@ -80,6 +85,13 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, close])
 
+  // Reviews row microcopy: real due-cards query.
+  const dueCardsQuery = useDueCards()
+  const dueCount      = dueCardsQuery.data?.items.length ?? 0
+  const reviewsSubLabel = dueCount > 0
+    ? `${dueCount} card${dueCount === 1 ? '' : 's'} · ~${Math.max(1, Math.ceil(dueCount * MIN_PER_CARD))} min`
+    : undefined
+
   return (
     <>
       {/* Backdrop */}
@@ -102,12 +114,19 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         className={[
           'lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
           'transform transition-transform duration-[250ms] ease-out',
+          'border-r border-soft-hairline',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
+        {/* Top vermillion hairline rule */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-px bg-inari-vermillion/60 z-20"
+        />
+
         {/* Drawer header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-soft-hairline shrink-0">
-          <Logo size={48} wordmarkSize="lg" />
+        <div className="relative flex items-center justify-between h-16 px-4 border-b border-soft-hairline shrink-0">
+          <Logo size={48} wordmarkSize="lg" priority />
           <button
             type="button"
             onClick={close}
@@ -118,16 +137,36 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
           </button>
         </div>
 
+        {/* Today strip */}
+        <TodayStripExpanded />
+
         {/* Nav body */}
         <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-2">
           {NAV_SECTIONS.map((section, index) => (
-            <NavSection key={section.label} label={section.label} isFirst={index === 0}>
+            <NavSection
+              key={section.label}
+              label={section.label}
+              kanji={section.kanji}
+              isFirst={index === 0}
+            >
               {section.items.map((item) => (
-                <NavItem key={item.href} item={item} onNavigate={close} />
+                <NavItem
+                  key={item.href}
+                  item={item}
+                  onNavigate={close}
+                  {...(item.hasDueCount === true && reviewsSubLabel !== undefined
+                    ? { subLabel: reviewsSubLabel }
+                    : {})}
+                />
               ))}
             </NavSection>
           ))}
         </nav>
+
+        {/* Help row (mobile variant: just "Help", no kbd chip) */}
+        <div className="shrink-0 border-t border-soft-hairline py-1 px-2 relative z-[1] bg-warm-paper-raised">
+          <HelpRow mobile />
+        </div>
 
         {/* Account strip */}
         <div className="px-2 py-3 border-t border-soft-hairline shrink-0">

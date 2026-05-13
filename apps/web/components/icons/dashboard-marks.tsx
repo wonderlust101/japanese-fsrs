@@ -1,8 +1,8 @@
 /**
- * Dashboard Marks: ink-stroke leading icons for the dashboard's secondary
- * affordances (Drill leeches, Cram a deck). Mirrors the existing icon
- * contract from `arrow-glyph.tsx` and `study-marks.tsx`: single 1.25 stroke
- * weight, no fills, currentColor for inheritance, round linecap/linejoin.
+ * Dashboard Marks: ink-stroke utility icons for dashboard practice routes.
+ * Mirrors the existing icon contract from `arrow-glyph.tsx` and
+ * `study-marks.tsx`: single 1.25 stroke weight, no fills, currentColor for
+ * inheritance, round linecap/linejoin.
  *
  * Sized at 14×14 for inline use in Button leadingIcon slots, matching
  * ArrowGlyph's footprint so chrome alignment stays consistent.

@@ -2,39 +2,35 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import {
-  BarChart3,
-  ChevronRight,
-  Home,
-  Layers,
-  RefreshCw,
-  Search,
-  type LucideIcon,
-} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 
-import { OfflineQueueBadge }              from './offline-queue-badge'
-import type { NavIconKey, NavItemConfig } from './nav-config'
+import {
+  IconAnalytics,
+  IconBrowse,
+  IconDashboard,
+  IconDecks,
+  IconReview,
+}                                           from '@/components/icons/chrome-marks'
+import { OfflineQueueBadge }                from './offline-queue-badge'
+import type { NavIconKey, NavItemConfig }   from './nav-config'
 
 /**
- * PLACEHOLDER ICON REGISTRY (lucide-react).
+ * Bespoke chrome-marks icon registry for production navigation.
  *
- * The custom geometric ink-stroke set described in DESIGN.md → §Icon System
- * was removed pending a fresh design pass. These lucide imports stand in
- * temporarily so the chrome remains functional. The Lucide Tax Rule is
- * suspended for THIS specific surface only, with explicit user direction
- * to use placeholders. When the custom set is rebuilt, swap these back to
- * the bespoke components and remove the lucide imports here.
+ * The Record<NavIconKey, ...> type stays exhaustive: adding a new key to
+ * NavIconKey without adding a component here is a TypeScript error.
  *
- * The Record<NavIconKey, ...> type stays exhaustive — adding a new key to
- * the union without adding a placeholder here is a TypeScript error.
+ * Icons are static. Color/state inherits from the parent row via
+ * `currentColor`; the icon never animates on hover or active.
  */
-const NAV_ICON_REGISTRY: Record<NavIconKey, LucideIcon> = {
-  dashboard: Home,
-  review:    RefreshCw,
-  decks:     Layers,
-  browse:    Search,
-  analytics: BarChart3,
+const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
+  home:         IconDashboard,
+  review:       IconReview,
+  decks:        IconDecks,
+  browse:       IconBrowse,
+  'find-decks': IconBrowse,
+  analytics:    IconAnalytics,
 }
 
 interface NavItemProps {
@@ -42,11 +38,23 @@ interface NavItemProps {
   /**
    * Called when the user activates the link. The MobileDrawer passes its
    * `close` action so tapping a nav row closes the drawer before the route
-   * change takes effect. Sidebar omits this prop.
+   * change. Sidebar omits this prop.
    */
   onNavigate?: () => void
   /** 0 = top-level item with icon; 1 = sub-nav child (no icon, indented). */
   level?: 0 | 1
+  /** Icon-only rail rendering at 64px width. Label becomes sr-only; chevron
+   *  and trailing chrome hide. Used by the Sidebar's collapsed state. */
+  collapsed?: boolean
+  /** Optional second line under the main label. Used to lift the Reviews
+   *  row to a soft CTA when due > 0: e.g. "12 cards · ~6 min". Ignored in
+   *  collapsed rail (label is sr-only there). */
+  subLabel?: string
+  /** External override for active state. When provided, takes precedence
+   *  over the locally-computed pathname match. Used by parent rows with
+   *  prefix-sharing siblings (e.g. `/decks` and `/decks/browse`) so only
+   *  the longest matching child renders as active. */
+  forceActive?: boolean
 }
 
 function isMatch(pathname: string, href: string): boolean {
@@ -61,53 +69,111 @@ const NOOP = (): void => {}
  * Active state anatomy (route-change settle, four beats):
  *   1. 2px Inari Vermillion top stripe draws in left-to-right (200ms).
  *   2. Vermillion Wash row background fades in (250ms, 50ms delay).
- *   3. Custom geometric ink-stroke icon paths draw on (300ms, 150ms delay,
- *      with per-path stagger via :nth-of-type in globals.css).
+ *   3. Icon paths draw on (300ms, 150ms delay, per-path stagger via :nth-of-type).
  *   4. Label color crossfades sumi-ink → inari-vermillion (200ms, 200ms delay).
  *
- * Hover state on non-active rows:
- *   - Icon strokes draw on + tint to vermillion via the `.nav-icon-stroke`
- *     rule and the icon's own `group-hover:text-inari-vermillion` class.
- *     The icon transition has no delay so it leads.
- *   - Row tint fades to Cream Inset with a 50ms transition delay so the
- *     row settles after the icon, reading as cause-and-effect.
- *
  * Reduced motion: `prefers-reduced-motion` already maps every animation
- * and transition to 0.01ms in `globals.css`. The end-state visual (stripe
- * + wash + vermillion text/icon + bold label on active) is preserved
- * because the static CSS rules always match — the keyframes just get
- * collapsed to instantaneous.
+ * and transition to 0.01ms in `globals.css`. The end-state visual is
+ * preserved because the static CSS rules always match.
  */
-export function NavItem({ item, onNavigate = NOOP, level = 0 }: NavItemProps): React.JSX.Element {
+export function NavItem({
+  item,
+  onNavigate = NOOP,
+  level      = 0,
+  collapsed  = false,
+  subLabel,
+  forceActive,
+}: NavItemProps): React.JSX.Element {
   const pathname    = usePathname()
   const Icon        = NAV_ICON_REGISTRY[item.iconKey]
   const children    = item.children ?? []
   const hasChildren = children.length > 0
 
-  const matches      = isMatch(pathname, item.href)
   const childMatches = hasChildren && children.some((c) => isMatch(pathname, c.href))
   // Parent stays *inactive* when a child is active so we never show two active
   // states for one location.
-  const isActive     = matches && !childMatches
+  const matches  = isMatch(pathname, item.href)
+  const isActive = forceActive ?? (matches && !childMatches)
 
-  // Auto-expand when any descendant route is active. The user can override
-  // via the chevron (collapse while on the parent, expand from elsewhere).
-  // Any navigation drops the manual override so dropdowns close when the
-  // user opens another link, regardless of section.
+  // Among children with prefix-sharing hrefs (e.g. `/decks` vs `/decks/browse`),
+  // only the longest matching href should render active. Computing it here
+  // (where sibling context is available) and forwarding via `forceActive` is
+  // the only place we can resolve the ambiguity — each child NavItem on its
+  // own sees only its own href and can't tell that a more-specific sibling
+  // is the better match.
+  const activeChildHref = hasChildren
+    ? children
+        .filter((c) => isMatch(pathname, c.href))
+        .reduce<string | null>(
+          (best, c) => (best === null || c.href.length > best.length ? c.href : best),
+          null,
+        )
+    : null
+
+  // First-entry-only auto-expand: when the user enters a child route for the
+  // first time this session, the section opens once so they can see where
+  // they are. After that, the user's manual collapse choice is respected.
+  // hasAutoExpanded ref tracks the one-time event.
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null)
-  const isExpanded = manualExpanded ?? matches
+  const hasAutoExpanded = useRef(false)
 
   useEffect(() => {
-    setManualExpanded(null)
-  }, [pathname])
+    if (!hasChildren) return
+    if (childMatches && !hasAutoExpanded.current) {
+      setManualExpanded(true)
+      hasAutoExpanded.current = true
+    }
+  }, [childMatches, hasChildren])
 
-  // Row-level classes. The `nav-row group` pair powers state-driven CSS in
-  // globals.css (.nav-row[data-active="true"] selectors) and Tailwind's
-  // group-hover / group-data-[active=true] modifiers on descendants. The
-  // 2px corner radius matches the system's cut-paper register (cards and
-  // buttons share it). min-h-[44px] hits the WCAG AA touch-target minimum
-  // on mobile without bloating the desktop visual rhythm — py-2 already
-  // provides comfortable internal padding.
+  // Reset manual override when the route changes externally so dropdowns
+  // close when the user opens another link, regardless of section.
+  useEffect(() => {
+    if (!childMatches) setManualExpanded(null)
+  }, [pathname, childMatches])
+
+  const isExpanded = manualExpanded ?? childMatches
+
+  // --- Collapsed rail rendering: icon-only leaf row ----------------------
+  if (collapsed && level === 0) {
+    const containerActive = isActive || childMatches
+    return (
+      <li>
+        <Link
+          href={item.href}
+          onClick={onNavigate}
+          aria-current={isActive ? 'page' : undefined}
+          data-active={containerActive ? 'true' : undefined}
+          title={item.label}
+          className={[
+            'nav-row group relative overflow-hidden rounded-[2px]',
+            'flex items-center justify-center',
+            'min-h-[44px] w-12 mx-auto',
+            'text-sumi-ink transition-colors duration-[200ms]',
+            'hover:bg-cream-inset',
+            'data-[active=true]:bg-vermillion-wash',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash',
+          ].join(' ')}
+        >
+          <span
+            aria-hidden="true"
+            className="absolute top-0 inset-x-0 h-[2px] bg-inari-vermillion origin-left scale-x-0 transition-transform duration-[200ms] group-data-[active=true]:scale-x-100 pointer-events-none"
+          />
+          <Icon
+            className="
+              relative z-[1] shrink-0 w-7 h-7
+              text-faded-sumi transition-colors duration-[200ms]
+              group-hover:text-inari-vermillion
+              group-data-[active=true]:text-inari-vermillion
+            "
+          />
+          <span className="sr-only">{item.label}</span>
+          {item.hasOfflineBadge === true && <OfflineQueueBadge floating />}
+        </Link>
+      </li>
+    )
+  }
+
+  // --- Expanded rendering: leaf or parent ------------------------------------
   const linkBase = [
     'nav-row group relative overflow-hidden',
     'flex items-center gap-3',
@@ -126,21 +192,23 @@ export function NavItem({ item, onNavigate = NOOP, level = 0 }: NavItemProps): R
 
   const linkPad = level === 0 ? 'px-3 py-2' : 'pl-12 pr-3 py-1.5'
 
-  return (
-    <li>
-      <div className="flex items-center gap-1.5 pr-1">
-        <Link
-          href={item.href}
-          onClick={onNavigate}
-          aria-current={isActive ? 'page' : undefined}
-          data-active={isActive ? 'true' : undefined}
-          className={`${linkBase} ${linkPad}`}
+  // Parent rows (those with children) are not links — they are disclosure
+  // buttons. The whole row toggles the dropdown; the chevron lives inside the
+  // same button as a decorative affordance. This keeps the row to a single
+  // tab stop and lets `aria-expanded` apply to the entire visible target.
+  if (hasChildren) {
+    const toggle = (): void =>
+      setManualExpanded((prev) => (prev === null ? !childMatches : !prev))
+
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+          className={`${linkBase} ${linkPad} w-full text-left appearance-none bg-transparent`}
         >
-          {/* The 2px Inari Vermillion top stripe — the brand identity device
-              extended into chrome. Always rendered (not conditionally) so the
-              leave transition (scale-1 → scale-0 over 200ms) plays cleanly
-              when navigating away. The animation overlays the transition on
-              mount-as-active for the route-change settle. */}
           <span
             aria-hidden="true"
             className="
@@ -153,16 +221,10 @@ export function NavItem({ item, onNavigate = NOOP, level = 0 }: NavItemProps): R
             "
           />
 
-          {/* Icon: only rendered at level 0. Lucide-react placeholders (see
-              NAV_ICON_REGISTRY note). 20px size at lucide's default 2.0
-              stroke — the icons are designed for that weight, so anything
-              thinner loses optical balance. Color transitions independently
-              of the row bg so the icon leads on hover. */}
           {level === 0 && (
             <Icon
-              size={20}
               className="
-                relative z-[1] shrink-0
+                relative z-[1] shrink-0 w-6 h-6
                 text-faded-sumi
                 transition-colors duration-[200ms]
                 group-hover:text-inari-vermillion
@@ -171,36 +233,19 @@ export function NavItem({ item, onNavigate = NOOP, level = 0 }: NavItemProps): R
             />
           )}
 
-          {/* Label: relative+z-1 keeps it above the absolutely-positioned
-              stripe span. The label-fade-in animation runs on route-change
-              settle to crossfade color sumi-ink → inari-vermillion. */}
-          <span className="relative z-[1] truncate group-data-[active=true]:animate-nav-label-fade-in">
+          <span className="relative z-[1] truncate flex-1 group-data-[active=true]:animate-nav-label-fade-in">
             {item.label}
           </span>
 
-          {item.hasOfflineBadge === true && <OfflineQueueBadge />}
-        </Link>
+          <ChevronRight
+            size={16}
+            aria-hidden="true"
+            className={`relative z-[1] shrink-0 text-faded-sumi transition-transform duration-[200ms] ease-out group-hover:text-sumi-ink ${
+              isExpanded ? 'rotate-90' : ''
+            }`}
+          />
+        </button>
 
-        {hasChildren && (
-          <button
-            type="button"
-            onClick={() => setManualExpanded((prev) => (prev === null ? !matches : !prev))}
-            aria-label={isExpanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
-            aria-expanded={isExpanded}
-            className="flex items-center justify-center w-11 h-11 shrink-0 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
-          >
-            <ChevronRight
-              size={16}
-              aria-hidden="true"
-              className={`shrink-0 transition-transform duration-[200ms] ease-out ${
-                isExpanded ? 'rotate-90' : ''
-              }`}
-            />
-          </button>
-        )}
-      </div>
-
-      {hasChildren && (
         <div
           inert={!isExpanded}
           className={`grid transition-[grid-template-rows] duration-[250ms] ease-out ${
@@ -209,11 +254,75 @@ export function NavItem({ item, onNavigate = NOOP, level = 0 }: NavItemProps): R
         >
           <ul className="overflow-hidden min-h-0 pt-1.5 space-y-0.5">
             {children.map((child) => (
-              <NavItem key={child.href} item={child} onNavigate={onNavigate} level={1} />
+              <NavItem
+                key={child.href}
+                item={child}
+                onNavigate={onNavigate}
+                level={1}
+                forceActive={child.href === activeChildHref}
+              />
             ))}
           </ul>
         </div>
-      )}
+      </li>
+    )
+  }
+
+  return (
+    <li>
+      <Link
+        href={item.href}
+        onClick={onNavigate}
+        aria-current={isActive ? 'page' : undefined}
+        data-active={isActive ? 'true' : undefined}
+        className={`${linkBase} ${linkPad}`}
+      >
+        {/* 2px Inari Vermillion top stripe: brand identity device extended
+            into chrome. Always rendered so the leave transition plays
+            cleanly when navigating away. */}
+        <span
+          aria-hidden="true"
+          className="
+            absolute top-0 inset-x-0 h-[2px]
+            bg-inari-vermillion origin-left
+            scale-x-0 transition-transform duration-[200ms]
+            group-data-[active=true]:scale-x-100
+            group-data-[active=true]:animate-nav-stripe-draw
+            pointer-events-none
+          "
+        />
+
+        {/* Icon: only rendered at level 0. */}
+        {level === 0 && (
+          <Icon
+            className="
+              relative z-[1] shrink-0 w-6 h-6
+              text-faded-sumi
+              transition-colors duration-[200ms]
+              group-hover:text-inari-vermillion
+              group-data-[active=true]:text-inari-vermillion
+            "
+          />
+        )}
+
+        {/* Label + optional subLabel stacked when subLabel is present. */}
+        {subLabel === undefined ? (
+          <span className="relative z-[1] truncate group-data-[active=true]:animate-nav-label-fade-in">
+            {item.label}
+          </span>
+        ) : (
+          <span className="relative z-[1] flex flex-col min-w-0">
+            <span className="truncate leading-tight group-data-[active=true]:animate-nav-label-fade-in">
+              {item.label}
+            </span>
+            <span className="truncate text-xs text-faded-sumi leading-tight font-normal mt-0.5">
+              {subLabel}
+            </span>
+          </span>
+        )}
+
+        {item.hasOfflineBadge === true && <OfflineQueueBadge />}
+      </Link>
     </li>
   )
 }
