@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { Pill, PillGroup } from '@/components/ui/Pill'
 import { updateProfileAction } from '@/lib/actions/profile.actions'
 import { isJlptLevel }         from '@fsrs-japanese/shared-types'
 
@@ -98,24 +99,21 @@ export function LearningSection({
       <h2 className="text-lg font-semibold text-sumi-ink">Learning preferences</h2>
 
       <Field label="JLPT target">
-        <div className="flex flex-wrap gap-2">
+        <PillGroup compact>
           {JLPT_LEVELS.map((lvl) => (
-            <button
+            <Pill
               key={lvl}
-              type="button"
+              variant="interactive"
+              size="lg"
+              mark="#"
+              selected={jlpt === lvl}
               onClick={() => changeJlpt(lvl)}
-              aria-pressed={jlpt === lvl}
-              className={[
-                'h-9 px-3 rounded-full text-sm font-medium transition-colors',
-                jlpt === lvl
-                  ? 'bg-inari-vermillion text-warm-paper-raised'
-                  : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
-              ].join(' ')}
+              ariaLabel={`Set JLPT target to ${lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}`}
             >
               {lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}
-            </button>
+            </Pill>
           ))}
-        </div>
+        </PillGroup>
       </Field>
 
       <Field
@@ -156,7 +154,7 @@ export function LearningSection({
 
       <Field
         label="Retention target"
-        hint={`${Math.round(retention * 100)}% — higher means more reviews, fewer lapses.`}
+        hint={`${Math.round(retention * 100)}% remembered. Higher means more reviews, fewer lapses.`}
       >
         <input
           type="range"
@@ -173,27 +171,24 @@ export function LearningSection({
       </Field>
 
       <Field label="Interests" hint="Used to personalise AI-generated examples.">
-        <div className="flex flex-wrap gap-2">
+        <PillGroup compact>
           {INTEREST_OPTIONS.map((name) => {
             const active = interests.includes(name)
             return (
-              <button
+              <Pill
                 key={name}
-                type="button"
+                variant="interactive"
+                size="lg"
+                mark="•"
+                selected={active}
                 onClick={() => toggleInterest(name)}
-                aria-pressed={active}
-                className={[
-                  'h-8 px-3 rounded-full text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-inari-vermillion text-warm-paper-raised'
-                    : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
-                ].join(' ')}
+                ariaLabel={`${active ? 'Remove' : 'Add'} interest ${name}`}
               >
                 {name}
-              </button>
+              </Pill>
             )
           })}
-        </div>
+        </PillGroup>
       </Field>
     </div>
   )

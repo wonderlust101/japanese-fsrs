@@ -1,13 +1,11 @@
 'use client'
 
-import { Pill } from './Pill'
-
-type LevelTone = 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'beyond' | 'kana'
+import { JlptPill, type JlptPillLevel } from './Pill'
 
 interface RecommendedDeckCardProps {
   name:        string
   description: string
-  level:       LevelTone
+  level:       JlptPillLevel
   levelLabel:  string
   count:       number
   subscribed:  boolean
@@ -59,15 +57,14 @@ export function RecommendedDeckCard({
   return (
     <div
       className={[
-        'group flex items-center gap-4 px-4 py-3 rounded-[2px]',
-        'transition-[background-color,border-color] duration-150 ease-out',
+        'ui-motion-colors group flex items-center gap-4 px-4 py-3 rounded-[2px]',
         'border',
         subscribed
           ? 'border-inari-vermillion/40 bg-vermillion-wash/40'
           : 'border-soft-hairline bg-transparent hover:bg-cream-inset/40',
       ].join(' ')}
     >
-      <Pill variant="level" tone={level} size="sm">{levelLabel}</Pill>
+      <JlptPill level={level} label={levelLabel} size="sm" />
 
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sumi-ink text-sm truncate">{name}</p>
@@ -83,8 +80,8 @@ export function RecommendedDeckCard({
         onClick={onToggle}
         aria-pressed={subscribed}
         className={[
-          'shrink-0 inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[2px] text-xs font-medium',
-          'border transition-colors duration-150 ease-out',
+          'ui-motion-pressable shrink-0 inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[2px] text-xs font-medium',
+          'border',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           subscribed
             ? 'bg-inari-vermillion border-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep hover:border-inari-vermillion-deep'

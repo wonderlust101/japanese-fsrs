@@ -8,10 +8,11 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { TopBar }                   from '@/app/(app)/_components/top-bar'
 import { Button }                   from '@/components/ui/Button'
 import { Dialog }                   from '@/components/ui/Dialog'
-import { cn }                       from '@/lib/utils'
+import { JlptPill, Pill, PillGroup } from '@/components/ui/Pill'
 import { queryKeys }                from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
 import { listCardsAction }          from '@/lib/actions/cards.actions'
+import { inferDeckLevel }           from '@/lib/deck-level'
 import { CardListItem }             from './card-list-item'
 import { CardListItemSkeleton }     from './card-list-skeleton'
 
@@ -27,11 +28,12 @@ const STATUS_TABS: { value: StatusFilter; label: string }[] = [
   { value: 'suspended', label: 'Suspended' },
 ]
 
-const DECK_TYPE_BADGE: Record<string, string> = {
-  vocabulary: 'bg-vermillion-wash text-inari-vermillion',
-  grammar:    'bg-jlpt-n5-bg text-jlpt-n4-deep-emerald',
-  kanji:      'bg-jlpt-beyond-bg text-jlpt-beyond-amber-warn',
-  mixed:      'bg-cream-inset text-faded-sumi',
+const STATUS_FILTER_MARK: Record<StatusFilter, string> = {
+  all:       '•',
+  new:       '+',
+  learning:  '◐',
+  review:    '↻',
+  suspended: '×',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -91,10 +93,15 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
   const progress = deck && deck.cardCount > 0
     ? Math.round(((deck.cardCount - deck.newCount) / deck.cardCount) * 100)
     : 0
+  const selectedStatusLabel = STATUS_TABS.find((tab) => tab.value === status)?.label.toLowerCase() ?? status
 
   const createdDate = deck?.createdAt
     ? new Date(deck.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : null
+  const deckLevel = inferDeckLevel({
+    name: deck?.name ?? deckName,
+    ...(deck?.description === undefined ? {} : { description: deck.description }),
+  })
 
   return (
     <>
@@ -123,13 +130,8 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="space-y-1.5">
-              {deck && (
-                <span className={cn(
-                  'inline-block text-xs font-medium px-2 py-0.5 rounded-full capitalize',
-                  DECK_TYPE_BADGE[deck.deckType] ?? 'bg-cream-inset text-faded-sumi',
-                )}>
-                  {deck.deckType}
-                </span>
+              {deckLevel !== null && (
+                <JlptPill level={deckLevel} size="sm" />
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-faded-sumi">
                 {deck ? (
@@ -155,30 +157,28 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
             </div>
 
             <Link href={`/review?deckId=${deckId}`}>
-              <Button size="sm">▶ Start Review</Button>
+              <Button size="sm">▶ Start reviews</Button>
             </Link>
           </div>
         </section>
 
         {/* ── Filter tabs + Add Card ───────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1 flex-wrap">
+          <PillGroup compact>
             {STATUS_TABS.map((tab) => (
-              <button
+              <Pill
                 key={tab.value}
-                type="button"
+                variant="interactive"
+                size="lg"
+                selected={status === tab.value}
+                mark={STATUS_FILTER_MARK[tab.value]}
                 onClick={() => setStatus(tab.value)}
-                className={cn(
-                  'px-3 py-1.5 rounded-[var(--radius-md)] text-sm font-medium transition-colors',
-                  status === tab.value
-                    ? 'bg-vermillion-wash text-inari-vermillion'
-                    : 'text-faded-sumi hover:bg-cream-inset',
-                )}
+                ariaLabel={`Filter cards by ${tab.label}`}
               >
                 {tab.label}
-              </button>
+              </Pill>
             ))}
-          </div>
+          </PillGroup>
 
           <Link href={`/decks/${deckId}/add-card`}>
             <Button size="sm" variant="secondary">+ Add Card</Button>
@@ -195,7 +195,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
             <li className="py-16 text-center text-sm text-faded-sumi">
               {status === 'all'
                 ? 'No cards yet. '
-                : `No ${status} cards. `}
+                : `No ${selectedStatusLabel} cards. `}
               <Link href={`/decks/${deckId}/add-card`} className="text-inari-vermillion hover:underline">
                 Add a card
               </Link>

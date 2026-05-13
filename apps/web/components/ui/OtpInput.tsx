@@ -108,7 +108,7 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
             'w-11 h-14 sm:w-[52px] sm:h-[60px]',
             'font-mono text-2xl font-semibold text-center text-sumi-ink',
             'bg-cream-inset rounded-[var(--radius-md)]',
-            'outline-none transition-colors duration-150',
+            'ui-motion-colors outline-none',
             'focus:ring-[3px] focus:ring-vermillion-wash focus:border-inari-vermillion',
             hasError
               ? 'border-2 border-error'

@@ -55,7 +55,7 @@ export function DeckSummary({
         <p className="text-[10px] font-mono uppercase tracking-[0.1em] text-faded-sumi">
           Cards selected
         </p>
-        <p className="font-display text-3xl font-semibold text-sumi-ink tabular-nums leading-[1] transition-colors duration-200">
+        <p className="ui-motion-colors font-display text-3xl font-semibold text-sumi-ink tabular-nums leading-[1]">
           {totalCards.toLocaleString()}
         </p>
         <p className="text-xs text-faded-sumi tabular-nums">
@@ -99,7 +99,7 @@ export function DeckSummary({
                 className="h-full bg-inari-vermillion"
                 style={{
                   flex:           `0 0 ${fraction * 100}%`,
-                  transition:     'flex-basis 380ms cubic-bezier(0.16, 1, 0.3, 1)',
+                  transition:     'flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1)',
                   willChange:     'flex-basis',
                   borderRight:    i < allDecks.length - 1 ? '1px solid var(--color-warm-paper-raised)' : undefined,
                 }}

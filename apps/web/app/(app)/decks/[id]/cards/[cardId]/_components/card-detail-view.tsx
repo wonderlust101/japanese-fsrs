@@ -7,6 +7,7 @@ import { useQuery }    from '@tanstack/react-query'
 import { TopBar }                from '@/app/(app)/_components/top-bar'
 import { Button }                from '@/components/ui/Button'
 import { FuriganaText }          from '@/components/ui/FuriganaText'
+import { ContentTypePill, JlptPill, Pill, PillGroup } from '@/components/ui/Pill'
 import { queryKeys }             from '@/lib/api/queryKeys'
 import { getCardAction, getSimilarCardsAction } from '@/lib/actions/cards.actions'
 import { getWordFields, getVocabularyFields, getSentenceFrontBack } from '@fsrs-japanese/shared-types'
@@ -14,17 +15,6 @@ import { FsrsStats }             from './fsrs-stats'
 import { ExampleSentences }      from './example-sentences'
 import { KanjiBreakdown }        from './kanji-breakdown'
 import { MnemonicSection }       from './mnemonic-section'
-
-// ─── JLPT badge ───────────────────────────────────────────────────────────────
-
-const JLPT_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  N5:          { bg: 'var(--color-jlpt-n5-bg)',      text: 'var(--color-jlpt-n5-text)',      label: 'N5' },
-  N4:          { bg: 'var(--color-jlpt-n4-bg)',      text: 'var(--color-jlpt-n4-text)',      label: 'N4' },
-  N3:          { bg: 'var(--color-jlpt-n3-bg)',      text: 'var(--color-jlpt-n3-text)',      label: 'N3' },
-  N2:          { bg: 'var(--color-jlpt-n2-bg)',      text: 'var(--color-jlpt-n2-text)',      label: 'N2' },
-  N1:          { bg: 'var(--color-jlpt-n1-bg)',      text: 'var(--color-jlpt-n1-text)',      label: 'N1' },
-  beyond_jlpt: { bg: 'var(--color-jlpt-beyond-bg)', text: 'var(--color-jlpt-beyond-text)',  label: '∞'  },
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -68,10 +58,6 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
   const kanjiBreakdown   = vocabFields?.kanjiBreakdown
   const mnemonic        = typeof rawFd['mnemonic'] === 'string' ? rawFd['mnemonic'] : undefined
 
-  const jlpt = card?.jlptLevel !== null && card?.jlptLevel !== undefined
-    ? JLPT_STYLE[card.jlptLevel]
-    : undefined
-
   return (
     <>
       <TopBar>
@@ -114,22 +100,20 @@ export function CardDetailView({ deckId, cardId, deckName }: Props): React.JSX.E
                 )}
               </div>
               <p className="text-xl text-sumi-ink">{meaning}</p>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {partOfSpeech !== undefined && (
-                  <span className="px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">{partOfSpeech}</span>
+              <PillGroup maxVisible={4}>
+                {card?.layoutType !== undefined && (
+                  <ContentTypePill type={card.layoutType} size="sm" />
                 )}
-                {jlpt !== undefined && (
-                  <span
-                    className="px-2 py-0.5 rounded-full font-medium"
-                    style={{ backgroundColor: jlpt.bg, color: jlpt.text }}
-                  >
-                    {jlpt.label}
-                  </span>
+                {partOfSpeech !== undefined && (
+                  <Pill variant="tag" size="sm">{partOfSpeech}</Pill>
+                )}
+                {card?.jlptLevel !== null && card?.jlptLevel !== undefined && (
+                  <JlptPill level={card.jlptLevel} size="sm" />
                 )}
                 {card?.tags?.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">{tag}</span>
+                  <Pill key={tag} variant="tag" size="sm">{tag}</Pill>
                 ))}
-              </div>
+              </PillGroup>
             </>
           )}
         </section>

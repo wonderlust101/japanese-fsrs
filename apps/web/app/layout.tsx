@@ -7,7 +7,7 @@ import './globals.css'
 
 const SITE_URL = env.NEXT_PUBLIC_SITE_URL
 const SITE_DESCRIPTION =
-  'AI-enhanced spaced repetition for Japanese. Learn kanji, vocabulary, and grammar with FSRS scheduling tuned for the way Japanese forgetting curves actually behave.'
+  'Japanese spaced repetition with calm daily reviews, smart card timing, and a teacher\'s eye for the words that need another pass.'
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -46,12 +46,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     template: '%s | Tomo',
-    default: 'Tomo · Spaced repetition for Japanese',
+    default: 'Tomo · Japanese spaced repetition',
   },
   description: SITE_DESCRIPTION,
   applicationName: 'Tomo',
   authors: [{ name: 'Tomo' }],
-  keywords: ['Japanese', 'spaced repetition', 'FSRS', 'kanji', 'vocabulary', 'JLPT', 'flashcards'],
+  keywords: ['Japanese', 'spaced repetition', 'SRS', 'kanji', 'vocabulary', 'JLPT', 'flashcards', 'daily reviews'],
   icons: {
     icon: [
       { url: '/brand/favicon.ico', sizes: 'any' },
@@ -62,17 +62,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Tomo',
-    title: 'Tomo · Spaced repetition for Japanese',
+    title: 'Tomo · Japanese spaced repetition',
     description: SITE_DESCRIPTION,
     url: '/',
     locale: 'en_US',
     images: [
-      { url: '/brand/og.png', width: 1200, height: 630, alt: 'Tomo — Spaced repetition for Japanese' },
+      { url: '/brand/og.png', width: 1200, height: 630, alt: 'Tomo - Japanese spaced repetition' },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tomo · Spaced repetition for Japanese',
+    title: 'Tomo · Japanese spaced repetition',
     description: SITE_DESCRIPTION,
     images: ['/brand/og.png'],
   },

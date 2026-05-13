@@ -31,7 +31,7 @@ export function TodayProgressCard({ heatmap, isLoading }: Props): React.JSX.Elem
         </div>
       )}
       <p className="mt-1 text-xs text-faded-sumi tabular-nums">
-        {count > 0 ? `${retention}% retention` : 'Get started — your streak is waiting.'}
+        {count > 0 ? `${retention}% retention` : 'Start reviews. Your streak is waiting.'}
       </p>
     </article>
   )

@@ -49,8 +49,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
         onClick={onSelect}
         aria-pressed={selected}
         className={[
-          'group relative w-full text-left rounded-[2px] bg-warm-paper-raised',
-          'transition-[border-color,background-color] duration-200 ease-out',
+          'ui-motion-pressable group relative w-full text-left rounded-[2px] bg-warm-paper-raised',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           'border',
           selected
@@ -72,7 +71,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{    opacity: 0 }}
-                transition={{ duration: 0.12 }}
+                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               >
                 <CheckMark />
               </motion.span>
@@ -83,7 +82,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
         {layout === 'stack' ? (
           <>
             {glyph !== undefined && (
-              <span className="inline-flex items-center justify-center text-sumi-ink/85 group-hover:text-sumi-ink transition-colors duration-150">
+                <span className="ui-motion-icon inline-flex items-center justify-center text-sumi-ink/85 group-hover:text-sumi-ink">
                 {glyph}
               </span>
             )}
@@ -98,7 +97,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
           <>
             <span className="flex items-center gap-3 min-w-0">
               {glyph !== undefined && (
-                <span className="inline-flex items-center justify-center shrink-0 text-sumi-ink/85 group-hover:text-sumi-ink transition-colors duration-150">
+                  <span className="ui-motion-icon inline-flex items-center justify-center shrink-0 text-sumi-ink/85 group-hover:text-sumi-ink">
                   {glyph}
                 </span>
               )}

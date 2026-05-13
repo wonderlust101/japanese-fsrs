@@ -10,20 +10,35 @@ interface Props {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const GOOD_RETENTION_THRESHOLD = 85
+
+type HeatmapTone = 'rest' | 'good' | 'low'
 
 function toYMD(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function dotColor(day: ApiHeatmapDay | undefined): string {
-  if (day === undefined || day.count === 0) return 'bg-cream-inset'
-  if (day.retention >= 85)                  return 'bg-inari-vermillion'
-  return 'bg-jlpt-beyond-amber-warn'
+function dotTone(day: ApiHeatmapDay | undefined): HeatmapTone {
+  if (day === undefined || day.count === 0) return 'rest'
+  if (day.retention >= GOOD_RETENTION_THRESHOLD) return 'good'
+  return 'low'
+}
+
+function dotClassName(day: ApiHeatmapDay | undefined): string {
+  switch (dotTone(day)) {
+    case 'rest':
+      return 'rounded-full border border-soft-hairline bg-warm-paper-raised'
+    case 'good':
+      return 'rounded-full bg-jlpt-n5-fresh-leaf'
+    case 'low':
+      return 'rounded-[2px] bg-jlpt-beyond-amber-warn'
+  }
 }
 
 function dotTitle(ymd: string, day: ApiHeatmapDay | undefined): string {
-  if (day === undefined || day.count === 0) return `${ymd} — no reviews`
-  return `${ymd} — ${day.retention}% retention (${day.count} review${day.count === 1 ? '' : 's'})`
+  if (day === undefined || day.count === 0) return `${ymd} - rest day`
+  const tone = dotTone(day) === 'good' ? 'good retention' : 'low retention'
+  return `${ymd} - ${tone}, ${day.retention}% (${day.count} review${day.count === 1 ? '' : 's'})`
 }
 
 /** Returns an array of { year, month (0-based), days[] } covering the last 365 days. */
@@ -103,7 +118,7 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
                   <div
                     key={ymd}
                     title={dotTitle(ymd, entry)}
-                    className={`h-3 w-3 rounded-sm shrink-0 ${dotColor(entry)}`}
+                    className={`h-3 w-3 shrink-0 ${dotClassName(entry)}`}
                     aria-label={dotTitle(ymd, entry)}
                   />
                 )
@@ -114,19 +129,19 @@ export function RetentionHeatmap({ data, isLoading }: Props): React.JSX.Element 
       )}
 
       {/* Legend */}
-      <div className="flex items-center gap-4 pt-1">
-        <LegendDot color="bg-cream-inset"  label="missed" />
-        <LegendDot color="bg-inari-vermillion"  label="85%+"   />
-        <LegendDot color="bg-jlpt-beyond-amber-warn"  label="<85%"   />
+      <div className="flex flex-wrap items-center gap-4 pt-1">
+        <LegendDot className="rounded-full border border-soft-hairline bg-warm-paper-raised" label="Rest day" />
+        <LegendDot className="rounded-full bg-jlpt-n5-fresh-leaf" label="Good retention" />
+        <LegendDot className="rounded-[2px] bg-jlpt-beyond-amber-warn" label="Low retention" />
       </div>
     </section>
   )
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendDot({ className, label }: { className: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5 text-xs text-faded-sumi select-none">
-      <span className={`h-2.5 w-2.5 rounded-sm ${color}`} aria-hidden="true" />
+      <span className={`h-2.5 w-2.5 ${className}`} aria-hidden="true" />
       {label}
     </span>
   )

@@ -55,7 +55,7 @@ export function OfflineQueueBanner(): React.JSX.Element | null {
 
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Discard pending reviews?">
         <p className="text-sm text-faded-sumi mb-5">
-          {count} review{count === 1 ? '' : 's'} will not be applied to your FSRS schedule. This cannot be undone.
+          {count} review{count === 1 ? '' : 's'} will not update the review schedule. This cannot be undone.
         </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>

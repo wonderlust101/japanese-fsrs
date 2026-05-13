@@ -214,6 +214,8 @@ export default function InterestsPage(): React.JSX.Element {
               variant="interactive"
               size="lg"
               selected={interests.includes(opt.value)}
+              mark="•"
+              ariaLabel={`${interests.includes(opt.value) ? 'Remove' : 'Add'} interest ${opt.label}`}
               onClick={() => toggleInterest(opt.value)}
             >
               {opt.label}

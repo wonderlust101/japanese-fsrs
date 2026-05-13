@@ -78,7 +78,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
     <>
       {hasSyncError && (
         <div className="mx-4 mt-4 rounded-lg bg-error-tint border border-error-tint px-4 py-2 text-sm text-error">
-          Review sync failed — check the browser console for details. Progress is saved offline and will retry automatically.
+          Review sync failed. Progress is saved offline and will retry automatically.
         </div>
       )}
       <ReviewCard />

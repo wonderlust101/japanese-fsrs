@@ -30,7 +30,7 @@ export function SessionHeader(): React.JSX.Element {
   return (
     <header className="flex items-center justify-between px-4 lg:px-6 h-14 shrink-0 border-b border-soft-hairline bg-warm-paper-base">
       <span className="text-sm font-medium text-faded-sumi truncate">
-        {deck?.name ?? 'Review Session'}
+        {deck?.name ?? 'Review session'}
       </span>
 
       <Button
@@ -41,7 +41,7 @@ export function SessionHeader(): React.JSX.Element {
         className="flex items-center gap-1.5 text-faded-sumi hover:text-sumi-ink"
       >
         <X size={16} strokeWidth={1.5} aria-hidden="true" />
-        End Session
+        End session
       </Button>
     </header>
   )

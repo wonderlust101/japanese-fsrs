@@ -4,6 +4,7 @@ import type {
   ApiJlptGap,
   ApiMilestoneForecast,
 } from '@fsrs-japanese/shared-types'
+import { JlptPill } from '@/components/ui/Pill'
 
 interface Props {
   gap:        ApiJlptGap[]
@@ -13,15 +14,6 @@ interface Props {
 
 const ORDER = ['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'] as const
 
-const JLPT_BG: Record<string, string> = {
-  N5:          'var(--color-jlpt-n5-bg)',
-  N4:          'var(--color-jlpt-n4-bg)',
-  N3:          'var(--color-jlpt-n3-bg)',
-  N2:          'var(--color-jlpt-n2-bg)',
-  N1:          'var(--color-jlpt-n1-bg)',
-  beyond_jlpt: 'var(--color-jlpt-beyond-bg)',
-}
-
 const JLPT_FG: Record<string, string> = {
   N5:          'var(--color-jlpt-n5-text)',
   N4:          'var(--color-jlpt-n4-text)',
@@ -29,10 +21,6 @@ const JLPT_FG: Record<string, string> = {
   N2:          'var(--color-jlpt-n2-text)',
   N1:          'var(--color-jlpt-n1-text)',
   beyond_jlpt: 'var(--color-jlpt-beyond-text)',
-}
-
-function labelFor(level: string): string {
-  return level === 'beyond_jlpt' ? 'Beyond' : level
 }
 
 function formatDate(iso: string | null): string {
@@ -76,12 +64,7 @@ export function JLPTProgressBars({ gap, milestones, isLoading }: Props): React.J
 
             return (
               <li key={lvl} className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums"
-                  style={{ backgroundColor: JLPT_BG[lvl], color: JLPT_FG[lvl] }}
-                >
-                  {labelFor(lvl)}
-                </span>
+                <JlptPill level={lvl} size="sm" />
                 <div className="relative h-3 rounded-full bg-cream-inset overflow-hidden">
                   <div
                     className="absolute inset-y-0 left-0 rounded-full"

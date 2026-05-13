@@ -23,7 +23,7 @@ export default function OnboardingWelcomePage(): React.JSX.Element {
       >
         <motion.header variants={fadeUpVariants} className="flex flex-col gap-2">
           <p className="text-[0.625rem] font-mono uppercase tracking-[0.16em] text-faded-sumi">
-            Tomo · Spaced repetition for Japanese
+            Tomo · Japanese spaced repetition
           </p>
           <h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1] tracking-[-0.01em]">
             What are we working on?
@@ -37,7 +37,7 @@ export default function OnboardingWelcomePage(): React.JSX.Element {
         <motion.div variants={fadeUpVariants} className="bg-cool-paper-shade rounded-[2px] p-4 md:p-6 border border-soft-hairline">
           <ForgettingCurve className="w-full" />
           <p className="text-sm italic text-faded-sumi mt-3 leading-[1.55]">
-            Without practice, recall decays. Tomo schedules cards to interrupt the curve at the right moment, so each review is at the edge of forgetting.
+            Without practice, recall fades. Tomo schedules review cards just before they slip, so daily reviews stay focused.
           </p>
         </motion.div>
 

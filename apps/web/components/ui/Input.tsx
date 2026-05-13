@@ -51,7 +51,7 @@ function PasswordToggle({
       onClick={onToggle}
       tabIndex={-1}
       aria-label={visible ? 'Hide password' : 'Show password'}
-      className="text-xs uppercase tracking-[0.08em] font-medium text-faded-sumi hover:text-sumi-ink transition-colors duration-150 inline-flex items-center"
+      className="ui-motion-colors inline-flex items-center text-xs font-medium uppercase tracking-[0.08em] text-faded-sumi hover:text-sumi-ink"
     >
       {visible ? 'Hide' : 'Show'}
     </button>
@@ -153,7 +153,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             className={[
               'w-full bg-cream-inset border rounded-[2px]',
               'text-sumi-ink placeholder:text-faded-sumi',
-              'transition-colors duration-150 ease-out',
+              'ui-motion-colors',
               'focus:outline focus:outline-1 focus:outline-offset-2',
               'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none',
               'read-only:border-transparent read-only:bg-transparent',

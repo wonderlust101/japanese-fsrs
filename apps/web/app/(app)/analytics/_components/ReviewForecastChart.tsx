@@ -38,7 +38,7 @@ export function ReviewForecastChart({ data, isLoading }: Props): React.JSX.Eleme
     <section className="p-5 rounded-[var(--radius-lg)] bg-[var(--color-surface-raised)] border border-soft-hairline shadow-[var(--shadow-card)]">
       <header className="flex items-baseline justify-between mb-4">
         <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">
-          Review forecast — next 14 days
+          Review forecast, next 14 days
         </h2>
         <span className="text-xs text-faded-sumi tabular-nums">
           peak {max}
@@ -55,7 +55,7 @@ export function ReviewForecastChart({ data, isLoading }: Props): React.JSX.Eleme
               <li
                 key={d.date}
                 className="flex flex-col items-center gap-1"
-                title={`${d.date} — ${d.count} review${d.count === 1 ? '' : 's'}`}
+                title={`${d.date} - ${d.count} review${d.count === 1 ? '' : 's'}`}
               >
                 <span className="text-[10px] tabular-nums text-faded-sumi">{d.count}</span>
                 <div

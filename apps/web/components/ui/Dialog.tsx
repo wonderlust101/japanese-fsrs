@@ -33,7 +33,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps): React.J
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-faded-sumi hover:text-faded-sumi transition-colors text-lg leading-none"
+            className="ui-motion-colors text-lg leading-none text-faded-sumi hover:text-sumi-ink"
           >
             ✕
           </button>

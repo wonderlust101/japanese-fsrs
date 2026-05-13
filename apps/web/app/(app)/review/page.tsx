@@ -36,14 +36,14 @@ export default function ReviewHubPage(): React.JSX.Element {
           disabled={loadingDue || dueCards.length === 0}
           className="w-full max-w-xs"
         >
-          {dueCards.length === 0 ? 'All caught up!' : 'Start Review'}
+          {dueCards.length === 0 ? 'Desk is clear' : 'Start reviews'}
         </Button>
       </div>
 
       {forecast.length > 0 && (
         <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
           <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-            Upcoming
+            Upcoming reviews
           </h2>
           <ul className="flex flex-col gap-2">
             {forecast.slice(0, 7).map(({ date, count }) => (

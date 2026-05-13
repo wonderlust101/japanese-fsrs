@@ -111,7 +111,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       {/* Header */}
       <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-8 flex flex-col items-center gap-2 text-center">
         <div className="text-4xl mb-1">✓</div>
-        <h1 className="text-2xl font-bold text-sumi-ink">Session Complete</h1>
+        <h1 className="text-2xl font-bold text-sumi-ink">Review complete</h1>
         <p className="text-sm text-faded-sumi">{today}</p>
       </div>
 
@@ -126,7 +126,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
             </>
           ) : isError || summary === undefined ? (
             <div className="col-span-3 text-center text-sm text-faded-sumi py-4">
-              Could not load session stats.
+              Could not load review summary.
             </div>
           ) : (
             <>
@@ -137,7 +137,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
                 <MetricCell label="Time" value={formatTime(summary.totalTimeMs)} />
               </div>
               <div className="px-4 flex items-center justify-center">
-                <MetricCell label="Accuracy" value={`${summary.accuracyPct}%`} />
+                <MetricCell label="Retention" value={`${summary.accuracyPct}%`} />
               </div>
             </>
           )}
@@ -147,7 +147,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       {/* Rating Breakdown */}
       <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
         <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Rating Breakdown
+          Rating breakdown
         </h2>
         {isLoading ? (
           <div className="flex flex-col gap-3">
@@ -167,7 +167,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       {/* Cards to Watch */}
       <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
         <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Cards to Watch
+          Weak spots (leeches)
         </h2>
 
         {isLoading ? (
@@ -178,7 +178,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
           </div>
         ) : summary !== undefined && summary.leeches.length === 0 ? (
           <p className="text-sm text-faded-sumi">
-            No leeches today! Your retention is looking strong.
+            No leeches today. Your recall is holding steady.
           </p>
         ) : summary !== undefined ? (
           <ul className="flex flex-col divide-y divide-soft-hairline">
@@ -236,7 +236,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       {/* Next Review */}
       <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Next Review
+          Next review
         </h2>
         {isLoading ? (
           <div className="h-5 w-48 rounded bg-cream-inset animate-pulse" />
@@ -251,7 +251,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 
       {/* Navigation */}
       <Button onClick={handleDashboard} className="w-full max-w-xs">
-        Back to Dashboard
+        Back to dashboard
       </Button>
     </div>
   )

@@ -21,8 +21,8 @@ export function RatingBreakdown({ breakdown, total }: Props): React.JSX.Element 
             <span className="w-10 text-right text-xs text-faded-sumi shrink-0">{label}</span>
             <div className="flex-1 h-2.5 rounded-full bg-cream-inset overflow-hidden">
               <div
-                className={`h-full rounded-full transition-[width] duration-500 ${bar}`}
-                style={{ width: `${pct}%` }}
+                className={`ui-motion-transform h-full origin-left rounded-full ${bar}`}
+                style={{ transform: `scaleX(${pct / 100})` }}
               />
             </div>
             <span className="w-5 text-right text-xs font-medium text-sumi-ink shrink-0">{count}</span>

@@ -61,7 +61,7 @@ export default function SchedulePage(): React.JSX.Element {
     <StepCard
       previewPane={<DailyQuotaChart pace={schedule} />}
       heading="How much Japanese this week?"
-      subhead="Sets your daily new-card pace. The chart projects new cards plus reviews across a typical week."
+      subhead="Sets your daily new-card pace. The chart shows new cards plus reviews across a typical week."
       footer={
         <StepFooter
           showBack

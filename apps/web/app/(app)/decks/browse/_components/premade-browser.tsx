@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
+import { Pill, PillGroup } from '@/components/ui/Pill'
 import {
   usePremadeDecks,
   useMySubscriptions,
@@ -21,6 +22,12 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'vocabulary', label: 'Vocabulary' },
   { id: 'kanji',      label: 'Kanji' },
 ]
+
+const FILTER_MARK: Record<Filter, string> = {
+  all:        '•',
+  vocabulary: '語',
+  kanji:      '漢',
+}
 
 const SECTION_LABEL: Record<ApiPremadeDeck['deckType'], string> = {
   vocabulary: 'Vocabulary',
@@ -122,24 +129,21 @@ export function PremadeBrowser(): React.JSX.Element {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-10 px-3 rounded-[var(--radius-md)] border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink focus:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash"
           />
-          <div className="flex flex-wrap gap-2">
+          <PillGroup compact>
             {FILTERS.map((f) => (
-              <button
+              <Pill
                 key={f.id}
-                type="button"
+                variant="interactive"
+                size="lg"
+                selected={filter === f.id}
+                mark={FILTER_MARK[f.id]}
                 onClick={() => setFilter(f.id)}
-                aria-pressed={filter === f.id}
-                className={[
-                  'h-8 px-3 rounded-full text-sm font-medium transition-colors',
-                  filter === f.id
-                    ? 'bg-inari-vermillion text-warm-paper-raised'
-                    : 'bg-cream-inset text-faded-sumi hover:bg-cream-inset',
-                ].join(' ')}
+                ariaLabel={`Filter premade decks by ${f.label}`}
               >
                 {f.label}
-              </button>
+              </Pill>
             ))}
-          </div>
+          </PillGroup>
         </div>
 
         {/* Loading */}

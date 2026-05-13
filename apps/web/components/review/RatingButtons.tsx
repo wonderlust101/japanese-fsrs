@@ -20,8 +20,8 @@ export function RatingButtons({ onRate }: Props): React.JSX.Element {
         <button
           key={value}
           onClick={() => onRate(value)}
-          className={`h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 text-warm-paper-raised font-medium
-            cursor-pointer transition hover:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+          className={`ui-motion-pressable h-16 rounded-lg flex flex-col items-center justify-center gap-0.5 text-warm-paper-raised font-medium
+            cursor-pointer hover:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
             ${colors}`}
         >
           <span className="text-sm">{label}</span>

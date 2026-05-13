@@ -56,8 +56,8 @@ const variantClasses: Record<ButtonVariant, string> = {
   ].join(' '),
   danger: [
     'bg-sumi-ink text-warm-paper-raised',
-    'hover:bg-[#0E0A09]',
-    'active:bg-[#0E0A09] active:shadow-[inset_0_1px_2px_rgba(253,251,247,0.10)]',
+    'hover:bg-sumi-ink/95',
+    'active:bg-sumi-ink/95 active:shadow-[inset_0_1px_2px_rgba(253,251,247,0.10)]',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-warm-paper-raised focus-visible:outline-offset-2',
   ].join(' '),
 }
@@ -118,8 +118,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading ? true : undefined}
         className={[
-          'relative inline-flex items-center justify-center font-medium rounded-[2px]',
-          'transition-[background-color,border-color,box-shadow,color] duration-150 ease-out',
+          'ui-motion-pressable relative inline-flex items-center justify-center font-medium rounded-[2px]',
           'disabled:opacity-60 disabled:pointer-events-none disabled:cursor-not-allowed',
           variantClasses[variant],
           sizeStyle,
@@ -129,31 +128,31 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         <span
           className={[
-            'inline-flex items-center justify-center',
+            'ui-motion-soft inline-flex items-center justify-center',
             iconOnly ? '' : gapClasses[size],
             loading ? 'opacity-0' : '',
           ].join(' ')}
         >
           {!iconOnly && resolvedLeadingIcon !== undefined && (
-            <span className="shrink-0 inline-flex" aria-hidden="true">
+            <span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
               {resolvedLeadingIcon}
             </span>
           )}
           {iconOnly ? (resolvedLeadingIcon ?? children) : children}
           {!iconOnly && trailingIcon !== undefined && (
-            <span className="shrink-0 inline-flex" aria-hidden="true">
+            <span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
               {trailingIcon}
             </span>
           )}
         </span>
         {loading && (
           <span
-            className="absolute inset-0 inline-flex items-center justify-center gap-1"
+            className="ui-motion-soft absolute inset-0 inline-flex items-center justify-center gap-1"
             aria-hidden="true"
           >
-            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse" />
-            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse [animation-delay:200ms]" />
-            <span className="w-1 h-1 rounded-full bg-current animate-button-dot-pulse [animation-delay:400ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:150ms]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:300ms]" />
           </span>
         )}
       </button>

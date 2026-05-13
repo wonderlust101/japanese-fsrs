@@ -26,7 +26,7 @@
   --color-warm-paper-base:   #FBF8F4;
   --color-warm-paper-raised: #FDFBF7;
   --color-cream-inset:       #F4EFE6;
-  --color-soft-hairline:     #E5DCD0;
+  --color-soft-hairline:     oklch(0.842 0.022 75);
   --color-faded-sumi:        #6B5F58;
   --color-sumi-ink:          #1F1A18;
 
@@ -53,42 +53,48 @@
   --color-jlpt-beyond-amber-warn: var(--color-jlpt-beyond-text);
 
   /* ── Deck level palette (warm earth tones, dashboard surface) ─────
-     Used by the dashboard's JLPT progress bars + deck-name pills.
+     Used by dashboard JLPT pills, deck-level marks, and deck-name pills.
      Decoupled from the legacy --color-jlpt-{level}-* tokens (which
      retain their saturated values for semantic uses elsewhere in the
      app: rating buttons, retention heatmap, error states). The
      dashboard uses these warm-muted tones to harmonize with the
      warm-paper / sumi-ink / vermillion / aizome system.
 
-     Hue progression spans the color wheel (130 → 75 → 25 → 350 → 250
-     → 30) so adjacent levels never share a hue family. Lightness
-     descends mostly monotonically (0.62 → 0.55 → 0.55 → 0.48 → 0.40
-     → 0.32) so the palette degrades gracefully under colorblindness:
-     hue distinguishes for normal vision, lightness distinguishes for
-     red-green-blind / total-achromatic vision. */
-  /* v8 (final): moderate chroma boost (0.05-0.08 → 0.10-0.13). Tones
-     gain depth and presence without becoming vivid; reads as "muted
-     printed ink, less faded" rather than vintage paper. N1's hue
-     rotated 250→285 (cool blue → warm violet) so the entire palette
-     stays in warm hues. Lightness bumped slightly on N1 + beyond
-     to maintain perceptual balance with the moderate chroma. */
-  --color-deck-n5-mark:     oklch(0.62 0.11 130);  /* richer leaf-green */
-  --color-deck-n4-mark:     oklch(0.55 0.13 75);   /* richer clay-amber */
-  --color-deck-n3-mark:     oklch(0.55 0.12 25);   /* richer rose */
-  --color-deck-n2-mark:     oklch(0.48 0.12 350);  /* richer plum */
-  --color-deck-n1-mark:     oklch(0.42 0.10 285);  /* richer warm violet */
-  --color-deck-beyond-mark: oklch(0.35 0.10 40);   /* richer umber */
+     Hue progression spans the color wheel (135 → 80 → 28 → 350 → 285
+     → 258) so adjacent levels never share a hue family. Lightness descends
+     mostly monotonically so the palette degrades gracefully under
+     colorblindness: hue distinguishes for normal vision, lightness
+     distinguishes for red-green-blind / total-achromatic vision. */
+  /* v11: Beyond moves out of the N4/ochre neighborhood and into an
+     Aizome-blue lane. Marks still read as vivid printed inks while washes
+     stay soft enough for warm-paper product surfaces. */
+  --color-deck-n5-mark:     oklch(0.58 0.165 135);  /* vivid leaf-green */
+  --color-deck-n4-mark:     oklch(0.55 0.180 80);   /* vivid clay-amber */
+  --color-deck-n3-mark:     oklch(0.53 0.170 28);   /* vivid rose */
+  --color-deck-n2-mark:     oklch(0.48 0.170 350);  /* vivid plum */
+  --color-deck-n1-mark:     oklch(0.42 0.150 285);  /* vivid warm violet */
+  --color-deck-beyond-mark: oklch(0.43 0.115 258);  /* aizome blue */
 
   /* Lightened wash tones for badge backgrounds (text-mark on bg-wash).
-     Slight chroma bump so washes don't read as colorless against the
-     new mark tones. Lightness held at 0.91-0.94 to keep washes as
-     soft tints rather than saturated chips. */
-  --color-deck-n5-wash:     oklch(0.94 0.030 130);
-  --color-deck-n4-wash:     oklch(0.92 0.035 75);
-  --color-deck-n3-wash:     oklch(0.93 0.030 25);
-  --color-deck-n2-wash:     oklch(0.92 0.030 350);
-  --color-deck-n1-wash:     oklch(0.91 0.028 285);  /* hue 250→285 */
-  --color-deck-beyond-wash: oklch(0.91 0.025 40);
+     The richer washes remain pale enough for text contrast, but no longer
+     disappear against warm-paper surfaces. */
+  --color-deck-n5-wash:     oklch(0.920 0.055 135);
+  --color-deck-n4-wash:     oklch(0.900 0.060 80);
+  --color-deck-n3-wash:     oklch(0.910 0.055 28);
+  --color-deck-n2-wash:     oklch(0.900 0.055 350);
+  --color-deck-n1-wash:     oklch(0.895 0.050 285);
+  --color-deck-beyond-wash: oklch(0.910 0.050 258);
+
+  /* ── Queue forecast palette (soft semantic stack) ─────────────────
+     Blue new cards, Inari-red today's reviews, and deep-red backlog
+     keep the route mix scannable without leaving the app's warm-paper,
+     sumi-ink, vermillion, and aizome register. */
+  --color-queue-backlog-mark: var(--color-error-deep);
+  --color-queue-review-mark:  oklch(0.50 0.125 18);
+  --color-queue-new-mark:     oklch(0.53 0.105 258);
+  --color-queue-backlog-wash: oklch(0.925 0.040 25);
+  --color-queue-review-wash:  oklch(0.925 0.042 18);
+  --color-queue-new-wash:     oklch(0.920 0.045 258);
 
   /* ── Semantic aliases (form errors, surfaces) ─────────────────────── */
   --color-surface-base:    var(--color-warm-paper-base);
@@ -186,12 +192,38 @@
     to   { opacity: 0; transform: translateY(-32px); }
   }
 
-  /* ── Button loading dots (3-dot staggered pulse) ──────────────────── */
-  --animate-button-dot-pulse: button-dot-pulse 1400ms ease-in-out infinite;
+  /* ── Button loading dots: quiet active-data signal, not a bright flash ─ */
+  --animate-button-dot-pulse: button-dot-pulse 1200ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
 
   @keyframes button-dot-pulse {
-    0%, 100% { opacity: 0.3; }
-    50%      { opacity: 1; }
+    0%, 80%, 100% {
+      opacity: 0.34;
+      transform: translateY(0) scale(0.82);
+    }
+    35% {
+      opacity: 1;
+      transform: translateY(-2px) scale(1);
+    }
+  }
+
+  /* ── Dashboard skeleton sweep: quiet active fetch signal ─ */
+  --animate-dashboard-skeleton-sweep: dashboard-skeleton-sweep 1800ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+
+  @keyframes dashboard-skeleton-sweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-145%) skewX(-10deg);
+    }
+    18% {
+      opacity: 0.22;
+    }
+    62% {
+      opacity: 0.18;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(145%) skewX(-10deg);
+    }
   }
 
   /* ── Nav route-change settle (4-beat sequence) ───────────────────────
@@ -243,6 +275,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 
@@ -253,6 +286,41 @@ body {
     animation: none !important;
     opacity: 1;
   }
+
+  .dashboard-skeleton::after {
+    animation: none !important;
+    opacity: 0;
+  }
+
+  .dashboard-empty-preview-card,
+  .dashboard-empty-preview-meter,
+  .dashboard-empty-preview-accent,
+  .dashboard-empty-preview-glyph {
+    transition-delay: 0ms !important;
+  }
+
+  .dashboard-empty-preview-stage:hover .dashboard-empty-preview-card {
+    box-shadow: none !important;
+    filter: none !important;
+  }
+
+  .dashboard-empty-preview-stage:hover .dashboard-empty-preview-meter {
+    transform: none !important;
+  }
+
+  .dashboard-empty-preview-stage:hover .dashboard-empty-preview-accent {
+    transform: none !important;
+  }
+
+  .dashboard-empty-preview-stage:hover .dashboard-empty-preview-glyph {
+    transform: none !important;
+  }
+
+  .dashboard-hero-deck-stack:hover .dashboard-hero-card-surface {
+    transform: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+  }
 }
 
 /* ── Review utilities ────────────────────────────────────────────────── */
@@ -262,9 +330,319 @@ body {
 
 @utility font-display {
   font-family: var(--font-bricolage), var(--font-dm-sans), system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 @utility animate-card-reveal {
   animation: var(--animate-card-reveal);
+}
+
+.ui-motion-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, box-shadow, opacity;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-motion-transform {
+  transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 260ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-motion-pressable {
+  transform: translateZ(0);
+  transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 260ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-motion-pressable:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.ui-motion-pressable:active:not(:disabled) {
+  transform: translateY(0) scale(0.992);
+  transition-duration: 120ms;
+}
+
+.ui-motion-soft {
+  transition-property: opacity, transform, color;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-motion-icon {
+  transition-property: transform, color, opacity;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-motion-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, box-shadow, opacity;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-motion-transform {
+  transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 260ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-motion-preview {
+  transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 340ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-hero-deck-stack {
+  isolation: isolate;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dashboard-hero-card-shell {
+  isolation: isolate;
+}
+
+.dashboard-hero-card-surface {
+  transform: translateY(0) scale(1);
+  transform-origin: center;
+  box-shadow:
+    0 6px 14px color-mix(in srgb, var(--color-sumi-ink) 5%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-warm-paper-raised) 86%, transparent);
+  transition-property: transform, box-shadow, filter, background-color, border-color;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-hero-card-0 .dashboard-hero-card-surface {
+  box-shadow:
+    0 10px 20px color-mix(in srgb, var(--color-sumi-ink) 7%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-warm-paper-raised) 88%, transparent);
+}
+
+.dashboard-hero-card-1 .dashboard-hero-card-surface {
+  box-shadow:
+    -3px 8px 18px color-mix(in srgb, var(--color-sumi-ink) 5%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-vermillion-wash) 42%, transparent);
+}
+
+.dashboard-hero-card-2 .dashboard-hero-card-surface {
+  box-shadow:
+    3px 6px 16px color-mix(in srgb, var(--color-sumi-ink) 4%, transparent),
+    0 1px 0 color-mix(in srgb, var(--color-cream-inset) 88%, transparent);
+}
+
+.dashboard-hero-primary-action {
+  box-shadow:
+    0 9px 18px color-mix(in srgb, var(--color-sumi-ink) 11%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-warm-paper-raised) 16%, transparent);
+}
+
+.dashboard-hero-primary-action:hover {
+  box-shadow:
+    0 12px 24px color-mix(in srgb, var(--color-sumi-ink) 15%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-warm-paper-raised) 18%, transparent);
+}
+
+.dashboard-hero-deck-stack:hover .dashboard-hero-card-surface {
+  box-shadow:
+    0 14px 28px color-mix(in srgb, var(--color-sumi-ink) 12%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-sumi-ink) 6%, transparent);
+  filter: contrast(1.01);
+}
+
+.dashboard-hero-deck-stack:hover .dashboard-hero-card-0 .dashboard-hero-card-surface {
+  transform: translate3d(0, 5px, 0) rotate(-0.6deg) scale(1.01);
+}
+
+.dashboard-hero-deck-stack:hover .dashboard-hero-card-1 .dashboard-hero-card-surface {
+  transform: translate3d(16px, -8px, 0) rotate(1deg) scale(1.008);
+}
+
+.dashboard-hero-deck-stack:hover .dashboard-hero-card-2 .dashboard-hero-card-surface {
+  transform: translate3d(-16px, -12px, 0) rotate(-1deg) scale(1.004);
+}
+
+.dashboard-hero-deck-stack:hover .dashboard-hero-card-single .dashboard-hero-card-surface {
+  transform: translate3d(0, -5px, 0) scale(1.01);
+}
+
+.dashboard-empty-preview-card {
+  opacity: 0.68;
+  filter: saturate(0.78) contrast(0.96);
+  transition-property: opacity, box-shadow, filter, border-color;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-empty-preview-meter {
+  transform-origin: bottom;
+  transition-property: transform;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-empty-preview-accent {
+  opacity: 0.40;
+  transition-property: opacity, transform;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: center;
+}
+
+.dashboard-empty-preview-glyph {
+  display: inline-block;
+  transition-property: transform, opacity;
+  transition-duration: 240ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(0) scale(1);
+}
+
+.dashboard-empty-preview-stage {
+  -webkit-user-select: none;
+  opacity: 0.88;
+  user-select: none;
+  transition: opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-empty-preview-stage:hover {
+  opacity: 0.96;
+}
+
+.dashboard-empty-preview-stage:hover .dashboard-empty-preview-card {
+  opacity: 0.90;
+  box-shadow:
+    0 8px 18px color-mix(in srgb, var(--color-inari-vermillion) 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-inari-vermillion) 10%, transparent);
+  filter: saturate(1.02) contrast(1);
+}
+
+.dashboard-empty-preview-stage:hover .dashboard-empty-preview-meter {
+  transform: scaleY(1.18);
+}
+
+.dashboard-empty-preview-stage:hover .dashboard-empty-preview-accent {
+  opacity: 0.72;
+  transform: scaleX(1.035);
+}
+
+.dashboard-empty-preview-stage:hover .dashboard-empty-preview-glyph {
+  transform: translateY(-2px) scale(1.045);
+}
+
+.dashboard-preview-forecast-bar-0 {
+  height: 30px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 42%, var(--color-soft-hairline));
+  opacity: 0.82;
+}
+
+.dashboard-preview-forecast-bar-1 {
+  height: 18px;
+  background-color: var(--color-soft-hairline);
+  opacity: 0.70;
+}
+
+.dashboard-preview-forecast-bar-2 {
+  height: 42px;
+  background-color: color-mix(in srgb, var(--color-aizome-indigo) 36%, var(--color-soft-hairline));
+  opacity: 0.68;
+}
+
+.dashboard-preview-forecast-bar-3 {
+  height: 26px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 34%, var(--color-soft-hairline));
+  opacity: 0.66;
+}
+
+.dashboard-preview-forecast-bar-4 {
+  height: 52px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 38%, var(--color-soft-hairline));
+  opacity: 0.64;
+}
+
+.dashboard-preview-forecast-bar-5 {
+  height: 34px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 32%, var(--color-soft-hairline));
+  opacity: 0.62;
+}
+
+.dashboard-preview-forecast-bar-6 {
+  height: 8px;
+  background-color: var(--color-soft-hairline);
+  opacity: 0.60;
+}
+
+.dashboard-preview-forecast-bar-7 {
+  height: 40px;
+  background-color: color-mix(in srgb, var(--color-aizome-indigo) 32%, var(--color-soft-hairline));
+  opacity: 0.58;
+}
+
+.dashboard-preview-forecast-bar-8 {
+  height: 24px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 28%, var(--color-soft-hairline));
+  opacity: 0.56;
+}
+
+.dashboard-preview-forecast-bar-9 {
+  height: 32px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 30%, var(--color-soft-hairline));
+  opacity: 0.54;
+}
+
+.dashboard-preview-forecast-bar-10 {
+  height: 14px;
+  background-color: var(--color-soft-hairline);
+  opacity: 0.52;
+}
+
+.dashboard-preview-forecast-bar-11 {
+  height: 44px;
+  background-color: color-mix(in srgb, var(--color-aizome-indigo) 30%, var(--color-soft-hairline));
+  opacity: 0.50;
+}
+
+.dashboard-preview-forecast-bar-12 {
+  height: 22px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 26%, var(--color-soft-hairline));
+  opacity: 0.48;
+}
+
+.dashboard-preview-forecast-bar-13 {
+  height: 28px;
+  background-color: color-mix(in srgb, var(--color-inari-vermillion) 26%, var(--color-soft-hairline));
+  opacity: 0.46;
+}
+
+/* Dashboard data skeletons use a low-contrast warm sweep instead of a plain
+   pulse, so loading reads as active without flashing over the paper surface. */
+.dashboard-skeleton {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--color-cream-inset) 62%, var(--color-soft-hairline));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-soft-hairline) 56%, transparent);
+}
+
+.dashboard-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform: translateX(-145%) skewX(-10deg);
+  background:
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      color-mix(in srgb, var(--color-soft-hairline) 14%, transparent) 30%,
+      color-mix(in srgb, var(--color-vermillion-wash) 36%, transparent) 46%,
+      color-mix(in srgb, var(--color-inari-vermillion) 7%, transparent) 53%,
+      color-mix(in srgb, var(--color-cream-inset) 22%, transparent) 60%,
+      transparent 100%
+    );
+  animation: var(--animate-dashboard-skeleton-sweep);
+  pointer-events: none;
+  will-change: transform, opacity;
 }

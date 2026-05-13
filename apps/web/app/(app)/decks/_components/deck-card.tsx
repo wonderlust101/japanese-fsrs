@@ -3,14 +3,10 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import type { ApiDeck } from '@fsrs-japanese/shared-types'
+import { JlptPill, PillGroup, StatusPill } from '@/components/ui/Pill'
 import { getDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
-
-const BADGE: Record<ApiDeck['deckType'], string> = {
-  vocabulary: 'bg-vermillion-wash text-inari-vermillion',
-  kanji:      'bg-jlpt-beyond-bg text-jlpt-beyond-amber-warn',
-  mixed:      'bg-cream-inset text-faded-sumi',
-}
+import { inferDeckLevel } from '@/lib/deck-level'
 
 interface Props {
   deck:  ApiDeck
@@ -27,6 +23,7 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
   const dueCount  = stats?.dueCount  ?? 0
   const newCount  = stats?.newCount  ?? deck.cardCount
   const progress  = cardCount > 0 ? Math.round(((cardCount - newCount) / cardCount) * 100) : 0
+  const level     = inferDeckLevel(deck)
 
   return (
     <div
@@ -40,14 +37,12 @@ export function DeckCard({ deck, index }: Props): React.JSX.Element {
         {/* Header row */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base font-semibold text-sumi-ink mr-auto">{deck.name}</span>
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${BADGE[deck.deckType]}`}>
-            {deck.deckType}
-          </span>
-          {deck.isPremadeFork && (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-cream-inset text-faded-sumi">
-              premade
-            </span>
-          )}
+          <PillGroup compact>
+            {level !== null && <JlptPill level={level} size="sm" />}
+            {deck.isPremadeFork && (
+              <StatusPill status="premade" label="Premade" size="sm" />
+            )}
+          </PillGroup>
           {/* Options button — stops link propagation */}
           <button
             type="button"

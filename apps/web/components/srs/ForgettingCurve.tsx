@@ -68,7 +68,7 @@ export function ForgettingCurve({
         height="100%"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="Forgetting curve: how recall probability decays over time without review"
+        aria-label="Memory curve: how recall fades over time without practice"
         animate={
           reducedMotion === true
             ? { opacity: 1 }
@@ -155,7 +155,7 @@ export function ForgettingCurve({
           fontFamily="var(--font-mono)"
           letterSpacing="0.04em"
         >
-          RETENTION × DAYS
+          RECALL × DAYS
         </text>
       </motion.svg>
     </div>

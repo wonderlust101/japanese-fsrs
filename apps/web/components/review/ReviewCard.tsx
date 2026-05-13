@@ -2,6 +2,7 @@
 
 import { useEffect }     from 'react'
 import { FuriganaText }  from '@/components/ui/FuriganaText'
+import { Pill }          from '@/components/ui/Pill'
 import { RatingButtons } from './RatingButtons'
 import {
   useCurrentCard,
@@ -60,9 +61,14 @@ export function ReviewCard(): React.JSX.Element | null {
       <div className="w-full max-w-[640px] rounded-[14px] shadow-card bg-warm-paper-raised flex flex-col overflow-hidden">
 
         <div className="flex items-center px-5 pt-5">
-          <span className="text-xs font-medium text-faded-sumi bg-cream-inset rounded-full px-2.5 py-0.5">
+          <Pill
+            variant="tag"
+            size="sm"
+            mark="•"
+            ariaLabel={`Card type ${CARD_TYPE_LABEL[card.cardType] ?? card.cardType}`}
+          >
             {CARD_TYPE_LABEL[card.cardType] ?? card.cardType}
-          </span>
+          </Pill>
         </div>
 
         <div className="flex flex-col items-center px-12 pt-8 pb-8">
@@ -74,7 +80,7 @@ export function ReviewCard(): React.JSX.Element | null {
             <div className="mt-8 flex flex-col items-center gap-1.5">
               <button
                 onClick={flipCard}
-                className="px-6 py-2 rounded-lg bg-cream-inset hover:bg-cream-inset text-sm font-medium text-sumi-ink transition-colors"
+                className="ui-motion-pressable px-6 py-2 rounded-lg bg-cream-inset hover:bg-cream-inset text-sm font-medium text-sumi-ink"
               >
                 Show Answer
               </button>

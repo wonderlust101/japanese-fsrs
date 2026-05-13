@@ -29,12 +29,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             className={[
-              'w-full h-10 pl-3 pr-8 text-base text-sumi-ink bg-cream-inset border rounded-[var(--radius-md)]',
-              'appearance-none transition-colors duration-150',
+              'peer w-full h-10 pl-3 pr-8 text-base text-sumi-ink bg-cream-inset border rounded-[var(--radius-md)]',
+              'ui-motion-colors appearance-none',
               'focus:outline-none focus:border-inari-vermillion focus:ring-[3px] focus:ring-vermillion-wash',
               error
                 ? 'border-error focus:border-error focus:ring-error-tint'
-                : 'border-soft-hairline',
+                : 'border-soft-hairline hover:border-faded-sumi',
               className,
             ].join(' ')}
             {...rest}
@@ -42,7 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <svg
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi"
+            className="ui-motion-icon pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi peer-hover:text-sumi-ink/75 peer-focus:text-inari-vermillion"
             width="12" height="12" viewBox="0 0 12 12"
             fill="none" stroke="currentColor" strokeWidth="1.5"
             strokeLinecap="round" strokeLinejoin="round"
