@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Corner } from './useDraggableSnap'
 import { useDraggableSnap } from './useDraggableSnap'
 
 const STORAGE_KEY  = 'tomo:dev:launcher-corner'
 const BUTTON_SIZE  = 40
+const DASHBOARD_DEV_TOOLS_TOGGLE_EVENT = 'tomo:dashboard-dev-tools:toggle'
 
 // Corner anchor classes when resting; the live drag position is applied via
 // inline style to follow the cursor exactly.
@@ -36,8 +37,10 @@ export function FloatingLauncher(): React.JSX.Element | null {
 
 function FloatingLauncherInner(): React.JSX.Element {
   const router        = useRouter()
+  const pathname      = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const isDashboard = pathname === '/dashboard'
 
   const {
     corner,
@@ -111,6 +114,11 @@ function FloatingLauncherInner(): React.JSX.Element {
     setMenuOpen(false)
   }, [])
 
+  const handleToggleDashboardTools = useCallback((): void => {
+    window.dispatchEvent(new CustomEvent(DASHBOARD_DEV_TOOLS_TOGGLE_EVENT))
+    setMenuOpen(false)
+  }, [])
+
   // Drag overrides corner positioning with raw cursor coords. When not
   // dragging, the rest position is the persisted corner.
   const dragStyle: React.CSSProperties | undefined =
@@ -141,7 +149,7 @@ function FloatingLauncherInner(): React.JSX.Element {
           'focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           'shadow-card select-none touch-none',
           isDragging ? 'cursor-grabbing scale-[1.05]' : 'cursor-grab',
-          'transition-transform duration-150 ease-out',
+          'ui-motion-transform',
         ].join(' ')}
       >
         <svg
@@ -175,16 +183,26 @@ function FloatingLauncherInner(): React.JSX.Element {
             href="/dev/components"
             role="menuitem"
             onClick={handleOpenShowcase}
-            className="block px-3 py-2 text-sm text-sumi-ink hover:bg-cream-inset"
+            className="ui-motion-colors block px-3 py-2 text-sm text-sumi-ink hover:bg-cream-inset"
           >
             Open component showcase
           </Link>
+          {isDashboard && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleToggleDashboardTools}
+              className="ui-motion-colors block w-full px-3 py-2 text-left text-sm text-sumi-ink hover:bg-cream-inset"
+            >
+              Toggle dashboard preview controls
+            </button>
+          )}
           <div className="my-1 border-t border-soft-hairline" />
           <button
             type="button"
             role="menuitem"
             onClick={handleResetPosition}
-            className="block w-full text-left px-3 py-2 text-sm text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink"
+            className="ui-motion-colors block w-full text-left px-3 py-2 text-sm text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink"
           >
             Reset launcher position
           </button>

@@ -3,6 +3,7 @@ import { ButtonsSection }          from './sections/ButtonsSection'
 import { CardsSection }            from './sections/CardsSection'
 import { DialogSection }           from './sections/DialogSection'
 import { IconsSection }            from './sections/IconsSection'
+import { IconSystemSection }       from './sections/IconSystemSection'
 import { InputsSection }           from './sections/InputsSection'
 import { PillsSection }            from './sections/PillsSection'
 import { ReviewComponentsSection } from './sections/ReviewComponentsSection'
@@ -23,8 +24,9 @@ const SECTIONS: ReadonlyArray<{ id: string; label: string }> = [
   { id: 'pills',    label: 'Pills'    },
   { id: 'dialog',   label: 'Dialog'   },
   { id: 'text',     label: 'Text'     },
-  { id: 'icons',    label: 'Icons'    },
-  { id: 'review',   label: 'Review'   },
+  { id: 'icons',        label: 'Icons (current)' },
+  { id: 'icon-system',  label: 'Icon system'     },
+  { id: 'review',       label: 'Reviews'         },
   { id: 'srs',      label: 'SRS'      },
 ]
 
@@ -52,6 +54,7 @@ export default function ComponentShowcasePage(): React.JSX.Element {
           <DialogSection />
           <TextSection />
           <IconsSection />
+          <IconSystemSection />
           <ReviewComponentsSection />
           <SrsComponentsSection />
         </main>
