@@ -64,11 +64,13 @@ export const batch: RequestHandler = async (req, res): Promise<void> => {
 
 /**
  * GET /api/v1/reviews/forecast
- * Returns the number of cards due per day for the next 14 days.
+ * Returns backlog, scheduled review, and actual new-card counts per day for
+ * the next 14 days.
  * Days with zero due cards are omitted from the response array.
  */
 export const forecast: RequestHandler = async (req, res): Promise<void> => {
-  const data = await reviewService.getReviewForecast(req.user.id)
+  const profile = await profileService.getProfile(req.user.id)
+  const data = await reviewService.getReviewForecast(req.user.id, profile.timezone)
   res.json(data)
 }
 

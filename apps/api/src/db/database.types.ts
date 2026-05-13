@@ -523,11 +523,12 @@ export type Database = {
           total: number
         }[]
       }
-      get_dashboard_data: { Args: { p_user_id: string }; Returns: Json }
+      get_dashboard_data: { Args: { p_timezone?: string; p_user_id: string }; Returns: Json }
       get_due_cards: {
         Args: {
           p_daily_new_cards_limit: number
           p_daily_review_limit: number
+          p_timezone?: string
           p_user_id: string
         }
         Returns: {
@@ -542,7 +543,7 @@ export type Database = {
         }[]
       }
       get_heatmap_data: {
-        Args: { p_user_id: string }
+        Args: { p_timezone?: string; p_user_id: string }
         Returns: {
           count: number
           date: string
@@ -570,10 +571,13 @@ export type Database = {
         }[]
       }
       get_review_forecast: {
-        Args: { p_days?: number; p_user_id: string }
+        Args: { p_days?: number; p_timezone?: string; p_user_id: string }
         Returns: {
+          backlog_count: number
           count: number
           date: string
+          new_count: number
+          review_count: number
         }[]
       }
       get_session_summary: {

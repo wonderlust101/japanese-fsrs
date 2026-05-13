@@ -14,6 +14,7 @@ import {
 import { supabaseAdmin } from '../db/supabase.ts'
 import type { Database } from '../db/database.types.ts'
 import { asPayload } from '../lib/db.ts'
+import { normalizeTimeZone } from '../lib/timezone.ts'
 import { dbError } from '../middleware/errorHandler.ts'
 import {
   HeatmapRpcSchema,
@@ -51,13 +52,19 @@ function bounded<T>(items: T[]): ApiList<T> {
 }
 
 /**
- * Returns daily retention rates for the last 365 days.
+ * Returns daily retention rates for the last 365 learner-local days.
  *
  * Days with zero reviews are omitted from the result — the frontend fills those
  * gaps as 0, consistent with the forecast data pattern.
  */
-export async function getHeatmapData(userId: string): Promise<ApiList<ApiHeatmapDay>> {
-  const rows = await callRpc('get_heatmap_data', { p_user_id: userId }, HeatmapRpcSchema, 'heatmap data')
+export async function getHeatmapData(userId: string, timeZone = 'UTC'): Promise<ApiList<ApiHeatmapDay>> {
+  const normalizedTimeZone = normalizeTimeZone(timeZone)
+  const rows = await callRpc(
+    'get_heatmap_data',
+    { p_user_id: userId, p_timezone: normalizedTimeZone },
+    HeatmapRpcSchema,
+    'heatmap data',
+  )
   return bounded(rows)
 }
 
@@ -157,10 +164,11 @@ const DashboardRpcEnvelopeSchema = z.object({
  * one round-trip via the get_dashboard_data RPC. Returns the same camelCase
  * shapes the granular endpoints return — clients can drop in seamlessly.
  */
-export async function getDashboardData(userId: string): Promise<ApiAnalyticsDashboard> {
+export async function getDashboardData(userId: string, timeZone = 'UTC'): Promise<ApiAnalyticsDashboard> {
+  const normalizedTimeZone = normalizeTimeZone(timeZone)
   const { data, error } = await supabaseAdmin.rpc(
     'get_dashboard_data',
-    asPayload({ p_user_id: userId }),
+    asPayload({ p_user_id: userId, p_timezone: normalizedTimeZone }),
   )
 
   if (error !== null) throw dbError('fetch dashboard data', error)

@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
+import { normalizeTimeZone } from '../lib/timezone.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReviewBatch, type ProcessReviewResult } from './fsrs.service.ts'
 import { toApiDueCard, DueCardRpcRowSchema } from './card.service.ts'
@@ -22,10 +23,18 @@ import type {
 // runtime so any future shape drift surfaces as a clean ZodError.
 
 const ForecastRpcRowSchema = z.object({
-  date:  z.string(),
+  date: z.string(),
   // BIGINT comes back as a string from PostgREST; INT comes back as a number.
-  count: z.union([z.string(), z.number()]),
+  count:         z.union([z.string(), z.number()]),
+  backlog_count: z.union([z.string(), z.number()]).optional(),
+  review_count:  z.union([z.string(), z.number()]).optional(),
+  new_count:     z.union([z.string(), z.number()]).optional(),
 })
+
+function toNumber(value: string | number | undefined): number {
+  if (value === undefined) return 0
+  return typeof value === 'string' ? Number.parseInt(value, 10) : value
+}
 
 /**
  * Session-summary RPC envelope. `card_id: z.string()` (non-null) is correct
@@ -65,7 +74,7 @@ const SessionSummaryEnvelopeSchema = z.object({
  * followed by new cards sorted by created_at ASC (oldest first — fifo).
  *
  * Cap logic:
- *   - Count today's total reviews from review_logs (reviewed_at >= UTC midnight).
+ *   - Count today's total reviews from review_logs, starting at learner-local midnight.
  *   - Count today's new-card reviews (state_before = 0, i.e. FSRS New state).
  *   - Remaining total  = daily_review_limit    - totalReviewedToday
  *   - Remaining new    = daily_new_cards_limit - newReviewedToday
@@ -76,12 +85,14 @@ export async function getDueCards(
   userId:  string,
   profile: Profile,
 ): Promise<ApiList<ApiDueCard>> {
+  const timeZone = normalizeTimeZone(profile.timezone)
   const { data, error } = await supabaseAdmin.rpc(
     'get_due_cards',
     asPayload({
       p_user_id:               userId,
       p_daily_review_limit:    profile.dailyReviewLimit,
       p_daily_new_cards_limit: profile.dailyNewCardsLimit,
+      p_timezone:              timeZone,
     }),
   )
 
@@ -96,32 +107,48 @@ export async function getDueCards(
 }
 
 /**
- * Returns the number of cards due per day for the next `days` days (default 14).
+ * Returns the number of cards due per day for the next `days` days (default 14),
+ * split into overdue backlog, scheduled reviews, and actual new cards.
  * Days with zero due cards are omitted — the frontend fills those gaps as 0.
  *
  * Aggregation runs server-side via the get_review_forecast RPC. Bucketing
- * uses UTC calendar days, consistent with the heatmap and streak analytics.
+ * uses the learner's profile timezone so the forecast aligns with the
+ * dashboard date, greeting, and daily caps.
  */
 export async function getReviewForecast(
-  userId: string,
-  days   = 14,
+  userId:   string,
+  timeZone: string,
+  days      = 14,
 ): Promise<ApiList<ApiForecastDay>> {
+  const normalizedTimeZone = normalizeTimeZone(timeZone)
   const { data, error } = await supabaseAdmin.rpc('get_review_forecast', {
-    p_user_id: userId,
-    p_days:    days,
+    p_user_id:   userId,
+    p_days:      days,
+    p_timezone:  normalizedTimeZone,
   })
 
   if (error !== null) {
     throw dbError('fetch review forecast', error)
   }
 
-  // RPC returns rows shaped {date: TEXT, count: BIGINT}. BIGINT can serialize
-  // as either a string or a number; the schema accepts both and we normalize.
+  // RPC returns BIGINTs, which can serialize as either strings or numbers; the
+  // schema accepts both and we normalize before crossing the API boundary.
   const rows  = z.array(ForecastRpcRowSchema).parse(data ?? [])
-  const items = rows.map((r) => ({
-    date:  r.date,
-    count: typeof r.count === 'string' ? Number.parseInt(r.count, 10) : r.count,
-  }))
+  const items = rows.map((r) => {
+    const count = toNumber(r.count)
+    const explicitSplit =
+      r.backlog_count !== undefined ||
+      r.review_count  !== undefined ||
+      r.new_count     !== undefined
+
+    return {
+      date:         r.date,
+      count,
+      backlogCount: explicitSplit ? toNumber(r.backlog_count) : 0,
+      reviewCount:  explicitSplit ? toNumber(r.review_count) : count,
+      newCount:     explicitSplit ? toNumber(r.new_count) : 0,
+    }
+  })
   // Fixed forecast window (`days`); no cursor pagination.
   return { items, nextCursor: null, hasMore: false }
 }

@@ -144,8 +144,11 @@ export const ApiSubscribeResultSchema = z.object({
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
 export const ApiForecastDaySchema = z.object({
-  date:  z.string(),
-  count: z.number(),
+  date:         z.string(),
+  count:        z.number(),
+  backlogCount: z.number(),
+  reviewCount:  z.number(),
+  newCount:     z.number(),
 })
 
 /** Generic batch result — caller passes the per-item schema. */

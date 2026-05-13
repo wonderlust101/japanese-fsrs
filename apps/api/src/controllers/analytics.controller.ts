@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express'
 
 import * as analyticsService from '../services/analytics.service.ts'
+import * as profileService from '../services/profile.service.ts'
 import { cacheControl } from '../lib/http.ts'
 
 const ANALYTICS_MAX_AGE_SECONDS = 300
@@ -11,7 +12,8 @@ const ANALYTICS_MAX_AGE_SECONDS = 300
  * Days with zero reviews are omitted — the frontend fills those gaps as 0.
  */
 export const heatmap: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getHeatmapData(req.user.id)
+  const profile = await profileService.getProfile(req.user.id)
+  const data = await analyticsService.getHeatmapData(req.user.id, profile.timezone)
   cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
   res.json(data)
 }
@@ -64,7 +66,8 @@ export const milestones: RequestHandler = async (req, res): Promise<void> => {
  * remain available for partial reloads.
  */
 export const dashboard: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getDashboardData(req.user.id)
+  const profile = await profileService.getProfile(req.user.id)
+  const data = await analyticsService.getDashboardData(req.user.id, profile.timezone)
   cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
   res.json(data)
 }
