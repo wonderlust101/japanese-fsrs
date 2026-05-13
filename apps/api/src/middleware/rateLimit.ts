@@ -60,7 +60,7 @@ function failOpenOnInfraError(err: unknown, req: Request, next: NextFunction): v
  * In production, every middleware runs as before. Limits aren't a
  * "nice to have" outside dev — abuse protection lives at this layer.
  */
-const RATE_LIMITING_ENABLED = env.NODE_ENV !== 'development'
+const RATE_LIMITING_ENABLED = env.NODE_ENV === 'production'
 
 // `RatelimitResponse` is declared but not exported from @upstash/ratelimit;
 // derive it from `Ratelimit.prototype.limit`'s awaited return type so this
