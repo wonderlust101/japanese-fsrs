@@ -400,7 +400,7 @@ Single kanji glyphs as navigation icons (a historical proposal of 家 / 本 / �
 - **Section grouping (both surfaces):** Three sections in fixed order — **Practice** (Dashboard, Review), **Library** (Decks → Browse sub-nav), **Insights** (Analytics). Section labels render as `text-xs uppercase tracking-[0.08em] font-semibold` in Faded Sumi. Non-first sections are preceded by a 1px Soft Hairline divider (`mx-3 h-px bg-soft-hairline`) for editorial punctuation.
 - **Icons:** custom geometric ink-stroke SVGs from `apps/web/components/icons/` (IconDashboard, IconReview, IconDecks, IconBrowse, IconAnalytics, plus IconProfile / IconSettings / IconReportBug / IconSignOut for the account menu). Sized at 24px in nav rows, 16px in the account popover. Color is `currentColor` so the icon inherits the row's text color.
 - **Default state:** Sumi Ink label, Faded Sumi 1.75px-stroke icon, transparent row background.
-- **Hover:** Cream Inset row tint slides in (200ms ease-out); icon strokes re-draw from un-drawn → drawn (250ms ease-out-quart) and tint to Inari Vermillion. Icon leads row by ~50ms so the visual reads as cause-and-effect. (See §Icon System → Motion Contract.)
+- **Hover:** Cream Inset row tint fades in (200ms ease-out, 50ms delay so the icon leads). Icon color transitions from Faded Sumi → Sumi Ink via inherited `currentColor` (200ms ease-out, no delay). Per the Static Icon Rule in §Icon System, the icon itself never animates — only its inherited color changes.
 - **Active (current page):** Vermillion Wash (`#F8E5E5`) row background, Inari Vermillion (`#B03646`) icon and label, label weight bumps to semibold. The previous full-saturation `bg-inari-vermillion` fill (in current `nav-item.tsx`) is retired; that pattern violated the Vermillion Tax Rule for product chrome.
 - **Active route-change settle:** on mount, the newly-active row plays a one-shot settle: row wash fades in (250ms), icon stroke draws (300ms with 50ms delay so the row leads), label color transitions in (200ms). One-shot only; no looping.
 - **Focus (keyboard):** 3px Vermillion Wash halo via `--shadow-focus`; row treatment unchanged.
@@ -431,6 +431,514 @@ The semantic ruby/rt component, preserved end-to-end with one tonal adjustment.
 
 **The Danger Ghost Rule.** Filled red Danger buttons are not used in Tomo. Destructive actions use the Danger Ghost variant (transparent + Inari Vermillion Deep text), or — when the destructive action has already been confirmed (e.g., the user typed DELETE in a confirmation input) — the standard Sumi-Ink Danger variant takes over. Filled vermillion never marks destructive intent.
 
+## Icon System
+
+The Tomo icon system is one coherent family across two co-existing collections that share construction grammar:
+
+1. **Onboarding marks** (existing): `apps/web/components/icons/study-marks.tsx`, `apps/web/components/icons/dashboard-marks.tsx`, `apps/web/components/icons/arrow-glyph.tsx`. These cover the SRS-tool register: ToriiGate, BookOpen, Briefcase, the Pace glasses, CheckMark, DrillMark, CramMark, ArrowGlyph.
+2. **Chrome marks** (canonical, brand-aligned): `apps/web/components/icons/chrome-marks.tsx`. Forty-six icons covering nav, account menu, status row, drawer, topbar, and the major action/edit/data/feedback/progress/language affordances of the app.
+
+Both collections render at the same construction discipline; chrome-marks additionally bakes Tomo's signature brand devices (the card top-stripe, hi-no-maru focal disc, kanji-stroke weight rhythm, tategaki text) into the shapes themselves.
+
+### Construction Grammar
+
+Non-negotiable across every icon in `chrome-marks.tsx`:
+
+- **viewBox:** `"0 0 40 40"` (40 design units square). All path coordinates are in this space.
+- **Primary stroke (`STROKE`):** `1.25`. Defined as a module constant; every primary outlined path uses `strokeWidth={STROKE}`.
+- **Linecap:** `"round"`. All open paths terminate in rounded caps.
+- **Linejoin:** `"round"`. All path corners are rounded (no miter spikes at acute angles).
+- **Fill:** `"none"` on outlined paths.
+- **Stroke color:** `"currentColor"` on outlined paths. Never a hard-coded color value.
+- **Filled focal elements:** `fill="currentColor" stroke="none"`. Used for hi-no-maru discs, kanji-stroke dots, the Tomo top-stripe band, mizuhiki knot jewel, and similar small filled accents.
+- **Secondary detail lines (interior text suggestions, page hints):** `strokeWidth={STROKE * 0.5}` to `{STROKE * 0.6}`, `opacity="0.65"` (sometimes `0.6`). Used for tategaki text on cards, page text lines in the dictionary, content strokes in flag/dictionary/notification tanzaku.
+- **Kanji-stroke emphasis:** selected paths use `strokeWidth={STROKE * 1.1}` to `{STROKE * 1.5}` for "heavier strokes" that mimic kanji-radical weight contrast within a single mark. Used on Play/Skip triangles, Pause bars, Help question-mark curve, Cross X, Warning triangle outline, Star, Streak flame, Microphone capsule, Speaker cone, Plus vertical bar, Cross/Check, etc.
+- **The COMMON_PROPS spread:** every outlined path applies the construction defaults via `{...COMMON_PROPS}` where:
+
+```ts
+const STROKE = 1.25
+const COMMON_PROPS = {
+  fill:           'none',
+  stroke:         'currentColor',
+  strokeWidth:    STROKE,
+  strokeLinecap:  'round',
+  strokeLinejoin: 'round',
+} as const
+```
+
+- **SVG opener pattern (every icon):**
+
+```tsx
+<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+  {/* paths */}
+</svg>
+```
+
+`width="40" height="40"` are SVG attribute defaults; the rendered display size is controlled by Tailwind classes on the `<svg>` (e.g., `w-6 h-6` for 24px, `h-10 w-10` for 40px). `aria-hidden="true"` is mandatory because icons are decorative — semantic labeling lives in the surrounding text.
+
+- **Path budget:** at most 4-6 elements per icon. Most ship 2-4. The budget is a discipline, not a hard limit; if an icon requires more elements to read correctly, the design is wrong before the budget is wrong.
+
+### Brand-alignment devices
+
+Five signature devices distinguish chrome-marks from generic icon libraries and tie the icons to Tomo's product surfaces:
+
+1. **Tomo card top-stripe.** A filled rectangle 2.5 design units tall at the top of card-bodied icons. Renders Vermillion at active state via inherited `currentColor`. This is the literal visual device used on actual card surfaces in `apps/web/components/ui/Card.tsx`; the icons reference it self-referentially. Used in: Review, Decks, AddCard, Save, Copy, Calendar (Calendar uses a 6-unit-tall version as a header band).
+
+2. **Hi-no-maru focal disc.** A filled circle (typically `r=3` to `r=3.2`) at a focal point in the icon. References the Inari sun disc behind the kitsune in the brand mark. Filled `currentColor` so it inherits the row's tier color. Used in: Dashboard (top-left cell), Browse (middle drawer handle, larger r=1.4), Analytics (behind central peak), Search (lens center), Info (top dot), Target (bullseye center).
+
+3. **Kanji-stroke weight rhythm.** Selected paths within a single icon use stroke weights heavier than `STROKE`, evoking the brush-pressure contrast in kanji-radical strokes. The rhythm is 1.0× to 1.5× variation. Used in: Play, Pause, Skip, Cross, Warning, Info disc, Hamburger middle line (lighter), Plus vertical, Help question-mark curve, Star outline, Streak flame, Trophy cup, Microphone capsule, Speaker cone, Dictionary spine.
+
+4. **Tategaki vertical text suggestion.** Thin opacity-0.65 lines running vertically inside card-bodied icons, representing Japanese reading direction. 3 lines, varying lengths (long, medium, slightly shorter), at coordinates following the card's interior. Used in: Review, Decks, AddCard, Report a bug (also inside speech bubble), Flag (inside nobori banner), Dictionary (page hint lines).
+
+5. **Cultural-form references baked into shapes.** Selected icons take their primary form from a Japanese cultural object rather than a Western convention. The references are subtle (one per icon, not multiple) and serve the metaphor:
+   - **Dashboard** = 田 (rice paddy) kanji + hi-no-maru disc.
+   - **Browse** = tansu (chest of drawers).
+   - **Analytics** = sangaku (三角, three mountain peaks).
+   - **Profile** = person with kimono V-collar at chest.
+   - **Settings** = mizuhiki (decorative cord) butterfly bow knot.
+   - **Sign out** = torii (shrine gate) with shimenawa rope drape.
+   - **Notifications** = fūrin (wind chime) with tanzaku paper strip.
+   - **Offline** = stylized kasumi (traditional cloud) silhouette.
+   - **Search** = magnifier with hi-no-maru lens.
+   - **Edit** = fude (calligraphy brush) with bamboo cap.
+   - **Save** = bookmark with Tomo top-stripe.
+   - **Tag** = omamori (charm bag) shape with cord knot at top.
+   - **Sort** = three ofuda (paper amulet strips), decreasing width.
+   - **Streak** = flame with kanji 火 (fire) inner stroke.
+   - **Trophy** = rice bowl with curved Asian-style handles.
+   - **Target** = hi-no-maru disc + concentric rings.
+   - **Translate** = serif A + kana あ + brushstroke arrow.
+   - **Dictionary** = wahon (Japanese bound book) with calligraphic spine.
+   - **Lightbulb** = chochin (paper lantern) with horizontal bamboo bands.
+   - **Plus** = 十 (juu, "ten") kanji with calligraphic terminal taper.
+   - **Help** = question mark with pronounced kanji-radical stroke weighting.
+
+   Icons whose metaphor is geometrically universal (Hamburger, Close, Play, Pause, Skip, Reveal, Hide, AddCard, Delete, Copy, Filter, Calendar, Clock, Check, Cross, Warning, Info, More, Star, Flag, Speaker, Microphone) carry no cultural-form reference; they get the construction discipline and kanji-stroke weight rhythm only.
+
+### Color & state behavior
+
+Icons NEVER carry color of their own. All state is inherited from the parent row via `currentColor`. The three-tier rule:
+
+- **Default rest:** parent applies `text-faded-sumi` (`#6B5F58`). Icon strokes render Faded Sumi.
+- **Hover:** parent transitions to `text-sumi-ink` (`#1F1A18`) over 150ms. Cell background tints to Cream Inset (`#F4EFE6`). Icon strokes render Sumi Ink.
+- **Active route:** parent applies `text-inari-vermillion` (`#B03646`). Cell background applies Vermillion Wash (`#F8E5E5`). Icon strokes render Inari Vermillion.
+- **Focus-visible:** 3px Vermillion Wash halo via `--shadow-focus`. Icon color unchanged.
+
+The icons themselves never animate — no hover transforms, no stroke-width changes, no fill changes, no rotation, no scaling, no keyframe loops. The user reads state from the row, not the icon. This is non-negotiable: hover motion was prototyped and removed because it added visual noise without clarifying state.
+
+The brand top-stripe inside card-bodied icons (Review/Decks/AddCard/Save/Copy/Calendar) is rendered with `fill="currentColor"`, so when the row is at active state and `currentColor` is Vermillion, the top-stripe also turns Vermillion. This is the brand-coding moment: the icon's identity device matches the brand mark's identity color exactly when the route is active.
+
+### Sizing & display context
+
+Icons are designed at the 40×40 viewBox but display at different sizes depending on surface. The effective stroke at display follows: `effective_stroke = STROKE * (display_size / 40)`. At `STROKE = 1.25`:
+
+| Surface | Display size | Tailwind class | Effective stroke |
+|---|---|---|---|
+| Nav row (sidebar/MobileDrawer) | 24px | `w-6 h-6` | 0.75px |
+| Showcase grid (`/dev/components`) | 40px | `h-10 w-10` | 1.25px |
+| Inline button leading icon | 14-16px | `w-3.5 h-3.5` / `w-4 h-4` | 0.44-0.5px |
+| Topbar / chrome | 20px | `w-5 h-5` | 0.625px |
+
+Below 20px display, the secondary detail lines (`STROKE * 0.5`, `opacity 0.65`) start to disappear into sub-pixel softening; that's acceptable since the focal element + primary outline still read clearly. Below 14px, even the primary stroke is at the edge; avoid using these icons below 16px display.
+
+### File organization & exports
+
+- **Location:** `apps/web/components/icons/chrome-marks.tsx`
+- **Co-located:** `study-marks.tsx`, `dashboard-marks.tsx`, `arrow-glyph.tsx` (the onboarding collection). All four files share the directory and the same construction grammar.
+- **Naming convention:** every export is `Icon<Name>` (e.g., `IconDashboard`, `IconReview`). The `Icon` prefix is canonical and reserved for chrome-marks; the onboarding files use direct names (`ToriiGate`, `BookOpen`). New icons added to chrome-marks must follow `Icon<PascalName>`.
+- **Component shape:** every icon function accepts `{ className?: string }` only. No `size` prop, no `color` prop. Sizing via Tailwind classes on the `<svg>`; color via `currentColor` inheritance.
+- **Catalog export (`CHROME_MARKS`):** a `ReadonlyArray<ChromeMarkEntry>` exported alongside the components, used by the showcase at `/dev/components` and any future consumer that needs to enumerate the set. Entry shape:
+
+```ts
+export interface ChromeMarkEntry {
+  name:      string
+  component: (props: IconProps) => React.JSX.Element
+  reference: string
+  group:     'nav' | 'account' | 'status' | 'drawer' | 'topbar' | 'action'
+           | 'edit' | 'data' | 'feedback' | 'progress' | 'lang'
+}
+```
+
+The eleven `group` values are functional categories, not rendering categories. They drive the showcase's section ordering and would drive any future "icon picker" UI.
+
+### Icon Catalog (all 46)
+
+Path data is exact and minimal — copy directly into a 40×40 SVG to reproduce. All paths inherit `COMMON_PROPS` (`fill="none"`, `stroke="currentColor"`, `strokeWidth={STROKE}`, `strokeLinecap="round"`, `strokeLinejoin="round"`) unless explicitly noted with `fill="currentColor" stroke="none"` (focal/filled elements) or `strokeWidth={STROKE * X}` / `opacity="Y"` (modified weight/opacity).
+
+#### Nav (5)
+
+**Dashboard** — 田 (rice paddy) kanji grid + hi-no-maru disc in top-left cell.
+```tsx
+<rect x="8" y="8" width="24" height="24" />
+<line x1="20" y1="8" x2="20" y2="32" />
+<line x1="8" y1="20" x2="32" y2="20" />
+<circle cx="14" cy="14" r="3" fill="currentColor" stroke="none" />
+```
+
+**Review** — Card with Tomo top-stripe + tategaki text.
+```tsx
+<rect x="9" y="6" width="22" height="28" rx="1" />
+<rect x="9" y="6" width="22" height="2.5" fill="currentColor" stroke="none" />
+<path d="M 25 14 V 29 M 20 14 V 26 M 15 14 V 28" strokeWidth={STROKE * 0.6} opacity="0.65" />
+```
+
+**Decks** — Stacked cards with Tomo top-stripe on the front + tategaki.
+```tsx
+<path d="M 14 8 H 30 M 11 12 H 31" />
+<rect x="8" y="16" width="24" height="18" rx="1" />
+<rect x="8" y="16" width="24" height="2.5" fill="currentColor" stroke="none" />
+<path d="M 26 22 V 32 M 20 22 V 30 M 14 22 V 32" strokeWidth={STROKE * 0.55} opacity="0.65" />
+```
+
+**Browse** — Tansu with all 3 drawer handles (middle larger, brand-focal).
+```tsx
+<rect x="8" y="8" width="24" height="24" />
+<path d="M 8 16 H 32 M 8 24 H 32" />
+<circle cx="20" cy="12" r="0.9" fill="currentColor" stroke="none" />
+<circle cx="20" cy="20" r="1.4" fill="currentColor" stroke="none" />
+<circle cx="20" cy="28" r="0.9" fill="currentColor" stroke="none" />
+```
+
+**Analytics** — Sangaku peaks with filled hi-no-maru sun behind central peak.
+```tsx
+<circle cx="28" cy="11" r="3.2" fill="currentColor" stroke="none" />
+<path d="M 5 32 L 10 22 L 14 28 L 20 12 L 26 28 L 30 20 L 35 32" />
+```
+
+#### Account menu (4)
+
+**Profile** — Person with kimono V-collar detail at chest.
+```tsx
+<circle cx="20" cy="14" r="6" />
+<path d="M 7 33 V 25 H 33 V 33" />
+<path d="M 16 25 L 20 30 L 24 25" strokeWidth={STROKE * 0.75} />
+```
+
+**Settings** — Butterfly mizuhiki bow knot with center jewel.
+```tsx
+<path d="M 6 20 H 14 M 26 20 H 34" />
+<path d="M 14 14 L 20 20 L 14 26 Z" />
+<path d="M 26 14 L 20 20 L 26 26 Z" />
+<circle cx="20" cy="20" r="1.3" fill="currentColor" stroke="none" />
+```
+
+**Report a bug** — Speech bubble + tategaki content + ku-ten dot.
+```tsx
+<path d="M 9 8 L 31 8 Q 33 8 33 10 L 33 22 Q 33 24 31 24 L 18 24 L 14 30 L 14 24 L 9 24 Q 7 24 7 22 L 7 10 Q 7 8 9 8 Z" />
+<path d="M 26 12 V 21 M 21 12 V 19 M 16 12 V 20" strokeWidth={STROKE * 0.6} opacity="0.65" />
+<circle cx="11" cy="13" r="0.9" fill="currentColor" stroke="none" />
+```
+
+**Sign out** — Torii with subtle shimenawa rope drape.
+```tsx
+<path d="M 6 11 H 34" />
+<path d="M 9 14 H 31" />
+<path d="M 12 11 V 33 M 28 11 V 33" />
+<path d="M 12 19 Q 20 22 28 19" strokeWidth={STROKE * 0.75} opacity="0.7" />
+```
+
+#### Status (3)
+
+**Notifications** — Fūrin with detailed dome band + tanzaku + content dot.
+```tsx
+<line x1="20" y1="5" x2="20" y2="9" />
+<path d="M 13 17 Q 13 9 20 9 Q 27 9 27 17 Z" />
+<line x1="13" y1="14" x2="27" y2="14" strokeWidth={STROKE * 0.5} opacity="0.65" />
+<path d="M 20 17 V 21 M 16 21 H 24 V 31 H 16 Z" />
+<circle cx="20" cy="26" r="0.9" fill="currentColor" stroke="none" />
+```
+
+**Offline** — Stylized kasumi cloud silhouette with horizontal break.
+```tsx
+<path d="M 6 18 Q 6 13 11 14 Q 14 11 19 13 Q 26 12 27 17 Q 33 16 34 22 Q 34 28 28 28 Q 22 30 18 28 Q 11 29 9 24 Q 5 22 6 18 Z" />
+<line x1="9" y1="22" x2="31" y2="22" />
+```
+
+**Search** — Magnifier with filled hi-no-maru lens disc.
+```tsx
+<circle cx="17" cy="17" r="9" />
+<line x1="24" y1="24" x2="33" y2="33" />
+<circle cx="17" cy="17" r="3" fill="currentColor" stroke="none" />
+```
+
+#### Drawer (2)
+
+**Hamburger** — Three brush strokes with calligraphic length variation; middle line is thinner.
+```tsx
+<line x1="7"  y1="13" x2="33" y2="13" />
+<line x1="10" y1="20" x2="30" y2="20" strokeWidth={STROKE * 0.75} />
+<line x1="6"  y1="27" x2="34" y2="27" />
+```
+
+**Close** — X with kanji-stroke weight contrast (right-falling heavier).
+```tsx
+<line x1="11" y1="11" x2="29" y2="29" strokeWidth={STROKE * 1.2} />
+<line x1="29" y1="11" x2="11" y2="29" strokeWidth={STROKE * 0.7} />
+```
+
+#### Topbar (2)
+
+**Help** — Question mark with pronounced kanji-stroke weighting + dot.
+```tsx
+<circle cx="20" cy="20" r="12" />
+<path d="M 15 16 Q 15 11 20 11 Q 25 11 25 16 Q 25 19 22 20 L 20 22" strokeWidth={STROKE * 1.1} />
+<circle cx="20" cy="27" r="1.3" fill="currentColor" stroke="none" />
+```
+
+**Plus** — 十 (juu) kanji with calligraphic terminal taper.
+```tsx
+<line x1="11" y1="19" x2="29" y2="19" />
+<line x1="20" y1="7" x2="20" y2="31" strokeWidth={STROKE * 1.1} />
+<circle cx="20" cy="31" r="0.7" fill="currentColor" stroke="none" />
+```
+
+#### Action (5)
+
+**Play** — Triangle with kanji-stroke weight + entry dot.
+```tsx
+<path d="M 13 8 L 33 20 L 13 32 Z" strokeWidth={STROKE * 1.15} />
+<circle cx="13" cy="20" r="0.9" fill="currentColor" stroke="none" />
+```
+
+**Pause** — Two heavier kanji-stroke vertical bars.
+```tsx
+<line x1="15" y1="8" x2="15" y2="32" strokeWidth={STROKE * 1.5} />
+<line x1="25" y1="8" x2="25" y2="32" strokeWidth={STROKE * 1.5} />
+```
+
+**Skip** — Two triangles with kanji-stroke weight.
+```tsx
+<path d="M 6 10 L 18 20 L 6 30 Z M 19 10 L 31 20 L 19 30 Z" strokeWidth={STROKE * 1.15} />
+```
+
+**Reveal** — Eye with calligraphic upper lid + filled pupil.
+```tsx
+<path d="M 5 20 Q 12 9 20 9 Q 28 9 35 20" strokeWidth={STROKE * 1.2} />
+<path d="M 5 20 Q 12 30 20 30 Q 28 30 35 20" />
+<circle cx="20" cy="20" r="2.2" fill="currentColor" stroke="none" />
+```
+
+**Hide** — Closed eye with calligraphic brush curve + lash marks.
+```tsx
+<path d="M 5 17 Q 12 30 20 30 Q 28 30 35 17" strokeWidth={STROKE * 1.15} />
+<path d="M 11 27 L 9 31 M 20 30 V 33 M 29 27 L 31 31" strokeWidth={STROKE * 0.65} />
+```
+
+#### Edit (5)
+
+**AddCard** — Card with Tomo top-stripe + kanji-weight + sign.
+```tsx
+<rect x="9" y="6" width="22" height="28" rx="1" />
+<rect x="9" y="6" width="22" height="2.5" fill="currentColor" stroke="none" />
+<line x1="20" y1="16" x2="20" y2="28" strokeWidth={STROKE * 1.1} />
+<line x1="14" y1="22" x2="26" y2="22" strokeWidth={STROKE * 1.1} />
+```
+
+**Edit** — Calligraphy brush (fude) with bamboo cap detail.
+```tsx
+<path d="M 26 6 Q 30 6 32 8 L 14 32 L 6 34 L 8 26 Z" />
+<path d="M 26 6 L 26 12 L 22 12" strokeWidth={STROKE * 0.75} />
+```
+
+**Delete** — Trash with subtle kanji-stroke X marker inside.
+```tsx
+<path d="M 8 10 H 32 M 17 6 H 23" strokeWidth={STROKE * 1.1} />
+<path d="M 10 10 V 32 Q 10 34 12 34 H 28 Q 30 34 30 32 V 10" />
+<path d="M 17 16 L 23 28 M 23 16 L 17 28" strokeWidth={STROKE * 0.6} opacity="0.65" />
+```
+
+**Save** — Bookmark with Tomo top-stripe band.
+```tsx
+<path d="M 12 6 H 28 V 34 L 20 26 L 12 34 Z" />
+<rect x="12" y="6" width="16" height="2.5" fill="currentColor" stroke="none" />
+<line x1="20" y1="14" x2="20" y2="22" strokeWidth={STROKE * 0.55} opacity="0.65" />
+```
+
+**Copy** — Two cards with Tomo top-stripe overlapping.
+```tsx
+<rect x="6" y="12" width="20" height="22" rx="1" />
+<rect x="6" y="12" width="20" height="2.5" fill="currentColor" stroke="none" />
+<path d="M 14 12 V 6 H 34 V 26 H 26" />
+```
+
+#### Data (5)
+
+**Tag** — Omamori (charm) shape with cord knot at top.
+```tsx
+<path d="M 14 4 Q 14 8 18 8 H 22 Q 26 8 26 4" strokeWidth={STROKE * 0.7} />
+<line x1="20" y1="6" x2="20" y2="10" />
+<path d="M 11 10 H 29 V 32 Q 29 34 27 34 H 13 Q 11 34 11 32 Z" />
+<line x1="15" y1="18" x2="25" y2="18" strokeWidth={STROKE * 0.55} opacity="0.65" />
+```
+
+**Filter** — Funnel with thicker decorated top band.
+```tsx
+<path d="M 8 8 H 32 L 22 22 V 32 L 18 32 V 22 Z" />
+<line x1="6" y1="6" x2="34" y2="6" strokeWidth={STROKE * 1.25} />
+```
+
+**Sort** — Three ofuda strips of decreasing width.
+```tsx
+<rect x="8" y="9"  width="24" height="5" />
+<rect x="8" y="17" width="18" height="5" />
+<rect x="8" y="25" width="12" height="5" />
+```
+
+**Calendar** — Calendar with Tomo header band + binder rings + date dot.
+```tsx
+<rect x="6" y="8" width="28" height="26" rx="1" />
+<rect x="6" y="8" width="28" height="6" fill="currentColor" stroke="none" />
+<path d="M 13 5 V 11 M 27 5 V 11" strokeWidth={STROKE * 0.7} />
+<circle cx="20" cy="24" r="1.2" fill="currentColor" stroke="none" />
+```
+
+**Clock** — Kanji-weight hour hand + thin minute hand + cardinal ticks.
+```tsx
+<circle cx="20" cy="20" r="13" />
+<line x1="20" y1="20" x2="20" y2="11" strokeWidth={STROKE * 1.2} />
+<line x1="20" y1="20" x2="27" y2="20" strokeWidth={STROKE * 0.7} />
+<path d="M 20 8 V 10 M 30 18 H 32 M 20 30 V 32 M 8 18 H 10" strokeWidth={STROKE * 0.55} />
+```
+
+#### Feedback (5)
+
+**Check** — Heavier brushstroke check.
+```tsx
+<path d="M 7 20 L 16 28 L 33 11" strokeWidth={STROKE * 1.4} />
+```
+
+**Cross** — Heavier X with kanji-stroke weight contrast (different from Close).
+```tsx
+<line x1="10" y1="10" x2="30" y2="30" strokeWidth={STROKE * 1.4} />
+<line x1="30" y1="10" x2="10" y2="30" strokeWidth={STROKE * 1.0} />
+```
+
+**Warning** — Triangle with kanji-weight ! + brushstroke dot.
+```tsx
+<path d="M 20 5 L 35 32 L 5 32 Z" strokeWidth={STROKE * 1.15} />
+<path d="M 20 14 V 24" strokeWidth={STROKE * 1.3} />
+<circle cx="20" cy="28" r="1.3" fill="currentColor" stroke="none" />
+```
+
+**Info** — Hi-no-maru disc + kanji-stroke i (brand-coded).
+```tsx
+<circle cx="20" cy="20" r="13" strokeWidth={STROKE * 1.2} />
+<circle cx="20" cy="13" r="1.3" fill="currentColor" stroke="none" />
+<line x1="20" y1="18" x2="20" y2="28" strokeWidth={STROKE * 1.3} />
+```
+
+**More** — Three brush dots with center slightly larger.
+```tsx
+<circle cx="10" cy="20" r="2"   fill="currentColor" stroke="none" />
+<circle cx="20" cy="20" r="2.5" fill="currentColor" stroke="none" />
+<circle cx="30" cy="20" r="2"   fill="currentColor" stroke="none" />
+```
+
+#### Progress (5)
+
+**Star** — Five-point star at kanji-stroke weight.
+```tsx
+<path d="M 20 5 L 24 16 L 35 16 L 26 23 L 30 34 L 20 27 L 10 34 L 14 23 L 5 16 L 16 16 Z" strokeWidth={STROKE * 1.15} />
+```
+
+**Flag** — Nobori vertical banner with tategaki content lines.
+```tsx
+<line x1="14" y1="5" x2="14" y2="35" strokeWidth={STROKE * 1.1} />
+<rect x="14" y="6" width="14" height="22" />
+<path d="M 18 11 V 23 M 22 11 V 23" strokeWidth={STROKE * 0.6} opacity="0.65" />
+```
+
+**Streak** — Flame with kanji 火 inner stroke.
+```tsx
+<path d="M 20 5 Q 12 14 16 22 Q 7 19 10 28 Q 13 35 20 35 Q 28 35 30 28 Q 32 19 24 22 Q 28 14 20 5 Z" strokeWidth={STROKE * 1.1} />
+<path d="M 18 22 Q 20 27 22 22" strokeWidth={STROKE * 0.75} />
+```
+
+**Trophy** — Rice bowl with curved Asian-style handles + plinth.
+```tsx
+<path d="M 10 9 H 30 V 18 Q 30 25 22 26 V 30 H 18 V 26 Q 10 25 10 18 Z" />
+<path d="M 6 11 Q 6 18 10 18 M 30 18 Q 34 18 34 11" strokeWidth={STROKE * 0.8} />
+<path d="M 11 33 H 29 M 14 36 H 26" />
+```
+
+**Target** — Hi-no-maru disc + concentric rings + cardinal ticks.
+```tsx
+<circle cx="20" cy="20" r="13" />
+<circle cx="20" cy="20" r="6" strokeWidth={STROKE * 1.1} />
+<circle cx="20" cy="20" r="2.5" fill="currentColor" stroke="none" />
+<path d="M 20 4 V 7 M 36 20 H 33 M 20 36 V 33 M 4 20 H 7" strokeWidth={STROKE * 0.55} />
+```
+
+#### Language (5)
+
+**Speaker** — Speaker with calligraphic curve sound waves.
+```tsx
+<path d="M 6 14 H 12 L 20 7 V 33 L 12 26 H 6 Z" strokeWidth={STROKE * 1.1} />
+<path d="M 25 14 Q 30 20 25 26" />
+<path d="M 30 9 Q 37 20 30 31" strokeWidth={STROKE * 0.6} opacity="0.6" />
+```
+
+**Microphone** — Microphone with kanji-weight capsule.
+```tsx
+<rect x="15" y="5" width="10" height="18" rx="5" strokeWidth={STROKE * 1.1} />
+<path d="M 9 18 Q 9 27 20 27 Q 31 27 31 18" />
+<line x1="20" y1="27" x2="20" y2="33" />
+<line x1="13" y1="33" x2="27" y2="33" strokeWidth={STROKE * 0.75} />
+```
+
+**Translate** — Serif A + kana あ + brushstroke arrow.
+```tsx
+<text x="4"  y="20" fontSize="13" fontFamily="serif" fontWeight="600" fill="currentColor">A</text>
+<text x="23" y="34" fontSize="13" fontFamily="serif" fontWeight="600" fill="currentColor">あ</text>
+<path d="M 18 26 L 22 30 M 22 22 L 22 30 L 30 30" strokeWidth={STROKE * 0.7} />
+```
+
+**Dictionary** — Wahon bound book with calligraphic spine + tategaki marks.
+```tsx
+<rect x="8" y="6" width="22" height="28" rx="1" />
+<path d="M 28 6 V 34" strokeWidth={STROKE * 0.85} />
+<path d="M 28 10 H 32 M 28 16 H 32 M 28 22 H 32 M 28 28 H 32" strokeWidth={STROKE * 0.5} opacity="0.65" />
+<path d="M 12 13 H 24 M 12 18 H 21 M 12 23 H 24 M 12 28 H 20" strokeWidth={STROKE * 0.55} opacity="0.65" />
+```
+
+**Lightbulb** — Chochin paper lantern with horizontal bamboo bands.
+```tsx
+<path d="M 13 9 Q 13 6 20 6 Q 27 6 27 9 Q 27 26 22 28 H 18 Q 13 26 13 9 Z" />
+<path d="M 13 13 H 27 M 13 18 H 27 M 13 23 H 27" strokeWidth={STROKE * 0.55} opacity="0.65" />
+<line x1="17" y1="32" x2="23" y2="32" />
+<line x1="20" y1="28" x2="20" y2="32" strokeWidth={STROKE * 0.6} />
+```
+
+### Named rules
+
+**The Geometric Ink-Stroke Rule.** Every chrome and component icon is a custom SVG drawn from `apps/web/components/icons/chrome-marks.tsx` (or the co-located onboarding files), matching the construction grammar above. No lucide-react imports are permitted in chrome/component code. The one exception is `ChevronRight` in `nav-item.tsx` for the sub-nav disclosure caret; that single import is the only outstanding Lucide Tax debt in the chrome system.
+
+**The Currentcolor Inheritance Rule.** Icons render `stroke="currentColor"` on outlined paths and `fill="currentColor"` on focal/filled accents. They never carry a hard-coded color value. State is driven by the parent's color class (`text-faded-sumi` → `text-sumi-ink` → `text-inari-vermillion`).
+
+**The Static Icon Rule.** Icons do not animate. No hover transforms, no stroke-width transitions, no scale/translate/rotate, no keyframe loops. State communication happens at the row level (cell background tint + icon color shift via inherited `currentColor`). Motion was prototyped and removed; do not reintroduce it without explicit design direction.
+
+**The Brand Top-Stripe Rule.** Card-bodied icons (Review, Decks, AddCard, Save, Copy, Calendar) carry the Tomo top-stripe as a filled `currentColor` rectangle 2.5 units tall (or 6 units tall for Calendar's header band) at the top of the card outline. The stripe is a self-reference to the brand's actual card surfaces in `apps/web/components/ui/Card.tsx`. Do not add the stripe to icons whose metaphor is not a card; do not omit it from icons whose metaphor is a card.
+
+**The Single-Cultural-Reference Rule.** Each icon carries at most one Japanese cultural-form reference (torii, fūrin, mizuhiki, sangaku peaks, etc.). Stacking references (e.g., a torii inside a fūrin inside a card) is forbidden — that path leads to tourist-shop iconography. Where the metaphor is geometrically universal (Play, Pause, Close, Plus, etc.), the icon uses only the construction grammar without a cultural-form reference.
+
+**The Kanji-Stroke Weight Rule.** Selected paths within an icon may use `strokeWidth={STROKE * X}` where X is 0.5-1.5, evoking the brush-pressure rhythm of kanji-radical strokes. The variation must be deliberate (heavier on primary strokes, lighter on supporting strokes), never arbitrary. The weight rhythm is one of the system's signature distinguishing features.
+
+**The Secondary-Detail Opacity Rule.** Tategaki text suggestion lines, page hint marks, and other interior detail lines use `strokeWidth={STROKE * 0.5}` to `{STROKE * 0.6}` and `opacity="0.65"` (sometimes `0.6` for finer marks). The opacity is what gives them their "ghosted detail" quality without competing with the primary outline.
+
+**The 40×40 ViewBox Rule.** All chrome-marks icons are drawn in the 40×40 design unit space. This is non-negotiable across the family — it matches the existing study-marks/dashboard-marks files, so the two collections render at compatible visual weight when used adjacent. Do not introduce a 24×24 viewBox icon to chrome-marks; if a smaller surface is needed, scale the 40×40 icon down via Tailwind classes.
+
+**The aria-hidden Rule.** Every icon ships `aria-hidden="true"` because icons are decorative. Semantic labeling lives in the surrounding text (nav label, button label, etc.). Icon-only affordances (icon-only buttons like the drawer's hamburger and close) require an explicit `aria-label` on the parent button element, not on the icon.
+
+### Anti-goals
+
+The icon system is shaped as much by what it rejects as what it includes:
+
+1. **Not lucide-like.** The default reflex for an icon library is to import Lucide. This system explicitly refuses Lucide; the bespoke chrome-marks set replaces every Lucide import (except `ChevronRight` for the sub-nav caret). The brand-coding devices (top-stripe, hi-no-maru, kanji-stroke weight rhythm) are what make these distinguishable from a Lucide install.
+2. **Not folkloric-overloaded.** Earlier iterations of the icon set bundled multiple Japanese folkloric references per icon (kitsune face inside a tansu, torii flanked by fox statues, ema with shimenawa frame). This was rejected as kitsch. The current system uses at most one cultural-form reference per icon, and only where the metaphor naturally invites it.
+3. **Not modern-tech-pictogrammatic.** Earlier iterations went the opposite direction — Tokyo Metro pictograms, MUJI restraint, Naoto Fukasawa capsules. This was also rejected because it pulled too far from the brand: clean modern Japanese is everywhere; only the brand-aligned middle (Tomo top-stripe + kanji-stroke rhythm + cultural references where natural) is uniquely Tomo.
+4. **Not animated.** Hover motion was prototyped (pulse, flex, shift, rise, tilt, spin, sway, drift, flicker, stagger) and removed. State communication via inherited `currentColor` is sufficient; icon-internal motion adds visual noise without adding clarity.
+5. **Not multi-color.** Icons render in a single inherited color at any given moment. No second accent color, no gradient, no two-tone treatment. This is what keeps the system disciplined and what makes the active-state Vermillion shift land as the brand moment.
+
 ## Do's and Don'ts
 
 These rules carry PRODUCT.md's anti-references into pixel-level specificity for the new direction.
@@ -443,7 +951,7 @@ These rules carry PRODUCT.md's anti-references into pixel-level specificity for 
 - **Do** preserve the JLPT Difficulty Spectrum across all surfaces. The six values (N5 → Beyond) are signature work; do not modify, do not extend the spectrum to non-difficulty roles.
 - **Do** use exactly **one** Primary button per screen, per the Single-Primary Rule.
 - **Do** ship Rating buttons with four redundant signaling channels (color + glyph + label + key), per the Four-Channel Rating Rule.
-- **Do** use custom geometric ink-stroke SVGs from `apps/web/components/icons/` for every chrome and component icon, drawn to the contract in §Icon System (24×24 viewBox, 1.75px stroke at 24px, round linecap, round linejoin, `currentColor`, `pathLength="100"` on every animatable path). Always pair with a visible text label; the icon is decorative.
+- **Do** use custom ink-stroke SVGs from `apps/web/components/icons/` for every chrome and component icon, drawn to the contract in §Icon System (40×40 viewBox, `STROKE = 1.25` base, round linecap, round linejoin, `currentColor` on outlined paths and on filled focal accents, `aria-hidden="true"`). Always pair with a visible text label; the icon is decorative.
 - **Do** wrap Japanese strings in `lang="ja"` (or render through `<FuriganaText>`). The lang-selector handles font-family swapping; bypassing it produces wrong glyph metrics and breaks screen readers.
 - **Do** keep cards flat at rest (per the Flat-Card Rule). Reach for shadow only on overlays — popovers (`--shadow-card`), modals (`--shadow-lg`), focus halos (`--shadow-focus`).
 - **Do** honor `prefers-reduced-motion` end-to-end. Every keyframe in the system is opt-out, never opt-in.
