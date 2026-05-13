@@ -2,7 +2,7 @@
 
 This document describes every table in the Supabase (PostgreSQL) database, the purpose of each column, and the constraints, indexes, triggers, and RPCs that govern them.
 
-> **Generated from:** migrations in `supabase/migrations/` through `20260528000002`.
+> **Generated from:** migrations in `supabase/migrations/` through `20260530000000`.
 > **Database:** Supabase PostgreSQL with the `pgvector` extension.
 > **Convention:** All wire formats are camelCase; all DB columns are snake_case. The transform happens at the service layer (`toRow` / `toCardRow` / `toPremadeRow` for responses; explicit patch maps for inputs).
 

@@ -1,6 +1,6 @@
 # Frontend Status
 
-Refreshed by code inspection on 2026-05-12. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
+Refreshed by code inspection on 2026-05-13. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
 
 | Capability | Status | Evidence |
 |---|---|---|
@@ -15,7 +15,7 @@ Refreshed by code inspection on 2026-05-12. See [../IMPLEMENTATION_STATUS.md](..
 | Dashboard live-data modules and deferred modules | Partial | `apps/web/app/(app)/dashboard/_components/dashboard-client.tsx` now drives the hero from due cards, decks from `GET /api/v1/decks`, forecast from split review-forecast data, and recent activity from heatmap data. Leeches and the temporary practice-signal module render unavailable states until their backend contracts exist. Dev-only preview controls still use sample data. |
 | Review personal-best persistence | Partial | `apps/web/app/(app)/review/summary/page.tsx` uses a `localStorage` placeholder for personal-best comparison; no durable user-scoped persistence was found. |
 | Public brand landing page | Partial | `apps/web/app/page.tsx` exists, but it currently redirects to `/onboarding`; no completed public brand surface was found. |
-| Public SEO and installability surfaces | Missing | Comments in `apps/web/app/layout.tsx` and `apps/web/app/sitemap.ts` reference `app/manifest.ts`, dynamic deck Open Graph images, JSON-LD, and expanded public sitemap routes; those surfaces were not found. |
+| Public SEO and installability surfaces | Partial | SEO baseline shipped: `apps/web/app/layout.tsx` sets `metadataBase` and root `robots: { index: true, follow: true }`, `apps/web/app/(auth)/layout.tsx` and `apps/web/app/onboarding/layout.tsx` mark private trees `noindex`, and `apps/web/app/robots.ts` plus a minimal `apps/web/app/sitemap.ts` exist. Still missing: `app/manifest.ts`, maskable/monochrome icon variants, dynamic deck Open Graph images, Organization/SoftwareApplication JSON-LD, and expanded public sitemap routes (features, pricing, privacy, help). |
 | Full frontend CSP nonce policy | Partial | `apps/web/next.config.ts` sets security headers and `frame-ancestors`, but comments state a fuller script/style CSP is deferred until Next.js nonce handling is designed. |
 | Product design-system migration to current Tomo brand | Partial | Brand assets, dashboard masthead imagery, dev-only component showcase, and custom icon components exist in `apps/web/public/brand`, `apps/web/public/assets/dashboard`, `apps/web/app/dev/components`, and `apps/web/components/icons`; `lucide-react` remains in `apps/web/package.json` as a legacy dependency. |
 | Legal pages | Missing | No privacy or terms pages were found under `apps/web/app`; the Kanban board tracks this as active work. |
