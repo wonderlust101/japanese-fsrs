@@ -1,70 +1,888 @@
 'use client'
 
-import { useMemo } from 'react'
+import Image from 'next/image'
+import { useEffect, useMemo, useState } from 'react'
+import type { ApiDeck, ApiDueCard, ApiForecastDay, ApiHeatmapDay } from '@fsrs-japanese/shared-types'
 
-import { useJlptGap, useStreak } from '@/lib/api/analytics'
+import { useHeatmapData } from '@/lib/api/analytics'
+import { useDecks } from '@/lib/api/decks'
 import { useDueCards, useReviewForecast } from '@/lib/api/reviews'
+import { inferDeckLevel } from '@/lib/deck-level'
 
 import { ActiveDecks, type ActiveDeck } from './active-decks'
-import { DashboardHero } from './dashboard-hero'
+import {
+  clampRatio,
+  safeNonNegativeInteger,
+  safePercentagePoint,
+} from './dashboard-format'
+import {
+  addDaysToDateKey,
+  buildDashboardCalendarContext,
+  calendarDateKeyFromApiDate,
+  dateNumberFromDateKey,
+  dayLabelForDateKey,
+  isDashboardDateKey,
+  normalizeDashboardTimeZone,
+  type DashboardCalendarContext,
+} from './dashboard-calendar'
+import {
+  DashboardHero,
+  type DashboardHeroVariant,
+  type DueQueue,
+  type HeroDeckTag,
+  type HeroDeckPreview,
+} from './dashboard-hero'
+import { DashboardHeroDevToolbar, type HeroDevControls } from './dashboard-hero-dev-toolbar'
+import {
+  DashboardModulesDevToolbar,
+  type ModuleDevControls,
+  type ModulePreviewState,
+} from './dashboard-modules-dev-toolbar'
+import { DashboardModuleReveal, DashboardStatePresence } from './dashboard-motion'
 import { ForecastChart } from './forecast-chart'
-import { JlptProgress, type JlptLevelProgress } from './jlpt-progress'
 import { Leeches, type Leech } from './leeches'
-import { NoteFromTomo, type TomoInsight } from './note-from-tomo'
+import { PracticeSignal, type PracticeInsight } from './practice-signal'
 import { RecentActivity, type ActivityRow } from './recent-activity'
 import type { ModuleState } from './section-primitives'
-import { StatStrip } from './stat-strip'
 
-const DAY_GLYPHS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const
 const FORECAST_HORIZON_DAYS = 14
+const HERO_PREVIEW_ENABLED = process.env.NODE_ENV !== 'production'
+const DASHBOARD_DEV_TOOLS_TOGGLE_EVENT = 'tomo:dashboard-dev-tools:toggle'
 
-/**
- * Local-time YYYY-MM-DD key for matching API dates to generated calendar
- * slots. Avoids the ISO-string timezone trap (toISOString() always returns
- * UTC, which can shift the date by one day for users east of UTC late in
- * the local day).
- */
-function localDateKey(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+const FSRS_NEW = 0
+
+interface QueueBreakdown {
+  newCnt:  number
+  review:  number
+  backlog: number
+}
+
+interface DashboardForecastDay {
+  label:        string
+  dateNum:      number
+  count:        number
+  isToday:      boolean
+  newCount:     number
+  reviewCount:  number
+  backlogCount: number
+}
+
+interface DashboardClientProps {
+  dateLabel:      string
+  dateTime:       string
+  greetingName:   string | null
+  greetingPrefix: string
+  timeZone:       string
+}
+
+interface PracticeGreetingCopy {
+  message: string
+}
+
+function dashboardCalendarContextMatches(
+  current: DashboardCalendarContext,
+  next: DashboardCalendarContext,
+): boolean {
+  return current.dateLabel === next.dateLabel
+    && current.dateTime === next.dateTime
+    && current.greetingPrefix === next.greetingPrefix
+    && current.todayKey === next.todayKey
+    && current.yesterdayKey === next.yesterdayKey
+    && current.timeZone === next.timeZone
+}
+
+const DEFAULT_HERO_DEV_CONTROLS: HeroDevControls = {
+  variant:  'due',
+  queue:    'typical',
+  decks:    'three',
+  routeMix: 'balanced',
+  flag:     'none',
+}
+
+const DEFAULT_MODULE_DEV_CONTROLS: ModuleDevControls = {
+  tomo:     'default',
+  forecast: 'default',
+  decks:    'default',
+  leeches:  'default',
+  recent:   'default',
 }
 
 /**
  * Build a complete N-day forecast series starting from today. Maps API days
- * by local-date key, then walks forward N days from today filling counts
- * from the map. Days the API didn't return get count=0 (rendered as a 1px
- * placeholder line at the baseline). Each entry carries the day-of-week
- * glyph + calendar date number for the chart's stacked label rendering.
+ * by plain YYYY-MM-DD key, then walks forward N learner-calendar days from
+ * today filling counts from the map. Keeping API date strings as calendar keys
+ * avoids the `new Date('YYYY-MM-DD')` UTC-midnight shift that moves forecast
+ * data one day earlier for learners west of UTC.
+ *
+ * The API owns the split between overdue backlog, scheduled reviews, and
+ * actual new-card inventory. The dashboard only pads missing dates to keep
+ * the chart structurally stable. Today's overdue bucket is also patched from
+ * the live due queue so backlog remains visible while forecast data catches up.
  */
 function buildPaddedForecast(
-  apiDays: ReadonlyArray<{ date: string; count: number }>,
+  apiDays: ReadonlyArray<ApiForecastDay>,
   horizonDays: number,
-): { label: string; dateNum: number; count: number; isToday: boolean }[] {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const countByKey = new Map<string, number>()
+  todayKey: string,
+  todayBreakdown: QueueBreakdown | null,
+): DashboardForecastDay[] {
+  const dayByKey = new Map<string, ApiForecastDay>()
   for (const d of apiDays) {
-    countByKey.set(localDateKey(new Date(d.date)), d.count)
+    dayByKey.set(calendarDateKeyFromApiDate(d.date), d)
   }
 
-  const out: { label: string; dateNum: number; count: number; isToday: boolean }[] = []
+  const out: DashboardForecastDay[] = []
   for (let i = 0; i < horizonDays; i++) {
-    const date = new Date(today)
-    date.setDate(today.getDate() + i)
-    const key   = localDateKey(date)
-    const count = countByKey.get(key) ?? 0
+    const key = addDaysToDateKey(todayKey, i)
+    const day = dayByKey.get(key)
+    const apiBacklogCount = safeNonNegativeInteger(day?.backlogCount)
+    const backlogCount = i === 0 && todayBreakdown !== null
+      ? Math.max(apiBacklogCount, todayBreakdown.backlog)
+      : apiBacklogCount
+    const newCount     = safeNonNegativeInteger(day?.newCount)
+    const reviewCount  = safeNonNegativeInteger(day?.reviewCount)
+    const count        = backlogCount + reviewCount + newCount
 
     out.push({
-      label:   DAY_GLYPHS[date.getDay()] ?? '',
-      dateNum: date.getDate(),
+      label:        dayLabelForDateKey(key),
+      dateNum:      dateNumberFromDateKey(key),
       count,
-      isToday: i === 0,
+      isToday:      i === 0,
+      newCount,
+      reviewCount,
+      backlogCount,
     })
   }
   return out
+}
+
+function buildHeroQueueFromDueCards(
+  items:    ApiDueCard[],
+  todayKey: string,
+  timeZone: string,
+  deckById: ReadonlyMap<string, ApiDeck>,
+): DueQueue {
+  const breakdown = countQueueBreakdown(items, todayKey, timeZone)
+  const grouped     = groupDueCards(items)
+  const deckEntries = [...grouped.entries()].sort((a, b) => b[1].length - a[1].length)
+  const decks       = deckEntries.slice(0, 3).map(([, cards], index) => toHeroDeck(cards, index, deckById))
+
+  return {
+    total:         breakdown.newCnt + breakdown.review + breakdown.backlog,
+    newCnt:        breakdown.newCnt,
+    review:        breakdown.review,
+    backlog:       breakdown.backlog,
+    decks,
+    overflowDecks: Math.max(0, deckEntries.length - decks.length),
+  }
+}
+
+function toDashboardDeck(deck: ApiDeck): ActiveDeck {
+  return {
+    id:         deck.id,
+    title:      deck.name.trim() || 'Untitled deck',
+    level:      inferDeckLevel(deck),
+    totalCards: safeNonNegativeInteger(deck.cardCount),
+  }
+}
+
+function buildRecentActivityRows(days: ApiHeatmapDay[], todayKey: string): ActivityRow[] {
+  const dayByKey = new Map<string, ApiHeatmapDay>()
+  for (const day of days) {
+    dayByKey.set(calendarDateKeyFromApiDate(day.date), day)
+  }
+
+  const rows: ActivityRow[] = []
+  for (let offset = 0; offset < 7; offset++) {
+    const key = addDaysToDateKey(todayKey, -offset)
+    const day = dayByKey.get(key)
+    const reviewed = safeNonNegativeInteger(day?.count)
+    rows.push({
+      date:      offset === 0 ? 'Today' : dayLabelForDateKey(key),
+      reviewed,
+      retention: reviewed > 0 && day !== undefined && Number.isFinite(day.retention)
+        ? clampRatio(day.retention / 100)
+        : null,
+    })
+  }
+
+  return rows.some((row) => row.reviewed !== 0) ? rows : []
+}
+
+function countQueueBreakdown(
+  items:    ApiDueCard[],
+  todayKey: string,
+  timeZone: string,
+): QueueBreakdown {
+  let backlog = 0
+  let newCnt  = 0
+  let review  = 0
+
+  for (const card of items) {
+    if (isOverdue(card, todayKey, timeZone)) {
+      backlog += 1
+    } else if (card.state === FSRS_NEW) {
+      newCnt += 1
+    } else {
+      review += 1
+    }
+  }
+
+  return { newCnt, review, backlog }
+}
+
+function groupDueCards(items: ApiDueCard[]): Map<string, ApiDueCard[]> {
+  const out = new Map<string, ApiDueCard[]>()
+  for (const card of items) {
+    const key = card.deckId ?? `${card.jlptLevel ?? 'mixed'}-${card.layoutType}`
+    const bucket = out.get(key)
+    if (bucket === undefined) {
+      out.set(key, [card])
+    } else {
+      bucket.push(card)
+    }
+  }
+  return out
+}
+
+function toHeroDeck(
+  cards:    ApiDueCard[],
+  index:    number,
+  deckById: ReadonlyMap<string, ApiDeck>,
+): HeroDeckPreview {
+  const layout = dominant(cards.map((card) => card.layoutType))
+  const newCount = cards.filter((card) => card.state === FSRS_NEW).length
+  const deckId = cards[0]?.deckId
+  const sourceDeck = deckId != null ? deckById.get(deckId) : undefined
+  const title = sourceDeck?.name ?? (deckId != null ? 'Active deck' : `${formatLayoutType(layout)} queue`)
+  const level = dominant(
+    cards
+      .map((card) => card.jlptLevel)
+      .filter((cardLevel): cardLevel is NonNullable<ApiDueCard['jlptLevel']> => cardLevel !== null),
+  ) ?? (sourceDeck !== undefined ? inferDeckLevel(sourceDeck) : null)
+  const tag: HeroDeckTag = level !== null
+    ? { kind: 'level', level }
+    : { kind: 'none' }
+
+  return {
+    id:          deckId ?? `queue-${index}`,
+    title,
+    subtitle:    sourceDeck !== undefined
+      ? 'Active deck queue'
+      : (deckId != null ? 'Deck metadata unavailable' : 'Mixed queue'),
+    dueCount:    cards.length,
+    newCount,
+    reviewCount: cards.length - newCount,
+    tag,
+  }
+}
+
+function isOverdue(card: ApiDueCard, todayKey: string, timeZone: string): boolean {
+  const dueKey = calendarDateKeyFromApiDate(card.due, timeZone)
+  return isDashboardDateKey(dueKey) && isDashboardDateKey(todayKey) && dueKey < todayKey
+}
+
+function dominant<T extends string>(values: T[]): T | null {
+  if (values.length === 0) return null
+  const counts = new Map<T, number>()
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1)
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
+function formatLayoutType(layout: ApiDueCard['layoutType'] | null): string {
+  switch (layout) {
+    case 'grammar':    return 'Grammar'
+    case 'sentence':   return 'Sentence'
+    case 'vocabulary': return 'Vocabulary'
+    default:           return 'Mixed'
+  }
+}
+
+function buildPreviewHeroVariant(controls: HeroDevControls): DashboardHeroVariant {
+  switch (controls.variant) {
+    case 'due':
+      return { kind: 'due', queue: buildPreviewQueue(controls) }
+    case 'caught-up':
+      return { kind: 'caught-up' }
+    case 'first-time':
+      return { kind: 'first-time' }
+    case 'loading':
+      return { kind: 'loading' }
+    case 'error':
+      return { kind: 'error' }
+  }
+}
+
+function buildPreviewQueue(controls: HeroDevControls): DueQueue {
+  const breakdown = previewQueueBreakdown(controls)
+  const total = breakdown.newCnt + breakdown.review + breakdown.backlog
+  const { decks, overflowDecks } = previewDecks(controls.decks, total)
+
+  return {
+    total,
+    newCnt:        breakdown.newCnt,
+    review:        breakdown.review,
+    backlog:       breakdown.backlog,
+    statusNote:    controls.flag === 'stale-data' ? 'Showing the last saved route' : undefined,
+    decks,
+    overflowDecks,
+  }
+}
+
+function previewQueueBreakdown(controls: HeroDevControls): QueueBreakdown {
+  const queueShape = queuePresetShape(controls.queue)
+  const newCnt = previewNewCount(queueShape, controls.routeMix)
+  const backlog = queueShape.backlog
+  const review = Math.max(0, queueShape.total - newCnt - backlog)
+  return { newCnt, review, backlog }
+}
+
+function queuePresetShape(queue: HeroDevControls['queue']): { total: number; newCnt: number; backlog: number } {
+  switch (queue) {
+    case 'one':           return { total: 1,  newCnt: 0,  backlog: 0  }
+    case 'no-backlog':    return { total: 12, newCnt: 3,  backlog: 0  }
+    case 'typical':       return { total: 12, newCnt: 3,  backlog: 2  }
+    case 'backlog-heavy': return { total: 34, newCnt: 2,  backlog: 19 }
+    case 'large':         return { total: 84, newCnt: 18, backlog: 11 }
+  }
+}
+
+function previewNewCount(
+  shape:    { total: number; newCnt: number; backlog: number },
+  routeMix: HeroDevControls['routeMix'],
+): number {
+  const todayCapacity = Math.max(0, shape.total - shape.backlog)
+  if (todayCapacity <= 0) return 0
+
+  const ratio =
+    routeMix === 'new-heavy'    ? 0.55 :
+    routeMix === 'review-heavy' ? 0.10 :
+                                  null
+
+  if (ratio === null) return Math.min(shape.newCnt, todayCapacity)
+  return Math.min(todayCapacity, Math.max(todayCapacity === 1 ? 0 : 1, Math.round(todayCapacity * ratio)))
+}
+
+function previewDecks(
+  preset: HeroDevControls['decks'],
+  total:  number,
+): { decks: HeroDeckPreview[]; overflowDecks: number } {
+  const samples: [HeroDeckPreview, HeroDeckPreview, HeroDeckPreview] = [
+    {
+      id:          'preview-n4-verbs',
+      title:       'N4 verbs',
+      subtitle:    'Conjugation and recall',
+      dueCount:    Math.max(1, Math.round(total * 0.45)),
+      newCount:    2,
+      reviewCount: Math.max(0, Math.round(total * 0.45) - 2),
+      tag:          { kind: 'level', level: 'N4' },
+    },
+    {
+      id:          'preview-kanji',
+      title:       'Joyo kanji',
+      subtitle:    'Recognition practice',
+      dueCount:    Math.max(1, Math.round(total * 0.32)),
+      newCount:    1,
+      reviewCount: Math.max(0, Math.round(total * 0.32) - 1),
+      tag:          { kind: 'level', level: 'N3' },
+    },
+    {
+      id:          'preview-grammar',
+      title:       'Grammar patterns',
+      subtitle:    'Short examples',
+      dueCount:    Math.max(1, total - Math.round(total * 0.77)),
+      newCount:    0,
+      reviewCount: Math.max(1, total - Math.round(total * 0.77)),
+      tag:          { kind: 'level', level: 'beyond_jlpt' },
+    },
+  ]
+  const primary = samples[0]
+  const primaryNewCount = primary.newCount ?? 0
+
+  switch (preset) {
+    case 'none':
+      return { decks: [], overflowDecks: 0 }
+    case 'one':
+      return {
+        decks: [
+          {
+            ...primary,
+            dueCount:    total,
+            reviewCount: Math.max(0, total - primaryNewCount),
+          },
+        ],
+        overflowDecks: 0,
+      }
+    case 'two':
+      return { decks: samples.slice(0, 2), overflowDecks: 0 }
+    case 'three':
+      return { decks: samples, overflowDecks: 0 }
+    case 'more':
+      return { decks: samples, overflowDecks: 4 }
+  }
+}
+
+function previewStateToModuleState(state: ModulePreviewState): ModuleState {
+  if (state === 'loading') return 'loading'
+  if (state === 'error') return 'error'
+  if (state === 'unavailable') return 'unavailable'
+  return 'default'
+}
+
+function isPreviewEmpty(state: ModulePreviewState): boolean {
+  return state === 'empty'
+}
+
+function buildPreviewForecastDays(
+  todayBreakdown: QueueBreakdown,
+  todayKey: string,
+): ReturnType<typeof buildPaddedForecast> {
+  const counts = [
+    { backlogCount: todayBreakdown.backlog, reviewCount: todayBreakdown.review, newCount: todayBreakdown.newCnt },
+    { backlogCount: 0, reviewCount: 8,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 18, newCount: 2 },
+    { backlogCount: 0, reviewCount: 5,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 22, newCount: 1 },
+    { backlogCount: 0, reviewCount: 14, newCount: 0 },
+    { backlogCount: 0, reviewCount: 0,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 9,  newCount: 3 },
+    { backlogCount: 0, reviewCount: 6,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 13, newCount: 1 },
+    { backlogCount: 0, reviewCount: 4,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 17, newCount: 2 },
+    { backlogCount: 0, reviewCount: 7,  newCount: 0 },
+    { backlogCount: 0, reviewCount: 10, newCount: 0 },
+  ]
+  const apiDays = counts.map((day, index) => ({
+    date:         addDaysToDateKey(todayKey, index),
+    count:        day.backlogCount + day.reviewCount + day.newCount,
+    backlogCount: day.backlogCount,
+    reviewCount:  day.reviewCount,
+    newCount:     day.newCount,
+  }))
+  return buildPaddedForecast(apiDays, FORECAST_HORIZON_DAYS, todayKey, todayBreakdown)
+}
+
+function compareHeatmapDatesDesc(a: ApiHeatmapDay, b: ApiHeatmapDay): number {
+  return b.date.localeCompare(a.date)
+}
+
+function findPreviousReviewDay(
+  days: ReadonlyArray<ApiHeatmapDay>,
+  beforeDate: string,
+): ApiHeatmapDay | null {
+  return [...days]
+    .filter((day) => (
+      day.date < beforeDate &&
+      safeNonNegativeInteger(day.count) > 0 &&
+      Number.isFinite(day.retention)
+    ))
+    .sort(compareHeatmapDatesDesc)[0] ?? null
+}
+
+function skippedDaysBeforeToday(days: ReadonlyArray<ApiHeatmapDay>, todayKey: string): number {
+  const reviewedDates = new Set(
+    days
+      .filter((day) => safeNonNegativeInteger(day.count) > 0)
+      .map((day) => day.date),
+  )
+  let skipped = 0
+
+  for (let offset = 1; offset <= 30; offset += 1) {
+    if (reviewedDates.has(addDaysToDateKey(todayKey, -offset))) break
+    skipped += 1
+  }
+
+  return skipped
+}
+
+function buildPracticeGreetingCopy({
+  days,
+  isLoading,
+  todayKey,
+  yesterdayKey,
+}: {
+  days:         ReadonlyArray<ApiHeatmapDay>
+  isLoading:    boolean
+  todayKey:     string
+  yesterdayKey: string
+}): PracticeGreetingCopy {
+  if (isLoading) {
+    return {
+      message: 'Your practice space is settling into place.',
+    }
+  }
+
+  const yesterday = days.find((day) => (
+    day.date === yesterdayKey &&
+    safeNonNegativeInteger(day.count) > 0
+  ))
+
+  if (days.length === 0) {
+    return {
+      message: 'Your practice space is ready.',
+    }
+  }
+
+  if (yesterday === undefined) {
+    const skipped = skippedDaysBeforeToday(days, todayKey)
+    if (skipped >= 2) {
+      return {
+        message: `You skipped ${skipped} days. Start with today.`,
+      }
+    }
+
+    return {
+      message: 'You skipped yesterday. No worries, right back at it.',
+    }
+  }
+
+  if (!Number.isFinite(yesterday.retention)) {
+    return {
+      message: 'You reviewed yesterday. Keep the rhythm.',
+    }
+  }
+
+  const previous = findPreviousReviewDay(days, yesterdayKey)
+  if (previous === null) {
+    return {
+      message: 'You reviewed yesterday. Keep the rhythm.',
+    }
+  }
+
+  const delta = Math.round(safePercentagePoint(yesterday.retention) - safePercentagePoint(previous.retention))
+  if (delta >= 5) {
+    return {
+      message: `Yesterday was ${delta} points higher. Keep the rhythm.`,
+    }
+  }
+
+  if (delta <= -5) {
+    return {
+      message: `Yesterday was ${Math.abs(delta)} points lower. Start small today.`,
+    }
+  }
+
+  return {
+    message: 'Yesterday held steady. Begin when you are ready.',
+  }
+}
+
+const PREVIEW_DECKS: ActiveDeck[] = [
+  {
+    id:              'preview-n4-verbs',
+    title:           'N4 verbs',
+    level:           'N4',
+    dueCount:        5,
+    totalCards:      320,
+    newCount:        2,
+    reviewCount:     3,
+    masteryPercent:  42,
+    lastReviewedRel: 'yesterday',
+  },
+  {
+    id:              'preview-joyo-kanji',
+    title:           'Joyo kanji',
+    level:           'N3',
+    dueCount:        4,
+    totalCards:      640,
+    newCount:        1,
+    reviewCount:     3,
+    masteryPercent:  58,
+    lastReviewedRel: '2 days ago',
+  },
+  {
+    id:              'preview-grammar',
+    title:           'Grammar patterns',
+    level:           'beyond_jlpt',
+    dueCount:        3,
+    totalCards:      180,
+    newCount:        0,
+    reviewCount:     3,
+    masteryPercent:  27,
+    lastReviewedRel: 'Friday',
+  },
+]
+
+const PREVIEW_LEECHES: Leech[] = [
+  { cardId: 'preview-leech-1', word: '払う', reading: 'はらう', errors: 9 },
+  { cardId: 'preview-leech-2', word: '必要', reading: 'ひつよう', errors: 8 },
+  { cardId: 'preview-leech-3', word: '続ける', reading: 'つづける', errors: 7 },
+]
+
+const PREVIEW_RECENT: ActivityRow[] = [
+  { date: 'Today',     reviewed: null, retention: null },
+  { date: 'Sunday',    reviewed: 18,   retention: 0.89 },
+  { date: 'Saturday',  reviewed: 0,    retention: null },
+  { date: 'Friday',    reviewed: 24,   retention: 0.83 },
+  { date: 'Thursday',  reviewed: 31,   retention: 0.91 },
+  { date: 'Wednesday', reviewed: 17,   retention: 0.86 },
+  { date: 'Tuesday',   reviewed: 22,   retention: 0.81 },
+]
+
+const PREVIEW_PRACTICE_SIGNAL: PracticeInsight = {
+  date: 'May 11',
+  body: (
+    <>
+      You&apos;re steady on recognition cards. Give a little extra care to{' '}
+      <span lang="ja">払う</span> today, it has been slipping when it appears in short sentences.
+    </>
+  ),
+}
+
+function DashboardMasthead({
+  dateLabel,
+  dateTime,
+  greetingName,
+  greetingPrefix,
+  practiceGreeting,
+}: {
+  dateLabel:      string
+  dateTime:       string
+  greetingName:   string | null
+  greetingPrefix: string
+  practiceGreeting: PracticeGreetingCopy
+}): React.JSX.Element {
+  const greetingLead = greetingName !== null
+    ? `${greetingPrefix}, ${greetingName}.`
+    : `${greetingPrefix}.`
+  const greeting = `${greetingLead} ${practiceGreeting.message}`
+  const mastheadDate = formatLearnerMastheadDate(dateTime, dateLabel)
+
+  return (
+    <section
+      aria-labelledby="dashboard-heading"
+      className={[
+        'relative isolate mb-6 overflow-visible bg-cool-paper-base',
+        'lg:mb-8',
+      ].join(' ')}
+    >
+      {/*
+        Image brief: /assets/dashboard/hero-garden-background.png is the current
+        warm, low-contrast masthead image made specifically for Tomo.
+
+        Scene: a quiet morning Japanese study desk viewed slightly from above.
+        Include a small stack of paper flashcards, a brush pen or fountain pen,
+        a ceramic coffee cup or tea cup, and a soft hint of Japanese writing
+        practice on paper. Keep the scene adult, calm, and tactile. It should
+        not feel cute, anime, tourist-shop Japanese, or corporate stock.
+
+        Desktop composition: the important objects should live in the right
+        40 percent of the frame, with the left side intentionally open and
+        low-detail so the greeting has clean contrast. The image should fade
+        naturally into warm paper toward the left and bottom.
+
+        Tablet composition: keep the card stack and cup visible in the upper
+        right quadrant, with enough empty paper texture behind the text.
+
+        Mobile composition: crop to subtle paper and ink texture with only a
+        partial card edge or cup rim near the top/right. Avoid busy details
+        behind text.
+
+        Color and material: warm paper, sumi ink, muted Inari vermillion
+        accents, soft daylight, shallow contrast, no pure white, and no
+        saturated tech colors.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 -bottom-12 top-0 overflow-hidden sm:-bottom-14 lg:-bottom-16"
+      >
+        <Image
+          src="/assets/dashboard/hero-garden-background.png"
+          alt=""
+          aria-hidden="true"
+          fill
+          priority
+          sizes="(min-width: 1024px) calc(100vw - 18rem), 100vw"
+          className="object-cover opacity-[0.72] contrast-[1.18] brightness-[0.96]"
+          style={{
+            objectPosition:  'center 78%',
+            WebkitMaskImage: [
+              'linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.28) 18%, black 42%, black 100%)',
+              'linear-gradient(180deg, black 0%, black 76%, transparent 100%)',
+            ].join(', '),
+            maskImage: [
+              'linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.28) 18%, black 42%, black 100%)',
+              'linear-gradient(180deg, black 0%, black 76%, transparent 100%)',
+            ].join(', '),
+            WebkitMaskComposite: 'source-in',
+            maskComposite:       'intersect',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{
+            background: [
+              'linear-gradient(180deg, transparent 0%, transparent 68%, var(--color-cool-paper-base) 100%)',
+              'linear-gradient(90deg, color-mix(in srgb, var(--color-warm-paper-raised) 94%, transparent) 0%, color-mix(in srgb, var(--color-warm-paper-raised) 74%, transparent) 30%, color-mix(in srgb, var(--color-warm-paper-raised) 18%, transparent) 72%, transparent 100%)',
+              'linear-gradient(0deg, color-mix(in srgb, var(--color-inari-vermillion) 2.5%, transparent), color-mix(in srgb, var(--color-inari-vermillion) 2.5%, transparent))',
+            ].join(', '),
+          }}
+        />
+      </div>
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-inari-vermillion/60" />
+      <span
+        lang="ja"
+        aria-hidden="true"
+        className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 select-none font-display text-[6.5rem] leading-none text-inari-vermillion/[0.08] sm:block lg:right-[8vw]"
+      >
+        今日
+      </span>
+
+      <div className="relative mx-auto grid max-w-[1360px] gap-4 px-6 py-5 sm:py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-10 lg:py-6">
+        <div className="max-w-[48rem]">
+          <div className="flex items-center gap-3">
+            <span
+              lang="ja"
+              aria-hidden="true"
+              className="flex h-8 w-8 items-center justify-center rounded-[2px] border border-inari-vermillion/20 bg-vermillion-wash font-display text-lg leading-none text-inari-vermillion"
+            >
+              友
+            </span>
+            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+              Welcome back
+            </p>
+          </div>
+          <h1
+            id="dashboard-heading"
+            className="mt-3 max-w-[29ch] font-display text-[1.55rem] font-medium leading-[1.12] text-sumi-ink text-balance sm:text-[1.85rem] lg:text-[2.15rem]"
+          >
+            {greeting}
+          </h1>
+        </div>
+
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-end lg:flex-col lg:items-end">
+          <div className="relative min-w-[12.5rem] overflow-hidden border border-soft-hairline bg-warm-paper-raised/90 px-3.5 py-2.5">
+            <span
+              lang="ja"
+              aria-hidden="true"
+              className="pointer-events-none absolute right-2.5 top-2 select-none font-display text-3xl leading-none text-inari-vermillion/[0.055]"
+            >
+              暦
+            </span>
+            <div className="flex items-baseline justify-between gap-3 border-b border-soft-hairline/70 pb-1.5">
+              <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
+                Today
+              </p>
+              <span lang="ja" className="font-display text-sm leading-none text-inari-vermillion">
+                本日
+              </span>
+            </div>
+            <time
+              dateTime={dateTime}
+              aria-label={dateLabel}
+              className="mt-2 block"
+            >
+              <span className="block font-mono text-sm tabular-nums text-sumi-ink">
+                {mastheadDate.englishDate}
+              </span>
+              <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[0.6875rem] text-faded-sumi">
+                <span>{mastheadDate.englishWeekday}</span>
+                {mastheadDate.weekdayKanji !== null && (
+                  <span lang="ja" className="text-inari-vermillion/85">
+                    {mastheadDate.weekdayKanji}
+                  </span>
+                )}
+                <span aria-hidden="true" className="text-faded-sumi/45">·</span>
+                <span lang="ja">
+                  {mastheadDate.japaneseDate}
+                </span>
+              </span>
+            </time>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function formatLearnerMastheadDate(
+  dateTime:  string,
+  dateLabel: string,
+): {
+  englishDate:    string
+  englishWeekday: string
+  japaneseDate:   string
+  weekdayKanji:   string | null
+} {
+  const [, month, day] = dateTime.split('-').map(Number)
+  const [englishWeekdayRaw, ...englishDateParts] = dateLabel.split(', ')
+  const englishWeekday = englishWeekdayRaw ?? 'Today'
+  const englishDate = englishDateParts.length > 0 ? englishDateParts.join(', ') : dateLabel
+  const japaneseDate = Number.isFinite(month) && Number.isFinite(day)
+    ? `${month}月${day}日`
+    : dateLabel
+  const weekdayKanji = JAPANESE_WEEKDAY_BY_ENGLISH[englishWeekday ?? ''] ?? null
+
+  return {
+    englishDate,
+    englishWeekday: englishDateParts.length > 0 ? englishWeekday : 'Today',
+    japaneseDate,
+    weekdayKanji,
+  }
+}
+
+const JAPANESE_WEEKDAY_BY_ENGLISH: Record<string, string> = {
+  Sunday:    '日',
+  Monday:    '月',
+  Tuesday:   '火',
+  Wednesday: '水',
+  Thursday:  '木',
+  Friday:    '金',
+  Saturday:  '土',
+}
+
+function DashboardDevToolsPanel({
+  heroControls,
+  moduleControls,
+  onHeroChange,
+  onModuleChange,
+  onClose,
+}: {
+  heroControls:   HeroDevControls
+  moduleControls: ModuleDevControls
+  onHeroChange:   (next: HeroDevControls) => void
+  onModuleChange: (next: ModuleDevControls) => void
+  onClose:        () => void
+}): React.JSX.Element {
+  return (
+    <section
+      id="dashboard-dev-tools"
+      aria-label="Dashboard dev tools"
+      className={[
+        'fixed bottom-16 left-4 right-4 z-40 grid max-h-[calc(100vh-6rem)] gap-3 overflow-y-auto',
+        'lg:left-auto lg:w-[min(58rem,calc(100vw-23rem))] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]',
+      ].join(' ')}
+    >
+      <div className="col-span-full flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className={[
+            'inline-flex h-9 items-center rounded-[2px] border border-sumi-ink/15',
+            'bg-sumi-ink px-3 font-mono text-xs tracking-wide text-warm-paper-raised',
+            'dashboard-motion-colors',
+            'hover:bg-sumi-ink/90',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion',
+          ].join(' ')}
+        >
+          Close preview controls
+        </button>
+      </div>
+      <DashboardHeroDevToolbar
+        variant="panel"
+        controls={heroControls}
+        onChange={onHeroChange}
+      />
+      <DashboardModulesDevToolbar
+        variant="panel"
+        controls={moduleControls}
+        onChange={onModuleChange}
+      />
+    </section>
+  )
 }
 
 /**
@@ -73,82 +891,117 @@ function buildPaddedForecast(
  * state derived from its own query result, so the dashboard can render
  * partially while slower endpoints catch up.
  *
- * Modules without backing API routes pass empty data with state='default',
- * which causes their presentation components to render their editorial
- * empty-state copy. TODO comments inside this file mark each missing route.
+ * Unwired modules render an unavailable state instead of a false empty state.
  */
-export function DashboardClient(): React.JSX.Element {
-  // ── Hero / queue ────────────────────────────────────────────────────────
-  // Source: GET /api/v1/reviews/due (existing).
-  const dueQuery = useDueCards()
+export function DashboardClient({
+  dateLabel,
+  dateTime,
+  greetingName,
+  greetingPrefix,
+  timeZone,
+}: DashboardClientProps): React.JSX.Element {
+  const [heroControls, setHeroControls] = useState<HeroDevControls>(DEFAULT_HERO_DEV_CONTROLS)
+  const [moduleControls, setModuleControls] = useState<ModuleDevControls>(DEFAULT_MODULE_DEV_CONTROLS)
+  const [devToolsOpen, setDevToolsOpen] = useState(false)
+  const [calendar, setCalendar] = useState<DashboardCalendarContext>(() => ({
+    dateLabel,
+    dateTime,
+    greetingPrefix,
+    todayKey:     dateTime,
+    yesterdayKey: addDaysToDateKey(dateTime, -1),
+    timeZone:     normalizeDashboardTimeZone(timeZone),
+  }))
+  const previewActive = HERO_PREVIEW_ENABLED && devToolsOpen
 
-  const heroVariant = useMemo(() => {
-    if (dueQuery.isLoading) return { kind: 'loading' as const }
+  useEffect(() => {
+    function syncCalendar(): void {
+      setCalendar((current) => {
+        const next = buildDashboardCalendarContext(new Date(), timeZone)
+        return dashboardCalendarContextMatches(current, next) ? current : next
+      })
+    }
+
+    syncCalendar()
+    const intervalId = window.setInterval(syncCalendar, 60 * 1000)
+    return () => window.clearInterval(intervalId)
+  }, [timeZone])
+
+  const heatmapQuery = useHeatmapData()
+  const practiceGreeting = useMemo(
+    () => buildPracticeGreetingCopy({
+      days:         heatmapQuery.data?.items ?? [],
+      isLoading:    heatmapQuery.isLoading,
+      todayKey:     calendar.todayKey,
+      yesterdayKey: calendar.yesterdayKey,
+    }),
+    [calendar.todayKey, calendar.yesterdayKey, heatmapQuery.data, heatmapQuery.isLoading],
+  )
+
+  useEffect(() => {
+    if (!HERO_PREVIEW_ENABLED) return
+
+    function handleToggle(): void {
+      setDevToolsOpen((open) => !open)
+    }
+
+    window.addEventListener(DASHBOARD_DEV_TOOLS_TOGGLE_EVENT, handleToggle)
+    return () => window.removeEventListener(DASHBOARD_DEV_TOOLS_TOGGLE_EVENT, handleToggle)
+  }, [])
+
+  useEffect(() => {
+    if (!devToolsOpen) return
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === 'Escape') setDevToolsOpen(false)
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [devToolsOpen])
+
+  // ── Deck source of truth ────────────────────────────────────────────────
+  // Source: GET /api/v1/decks. The hero uses this same metadata so deck
+  // titles and tags match the list below.
+  const decksQuery = useDecks()
+  const deckById = useMemo(() => {
+    return new Map((decksQuery.data?.items ?? []).map((deck) => [deck.id, deck]))
+  }, [decksQuery.data])
+
+  // ── Hero / queue ────────────────────────────────────────────────────────
+  // Source: GET /api/v1/reviews/due plus deck metadata above.
+  const dueQuery = useDueCards()
+  const liveTodayBreakdown = useMemo(
+    () => dueQuery.data === undefined
+      ? null
+      : countQueueBreakdown(dueQuery.data.items ?? [], calendar.todayKey, calendar.timeZone),
+    [calendar.todayKey, calendar.timeZone, dueQuery.data],
+  )
+
+  const liveHeroVariant = useMemo<DashboardHeroVariant>(() => {
+    if (dueQuery.isLoading || decksQuery.isLoading) return { kind: 'loading' as const }
     if (dueQuery.isError)   return { kind: 'error'   as const }
 
     const items = dueQuery.data?.items ?? []
     if (items.length === 0) return { kind: 'caught-up' as const }
 
-    // FSRS State enum: 0 = New, 1 = Learning, 2 = Review, 3 = Relearning.
-    // For the hero summary "X new · Y review", we count state 0 as new and
-    // everything else as review. Learning and relearning are mid-cycle and
-    // read most naturally to the user as "review" cards.
-    const newCnt = items.filter((c) => c.state === 0).length
-    const review = items.length - newCnt
-
     return {
-      kind: 'due' as const,
-      queue: {
-        total:      items.length,
-        newCnt,
-        review,
-        // TODO: needs API support for the "Drill leeches" hero CTA flag.
-        //
-        // Route options (cheapest first):
-        //   1. Add `hasLeeches: boolean` to the existing GET /api/v1/reviews/due
-        //      response envelope. Cheapest because the route already runs;
-        //      one extra `SELECT EXISTS(...)` against review_logs / cards
-        //      filtered by lapse_count >= LEECH_THRESHOLD env var (default 8).
-        //   2. Or add it once the leeches list endpoint below ships — the hero
-        //      flag becomes `leechesQuery.data.items.length > 0`, and this
-        //      `hasLeeches: false` literal goes away entirely.
-        //
-        // Until either lands, the Drill leeches CTA stays suppressed and
-        // users reach drill mode only via the Leeches card's "drill all →".
-        hasLeeches: false,
-      },
+      kind:  'due' as const,
+      queue: buildHeroQueueFromDueCards(items, calendar.todayKey, calendar.timeZone, deckById),
     }
-  }, [dueQuery.isLoading, dueQuery.isError, dueQuery.data])
-
-  // ── Stats / week snapshot ───────────────────────────────────────────────
-  // Source: GET /api/v1/analytics/streak (existing) for currentStreak only.
-  //
-  // TODO: needs a single weekly-aggregate API route to populate the other
-  // two stat tiles (reviewsThisWeek + retentionPct). Two implementation paths:
-  //
-  //   PATH A — extend an existing route (cheapest):
-  //     The /api/v1/analytics/heatmap response already returns daily
-  //     {date, reviewed, retention} for ~30-90 days. The web client could
-  //     filter to the last 7 days and aggregate (sum reviews, weighted-mean
-  //     retention) without a new endpoint. Risk: heatmap returns more rows
-  //     than needed and ships extra bytes for unused days.
-  //
-  //   PATH B — new bundled endpoint (cleaner):
-  //     GET /api/v1/analytics/week-summary
-  //       → { reviewsThisWeek: number, retentionThisWeek: number,
-  //           weekStart: string }
-  //     SQL: SELECT SUM(reviewed_count), AVG(retention) FROM
-  //          analytics_daily_summary WHERE user_id = $1
-  //          AND date >= NOW() - INTERVAL '7 days'.
-  //     Cache via Upstash for 5 minutes; invalidate on review submit.
-  //
-  // Current behavior: streakDays is real, the other two stats render 0.
-  // Stats card already handles 0/0/0% as a quiet "fresh account" empty state.
-  const streakQuery = useStreak()
-  const statsState: ModuleState =
-    streakQuery.isLoading ? 'loading' :
-    streakQuery.isError   ? 'error'   :
-    'default'
+  }, [
+    calendar.todayKey,
+    calendar.timeZone,
+    deckById,
+    decksQuery.isLoading,
+    dueQuery.isLoading,
+    dueQuery.isError,
+    dueQuery.data,
+  ])
+  const previewHeroVariant = useMemo(
+    () => buildPreviewHeroVariant(heroControls),
+    [heroControls],
+  )
+  const heroVariant = previewActive ? previewHeroVariant : liveHeroVariant
 
   // ── Forecast ────────────────────────────────────────────────────────────
   // Source: GET /api/v1/reviews/forecast (existing).
@@ -162,290 +1015,164 @@ export function DashboardClient(): React.JSX.Element {
   // didn't return get count=0 so the chart renders empty bars (1px placeholder
   // at the baseline) instead of leaving gaps. The forecast component slices
   // to 7 days on mobile and 14 on desktop; padding here means both viewports
-  // have a complete week regardless of how many days the API returned.
+  // have a complete week regardless of how many days the API returned. Future
+  // days use the forecast endpoint's own backlog / review / new split, so the
+  // chart reflects actual new-card inventory instead of the daily limit. The
+  // due queue patches today's backlog because it is the user's current route.
   const forecastDays = useMemo(() => {
-    return buildPaddedForecast(forecastQuery.data?.items ?? [], FORECAST_HORIZON_DAYS)
-  }, [forecastQuery.data])
+    return buildPaddedForecast(
+      forecastQuery.data?.items ?? [],
+      FORECAST_HORIZON_DAYS,
+      calendar.todayKey,
+      liveTodayBreakdown,
+    )
+  }, [calendar.todayKey, forecastQuery.data, liveTodayBreakdown])
+  const previewForecastDays = useMemo(
+    () => buildPreviewForecastDays(previewQueueBreakdown(heroControls), calendar.todayKey),
+    [calendar.todayKey, heroControls],
+  )
+  const effectiveForecastState = previewActive
+    ? previewStateToModuleState(moduleControls.forecast)
+    : forecastState
+  const effectiveForecastDays = previewActive
+    ? (isPreviewEmpty(moduleControls.forecast) ? [] : previewForecastDays)
+    : forecastDays
 
   // ── Active decks ────────────────────────────────────────────────────────
-  // TODO: needs an extended deck-with-stats API.
-  //
-  // Current state of the API:
-  //   GET /api/v1/decks → ApiList<ApiDeck>            (id, name, jlpt_level)
-  //   ApiDeckWithStats already exists in shared-types and adds:
-  //     + dueCount, newCount
-  //   …but the route doesn't return it on the list endpoint, only on detail.
-  //
-  // What the dashboard row needs (from active-decks.tsx ActiveDeck type):
-  //   - title              (have, in ApiDeck.name)
-  //   - level              (have, in ApiDeck.jlptLevel)
-  //   - dueCount           (in ApiDeckWithStats — promote to list response)
-  //   - newCount           (in ApiDeckWithStats — promote to list response)
-  //   - reviewCount        (NEW — count of cards with state IN (2, 3) due today)
-  //   - totalCards         (NEW — count(*) of cards in deck for this user)
-  //   - masteryPercent     (NEW — count(state=2) / total, rounded to nearest %)
-  //   - lastReviewedRel    (NEW — relative-time string from MAX(review_logs.reviewed_at))
-  //
-  // Route options:
-  //   1. Extend GET /api/v1/decks default response to return ApiDeckWithStats++
-  //      (adds 4 fields). Single SQL query with LATERAL JOIN against cards +
-  //      review_logs. Best if the dashboard is the primary consumer.
-  //   2. Add ?include=stats query param so the lighter shape stays the default.
-  //   3. New GET /api/v1/decks/dashboard returning a tailor-made shape.
-  //
-  // Web side: add a `useDecks()` hook in apps/web/lib/api/ (similar to
-  // usePremadeDecks in premade.ts) once the API shape lands.
-  //
-  // Until the route ships, decks render the editorial empty state:
-  //   "Quiet shelf. Pick a deck to begin. Browse decks →"
-  // Note that this is technically wrong for users WITH decks — they'd see the
-  // "no decks" copy even though they have decks. That's why this is the most
-  // urgent of the missing routes.
-  const decks: ActiveDeck[] = []
-  const decksState: ModuleState = 'default'
+  // The list endpoint has deck names and card counts, but not due/mastery
+  // rollups yet. Render the real decks with lighter metadata instead of
+  // claiming the learner has no decks.
+  const liveDecks = useMemo(
+    () => (decksQuery.data?.items ?? []).map(toDashboardDeck),
+    [decksQuery.data],
+  )
+  const liveDecksState: ModuleState =
+    decksQuery.isLoading ? 'loading' :
+    decksQuery.isError   ? 'error'   :
+    'default'
+  const decksState = previewActive
+    ? previewStateToModuleState(moduleControls.decks)
+    : liveDecksState
+  const decks = previewActive
+    ? (isPreviewEmpty(moduleControls.decks) ? [] : PREVIEW_DECKS)
+    : liveDecks
 
-  // ── Leeches ─────────────────────────────────────────────────────────────
-  // TODO: needs a leeches-list API.
-  //
-  // Definition of a leech (per CLAUDE.md, configurable via LEECH_THRESHOLD
-  // env var, default 8):
-  //   A card whose lapse_count >= LEECH_THRESHOLD. Lapse count is the
-  //   number of times the user has rated the card "Again" after it had
-  //   already graduated to Review state.
-  //
-  // Detection runs inside processReview (apps/api/src/services/fsrs.service.ts)
-  // and writes to a leeches table (or a flag on cards). The data is there;
-  // the dashboard just needs a query route to surface it.
-  //
-  // Proposed route:
-  //   GET /api/v1/reviews/leeches?limit=5
-  //     → { items: Leech[], nextCursor: null, hasMore: false }
-  //   where Leech = { cardId, word, reading, errors }
-  //   - errors = lapse_count
-  //   - sorted by errors DESC, then by recency
-  //   - limit defaults to 5 to fit the dashboard card; bumpable for the
-  //     full Drill leeches review surface
-  //
-  // SQL sketch:
-  //   SELECT c.id, c.word, c.reading, c.lapse_count
-  //     FROM cards c
-  //    WHERE c.user_id = $1
-  //      AND c.lapse_count >= $2  -- LEECH_THRESHOLD
-  //    ORDER BY c.lapse_count DESC, c.last_reviewed_at DESC
-  //    LIMIT $3
-  //
-  // Web side: add `useLeeches()` hook in apps/web/lib/api/reviews.ts. Cache
-  // briefly (60s) since the count changes only on review submit; invalidate
-  // on the same useSubmitReview onSettled list as /reviews/due.
-  //
-  // Until the route ships, leeches render the editorial empty state:
-  //   "No leeches forming. Your cards are settling well."
-  // For users who DO have leeches, this misrepresents reality. Combined with
-  // the Hero `hasLeeches` flag above, the entire leech-detection surface is
-  // currently invisible.
-  const leeches: Leech[] = []
-  const leechesState: ModuleState = 'default'
+  // ── Weak spots ──────────────────────────────────────────────────────────
+  // The leech table exists server-side, but there is no dashboard list route
+  // yet. Render an unavailable state, not "0 weak spots."
+  const liveLeeches: Leech[] = []
+  const liveLeechesState: ModuleState = 'unavailable'
+  const leechesState = previewActive
+    ? previewStateToModuleState(moduleControls.leeches)
+    : liveLeechesState
+  const leeches = previewActive
+    ? (isPreviewEmpty(moduleControls.leeches) ? [] : PREVIEW_LEECHES)
+    : liveLeeches
 
   // ── Recent activity ─────────────────────────────────────────────────────
-  // TODO: needs API support for the last-7-days rollup (or web-side
-  // derivation from existing data).
-  //
-  // The Recent card needs ActivityRow[] where ActivityRow is:
-  //   { date: string,  reviewed: number | null,  retention: number | null }
-  //   - date: human-readable label ("Today", "Friday", "Wednesday")
-  //   - reviewed: count of cards reviewed that day, null = in-progress today
-  //   - retention: 0..1 retention rate; null = no reviews that day (rest day)
-  //
-  // Path A — derive from /analytics/heatmap (no new route needed):
-  //   useHeatmapData() already returns ApiList<ApiHeatmapDay>. If
-  //   ApiHeatmapDay includes reviewed_count + retention per day, the web
-  //   client can slice the last 7 days here and reformat into ActivityRow.
-  //   Requires confirming ApiHeatmapDay's shape includes both fields; if it
-  //   only has retention (heatmap-style), reviewed_count would still need
-  //   to come from another endpoint or a heatmap extension.
-  //
-  // Path B — new bundled route (cleaner for the dashboard):
-  //   GET /api/v1/analytics/recent?days=7
-  //     → { items: Array<{ date, reviewed, retention }>, ... }
-  //   Sorted by date descending (Today first). Returns rest days with
-  //   reviewed=0 and retention=null. Today returns reviewed=null when
-  //   the session is still in progress (no commit yet).
-  //
-  // SQL sketch (Path B):
-  //   WITH days AS (
-  //     SELECT generate_series(NOW()::date - INTERVAL '6 days', NOW()::date,
-  //                            '1 day') AS day
-  //   ) SELECT d.day, COALESCE(SUM(rl.reviewed), 0) AS reviewed,
-  //                   AVG(rl.retention) AS retention
-  //       FROM days d LEFT JOIN review_logs rl
-  //         ON rl.user_id = $1 AND rl.reviewed_at::date = d.day
-  //      GROUP BY d.day ORDER BY d.day DESC
-  //
-  // Web side: add `useRecentActivity()` hook in apps/web/lib/api/analytics.ts
-  // with a 60s staleTime and invalidation on useSubmitReview onSettled.
-  //
-  // Until either path lands, Recent renders the editorial empty state:
-  //   "No reviews logged yet. Today is a quiet page."
-  const recent: ActivityRow[] = []
-  const recentState: ModuleState = 'default'
-
-  // ── JLPT progress ───────────────────────────────────────────────────────
-  // Source: GET /api/v1/analytics/jlpt-gap (existing).
-  const jlptQuery = useJlptGap()
-  const jlptState: ModuleState =
-    jlptQuery.isLoading ? 'loading' :
-    jlptQuery.isError   ? 'error'   :
+  // Heatmap already carries date, review count, and retention for reviewed
+  // days. Fill the seven-day rhythm locally so the dashboard uses live data.
+  const liveRecent = useMemo(
+    () => buildRecentActivityRows(heatmapQuery.data?.items ?? [], calendar.todayKey),
+    [calendar.todayKey, heatmapQuery.data],
+  )
+  const liveRecentState: ModuleState =
+    heatmapQuery.isLoading ? 'loading' :
+    heatmapQuery.isError   ? 'error'   :
     'default'
+  const recentState = previewActive
+    ? previewStateToModuleState(moduleControls.recent)
+    : liveRecentState
+  const recent = previewActive
+    ? (isPreviewEmpty(moduleControls.recent) ? [] : PREVIEW_RECENT)
+    : liveRecent
 
-  const jlptLevels: JlptLevelProgress[] = useMemo(() => {
-    const items = jlptQuery.data?.items ?? []
-    return items.map((g) => ({
-      level:   g.jlptLevel,
-      percent: Math.round(g.progressPct),
-    }))
-  }, [jlptQuery.data])
-
-  // ── Note from Tomo ──────────────────────────────────────────────────────
-  // TODO: there is currently NO /api/v1/tomo/* route family at all. This is
-  // the largest open piece of work for the dashboard — Tomo is the brand's
-  // AI-companion voice, and the letterhead card is its primary surface.
-  //
-  // The card has TWO content variants the API needs to support:
-  //
-  //   1. INSIGHT (paid tier) — personalized daily prose written by gpt-5.4
-  //      nano about the user's recent struggles. Example body:
-  //        "You've slowed on negative-form verbs this week. Here's one to
-  //         remember: 行かない (ikanai), 'won't go.'"
-  //
-  //   2. IDIOM (free tier + paid fallback) — a curated daily Japanese phrase
-  //      with reading + meaning. Example:
-  //        word:    "猿も木から落ちる"
-  //        reading: "さるも きから おちる"
-  //        meaning: "Even monkeys fall from trees…"
-  //
-  // ── Recommended route shape ────────────────────────────────────────────
-  //
-  //   GET /api/v1/tomo/note
-  //     → { variant: 'insight' | 'idiom', date: string, ...payload }
-  //
-  //   When variant === 'insight':
-  //     { variant: 'insight', date, body: { html: string } }
-  //     `body.html` is sanitized prose with <span lang="ja"> markup for
-  //     Japanese inserts. The web client renders it into the InsightBody
-  //     paragraph (currently expects React.ReactNode; we'd switch to a
-  //     dangerouslySetInnerHTML or a safe parser).
-  //
-  //   When variant === 'idiom':
-  //     { variant: 'idiom', date, word, reading, meaning }
-  //     Maps directly to the existing DailyIdiom type in note-from-tomo.tsx.
-  //
-  //   Server picks the variant based on user.tier (from profile):
-  //     - free tier → always 'idiom'
-  //     - paid tier → 'insight' on success, falls back to 'idiom' if
-  //       OpenAI is rate-limited / out of quota / errors out
-  //
-  // ── Implementation notes for the insight branch ────────────────────────
-  //
-  //   - Use the existing OpenAI client (apps/api/src/services/ai.service.ts)
-  //     with response_format: { type: 'json_object' } per CLAUDE.md.
-  //   - Prompt should reference the user's last 7 days of review_logs:
-  //       * which layouts are slowing (group by layout_type)
-  //       * which lapses are recent (lapse_count delta over the week)
-  //       * which JLPT level they're working in (highest non-mastered level)
-  //   - Cache per-user in Upstash Redis for 24h, keyed by user_id +
-  //     YYYY-MM-DD. Saves OpenAI cost; refreshes naturally each calendar day.
-  //   - Goes through aiRateLimitMiddleware AND aiDailyQuotaMiddleware.
-  //   - Sanitize prompt input (strip user-controlled HTML before passing
-  //     to the model; the model output is already JSON so XSS risk is on
-  //     the rendering side).
-  //
-  // ── Implementation notes for the idiom branch ──────────────────────────
-  //
-  //   - No AI call. Static curated list. Suggested location:
-  //       apps/api/src/data/idioms.json — array of ~365 entries:
-  //         { word, reading, meaning, jlptHint?: 'N5'..'N1' }
-  //   - Selection: hash-by-day (e.g., dayOfYear % idioms.length) so all
-  //     users see the same idiom on the same calendar day. Stable + simple.
-  //   - No caching needed since selection is deterministic; the route can
-  //     compute the response from the JSON file in <1ms.
-  //   - Free-tier idioms can later filter by user.jlptCurrentLevel for
-  //     reading-difficulty matching, but v1 doesn't need that.
-  //
-  // ── Web side hook ──────────────────────────────────────────────────────
-  //
-  //   Add useTomoNote() in a new apps/web/lib/api/tomo.ts:
-  //     export function useTomoNote(): UseQueryResult<ApiTomoNote, Error> {
-  //       return useQuery({
-  //         queryKey: queryKeys.tomo.note(),
-  //         queryFn:  getTomoNoteAction,
-  //         staleTime: 1000 * 60 * 60 * 4,  // 4h, since refresh is daily
-  //       })
-  //     }
-  //   Add queryKeys.tomo.note() in queryKeys.ts.
-  //   Add an action getTomoNoteAction in apps/web/lib/actions/tomo.actions.ts
-  //   that hits the API client.
-  //
-  // ── Empty-state behavior (current) ─────────────────────────────────────
-  //
-  //   With no route wired, both `insight` and `idiom` props are absent.
-  //   note-from-tomo.tsx renders:
-  //     - the kanji watermark (decorative chrome)
-  //     - the NOTE FROM TOMO header without a date
-  //     - an italic placeholder line: "Tomo's note will appear here when
-  //       configured."
-  //     - the 朋 sign-off is suppressed (no body to sign off on)
-  //   This is the v9 "graceful empty letterhead" state — looks intentional,
-  //   not like a layout bug.
-  const insight: TomoInsight | null = null
-  const tomoState: ModuleState = 'default'
+  // ── Practice signal ─────────────────────────────────────────────────────
+  // Personalized signals need a future API. Keep the module honest and avoid
+  // turning Tomo into a speaking character in normal dashboard chrome.
+  const liveInsight: PracticeInsight | null = null
+  const liveSignalState: ModuleState = 'unavailable'
+  const signalState = previewActive
+    ? previewStateToModuleState(moduleControls.tomo)
+    : liveSignalState
+  const insight = previewActive
+    ? (isPreviewEmpty(moduleControls.tomo) ? null : PREVIEW_PRACTICE_SIGNAL)
+    : liveInsight
+  const heroMotionKey = heroVariant.kind === 'due'
+    ? `due-${heroVariant.queue.total}-${heroVariant.queue.newCnt}-${heroVariant.queue.review}-${heroVariant.queue.backlog}`
+    : heroVariant.kind
+  const forecastMotionKey = `${effectiveForecastState}-${effectiveForecastDays.length}-${effectiveForecastDays.reduce((sum, day) => sum + day.count, 0)}`
+  const signalMotionKey = `${signalState}-${insight?.date ?? 'none'}`
+  const decksMotionKey = `${decksState}-${decks.length}`
+  const leechesMotionKey = `${leechesState}-${leeches.length}`
+  const recentMotionKey = `${recentState}-${recent.length}`
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-16 gap-y-14">
+    <>
+      <DashboardMasthead
+        dateLabel={calendar.dateLabel}
+        dateTime={calendar.dateTime}
+        greetingName={greetingName}
+        greetingPrefix={calendar.greetingPrefix}
+        practiceGreeting={practiceGreeting}
+      />
 
-      {/* Hero — full-width centered editorial */}
-      <div className="lg:col-span-12">
-        <DashboardHero variant={heroVariant} />
-      </div>
+      <div className="mx-auto max-w-[1360px] px-6 lg:px-10">
+        {previewActive && (
+          <DashboardDevToolsPanel
+            heroControls={heroControls}
+            moduleControls={moduleControls}
+            onHeroChange={setHeroControls}
+            onModuleChange={setModuleControls}
+            onClose={() => setDevToolsOpen(false)}
+          />
+        )}
 
-      {/* Snapshot row: Stats (col-7) + Note from Tomo (col-5) */}
-      <div className="lg:col-span-7">
-        <StatStrip
-          state={statsState}
-          streakDays={streakQuery.data?.currentStreak ?? 0}
-          reviewsThisWeek={0}
-          retentionPct={0}
-        />
-      </div>
-      <div className="lg:col-span-5">
-        <NoteFromTomo
-          state={tomoState}
-          insight={insight}
-        />
-      </div>
+        <div className="grid grid-cols-1 gap-x-8 gap-y-8 md:grid-cols-12">
 
-      {/* Forecast (full-width) */}
-      <div className="lg:col-span-12">
-        <ForecastChart state={forecastState} days={forecastDays} />
-      </div>
+          {/* Hero, full-width centered editorial */}
+          <DashboardModuleReveal className="md:col-span-12">
+            <DashboardStatePresence stateKey={heroMotionKey}>
+              <DashboardHero variant={heroVariant} />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
 
-      {/* Active decks (full-width) */}
-      <div className="lg:col-span-12">
-        <ActiveDecks state={decksState} decks={decks} />
-      </div>
+          {/* Forecast + practice signal */}
+          <DashboardModuleReveal className="md:col-span-8">
+            <DashboardStatePresence stateKey={forecastMotionKey}>
+              <ForecastChart state={effectiveForecastState} days={effectiveForecastDays} />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
+          <DashboardModuleReveal className="md:col-span-4">
+            <DashboardStatePresence stateKey={signalMotionKey}>
+              <PracticeSignal
+                state={signalState}
+                insight={insight}
+              />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
 
-      {/* Tier 2: Leeches (col-6) + Recent activity (col-6) */}
-      <div className="lg:col-span-6">
-        <Leeches state={leechesState} leeches={leeches} />
-      </div>
-      <div className="lg:col-span-6">
-        <RecentActivity state={recentState} rows={recent} />
-      </div>
+          {/* Active decks (full-width) */}
+          <DashboardModuleReveal className="md:col-span-12">
+            <DashboardStatePresence stateKey={decksMotionKey}>
+              <ActiveDecks state={decksState} decks={decks} />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
 
-      {/* JLPT progress (full-width) */}
-      <div className="lg:col-span-12">
-        <JlptProgress state={jlptState} levels={jlptLevels} />
-      </div>
+          {/* Tier 2: Leeches and recent activity */}
+          <DashboardModuleReveal className="md:col-span-12 lg:col-span-6">
+            <DashboardStatePresence stateKey={leechesMotionKey}>
+              <Leeches state={leechesState} leeches={leeches} />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
+          <DashboardModuleReveal className="md:col-span-12 lg:col-span-6">
+            <DashboardStatePresence stateKey={recentMotionKey}>
+              <RecentActivity state={recentState} rows={recent} />
+            </DashboardStatePresence>
+          </DashboardModuleReveal>
 
-    </div>
+        </div>
+      </div>
+    </>
   )
 }
