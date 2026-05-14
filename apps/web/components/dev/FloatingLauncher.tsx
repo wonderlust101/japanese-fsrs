@@ -9,6 +9,8 @@ import { useDraggableSnap } from './useDraggableSnap'
 const STORAGE_KEY  = 'tomo:dev:launcher-corner'
 const BUTTON_SIZE  = 40
 const DASHBOARD_DEV_TOOLS_TOGGLE_EVENT = 'tomo:dashboard-dev-tools:toggle'
+const PROFILE_DEV_TOOLS_TOGGLE_EVENT   = 'tomo:profile-dev-tools:toggle'
+const REVIEW_DEV_TOOLS_TOGGLE_EVENT    = 'tomo:review-dev-tools:toggle'
 
 // Corner anchor classes when resting; the live drag position is applied via
 // inline style to follow the cursor exactly.
@@ -41,6 +43,8 @@ function FloatingLauncherInner(): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const isDashboard = pathname === '/dashboard'
+  const isProfile   = pathname === '/profile'
+  const isReview    = pathname === '/review'
 
   const {
     corner,
@@ -116,6 +120,16 @@ function FloatingLauncherInner(): React.JSX.Element {
 
   const handleToggleDashboardTools = useCallback((): void => {
     window.dispatchEvent(new CustomEvent(DASHBOARD_DEV_TOOLS_TOGGLE_EVENT))
+    setMenuOpen(false)
+  }, [])
+
+  const handleToggleProfileTools = useCallback((): void => {
+    window.dispatchEvent(new CustomEvent(PROFILE_DEV_TOOLS_TOGGLE_EVENT))
+    setMenuOpen(false)
+  }, [])
+
+  const handleToggleReviewTools = useCallback((): void => {
+    window.dispatchEvent(new CustomEvent(REVIEW_DEV_TOOLS_TOGGLE_EVENT))
     setMenuOpen(false)
   }, [])
 
@@ -195,6 +209,26 @@ function FloatingLauncherInner(): React.JSX.Element {
               className="ui-motion-colors block w-full px-3 py-2 text-left text-sm text-sumi-ink hover:bg-cream-inset"
             >
               Toggle dashboard preview controls
+            </button>
+          )}
+          {isProfile && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleToggleProfileTools}
+              className="ui-motion-colors block w-full px-3 py-2 text-left text-sm text-sumi-ink hover:bg-cream-inset"
+            >
+              Toggle profile preview controls
+            </button>
+          )}
+          {isReview && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleToggleReviewTools}
+              className="ui-motion-colors block w-full px-3 py-2 text-left text-sm text-sumi-ink hover:bg-cream-inset"
+            >
+              Toggle review preview controls
             </button>
           )}
           <div className="my-1 border-t border-soft-hairline" />
