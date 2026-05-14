@@ -5,6 +5,7 @@ import type { ApiLeechDrillSession } from '@fsrs-japanese/shared-types'
 import { withIdempotency } from '../lib/idempotency.ts'
 import {
   createDrillSessionSchema,
+  drillSessionIdParamSchema,
   leechIdParamSchema,
   listLeechesQuerySchema,
 } from '../schemas/leech.schema.ts'
@@ -46,10 +47,14 @@ export const createDrillSession: RequestHandler = async (req, res): Promise<void
     },
   )
   if (status === 201) {
-    // The session itself becomes retrievable when Stage 4 ships GET
-    // /drill-sessions/:id. Emitting the Location header now reserves the
-    // contract; clients that don't follow it today simply ignore it.
+    // Resolvable via GET /drill-sessions/:sessionId (Stage 4).
     res.setHeader('Location', `/api/v1/leeches/drill-sessions/${body.sessionId}`)
   }
   res.status(status).json(body)
+}
+
+export const getDrillSession: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = drillSessionIdParamSchema.parse(req.params)
+  const session = await leechService.getDrillSession(req.user.id, sessionId)
+  res.json(session)
 }

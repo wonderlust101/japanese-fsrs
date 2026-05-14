@@ -51,6 +51,11 @@ export const leechIdParamSchema = z.object({
   id: z.string().uuid('Invalid leech ID'),
 }).strict()
 
+/** URL param schema for `GET /api/v1/leeches/drill-sessions/:sessionId`. */
+export const drillSessionIdParamSchema = z.object({
+  sessionId: z.string().uuid('Invalid drill session ID'),
+}).strict()
+
 // ─── Cursor payloads ──────────────────────────────────────────────────────────
 //
 // One schema per sort mode. The encoded cursor carries both keys of the sort

@@ -28,12 +28,11 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Issue type: documentation accuracy and implementation mismatch.
 	  - Current mismatch: [DATABASE.md](DATABASE.md) describes async leech diagnosis and prescription population, while the implementation currently supports leech flagging without the diagnosis pipeline.
 	  - Done when a concrete service/API path populates diagnosis and prescription data, or the database documentation is explicitly revised to describe the implemented behavior.
-- [ ] **Add leeches list and drill support — Stages 4+**
-	  - Stage 4: `GET /api/v1/leeches/drill-sessions/:id` — resume an in-progress drill session and surface `isCanonicalStateStale` + `staleCards` by comparing the stored fingerprint against current `cards` state.
+- [ ] **Add leeches list and drill support — Stage 5 + frontend**
 	  - Stage 5: `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` plus the `leech_drill_attempts` table — immutable per-answer events, idempotent by `eventId`, composite FK to session-cards. Ships alongside the property-based scheduler-invariance test suite.
 	  - Frontend: wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
 	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
-	  - Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), and 3 (drill session creation + snapshot) are complete — see Done lane.
+	  - Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), and 4 (drill session resume + stale detection) are complete — see Done lane.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -207,6 +206,12 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - One SECURITY DEFINER RPC (`create_leech_drill_session`), GRANTed to `service_role` with pinned `search_path`. Selects candidates, inserts the session, inserts N snapshots — all in one transaction.
 	  - Composite `UNIQUE (id, session_id)` on `leech_drill_session_cards` reserves the FK Stage 5's `leech_drill_attempts` will use to make cross-session attempt forgery structurally impossible.
 	  - Strict scheduler invariance: the RPC's body contains zero UPDATE/DELETE against `cards` or `review_logs`; the service does not import `fsrs.service.ts`.
+- [x] **Leech drill session resume + stale detection (Stage 4)**
+	  - `GET /api/v1/leeches/drill-sessions/:sessionId` returns the queue plus `isCanonicalStateStale` and `staleCards`; per-row `isStale` and `isOrphaned` flags let the client render orphan and stale states without join-back logic.
+	  - Extracted the fingerprint formula into a shared `IMMUTABLE` helper `compute_card_state_fingerprint_v1` so create and resume cannot drift. Migration `20260601000000_leech_drill_session_resume.sql` includes a `DO $$ ... $$` self-test asserting the helper's output against a fixed test vector — any future edit that would invalidate existing sessions' stored fingerprints causes the migration to RAISE at apply time.
+	  - `CREATE OR REPLACE create_leech_drill_session` now calls the helper instead of an inline expression. Token-equivalent formula preserves byte-for-byte fingerprint compatibility.
+	  - One new RPC `get_leech_drill_session` (SECURITY DEFINER, `search_path = ''`, GRANT to `service_role`). One LEFT JOIN scan + `jsonb_agg(...) FILTER (...)` returns the full envelope in one pass. Reads only — no writes to `cards` or `review_logs`.
+	  - New error code: 404 `LEECH_DRILL_SESSION_NOT_FOUND` registered in the canonical block.
 
 %% kanban:settings
 ```

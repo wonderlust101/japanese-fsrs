@@ -2,6 +2,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 
 import {
   createDrillSessionSchema,
+  drillSessionIdParamSchema,
   listLeechesQuerySchema,
   leechIdParamSchema,
 } from '../../schemas/leech.schema.ts'
@@ -98,8 +99,11 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { listLeeches, getLeechById, toListItem, resolveLeech, reopenLeech, createDrillSession } =
-  await import('../leech.service.ts')
+const {
+  listLeeches, getLeechById, toListItem,
+  resolveLeech, reopenLeech,
+  createDrillSession, getDrillSession,
+} = await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
 beforeEach(() => {
@@ -803,6 +807,227 @@ describe('leech.service — createDrillSession', () => {
 
     // The chainable mock records every `from(...)` call via state.lastTable.
     // Since createDrillSession only calls `.rpc(...)`, lastTable must remain
+    // null after the service returns.
+    expect(state.lastTable).toBeNull()
+  })
+})
+
+// ── getDrillSession — Stage 4 ───────────────────────────────────────────────
+
+describe('drillSessionIdParamSchema', () => {
+  it('accepts a UUID', () => {
+    expect(drillSessionIdParamSchema.safeParse({ sessionId: DRILL_SESSION_ID }).success).toBe(true)
+  })
+
+  it('rejects non-UUID input', () => {
+    expect(drillSessionIdParamSchema.safeParse({ sessionId: 'not-a-uuid' }).success).toBe(false)
+  })
+
+  it('rejects unknown keys (.strict)', () => {
+    expect(drillSessionIdParamSchema.safeParse({ sessionId: DRILL_SESSION_ID, foo: 'bar' }).success).toBe(false)
+  })
+})
+
+// Shared fixture builders for the resume tests.
+function freshCard(sessionCardId: string, leechId: string, cardId: string, ordinal: number): Record<string, unknown> {
+  return {
+    sessionCardId,
+    leechId,
+    cardId,
+    ordinal,
+    layoutType: 'vocabulary',
+    cardType:   'comprehension',
+    fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
+    lapses:     8,
+    isOrphaned: false,
+    isStale:    false,
+  }
+}
+
+function staleCard(sessionCardId: string, leechId: string, cardId: string, ordinal: number): Record<string, unknown> {
+  return { ...freshCard(sessionCardId, leechId, cardId, ordinal), isStale: true }
+}
+
+function orphanCard(sessionCardId: string, leechId: string, ordinal: number): Record<string, unknown> {
+  return {
+    sessionCardId,
+    leechId,
+    cardId:     null,
+    ordinal,
+    layoutType: null,
+    cardType:   null,
+    fieldsData: null,
+    lapses:     null,
+    isOrphaned: true,
+    isStale:    false,    // orphans are NEVER stale — there's nothing to compare to.
+  }
+}
+
+describe('leech.service — getDrillSession', () => {
+  it('returns the parsed envelope when all cards are fresh', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: {
+        sessionId:             DRILL_SESSION_ID,
+        status:                'active',
+        isCanonicalStateStale: false,
+        staleCards:            [],
+        cards: [
+          freshCard(DRILL_SESSION_CARD,  LEECH_ID, CARD_ID, 0),
+          freshCard(DRILL_SESSION_CARD2, 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f', 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', 1),
+        ],
+      }, error: null },
+    ]
+
+    const out = await getDrillSession('user-1', DRILL_SESSION_ID)
+    expect(out.sessionId).toBe(DRILL_SESSION_ID)
+    expect(out.status).toBe('active')
+    expect(out.isCanonicalStateStale).toBe(false)
+    expect(out.staleCards).toEqual([])
+    expect(out.cards).toHaveLength(2)
+    expect(out.cards[0]?.isStale).toBe(false)
+    expect(out.cards[0]?.isOrphaned).toBe(false)
+
+    // RPC was called once with the right shape.
+    expect(state.rpcCalls).toHaveLength(1)
+    const call = state.rpcCalls[0]
+    expect(call?.name).toBe('get_leech_drill_session')
+    expect((call?.payload as Record<string, unknown>)['p_user_id']).toBe('user-1')
+    expect((call?.payload as Record<string, unknown>)['p_session_id']).toBe(DRILL_SESSION_ID)
+  })
+
+  it('preserves staleness flags and the staleCards array', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: {
+        sessionId:             DRILL_SESSION_ID,
+        status:                'active',
+        isCanonicalStateStale: true,
+        staleCards:            [CARD_ID],
+        cards: [
+          staleCard(DRILL_SESSION_CARD,  LEECH_ID, CARD_ID, 0),
+          freshCard(DRILL_SESSION_CARD2, 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f', 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', 1),
+        ],
+      }, error: null },
+    ]
+
+    const out = await getDrillSession('user-1', DRILL_SESSION_ID)
+    expect(out.isCanonicalStateStale).toBe(true)
+    expect(out.staleCards).toEqual([CARD_ID])
+    expect(out.cards[0]?.isStale).toBe(true)
+    expect(out.cards[1]?.isStale).toBe(false)
+  })
+
+  it('surfaces orphan rows with cardId null and never lists them in staleCards', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: {
+        sessionId:             DRILL_SESSION_ID,
+        status:                'active',
+        isCanonicalStateStale: false,
+        staleCards:            [],
+        cards: [
+          orphanCard(DRILL_SESSION_CARD, LEECH_ID, 0),
+        ],
+      }, error: null },
+    ]
+
+    const out = await getDrillSession('user-1', DRILL_SESSION_ID)
+    expect(out.cards[0]?.cardId).toBeNull()
+    expect(out.cards[0]?.isOrphaned).toBe(true)
+    expect(out.cards[0]?.isStale).toBe(false)
+    expect(out.cards[0]?.layoutType).toBeNull()
+    expect(out.cards[0]?.fieldsData).toBeNull()
+    expect(out.staleCards).toEqual([])      // ← orphans are NOT stale
+  })
+
+  it('segregates stale, orphan, and fresh rows correctly when all three coexist', async () => {
+    const orphanLeechId = 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
+    const freshCardId   = 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a'
+    const freshLeechId  = 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c'
+
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: {
+        sessionId:             DRILL_SESSION_ID,
+        status:                'active',
+        isCanonicalStateStale: true,
+        staleCards:            [CARD_ID],       // only the truly-stale card is here
+        cards: [
+          staleCard (DRILL_SESSION_CARD,                                                LEECH_ID,        CARD_ID,     0),
+          orphanCard(DRILL_SESSION_CARD2,                                               orphanLeechId,                1),
+          freshCard ('b8ec19da-becf-4f3b-9c5d-de2fb0ab9c8d',                            freshLeechId,    freshCardId, 2),
+        ],
+      }, error: null },
+    ]
+
+    const out = await getDrillSession('user-1', DRILL_SESSION_ID)
+    expect(out.cards).toHaveLength(3)
+    expect(out.cards[0]?.isStale).toBe(true)
+    expect(out.cards[1]?.isOrphaned).toBe(true)
+    expect(out.cards[1]?.isStale).toBe(false)
+    expect(out.cards[2]?.isStale).toBe(false)
+    expect(out.staleCards).toEqual([CARD_ID])
+  })
+
+  it('translates SQLSTATE 02000 + leech_drill_session_not_found → 404 LEECH_DRILL_SESSION_NOT_FOUND', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: null, error: { code: '02000', message: 'leech_drill_session_not_found' } },
+    ]
+
+    let caught: unknown
+    try {
+      await getDrillSession('user-1', DRILL_SESSION_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_DRILL_SESSION_NOT_FOUND')
+  })
+
+  it('falls through to dbError for non-404 RPC errors (500)', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await getDrillSession('user-1', DRILL_SESSION_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
+  })
+
+  it('throws when the RPC envelope fails Zod parsing', async () => {
+    // Missing required `isCanonicalStateStale` boolean — Zod surfaces a clean
+    // error at the service boundary rather than silently coercing.
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: { sessionId: DRILL_SESSION_ID, status: 'active', staleCards: [], cards: [] }, error: null },
+    ]
+
+    let caught: unknown
+    try {
+      await getDrillSession('user-1', DRILL_SESSION_ID)
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(Error)
+  })
+
+  it('never queries the cards or review_logs tables (scheduler invariance)', async () => {
+    state.rpcResponses['get_leech_drill_session'] = [
+      { data: {
+        sessionId:             DRILL_SESSION_ID,
+        status:                'active',
+        isCanonicalStateStale: false,
+        staleCards:            [],
+        cards:                 [],
+      }, error: null },
+    ]
+
+    await getDrillSession('user-1', DRILL_SESSION_ID)
+
+    // The chainable mock records every `from(...)` call via state.lastTable.
+    // Since getDrillSession only calls `.rpc(...)`, lastTable must remain
     // null after the service returns.
     expect(state.lastTable).toBeNull()
   })

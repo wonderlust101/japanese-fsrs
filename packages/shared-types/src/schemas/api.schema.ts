@@ -371,6 +371,42 @@ export const ApiLeechDrillSessionSchema = z.object({
   cards:     z.array(ApiLeechDrillCardSchema),
 })
 
+// ─── Drill session resume (Stage 4) ───────────────────────────────────────────
+//
+// Distinct from ApiLeechDrillCardSchema/ApiLeechDrillSessionSchema (the
+// create-time response) because resume carries:
+//   • orphan rows where the underlying card was deleted post-snapshot
+//     (cardId IS NULL on the wire, layoutType/cardType/fieldsData/lapses
+//     null too because nothing remains to read from `cards`).
+//   • per-row isStale and isOrphaned flags so the client doesn't need to
+//     cross-reference cardIds against the top-level staleCards array.
+//   • a top-level isCanonicalStateStale boolean and a staleCards array.
+//
+// Orphans never appear in staleCards — there's nothing to compare to, so
+// staleness is meaningless for them. The frontend distinguishes orphan
+// (card-deleted) from stale (card-reviewed-elsewhere) via the per-row flags.
+
+export const ApiLeechDrillSessionDetailCardSchema = z.object({
+  sessionCardId: z.string().uuid(),
+  leechId:       z.string().uuid().nullable(),
+  cardId:        z.string().uuid().nullable(),
+  ordinal:       z.number().int().nonnegative(),
+  layoutType:    layoutTypeSchema.nullable(),
+  cardType:      cardTypeSchema.nullable(),
+  fieldsData:    FieldsDataSchema.nullable(),
+  lapses:        z.number().int().nonnegative().nullable(),
+  isOrphaned:    z.boolean(),
+  isStale:       z.boolean(),
+})
+
+export const ApiLeechDrillSessionDetailSchema = z.object({
+  sessionId:             z.string().uuid(),
+  status:                ApiLeechDrillSessionStatusSchema,
+  isCanonicalStateStale: z.boolean(),
+  staleCards:            z.array(z.string().uuid()),
+  cards:                 z.array(ApiLeechDrillSessionDetailCardSchema),
+})
+
 // ─── User profile (lives in user.types.ts; crosses the wire) ──────────────────
 
 export const ProfileSchema = z.object({

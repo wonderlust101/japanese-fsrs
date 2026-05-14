@@ -15,6 +15,7 @@ import {
   type ApiLeechListItem,
   type ApiLeechListResponse,
   type ApiLeechDrillSession,
+  type ApiLeechDrillSessionDetail,
   type FieldsData,
   type LayoutType,
   type CardType,
@@ -529,4 +530,74 @@ export async function createDrillSession(
   // The RPC's RETURNS JSONB carries the full envelope. Parse it through Zod
   // so silent schema drift surfaces as a clean ZodError at this boundary.
   return DrillSessionResponseSchema.parse(data)
+}
+
+// ─── Drill session resume (Stage 4) ───────────────────────────────────────────
+//
+// `GET /api/v1/leeches/drill-sessions/:sessionId` returns the persisted queue
+// plus an advisory staleness signal — true when the canonical FSRS state of
+// at least one queued card has changed since the session was created. The
+// staleness check is non-blocking: drilling itself stays safe even when
+// stale (drill attempts never read or write `cards`), the flag is just a
+// hint for the frontend to suppress "what would happen next" previews.
+
+const DrillSessionDetailCardRowSchema = z.object({
+  sessionCardId: z.string().uuid(),
+  leechId:       z.string().uuid().nullable(),
+  cardId:        z.string().uuid().nullable(),
+  ordinal:       z.number().int().nonnegative(),
+  layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']).nullable(),
+  cardType:      z.enum(['comprehension', 'production', 'listening']).nullable(),
+  fieldsData:    z.record(z.string(), z.unknown()).nullable(),
+  lapses:        z.number().int().nonnegative().nullable(),
+  isOrphaned:    z.boolean(),
+  isStale:       z.boolean(),
+})
+
+const DrillSessionDetailResponseSchema = z.object({
+  sessionId:             z.string().uuid(),
+  status:                z.enum(['active', 'finished', 'aborted']),
+  isCanonicalStateStale: z.boolean(),
+  staleCards:            z.array(z.string().uuid()),
+  cards:                 z.array(DrillSessionDetailCardRowSchema),
+})
+
+/**
+ * Returns a drill session's full detail for resume: the ordered queue, per-row
+ * `isStale` / `isOrphaned` flags, the top-level `isCanonicalStateStale`
+ * boolean, and the `staleCards` array of card UUIDs whose stored fingerprint
+ * no longer matches the current `cards` state.
+ *
+ * Throws 404 LEECH_DRILL_SESSION_NOT_FOUND when the session doesn't exist or
+ * doesn't belong to the authenticated user — the cross-user case is
+ * intentionally indistinguishable from "doesn't exist" to avoid leaking
+ * existence to other users.
+ *
+ * The RPC `get_leech_drill_session` (migration 20260601000000) does all the
+ * work in one transaction-friendly read: one LEFT JOIN scan against the
+ * session's snapshot rows, fingerprint recomputation via the IMMUTABLE helper
+ * `compute_card_state_fingerprint_v1`, and JSONB aggregation. The service is
+ * purely a forwarder + Zod boundary parser.
+ */
+export async function getDrillSession(
+  userId:    string,
+  sessionId: string,
+): Promise<ApiLeechDrillSessionDetail> {
+  const { data, error } = await supabaseAdmin.rpc('get_leech_drill_session', asPayload({
+    p_user_id:    userId,
+    p_session_id: sessionId,
+  }))
+
+  if (error !== null) {
+    // RPC raises `leech_drill_session_not_found` with SQLSTATE 02000 when the
+    // session row doesn't exist for this user. Same precedent as deck.service's
+    // DECK_NOT_FOUND translation (see deck.service.ts:225-227).
+    if (error.code === '02000' && error.message.includes('leech_drill_session_not_found')) {
+      throw new AppError(404, 'Drill session not found', { code: 'LEECH_DRILL_SESSION_NOT_FOUND' })
+    }
+    log.error({ sessionId, err: { message: error.message, code: error.code } }, 'getDrillSession RPC failed')
+    throw dbError('fetch drill session', error)
+  }
+
+  return DrillSessionDetailResponseSchema.parse(data)
 }

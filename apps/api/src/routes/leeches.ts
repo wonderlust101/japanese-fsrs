@@ -10,9 +10,12 @@ router.use(authMiddleware, defaultUserRateLimitMiddleware)
 
 router.get('/',    leechesController.list)
 
-// Literal-path POSTs must be registered before any `:id` parameterized POST
-// so Express's first-match routing can't capture 'drill-sessions' as an ID.
-router.post('/drill-sessions', leechesController.createDrillSession)
+// Literal-path drill-sessions routes must be registered before any `:id`
+// parameterized route so Express's first-match routing can't capture
+// 'drill-sessions' as a leech UUID. The GET sits next to the POST so the
+// route file documents the full create+resume contract in one place.
+router.post('/drill-sessions',             leechesController.createDrillSession)
+router.get ('/drill-sessions/:sessionId',  leechesController.getDrillSession)
 
 router.get('/:id', leechesController.get)
 
