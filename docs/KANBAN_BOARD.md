@@ -4,7 +4,7 @@ kanban-plugin: board
 
 ---
 
-Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-13.
+Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-14.
 
 ## To Do
 
@@ -28,10 +28,12 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Issue type: documentation accuracy and implementation mismatch.
 	  - Current mismatch: [DATABASE.md](DATABASE.md) describes async leech diagnosis and prescription population, while the implementation currently supports leech flagging without the diagnosis pipeline.
 	  - Done when a concrete service/API path populates diagnosis and prescription data, or the database documentation is explicitly revised to describe the implemented behavior.
-- [ ] **Add leeches list and drill support**
-	  - Add a leeches-list API such as `GET /api/v1/reviews/leeches?limit=5`.
-	  - Expose a `hasLeeches` signal for the dashboard Drill leeches CTA.
-	  - Wire the dashboard leeches card and drill entry point to real data.
+- [ ] **Add leeches list and drill support — Stages 3+**
+	  - Stage 3: `POST /api/v1/leeches/drill-sessions` — build a focused-practice queue from unresolved leeches without touching FSRS state.
+	  - Stage 4 (optional): persist drill attempts in a new `leech_drill_attempts` table for "did drills help?" analytics.
+	  - Frontend: wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
+	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
+	  - Stages 1 (list + detail) and 2 (resolve + reopen) are complete — see Done lane.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -186,6 +188,15 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Failed review submissions are queued locally and replayed through the batch endpoint.
 - [x] **API and shared-schema test coverage**
 	  - API unit tests, API integration tests, and shared auth schema tests exist.
+- [x] **Leeches list and detail endpoints (Stage 1)**
+	  - `GET /api/v1/leeches` with status/deck/JLPT/cardType filters, three sort modes, and `(created_at, id)` tuple cursor pagination.
+	  - `GET /api/v1/leeches/:id` returns the full joined card+deck context.
+	  - LEFT/INNER join switching keeps orphan leeches (card_id NULL) visible in history while excluding them from filtered queries.
+	  - Shipped 2026-05-14 in commit `81a0b35`.
+- [x] **Leeches resolve and reopen endpoints (Stage 2)**
+	  - `POST /api/v1/leeches/:id/resolve` — idempotent flip with COALESCE-style "preserve original resolved_at" semantics.
+	  - `POST /api/v1/leeches/:id/reopen` — translates SQLSTATE 23505 from the partial unique index `leeches_card_user_unresolved_idx` to HTTP 409 `LEECH_ALREADY_OPEN`.
+	  - No FSRS state touched; both endpoints inherit auth + `defaultUserRateLimitMiddleware`.
 
 %% kanban:settings
 ```

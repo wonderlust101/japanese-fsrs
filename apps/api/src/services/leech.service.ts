@@ -283,3 +283,132 @@ export async function getLeechById(userId: string, id: string): Promise<ApiLeech
 
   return toListItem(LeechRowSchema.parse(data))
 }
+
+// ─── Write path (Stage 2) ─────────────────────────────────────────────────────
+//
+// Slim projection used by the pre-fetch step of resolveLeech / reopenLeech.
+// We only need to know the row's current state to decide between:
+//   - 404 (row missing or wrong owner)
+//   - idempotent return (already in target state)
+//   - real UPDATE (state needs flipping)
+// Keeping the projection minimal here avoids paying for the full joined
+// payload on the idempotent path; the post-update select brings back the
+// LEECH_SELECT_LEFT shape so callers always get the same response as
+// getLeechById.
+
+const LeechStateRowSchema = z.object({
+  id:          z.string().uuid(),
+  resolved:    z.boolean(),
+  resolved_at: z.string().nullable(),
+})
+
+async function fetchLeechState(userId: string, id: string): Promise<z.infer<typeof LeechStateRowSchema>> {
+  const { data, error } = await supabaseAdmin
+    .from('leeches')
+    .select('id, resolved, resolved_at')
+    .eq('id',      id)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error !== null) {
+    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'fetchLeechState query failed')
+    throw dbError('fetch leech', error)
+  }
+  if (data === null) {
+    // Same 404 shape as getLeechById for cross-user attempts — does not leak
+    // existence to other users.
+    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+  }
+  return LeechStateRowSchema.parse(data)
+}
+
+async function fetchLeechJoined(userId: string, id: string): Promise<ApiLeechListItem> {
+  // Reads the row we just mutated. .single() is the right terminal here:
+  // the row provably exists (we just confirmed it in the pre-fetch and the
+  // UPDATE returned without 404 conditions), so a null result would be a
+  // genuine 500-class anomaly worth surfacing as such.
+  const { data, error } = await supabaseAdmin
+    .from('leeches')
+    .select(LEECH_SELECT_LEFT)
+    .eq('id',      id)
+    .eq('user_id', userId)
+    .single()
+
+  if (error !== null) {
+    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'fetchLeechJoined query failed')
+    throw dbError('refetch leech', error)
+  }
+  return toListItem(LeechRowSchema.parse(data))
+}
+
+/**
+ * Marks a leech as resolved. Idempotent: resolving an already-resolved leech
+ * returns the row unchanged so the original `resolved_at` (the moment the
+ * learner actually closed the loop) is preserved across accidental retries.
+ *
+ * Two round-trips:
+ *   1) State pre-fetch — 404 cleanly when missing or cross-user; short-circuit
+ *      to a joined fetch when already in the target state.
+ *   2) UPDATE — flips resolved + stamps resolved_at, then the joined refetch
+ *      returns the same shape as getLeechById so callers can drop the
+ *      response directly into their cache.
+ */
+export async function resolveLeech(userId: string, id: string): Promise<ApiLeechListItem> {
+  const current = await fetchLeechState(userId, id)
+
+  if (current.resolved) {
+    // Already resolved — return the existing joined payload without writing.
+    return fetchLeechJoined(userId, id)
+  }
+
+  const { error } = await supabaseAdmin
+    .from('leeches')
+    .update({ resolved: true, resolved_at: new Date().toISOString() })
+    .eq('id',      id)
+    .eq('user_id', userId)
+
+  if (error !== null) {
+    throw dbError('resolve leech', error)
+  }
+
+  return fetchLeechJoined(userId, id)
+}
+
+/**
+ * Reopens a previously-resolved leech.
+ *
+ * Idempotent on the happy path; throws 409 LEECH_ALREADY_OPEN when another
+ * unresolved leech for the same (card_id, user_id) already exists. That
+ * conflict is enforced at the DB layer by the partial unique index
+ * `leeches_card_user_unresolved_idx` (migration 20260425000001) — we catch
+ * SQLSTATE 23505 from the UPDATE and translate it before it falls through to
+ * the generic `dbError` mapper. A pre-check would race; the only correct
+ * pattern is "UPDATE optimistically, catch 23505, translate to 409".
+ */
+export async function reopenLeech(userId: string, id: string): Promise<ApiLeechListItem> {
+  const current = await fetchLeechState(userId, id)
+
+  if (!current.resolved) {
+    // Already open — return the existing joined payload without writing.
+    return fetchLeechJoined(userId, id)
+  }
+
+  const { error } = await supabaseAdmin
+    .from('leeches')
+    .update({ resolved: false, resolved_at: null })
+    .eq('id',      id)
+    .eq('user_id', userId)
+
+  if (error !== null) {
+    if (typeof error === 'object' && 'code' in error && error.code === '23505') {
+      throw new AppError(
+        409,
+        'Another unresolved leech exists for this card; resolve it first',
+        { cause: error, code: 'LEECH_ALREADY_OPEN' },
+      )
+    }
+    throw dbError('reopen leech', error)
+  }
+
+  return fetchLeechJoined(userId, id)
+}

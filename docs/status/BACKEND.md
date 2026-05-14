@@ -1,6 +1,6 @@
 # Backend And Data Status
 
-Refreshed by code inspection on 2026-05-13. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
+Refreshed by code inspection on 2026-05-14. See [../IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) for the status legend and summary.
 
 | Capability | Status | Evidence |
 |---|---|---|
@@ -20,7 +20,9 @@ Refreshed by code inspection on 2026-05-13. See [../IMPLEMENTATION_STATUS.md](..
 | Service-level rollback, forget, and reschedule from history | Implemented | `apps/api/src/services/fsrs.service.ts`, `supabase/migrations/20260502000001_review_logs_before_snapshot.sql`, `supabase/migrations/20260502000003_process_forget_rpc.sql` |
 | Public API routes for rollback/forget/reschedule | Unknown | Service functions exist, but no matching route was found in `apps/api/src/routes/reviews.ts` or `apps/api/src/routes/cards.ts`. |
 | Leech flagging | Implemented | `apps/api/src/services/fsrs.service.ts`, `supabase/migrations/20260514000000_atomic_service_writes.sql`, `docs/DATABASE.md` |
-| Leeches list API and dashboard drill flag | Missing | `apps/web/app/(app)/dashboard/_components/dashboard-client.tsx` references a leeches-list API and `hasLeeches` flag; no matching route was found in `apps/api/src/routes/reviews.ts`. |
+| Leeches list, detail, resolve, reopen | Implemented | `apps/api/src/routes/leeches.ts`, `apps/api/src/controllers/leeches.controller.ts`, `apps/api/src/services/leech.service.ts`, `apps/api/src/schemas/leech.schema.ts`, `packages/shared-types/src/schemas/api.schema.ts` (`ApiLeechListItemSchema`, `ApiLeechListResponseSchema`). `GET /api/v1/leeches` with status/deck/JLPT/cardType filters and tuple-cursor pagination; `GET /api/v1/leeches/:id` returns joined card+deck context; `POST /api/v1/leeches/:id/resolve` and `/reopen` are idempotent and translate the partial-unique-index 23505 to HTTP 409 `LEECH_ALREADY_OPEN`. |
+| Leech drill session and drill attempts | Partial | List/detail/resolve/reopen exist (row above); the focused-practice drill queue (`POST /api/v1/leeches/drill-sessions`) and optional drill-attempt persistence are still pending — see [Add Leeches List and Drill Support](../Add%20Leeches%20List%20and%20Drill%20Support.md). |
+| Dashboard `hasLeeches` signal | Missing | `apps/web/app/(app)/dashboard/_components/dashboard-client.tsx` still references a `hasLeeches` flag; the new `GET /api/v1/leeches` could power it but the dashboard wiring has not been updated yet. |
 | AI leech diagnosis and prescription | Partial | `leeches.diagnosis` and `leeches.prescription` columns exist, but no AI diagnose route/service path was found. |
 | Analytics heatmap, accuracy, JLPT gap, milestones, bundled dashboard | Implemented | `apps/api/src/routes/analytics.ts`, `apps/api/src/services/analytics.service.ts`, `supabase/migrations/20260503000003_analytics_rpcs.sql`, `supabase/migrations/20260504000001_streak_jlpt_forecast_rpcs.sql`, `supabase/migrations/20260529000000_learner_timezone_review_buckets.sql`. Legacy streak RPC/API still exists, but streaks are deferred from the current dashboard direction. |
 | Dashboard weekly summary API | Missing | Dashboard no longer requires a recent-activity endpoint because the frontend derives seven-day activity from heatmap data. No weekly summary route exists in `apps/api/src/routes/analytics.ts`. |

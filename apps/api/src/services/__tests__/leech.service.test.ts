@@ -83,7 +83,7 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { listLeeches, getLeechById, toListItem } = await import('../leech.service.ts')
+const { listLeeches, getLeechById, toListItem, resolveLeech, reopenLeech } = await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
 beforeEach(() => {
@@ -316,5 +316,165 @@ describe('leech.service — getLeechById', () => {
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
     expect(e.code).toBe('LEECH_NOT_FOUND')
+  })
+})
+
+// ── resolveLeech ─────────────────────────────────────────────────────────────
+//
+// Each resolveLeech call issues up to three queries against the `leeches`
+// table: (1) state pre-fetch via .select(slim).maybeSingle(), (2) UPDATE on
+// the flip path, and (3) joined refetch via .select(LEECH_SELECT_LEFT).single().
+// The chainable mock's response queue is FIFO, so each test pushes the
+// expected sequence in order.
+
+describe('leech.service — resolveLeech', () => {
+  it('flips an unresolved leech to resolved and stamps resolved_at', async () => {
+    state.responses['leeches'] = [
+      // 1) pre-fetch: unresolved
+      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
+      // 2) UPDATE: success (no rows returned, just error: null)
+      { data: null, error: null },
+      // 3) joined refetch: returns the now-resolved row
+      { data: { ...SAMPLE_LEECH_ROW, resolved: true, resolved_at: '2026-05-14T18:00:00.000Z' }, error: null },
+    ]
+
+    const out = await resolveLeech('user-1', LEECH_ID)
+    expect(out.id).toBe(LEECH_ID)
+    expect(out.resolved).toBe(true)
+    expect(out.resolvedAt).toBe('2026-05-14T18:00:00.000Z')
+
+    // The update method must have been invoked exactly once, with the right patch.
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(1)
+    const patch = updateCalls[0]?.args[0] as { resolved: boolean; resolved_at: string }
+    expect(patch.resolved).toBe(true)
+    expect(typeof patch.resolved_at).toBe('string')
+  })
+
+  it('is idempotent: already-resolved leech returns the existing row without UPDATE', async () => {
+    const resolvedRow = { ...SAMPLE_LEECH_ROW, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }
+    state.responses['leeches'] = [
+      // 1) pre-fetch: already resolved
+      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+      // 2) joined refetch (skips the UPDATE entirely)
+      { data: resolvedRow, error: null },
+    ]
+
+    const out = await resolveLeech('user-1', LEECH_ID)
+    expect(out.resolved).toBe(true)
+    expect(out.resolvedAt).toBe('2026-05-01T12:00:00.000Z')
+
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(0)
+  })
+
+  it('throws LEECH_NOT_FOUND 404 when the leech does not exist', async () => {
+    state.responses['leeches'] = [{ data: null, error: null }]
+
+    let caught: unknown
+    try {
+      await resolveLeech('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_NOT_FOUND')
+  })
+
+  it('translates DB errors on UPDATE via dbError (500)', async () => {
+    state.responses['leeches'] = [
+      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await resolveLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
+  })
+})
+
+// ── reopenLeech ──────────────────────────────────────────────────────────────
+
+describe('leech.service — reopenLeech', () => {
+  it('flips a resolved leech back to unresolved and clears resolved_at', async () => {
+    state.responses['leeches'] = [
+      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+      { data: null, error: null },
+      { data: { ...SAMPLE_LEECH_ROW, resolved: false, resolved_at: null }, error: null },
+    ]
+
+    const out = await reopenLeech('user-1', LEECH_ID)
+    expect(out.resolved).toBe(false)
+    expect(out.resolvedAt).toBeNull()
+
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(1)
+    expect(updateCalls[0]?.args[0]).toEqual({ resolved: false, resolved_at: null })
+  })
+
+  it('is idempotent: already-open leech returns the existing row without UPDATE', async () => {
+    state.responses['leeches'] = [
+      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
+      { data: SAMPLE_LEECH_ROW, error: null },
+    ]
+
+    const out = await reopenLeech('user-1', LEECH_ID)
+    expect(out.resolved).toBe(false)
+
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(0)
+  })
+
+  it('throws LEECH_NOT_FOUND 404 when the leech does not exist', async () => {
+    state.responses['leeches'] = [{ data: null, error: null }]
+
+    let caught: unknown
+    try {
+      await reopenLeech('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_NOT_FOUND')
+  })
+
+  it('translates SQLSTATE 23505 from the partial unique index to LEECH_ALREADY_OPEN 409', async () => {
+    state.responses['leeches'] = [
+      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+      { data: null, error: { message: 'duplicate key value violates unique constraint', code: '23505' } },
+    ]
+
+    let caught: unknown
+    try {
+      await reopenLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(409)
+    expect(e.code).toBe('LEECH_ALREADY_OPEN')
+  })
+
+  it('falls through to dbError for non-23505 UPDATE errors (500)', async () => {
+    state.responses['leeches'] = [
+      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await reopenLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
   })
 })
