@@ -1,10 +1,14 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test'
 
+import { randomUUID } from 'node:crypto'
+
 import {
   createDrillSessionSchema,
   drillSessionIdParamSchema,
   listLeechesQuerySchema,
   leechIdParamSchema,
+  recordDrillAttemptSchema,
+  type RecordDrillAttemptInput,
 } from '../../schemas/leech.schema.ts'
 
 // ── Chainable Supabase builder mock ─────────────────────────────────────────
@@ -102,7 +106,7 @@ mock.module('../../db/supabase.ts', () => ({
 const {
   listLeeches, getLeechById, toListItem,
   resolveLeech, reopenLeech,
-  createDrillSession, getDrillSession,
+  createDrillSession, getDrillSession, recordDrillAttempt,
 } = await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
@@ -1030,5 +1034,420 @@ describe('leech.service — getDrillSession', () => {
     // Since getDrillSession only calls `.rpc(...)`, lastTable must remain
     // null after the service returns.
     expect(state.lastTable).toBeNull()
+  })
+})
+
+// ── recordDrillAttempt — Stage 5 ────────────────────────────────────────────
+
+const ATTEMPT_ID         = 'c2f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c'
+const EVENT_ID           = 'd3e6c3d4-5e6f-4a7b-8c9d-7e6f5a4b3c2d'
+const ANOTHER_CARD_ID    = 'e4f7d4e5-6f7a-4b8c-9d0e-8f7a6b5c4d3e'
+const ANOTHER_LEECH_ID   = 'f5a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
+
+const SAMPLE_ATTEMPT_ENVELOPE = {
+  attemptId:      ATTEMPT_ID,
+  eventId:        EVENT_ID,
+  sessionId:      DRILL_SESSION_ID,
+  sessionCardId:  DRILL_SESSION_CARD,
+  leechId:        LEECH_ID,
+  cardId:         CARD_ID,
+  result:         'remembered',
+  localSequence:  0,
+  responseTimeMs: 4200,
+  shownAt:        '2026-05-14T12:00:00.000Z',
+  answeredAt:     '2026-05-14T12:00:04.200Z',
+  createdAt:      '2026-05-14T12:00:04.250Z',
+}
+
+describe('recordDrillAttemptSchema', () => {
+  it('parses a minimal valid body', () => {
+    const result = recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'remembered',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects unknown keys (.strict)', () => {
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'remembered',
+      foo:           'bar',
+    }).success).toBe(false)
+  })
+
+  it('rejects non-UUID eventId / sessionCardId', () => {
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       'not-a-uuid',
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'remembered',
+    }).success).toBe(false)
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: 'not-a-uuid',
+      result:        'remembered',
+    }).success).toBe(false)
+  })
+
+  it('rejects unknown result enum values', () => {
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'forgot',
+    }).success).toBe(false)
+  })
+
+  it('rejects negative responseTimeMs / localSequence', () => {
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:        EVENT_ID,
+      sessionCardId:  DRILL_SESSION_CARD,
+      result:         'missed',
+      responseTimeMs: -1,
+    }).success).toBe(false)
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'missed',
+      localSequence: -5,
+    }).success).toBe(false)
+  })
+
+  it('rejects non-ISO shownAt/answeredAt', () => {
+    expect(recordDrillAttemptSchema.safeParse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'hesitated',
+      shownAt:       'last Tuesday',
+    }).success).toBe(false)
+  })
+})
+
+describe('leech.service — recordDrillAttempt', () => {
+  it('happy path: forwards camelCase→snake_case params and returns the parsed envelope', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
+    ]
+
+    const input: RecordDrillAttemptInput = {
+      eventId:        EVENT_ID,
+      sessionCardId:  DRILL_SESSION_CARD,
+      result:         'remembered',
+      responseTimeMs: 4200,
+      shownAt:        '2026-05-14T12:00:00.000Z',
+      answeredAt:     '2026-05-14T12:00:04.200Z',
+    }
+
+    const out = await recordDrillAttempt('user-1', DRILL_SESSION_ID, input)
+
+    expect(out.attemptId).toBe(ATTEMPT_ID)
+    expect(out.eventId).toBe(EVENT_ID)
+    expect(out.result).toBe('remembered')
+
+    expect(state.rpcCalls).toHaveLength(1)
+    const call = state.rpcCalls[0]
+    expect(call?.name).toBe('record_leech_drill_attempt')
+    const payload = call?.payload as Record<string, unknown>
+    expect(payload['p_user_id']).toBe('user-1')
+    expect(payload['p_session_id']).toBe(DRILL_SESSION_ID)
+    expect(payload['p_event_id']).toBe(EVENT_ID)
+    expect(payload['p_session_card_id']).toBe(DRILL_SESSION_CARD)
+    expect(payload['p_asserted_card_id']).toBeNull()      // body omitted → null
+    expect(payload['p_asserted_leech_id']).toBeNull()
+    expect(payload['p_response_time_ms']).toBe(4200)
+  })
+
+  it('idempotent replay: same eventId returns identical envelope', async () => {
+    // First call — fresh insert.
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
+    ]
+    const first = await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'remembered',
+    }))
+
+    // Second call — RPC's ON CONFLICT DO NOTHING returns the same row.
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
+    ]
+    const second = await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      result:        'remembered',
+    }))
+
+    expect(first).toEqual(second)
+    expect(first.attemptId).toBe(second.attemptId)
+  })
+
+  it('forwards body cardId/leechId as assertions when supplied', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
+    ]
+
+    await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+      eventId:       EVENT_ID,
+      sessionCardId: DRILL_SESSION_CARD,
+      cardId:        CARD_ID,
+      leechId:       LEECH_ID,
+      result:        'hesitated',
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_asserted_card_id']).toBe(CARD_ID)
+    expect(payload['p_asserted_leech_id']).toBe(LEECH_ID)
+  })
+
+  it('throws LEECH_DRILL_SESSION_CARD_NOT_FOUND 404 for sessionCard mismatch', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: null, error: { code: '02000', message: 'leech_drill_session_card_not_found' } },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_DRILL_SESSION_CARD_NOT_FOUND')
+  })
+
+  it('throws LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for cardId assertion mismatch', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: null, error: { code: '22000', message: 'leech_drill_attempt_card_mismatch' } },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        cardId:        ANOTHER_CARD_ID,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(422)
+    expect(e.code).toBe('LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH')
+  })
+
+  it('throws LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for leechId assertion mismatch', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: null, error: { code: '22000', message: 'leech_drill_attempt_leech_mismatch' } },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        leechId:       ANOTHER_LEECH_ID,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(422)
+    expect(e.code).toBe('LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH')
+  })
+
+  it('translates SQLSTATE 23503 (FK violation, e.g. card deleted) to dbError 409', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: null, error: { code: '23503', message: 'foreign key violation' } },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(409)
+    expect(e.code).toBe('DB_FK_VIOLATION')
+  })
+
+  it('falls through to dbError for generic RPC errors (500)', async () => {
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
+  })
+
+  it('throws when the RPC envelope fails Zod parsing', async () => {
+    // Missing required `result` field — Zod surfaces at the boundary.
+    state.rpcResponses['record_leech_drill_attempt'] = [
+      { data: { ...SAMPLE_ATTEMPT_ENVELOPE, result: undefined }, error: null },
+    ]
+
+    let caught: unknown
+    try {
+      await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
+        eventId:       EVENT_ID,
+        sessionCardId: DRILL_SESSION_CARD,
+        result:        'missed',
+      }))
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(Error)
+  })
+})
+
+// ── Scheduler-invariance property suite ─────────────────────────────────────
+//
+// The spec's load-bearing CI guard (Add Leeches List and Drill Support.md
+// §"Scheduler Invariance Tests"). The property under test: NO drill code
+// path may read or write `cards` or `review_logs`. The mock harness records
+// every `.from(...)` call in `state.lastTable` and every `.rpc(...)` call in
+// `state.rpcCalls`; for an invariant-respecting code path, lastTable stays
+// null and the only RPC names seen are the drill-namespace ones.
+//
+// 100 randomized iterations per endpoint exercise different combinations of
+// optional fields, source values, and sort orders. A future refactor that
+// accidentally introduces a `.from('cards')` or `.from('review_logs')` call
+// fails this suite on the first iteration that exercises the offending code
+// path.
+
+const DRILL_RESULTS = ['missed', 'hesitated', 'remembered'] as const
+
+function pick<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)] as T
+}
+
+function maybeUuid(): string | undefined {
+  return Math.random() > 0.5 ? randomUUID() : undefined
+}
+
+function maybeNumber(max: number): number | undefined {
+  return Math.random() > 0.5 ? Math.floor(Math.random() * max) : undefined
+}
+
+function makeFakeAttemptEnvelope(): Record<string, unknown> {
+  return {
+    attemptId:      randomUUID(),
+    eventId:        randomUUID(),
+    sessionId:      randomUUID(),
+    sessionCardId:  randomUUID(),
+    leechId:        randomUUID(),
+    cardId:         randomUUID(),
+    result:         pick(DRILL_RESULTS),
+    localSequence:  null,
+    responseTimeMs: null,
+    shownAt:        null,
+    answeredAt:     new Date().toISOString(),
+    createdAt:      new Date().toISOString(),
+  }
+}
+
+function makeFakeSessionEnvelope(): Record<string, unknown> {
+  return {
+    sessionId: randomUUID(),
+    status:    'active',
+    cards:     [],
+  }
+}
+
+function makeFakeSessionDetailEnvelope(): Record<string, unknown> {
+  return {
+    sessionId:             randomUUID(),
+    status:                'active',
+    isCanonicalStateStale: false,
+    staleCards:            [],
+    cards:                 [],
+  }
+}
+
+describe('scheduler invariance — drill code path must never touch FSRS tables', () => {
+  it('100 randomized recordDrillAttempt invocations issue zero .from() calls', async () => {
+    for (let i = 0; i < 100; i++) {
+      reset()
+      state.rpcResponses['record_leech_drill_attempt'] = [
+        { data: makeFakeAttemptEnvelope(), error: null },
+      ]
+
+      await recordDrillAttempt(randomUUID(), randomUUID(), recordDrillAttemptSchema.parse({
+        eventId:        randomUUID(),
+        sessionCardId:  randomUUID(),
+        result:         pick(DRILL_RESULTS),
+        ...(maybeUuid() !== undefined ? { cardId: maybeUuid() } : {}),
+        ...(maybeUuid() !== undefined ? { leechId: maybeUuid() } : {}),
+        ...(maybeNumber(10000) !== undefined ? { responseTimeMs: maybeNumber(10000) } : {}),
+        ...(maybeNumber(50)    !== undefined ? { localSequence:  maybeNumber(50) }    : {}),
+      }))
+
+      // Zero `.from()` calls — the entire path is RPC-only.
+      expect(state.lastTable).toBeNull()
+      // Only the drill-namespace RPC was invoked.
+      const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
+      expect(rpcNames).toEqual(['record_leech_drill_attempt'])
+    }
+  })
+
+  it('50 randomized createDrillSession invocations issue zero .from() calls', async () => {
+    const sources = ['unresolvedLeeches', 'deckScoped'] as const
+    const orders  = ['mostRecent', 'oldestUnresolved', 'mostLapses', 'deckOrder'] as const
+
+    for (let i = 0; i < 50; i++) {
+      reset()
+      state.rpcResponses['create_leech_drill_session'] = [
+        { data: makeFakeSessionEnvelope(), error: null },
+      ]
+
+      const source = pick(sources)
+      await createDrillSession(randomUUID(), createDrillSessionSchema.parse({
+        source,
+        order: pick(orders),
+        limit: 1 + Math.floor(Math.random() * 50),
+        ...(source === 'deckScoped' ? { deckId: randomUUID() } : {}),
+      }))
+
+      expect(state.lastTable).toBeNull()
+      const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
+      expect(rpcNames).toEqual(['create_leech_drill_session'])
+    }
+  })
+
+  it('50 randomized getDrillSession invocations issue zero .from() calls', async () => {
+    for (let i = 0; i < 50; i++) {
+      reset()
+      state.rpcResponses['get_leech_drill_session'] = [
+        { data: makeFakeSessionDetailEnvelope(), error: null },
+      ]
+
+      await getDrillSession(randomUUID(), randomUUID())
+
+      expect(state.lastTable).toBeNull()
+      const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
+      expect(rpcNames).toEqual(['get_leech_drill_session'])
+    }
   })
 })

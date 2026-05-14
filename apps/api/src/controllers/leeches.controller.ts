@@ -8,6 +8,7 @@ import {
   drillSessionIdParamSchema,
   leechIdParamSchema,
   listLeechesQuerySchema,
+  recordDrillAttemptSchema,
 } from '../schemas/leech.schema.ts'
 import * as leechService from '../services/leech.service.ts'
 
@@ -57,4 +58,14 @@ export const getDrillSession: RequestHandler = async (req, res): Promise<void> =
   const { sessionId } = drillSessionIdParamSchema.parse(req.params)
   const session = await leechService.getDrillSession(req.user.id, sessionId)
   res.json(session)
+}
+
+export const recordDrillAttempt: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = drillSessionIdParamSchema.parse(req.params)
+  const input         = recordDrillAttemptSchema.parse(req.body)
+  const attempt       = await leechService.recordDrillAttempt(req.user.id, sessionId, input)
+  // 201 because we're creating a new resource (the attempt). Idempotent
+  // replays also return 201 — the body is identical to the original
+  // attempt's, which is the right shape for the client either way.
+  res.status(201).json(attempt)
 }

@@ -14,8 +14,9 @@ router.get('/',    leechesController.list)
 // parameterized route so Express's first-match routing can't capture
 // 'drill-sessions' as a leech UUID. The GET sits next to the POST so the
 // route file documents the full create+resume contract in one place.
-router.post('/drill-sessions',             leechesController.createDrillSession)
-router.get ('/drill-sessions/:sessionId',  leechesController.getDrillSession)
+router.post('/drill-sessions',                      leechesController.createDrillSession)
+router.get ('/drill-sessions/:sessionId',           leechesController.getDrillSession)
+router.post('/drill-sessions/:sessionId/attempts',  leechesController.recordDrillAttempt)
 
 router.get('/:id', leechesController.get)
 

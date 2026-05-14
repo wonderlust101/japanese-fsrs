@@ -16,6 +16,8 @@ export type {
   ApiLeechDrillSessionStatus,
   ApiLeechDrillSessionDetailCard,
   ApiLeechDrillSessionDetail,
+  ApiLeechDrillAttemptResult,
+  ApiLeechDrillAttempt,
 } from './leech.types.ts'
 
 export type { Profile } from './user.types.ts'
@@ -63,6 +65,7 @@ export {
   ApiLeechListItemSchema, ApiLeechListResponseSchema,
   ApiLeechDrillCardSchema, ApiLeechDrillSessionSchema, ApiLeechDrillSessionStatusSchema,
   ApiLeechDrillSessionDetailCardSchema, ApiLeechDrillSessionDetailSchema,
+  ApiLeechDrillAttemptResultSchema, ApiLeechDrillAttemptSchema,
   ProfileSchema,
   voidResponseSchema,
 } from './schemas/api.schema.ts'

@@ -407,6 +407,34 @@ export const ApiLeechDrillSessionDetailSchema = z.object({
   cards:                 z.array(ApiLeechDrillSessionDetailCardSchema),
 })
 
+// ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
+//
+// Immutable per-answer event. The DB's UNIQUE (user_id, event_id) makes
+// `eventId` the structural idempotency identifier — a retry with the same
+// eventId returns the original attempt's row, never duplicates.
+//
+// `leechId`/`cardId` are nullable on the wire to mirror the orphan semantics
+// of `leech_drill_session_cards`: if the underlying leech or card is deleted
+// after an attempt is recorded, those references go NULL but the attempt
+// itself stays inspectable as historical learning data.
+
+export const ApiLeechDrillAttemptResultSchema = z.enum(['missed', 'hesitated', 'remembered'])
+
+export const ApiLeechDrillAttemptSchema = z.object({
+  attemptId:      z.string().uuid(),
+  eventId:        z.string().uuid(),
+  sessionId:      z.string().uuid(),
+  sessionCardId:  z.string().uuid(),
+  leechId:        z.string().uuid().nullable(),
+  cardId:         z.string().uuid().nullable(),
+  result:         ApiLeechDrillAttemptResultSchema,
+  localSequence:  z.number().int().nonnegative().nullable(),
+  responseTimeMs: z.number().int().nonnegative().nullable(),
+  shownAt:        z.string().nullable(),
+  answeredAt:     z.string(),
+  createdAt:      z.string(),
+})
+
 // ─── User profile (lives in user.types.ts; crosses the wire) ──────────────────
 
 export const ProfileSchema = z.object({

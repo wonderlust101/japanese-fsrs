@@ -659,6 +659,25 @@ export type Database = {
         }
         Returns: Json
       }
+      // Added by migration 20260602000000_leech_drill_attempts.sql.
+      // Will be regenerated automatically the next time `supabase gen types
+      // typescript` runs against the live schema.
+      record_leech_drill_attempt: {
+        Args: {
+          p_user_id:           string
+          p_session_id:        string
+          p_event_id:          string
+          p_session_card_id:   string
+          p_asserted_card_id:  string | null
+          p_asserted_leech_id: string | null
+          p_result:            string
+          p_local_sequence:    number | null
+          p_response_time_ms:  number | null
+          p_shown_at:          string | null
+          p_answered_at:       string | null
+        }
+        Returns: Json
+      }
       delete_idempotency_key: {
         Args: {
           p_key: string

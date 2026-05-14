@@ -9,6 +9,7 @@ import {
   leechCreatedAtCursorSchema,
   type CreateDrillSessionInput,
   type ListLeechesQuery,
+  type RecordDrillAttemptInput,
 } from '../schemas/leech.schema.ts'
 import {
   getWordFields,
@@ -16,6 +17,7 @@ import {
   type ApiLeechListResponse,
   type ApiLeechDrillSession,
   type ApiLeechDrillSessionDetail,
+  type ApiLeechDrillAttempt,
   type FieldsData,
   type LayoutType,
   type CardType,
@@ -600,4 +602,98 @@ export async function getDrillSession(
   }
 
   return DrillSessionDetailResponseSchema.parse(data)
+}
+
+// ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
+//
+// `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` records an
+// immutable per-answer event. The DB's `UNIQUE (user_id, event_id)` on
+// `leech_drill_attempts` makes eventId the structural idempotency identifier;
+// the RPC uses `INSERT ... ON CONFLICT DO NOTHING` + replay-fetch so retrying
+// with the same eventId returns the original row instead of creating a
+// duplicate.
+//
+// The wire's `cardId`/`leechId` (when present) are downgraded to consistency
+// assertions against the canonical session-card row — mismatches RAISE 22000
+// with one of two specific message fragments, which the service translates
+// to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
+
+const DrillAttemptResponseSchema = z.object({
+  attemptId:      z.string().uuid(),
+  eventId:        z.string().uuid(),
+  sessionId:      z.string().uuid(),
+  sessionCardId:  z.string().uuid(),
+  leechId:        z.string().uuid().nullable(),
+  cardId:         z.string().uuid().nullable(),
+  result:         z.enum(['missed', 'hesitated', 'remembered']),
+  localSequence:  z.number().int().nonnegative().nullable(),
+  responseTimeMs: z.number().int().nonnegative().nullable(),
+  shownAt:        z.string().nullable(),
+  answeredAt:     z.string(),
+  createdAt:      z.string(),
+})
+
+/**
+ * Records a drill attempt against the named session-card. Idempotent by
+ * `eventId`: a retry with the same `(userId, eventId)` returns the original
+ * row rather than minting a new one. The wire-side `cardId`/`leechId`, when
+ * supplied, are validated against the canonical session-card values and a
+ * mismatch raises 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
+ *
+ * Throws:
+ *   • 404 LEECH_DRILL_SESSION_CARD_NOT_FOUND — session-card row missing or
+ *     not owned by the caller / not part of the requested session.
+ *   • 422 LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH — body cardId or leechId
+ *     disagrees with the canonical session-card values.
+ *   • Other DB errors fall through to `dbError` (typically 500, or 409 for
+ *     a 23503 FK violation on the rare card-deletion race).
+ *
+ * Scheduler invariance: the service does not import `fsrs.service.ts`, and
+ * the RPC's body contains no UPDATE/DELETE/INSERT against `cards` or
+ * `review_logs`. See the property-based test suite in this file's tests for
+ * the structural assertion.
+ */
+export async function recordDrillAttempt(
+  userId:    string,
+  sessionId: string,
+  input:     RecordDrillAttemptInput,
+): Promise<ApiLeechDrillAttempt> {
+  const { data, error } = await supabaseAdmin.rpc('record_leech_drill_attempt', asPayload({
+    p_user_id:           userId,
+    p_session_id:        sessionId,
+    p_event_id:          input.eventId,
+    p_session_card_id:   input.sessionCardId,
+    p_asserted_card_id:  input.cardId         ?? null,
+    p_asserted_leech_id: input.leechId        ?? null,
+    p_result:            input.result,
+    p_local_sequence:    input.localSequence  ?? null,
+    p_response_time_ms:  input.responseTimeMs ?? null,
+    p_shown_at:          input.shownAt        ?? null,
+    p_answered_at:       input.answeredAt     ?? null,
+  }))
+
+  if (error !== null) {
+    // 404: sessionCardId/sessionId/user triple mismatch.
+    if (error.code === '02000' && error.message.includes('leech_drill_session_card_not_found')) {
+      throw new AppError(404, 'Drill session card not found', {
+        code: 'LEECH_DRILL_SESSION_CARD_NOT_FOUND',
+      })
+    }
+    // 422: body cardId/leechId disagrees with canonical session-card values.
+    // Two distinct RAISE message fragments share the same wire code because
+    // the client only needs one bit of information: "your assertion was wrong."
+    if (error.code === '22000' && (
+      error.message.includes('leech_drill_attempt_card_mismatch') ||
+      error.message.includes('leech_drill_attempt_leech_mismatch')
+    )) {
+      throw new AppError(422, 'Drill attempt body cardId/leechId does not match the session card', {
+        code: 'LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH',
+      })
+    }
+    log.error({ sessionId, eventId: input.eventId, err: { message: error.message, code: error.code } },
+              'recordDrillAttempt RPC failed')
+    throw dbError('record drill attempt', error)
+  }
+
+  return DrillAttemptResponseSchema.parse(data)
 }

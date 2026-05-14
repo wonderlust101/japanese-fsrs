@@ -56,6 +56,35 @@ export const drillSessionIdParamSchema = z.object({
   sessionId: z.string().uuid('Invalid drill session ID'),
 }).strict()
 
+// ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
+
+export const leechDrillAttemptResultEnum = z.enum(['missed', 'hesitated', 'remembered'])
+export type LeechDrillAttemptResult = z.infer<typeof leechDrillAttemptResultEnum>
+
+/** Body schema for `POST /api/v1/leeches/drill-sessions/:sessionId/attempts`.
+ *
+ *  - `eventId` is the client-generated domain idempotency key. The DB's
+ *    `UNIQUE (user_id, event_id)` enforces exactly-once delivery: retrying
+ *    with the same eventId returns the original attempt's row.
+ *  - `cardId` and `leechId` are OPTIONAL consistency assertions. If present,
+ *    they must match the canonical values on the session-card row, or the
+ *    RPC rejects the attempt with 422 LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH.
+ *    The wire INSERT always uses the canonical values, never the body's.
+ */
+export const recordDrillAttemptSchema = z.object({
+  eventId:        z.string().uuid('Invalid event ID'),
+  sessionCardId:  z.string().uuid('Invalid session card ID'),
+  leechId:        z.string().uuid('Invalid leech ID').optional(),
+  cardId:         z.string().uuid('Invalid card ID').optional(),
+  result:         leechDrillAttemptResultEnum,
+  localSequence:  z.number().int().nonnegative().optional(),
+  responseTimeMs: z.number().int().nonnegative().optional(),
+  shownAt:        z.string().datetime().optional(),
+  answeredAt:     z.string().datetime().optional(),
+}).strict()
+
+export type RecordDrillAttemptInput = z.infer<typeof recordDrillAttemptSchema>
+
 // ─── Cursor payloads ──────────────────────────────────────────────────────────
 //
 // One schema per sort mode. The encoded cursor carries both keys of the sort

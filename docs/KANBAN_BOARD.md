@@ -28,11 +28,11 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Issue type: documentation accuracy and implementation mismatch.
 	  - Current mismatch: [DATABASE.md](DATABASE.md) describes async leech diagnosis and prescription population, while the implementation currently supports leech flagging without the diagnosis pipeline.
 	  - Done when a concrete service/API path populates diagnosis and prescription data, or the database documentation is explicitly revised to describe the implemented behavior.
-- [ ] **Add leeches list and drill support — Stage 5 + frontend**
-	  - Stage 5: `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` plus the `leech_drill_attempts` table — immutable per-answer events, idempotent by `eventId`, composite FK to session-cards. Ships alongside the property-based scheduler-invariance test suite.
-	  - Frontend: wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
+- [ ] **Add leeches list and drill support — frontend wiring**
+	  - Wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
+	  - Build the drill UI (focused-practice screen, session resume, attempt submission).
 	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
-	  - Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), and 4 (drill session resume + stale detection) are complete — see Done lane.
+	  - **Backend is complete** — Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), 4 (drill session resume + stale detection), and 5 (drill attempts + scheduler-invariance suite) are all shipped. See Done lane.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -212,6 +212,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - `CREATE OR REPLACE create_leech_drill_session` now calls the helper instead of an inline expression. Token-equivalent formula preserves byte-for-byte fingerprint compatibility.
 	  - One new RPC `get_leech_drill_session` (SECURITY DEFINER, `search_path = ''`, GRANT to `service_role`). One LEFT JOIN scan + `jsonb_agg(...) FILTER (...)` returns the full envelope in one pass. Reads only — no writes to `cards` or `review_logs`.
 	  - New error code: 404 `LEECH_DRILL_SESSION_NOT_FOUND` registered in the canonical block.
+- [x] **Leech drill attempts + scheduler-invariance suite (Stage 5)**
+	  - `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` records immutable per-answer events.
+	  - New table `leech_drill_attempts` (migration `20260602000000_leech_drill_attempts.sql`) consumes Stage 3's reserved composite `UNIQUE (id, session_id)` via the anti-fraud FK `FOREIGN KEY (session_card_id, session_id) REFERENCES leech_drill_session_cards`. Cross-session attempt forgery is structurally impossible at the database layer.
+	  - `eventId` is the authoritative idempotency identifier; `INSERT ... ON CONFLICT (user_id, event_id) DO NOTHING` + replay-fetch gives exactly-once delivery without HTTP-level `Idempotency-Key` machinery. The DB unique IS the contract.
+	  - Body-side `cardId`/`leechId` are treated as consistency assertions — mismatches against the canonical session-card values RAISE and translate to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`. The wire INSERT always uses the canonical values from `leech_drill_session_cards`, never the body's.
+	  - Two new error codes: 404 `LEECH_DRILL_SESSION_CARD_NOT_FOUND` and 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
+	  - **Property-based scheduler-invariance test suite** (200 randomized iterations across all three drill endpoints) proves the drill code path never reads or writes `cards` or `review_logs`. The suite is the load-bearing CI guard against accidental FSRS leakage from any future drill-service refactor.
 
 %% kanban:settings
 ```

@@ -8,6 +8,8 @@ import type {
   ApiLeechDrillSessionStatusSchema,
   ApiLeechDrillSessionDetailCardSchema,
   ApiLeechDrillSessionDetailSchema,
+  ApiLeechDrillAttemptResultSchema,
+  ApiLeechDrillAttemptSchema,
 } from './schemas/api.schema.ts'
 
 export type ApiLeechListItem     = z.infer<typeof ApiLeechListItemSchema>
@@ -19,3 +21,6 @@ export type ApiLeechDrillSessionStatus = z.infer<typeof ApiLeechDrillSessionStat
 
 export type ApiLeechDrillSessionDetailCard = z.infer<typeof ApiLeechDrillSessionDetailCardSchema>
 export type ApiLeechDrillSessionDetail     = z.infer<typeof ApiLeechDrillSessionDetailSchema>
+
+export type ApiLeechDrillAttemptResult = z.infer<typeof ApiLeechDrillAttemptResultSchema>
+export type ApiLeechDrillAttempt       = z.infer<typeof ApiLeechDrillAttemptSchema>

@@ -44,14 +44,15 @@ const apiLog = componentLogger('api')
  *     PREMADE_CARD_NOT_REVIEWABLE     Tried to processReview() on a premade source card
  *
  *   404 Not Found
- *     CARD_NOT_FOUND                  Card row missing / wrong owner / parent missing
- *     DECK_NOT_FOUND                  Deck row missing / wrong owner
- *     LEECH_DRILL_SESSION_NOT_FOUND   Drill session missing / wrong owner
- *     LEECH_NOT_FOUND                 Leech row missing / wrong owner
- *     PREMADE_DECK_NOT_FOUND          Premade deck missing or inactive
- *     PROFILE_NOT_FOUND               Profile row missing (signup-trigger bypassed)
- *     REVIEW_LOG_NOT_FOUND            Rollback target missing
- *     SESSION_NOT_FOUND               session_id not present in review_logs
+ *     CARD_NOT_FOUND                       Card row missing / wrong owner / parent missing
+ *     DECK_NOT_FOUND                       Deck row missing / wrong owner
+ *     LEECH_DRILL_SESSION_CARD_NOT_FOUND   Session card row missing / wrong session / wrong owner
+ *     LEECH_DRILL_SESSION_NOT_FOUND        Drill session missing / wrong owner
+ *     LEECH_NOT_FOUND                      Leech row missing / wrong owner
+ *     PREMADE_DECK_NOT_FOUND               Premade deck missing or inactive
+ *     PROFILE_NOT_FOUND                    Profile row missing (signup-trigger bypassed)
+ *     REVIEW_LOG_NOT_FOUND                 Rollback target missing
+ *     SESSION_NOT_FOUND                    session_id not present in review_logs
  *
  *   409 Conflict
  *     CARD_SUSPENDED                  Tried to review a suspended card
@@ -67,9 +68,10 @@ const apiLog = componentLogger('api')
  *     VERSION_CONFLICT                Optimistic-concurrency mismatch (card / deck / profile)
  *
  *   422 Unprocessable Entity
- *     CARD_FIELDS_INSUFFICIENT        AI-generation target card lacks `word`
- *     DB_CHECK_VIOLATION              Database CHECK constraint failed (SQLSTATE 23514)
- *     IDEMPOTENCY_KEY_CONFLICT        Same key + different body
+ *     CARD_FIELDS_INSUFFICIENT             AI-generation target card lacks `word`
+ *     DB_CHECK_VIOLATION                   Database CHECK constraint failed (SQLSTATE 23514)
+ *     IDEMPOTENCY_KEY_CONFLICT             Same key + different body
+ *     LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH  Body cardId/leechId disagrees with the session card
  *
  *   428 Precondition Required
  *     IF_MATCH_REQUIRED               PATCH endpoint missing If-Match header

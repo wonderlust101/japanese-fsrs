@@ -24,6 +24,7 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`leeches`](#table-leeches)
   - [`leech_drill_sessions`](#table-leech_drill_sessions)
   - [`leech_drill_session_cards`](#table-leech_drill_session_cards)
+  - [`leech_drill_attempts`](#table-leech_drill_attempts)
   - [`idempotency_keys`](#table-idempotency_keys)
 - [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
 - [Triggers](#triggers)
@@ -94,6 +95,7 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `leeches` | ALL | SELECT, INSERT, UPDATE | — |
 | `leech_drill_sessions` | ALL | SELECT, INSERT, UPDATE | — |
 | `leech_drill_session_cards` | ALL | SELECT, INSERT | — |
+| `leech_drill_attempts` | ALL | SELECT, INSERT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
 | `user_premade_subscriptions` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
@@ -531,6 +533,52 @@ Per-card snapshot of canonical FSRS state at the moment a drill session is creat
 
 ---
 
+### Table: `leech_drill_attempts`
+
+Immutable per-answer event log (Stage 5 of the leech-drill feature, added in migration `20260602000000_leech_drill_attempts.sql`). Created via the `record_leech_drill_attempt()` RPC. Drilling never writes to `cards` or `review_logs` — attempts are the *drill namespace*'s audit trail, fully separate from canonical FSRS history.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `event_id` | `UUID` | NO | — | Client-generated domain event identifier. The `(user_id, event_id)` tuple is the authoritative idempotency key. Retrying the same eventId is a no-op at the DB layer (`ON CONFLICT (user_id, event_id) DO NOTHING` in the RPC). |
+| `session_id` | `UUID` | NO | — | Direct FK to `leech_drill_sessions(id)` — cascades. Redundant with the composite FK below but documents the cascade intent. |
+| `session_card_id` | `UUID` | NO | — | The session-card row the attempt is recorded against. Combined with `session_id` in the composite FK below. |
+| `leech_id` | `UUID` | YES | — | FK to `leeches(id)` — `SET NULL` on leech deletion. Always sourced from the session-card row server-side, never from the request body. |
+| `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion. Same server-side sourcing as `leech_id`. |
+| `user_id` | `UUID` | NO | — | Denormalized FK to `profiles(id)` — cascades on account deletion. Duplicated from the session for fast user-scoped queries without joining through sessions. |
+| `result` | `TEXT` | NO | — | One of `missed`, `hesitated`, `remembered`. Enforced by CHECK. |
+| `local_sequence` | `INT` | YES | — | Optional client-side ordering hint (e.g. position within the drill UI). `CHECK >= 0`. |
+| `response_time_ms` | `INT` | YES | — | Optional. `CHECK >= 0`. |
+| `shown_at` | `TIMESTAMPTZ` | YES | — | When the card front was revealed to the learner. |
+| `answered_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the learner submitted the answer. CHECK `shown_at IS NULL OR answered_at >= shown_at`. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
+
+**Unique constraints:**
+- `(user_id, event_id)` — DB-enforced eventId idempotency. One row per (user, domain event).
+
+**Foreign-key constraints:**
+- `(session_card_id, session_id) REFERENCES leech_drill_session_cards (id, session_id) ON DELETE CASCADE` — **★ the anti-fraud composite FK**. Stage 3 reserved `UNIQUE (id, session_id)` on `leech_drill_session_cards` specifically to make this FK declarable. With it, a client cannot submit an attempt whose `session_card_id` belongs to a *different* session than the URL's — the database rejects the row before any application code runs. This is structural anti-fraud; no TypeScript-level check can be bypassed.
+- `session_id REFERENCES leech_drill_sessions(id) ON DELETE CASCADE` — separately declared so attempts cascade cleanly on session delete.
+
+**Indexes:**
+- `leech_drill_attempts_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user-scoped history paging.
+- `leech_drill_attempts_leech_created_idx`: `(leech_id, created_at DESC) WHERE leech_id IS NOT NULL` — per-leech drill history.
+- `leech_drill_attempts_session_idx`: `(session_id, created_at ASC, id ASC)` — replay queue in submission order.
+- `leech_drill_attempts_session_card_idx`: `(session_card_id, created_at DESC, id DESC)` — per-card-in-session attempt log.
+
+The UNIQUE on `(user_id, event_id)` doubles as the index that backs `ON CONFLICT (user_id, event_id) DO NOTHING` — no separate index is needed for the idempotency lookup.
+
+**RLS Policies:**
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id` |
+| INSERT | `auth.uid() = user_id` (defense-in-depth) |
+| UPDATE | **No policy.** Attempts are append-only by design. |
+| DELETE | **No policy.** |
+
+---
+
 ### Table: `idempotency_keys`
 
 Per-user replay store for idempotent POST endpoints. Required by:
@@ -639,6 +687,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `compute_card_state_fingerprint_v1(p_state, p_due, p_stability, p_difficulty, p_elapsed_days, p_scheduled_days, p_learning_steps, p_reps, p_lapses, p_last_review)` | `IMMUTABLE LANGUAGE sql` helper. The single source of truth for the `v1:` canonical-state fingerprint. Called by both `create_leech_drill_session` (snapshot write, Stage 3 → replaced in Stage 4 to use the helper) and `get_leech_drill_session` (resume-time staleness check, Stage 4). The Stage 4 migration includes a `DO $$ ... $$` self-test asserting the helper's output against a fixed test vector — any future edit that would invalidate existing stored fingerprints causes the migration to RAISE at apply time. | `text`. Format: `'v1:' || md5(format('%s\|%s\|...', state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, reps, lapses, coalesce(last_review::text, '')))`. |
 | `create_leech_drill_session(p_user_id, p_source, p_deck_id, p_jlpt_level, p_card_type, p_order, p_limit, p_mode, p_repeat_policy, p_stop_rule, p_source_query)` | Stage 3 of the leech-drill feature; Stage 4 replaced the body (forward-only) to call the helper above instead of an inline `'v1:' || md5(...)` expression, preserving byte-for-byte fingerprint compatibility. Inserts one `leech_drill_sessions` row and N `leech_drill_session_cards` rows (snapshots) atomically. Selects candidates from unresolved, non-suspended, non-orphan leeches. Writes nothing to `cards` or `review_logs` — the scheduler-invariance guarantee is structural. | `JSONB` envelope: `{ sessionId, status, cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, cardType, fieldsData, lapses }] }`. |
 | `get_leech_drill_session(p_user_id, p_session_id)` | Stage 4 of the leech-drill feature. Returns the persisted queue plus an advisory staleness signal computed by recomputing each card's fingerprint via the helper and comparing against the stored baseline on `leech_drill_session_cards`. Orphan rows (card deleted post-snapshot, `card_id IS NULL`) are surfaced via `cardId: null` + `isOrphaned: true` and are NOT counted as stale — there is nothing to compare to. RAISEs `leech_drill_session_not_found` with SQLSTATE `02000` when the session is missing or owned by another user; service layer translates to HTTP 404 `LEECH_DRILL_SESSION_NOT_FOUND`. Reads `cards` and `leech_drill_session_cards` only — no writes to either, no FSRS touched. | `JSONB` envelope: `{ sessionId, status, isCanonicalStateStale, staleCards: [cardId...], cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, cardType, fieldsData, lapses, isOrphaned, isStale }] }`. |
+| `record_leech_drill_attempt(p_user_id, p_session_id, p_event_id, p_session_card_id, p_asserted_card_id, p_asserted_leech_id, p_result, p_local_sequence, p_response_time_ms, p_shown_at, p_answered_at)` | Stage 5 of the leech-drill feature. (1) Reads canonical `card_id` / `leech_id` from `leech_drill_session_cards` keyed on `(session_card_id, session_id)`; verifies the user owns the session-card. RAISEs `leech_drill_session_card_not_found` (SQLSTATE `02000`) on triple mismatch → service maps to HTTP 404 `LEECH_DRILL_SESSION_CARD_NOT_FOUND`. (2) Compares the optional body-side `p_asserted_card_id` / `p_asserted_leech_id` against the canonical values; mismatches RAISE `leech_drill_attempt_card_mismatch` or `leech_drill_attempt_leech_mismatch` (SQLSTATE `22000`) → service maps to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`. (3) INSERTs with `ON CONFLICT (user_id, event_id) DO NOTHING` for idempotent replay; the row's `leech_id`/`card_id` are always the canonical values, never the body's. (4) Returns the canonical attempt envelope. Reads `leech_drill_session_cards` and `leech_drill_attempts` only — no writes to `cards`, `review_logs`, or any other canonical FSRS table. | `JSONB` envelope: `{ attemptId, eventId, sessionId, sessionCardId, leechId, cardId, result, localSequence, responseTimeMs, shownAt, answeredAt, createdAt }`. |
 
 ---
 
