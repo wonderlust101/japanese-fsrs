@@ -46,6 +46,7 @@ const apiLog = componentLogger('api')
  *   404 Not Found
  *     CARD_NOT_FOUND                  Card row missing / wrong owner / parent missing
  *     DECK_NOT_FOUND                  Deck row missing / wrong owner
+ *     LEECH_NOT_FOUND                 Leech row missing / wrong owner
  *     PREMADE_DECK_NOT_FOUND          Premade deck missing or inactive
  *     PROFILE_NOT_FOUND               Profile row missing (signup-trigger bypassed)
  *     REVIEW_LOG_NOT_FOUND            Rollback target missing

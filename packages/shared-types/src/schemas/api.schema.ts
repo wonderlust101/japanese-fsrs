@@ -299,6 +299,47 @@ export const SessionSummarySchema = z.object({
   leeches: z.array(SessionLeechSchema),
 })
 
+// ─── Leeches list (read-only feature surface) ─────────────────────────────────
+//
+// Distinct from SessionLeechSchema above: that schema lives in the post-review
+// summary payload and intentionally carries only what the session UI shows.
+// The dedicated /api/v1/leeches read path needs richer joined context (deck
+// name, FSRS counters, due/last-review timestamps, resolved metadata), so the
+// list shape is its own schema rather than overloading the session shape.
+//
+// Every joined field is nullable because `leeches.card_id` may be NULL after
+// the underlying card row is deleted — the partial unique index on
+// (card_id, user_id) WHERE resolved=FALSE permits this orphan state by
+// design (migration 20260425000001).
+
+export const ApiLeechListItemSchema = z.object({
+  id:           z.string().uuid(),
+  cardId:       z.string().uuid().nullable(),
+  deckId:       z.string().uuid().nullable(),
+  deckName:     z.string().nullable(),
+  word:         z.string().nullable(),
+  reading:      z.string().nullable(),
+  meaning:      z.string().nullable(),
+  layoutType:   layoutTypeSchema.nullable(),
+  cardType:     cardTypeSchema.nullable(),
+  jlptLevel:    jlptLevelSchema.nullable(),
+  lapses:       z.number().int().nonnegative().nullable(),
+  reps:         z.number().int().nonnegative().nullable(),
+  due:          z.string().nullable(),
+  lastReview:   z.string().nullable(),
+  diagnosis:    z.string().nullable(),
+  prescription: z.string().nullable(),
+  resolved:     z.boolean(),
+  resolvedAt:   z.string().nullable(),
+  createdAt:    z.string(),
+})
+
+export const ApiLeechListResponseSchema = z.object({
+  items:      z.array(ApiLeechListItemSchema),
+  nextCursor: z.string().nullable(),
+  hasMore:    z.boolean(),
+})
+
 // ─── User profile (lives in user.types.ts; crosses the wire) ──────────────────
 
 export const ProfileSchema = z.object({

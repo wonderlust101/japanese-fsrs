@@ -1,0 +1,285 @@
+import { z } from 'zod'
+
+import { supabaseAdmin } from '../db/supabase.ts'
+import { encodeCursor, decodeCursor } from '../lib/http.ts'
+import { componentLogger } from '../lib/logger.ts'
+import { AppError, dbError } from '../middleware/errorHandler.ts'
+import {
+  leechCreatedAtCursorSchema,
+  type ListLeechesQuery,
+} from '../schemas/leech.schema.ts'
+import {
+  getWordFields,
+  type ApiLeechListItem,
+  type ApiLeechListResponse,
+  type FieldsData,
+  type LayoutType,
+  type CardType,
+  type JLPTLevel,
+} from '@fsrs-japanese/shared-types'
+
+const log = componentLogger('leech.service')
+
+// ─── Column projections ───────────────────────────────────────────────────────
+//
+// PostgREST embedded-select syntax. The relationships are inferred from the
+// foreign keys: `leeches.card_id → cards.id` and `cards.deck_id → decks.id`,
+// so the embed names are `cards` and `decks`. Never use `select('*')` — it
+// keeps PII out of accidental log dumps and lets the schema evolve.
+//
+// The embed defaults to a LEFT JOIN so leeches with `card_id IS NULL`
+// (preserved-after-card-deletion, per migration 20260425000001) still appear
+// in the list view. When a card-side filter is applied we swap to
+// `cards!inner` so non-matching cards drop the parent row instead of
+// surfacing as a leech with `card: null`.
+
+function leechSelect(innerJoin: boolean): string {
+  const cardEmbed = innerJoin ? 'cards!inner' : 'cards'
+  return `
+    id,
+    card_id,
+    diagnosis,
+    prescription,
+    resolved,
+    resolved_at,
+    created_at,
+    card:${cardEmbed} (
+      deck_id,
+      fields_data,
+      layout_type,
+      card_type,
+      jlpt_level,
+      lapses,
+      reps,
+      due,
+      last_review,
+      is_suspended,
+      deck:decks ( name )
+    )
+  `
+}
+
+const LEECH_SELECT_LEFT  = leechSelect(false)
+const LEECH_SELECT_INNER = leechSelect(true)
+
+// ─── Row schemas ──────────────────────────────────────────────────────────────
+//
+// Parse every Supabase response with a Zod schema so silent column drift
+// surfaces as a clean ZodError instead of an `undefined` at the wire boundary.
+// Mirrors the precedent set in analytics.service.ts / deck.service.ts.
+
+const LeechDeckRowSchema = z.object({
+  name: z.string(),
+}).nullable()
+
+const LeechCardRowSchema = z.object({
+  deck_id:      z.string().uuid(),
+  fields_data:  z.record(z.string(), z.unknown()),
+  layout_type:  z.enum(['vocabulary', 'grammar', 'sentence']),
+  card_type:    z.enum(['comprehension', 'production', 'listening']),
+  jlpt_level:   z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']).nullable(),
+  lapses:       z.number().int().nonnegative(),
+  reps:         z.number().int().nonnegative(),
+  due:          z.string(),
+  last_review:  z.string().nullable(),
+  is_suspended: z.boolean(),
+  deck:         LeechDeckRowSchema,
+}).nullable()
+
+const LeechRowSchema = z.object({
+  id:           z.string().uuid(),
+  card_id:      z.string().uuid().nullable(),
+  diagnosis:    z.string().nullable(),
+  prescription: z.string().nullable(),
+  resolved:     z.boolean(),
+  resolved_at:  z.string().nullable(),
+  created_at:   z.string(),
+  card:         LeechCardRowSchema,
+})
+
+/** Internal row type. Exported solely so the unit test can type its fixtures
+ *  without redeclaring the joined-row shape. Not part of the public API. */
+export type LeechRow = z.infer<typeof LeechRowSchema>
+
+// ─── Mappers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Snake_case DB row → camelCase wire shape. Card-derived fields fall back to
+ * null when the joined card row is absent (orphaned leech: card was deleted
+ * but the leech is kept as historical learning data, per [[DATABASE]]).
+ */
+export function toListItem(raw: LeechRow): ApiLeechListItem {
+  const card = raw.card
+
+  let word: string | null = null
+  let reading: string | null = null
+  let meaning: string | null = null
+
+  if (card !== null) {
+    // `getWordFields` returns null for sentence-layout cards; vocabulary and
+    // grammar both expose word/reading/meaning via WordFields.
+    const fields = getWordFields({
+      layoutType: card.layout_type as LayoutType,
+      fieldsData: card.fields_data as FieldsData,
+    })
+    if (fields !== null) {
+      word    = fields.word
+      reading = fields.reading
+      meaning = fields.meaning
+    }
+  }
+
+  return {
+    id:           raw.id,
+    cardId:       raw.card_id,
+    deckId:       card?.deck_id ?? null,
+    deckName:     card?.deck?.name ?? null,
+    word,
+    reading,
+    meaning,
+    layoutType:   (card?.layout_type as LayoutType | undefined) ?? null,
+    cardType:     (card?.card_type as CardType | undefined)     ?? null,
+    jlptLevel:    (card?.jlpt_level as JLPTLevel | null | undefined) ?? null,
+    lapses:       card?.lapses      ?? null,
+    reps:         card?.reps        ?? null,
+    due:          card?.due         ?? null,
+    lastReview:   card?.last_review ?? null,
+    diagnosis:    raw.diagnosis,
+    prescription: raw.prescription,
+    resolved:     raw.resolved,
+    resolvedAt:   raw.resolved_at,
+    createdAt:    raw.created_at,
+  }
+}
+
+// ─── Service functions ────────────────────────────────────────────────────────
+
+/**
+ * Returns a cursor-paginated list of the authenticated user's leeches.
+ *
+ * Sort modes:
+ *   - 'mostRecent'       (default) — ORDER BY created_at DESC, id DESC
+ *   - 'oldestUnresolved'           — ORDER BY created_at ASC,  id ASC
+ *   - 'mostLapses'                 — ORDER BY card.lapses DESC NULLS LAST,
+ *                                             created_at DESC, id DESC
+ *
+ * Cursor pagination is supported for the two time-keyed sorts; both keys are
+ * immutable on `leeches`, so the cursor is stable across concurrent UPDATEs
+ * (a resolve flip does not move a row in the index).
+ *
+ * `mostLapses` is currently top-N only: the sort head key is on the joined
+ * card row, and a correct keyset implementation needs an RPC that can express
+ * the `(lapses, created_at, id)` tuple comparison atomically. A follow-up RPC
+ * migration in a later stage can lift this restriction.
+ */
+export async function listLeeches(
+  userId: string,
+  params: ListLeechesQuery,
+): Promise<ApiLeechListResponse> {
+  const { status, deckId, jlptLevel, cardType, sort, limit, cursor } = params
+
+  // Card-side filters force an inner join so non-matching cards drop the
+  // parent leech rather than surface with `card: null`. Orphans (card_id IS
+  // NULL) are dropped naturally when any card filter is applied — that's the
+  // desired behavior since the user is asking "which leeches match this
+  // deck/JLPT/etc."
+  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || cardType !== undefined
+  const selectStr = hasCardFilter ? LEECH_SELECT_INNER : LEECH_SELECT_LEFT
+
+  let q = supabaseAdmin
+    .from('leeches')
+    .select(selectStr)
+    .eq('user_id', userId)
+    .eq('resolved', status === 'resolved')
+    .limit(limit + 1)
+
+  if (deckId    !== undefined) q = q.eq('card.deck_id',    deckId)
+  if (jlptLevel !== undefined) q = q.eq('card.jlpt_level', jlptLevel)
+  if (cardType  !== undefined) q = q.eq('card.card_type',  cardType)
+
+  // ── Ordering ──
+  if (sort === 'mostRecent') {
+    q = q
+      .order('created_at', { ascending: false })
+      .order('id',         { ascending: false })
+  } else if (sort === 'oldestUnresolved') {
+    q = q
+      .order('created_at', { ascending: true })
+      .order('id',         { ascending: true })
+  } else {
+    // mostLapses. `foreignTable` orders by the joined cards row; nullsFirst:false
+    // keeps orphan leeches (card row absent) at the end of the list.
+    q = q
+      .order('lapses',     { ascending: false, nullsFirst: false, foreignTable: 'cards' })
+      .order('created_at', { ascending: false })
+      .order('id',         { ascending: false })
+  }
+
+  // ── Cursor ──
+  if (cursor !== undefined) {
+    if (sort === 'mostLapses') {
+      // See docstring — mostLapses is top-N only for now. Treat the cursor as
+      // invalid so the client gets a clean 400 rather than silently returning
+      // the same page.
+      throw new AppError(400, 'Cursor pagination is not supported for this sort order', { code: 'CURSOR_INVALID' })
+    }
+    const { createdAt, id } = decodeCursor(cursor, leechCreatedAtCursorSchema)
+    // Keyset pagination over the tuple (created_at, id). For DESC order:
+    //   WHERE created_at < cursor.createdAt
+    //      OR (created_at = cursor.createdAt AND id < cursor.id)
+    // For ASC order, swap < / > operators.
+    //
+    // Supabase JS's .or() takes a single string of comma-separated filter
+    // alternatives; nested AND is `and(<filter>,<filter>)`. UUIDs and ISO-8601
+    // timestamps cannot contain commas or unescaped reserved chars, so direct
+    // interpolation is safe — but if the cursor schema ever widens, revisit.
+    const op = sort === 'mostRecent' ? 'lt' : 'gt'
+    q = q.or(`created_at.${op}.${createdAt},and(created_at.eq.${createdAt},id.${op}.${id})`)
+  }
+
+  const { data, error } = await q
+
+  if (error !== null) {
+    throw dbError('list leeches', error)
+  }
+
+  const rows    = z.array(LeechRowSchema).parse(data ?? [])
+  const hasMore = rows.length > limit
+  const visible = rows.slice(0, limit)
+  const items   = visible.map(toListItem)
+
+  let nextCursor: string | null = null
+  if (hasMore && sort !== 'mostLapses') {
+    const last = visible[visible.length - 1]
+    if (last !== undefined) {
+      nextCursor = encodeCursor({ createdAt: last.created_at, id: last.id })
+    }
+  }
+
+  return { items, nextCursor, hasMore }
+}
+
+/**
+ * Returns a single leech with full joined context, or throws 404 if the row
+ * does not exist for the authenticated user. The query filters by user_id in
+ * SQL — RLS would also block cross-user reads, but we use the service-role
+ * client so explicit filtering is the only safety belt.
+ */
+export async function getLeechById(userId: string, id: string): Promise<ApiLeechListItem> {
+  const { data, error } = await supabaseAdmin
+    .from('leeches')
+    .select(LEECH_SELECT_LEFT)
+    .eq('id',      id)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error !== null) {
+    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'getLeechById query failed')
+    throw dbError('fetch leech', error)
+  }
+  if (data === null) {
+    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+  }
+
+  return toListItem(LeechRowSchema.parse(data))
+}
