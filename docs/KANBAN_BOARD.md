@@ -4,7 +4,7 @@ kanban-plugin: board
 
 ---
 
-Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-12.
+Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refreshed by code inspection on 2026-05-13.
 
 ## To Do
 
@@ -96,6 +96,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Treat this as an active migration checklist instead of scattered unrelated fixes.
 	  - Recommended action: fix drift when touching the relevant component, and reserve broad cleanup for a focused design-system pass.
 	  - Done when the remaining app surfaces consistently follow the established design tokens, component patterns, and brand rules.
+- [ ] **Home, decks, masthead, and navigation visual polish**
+	  - Decide whether the learner date belongs on the home/dashboard masthead or in sidebar/navigation chrome.
+	  - Edit deck-list styles on the home/dashboard page so active deck summaries match the current design-system direction.
+	  - Refine the My Decks page layout, states, and visual treatment.
+	  - Replace the current masthead background illustration.
+	  - Change the analytics navigation icon to the updated custom mark.
+	  - Done when the home/dashboard page, My Decks page, and navigation reflect the decision and [status/FRONTEND.md](status/FRONTEND.md) no longer lists these as pending drift.
 - [ ] **Remove visible AI wording from user-facing surfaces**
 	  - Replace UI labels such as `Generate with AI` with outcome-based wording like create, suggest, draft, or explain.
 	  - Remove or revise public metadata wording such as `AI-enhanced` where it makes AI a visible product promise.
