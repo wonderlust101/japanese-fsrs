@@ -178,8 +178,9 @@ export const createDrillSessionSchema = z.object({
 
 export type CreateDrillSessionInput = z.infer<typeof createDrillSessionSchema>
 
-/** Body schema for the session-transition endpoints (`/finish`, `/abort`).
- *  No body fields are needed today — the URL path encodes the verb. The
- *  schema is intentionally strict-empty so future field additions don't
- *  silently accept stale payloads. */
-export const drillSessionTransitionBodySchema = z.object({}).strict()
+/** Strict-empty body schema for any POST endpoint where the URL path encodes
+ *  the entire intent (`/finish`, `/abort`, `/diagnose`). The `.strict()` keeps
+ *  unknown body keys from being silently accepted: any future feature that
+ *  wants to add a body field has to bump the per-endpoint schema explicitly,
+ *  which forces the design decision into view rather than allowing drift. */
+export const emptyBodySchema = z.object({}).strict()

@@ -875,6 +875,15 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
   // Extract word/reading/meaning from fields_data via the shared helper so
   // vocabulary and grammar cards both work; sentence-layout cards return
   // null fields and fail with the same 422.
+  //
+  // The `as LayoutType` / `as FieldsData` casts are narrowing-after-validation:
+  // `LeechDiagnosisCardRowSchema` above already constrained `layout_type` to
+  // one of 'vocabulary' | 'grammar' | 'sentence' and `fields_data` to a
+  // non-null record. The casts shift those Zod-inferred types to the
+  // shared-types brands without runtime work. Same pattern toListItem() uses
+  // for the list response (see this file, line ~111). The standards file
+  // (`CODING_STANDARDS.md` §Types) asks for a comment justifying any
+  // narrowing assertion; this is it.
   const fields = getWordFields({
     layoutType: card.layout_type as LayoutType,
     fieldsData: card.fields_data as FieldsData,
@@ -885,14 +894,39 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
     })
   }
 
-  // 4. Fetch the learner's profile slice (JLPT target + native language) for
-  //    the prompt's voice. Fall back to safe defaults if missing — diagnosis
-  //    should not fail just because preferences are sparse.
-  const { data: profileRow, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('jlpt_target, native_language')
-    .eq('id', userId)
-    .maybeSingle()
+  // 4. + 5. Fetch the profile slice and recent review-log ratings in PARALLEL.
+  //    They share no inputs and both must complete before the prompt is built,
+  //    so awaiting serially would add one Supabase round-trip of latency per
+  //    fresh diagnose call (p50 ~15-30ms). Both error branches degrade to
+  //    safe defaults rather than failing the diagnosis — preferences can be
+  //    sparse and review history can be empty, and neither should block AI.
+  //
+  //    EXPLAIN reasoning for the review_logs query: existing indexes are
+  //      review_logs_card_id_idx (card_id)
+  //      review_logs_user_id_reviewed_at_idx (user_id, reviewed_at)
+  //    For our (card_id, user_id, ORDER BY reviewed_at DESC LIMIT 10) shape,
+  //    the planner picks card_id_idx and sorts in memory. For the dominant
+  //    "lapsed >= 8 times" diagnose targets, candidate rows per card are
+  //    bounded (tens, not hundreds) so the sort is cheap. If observability
+  //    ever shows this query exceeding 50ms p95, add a covering index on
+  //    (card_id, user_id, reviewed_at DESC).
+  const [
+    { data: profileRow, error: profileError },
+    { data: ratingRows,  error: ratingError  },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('profiles')
+      .select('jlpt_target, native_language')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('review_logs')
+      .select('rating')
+      .eq('card_id', leechRow.card_id)
+      .eq('user_id', userId)
+      .order('reviewed_at', { ascending: false })
+      .limit(10),
+  ])
 
   if (profileError !== null) {
     log.warn({ userId, err: { message: profileError.message, code: profileError.code } },
@@ -901,17 +935,6 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
   const profile = profileRow !== null
     ? ProfileForDiagnosisSchema.parse(profileRow)
     : { jlpt_target: null, native_language: 'en' }
-
-  // 5. Pull the last 10 review-log ratings for the card, oldest → newest, so
-  //    the prompt can see whether the lapses cluster recent or are stable.
-  //    Limit 10 to keep prompt size bounded and the query fast.
-  const { data: ratingRows, error: ratingError } = await supabaseAdmin
-    .from('review_logs')
-    .select('rating')
-    .eq('card_id', leechRow.card_id)
-    .eq('user_id', userId)
-    .order('reviewed_at', { ascending: false })
-    .limit(10)
 
   if (ratingError !== null) {
     log.warn({ leechId, err: { message: ratingError.message, code: ratingError.code } },

@@ -1,12 +1,12 @@
 import type { RequestHandler } from 'express'
 
-import type { ApiLeechDrillSession } from '@fsrs-japanese/shared-types'
+import type { ApiLeechDrillSession, ApiLeechListItem } from '@fsrs-japanese/shared-types'
 
 import { withIdempotency } from '../lib/idempotency.ts'
 import {
   createDrillSessionSchema,
   drillSessionIdParamSchema,
-  drillSessionTransitionBodySchema,
+  emptyBodySchema,
   leechIdParamSchema,
   listLeechesQuerySchema,
   recordDrillAttemptSchema,
@@ -63,8 +63,32 @@ export const getDrillSession: RequestHandler = async (req, res): Promise<void> =
 
 export const diagnoseLeech: RequestHandler = async (req, res): Promise<void> => {
   const { id } = leechIdParamSchema.parse(req.params)
-  const leech  = await leechService.diagnoseLeech(req.user.id, id)
-  res.json(leech)
+  // Strict-empty body check: rejects `{ foo: 'bar' }` with VALIDATION_ERROR
+  // rather than silently ignoring extra fields. Defense-in-depth — future
+  // feature additions must bump the schema explicitly.
+  emptyBodySchema.parse(req.body ?? {})
+
+  // Idempotency-Key required per the project standard for retryable mutations
+  // with business consequence on duplicate execution (OpenAI cost). The replay
+  // key payload includes only `leechId` — the sole client-controlled dimension
+  // for diagnose. Same key + same leech replay returns the original response
+  // without re-calling OpenAI; same key + different leech returns 422
+  // IDEMPOTENCY_KEY_CONFLICT.
+  //
+  // The DB-level replay-on-existing semantic still applies on a *fresh*
+  // idempotency key: a client that mints a new key but targets a leech
+  // already populated with diagnosis returns the stored values without an
+  // OpenAI call. Belt and suspenders.
+  const { status, body } = await withIdempotency<ApiLeechListItem>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { leechId: id },
+    async () => {
+      const leech = await leechService.diagnoseLeech(req.user.id, id)
+      return { status: 200, body: leech }
+    },
+  )
+  res.status(status).json(body)
 }
 
 export const recordDrillAttempt: RequestHandler = async (req, res): Promise<void> => {
@@ -81,14 +105,14 @@ export const finishDrillSession: RequestHandler = async (req, res): Promise<void
   const { sessionId } = drillSessionIdParamSchema.parse(req.params)
   // Reject any body content other than `{}` so future fields can be added
   // without ambiguity. The .strict() check fires on unknown keys.
-  drillSessionTransitionBodySchema.parse(req.body ?? {})
+  emptyBodySchema.parse(req.body ?? {})
   const session = await leechService.transitionDrillSession(req.user.id, sessionId, 'finished')
   res.json(session)
 }
 
 export const abortDrillSession: RequestHandler = async (req, res): Promise<void> => {
   const { sessionId } = drillSessionIdParamSchema.parse(req.params)
-  drillSessionTransitionBodySchema.parse(req.body ?? {})
+  emptyBodySchema.parse(req.body ?? {})
   const session = await leechService.transitionDrillSession(req.user.id, sessionId, 'aborted')
   res.json(session)
 }

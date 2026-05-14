@@ -53,6 +53,14 @@ const MNEMONIC_CACHE_TTL  = 60 * 60 * 24 * 30   // 30 days — per TDD §10.1
 // re-derived on every retry.
 const DIAGNOSIS_CACHE_TTL = 60 * 60 * 24 * 30
 
+// Bump when the diagnosis prompt's system or user message changes in a way
+// that should produce different output. The version becomes part of the
+// cache key, so entries written under the old prompt are not served against
+// the new prompt — they simply don't match the new key, the next call
+// regenerates and caches under the versioned key, and the old entries TTL
+// out naturally. Forward-only cache invalidation, zero downtime.
+const DIAGNOSIS_PROMPT_VERSION = 'v1'
+
 // Hard cap on the joined interests fragment when it lands in a prompt — even
 // 20 individually-bounded interests can produce a 1KB+ string that crowds out
 // the actual instruction text.
@@ -440,11 +448,14 @@ export async function generateLeechDiagnosis(
   // defensively in case future ratings include user text.
   const safeRatings = recentRatings.map((r) => sanitizeForPrompt(r))
 
-  // Cache key encodes the inputs that affect the diagnosis output. Reading is
-  // optional; lapse count is the lever; recent ratings are the pattern; level
-  // + native language affect voice. Same word + same pattern + same learner
-  // produces the same diagnosis.
-  const cacheKey = `diagnosis:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(',')}`
+  // Cache key encodes every dimension that affects the diagnosis output:
+  // prompt-template version (bumped when the prompt body changes), word,
+  // reading, lapse count, recent rating pattern, learner level, and native
+  // language. Same inputs → same diagnosis — shared across users by design
+  // since the output depends on the card + the lapse pattern, not on user
+  // identity. Per `CODING_STANDARDS_BACKEND.md` §Performance: "cache keys
+  // include every dimension that affects the result."
+  const cacheKey = `diagnosis:${DIAGNOSIS_PROMPT_VERSION}:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(',')}`
 
   const fromCache = await readCache(cacheKey, GeneratedLeechDiagnosisSchema)
   if (fromCache !== null) return fromCache

@@ -220,6 +220,12 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - New SECURITY DEFINER RPC `transition_leech_drill_session` (RETURNS void; service does a follow-up `get_leech_drill_session` for the post-state envelope so the wire shape stays identical to Stage 4's GET response). `FOR UPDATE` lock guards against concurrent transitions.
 	  - 22 new unit tests including extension of the property-based scheduler-invariance suite to cover `transitionDrillSession` and all five `createDrillSession` source values.
 	  - **Backend is feature-complete** for everything except AI diagnosis (Stage 7 added that) and the optional `leech_drill_card_states` aggregate (deferred, no consumer surface).
+- [x] **Coding-standards compliance fix-up on diagnose (Stage 7.1)**
+	  - `POST /api/v1/leeches/:id/diagnose` now requires the `Idempotency-Key` header (wrapped in `withIdempotency`), validates the request body strictly via the renamed reusable `emptyBodySchema`, and parallelizes the profile + review_logs fetches with `Promise.all`.
+	  - AI diagnosis cache key now includes a `DIAGNOSIS_PROMPT_VERSION` constant so any future prompt-template edit invalidates the old cache cleanly (forward-only — old entries TTL out).
+	  - Justification comments added per `CODING_STANDARDS.md` §Types for the `LayoutType` / `FieldsData` narrowing casts, and per §Performance for the `review_logs` query's index-trade-off reasoning.
+	  - Tests: explicit IDOR coverage (cross-user request returns 404 with **no** AI call fired) and parallel-fetch coverage (both profile + review_logs queues drained on fresh diagnose).
+	  - Explicitly deferred: through-Express integration tests and real-DB tests (project-wide test-infra investments, not per-feature work); the `(card_id, user_id, reviewed_at DESC)` index on `review_logs` (no observed slow query yet — trigger documented in code: > 50ms p95).
 - [x] **Free MVP completion + AI leech diagnosis (Stage 7)**
 	  - Removed the paid/free tier model entirely. For the MVP release, every Tomo feature is available to every authenticated learner. Code paths no longer reference any entitlement; rate limiters are the only cost-control mechanism.
 	  - `POST /api/v1/leeches/:id/diagnose` ships as a free MVP endpoint. Builds prompt context from card content + recent review-log ratings + lapse count + learner profile (JLPT target, native language). Replay-on-existing semantics: a leech already populated with diagnosis returns the stored values without re-calling OpenAI; clients regenerate by resolving+reopening the leech.
