@@ -22,6 +22,8 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`cards`](#table-cards)
   - [`review_logs`](#table-review_logs)
   - [`leeches`](#table-leeches)
+  - [`leech_drill_sessions`](#table-leech_drill_sessions)
+  - [`leech_drill_session_cards`](#table-leech_drill_session_cards)
   - [`idempotency_keys`](#table-idempotency_keys)
 - [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
 - [Triggers](#triggers)
@@ -90,6 +92,8 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `cards` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `review_logs` | ALL | SELECT, INSERT | — |
 | `leeches` | ALL | SELECT, INSERT, UPDATE | — |
+| `leech_drill_sessions` | ALL | SELECT, INSERT, UPDATE | — |
+| `leech_drill_session_cards` | ALL | SELECT, INSERT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
 | `user_premade_subscriptions` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
@@ -447,6 +451,86 @@ Tracks cards that have lapsed too many times (≥ `LEECH_THRESHOLD`, default 8 �
 
 ---
 
+### Table: `leech_drill_sessions`
+
+Persisted envelope for one focused drill run (Stage 3 of the leech-drill feature, added in migration `20260531000000_leech_drill_sessions.sql`). Created via the `create_leech_drill_session()` RPC. Drilling is a *parallel SRS namespace* — these sessions never write to `cards` or `review_logs`.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `user_id` | `UUID` | NO | — | FK to `profiles(id)` — cascades on user deletion. |
+| `source` | `TEXT` | NO | — | What populated the queue. CHECK admits `unresolved_leeches`, `high_lapse_candidates`, `deck_scoped`, `manual_selection`, `current_card`; Stage 3 only writes the first two. Wire payloads use camelCase (`unresolvedLeeches`, `deckScoped`); the service layer maps. |
+| `source_query` | `JSONB` | NO | `'{}'::jsonb` | Frozen filter snapshot (`deckId`, `jlptLevel`, `cardType`, `order`, `limit`) for analytics. CHECK enforces `jsonb_typeof = 'object'`. |
+| `mode` | `TEXT` | NO | `'practice'` | `practice` (default) or `timed` (reserved). Stage 3 only writes `practice`. |
+| `repeat_policy` | `TEXT` | NO | `'missed_after_lag'` | `none` or `missed_after_lag`. Stored but not yet behaviorally enforced. |
+| `stop_rule` | `JSONB` | NO | `'{}'::jsonb` | Reserved for Stage 4+ (max-misses, time cap). CHECK enforces object shape. |
+| `status` | `TEXT` | NO | `'active'` | `active` → `finished` or `aborted`. Stage 3 only writes `active`. |
+| `started_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the session was created. |
+| `finished_at` | `TIMESTAMPTZ` | YES | `NULL` | Set when status transitions to `finished` or `aborted`. CHECK `finished_at >= started_at`. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
+
+**Indexes:**
+- `leech_drill_sessions_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user history paging.
+- `leech_drill_sessions_user_active_idx`: `(user_id, updated_at DESC, id DESC) WHERE status = 'active'` — Stage 4 resume hot path; partial keeps the index narrow.
+
+**RLS Policies:**
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id` |
+| INSERT | `auth.uid() = user_id` (defense-in-depth) |
+| UPDATE | `auth.uid() = user_id` (defense-in-depth — for Stage 5 status transitions) |
+| DELETE | **No policy.** |
+
+---
+
+### Table: `leech_drill_session_cards`
+
+Per-card snapshot of canonical FSRS state at the moment a drill session is created. Every queued card writes exactly one row. Used by Stage 4 (resume + staleness detection) and Stage 5 (attempts FK target). Snapshots are immutable by design — no UPDATE/DELETE policy.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
+| `session_id` | `UUID` | NO | — | FK to `leech_drill_sessions(id)` — cascades. |
+| `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion so session history stays inspectable. |
+| `leech_id` | `UUID` | YES | — | FK to `leeches(id)` — `SET NULL` on leech deletion. |
+| `user_id` | `UUID` | NO | — | Denormalized FK to `profiles(id)` — cascades. Duplicates the session's owner so user-scoped queries and RLS predicates don't have to join through `leech_drill_sessions`. |
+| `ordinal` | `INT` | NO | — | Stable position in the session's queue (0-indexed). `CHECK (ordinal >= 0)`. |
+| `source_reason` | `TEXT` | NO | — | Why this card was queued. CHECK admits `unresolved_leech`, `high_lapse_candidate`, `manual_selection`, `current_card`; Stage 3 only writes `unresolved_leech`. |
+| `baseline_state` | `INT` | NO | — | Snapshot of `cards.state` at session start. `CHECK BETWEEN 0 AND 3` (ts-fsrs states). |
+| `baseline_due` | `TIMESTAMPTZ` | NO | — | Snapshot of `cards.due`. |
+| `baseline_stability` | `DOUBLE PRECISION` | NO | — | Snapshot of `cards.stability`. `CHECK >= 0`. |
+| `baseline_difficulty` | `DOUBLE PRECISION` | NO | — | Snapshot of `cards.difficulty`. `CHECK >= 0`. |
+| `baseline_elapsed_days` | `INT` | NO | — | Snapshot of `cards.elapsed_days`. `CHECK >= 0`. |
+| `baseline_scheduled_days` | `INT` | NO | — | Snapshot of `cards.scheduled_days`. `CHECK >= 0`. |
+| `baseline_learning_steps` | `INT` | NO | — | Snapshot of `cards.learning_steps`. `CHECK >= 0`. |
+| `baseline_reps` | `INT` | NO | — | Snapshot of `cards.reps`. `CHECK >= 0`. |
+| `baseline_lapses` | `INT` | NO | — | Snapshot of `cards.lapses`. `CHECK >= 0`. |
+| `baseline_last_review` | `TIMESTAMPTZ` | YES | — | Snapshot of `cards.last_review` (nullable). |
+| `canonical_state_fingerprint` | `TEXT` | NO | — | Version-prefixed md5 hash over the ten `baseline_*` fields (current version: `v1:<32-hex>`). Stage 4 staleness detection recomputes the same hash from current `cards` state and compares. The `v1:` prefix lets future hash-function changes detect older-version values cleanly. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
+
+**Unique constraints:**
+- `(session_id, ordinal)` — stable queue order.
+- `(id, session_id)` — composite key referenced by Stage 5's `leech_drill_attempts` via FK `(session_card_id, session_id)`, making cross-session attempt forgery structurally impossible.
+
+**Indexes:**
+- `leech_drill_session_cards_user_card_idx`: `(user_id, card_id) WHERE card_id IS NOT NULL` — "did this user drill this card?" lookups.
+- `leech_drill_session_cards_session_card_idx`: `UNIQUE (session_id, card_id) WHERE card_id IS NOT NULL` — prevents the same card appearing twice in one queue. Partial so post-deletion orphans (card_id NULL) can coexist.
+- `leech_drill_session_cards_leech_idx`: `(leech_id) WHERE leech_id IS NOT NULL` — per-leech drill history.
+
+**RLS Policies:**
+
+| Operation | Predicate |
+|---|---|
+| SELECT | `auth.uid() = user_id` |
+| INSERT | `auth.uid() = user_id` (defense-in-depth) |
+| UPDATE | **No policy.** |
+| DELETE | **No policy.** |
+
+---
+
 ### Table: `idempotency_keys`
 
 Per-user replay store for idempotent POST endpoints. Required by:
@@ -547,6 +631,12 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `claim_idempotency_key(p_user_id, p_key, p_request_hash)` | Returns `'fresh'`, `'replay'`, `'conflict'`, or `'in_flight'`. Lazily deletes expired rows for the user. |
 | `store_idempotency_response(p_user_id, p_key, p_status, p_body)` | Writes the final status + body for a previously-claimed key. |
 | `delete_idempotency_key(p_user_id, p_key)` | Releases a placeholder so the caller can retry after a non-`AppError` exception. |
+
+### Leech drill RPCs
+
+| Function | Purpose | Returns |
+|---|---|---|
+| `create_leech_drill_session(p_user_id, p_source, p_deck_id, p_jlpt_level, p_card_type, p_order, p_limit, p_mode, p_repeat_policy, p_stop_rule, p_source_query)` | Stage 3 of the leech-drill feature. Inserts one `leech_drill_sessions` row and N `leech_drill_session_cards` rows (snapshots) atomically. Selects candidates from unresolved, non-suspended, non-orphan leeches. Computes the `v1:` canonical-state fingerprint per snapshot inside the same statement so snapshot and fingerprint cannot disagree. Writes nothing to `cards` or `review_logs` — the scheduler-invariance guarantee is structural. | `JSONB` envelope: `{ sessionId, status, cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, cardType, fieldsData, lapses }] }`. |
 
 ---
 

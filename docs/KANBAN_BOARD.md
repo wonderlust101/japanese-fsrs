@@ -28,12 +28,12 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Issue type: documentation accuracy and implementation mismatch.
 	  - Current mismatch: [DATABASE.md](DATABASE.md) describes async leech diagnosis and prescription population, while the implementation currently supports leech flagging without the diagnosis pipeline.
 	  - Done when a concrete service/API path populates diagnosis and prescription data, or the database documentation is explicitly revised to describe the implemented behavior.
-- [ ] **Add leeches list and drill support — Stages 3+**
-	  - Stage 3: `POST /api/v1/leeches/drill-sessions` — build a focused-practice queue from unresolved leeches without touching FSRS state.
-	  - Stage 4 (optional): persist drill attempts in a new `leech_drill_attempts` table for "did drills help?" analytics.
+- [ ] **Add leeches list and drill support — Stages 4+**
+	  - Stage 4: `GET /api/v1/leeches/drill-sessions/:id` — resume an in-progress drill session and surface `isCanonicalStateStale` + `staleCards` by comparing the stored fingerprint against current `cards` state.
+	  - Stage 5: `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` plus the `leech_drill_attempts` table — immutable per-answer events, idempotent by `eventId`, composite FK to session-cards. Ships alongside the property-based scheduler-invariance test suite.
 	  - Frontend: wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
 	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
-	  - Stages 1 (list + detail) and 2 (resolve + reopen) are complete — see Done lane.
+	  - Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), and 3 (drill session creation + snapshot) are complete — see Done lane.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -201,6 +201,12 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Added `deckOrder` to `leechSortEnum` and the `diagnosis: available | missing` filter to `listLeechesQuerySchema`, closing the two gaps the updated spec surfaced.
 	  - Cursor pagination remains restricted to time-keyed sorts; `deckOrder` is top-N only (same constraint as `mostLapses`) until an RPC lifts it.
 	  - The paid-tier `diagnosis: 'not included in plan'` arm is intentionally omitted until entitlements ship.
+- [x] **Leech drill session creation + snapshot (Stage 3)**
+	  - `POST /api/v1/leeches/drill-sessions` builds a persisted, focused drill queue gated by `Idempotency-Key` so network retries can't mint duplicate sessions.
+	  - Two new tables (migration `20260531000000_leech_drill_sessions.sql`): `leech_drill_sessions` (envelope) and `leech_drill_session_cards` (per-card baseline_* FSRS snapshot + versioned `v1:` canonical_state_fingerprint).
+	  - One SECURITY DEFINER RPC (`create_leech_drill_session`), GRANTed to `service_role` with pinned `search_path`. Selects candidates, inserts the session, inserts N snapshots — all in one transaction.
+	  - Composite `UNIQUE (id, session_id)` on `leech_drill_session_cards` reserves the FK Stage 5's `leech_drill_attempts` will use to make cross-session attempt forgery structurally impossible.
+	  - Strict scheduler invariance: the RPC's body contains zero UPDATE/DELETE against `cards` or `review_logs`; the service does not import `fsrs.service.ts`.
 
 %% kanban:settings
 ```

@@ -1,17 +1,20 @@
 import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
+import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import {
   leechCreatedAtCursorSchema,
+  type CreateDrillSessionInput,
   type ListLeechesQuery,
 } from '../schemas/leech.schema.ts'
 import {
   getWordFields,
   type ApiLeechListItem,
   type ApiLeechListResponse,
+  type ApiLeechDrillSession,
   type FieldsData,
   type LayoutType,
   type CardType,
@@ -441,4 +444,89 @@ export async function reopenLeech(userId: string, id: string): Promise<ApiLeechL
   }
 
   return fetchLeechJoined(userId, id)
+}
+
+// ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
+//
+// The RPC `create_leech_drill_session` (migration 20260531000000) runs the
+// candidate selection, session INSERT, and N snapshot INSERTs inside one
+// transaction. The service does not call the FSRS layer and never writes to
+// `cards` or `review_logs` — drill is a parallel namespace by design.
+
+const DrillSessionCardRowSchema = z.object({
+  sessionCardId: z.string().uuid(),
+  leechId:       z.string().uuid(),
+  cardId:        z.string().uuid(),
+  ordinal:       z.number().int().nonnegative(),
+  layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']),
+  cardType:      z.enum(['comprehension', 'production', 'listening']),
+  fieldsData:    z.record(z.string(), z.unknown()),
+  lapses:        z.number().int().nonnegative(),
+})
+
+const DrillSessionResponseSchema = z.object({
+  sessionId: z.string().uuid(),
+  status:    z.enum(['active', 'finished', 'aborted']),
+  cards:     z.array(DrillSessionCardRowSchema),
+})
+
+/** Wire camelCase → DB snake_case for the `source` enum. The DB CHECK admits
+ *  the snake_case values; the API accepts only the two Stage 3 implements. */
+function sourceToDb(source: CreateDrillSessionInput['source']): string {
+  return source === 'unresolvedLeeches' ? 'unresolved_leeches' : 'deck_scoped'
+}
+
+/** Wire camelCase → DB snake_case for the `repeat_policy` enum. */
+function repeatPolicyToDb(policy: CreateDrillSessionInput['repeatPolicy']): string {
+  return policy === 'missedAfterLag' ? 'missed_after_lag' : 'none'
+}
+
+/**
+ * Creates a persisted drill session for the authenticated user and returns
+ * the ordered queue (each card stamped with its `sessionCardId` for Stage 5
+ * attempts). The RPC snapshots canonical FSRS state for every queued card so
+ * Stage 4's resume endpoint can detect staleness without re-querying the
+ * full history.
+ *
+ * An empty queue is a valid result (status 'active', cards: []) — the caller
+ * decides how to surface "nothing to drill right now" in UX.
+ *
+ * Idempotency: the controller wraps this call in `withIdempotency`, so
+ * network retries with the same `Idempotency-Key` + body return the same
+ * sessionId rather than creating duplicate sessions.
+ */
+export async function createDrillSession(
+  userId: string,
+  input:  CreateDrillSessionInput,
+): Promise<ApiLeechDrillSession> {
+  const { data, error } = await supabaseAdmin.rpc('create_leech_drill_session', asPayload({
+    p_user_id:       userId,
+    p_source:        sourceToDb(input.source),
+    p_deck_id:       input.deckId    ?? null,
+    p_jlpt_level:    input.jlptLevel ?? null,
+    p_card_type:     input.cardType  ?? null,
+    p_order:         input.order,
+    p_limit:         input.limit,
+    p_mode:          input.mode,
+    p_repeat_policy: repeatPolicyToDb(input.repeatPolicy),
+    p_stop_rule:     input.stopRule,
+    // source_query is the analytics breadcrumb. Persist the wire-level filters
+    // (camelCase) so future analytics queries don't have to reverse-map.
+    p_source_query: {
+      deckId:    input.deckId    ?? null,
+      jlptLevel: input.jlptLevel ?? null,
+      cardType:  input.cardType  ?? null,
+      order:     input.order,
+      limit:     input.limit,
+    },
+  }))
+
+  if (error !== null) {
+    log.error({ err: { message: error.message, code: error.code } }, 'createDrillSession RPC failed')
+    throw dbError('create drill session', error)
+  }
+
+  // The RPC's RETURNS JSONB carries the full envelope. Parse it through Zod
+  // so silent schema drift surfaces as a clean ZodError at this boundary.
+  return DrillSessionResponseSchema.parse(data)
 }

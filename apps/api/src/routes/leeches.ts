@@ -9,6 +9,11 @@ const router = Router()
 router.use(authMiddleware, defaultUserRateLimitMiddleware)
 
 router.get('/',    leechesController.list)
+
+// Literal-path POSTs must be registered before any `:id` parameterized POST
+// so Express's first-match routing can't capture 'drill-sessions' as an ID.
+router.post('/drill-sessions', leechesController.createDrillSession)
+
 router.get('/:id', leechesController.get)
 
 router.post('/:id/resolve', leechesController.resolve)

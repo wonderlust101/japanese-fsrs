@@ -1,6 +1,7 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test'
 
 import {
+  createDrillSessionSchema,
   listLeechesQuerySchema,
   leechIdParamSchema,
 } from '../../schemas/leech.schema.ts'
@@ -27,6 +28,12 @@ interface MockState {
   // `.maybeSingle()` switches the terminal resolver to a single-row shape;
   // `.single()` does the same with a different missing-row code.
   terminalShape: 'list' | 'maybeSingle'
+
+  // ── RPC mock state ──────────────────────────────────────────────────────
+  // Stage 3+ exercises `supabaseAdmin.rpc('name', payload)`. Tests push
+  // response objects keyed by RPC name; the mock pops one per call.
+  rpcResponses: Record<string, Array<{ data: unknown; error: { message: string; code?: string } | null }>>
+  rpcCalls:     Array<{ name: string; payload: unknown }>
 }
 
 const state: MockState = {
@@ -34,13 +41,17 @@ const state: MockState = {
   calls:        [],
   lastTable:    null,
   terminalShape: 'list',
+  rpcResponses: {},
+  rpcCalls:     [],
 }
 
 function reset(): void {
-  state.responses    = {}
-  state.calls        = []
-  state.lastTable    = null
+  state.responses     = {}
+  state.calls         = []
+  state.lastTable     = null
   state.terminalShape = 'list'
+  state.rpcResponses  = {}
+  state.rpcCalls      = []
 }
 
 function makeBuilder(table: string): unknown {
@@ -79,11 +90,16 @@ mock.module('../../db/supabase.ts', () => ({
       state.lastTable = table
       return makeBuilder(table)
     }),
-    rpc: mock(async () => ({ data: null, error: null })),
+    rpc: mock(async (name: string, payload: unknown) => {
+      state.rpcCalls.push({ name, payload })
+      const queue = state.rpcResponses[name] ?? []
+      return queue.shift() ?? { data: null, error: null }
+    }),
   },
 }))
 
-const { listLeeches, getLeechById, toListItem, resolveLeech, reopenLeech } = await import('../leech.service.ts')
+const { listLeeches, getLeechById, toListItem, resolveLeech, reopenLeech, createDrillSession } =
+  await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
 beforeEach(() => {
@@ -597,5 +613,197 @@ describe('leech.service — listLeeches diagnosis filter', () => {
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['card.deck_id', DECK_ID] })
     const notCalls = state.calls.filter((c) => c.method === 'not')
     expect(notCalls).toContainEqual({ method: 'not', args: ['diagnosis', 'is', null] })
+  })
+})
+
+// ── createDrillSession — Stage 3 ────────────────────────────────────────────
+
+const DRILL_SESSION_ID    = 'b1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c'
+const DRILL_SESSION_CARD  = 'c2e6c3d4-5e6f-4a7b-8c9d-7e6f5a4b3c2d'
+const DRILL_SESSION_CARD2 = 'd3f7d4e5-6f7a-4b8c-9d0e-8f7a6b5c4d3e'
+
+const SAMPLE_DRILL_ENVELOPE = {
+  sessionId: DRILL_SESSION_ID,
+  status:    'active',
+  cards: [
+    {
+      sessionCardId: DRILL_SESSION_CARD,
+      leechId:       LEECH_ID,
+      cardId:        CARD_ID,
+      ordinal:       0,
+      layoutType:    'vocabulary',
+      cardType:      'comprehension',
+      fieldsData:    { word: '猫', reading: 'ねこ', meaning: 'cat' },
+      lapses:        8,
+    },
+    {
+      sessionCardId: DRILL_SESSION_CARD2,
+      leechId:       'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f',
+      cardId:        'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a',
+      ordinal:       1,
+      layoutType:    'vocabulary',
+      cardType:      'production',
+      fieldsData:    { word: '犬', reading: 'いぬ', meaning: 'dog' },
+      lapses:        12,
+    },
+  ],
+}
+
+describe('createDrillSession schema', () => {
+  it('parses an empty body with the documented defaults', () => {
+    const parsed = createDrillSessionSchema.parse({})
+    expect(parsed.source).toBe('unresolvedLeeches')
+    expect(parsed.order).toBe('mostLapses')
+    expect(parsed.limit).toBe(20)
+    expect(parsed.mode).toBe('practice')
+    expect(parsed.repeatPolicy).toBe('missedAfterLag')
+    expect(parsed.stopRule).toEqual({})
+  })
+
+  it('rejects unknown body keys (.strict)', () => {
+    const result = createDrillSessionSchema.safeParse({ foo: 'bar' })
+    expect(result.success).toBe(false)
+  })
+
+  it('clamps limit to [1, 50]', () => {
+    expect(createDrillSessionSchema.safeParse({ limit: 0 }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ limit: 51 }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ limit: 50 }).success).toBe(true)
+  })
+
+  it('requires deckId when source is "deckScoped"', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'deckScoped' }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ source: 'deckScoped', deckId: DECK_ID }).success).toBe(true)
+  })
+
+  it('accepts only the two Stage 3 source values (DB CHECK is wider)', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'unresolvedLeeches' }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates' }).success).toBe(false)
+  })
+})
+
+describe('leech.service — createDrillSession', () => {
+  it('happy path: forwards camelCase→snake_case enums and returns the parsed envelope', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: SAMPLE_DRILL_ENVELOPE, error: null },
+    ]
+
+    const out = await createDrillSession('user-1', createDrillSessionSchema.parse({}))
+
+    expect(out.sessionId).toBe(DRILL_SESSION_ID)
+    expect(out.status).toBe('active')
+    expect(out.cards).toHaveLength(2)
+    expect(out.cards[0]?.ordinal).toBe(0)
+    expect(out.cards[1]?.ordinal).toBe(1)
+
+    // RPC must have been called once with the right name and snake_case mapping.
+    expect(state.rpcCalls).toHaveLength(1)
+    const call = state.rpcCalls[0]
+    expect(call?.name).toBe('create_leech_drill_session')
+    const payload = call?.payload as Record<string, unknown>
+    expect(payload['p_user_id']).toBe('user-1')
+    expect(payload['p_source']).toBe('unresolved_leeches')        // ← camelCase→snake_case
+    expect(payload['p_repeat_policy']).toBe('missed_after_lag')   // ← camelCase→snake_case
+    expect(payload['p_mode']).toBe('practice')
+    expect(payload['p_limit']).toBe(20)
+    expect(payload['p_order']).toBe('mostLapses')
+  })
+
+  it('deckScoped source maps to deck_scoped and forwards deckId', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source: 'deckScoped',
+      deckId: DECK_ID,
+      limit:  5,
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_source']).toBe('deck_scoped')
+    expect(payload['p_deck_id']).toBe(DECK_ID)
+    expect(payload['p_limit']).toBe(5)
+  })
+
+  it('persists the wire-level filter breadcrumb in p_source_query for analytics', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source:    'deckScoped',
+      deckId:    DECK_ID,
+      jlptLevel: 'N3',
+      cardType:  'production',
+      order:     'mostLapses',
+      limit:     15,
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_source_query']).toEqual({
+      deckId:    DECK_ID,
+      jlptLevel: 'N3',
+      cardType:  'production',
+      order:     'mostLapses',
+      limit:     15,
+    })
+  })
+
+  it('returns an empty queue cleanly when the RPC finds no candidates', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { sessionId: DRILL_SESSION_ID, status: 'active', cards: [] }, error: null },
+    ]
+
+    const out = await createDrillSession('user-1', createDrillSessionSchema.parse({}))
+    expect(out.cards).toEqual([])
+    expect(out.sessionId).toBe(DRILL_SESSION_ID)
+    expect(out.status).toBe('active')
+  })
+
+  it('translates DB errors via dbError (500)', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await createDrillSession('user-1', createDrillSessionSchema.parse({}))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
+  })
+
+  it('throws when the RPC returns a payload that fails Zod parsing', async () => {
+    // Missing required `cards` field — surfaces as a clean ZodError so silent
+    // RPC drift doesn't slip past the boundary.
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { sessionId: DRILL_SESSION_ID, status: 'active' }, error: null },
+    ]
+
+    let caught: unknown
+    try {
+      await createDrillSession('user-1', createDrillSessionSchema.parse({}))
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(Error)
+  })
+
+  it('never queries the cards or review_logs tables (scheduler invariance via service boundary)', async () => {
+    // Pre-condition: the RPC owns the transaction. The service is purely a
+    // forwarder. Assert no .from('cards') or .from('review_logs') call slips in.
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: SAMPLE_DRILL_ENVELOPE, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({}))
+
+    // The chainable mock records every `from(...)` call via state.lastTable.
+    // Since createDrillSession only calls `.rpc(...)`, lastTable must remain
+    // null after the service returns.
+    expect(state.lastTable).toBeNull()
   })
 })

@@ -8,7 +8,13 @@ export { DeckType, isDeckType } from './deck.types.ts'
 export { ReviewRating } from './review.types.ts'
 export type { SessionLeech, SessionSummary } from './review.types.ts'
 
-export type { ApiLeechListItem, ApiLeechListResponse } from './leech.types.ts'
+export type {
+  ApiLeechListItem,
+  ApiLeechListResponse,
+  ApiLeechDrillCard,
+  ApiLeechDrillSession,
+  ApiLeechDrillSessionStatus,
+} from './leech.types.ts'
 
 export type { Profile } from './user.types.ts'
 
@@ -53,6 +59,7 @@ export {
   ApiReviewedCardSchema, ApiReviewSubmitResponseSchema,
   SessionSummarySchema,
   ApiLeechListItemSchema, ApiLeechListResponseSchema,
+  ApiLeechDrillCardSchema, ApiLeechDrillSessionSchema, ApiLeechDrillSessionStatusSchema,
   ProfileSchema,
   voidResponseSchema,
 } from './schemas/api.schema.ts'

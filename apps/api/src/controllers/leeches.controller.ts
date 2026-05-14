@@ -1,6 +1,13 @@
 import type { RequestHandler } from 'express'
 
-import { listLeechesQuerySchema, leechIdParamSchema } from '../schemas/leech.schema.ts'
+import type { ApiLeechDrillSession } from '@fsrs-japanese/shared-types'
+
+import { withIdempotency } from '../lib/idempotency.ts'
+import {
+  createDrillSessionSchema,
+  leechIdParamSchema,
+  listLeechesQuerySchema,
+} from '../schemas/leech.schema.ts'
 import * as leechService from '../services/leech.service.ts'
 
 export const list: RequestHandler = async (req, res): Promise<void> => {
@@ -25,4 +32,24 @@ export const reopen: RequestHandler = async (req, res): Promise<void> => {
   const { id } = leechIdParamSchema.parse(req.params)
   const leech  = await leechService.reopenLeech(req.user.id, id)
   res.json(leech)
+}
+
+export const createDrillSession: RequestHandler = async (req, res): Promise<void> => {
+  const input = createDrillSessionSchema.parse(req.body)
+  const { status, body } = await withIdempotency<ApiLeechDrillSession>(
+    req.user.id,
+    req.header('idempotency-key'),
+    input,
+    async () => {
+      const session = await leechService.createDrillSession(req.user.id, input)
+      return { status: 201, body: session }
+    },
+  )
+  if (status === 201) {
+    // The session itself becomes retrievable when Stage 4 ships GET
+    // /drill-sessions/:id. Emitting the Location header now reserves the
+    // contract; clients that don't follow it today simply ignore it.
+    res.setHeader('Location', `/api/v1/leeches/drill-sessions/${body.sessionId}`)
+  }
+  res.status(status).json(body)
 }

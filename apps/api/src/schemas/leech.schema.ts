@@ -68,3 +68,41 @@ export const leechLapsesCursorSchema = z.object({
   id:        z.string().uuid(),
 })
 export type LeechLapsesCursor = z.infer<typeof leechLapsesCursorSchema>
+
+// ─── Drill session creation (Stage 3) ─────────────────────────────────────────
+//
+// Wire enum values are camelCase per the API conventions (see CLAUDE.md). The
+// service-layer mapper translates them to the snake_case CHECK-constraint
+// values stored in the database. The DB CHECK admits all five spec source
+// values; the TS enum is intentionally narrower until later stages implement
+// the remaining sources.
+
+export const leechDrillSourceEnum       = z.enum(['unresolvedLeeches', 'deckScoped'])
+export const leechDrillModeEnum         = z.enum(['practice', 'timed'])
+export const leechDrillRepeatPolicyEnum = z.enum(['none', 'missedAfterLag'])
+
+export type LeechDrillSource       = z.infer<typeof leechDrillSourceEnum>
+export type LeechDrillMode         = z.infer<typeof leechDrillModeEnum>
+export type LeechDrillRepeatPolicy = z.infer<typeof leechDrillRepeatPolicyEnum>
+
+export const createDrillSessionSchema = z.object({
+  source:       leechDrillSourceEnum.default('unresolvedLeeches'),
+  deckId:       z.string().uuid('Invalid deck ID').optional(),
+  jlptLevel:    jlptLevelEnum.optional(),
+  cardType:     cardTypeEnum.optional(),
+  // Reuse the list endpoint's sort enum so frontends only learn one vocabulary.
+  order:        leechSortEnum.default('mostLapses'),
+  // Drill caps tighter than the list endpoint (max 100) — a focused session
+  // is meaningfully different from a management list view.
+  limit:        z.number().int().min(1).max(50).default(20),
+  mode:         leechDrillModeEnum.default('practice'),
+  repeatPolicy: leechDrillRepeatPolicyEnum.default('missedAfterLag'),
+  // Reserved for Stage 4+ (timed-mode stop conditions). Accepted as an opaque
+  // object today; the DB CHECK guarantees `jsonb_typeof(stop_rule) = 'object'`.
+  stopRule:     z.record(z.string(), z.unknown()).default({}),
+}).strict().refine(
+  (val) => val.source !== 'deckScoped' || val.deckId !== undefined,
+  { message: 'deckId is required when source is "deckScoped"', path: ['deckId'] },
+)
+
+export type CreateDrillSessionInput = z.infer<typeof createDrillSessionSchema>

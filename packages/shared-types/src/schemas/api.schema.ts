@@ -340,6 +340,37 @@ export const ApiLeechListResponseSchema = z.object({
   hasMore:    z.boolean(),
 })
 
+// ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
+//
+// `POST /api/v1/leeches/drill-sessions` returns the session envelope plus the
+// ordered queue. Each card carries its own `sessionCardId` — Stage 5's attempt
+// endpoint will reference this ID (not the leech or card IDs directly) so the
+// composite FK against (id, session_id) on leech_drill_session_cards makes
+// cross-session attempt forgery structurally impossible.
+//
+// Card-derived fields are non-nullable on this shape — the RPC's WHERE clause
+// already excluded orphan leeches (card_id NULL) and suspended cards before
+// the snapshot was written.
+
+export const ApiLeechDrillCardSchema = z.object({
+  sessionCardId: z.string().uuid(),
+  leechId:       z.string().uuid(),
+  cardId:        z.string().uuid(),
+  ordinal:       z.number().int().nonnegative(),
+  layoutType:    layoutTypeSchema,
+  cardType:      cardTypeSchema,
+  fieldsData:    FieldsDataSchema,
+  lapses:        z.number().int().nonnegative(),
+})
+
+export const ApiLeechDrillSessionStatusSchema = z.enum(['active', 'finished', 'aborted'])
+
+export const ApiLeechDrillSessionSchema = z.object({
+  sessionId: z.string().uuid(),
+  status:    ApiLeechDrillSessionStatusSchema,
+  cards:     z.array(ApiLeechDrillCardSchema),
+})
+
 // ─── User profile (lives in user.types.ts; crosses the wire) ──────────────────
 
 export const ProfileSchema = z.object({
