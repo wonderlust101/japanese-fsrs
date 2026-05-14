@@ -22,7 +22,6 @@ mock.module('../../db/supabase.ts', () => ({
 
 const {
   getAccuracyByLayout,
-  getStreak,
   getJlptGap,
 } = await import('../analytics.service.ts')
 
@@ -49,23 +48,6 @@ describe('analytics.service — getAccuracyByLayout', () => {
     expect(out.items[0]).toEqual({ layout: 'comprehension', total: 7,   successful: 5,  accuracyPct: 71.4 })
     expect(out.items[1]).toEqual({ layout: 'production',    total: 100, successful: 87, accuracyPct: 87 })
     expect(out.items[2]).toEqual({ layout: 'listening',     total: 0,   successful: 0,  accuracyPct: 0 })
-  })
-})
-
-describe('analytics.service — getStreak', () => {
-  it('returns zeros when the RPC yields no rows', async () => {
-    state.rpcResponses['get_streak'] = { data: [], error: null }
-    const out = await getStreak('user-1')
-    expect(out).toEqual({ currentStreak: 0, longestStreak: 0, lastReviewDate: null })
-  })
-
-  it('coerces RPC numeric strings to numbers', async () => {
-    state.rpcResponses['get_streak'] = {
-      data: [{ current_streak: '5', longest_streak: '17', last_review_date: '2026-05-03' }],
-      error: null,
-    }
-    const out = await getStreak('user-1')
-    expect(out).toEqual({ currentStreak: 5, longestStreak: 17, lastReviewDate: '2026-05-03' })
   })
 })
 

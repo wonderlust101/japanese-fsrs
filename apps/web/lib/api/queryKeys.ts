@@ -20,7 +20,6 @@ export const queryKeys = {
     heatmap:    () => ['analytics', 'heatmap']    as const,
     accuracy:   () => ['analytics', 'accuracy']   as const,
     jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
-    streak:     () => ['analytics', 'streak']     as const,
     milestones: () => ['analytics', 'milestones'] as const,
   },
   premadeDecks: {

@@ -82,16 +82,22 @@ describe('fsrs.service — previewNextStates', () => {
 describe('fsrs.service — rollbackReview', () => {
   /** Builds a from() chain that returns a different row depending on the table name. */
   interface EqChain {
-    eq: (col: string, val: unknown) => EqChain
-    single: () => Promise<{ data: unknown; error: unknown }>
+    eq:          (col: string, val: unknown) => EqChain
+    single:      () => Promise<{ data: unknown; error: unknown }>
+    maybeSingle: () => Promise<{ data: unknown; error: unknown }>
   }
 
   function makeFromMock(byTable: Record<string, { data: unknown; error: unknown }>) {
     return mock((tableName: string) => {
       const response = byTable[tableName] ?? { data: null, error: { message: 'no mock' } }
       const buildChain = (): EqChain => ({
-        eq:     mock(() => buildChain()),
-        single: mock(() => Promise.resolve(response)),
+        eq:          mock(() => buildChain()),
+        single:      mock(() => Promise.resolve(response)),
+        // Stage 8 refactor: rollbackReview switched to .maybeSingle() for
+        // its log + card fetches. The mock returns the same response shape;
+        // services that distinguish missing-row from query-error already
+        // handle (data: null, error: null) correctly.
+        maybeSingle: mock(() => Promise.resolve(response)),
       })
       return {
         select: mock(() => buildChain()),
@@ -158,7 +164,7 @@ describe('fsrs.service — rollbackReview', () => {
     ;(supabaseAdmin as unknown as { from: typeof fromMock }).from = fromMock
 
     try {
-      await rollbackReview('card-1', 'user-1', 'log-1')
+      await rollbackReview('user-1', 'log-1')
       expect.unreachable('Should throw 409')
     } catch (err) {
       const e = err as { statusCode?: number; message?: string }
@@ -171,17 +177,91 @@ describe('fsrs.service — rollbackReview', () => {
     const { supabaseAdmin } = await import('../../db/supabase.ts')
     const fromMock = makeFromMock({
       cards: { data: cardRow, error: null },
-      review_logs: { data: null, error: { code: 'PGRST116' } },
+      // .maybeSingle() yields { data: null, error: null } when no row matches —
+      // PGRST116 is the single()-only convention. Use the maybeSingle shape so
+      // the service's `data === null` branch (the 404) is exercised.
+      review_logs: { data: null, error: null },
     })
     ;(supabaseAdmin as unknown as { from: typeof fromMock }).from = fromMock
 
     try {
-      await rollbackReview('card-1', 'user-1', 'log-1')
+      await rollbackReview('user-1', 'log-1')
       expect.unreachable('Should throw 404')
     } catch (err) {
       const e = err as { statusCode?: number; message?: string }
       expect(e.statusCode).toBe(404)
       expect(e.message).toContain('Review log not found')
     }
+  })
+
+  // Stage 8 explicit IDOR coverage: user-B requesting a rollback on a log
+  // owned by user-A must return 404. The service filters by user_id in the
+  // WHERE clause of the log fetch, so the cross-user case is structurally
+  // indistinguishable from a missing log — which is the right opacity (does
+  // not leak whether the log exists for another user).
+  it('IDOR: user-B cannot rollback a log owned by user-A (returns 404)', async () => {
+    const { supabaseAdmin } = await import('../../db/supabase.ts')
+    // The mock returns null when (id, user_id) doesn't match — same as a
+    // missing row. Cross-user attempts therefore behave like 404.
+    const fromMock = makeFromMock({
+      review_logs: { data: null, error: null },
+      cards:       { data: null, error: { message: 'should not reach card fetch' } },
+    })
+    ;(supabaseAdmin as unknown as { from: typeof fromMock }).from = fromMock
+
+    try {
+      await rollbackReview('user-B', 'log-owned-by-A')
+      expect.unreachable('Should throw 404')
+    } catch (err) {
+      const e = err as { statusCode?: number; code?: string }
+      expect(e.statusCode).toBe(404)
+      expect(e.code).toBe('REVIEW_LOG_NOT_FOUND')
+    }
+  })
+})
+
+// ── Schema tests for the Stage 8 wire-contract additions ───────────────────
+
+describe('rollbackReviewParamSchema', () => {
+  it('accepts a UUID', async () => {
+    const { rollbackReviewParamSchema } = await import('@fsrs-japanese/shared-types')
+    expect(rollbackReviewParamSchema.safeParse({ reviewLogId: 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c' }).success).toBe(true)
+  })
+
+  it('rejects non-UUID', async () => {
+    const { rollbackReviewParamSchema } = await import('@fsrs-japanese/shared-types')
+    expect(rollbackReviewParamSchema.safeParse({ reviewLogId: 'not-a-uuid' }).success).toBe(false)
+  })
+
+  it('rejects unknown keys (.strict)', async () => {
+    const { rollbackReviewParamSchema } = await import('@fsrs-japanese/shared-types')
+    expect(rollbackReviewParamSchema.safeParse({
+      reviewLogId: 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c',
+      foo:         'bar',
+    }).success).toBe(false)
+  })
+})
+
+describe('forgetCardBodySchema', () => {
+  it('accepts an empty body with resetCount defaulting to false', async () => {
+    const { forgetCardBodySchema } = await import('@fsrs-japanese/shared-types')
+    const parsed = forgetCardBodySchema.parse({})
+    expect(parsed.resetCount).toBe(false)
+  })
+
+  it('accepts { resetCount: true }', async () => {
+    const { forgetCardBodySchema } = await import('@fsrs-japanese/shared-types')
+    expect(forgetCardBodySchema.safeParse({ resetCount: true }).success).toBe(true)
+  })
+
+  it('rejects non-boolean resetCount', async () => {
+    const { forgetCardBodySchema } = await import('@fsrs-japanese/shared-types')
+    expect(forgetCardBodySchema.safeParse({ resetCount: 'true' }).success).toBe(false)
+    expect(forgetCardBodySchema.safeParse({ resetCount: 1 }).success).toBe(false)
+  })
+
+  it('rejects unknown keys (.strict)', async () => {
+    const { forgetCardBodySchema } = await import('@fsrs-japanese/shared-types')
+    expect(forgetCardBodySchema.safeParse({ resetCount: false, force: true }).success).toBe(false)
   })
 })

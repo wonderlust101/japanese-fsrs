@@ -14,7 +14,6 @@ router.use(authMiddleware, defaultUserRateLimitMiddleware)
 router.get('/dashboard',  analyticsDashboardRateLimitMiddleware, analyticsController.dashboard)
 router.get('/heatmap',    analyticsController.heatmap)
 router.get('/accuracy',   analyticsController.accuracy)
-router.get('/streak',     analyticsController.streak)
 router.get('/jlpt-gap',   analyticsController.jlptGap)
 router.get('/milestones', analyticsController.milestones)
 

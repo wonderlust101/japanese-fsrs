@@ -3,7 +3,6 @@
 import {
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
-  ApiStreakStatsSchema,
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
   ApiAnalyticsDashboardSchema,
@@ -11,7 +10,6 @@ import {
   type ApiHeatmapDay,
   type ApiLayoutAccuracy,
   type ApiList,
-  type ApiStreakStats,
   type ApiJlptGap,
   type ApiMilestoneForecast,
   type ApiAnalyticsDashboard,
@@ -39,15 +37,6 @@ export async function getAccuracyAction(): Promise<ApiList<ApiLayoutAccuracy>> {
   )
 }
 
-export async function getStreakAction(): Promise<ApiStreakStats> {
-  return apiCallSafe<ApiStreakStats>(
-    '/api/v1/analytics/streak',
-    ApiStreakStatsSchema,
-    {},
-    { currentStreak: 0, longestStreak: 0, lastReviewDate: null },
-  )
-}
-
 export async function getJlptGapAction(): Promise<ApiList<ApiJlptGap>> {
   return apiCallSafe<ApiList<ApiJlptGap>>(
     '/api/v1/analytics/jlpt-gap',
@@ -69,14 +58,13 @@ export async function getMilestoneForecastAction(): Promise<ApiList<ApiMilestone
 const dashboardFallback: ApiAnalyticsDashboard = {
   heatmap:    emptyList<ApiHeatmapDay>(),
   accuracy:   emptyList<ApiLayoutAccuracy>(),
-  streak:     { currentStreak: 0, longestStreak: 0, lastReviewDate: null },
   jlptGap:    emptyList<ApiJlptGap>(),
   milestones: emptyList<ApiMilestoneForecast>(),
 }
 
 /**
- * Bundled fetch for the analytics page — collapses 5 prior round-trips
- * (heatmap + accuracy + streak + jlpt-gap + milestones) into one request.
+ * Bundled fetch for the analytics page — collapses 4 prior round-trips
+ * (heatmap + accuracy + jlpt-gap + milestones) into one request.
  */
 export async function getDashboardAction(): Promise<ApiAnalyticsDashboard> {
   return apiCallSafe<ApiAnalyticsDashboard>(

@@ -402,7 +402,7 @@ FSRS state *before* this review was applied. Required for `rollbackReview()` in 
 | Index | Columns / Predicate | Purpose |
 |---|---|---|
 | `review_logs_pkey` | `(id)` | — |
-| `review_logs_user_id_reviewed_at_idx` | `(user_id, reviewed_at)` | Heatmap, daily-quota counts in `get_due_cards()`, and legacy/deferred streak calculations. |
+| `review_logs_user_id_reviewed_at_idx` | `(user_id, reviewed_at)` | Heatmap and daily-quota counts in `get_due_cards()`. |
 | `review_logs_card_id_idx` | `(card_id)` | Per-card history join in `get_accuracy_by_layout()` and rollback lookups. |
 | `review_logs_session_id_idx` | `(session_id)` | Session-summary lookups. |
 | `review_logs_user_graduations_idx` | `(user_id, reviewed_at) INCLUDE (state_before, rating) WHERE rating IN ('good', 'easy') AND state_before IS NOT NULL AND state_before < 2` | Partial covering index for `get_milestone_forecast()` — the "successful graduation" pattern (a learning-phase card answered Good/Easy). |
@@ -658,7 +658,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `list_cards_paginated(p_user_id, p_deck_id, p_limit, p_cursor, p_status_filter)` | Tuple-cursor pagination over a deck's cards. Uses `(created_at, id) < (cursor_at, cursor_id)` so same-`created_at` neighbours don't straddle page boundaries. | Card detail rows. |
 | `list_decks_paginated(p_user_id, p_limit, p_cursor)` | Tuple-cursor pagination over the user's decks, ORDER BY `(updated_at DESC, id DESC)`. | Deck rows. |
 | `list_premade_decks_paginated(p_limit, p_cursor, p_deck_type, p_jlpt_level, p_domain)` | Tuple-cursor pagination over active premade decks, ORDER BY `(jlpt_level ASC NULLS LAST, name ASC, id ASC)`. | Premade deck rows. |
-| `get_dashboard_data(p_user_id, p_timezone DEFAULT 'UTC')` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, legacy `get_streak`, `get_jlpt_gap`, and `get_milestone_forecast` into one JSONB envelope (5 RPCs → 1 round-trip). Heatmap bucketing uses learner-local days. Streak fields remain present for compatibility, but streaks are deferred from the current dashboard direction. | JSONB envelope. |
+| `get_dashboard_data(p_user_id, p_timezone DEFAULT 'UTC')` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, `get_jlpt_gap`, and `get_milestone_forecast` into one JSONB envelope (4 RPCs → 1 round-trip). Heatmap bucketing uses learner-local days. Migration `20260604000000_remove_legacy_streaks.sql` dropped the legacy `streak` key. | JSONB envelope. |
 | `get_session_summary(p_session_id, p_user_id)` | Aggregate stats + leeches-with-card-context for a study session. Filters orphan leeches (`card_id IS NOT NULL`). Internal LIMIT 5000 caps the scan. | JSONB envelope. |
 | `get_review_forecast(p_user_id, p_days DEFAULT 14, p_timezone DEFAULT 'UTC')` | Learner-local forecast for the next N days. Overdue non-new cards are grouped into today's `backlog_count`; scheduled review cards stay on their due day; new cards count actual available new-card inventory today instead of projecting the daily new-card limit into every future day. | `(date TEXT, count BIGINT, backlog_count BIGINT, review_count BIGINT, new_count BIGINT)` |
 
@@ -668,7 +668,6 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 |---|---|---|
 | `get_heatmap_data(p_user_id, p_timezone DEFAULT 'UTC')` | Per-day counts and retention % for the last 365 learner-local days (days with no reviews are omitted). | `(date TEXT, retention FLOAT, count BIGINT)` |
 | `get_accuracy_by_layout(p_user_id)` | Total reviews and successful reviews grouped by `card_type` (modality). | `(layout TEXT, total BIGINT, successful BIGINT)` |
-| `get_streak(p_user_id)` | Legacy/deferred streak RPC. Buckets by UTC calendar day and returns current streak, longest streak, and last review date. Current dashboard work does not rely on streaks; remaining analytics usage should be treated as legacy cleanup if streaks stay deferred. | `(current_streak INT, longest_streak INT, last_review_date DATE)` |
 | `get_jlpt_gap(p_user_id)` | Per-JLPT-level totals, learned (state ≥ 2), and currently-due counts. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, due BIGINT)` |
 | `get_milestone_forecast(p_user_id)` | Per-JLPT-level projected completion based on 30-day daily learning pace. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, daily_pace NUMERIC, days_remaining INT, projected_completion_date DATE)` |
 

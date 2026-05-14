@@ -906,14 +906,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_streak: {
-        Args: { p_user_id: string }
-        Returns: {
-          current_streak: number
-          last_review_date: string
-          longest_streak: number
-        }[]
-      }
       list_cards_paginated: {
         Args: {
           p_cursor?: string

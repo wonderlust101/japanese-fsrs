@@ -6,15 +6,19 @@ import {
   cardIdParamSchema,
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
+  forgetCardBodySchema,
 } from '@fsrs-japanese/shared-types'
 import type {
   ApiCard,
   FieldsData,
   GeneratedCardData,
 } from '@fsrs-japanese/shared-types'
+
+import { emptyBodySchema } from '../schemas/leech.schema.ts'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
+import { forgetCard, rescheduleFromHistory } from '../services/fsrs.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
 import { parseIfMatchVersion } from '../lib/http.ts'
 
@@ -164,4 +168,66 @@ function scopedDeckId(req: Request): string | undefined {
   const raw = req.params['deckId']
   if (typeof raw !== 'string') return undefined
   return nestedDeckIdParamSchema.parse({ deckId: raw }).deckId
+}
+
+/**
+ * POST /api/v1/cards/:id/forget
+ * Resets a card to state=New (Anki's "Forget" semantic). Optional body
+ * `{ resetCount: boolean }` — when true, zeroes lifetime reps + lapses
+ * counters too. When false (default), the state resets but counters are
+ * preserved for analytics.
+ *
+ * Throws 403 `PREMADE_CARD_NOT_RESETTABLE` if the card is a premade source
+ * (user_id is NULL), 404 if the card doesn't belong to the caller.
+ *
+ * Requires `Idempotency-Key` header. Same key + same body returns the
+ * original response without re-running the service. The service itself is
+ * naturally idempotent — re-running forget on the same card produces the
+ * same New state.
+ */
+export const forget: RequestHandler = async (req, res): Promise<void> => {
+  const { id }         = cardIdParamSchema.parse(req.params)
+  const { resetCount } = forgetCardBodySchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id, resetCount },
+    async () => {
+      const result = await forgetCard(id, req.user.id, resetCount)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/**
+ * POST /api/v1/cards/:id/reschedule
+ * Replays the card's full review history to recompute its FSRS state from
+ * scratch. Useful when FSRS algorithm weights change (e.g. after a
+ * `computeParameters` run) or after a long absence where the learner wants
+ * the schedule recalibrated.
+ *
+ * Throws 404 if the card doesn't belong to the caller, 409
+ * `RESCHEDULE_NO_HISTORY` if the card has no eligible review logs, 409
+ * `RESCHEDULE_NO_RESULT` if ts-fsrs returns no result (rare; library bug
+ * marker).
+ *
+ * Requires `Idempotency-Key`. The service is deterministic from history —
+ * same inputs produce the same recomputed state.
+ */
+export const reschedule: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = cardIdParamSchema.parse(req.params)
+  emptyBodySchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id },
+    async () => {
+      const result = await rescheduleFromHistory(id, req.user.id)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
 }

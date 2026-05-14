@@ -29,16 +29,6 @@ export const accuracy: RequestHandler = async (req, res): Promise<void> => {
 }
 
 /**
- * GET /api/v1/analytics/streak
- * Returns the user's current/longest streak and last review date.
- */
-export const streak: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getStreak(req.user.id)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
-
-/**
  * GET /api/v1/analytics/jlpt-gap
  * Returns per-JLPT-level total/learned/due counts plus progressPct.
  */
@@ -61,9 +51,9 @@ export const milestones: RequestHandler = async (req, res): Promise<void> => {
 
 /**
  * GET /api/v1/analytics/dashboard
- * Bundled response combining heatmap, accuracy, streak, JLPT gap, and
- * milestone forecast in a single round-trip. The granular endpoints above
- * remain available for partial reloads.
+ * Bundled response combining heatmap, accuracy, JLPT gap, and milestone
+ * forecast in a single round-trip. The granular endpoints above remain
+ * available for partial reloads.
  */
 export const dashboard: RequestHandler = async (req, res): Promise<void> => {
   const profile = await profileService.getProfile(req.user.id)

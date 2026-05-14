@@ -214,12 +214,6 @@ export const ApiLayoutAccuracySchema = z.object({
   accuracyPct: z.number(),
 })
 
-export const ApiStreakStatsSchema = z.object({
-  currentStreak:  z.number(),
-  longestStreak:  z.number(),
-  lastReviewDate: z.string().nullable(),
-})
-
 export const ApiJlptGapSchema = z.object({
   jlptLevel:   jlptLevelSchema,
   total:       z.number(),
@@ -238,15 +232,19 @@ export const ApiMilestoneForecastSchema = z.object({
 })
 
 /**
- * Bundled response for GET /api/v1/analytics/dashboard. Combines the five
+ * Bundled response for GET /api/v1/analytics/dashboard. Combines the four
  * granular analytics responses into one envelope so the analytics page makes
- * a single round-trip instead of five. The granular endpoints remain available
+ * a single round-trip instead of four. The granular endpoints remain available
  * for partial refreshes.
+ *
+ * Stage 8 (migration `20260604000000_remove_legacy_streaks.sql`) dropped the
+ * `streak` field — the legacy streak surface was removed end-to-end. The
+ * server-side `get_dashboard_data` RPC matches this shape; frontend consumers
+ * were updated in the same commit.
  */
 export const ApiAnalyticsDashboardSchema = z.object({
   heatmap:    apiListEnvelope(ApiHeatmapDaySchema),
   accuracy:   apiListEnvelope(ApiLayoutAccuracySchema),
-  streak:     ApiStreakStatsSchema,
   jlptGap:    apiListEnvelope(ApiJlptGapSchema),
   milestones: apiListEnvelope(ApiMilestoneForecastSchema),
 })

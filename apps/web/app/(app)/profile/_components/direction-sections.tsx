@@ -44,7 +44,6 @@ export function DirectionSections({
   joinedAt,
 }: DirectionSectionsProps): React.JSX.Element {
   const stub = buildProfileStubData(displayName)
-  const practicedDays = stub.cadence.filter((d) => d.intensity > 0).length
 
   return (
     <main className="mx-auto w-full max-w-[68rem] px-4 pb-24 pt-10 sm:px-6 sm:pt-12 lg:px-10 lg:pt-14">

@@ -120,13 +120,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## Review
 
-- [ ] **Decide public exposure for rollback / forget / reschedule**
-	  - Service functions exist in `fsrs.service.ts`.
-	  - Decide whether to add user-facing API/UI routes or mark them internal-only.
-- [ ] **Revisit streaks for a later version**
-	  - Streak UI is intentionally deferred from the current dashboard and analytics scope.
-	  - Legacy backend streak RPC/API may remain for compatibility until a later product pass decides whether to remove, replace, or make it learner-timezone-aware.
-	  - If current scope must be fully streak-free, remove the remaining analytics `StreakCard` and any streak copy from `apps/web/app/(app)/analytics/_components/`.
 - [ ] **Verify custom system-page coverage**
 	  - Static inspection found route pages and layouts.
 	  - Confirm broad `error.tsx`, `not-found.tsx`, and loading coverage before moving the system-pages card to Done.
@@ -233,6 +226,14 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Scheduler invariance preserved: the diagnose service writes ONLY `leeches.diagnosis` and `leeches.prescription`. It does not mutate `cards` FSRS state or insert into `review_logs`. A new test asserts the single `.update()` call's patch keys are exactly `['diagnosis', 'prescription']`.
 	  - 422 `CARD_FIELDS_INSUFFICIENT` for orphan leeches and sentence-layout cards that lack the word/reading/meaning fields the prompt needs. Profile fetch errors fall back to safe defaults (`N5`, `en`) rather than failing the diagnosis.
 	  - Documentation revised across `PRODUCT.md`, `PRD.md`, the leech spec doc, and this kanban to drop tier language. The dedicated "Implement paid/free tier entitlement gates" To-Do entry was removed.
+
+- [x] **Remove legacy streaks + expose rollback/forget/reschedule (Stage 8)**
+	  - Migration `20260604000000_remove_legacy_streaks.sql` replaces `get_dashboard_data` (drops the `streak` JSONB key, four bundled RPCs instead of five) and `DROP FUNCTION get_streak(uuid)`. Forward-only.
+	  - Backend: removed `GET /api/v1/analytics/streak`, `getStreak()` service, `StreakRpcSchema`, and the `get_streak` entry in `database.types.ts`. Frontend: deleted `StreakCard.tsx`, removed `useStreak()` + `getStreakAction()` + `analytics.queryKeys.streak`, and updated `AnalyticsDashboard` + `TodayProgressCard` copy to drop streak language.
+	  - **BREAKING:** `ApiAnalyticsDashboardSchema` no longer carries a `streak` field. The frontend dashboard is updated in the same commit so the analytics page does not crash; the bundled dashboard now returns four sections (heatmap, accuracy, jlptGap, milestones).
+	  - **Newly exposed:** `POST /api/v1/reviews/:reviewLogId/rollback`, `POST /api/v1/cards/:id/forget` (with optional `{ resetCount: boolean }` body), `POST /api/v1/cards/:id/reschedule`. All three are wrapped in `withIdempotency`, validate params/body with `.strict()` Zod schemas, and reuse existing service-layer 404/409/403 error codes. The default user limiter (240/min) is the only rate cap — these are scalar UPDATEs fired rarely from the recovery UI.
+	  - Small service refactor: `rollbackReview` signature changed from `(cardId, userId, reviewLogId)` to `(userId, reviewLogId)`. The service derives `card_id` from the log row internally (with an orphan-log 404 guard), so the public URL keys cleanly off `:reviewLogId`.
+	  - Tests: new IDOR coverage on rollback, schema tests for `rollbackReviewParamSchema` and `forgetCardBodySchema` (3 + 4 cases), existing rollback/forget/reschedule service tests updated for the signature change. The `getStreak` analytics test block was removed.
 
 %% kanban:settings
 ```

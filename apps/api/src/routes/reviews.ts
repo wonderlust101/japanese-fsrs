@@ -18,4 +18,9 @@ router.post('/batch',                       batchRateLimitMiddleware, reviewsCon
 router.get('/forecast',                     reviewsController.forecast)
 router.get('/session-summary/:sessionId',   reviewsController.sessionSummary)
 
+// Stage 8 — rollback a specific review_log by its id. The path is keyed on
+// reviewLogId (not cardId) because the log already references its card
+// internally. Inherits auth + default rate limiter from `router.use(...)`.
+router.post('/:reviewLogId/rollback',       reviewsController.rollback)
+
 export default router

@@ -4,7 +4,6 @@ import { useAnalyticsDashboard } from '@/lib/api/analytics'
 import { useReviewForecast } from '@/lib/api/reviews'
 import { RetentionHeatmap }  from './RetentionHeatmap'
 import { AccuracyBreakdown } from './AccuracyBreakdown'
-import { StreakCard }        from './StreakCard'
 import { TodayProgressCard } from './TodayProgressCard'
 import { ReviewForecastChart } from './ReviewForecastChart'
 import { JLPTProgressBars }  from './JLPTProgressBars'
@@ -15,20 +14,15 @@ export function AnalyticsDashboard(): React.JSX.Element {
 
   const heatmap    = dashboard.data?.heatmap.items    ?? []
   const accuracy   = dashboard.data?.accuracy.items   ?? []
-  const streak     = dashboard.data?.streak
   const jlptGap    = dashboard.data?.jlptGap.items    ?? []
   const milestones = dashboard.data?.milestones.items ?? []
   const isLoading  = dashboard.isLoading
 
   return (
     <div className="space-y-6">
-      {/* Top stat row — what users come back for daily */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <StreakCard
-          currentStreak={streak?.currentStreak ?? 0}
-          longestStreak={streak?.longestStreak ?? 0}
-          isLoading={isLoading}
-        />
+      {/* Top stat row — today's progress sits alone (StreakCard was removed
+          in Stage 8 when the legacy streak surface was retired end-to-end). */}
+      <div className="grid grid-cols-1 gap-3">
         <TodayProgressCard
           heatmap={heatmap}
           isLoading={isLoading}

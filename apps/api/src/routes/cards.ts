@@ -29,4 +29,11 @@ router.delete('/:id',                    resourceDeleteRateLimitMiddleware, card
 router.get('/:id/similar',               similarSearchRateLimitMiddleware, cardsController.similar)
 router.post('/:id/regenerate-embedding', aiRateLimitMiddleware, aiDailyQuotaMiddleware, cardsController.regenerateEmbedding)
 
+// Stage 8 — manual recovery operations on a single card. Default
+// (240/min/user) rate limiter is sufficient: these are scalar UPDATEs with
+// no external service calls, fired rarely from the UI (a learner doesn't
+// forget or reschedule in tight loops).
+router.post('/:id/forget',     cardsController.forget)
+router.post('/:id/reschedule', cardsController.reschedule)
+
 export default router

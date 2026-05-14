@@ -8,7 +8,6 @@ import {
   type ApiLayoutAccuracy,
   type ApiList,
   type ApiMilestoneForecast,
-  type ApiStreakStats,
 } from '@fsrs-japanese/shared-types'
 
 import { supabaseAdmin } from '../db/supabase.ts'
@@ -19,8 +18,6 @@ import { dbError } from '../middleware/errorHandler.ts'
 import {
   HeatmapRpcSchema,
   AccuracyRpcSchema,
-  StreakRpcSchema,
-  StreakRpcRowSchema,
   JlptGapRpcSchema,
   MilestoneForecastRpcSchema,
 } from '../schemas/analytics.schema.ts'
@@ -85,23 +82,6 @@ export async function getAccuracyByLayout(userId: string): Promise<ApiList<ApiLa
 }
 
 /**
- * Returns the user's current and longest review streak plus their last review date.
- * Uses UTC calendar days. Empty history → `{ 0, 0, null }`.
- */
-export async function getStreak(userId: string): Promise<ApiStreakStats> {
-  const rows = await callRpc('get_streak', { p_user_id: userId }, StreakRpcSchema, 'streak')
-  const row = rows[0]
-  if (row === undefined) {
-    return { currentStreak: 0, longestStreak: 0, lastReviewDate: null }
-  }
-  return {
-    currentStreak:  row.current_streak  ?? 0,
-    longestStreak:  row.longest_streak  ?? 0,
-    lastReviewDate: row.last_review_date,
-  }
-}
-
-/**
  * Returns per-JLPT-level totals plus learned and due counts. progressPct is
  * computed in the service layer so the RPC stays focused on aggregation.
  */
@@ -146,22 +126,24 @@ export async function getMilestoneForecast(userId: string): Promise<ApiList<ApiM
 // ─── Bundled dashboard ────────────────────────────────────────────────────────
 
 /**
- * Bundled response from the get_dashboard_data RPC. The RPC returns the five
+ * Bundled response from the get_dashboard_data RPC. The RPC returns the four
  * analytics result sets in a single JSONB envelope (snake_case at the SQL
  * boundary), validated here, then reshaped into the camelCase wire format.
+ *
+ * Stage 8 dropped `streak` from this envelope when the legacy streak surface
+ * was removed end-to-end. The migration `20260604000000_remove_legacy_streaks.sql`
+ * matches the shape below: no `streak` key in the RPC's JSONB output.
  */
 const DashboardRpcEnvelopeSchema = z.object({
   heatmap:    HeatmapRpcSchema,
   accuracy:   AccuracyRpcSchema,
-  // Streak's RPC returns a single row; the wrapper inlines it as a single object.
-  streak:     StreakRpcRowSchema.nullable(),
   jlpt_gap:   JlptGapRpcSchema,
   milestones: MilestoneForecastRpcSchema,
 })
 
 /**
- * Bundles heatmap, accuracy, streak, JLPT gap, and milestone forecast into
- * one round-trip via the get_dashboard_data RPC. Returns the same camelCase
+ * Bundles heatmap, accuracy, JLPT gap, and milestone forecast into one
+ * round-trip via the get_dashboard_data RPC. Returns the same camelCase
  * shapes the granular endpoints return — clients can drop in seamlessly.
  */
 export async function getDashboardData(userId: string, timeZone = 'UTC'): Promise<ApiAnalyticsDashboard> {
@@ -188,14 +170,6 @@ export async function getDashboardData(userId: string, timeZone = 'UTC'): Promis
     const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
     return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
   })
-
-  const streak: ApiStreakStats = env.streak === null
-    ? { currentStreak: 0, longestStreak: 0, lastReviewDate: null }
-    : {
-        currentStreak:  env.streak.current_streak  ?? 0,
-        longestStreak:  env.streak.longest_streak  ?? 0,
-        lastReviewDate: env.streak.last_review_date,
-      }
 
   const jlptGap: ApiJlptGap[] = env.jlpt_gap.map((r) => {
     const progressPct = r.total === 0 ? 0 : Math.round((r.learned / r.total) * 1000) / 10
@@ -224,7 +198,6 @@ export async function getDashboardData(userId: string, timeZone = 'UTC'): Promis
   return ApiAnalyticsDashboardSchema.parse({
     heatmap:    bounded(heatmap),
     accuracy:   bounded(accuracy),
-    streak,
     jlptGap:    bounded(jlptGap),
     milestones: bounded(milestones),
   })

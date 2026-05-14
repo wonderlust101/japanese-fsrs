@@ -1359,8 +1359,7 @@ describe('leech.service — recordDrillAttempt', () => {
 
 // ── Scheduler-invariance property suite ─────────────────────────────────────
 //
-// The spec's load-bearing CI guard (Add Leeches List and Drill Support.md
-// §"Scheduler Invariance Tests"). The property under test: NO drill code
+// The spec's load-bearing CI guard. The property under test: NO drill code
 // path may read or write `cards` or `review_logs`. The mock harness records
 // every `.from(...)` call in `state.lastTable` and every `.rpc(...)` call in
 // `state.rpcCalls`; for an invariant-respecting code path, lastTable stays

@@ -2,7 +2,7 @@
 
 This is the current status index. Detailed implementation evidence is split by area under [status/](status/).
 
-Refreshed by code inspection on 2026-05-14 (Stage 7.1: compliance fix-up on diagnose — Idempotency-Key required, body strictly validated, profile+review_logs fetches parallelized, cache key versioned). This records current implementation evidence, not product intent. Product truth lives in [PRODUCT.md](PRODUCT.md), design truth in [DESIGN.md](DESIGN.md), database truth in [DATABASE.md](DATABASE.md), and active tasks in [KANBAN_BOARD.md](KANBAN_BOARD.md).
+Refreshed by code inspection on 2026-05-14 (Stage 8: removed legacy `get_streak` RPC + `/api/v1/analytics/streak`; exposed `POST /api/v1/reviews/:reviewLogId/rollback`, `POST /api/v1/cards/:id/forget`, `POST /api/v1/cards/:id/reschedule` — all `withIdempotency`-wrapped, `.strict()` schemas, reusing existing service errors). This records current implementation evidence, not product intent. Product truth lives in [PRODUCT.md](PRODUCT.md), design truth in [DESIGN.md](DESIGN.md), database truth in [DATABASE.md](DATABASE.md), and active tasks in [KANBAN_BOARD.md](KANBAN_BOARD.md).
 
 `bun run typecheck` was executed for this refresh. No runtime flows were exercised.
 
@@ -25,7 +25,7 @@ Refreshed by code inspection on 2026-05-14 (Stage 7.1: compliance fix-up on diag
 
 | Area | Implemented | Partial | Missing | Unknown | Manual |
 |---|---:|---:|---:|---:|---:|
-| Backend and Data | 21 | 3 | 2 | 1 | 0 |
+| Backend and Data | 22 | 3 | 2 | 0 | 0 |
 | AI and Japanese Content | 6 | 2 | 2 | 0 | 0 |
 | Frontend | 7 | 7 | 2 | 0 | 0 |
 | Testing | 3 | 0 | 0 | 1 | 1 |

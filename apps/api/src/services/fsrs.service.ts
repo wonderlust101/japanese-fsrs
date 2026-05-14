@@ -532,37 +532,58 @@ export async function processReviewBatch(
  * migration 20260502000001 have null snapshots and return 409.
  * The log entry itself is preserved as an immutable audit trail — only the
  * card row is updated.
+ *
+ * Stage 8 changed the signature from `(cardId, userId, reviewLogId)` to
+ * `(userId, reviewLogId)` so the public `POST /api/v1/reviews/:reviewLogId/rollback`
+ * endpoint has a natural URL shape. The card_id is read from the review_log
+ * row, which already references it via FK — no extra round-trip vs the prior
+ * signature (the log fetch still runs).
  */
 export async function rollbackReview(
-  cardId: string,
   userId: string,
   reviewLogId: string,
 ): Promise<ProcessReviewResult> {
-  const [cardResult, logResult] = await Promise.all([
-    supabaseAdmin
-      .from('cards')
-      .select(FSRS_SELECT_COLUMNS)
-      .eq('id', cardId)
-      .eq('user_id', userId)
-      .single(),
-    supabaseAdmin
-      .from('review_logs')
-      .select(REVIEW_LOG_FULL_COLUMNS)
-      .eq('id', reviewLogId)
-      .eq('card_id', cardId)
-      .eq('user_id', userId)
-      .single(),
-  ])
+  // 1. Fetch the review_log first — it carries the card_id we need for the
+  //    card fetch and the rollback. Ownership filter on user_id makes the
+  //    cross-user case 404.
+  const { data: logData, error: logError } = await supabaseAdmin
+    .from('review_logs')
+    .select(REVIEW_LOG_FULL_COLUMNS)
+    .eq('id', reviewLogId)
+    .eq('user_id', userId)
+    .maybeSingle()
 
-  if (cardResult.error !== null || cardResult.data === null) {
-    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
+  if (logError !== null) {
+    throw dbError('fetch review log for rollback', logError)
   }
-  if (logResult.error !== null || logResult.data === null) {
+  if (logData === null) {
     throw new AppError(404, 'Review log not found', { code: 'REVIEW_LOG_NOT_FOUND' })
   }
 
-  const row = FsrsCardRowSchema.parse(cardResult.data)
-  const log = ReviewLogRowSchema.parse(logResult.data)
+  const log = ReviewLogRowSchema.parse(logData)
+  const cardId = log.card_id
+  if (cardId === null) {
+    // Orphan log (the card was deleted post-review). Per the leech-orphan
+    // precedent this is a 404 — the card simply isn't there anymore.
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
+  }
+
+  // 2. Fetch the card row using the log's card_id.
+  const { data: cardData, error: cardError } = await supabaseAdmin
+    .from('cards')
+    .select(FSRS_SELECT_COLUMNS)
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (cardError !== null) {
+    throw dbError('fetch card for rollback', cardError)
+  }
+  if (cardData === null) {
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
+  }
+
+  const row = FsrsCardRowSchema.parse(cardData)
 
   if (
     log.state_before      === null ||
@@ -616,6 +637,7 @@ export async function rollbackReview(
   return {
     id:            cardId,
     due:           restored.due.toISOString(),
+    // ^ cardId is non-null per the orphan-log guard above; safe to use.
     stability:     restored.stability,
     difficulty:    restored.difficulty,
     scheduledDays: restored.scheduled_days,

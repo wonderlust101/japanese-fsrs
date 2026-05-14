@@ -31,3 +31,25 @@ export type BatchReviewInput  = z.infer<typeof batchReviewSchema>
 /** Narrower rating type that excludes the internal 'manual' grade — what
  *  the user-facing UI and HTTP API actually traffic in. */
 export type UserRating = SubmitReviewInput['rating']
+
+// ─── Stage 8: rollback / forget endpoints ─────────────────────────────────────
+
+/** URL param schema for `POST /api/v1/reviews/:reviewLogId/rollback`. */
+export const rollbackReviewParamSchema = z.object({
+  reviewLogId: z.string().uuid('Invalid review log ID'),
+}).strict()
+
+/** Body schema for `POST /api/v1/cards/:id/forget`.
+ *
+ *  Stage 8 exposes the service's `resetCount` option as an optional body
+ *  field. When `true`, the card returns to state=New AND its lifetime reps
+ *  and lapses counters are zeroed. When `false` (default), the card returns
+ *  to state=New but lifetime counters are preserved for analytics.
+ *
+ *  Anki users will recognize this as the "Forget and reset count" toggle. */
+export const forgetCardBodySchema = z.object({
+  resetCount: z.boolean().optional().default(false),
+}).strict()
+
+export type RollbackReviewParam = z.infer<typeof rollbackReviewParamSchema>
+export type ForgetCardBody      = z.infer<typeof forgetCardBodySchema>

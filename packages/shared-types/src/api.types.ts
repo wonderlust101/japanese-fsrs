@@ -20,7 +20,6 @@ import type {
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
-  ApiStreakStatsSchema,
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
   ApiAnalyticsDashboardSchema,
@@ -85,9 +84,6 @@ export type ApiHeatmapDay = z.infer<typeof ApiHeatmapDaySchema>
 
 /** Per-layout (cognitive modality) accuracy rollup. */
 export type ApiLayoutAccuracy = z.infer<typeof ApiLayoutAccuracySchema>
-
-/** Current and longest streak plus the last review date (UTC calendar days). */
-export type ApiStreakStats = z.infer<typeof ApiStreakStatsSchema>
 
 /** Per-JLPT-level total/learned/due counts with progress percentage. */
 export type ApiJlptGap = z.infer<typeof ApiJlptGapSchema>

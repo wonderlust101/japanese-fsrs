@@ -5,7 +5,6 @@ import type {
   ApiHeatmapDay,
   ApiLayoutAccuracy,
   ApiList,
-  ApiStreakStats,
   ApiJlptGap,
   ApiMilestoneForecast,
   ApiAnalyticsDashboard,
@@ -16,17 +15,16 @@ import { staleTimes } from './config'
 import {
   getHeatmapAction,
   getAccuracyAction,
-  getStreakAction,
   getJlptGapAction,
   getMilestoneForecastAction,
   getDashboardAction,
 } from '../actions/analytics.actions'
 
 /**
- * Bundled fetch for the analytics page — combines heatmap, accuracy, streak,
- * JLPT gap, and milestone forecast into a single round-trip. Prefer this
- * hook for the dashboard view; the granular hooks below remain available
- * for partial-refresh scenarios.
+ * Bundled fetch for the analytics page — combines heatmap, accuracy, JLPT
+ * gap, and milestone forecast into a single round-trip. Prefer this hook
+ * for the dashboard view; the granular hooks below remain available for
+ * partial-refresh scenarios.
  */
 export function useAnalyticsDashboard(): UseQueryResult<ApiAnalyticsDashboard, Error> {
   return useQuery({
@@ -48,14 +46,6 @@ export function useAccuracyByLayout(): UseQueryResult<ApiList<ApiLayoutAccuracy>
   return useQuery({
     queryKey:  queryKeys.analytics.accuracy(),
     queryFn:   getAccuracyAction,
-    staleTime: staleTimes.analytics,
-  })
-}
-
-export function useStreak(): UseQueryResult<ApiStreakStats, Error> {
-  return useQuery({
-    queryKey:  queryKeys.analytics.streak(),
-    queryFn:   getStreakAction,
     staleTime: staleTimes.analytics,
   })
 }

@@ -1,9 +1,14 @@
 import type { RequestHandler } from 'express'
 
-import { submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema } from '@fsrs-japanese/shared-types'
+import {
+  submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema,
+  rollbackReviewParamSchema,
+} from '@fsrs-japanese/shared-types'
+
+import { emptyBodySchema } from '../schemas/leech.schema.ts'
 import * as reviewService  from '../services/review.service.ts'
 import * as profileService from '../services/profile.service.ts'
-import { processReview }   from '../services/fsrs.service.ts'
+import { processReview, rollbackReview } from '../services/fsrs.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
 
 /**
@@ -83,4 +88,32 @@ export const sessionSummary: RequestHandler = async (req, res): Promise<void> =>
   const { sessionId } = sessionSummaryParamsSchema.parse(req.params)
   const summary = await reviewService.getSessionSummary(sessionId, req.user.id)
   res.json(summary)
+}
+
+/**
+ * POST /api/v1/reviews/:reviewLogId/rollback
+ * Undoes a specific review by restoring the card's pre-review FSRS state from
+ * the review_log's before-snapshot. The log itself is preserved as an
+ * immutable audit trail. Throws 404 if the log doesn't belong to the user,
+ * 409 if the log is pre-migration (no before-snapshot was captured).
+ *
+ * Requires `Idempotency-Key` header — same key + same reviewLogId returns
+ * the original response without re-running the rollback. The service is
+ * naturally idempotent for a given log_id (second call finds the card
+ * already in the rolled-back state and writes the same values).
+ */
+export const rollback: RequestHandler = async (req, res): Promise<void> => {
+  const { reviewLogId } = rollbackReviewParamSchema.parse(req.params)
+  emptyBodySchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency(
+    req.user.id,
+    req.header('idempotency-key'),
+    { reviewLogId },
+    async () => {
+      const result = await rollbackReview(req.user.id, reviewLogId)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
 }

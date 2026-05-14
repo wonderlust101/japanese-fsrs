@@ -37,7 +37,6 @@ export type {
   ApiList,
   ApiHeatmapDay,
   ApiLayoutAccuracy,
-  ApiStreakStats,
   ApiJlptGap,
   ApiMilestoneForecast,
   ApiAnalyticsDashboard,
@@ -58,7 +57,7 @@ export {
   ApiDeckSchema, ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema, ApiPremadeSubscriptionSchema, ApiSubscribeResultSchema,
   ApiForecastDaySchema, ApiBatchResultSchema, apiListEnvelope,
-  ApiHeatmapDaySchema, ApiLayoutAccuracySchema, ApiStreakStatsSchema,
+  ApiHeatmapDaySchema, ApiLayoutAccuracySchema,
   ApiJlptGapSchema, ApiMilestoneForecastSchema, ApiAnalyticsDashboardSchema,
   ApiReviewedCardSchema, ApiReviewSubmitResponseSchema,
   SessionSummarySchema,
@@ -110,8 +109,12 @@ export type { UpdateProfileInput } from './schemas/profile.schema.ts'
 
 export {
   reviewRatingEnum, submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema,
+  rollbackReviewParamSchema, forgetCardBodySchema,
 } from './schemas/review.schema.ts'
-export type { SubmitReviewInput, UserRating } from './schemas/review.schema.ts'
+export type {
+  SubmitReviewInput, UserRating,
+  RollbackReviewParam, ForgetCardBody,
+} from './schemas/review.schema.ts'
 
 export {
   signupSchema, loginSchema, refreshSchema,

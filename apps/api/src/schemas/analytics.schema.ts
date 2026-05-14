@@ -22,14 +22,6 @@ export const AccuracyRpcRowSchema = z.object({
 export const AccuracyRpcSchema = z.array(AccuracyRpcRowSchema)
 export type AccuracyRpcRow = z.infer<typeof AccuracyRpcRowSchema>
 
-export const StreakRpcRowSchema = z.object({
-  current_streak:   z.coerce.number().nullable(),
-  longest_streak:   z.coerce.number().nullable(),
-  last_review_date: z.string().nullable(),
-})
-export const StreakRpcSchema = z.array(StreakRpcRowSchema)
-export type StreakRpcRow = z.infer<typeof StreakRpcRowSchema>
-
 export const JlptGapRpcRowSchema = z.object({
   jlpt_level: jlptLevelEnum,
   total:      z.coerce.number(),
