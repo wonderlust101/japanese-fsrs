@@ -103,6 +103,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Replace the current masthead background illustration.
 	  - Change the analytics navigation icon to the updated custom mark.
 	  - Done when the home/dashboard page, My Decks page, and navigation reflect the decision and [status/FRONTEND.md](status/FRONTEND.md) no longer lists these as pending drift.
+- [ ] **Settings V3 and Profile redesign**
+	  - Settings refactored to a kanji-led sticky rail (人 Profile, 学 Learning, 帳 Account, 鍵 Security) with four peer sections, each wrapped in a `SectionCard` matching the dashboard hero visual register (Warm Paper Raised, 2px Inari Vermillion top edge, 1px Soft Hairline border, 2px corners, no shadow).
+	  - Hybrid save model: auto-save sliders/pills/dropdowns; explicit save for text identity fields with section-foot "Save changes" button. Inline ink-tick feedback (`✓ saved` beside the label) replaces the corner toast. 1px Inari Vermillion dirty gutter on uncommitted explicit-save fields.
+	  - Custom brand-native primitives: `TomoSlider` (div-based, role=slider, full ARIA, keyboard nav, value readout pill, onValueChange/Commit split) and `TomoSelect` (combobox + listbox popover via createPortal, full ARIA, keyboard nav, type-to-search). Both live in `apps/web/components/ui/` and are reusable across the app.
+	  - Delete-account flow moved from modal dialog to inline re-auth unfold under the Security section.
+	  - `/profile` route ships six card-based direction variants behind a rebuilt floating dev toolbar (Stack / Solo / Bento / Roll / Postcard / Float). Each is a different organizing principle: layered, centered single, hero plus asymmetric bento, identity card plus sidebar roll, single wide card with internal columns, asymmetric float. Production default is `stack` (the V3-locked Card-Stack Portrait). All variants are honest about MVP data: no stub stats, only display name + JLPT target + joined month + 友 seal-mark.
+	  - Done when the surfaces are visually confirmed in-browser at mobile / tablet / desktop widths and the optional billing/email-change TODOs in Account are tracked separately or scoped in.
 - [ ] **Remove visible AI wording from user-facing surfaces**
 	  - Replace UI labels such as `Generate with AI` with outcome-based wording like create, suggest, draft, or explain.
 	  - Remove or revise public metadata wording such as `AI-enhanced` where it makes AI a visible product promise.
@@ -129,6 +136,31 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Static inspection found route pages and layouts.
 	  - Confirm broad `error.tsx`, `not-found.tsx`, and loading coverage before moving the system-pages card to Done.
 
+## Deferred
+
+- [ ] **Future settings expansion ideas**
+	  - Selection lens: every setting carries a "settings cost" (cognitive load, code paths, new-user decisions, support questions). Only add a setting when user belief or behavior varies enough that a single default cannot serve it.
+	  - Tomo-specific filter: candidates should earn their slot via one of (a) personalization of the practice algorithm, (b) personalization of the AI's voice, (c) honoring privacy/agency. Fit candidates inside an existing tab before justifying a new tab. Three tabs is calm; five starts to look like an admin panel.
+	  - Candidates inside the existing **Profile** tab:
+		- Public profile visibility toggle (gates the upcoming `decks.is_public` rollout). Optionally split into "show my profile", "show my shelf", "show my cadence".
+		- Default deck for new cards (single dropdown).
+		- Pitch accent + romaji display (yes/no each).
+	  - Candidates inside the existing **Learning** tab:
+		- Per-modality enablement (comprehension / production / listening). Per-modality FSRS already exists in code; users currently cannot reach it. Highest-value next addition.
+		- Furigana density rule (always / JLPT-aware / never).
+		- Leech threshold (move `LEECH_THRESHOLD` from env to a user-controllable field, behind a "Show advanced" disclosure).
+		- Rating button style (4-button Again/Hard/Good/Easy vs. simplified 2-button).
+	  - Candidates inside the existing **Security** tab:
+		- Two-factor authentication (TOTP or magic-link).
+		- Recent sign-in activity list ("Tokyo · Chrome · 2 hours ago" rows below Sign out everywhere).
+	  - Candidate **new tabs** (only if mass justifies a slot):
+		- **Notifications**: daily reminder time, weekly recap email, streak warnings, channels (email/push/none). Largest current UX gap; the "morning ritual" brand voice asks for this.
+		- **AI**: explanation length (terse / standard / detailed), tone (teacherly / casual), auto-generate mnemonics yes/no, auto-generate example sentences yes/no, "always show English translation" toggle.
+		- **Data & privacy**: export cards (CSV / Anki package), export review history, analytics opt-out, AI training opt-out. Anki refugees specifically look for this before committing.
+		- **Account** (the reserved 帳 kanji returns): sign-in email change, plan + manage billing, linked accounts (Apple/Google SSO), API tokens.
+	  - Ranked next-ship picks: (1) Notifications, (2) per-modality enablement inside Learning, (3) public profile visibility inside Profile, (4) data export under a new Data & privacy tab.
+	  - **Trap to avoid**: a "Display" tab with theme / font / contrast / motion toggles. Most are system-level preferences (`prefers-color-scheme`, `prefers-reduced-motion`) the app should honor automatically. A Display tab signals distrust of OS settings for low return.
+
 ## Done
 
 - [x] **Canonical documentation cleanup**
@@ -149,7 +181,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [x] **Analytics backend and UI**
 	  - Heatmap, accuracy, JLPT gap, milestone forecast, review forecast, and bundled dashboard paths exist. Streaks are deferred from the current product scope.
 - [x] **Core frontend app shell**
-	  - Auth, onboarding, dashboard, decks, premade browse, review, review summary, analytics, and settings routes exist.
+	  - Auth, onboarding, dashboard, decks, premade browse, review, review summary, analytics, settings, and profile routes exist.
 - [x] **Offline review queue**
 	  - Failed review submissions are queued locally and replayed through the batch endpoint.
 - [x] **API and shared-schema test coverage**
