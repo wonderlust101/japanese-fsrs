@@ -10,6 +10,7 @@ import {
   type ApiDeckWithStats,
   type ApiList,
   type CreateDeckPayload,
+  type UpdateDeckPayload,
 } from '@fsrs-japanese/shared-types'
 
 const EMPTY_DECKS_PAGE: ApiList<ApiDeck> = { items: [], nextCursor: null, hasMore: false }
@@ -61,5 +62,21 @@ export async function deleteDeckAction(deckId: string): Promise<void> {
     voidResponseSchema,
     { method: 'DELETE' },
     'Failed to delete deck',
+  )
+}
+
+export async function updateDeckAction(
+  deckId:  string,
+  payload: UpdateDeckPayload,
+): Promise<ApiDeck> {
+  return apiCall<ApiDeck>(
+    `/api/v1/decks/${deckId}`,
+    ApiDeckSchema,
+    {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    },
+    'Failed to update deck',
   )
 }

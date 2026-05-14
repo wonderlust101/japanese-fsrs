@@ -76,7 +76,7 @@ export {
 } from './schemas/deck.schema.ts'
 export type {
   CreateDeckInput, CreateDeckPayload,
-  UpdateDeckInput,
+  UpdateDeckInput, UpdateDeckPayload,
   ListDecksQuery,
 } from './schemas/deck.schema.ts'
 
