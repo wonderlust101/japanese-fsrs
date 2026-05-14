@@ -17,6 +17,8 @@ router.get('/',    leechesController.list)
 router.post('/drill-sessions',                      leechesController.createDrillSession)
 router.get ('/drill-sessions/:sessionId',           leechesController.getDrillSession)
 router.post('/drill-sessions/:sessionId/attempts',  leechesController.recordDrillAttempt)
+router.post('/drill-sessions/:sessionId/finish',    leechesController.finishDrillSession)
+router.post('/drill-sessions/:sessionId/abort',     leechesController.abortDrillSession)
 
 router.get('/:id', leechesController.get)
 

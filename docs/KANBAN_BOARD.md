@@ -30,9 +30,9 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Done when a concrete service/API path populates diagnosis and prescription data, or the database documentation is explicitly revised to describe the implemented behavior.
 - [ ] **Add leeches list and drill support — frontend wiring**
 	  - Wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
-	  - Build the drill UI (focused-practice screen, session resume, attempt submission).
+	  - Build the drill UI (focused-practice screen, session resume, attempt submission, finish/abort buttons).
 	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
-	  - **Backend is complete** — Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), 4 (drill session resume + stale detection), and 5 (drill attempts + scheduler-invariance suite) are all shipped. See Done lane.
+	  - **Backend is feature-complete** — Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), 4 (drill session resume + stale detection), 5 (drill attempts + scheduler-invariance suite), and 6 (session lifecycle + source expansion) are all shipped. The only remaining backend surface is AI diagnosis, gated on the separately-tracked paid-tier entitlement work.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -219,6 +219,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Body-side `cardId`/`leechId` are treated as consistency assertions — mismatches against the canonical session-card values RAISE and translate to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`. The wire INSERT always uses the canonical values from `leech_drill_session_cards`, never the body's.
 	  - Two new error codes: 404 `LEECH_DRILL_SESSION_CARD_NOT_FOUND` and 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
 	  - **Property-based scheduler-invariance test suite** (200 randomized iterations across all three drill endpoints) proves the drill code path never reads or writes `cards` or `review_logs`. The suite is the load-bearing CI guard against accidental FSRS leakage from any future drill-service refactor.
+- [x] **Leech drill backend completion: session lifecycle + source expansion (Stage 6)**
+	  - `POST /api/v1/leeches/drill-sessions/:sessionId/finish` and `/abort` finally turn the `status` column from decorative into transitionable. Idempotent on no-op retries (re-finishing preserves the original `finished_at`); rejects illegal transitions (terminal states are one-way) with 409 `LEECH_DRILL_SESSION_STATE_CONFLICT`.
+	  - `create_leech_drill_session` RPC extended (migration `20260603000000_drill_session_lifecycle_and_sources.sql`) with three new parameters (`p_card_ids`, `p_card_id`, `p_min_lapses`) and a four-branch `UNION ALL` candidate CTE. All five spec source values (`unresolvedLeeches`, `deckScoped`, `highLapseCandidates`, `manualSelection`, `currentCard`) are now wired through.
+	  - The Stage 4 fingerprint helper is unchanged — same byte-for-byte output, existing sessions' stored hashes stay valid.
+	  - New SECURITY DEFINER RPC `transition_leech_drill_session` (RETURNS void; service does a follow-up `get_leech_drill_session` for the post-state envelope so the wire shape stays identical to Stage 4's GET response). `FOR UPDATE` lock guards against concurrent transitions.
+	  - 22 new unit tests including extension of the property-based scheduler-invariance suite to cover `transitionDrillSession` and all five `createDrillSession` source values.
+	  - **Backend is now feature-complete** except for AI diagnosis (paid-tier-gated, out of scope until entitlements land) and the optional `leech_drill_card_states` aggregate (deferred, no consumer surface).
 
 %% kanban:settings
 ```

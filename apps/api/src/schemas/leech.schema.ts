@@ -111,7 +111,16 @@ export type LeechLapsesCursor = z.infer<typeof leechLapsesCursorSchema>
 // values; the TS enum is intentionally narrower until later stages implement
 // the remaining sources.
 
-export const leechDrillSourceEnum       = z.enum(['unresolvedLeeches', 'deckScoped'])
+// All five spec source values are now wired through (Stage 6). The DB CHECK
+// admits the same five; the service-layer mapper translates camelCase here
+// to snake_case for the RPC.
+export const leechDrillSourceEnum = z.enum([
+  'unresolvedLeeches',
+  'deckScoped',
+  'highLapseCandidates',
+  'manualSelection',
+  'currentCard',
+])
 export const leechDrillModeEnum         = z.enum(['practice', 'timed'])
 export const leechDrillRepeatPolicyEnum = z.enum(['none', 'missedAfterLag'])
 
@@ -124,6 +133,15 @@ export const createDrillSessionSchema = z.object({
   deckId:       z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:    jlptLevelEnum.optional(),
   cardType:     cardTypeEnum.optional(),
+  // manualSelection-only: explicit list of card IDs to drill. Bounded 1-50
+  // to match the per-session drill limit cap.
+  cardIds:      z.array(z.string().uuid('Invalid card ID')).min(1).max(50).optional(),
+  // currentCard-only: single card ID.
+  cardId:       z.string().uuid('Invalid card ID').optional(),
+  // highLapseCandidates-only: lapse threshold for "near-leech" candidates.
+  // Default 3 is applied server-side in the RPC if omitted; bounded here so
+  // callers can't request 0 (every card matches) or absurdly large values.
+  minLapses:    z.number().int().min(1).max(20).optional(),
   // Reuse the list endpoint's sort enum so frontends only learn one vocabulary.
   order:        leechSortEnum.default('mostLapses'),
   // Drill caps tighter than the list endpoint (max 100) — a focused session
@@ -134,9 +152,33 @@ export const createDrillSessionSchema = z.object({
   // Reserved for Stage 4+ (timed-mode stop conditions). Accepted as an opaque
   // object today; the DB CHECK guarantees `jsonb_typeof(stop_rule) = 'object'`.
   stopRule:     z.record(z.string(), z.unknown()).default({}),
-}).strict().refine(
-  (val) => val.source !== 'deckScoped' || val.deckId !== undefined,
-  { message: 'deckId is required when source is "deckScoped"', path: ['deckId'] },
-)
+}).strict().superRefine((val, ctx) => {
+  // Per-source required-field assertions. Each rule emits a field-targeted
+  // issue so the frontend can highlight the right input.
+  if (val.source === 'deckScoped' && val.deckId === undefined) {
+    ctx.addIssue({
+      code: 'custom', path: ['deckId'],
+      message: 'deckId is required when source is "deckScoped"',
+    })
+  }
+  if (val.source === 'manualSelection' && (val.cardIds === undefined || val.cardIds.length === 0)) {
+    ctx.addIssue({
+      code: 'custom', path: ['cardIds'],
+      message: 'cardIds is required and non-empty when source is "manualSelection"',
+    })
+  }
+  if (val.source === 'currentCard' && val.cardId === undefined) {
+    ctx.addIssue({
+      code: 'custom', path: ['cardId'],
+      message: 'cardId is required when source is "currentCard"',
+    })
+  }
+})
 
 export type CreateDrillSessionInput = z.infer<typeof createDrillSessionSchema>
+
+/** Body schema for the session-transition endpoints (`/finish`, `/abort`).
+ *  No body fields are needed today — the URL path encodes the verb. The
+ *  schema is intentionally strict-empty so future field additions don't
+ *  silently accept stale payloads. */
+export const drillSessionTransitionBodySchema = z.object({}).strict()

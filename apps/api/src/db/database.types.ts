@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       cards: {
@@ -168,6 +143,7 @@ export type Database = {
           source_premade_id: string | null
           updated_at: string
           user_id: string
+          version: number
         }
         Insert: {
           card_count?: number
@@ -181,6 +157,7 @@ export type Database = {
           source_premade_id?: string | null
           updated_at?: string
           user_id: string
+          version?: number
         }
         Update: {
           card_count?: number
@@ -194,6 +171,7 @@ export type Database = {
           source_premade_id?: string | null
           updated_at?: string
           user_id?: string
+          version?: number
         }
         Relationships: [
           {
@@ -205,6 +183,268 @@ export type Database = {
           },
           {
             foreignKeyName: "decks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      idempotency_keys: {
+        Row: {
+          created_at: string
+          expires_at: string
+          key: string
+          request_hash: string
+          response_body: Json | null
+          response_status: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          key: string
+          request_hash: string
+          response_body?: Json | null
+          response_status?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          key?: string
+          request_hash?: string
+          response_body?: Json | null
+          response_status?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leech_drill_attempts: {
+        Row: {
+          answered_at: string
+          card_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          leech_id: string | null
+          local_sequence: number | null
+          response_time_ms: number | null
+          result: string
+          session_card_id: string
+          session_id: string
+          shown_at: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          card_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          leech_id?: string | null
+          local_sequence?: number | null
+          response_time_ms?: number | null
+          result: string
+          session_card_id: string
+          session_id: string
+          shown_at?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          card_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          leech_id?: string | null
+          local_sequence?: number | null
+          response_time_ms?: number | null
+          result?: string
+          session_card_id?: string
+          session_id?: string
+          shown_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leech_drill_attempts_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_attempts_leech_id_fkey"
+            columns: ["leech_id"]
+            isOneToOne: false
+            referencedRelation: "leeches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_attempts_session_card_fk"
+            columns: ["session_card_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "leech_drill_session_cards"
+            referencedColumns: ["id", "session_id"]
+          },
+          {
+            foreignKeyName: "leech_drill_attempts_session_fk"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "leech_drill_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leech_drill_session_cards: {
+        Row: {
+          baseline_difficulty: number
+          baseline_due: string
+          baseline_elapsed_days: number
+          baseline_lapses: number
+          baseline_last_review: string | null
+          baseline_learning_steps: number
+          baseline_reps: number
+          baseline_scheduled_days: number
+          baseline_stability: number
+          baseline_state: number
+          canonical_state_fingerprint: string
+          card_id: string | null
+          created_at: string
+          id: string
+          leech_id: string | null
+          ordinal: number
+          session_id: string
+          source_reason: string
+          user_id: string
+        }
+        Insert: {
+          baseline_difficulty: number
+          baseline_due: string
+          baseline_elapsed_days: number
+          baseline_lapses: number
+          baseline_last_review?: string | null
+          baseline_learning_steps: number
+          baseline_reps: number
+          baseline_scheduled_days: number
+          baseline_stability: number
+          baseline_state: number
+          canonical_state_fingerprint: string
+          card_id?: string | null
+          created_at?: string
+          id?: string
+          leech_id?: string | null
+          ordinal: number
+          session_id: string
+          source_reason: string
+          user_id: string
+        }
+        Update: {
+          baseline_difficulty?: number
+          baseline_due?: string
+          baseline_elapsed_days?: number
+          baseline_lapses?: number
+          baseline_last_review?: string | null
+          baseline_learning_steps?: number
+          baseline_reps?: number
+          baseline_scheduled_days?: number
+          baseline_stability?: number
+          baseline_state?: number
+          canonical_state_fingerprint?: string
+          card_id?: string | null
+          created_at?: string
+          id?: string
+          leech_id?: string | null
+          ordinal?: number
+          session_id?: string
+          source_reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leech_drill_session_cards_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_session_cards_leech_id_fkey"
+            columns: ["leech_id"]
+            isOneToOne: false
+            referencedRelation: "leeches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_session_cards_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "leech_drill_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leech_drill_session_cards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leech_drill_sessions: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          mode: string
+          repeat_policy: string
+          source: string
+          source_query: Json
+          started_at: string
+          status: string
+          stop_rule: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          repeat_policy?: string
+          source: string
+          source_query?: Json
+          started_at?: string
+          status?: string
+          stop_rule?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          repeat_policy?: string
+          source?: string
+          source_query?: Json
+          started_at?: string
+          status?: string
+          stop_rule?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leech_drill_sessions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -317,6 +557,7 @@ export type Database = {
           study_goal: string | null
           timezone: string
           updated_at: string
+          version: number
         }
         Insert: {
           created_at?: string
@@ -329,6 +570,7 @@ export type Database = {
           study_goal?: string | null
           timezone?: string
           updated_at?: string
+          version?: number
         }
         Update: {
           created_at?: string
@@ -341,6 +583,7 @@ export type Database = {
           study_goal?: string | null
           timezone?: string
           updated_at?: string
+          version?: number
         }
         Relationships: []
       }
@@ -502,6 +745,52 @@ export type Database = {
         Args: { p_updates: Json }
         Returns: number
       }
+      claim_idempotency_key: {
+        Args: { p_key: string; p_request_hash: string; p_user_id: string }
+        Returns: {
+          status: string
+          stored_body: Json
+          stored_status: number
+        }[]
+      }
+      compute_card_state_fingerprint_v1: {
+        Args: {
+          p_difficulty: number
+          p_due: string
+          p_elapsed_days: number
+          p_lapses: number
+          p_last_review: string
+          p_learning_steps: number
+          p_reps: number
+          p_scheduled_days: number
+          p_stability: number
+          p_state: number
+        }
+        Returns: string
+      }
+      create_leech_drill_session: {
+        Args: {
+          p_card_id: string | null
+          p_card_ids: string[] | null
+          p_card_type: string
+          p_deck_id: string
+          p_jlpt_level: string
+          p_limit: number
+          p_min_lapses: number | null
+          p_mode: string
+          p_order: string
+          p_repeat_policy: string
+          p_source: string
+          p_source_query: Json
+          p_stop_rule: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      delete_idempotency_key: {
+        Args: { p_key: string; p_user_id: string }
+        Returns: undefined
+      }
       find_similar_cards: {
         Args: { p_card_id: string; p_limit?: number; p_user_id: string }
         Returns: {
@@ -523,7 +812,10 @@ export type Database = {
           total: number
         }[]
       }
-      get_dashboard_data: { Args: { p_timezone?: string; p_user_id: string }; Returns: Json }
+      get_dashboard_data: {
+        Args: { p_timezone?: string; p_user_id: string }
+        Returns: Json
+      }
       get_due_cards: {
         Args: {
           p_daily_new_cards_limit: number
@@ -558,6 +850,10 @@ export type Database = {
           learned: number
           total: number
         }[]
+      }
+      get_leech_drill_session: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: Json
       }
       get_milestone_forecast: {
         Args: { p_user_id: string }
@@ -618,82 +914,6 @@ export type Database = {
           longest_streak: number
         }[]
       }
-      claim_idempotency_key: {
-        Args: {
-          p_key: string
-          p_request_hash: string
-          p_user_id: string
-        }
-        Returns: {
-          status: string
-          stored_status: number
-          stored_body: Json
-        }[]
-      }
-      // Added by migration 20260531000000_leech_drill_sessions.sql.
-      // Will be regenerated automatically the next time `supabase gen types
-      // typescript` runs against the live schema.
-      create_leech_drill_session: {
-        Args: {
-          p_user_id:       string
-          p_source:        string
-          p_deck_id:       string | null
-          p_jlpt_level:    string | null
-          p_card_type:     string | null
-          p_order:         string
-          p_limit:         number
-          p_mode:          string
-          p_repeat_policy: string
-          p_stop_rule:     Json
-          p_source_query:  Json
-        }
-        Returns: Json
-      }
-      // Added by migration 20260601000000_leech_drill_session_resume.sql.
-      // Will be regenerated automatically the next time `supabase gen types
-      // typescript` runs against the live schema.
-      get_leech_drill_session: {
-        Args: {
-          p_user_id:    string
-          p_session_id: string
-        }
-        Returns: Json
-      }
-      // Added by migration 20260602000000_leech_drill_attempts.sql.
-      // Will be regenerated automatically the next time `supabase gen types
-      // typescript` runs against the live schema.
-      record_leech_drill_attempt: {
-        Args: {
-          p_user_id:           string
-          p_session_id:        string
-          p_event_id:          string
-          p_session_card_id:   string
-          p_asserted_card_id:  string | null
-          p_asserted_leech_id: string | null
-          p_result:            string
-          p_local_sequence:    number | null
-          p_response_time_ms:  number | null
-          p_shown_at:          string | null
-          p_answered_at:       string | null
-        }
-        Returns: Json
-      }
-      delete_idempotency_key: {
-        Args: {
-          p_key: string
-          p_user_id: string
-        }
-        Returns: undefined
-      }
-      store_idempotency_response: {
-        Args: {
-          p_body: Json
-          p_key: string
-          p_status: number
-          p_user_id: string
-        }
-        Returns: undefined
-      }
       list_cards_paginated: {
         Args: {
           p_cursor?: string
@@ -715,11 +935,7 @@ export type Database = {
         }[]
       }
       list_decks_paginated: {
-        Args: {
-          p_cursor?: string
-          p_limit: number
-          p_user_id: string
-        }
+        Args: { p_cursor?: string; p_limit: number; p_user_id: string }
         Returns: {
           card_count: number
           created_at: string
@@ -730,6 +946,7 @@ export type Database = {
           name: string
           source_premade_id: string
           updated_at: string
+          version: number
         }[]
       }
       list_premade_decks_paginated: {
@@ -827,6 +1044,31 @@ export type Database = {
           success: boolean
         }[]
       }
+      record_leech_drill_attempt: {
+        Args: {
+          p_answered_at: string
+          p_asserted_card_id: string
+          p_asserted_leech_id: string
+          p_event_id: string
+          p_local_sequence: number
+          p_response_time_ms: number
+          p_result: string
+          p_session_card_id: string
+          p_session_id: string
+          p_shown_at: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      store_idempotency_response: {
+        Args: {
+          p_body: Json
+          p_key: string
+          p_status: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       subscribe_to_premade_deck: {
         Args: { p_premade_deck_id: string; p_user_id: string }
         Returns: {
@@ -835,6 +1077,17 @@ export type Database = {
           deck_id: string
           subscription_id: string
         }[]
+      }
+      // Added by migration 20260603000000_drill_session_lifecycle_and_sources.sql.
+      // Will be regenerated automatically the next time `supabase gen types
+      // typescript` runs against the live schema.
+      transition_leech_drill_session: {
+        Args: {
+          p_user_id: string
+          p_session_id: string
+          p_target_status: string
+        }
+        Returns: undefined
       }
       unsubscribe_from_premade_deck: {
         Args: { p_premade_deck_id: string; p_user_id: string }
@@ -851,7 +1104,32 @@ export type Database = {
           p_tags?: string[]
           p_user_id: string
         }
-        Returns: undefined
+        Returns: {
+          card_type: Database["public"]["Enums"]["card_type"]
+          created_at: string
+          deck_id: string
+          difficulty: number
+          due: string
+          elapsed_days: number
+          fields_data: Json
+          id: string
+          is_suspended: boolean
+          jlpt_level: Database["public"]["Enums"]["jlpt_level"]
+          lapses: number
+          last_review: string
+          layout_type: Database["public"]["Enums"]["layout_type"]
+          learning_steps: number
+          parent_card_id: string
+          premade_deck_id: string
+          reps: number
+          scheduled_days: number
+          stability: number
+          state: number
+          tags: string[]
+          updated_at: string
+          user_id: string
+          version: number
+        }[]
       }
       update_deck_with_version_check: {
         Args: {
@@ -860,7 +1138,18 @@ export type Database = {
           p_patch: Json
           p_user_id: string
         }
-        Returns: undefined
+        Returns: {
+          card_count: number
+          created_at: string
+          deck_type: Database["public"]["Enums"]["deck_type"]
+          description: string
+          id: string
+          is_premade_fork: boolean
+          name: string
+          source_premade_id: string
+          updated_at: string
+          version: number
+        }[]
       }
       update_profile_with_interests: {
         Args: {
@@ -1003,9 +1292,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       card_type: ["comprehension", "production", "listening"],

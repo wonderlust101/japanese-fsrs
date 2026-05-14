@@ -474,9 +474,15 @@ const DrillSessionResponseSchema = z.object({
 })
 
 /** Wire camelCase → DB snake_case for the `source` enum. The DB CHECK admits
- *  the snake_case values; the API accepts only the two Stage 3 implements. */
+ *  all five values; Stage 6 wired the remaining three through the TS schema. */
 function sourceToDb(source: CreateDrillSessionInput['source']): string {
-  return source === 'unresolvedLeeches' ? 'unresolved_leeches' : 'deck_scoped'
+  switch (source) {
+    case 'unresolvedLeeches':   return 'unresolved_leeches'
+    case 'deckScoped':          return 'deck_scoped'
+    case 'highLapseCandidates': return 'high_lapse_candidates'
+    case 'manualSelection':     return 'manual_selection'
+    case 'currentCard':         return 'current_card'
+  }
 }
 
 /** Wire camelCase → DB snake_case for the `repeat_policy` enum. */
@@ -514,14 +520,23 @@ export async function createDrillSession(
     p_repeat_policy: repeatPolicyToDb(input.repeatPolicy),
     p_stop_rule:     input.stopRule,
     // source_query is the analytics breadcrumb. Persist the wire-level filters
-    // (camelCase) so future analytics queries don't have to reverse-map.
+    // (camelCase) — including the three new source-specific fields — so future
+    // analytics queries don't have to reverse-map and can answer "which UX
+    // pattern (high-lapse drill / manual pick / single-card drill) does the
+    // learner reach for most?" without a JOIN.
     p_source_query: {
       deckId:    input.deckId    ?? null,
       jlptLevel: input.jlptLevel ?? null,
       cardType:  input.cardType  ?? null,
+      cardIds:   input.cardIds   ?? null,
+      cardId:    input.cardId    ?? null,
+      minLapses: input.minLapses ?? null,
       order:     input.order,
       limit:     input.limit,
     },
+    p_card_ids:   input.cardIds   ?? null,
+    p_card_id:    input.cardId    ?? null,
+    p_min_lapses: input.minLapses ?? null,
   }))
 
   if (error !== null) {
@@ -696,4 +711,69 @@ export async function recordDrillAttempt(
   }
 
   return DrillAttemptResponseSchema.parse(data)
+}
+
+// ─── Drill session lifecycle transitions (Stage 6) ────────────────────────────
+//
+// `POST /api/v1/leeches/drill-sessions/:sessionId/finish` and `/abort` flip
+// the session's `status` column from `'active'` to the requested terminal
+// state. Idempotent on no-op retries (re-finishing a finished session is a
+// no-op). Rejects illegal transitions (e.g. finished → aborted) with 409
+// LEECH_DRILL_SESSION_STATE_CONFLICT.
+//
+// Two RPC round-trips per call: the transition RPC returns void; the service
+// then calls `get_leech_drill_session` for the post-state envelope so the wire
+// shape stays identical to the Stage 4 resume response. Frontends can drop
+// the response into TanStack Query's session-detail cache directly.
+
+export type DrillSessionTransitionTarget = 'finished' | 'aborted'
+
+/**
+ * Transitions a drill session's status from `'active'` to the requested
+ * terminal state (`'finished'` or `'aborted'`). Idempotent: re-finishing a
+ * finished session or re-aborting an aborted one is a no-op and returns the
+ * current envelope unchanged. Rejects illegal transitions (terminal states
+ * are one-way) with 409 `LEECH_DRILL_SESSION_STATE_CONFLICT`.
+ *
+ * Throws:
+ *   • 404 LEECH_DRILL_SESSION_NOT_FOUND — session row missing or wrong owner.
+ *   • 409 LEECH_DRILL_SESSION_STATE_CONFLICT — current status is not
+ *     `'active'` and the requested target differs, OR target is unknown.
+ *   • 500 — RPC fallthrough via `dbError`.
+ *
+ * Scheduler invariance: the transition RPC writes only
+ * `leech_drill_sessions.status`, `finished_at`, and `updated_at`. It does
+ * not read or write `cards` or `review_logs`. The follow-up
+ * `get_leech_drill_session` call also only reads `cards` (never writes).
+ */
+export async function transitionDrillSession(
+  userId:    string,
+  sessionId: string,
+  target:    DrillSessionTransitionTarget,
+): Promise<ApiLeechDrillSessionDetail> {
+  const { error } = await supabaseAdmin.rpc('transition_leech_drill_session', asPayload({
+    p_user_id:       userId,
+    p_session_id:    sessionId,
+    p_target_status: target,
+  }))
+
+  if (error !== null) {
+    if (error.code === '02000' && error.message.includes('leech_drill_session_not_found')) {
+      throw new AppError(404, 'Drill session not found', { code: 'LEECH_DRILL_SESSION_NOT_FOUND' })
+    }
+    if (error.code === '22000' && error.message.includes('leech_drill_session_state_conflict')) {
+      throw new AppError(409, 'Drill session cannot be transitioned from its current state', {
+        code: 'LEECH_DRILL_SESSION_STATE_CONFLICT',
+      })
+    }
+    log.error({ sessionId, target, err: { message: error.message, code: error.code } },
+              'transitionDrillSession RPC failed')
+    throw dbError('transition drill session', error)
+  }
+
+  // The transition RPC returns void. Fetch the post-state envelope through
+  // the same RPC the Stage 4 resume endpoint uses, so the wire shape stays
+  // identical and frontends can drop the response into their TanStack Query
+  // session-detail cache directly.
+  return getDrillSession(userId, sessionId)
 }

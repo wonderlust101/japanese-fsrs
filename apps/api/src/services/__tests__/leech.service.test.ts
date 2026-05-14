@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import {
   createDrillSessionSchema,
   drillSessionIdParamSchema,
+  drillSessionTransitionBodySchema,
   listLeechesQuerySchema,
   leechIdParamSchema,
   recordDrillAttemptSchema,
@@ -106,7 +107,7 @@ mock.module('../../db/supabase.ts', () => ({
 const {
   listLeeches, getLeechById, toListItem,
   resolveLeech, reopenLeech,
-  createDrillSession, getDrillSession, recordDrillAttempt,
+  createDrillSession, getDrillSession, recordDrillAttempt, transitionDrillSession,
 } = await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
@@ -684,9 +685,12 @@ describe('createDrillSession schema', () => {
     expect(createDrillSessionSchema.safeParse({ source: 'deckScoped', deckId: DECK_ID }).success).toBe(true)
   })
 
-  it('accepts only the two Stage 3 source values (DB CHECK is wider)', () => {
+  it('accepts all five spec source values (Stage 6 expanded from two)', () => {
     expect(createDrillSessionSchema.safeParse({ source: 'unresolvedLeeches' }).success).toBe(true)
-    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates' }).success).toBe(false)
+    // Stage 6 wired through `highLapseCandidates`, `manualSelection` (needs
+    // cardIds), and `currentCard` (needs cardId). See the Stage 6 source
+    // expansion describe block below for the full per-source coverage.
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates' }).success).toBe(true)
   })
 })
 
@@ -748,11 +752,18 @@ describe('leech.service — createDrillSession', () => {
       limit:     15,
     }))
 
+    // Stage 6 extended the breadcrumb shape with cardIds/cardId/minLapses
+    // for the three new sources. For Stage-3-shape calls (deckScoped here),
+    // the new fields are null but still present in the breadcrumb so future
+    // analytics queries can group rows uniformly.
     const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
     expect(payload['p_source_query']).toEqual({
       deckId:    DECK_ID,
       jlptLevel: 'N3',
       cardType:  'production',
+      cardIds:   null,
+      cardId:    null,
+      minLapses: null,
       order:     'mostLapses',
       limit:     15,
     })
@@ -1448,6 +1459,306 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
       expect(state.lastTable).toBeNull()
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
       expect(rpcNames).toEqual(['get_leech_drill_session'])
+    }
+  })
+})
+
+// ── Stage 6: source expansion + lifecycle transitions ──────────────────────
+
+describe('createDrillSessionSchema — Stage 6 source expansion', () => {
+  it('parses all five source values', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'unresolvedLeeches' }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'deckScoped', deckId: DECK_ID }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates' }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: [CARD_ID] }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'currentCard', cardId: CARD_ID }).success).toBe(true)
+  })
+
+  it('rejects unknown source values', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'random' }).success).toBe(false)
+  })
+
+  it('manualSelection requires non-empty cardIds (refinement)', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection' }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: [] }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: [CARD_ID] }).success).toBe(true)
+  })
+
+  it('manualSelection caps cardIds at 50', () => {
+    const fifty   = Array.from({ length: 50 }, () => randomUUID())
+    const fiftyOne = Array.from({ length: 51 }, () => randomUUID())
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: fifty   }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: fiftyOne }).success).toBe(false)
+  })
+
+  it('manualSelection rejects non-UUID cardIds', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'manualSelection', cardIds: ['not-a-uuid'] }).success).toBe(false)
+  })
+
+  it('currentCard requires cardId (refinement)', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'currentCard' }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ source: 'currentCard', cardId: CARD_ID }).success).toBe(true)
+  })
+
+  it('highLapseCandidates accepts optional minLapses bounded to [1, 20]', () => {
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates' }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates', minLapses: 1 }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates', minLapses: 20 }).success).toBe(true)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates', minLapses: 0 }).success).toBe(false)
+    expect(createDrillSessionSchema.safeParse({ source: 'highLapseCandidates', minLapses: 21 }).success).toBe(false)
+  })
+})
+
+describe('drillSessionTransitionBodySchema', () => {
+  it('accepts an empty body', () => {
+    expect(drillSessionTransitionBodySchema.safeParse({}).success).toBe(true)
+  })
+
+  it('rejects any body fields (.strict)', () => {
+    expect(drillSessionTransitionBodySchema.safeParse({ status: 'finished' }).success).toBe(false)
+  })
+})
+
+describe('leech.service — createDrillSession source mapping (Stage 6)', () => {
+  it('highLapseCandidates → snake_case + forwards p_min_lapses', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source:    'highLapseCandidates',
+      minLapses: 5,
+      limit:     10,
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_source']).toBe('high_lapse_candidates')
+    expect(payload['p_min_lapses']).toBe(5)
+    expect(payload['p_card_ids']).toBeNull()
+    expect(payload['p_card_id']).toBeNull()
+  })
+
+  it('manualSelection → snake_case + forwards p_card_ids', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    const ids = [CARD_ID, 'a5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a']
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source:  'manualSelection',
+      cardIds: ids,
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_source']).toBe('manual_selection')
+    expect(payload['p_card_ids']).toEqual(ids)
+    expect(payload['p_card_id']).toBeNull()
+    expect(payload['p_min_lapses']).toBeNull()
+  })
+
+  it('currentCard → snake_case + forwards p_card_id', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source: 'currentCard',
+      cardId: CARD_ID,
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_source']).toBe('current_card')
+    expect(payload['p_card_id']).toBe(CARD_ID)
+    expect(payload['p_card_ids']).toBeNull()
+  })
+
+  it('source_query breadcrumb includes the new source-specific fields', async () => {
+    state.rpcResponses['create_leech_drill_session'] = [
+      { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
+    ]
+
+    await createDrillSession('user-1', createDrillSessionSchema.parse({
+      source:    'highLapseCandidates',
+      minLapses: 4,
+      jlptLevel: 'N3',
+    }))
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    const breadcrumb = payload['p_source_query'] as Record<string, unknown>
+    expect(breadcrumb['minLapses']).toBe(4)
+    expect(breadcrumb['jlptLevel']).toBe('N3')
+    expect(breadcrumb['cardIds']).toBeNull()
+    expect(breadcrumb['cardId']).toBeNull()
+  })
+})
+
+describe('leech.service — transitionDrillSession', () => {
+  // The transition RPC returns void; the service then calls
+  // get_leech_drill_session for the post-state envelope. Tests push two
+  // responses per happy-path call: void from transition + envelope from get.
+
+  const finishedEnvelope = {
+    sessionId:             DRILL_SESSION_ID,
+    status:                'finished',
+    isCanonicalStateStale: false,
+    staleCards:            [],
+    cards:                 [],
+  }
+
+  const abortedEnvelope = {
+    ...finishedEnvelope,
+    status: 'aborted',
+  }
+
+  it('finish: calls both RPCs in order and returns the post-state envelope', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+
+    const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
+
+    expect(out.sessionId).toBe(DRILL_SESSION_ID)
+    expect(out.status).toBe('finished')
+
+    expect(state.rpcCalls).toHaveLength(2)
+    expect(state.rpcCalls[0]?.name).toBe('transition_leech_drill_session')
+    expect((state.rpcCalls[0]?.payload as Record<string, unknown>)['p_target_status']).toBe('finished')
+    expect(state.rpcCalls[1]?.name).toBe('get_leech_drill_session')
+  })
+
+  it('abort: forwards target=aborted and returns the aborted envelope', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_leech_drill_session']        = [{ data: abortedEnvelope, error: null }]
+
+    const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'aborted')
+    expect(out.status).toBe('aborted')
+
+    const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
+    expect(payload['p_target_status']).toBe('aborted')
+  })
+
+  it('idempotent re-finish: transition is a no-op; service still returns envelope', async () => {
+    // RPC returns void successfully (the DB-side IF v_current_status =
+    // p_target_status RETURN short-circuit). Service still does the
+    // post-state fetch and returns the existing envelope.
+    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+
+    const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
+    expect(out.status).toBe('finished')
+  })
+
+  it('translates SQLSTATE 02000 + leech_drill_session_not_found → 404', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [
+      { data: null, error: { code: '02000', message: 'leech_drill_session_not_found' } },
+    ]
+
+    let caught: unknown
+    try {
+      await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_DRILL_SESSION_NOT_FOUND')
+  })
+
+  it('translates SQLSTATE 22000 + leech_drill_session_state_conflict → 409', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [
+      { data: null, error: { code: '22000', message: 'leech_drill_session_state_conflict' } },
+    ]
+
+    let caught: unknown
+    try {
+      await transitionDrillSession('user-1', DRILL_SESSION_ID, 'aborted')
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(409)
+    expect(e.code).toBe('LEECH_DRILL_SESSION_STATE_CONFLICT')
+  })
+
+  it('falls through to dbError for unrelated RPC errors (500)', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [
+      { data: null, error: { message: 'connection refused' } },
+    ]
+
+    let caught: unknown
+    try {
+      await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number }
+    expect(e.statusCode).toBe(500)
+  })
+
+  it('never queries the cards or review_logs tables (scheduler invariance)', async () => {
+    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+
+    await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
+
+    expect(state.lastTable).toBeNull()
+    const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))].sort()
+    expect(rpcNames).toEqual(['get_leech_drill_session', 'transition_leech_drill_session'])
+  })
+})
+
+// ── Extended scheduler-invariance property suite (Stage 6) ─────────────────
+
+describe('scheduler invariance — Stage 6 additions', () => {
+  it('50 randomized transitionDrillSession invocations issue zero .from() calls', async () => {
+    const targets: Array<'finished' | 'aborted'> = ['finished', 'aborted']
+
+    for (let i = 0; i < 50; i++) {
+      reset()
+      state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
+      state.rpcResponses['get_leech_drill_session'] = [{
+        data: {
+          sessionId:             randomUUID(),
+          status:                'finished',
+          isCanonicalStateStale: false,
+          staleCards:            [],
+          cards:                 [],
+        }, error: null,
+      }]
+
+      await transitionDrillSession(randomUUID(), randomUUID(), pick(targets))
+
+      expect(state.lastTable).toBeNull()
+      const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))].sort()
+      expect(rpcNames).toEqual(['get_leech_drill_session', 'transition_leech_drill_session'])
+    }
+  })
+
+  it('50 randomized createDrillSession invocations across all five sources issue zero .from() calls', async () => {
+    const sources = ['unresolvedLeeches', 'deckScoped', 'highLapseCandidates', 'manualSelection', 'currentCard'] as const
+    const orders  = ['mostRecent', 'oldestUnresolved', 'mostLapses', 'deckOrder'] as const
+
+    for (let i = 0; i < 50; i++) {
+      reset()
+      state.rpcResponses['create_leech_drill_session'] = [
+        { data: { sessionId: randomUUID(), status: 'active', cards: [] }, error: null },
+      ]
+
+      const source = pick(sources)
+      const body: Record<string, unknown> = {
+        source,
+        order: pick(orders),
+        limit: 1 + Math.floor(Math.random() * 50),
+      }
+      if (source === 'deckScoped')          body['deckId']    = randomUUID()
+      if (source === 'highLapseCandidates') body['minLapses'] = 1 + Math.floor(Math.random() * 20)
+      if (source === 'manualSelection')     body['cardIds']   = [randomUUID(), randomUUID()]
+      if (source === 'currentCard')         body['cardId']    = randomUUID()
+
+      await createDrillSession(randomUUID(), createDrillSessionSchema.parse(body))
+
+      expect(state.lastTable).toBeNull()
+      const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
+      expect(rpcNames).toEqual(['create_leech_drill_session'])
     }
   })
 })

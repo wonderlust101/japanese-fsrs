@@ -55,14 +55,15 @@ const apiLog = componentLogger('api')
  *     SESSION_NOT_FOUND                    session_id not present in review_logs
  *
  *   409 Conflict
- *     CARD_SUSPENDED                  Tried to review a suspended card
- *     DB_FK_VIOLATION                 Foreign-key violation (SQLSTATE 23503)
- *     DB_UNIQUE_VIOLATION             Unique-constraint violation (SQLSTATE 23505)
- *     IDEMPOTENCY_IN_FLIGHT           Same key + same body, prior call still running
- *     LEECH_ALREADY_OPEN              Reopen blocked: another unresolved leech already exists for this card
- *     RESCHEDULE_NO_HISTORY           Reschedule with no eligible review logs
- *     RESCHEDULE_NO_RESULT            ts-fsrs reschedule() returned no item
- *     ROLLBACK_NOT_AVAILABLE          Pre-migration log lacks before-snapshot
+ *     CARD_SUSPENDED                       Tried to review a suspended card
+ *     DB_FK_VIOLATION                      Foreign-key violation (SQLSTATE 23503)
+ *     DB_UNIQUE_VIOLATION                  Unique-constraint violation (SQLSTATE 23505)
+ *     IDEMPOTENCY_IN_FLIGHT                Same key + same body, prior call still running
+ *     LEECH_ALREADY_OPEN                   Reopen blocked: another unresolved leech already exists for this card
+ *     LEECH_DRILL_SESSION_STATE_CONFLICT   Drill session cannot transition from its current state to the target
+ *     RESCHEDULE_NO_HISTORY                Reschedule with no eligible review logs
+ *     RESCHEDULE_NO_RESULT                 ts-fsrs reschedule() returned no item
+ *     ROLLBACK_NOT_AVAILABLE               Pre-migration log lacks before-snapshot
  *
  *   412 Precondition Failed
  *     VERSION_CONFLICT                Optimistic-concurrency mismatch (card / deck / profile)

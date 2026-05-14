@@ -6,6 +6,7 @@ import { withIdempotency } from '../lib/idempotency.ts'
 import {
   createDrillSessionSchema,
   drillSessionIdParamSchema,
+  drillSessionTransitionBodySchema,
   leechIdParamSchema,
   listLeechesQuerySchema,
   recordDrillAttemptSchema,
@@ -68,4 +69,20 @@ export const recordDrillAttempt: RequestHandler = async (req, res): Promise<void
   // replays also return 201 — the body is identical to the original
   // attempt's, which is the right shape for the client either way.
   res.status(201).json(attempt)
+}
+
+export const finishDrillSession: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = drillSessionIdParamSchema.parse(req.params)
+  // Reject any body content other than `{}` so future fields can be added
+  // without ambiguity. The .strict() check fires on unknown keys.
+  drillSessionTransitionBodySchema.parse(req.body ?? {})
+  const session = await leechService.transitionDrillSession(req.user.id, sessionId, 'finished')
+  res.json(session)
+}
+
+export const abortDrillSession: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = drillSessionIdParamSchema.parse(req.params)
+  drillSessionTransitionBodySchema.parse(req.body ?? {})
+  const session = await leechService.transitionDrillSession(req.user.id, sessionId, 'aborted')
+  res.json(session)
 }
