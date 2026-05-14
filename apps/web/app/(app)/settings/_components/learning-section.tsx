@@ -3,8 +3,13 @@
 import { useState } from 'react'
 
 import { Pill, PillGroup } from '@/components/ui/Pill'
+import { TomoSlider } from '@/components/ui/TomoSlider'
 import { updateProfileAction } from '@/lib/actions/profile.actions'
 import { isJlptLevel }         from '@fsrs-japanese/shared-types'
+
+import { SectionCard } from '@/components/ui/SectionCard'
+import { SettingsField } from './settings-field'
+import { useFieldFeedback } from './use-field-feedback'
 
 const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'] as const
 type JlptLevel = (typeof JLPT_LEVELS)[number]
@@ -21,19 +26,26 @@ interface Props {
   initialDailyReview: number
   initialRetention:   number
   initialInterests:   string[]
-  onSaved: (message: string) => void
-  onError: (message: string) => void
 }
 
+/**
+ * Learning section: practice-tuning settings. Every control is in the
+ * auto-save register (pills, sliders) per the brief's hybrid-by-sensitivity
+ * rule. Each commit produces an inline ink-tick beside the field's label.
+ *
+ * Sliders use the bespoke TomoSlider primitive: onValueChange fires on every
+ * drag step (for live readout), onValueCommit fires only on release so the
+ * API is hit once per scrub.
+ */
 export function LearningSection({
   initialJlptTarget,
   initialDailyNew,
   initialDailyReview,
   initialRetention,
   initialInterests,
-  onSaved,
-  onError,
 }: Props): React.JSX.Element {
+  const feedback = useFieldFeedback()
+
   const [jlpt,        setJlpt]        = useState<JlptLevel>(
     isJlptLevel(initialJlptTarget) ? initialJlptTarget : 'N5',
   )
@@ -42,174 +54,194 @@ export function LearningSection({
   const [retention,   setRetention]   = useState(initialRetention)
   const [interests,   setInterests]   = useState<string[]>(initialInterests)
 
+  // Per-field "committed" values used to gate commit fires: scrubbing back
+  // to the starting position should not produce a redundant PATCH.
+  const [committedDailyNew,    setCommittedDailyNew]    = useState(initialDailyNew)
+  const [committedDailyReview, setCommittedDailyReview] = useState(initialDailyReview)
+  const [committedRetention,   setCommittedRetention]   = useState(initialRetention)
+
   async function commit(
-    name: string,
+    fieldId: string,
     payload: Parameters<typeof updateProfileAction>[0],
     rollback: () => void,
+    onSuccess?: () => void,
   ): Promise<void> {
     try {
       await updateProfileAction(payload)
-      onSaved(`${name} saved`)
+      feedback.markSaved(fieldId)
+      onSuccess?.()
     } catch (e) {
       rollback()
-      onError(e instanceof Error ? e.message : 'Unknown error')
+      feedback.markError(fieldId, e instanceof Error ? e.message : 'Could not save.')
     }
   }
 
   function changeJlpt(value: JlptLevel): void {
     const prev = jlpt
     setJlpt(value)
-    void commit('JLPT target', { jlptTarget: value }, () => setJlpt(prev))
+    void commit('jlpt-target', { jlptTarget: value }, () => setJlpt(prev))
   }
 
-  function changeDailyNew(value: number): void {
-    setDailyNew(value)
-  }
-  function commitDailyNew(): void {
-    if (dailyNew === initialDailyNew) return
-    void commit('Daily new cards', { dailyNewCardsLimit: dailyNew }, () => setDailyNew(initialDailyNew))
-  }
-
-  function changeDailyReview(value: number): void {
-    setDailyReview(value)
-  }
-  function commitDailyReview(): void {
-    if (dailyReview === initialDailyReview) return
-    void commit('Daily reviews', { dailyReviewLimit: dailyReview }, () => setDailyReview(initialDailyReview))
+  function commitDailyNew(next: number): void {
+    if (next === committedDailyNew) return
+    const prev = committedDailyNew
+    void commit(
+      'daily-new',
+      { dailyNewCardsLimit: next },
+      () => setDailyNew(prev),
+      () => setCommittedDailyNew(next),
+    )
   }
 
-  function changeRetention(value: number): void {
-    setRetention(value)
+  function commitDailyReview(next: number): void {
+    if (next === committedDailyReview) return
+    const prev = committedDailyReview
+    void commit(
+      'daily-review',
+      { dailyReviewLimit: next },
+      () => setDailyReview(prev),
+      () => setCommittedDailyReview(next),
+    )
   }
-  function commitRetention(): void {
-    if (retention === initialRetention) return
-    void commit('Retention target', { retentionTarget: retention }, () => setRetention(initialRetention))
+
+  function commitRetention(next: number): void {
+    if (next === committedRetention) return
+    const prev = committedRetention
+    void commit(
+      'retention',
+      { retentionTarget: next },
+      () => setRetention(prev),
+      () => setCommittedRetention(next),
+    )
   }
 
   function toggleInterest(name: string): void {
     const next = interests.includes(name)
       ? interests.filter((i) => i !== name)
       : [...interests, name]
+    const prev = interests
     setInterests(next)
-    void commit('Interests', { interests: next }, () => setInterests(interests))
+    void commit('interests', { interests: next }, () => setInterests(prev))
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-sumi-ink">Learning preferences</h2>
-
-      <Field label="JLPT target">
-        <PillGroup compact>
-          {JLPT_LEVELS.map((lvl) => (
-            <Pill
-              key={lvl}
-              variant="interactive"
-              size="lg"
-              mark="#"
-              selected={jlpt === lvl}
-              onClick={() => changeJlpt(lvl)}
-              ariaLabel={`Set JLPT target to ${lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}`}
-            >
-              {lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}
-            </Pill>
-          ))}
-        </PillGroup>
-      </Field>
-
-      <Field
-        label="Daily new cards"
-        hint={`${dailyNew} cards per day`}
-      >
-        <input
-          type="range"
-          min={1}
-          max={100}
-          step={1}
-          value={dailyNew}
-          onChange={(e) => changeDailyNew(Number(e.target.value))}
-          onMouseUp={commitDailyNew}
-          onTouchEnd={commitDailyNew}
-          onKeyUp={commitDailyNew}
-          className="w-full"
-        />
-      </Field>
-
-      <Field
-        label="Daily review limit"
-        hint={`${dailyReview} reviews per day`}
-      >
-        <input
-          type="range"
-          min={20}
-          max={1000}
-          step={10}
-          value={dailyReview}
-          onChange={(e) => changeDailyReview(Number(e.target.value))}
-          onMouseUp={commitDailyReview}
-          onTouchEnd={commitDailyReview}
-          onKeyUp={commitDailyReview}
-          className="w-full"
-        />
-      </Field>
-
-      <Field
-        label="Retention target"
-        hint={`${Math.round(retention * 100)}% remembered. Higher means more reviews, fewer lapses.`}
-      >
-        <input
-          type="range"
-          min={0.6}
-          max={0.99}
-          step={0.01}
-          value={retention}
-          onChange={(e) => changeRetention(Number(e.target.value))}
-          onMouseUp={commitRetention}
-          onTouchEnd={commitRetention}
-          onKeyUp={commitRetention}
-          className="w-full"
-        />
-      </Field>
-
-      <Field label="Interests" hint="Used to personalise AI-generated examples.">
-        <PillGroup compact>
-          {INTEREST_OPTIONS.map((name) => {
-            const active = interests.includes(name)
-            return (
+    <SectionCard
+      id="learning"
+      kanji="学"
+      label="Learning"
+      description="How firmly you practice, and what Tomo writes about."
+      variant="compact"
+    >
+      <div className="space-y-6">
+        <SettingsField
+          label="JLPT target"
+          saved={feedback.isSaved('jlpt-target')}
+          error={feedback.getError('jlpt-target')}
+        >
+          <PillGroup compact>
+            {JLPT_LEVELS.map((lvl) => (
               <Pill
-                key={name}
+                key={lvl}
                 variant="interactive"
                 size="lg"
-                mark="•"
-                selected={active}
-                onClick={() => toggleInterest(name)}
-                ariaLabel={`${active ? 'Remove' : 'Add'} interest ${name}`}
+                mark="#"
+                selected={jlpt === lvl}
+                onClick={() => changeJlpt(lvl)}
+                ariaLabel={`Set JLPT target to ${lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}`}
               >
-                {name}
+                {lvl === 'beyond_jlpt' ? 'Beyond JLPT' : lvl}
               </Pill>
-            )
-          })}
-        </PillGroup>
-      </Field>
-    </div>
-  )
-}
+            ))}
+          </PillGroup>
+        </SettingsField>
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label:    string
-  hint?:    string
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <span className="block text-sm font-medium text-sumi-ink">{label}</span>
-        {hint !== undefined && <span className="text-xs text-faded-sumi tabular-nums">{hint}</span>}
+        <SettingsField
+          label="Daily new cards"
+          endLabel={`${dailyNew} / day`}
+          saved={feedback.isSaved('daily-new')}
+          error={feedback.getError('daily-new')}
+          htmlFor="settings-daily-new"
+        >
+          <TomoSlider
+            id="settings-daily-new"
+            min={1}
+            max={100}
+            step={1}
+            value={dailyNew}
+            onValueChange={setDailyNew}
+            onValueCommit={commitDailyNew}
+            formatValue={(v) => `${v} / day`}
+            ariaLabel="Daily new cards limit"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label="Daily review limit"
+          endLabel={`${dailyReview} / day`}
+          saved={feedback.isSaved('daily-review')}
+          error={feedback.getError('daily-review')}
+          htmlFor="settings-daily-review"
+        >
+          <TomoSlider
+            id="settings-daily-review"
+            min={20}
+            max={1000}
+            step={10}
+            value={dailyReview}
+            onValueChange={setDailyReview}
+            onValueCommit={commitDailyReview}
+            formatValue={(v) => `${v} / day`}
+            ariaLabel="Daily review limit"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label="Retention target"
+          endLabel={`${Math.round(retention * 100)}% remembered`}
+          hint="Higher means more reviews and fewer lapses."
+          saved={feedback.isSaved('retention')}
+          error={feedback.getError('retention')}
+          htmlFor="settings-retention"
+        >
+          <TomoSlider
+            id="settings-retention"
+            min={0.6}
+            max={0.99}
+            step={0.01}
+            value={retention}
+            onValueChange={setRetention}
+            onValueCommit={commitRetention}
+            formatValue={(v) => `${Math.round(v * 100)}%`}
+            ariaLabel="Retention target"
+          />
+        </SettingsField>
+
+        <SettingsField
+          label="Interests"
+          hint="Used to personalise the example sentences Tomo writes for you."
+          saved={feedback.isSaved('interests')}
+          error={feedback.getError('interests')}
+        >
+          <PillGroup compact>
+            {INTEREST_OPTIONS.map((name) => {
+              const active = interests.includes(name)
+              return (
+                <Pill
+                  key={name}
+                  variant="interactive"
+                  size="lg"
+                  mark="•"
+                  selected={active}
+                  onClick={() => toggleInterest(name)}
+                  ariaLabel={`${active ? 'Remove' : 'Add'} interest ${name}`}
+                >
+                  {name}
+                </Pill>
+              )
+            })}
+          </PillGroup>
+        </SettingsField>
       </div>
-      {children}
-    </div>
+    </SectionCard>
   )
 }
