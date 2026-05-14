@@ -9,17 +9,17 @@ import {
   safeNonNegativeInteger,
 } from './dashboard-format'
 import { DashboardRowMotion } from './dashboard-motion'
+import { SectionCard } from '@/components/ui/SectionCard'
+
 import {
-  CardHeader,
   ConnectionErrorNotice,
   EmptyState,
-  LIST_MODULE_CHROME,
   type ModuleState,
   SkeletonBlock,
   UnavailableState,
 } from './section-primitives'
 
-const LEECHES_CHROME = `${LIST_MODULE_CHROME} flex flex-col`
+const LEECHES_EXTRA_CLASS = 'flex flex-col'
 const WEAK_SPOTS_DESCRIPTION = 'Repeat misses that should move into a short drill.'
 
 export interface Leech {
@@ -71,15 +71,16 @@ function conditionForSlips(slips: number): LeechCondition {
 export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Element {
   if (state === 'loading') {
     return (
-      <section aria-labelledby="leeches-label" aria-busy="true" className={LEECHES_CHROME}>
-        <CardHeader
-          id="leeches-label"
-          kanji="弱点"
-          label="Weak spots"
-          variant="compact"
-          description={WEAK_SPOTS_DESCRIPTION}
-          rightContent={<SkeletonBlock width={64} height={11} />}
-        />
+      <SectionCard
+        id="leeches"
+        kanji="弱点"
+        label="Weak spots"
+        variant="compact"
+        description={WEAK_SPOTS_DESCRIPTION}
+        rightContent={<SkeletonBlock width={64} height={11} />}
+        ariaBusy
+        className={LEECHES_EXTRA_CLASS}
+      >
         <ul className="-mx-2 sm:-mx-3">
           {[...Array(3)].map((_, i) => (
             <DashboardRowMotion
@@ -95,43 +96,43 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
             </DashboardRowMotion>
           ))}
         </ul>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader
-          id="leeches-label"
-          kanji="弱点"
-          label="Weak spots"
-          variant="compact"
-          description={WEAK_SPOTS_DESCRIPTION}
-        />
+      <SectionCard
+        id="leeches"
+        kanji="弱点"
+        label="Weak spots"
+        variant="compact"
+        description={WEAK_SPOTS_DESCRIPTION}
+        className={LEECHES_EXTRA_CLASS}
+      >
         <div className="flex min-h-[10rem] items-center py-5">
           <ConnectionErrorNotice sectionName="Your weak spots" />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'unavailable') {
     return (
-      <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader
-          id="leeches-label"
-          kanji="弱点"
-          label="Weak spots"
-          variant="compact"
-          description={WEAK_SPOTS_DESCRIPTION}
-        />
+      <SectionCard
+        id="leeches"
+        kanji="弱点"
+        label="Weak spots"
+        variant="compact"
+        description={WEAK_SPOTS_DESCRIPTION}
+        className={LEECHES_EXTRA_CLASS}
+      >
         <UnavailableState
           title="Weak-spot tracking is not connected yet"
           body="Keep using reviews for now. This space is reserved for cards that miss repeatedly and need a focused second pass."
           action={{ href: '/review', label: "Review today's stack" }}
         />
-      </section>
+      </SectionCard>
     )
   }
 
@@ -139,43 +140,42 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
 
   if (normalizedLeeches.length === 0) {
     return (
-      <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-        <CardHeader
-          id="leeches-label"
-          kanji="弱点"
-          label="Weak spots"
-          variant="compact"
-          description={WEAK_SPOTS_DESCRIPTION}
-        />
+      <SectionCard
+        id="leeches"
+        kanji="弱点"
+        label="Weak spots"
+        variant="compact"
+        description={WEAK_SPOTS_DESCRIPTION}
+        className={LEECHES_EXTRA_CLASS}
+      >
         <EmptyState
           title="Nothing is slipping right now"
           body="Reviews have not flagged any repeat misses. If a card starts missing again and again, it will land here for a short drill."
           action={{ href: '/review', label: "Review today's stack" }}
           visual="weak-spots"
         />
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section aria-labelledby="leeches-label" className={LEECHES_CHROME}>
-      <CardHeader
-        id="leeches-label"
-        kanji="弱点"
-        label="Weak spots"
-        count={normalizedLeeches.length}
-        variant="compact"
-        description={WEAK_SPOTS_DESCRIPTION}
-        rightContent={
-          <Link
-            href="/review?mode=drill"
-            className="dashboard-motion-colors -mx-2 inline-flex min-h-11 items-center rounded-[2px] px-2 underline-offset-4 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45"
-          >
-            practice all →
-          </Link>
-        }
-      />
-
+    <SectionCard
+      id="leeches"
+      kanji="弱点"
+      label="Weak spots"
+      count={normalizedLeeches.length}
+      variant="compact"
+      description={WEAK_SPOTS_DESCRIPTION}
+      rightContent={
+        <Link
+          href="/review?mode=drill"
+          className="dashboard-motion-colors -mx-2 inline-flex min-h-11 items-center rounded-[2px] px-2 underline-offset-4 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45"
+        >
+          practice all →
+        </Link>
+      }
+      className={LEECHES_EXTRA_CLASS}
+    >
       <ul className="-mx-2 sm:-mx-3">
         {normalizedLeeches.map((leech, index) => {
           const condition = conditionForSlips(leech.errors)
@@ -240,7 +240,7 @@ export function Leeches({ state, leeches = [] }: LeechesProps): React.JSX.Elemen
           )
         })}
       </ul>
-    </section>
+    </SectionCard>
   )
 }
 

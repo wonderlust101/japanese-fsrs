@@ -6,19 +6,19 @@ import {
   safeNonNegativeInteger,
 } from './dashboard-format'
 import { DashboardRowMotion } from './dashboard-motion'
+import { SectionCard } from '@/components/ui/SectionCard'
+
 import {
-  CardHeader,
   ConnectionErrorNotice,
   EmptyState,
-  LIST_MODULE_CHROME,
   type ModuleState,
   SkeletonBlock,
   UnavailableState,
 } from './section-primitives'
 
-const RECENT_CHROME = `${LIST_MODULE_CHROME} flex flex-col`
 const RECENT_LABEL = 'Recent reviews'
 const RECENT_DESCRIPTION = 'Last 7 days of reviews.'
+const RECENT_EXTRA_CLASS = 'flex flex-col'
 
 export interface ActivityRow {
   date:      string
@@ -36,15 +36,16 @@ const GOOD_RETENTION_THRESHOLD = 0.85
 export function RecentActivity({ state, rows = [] }: RecentActivityProps): React.JSX.Element {
   if (state === 'loading') {
     return (
-      <section aria-labelledby="activity-label" aria-busy="true" className={RECENT_CHROME}>
-        <CardHeader
-          id="activity-label"
-          kanji="履歴"
-          label={RECENT_LABEL}
-          variant="compact"
-          description={RECENT_DESCRIPTION}
-          rightContent={<SkeletonBlock width={72} height={11} />}
-        />
+      <SectionCard
+        id="activity"
+        kanji="履歴"
+        label={RECENT_LABEL}
+        variant="compact"
+        description={RECENT_DESCRIPTION}
+        rightContent={<SkeletonBlock width={72} height={11} />}
+        ariaBusy
+        className={RECENT_EXTRA_CLASS}
+      >
         <ul>
           {[...Array(5)].map((_, i) => (
             <DashboardRowMotion
@@ -64,43 +65,43 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
             </DashboardRowMotion>
           ))}
         </ul>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader
-          id="activity-label"
-          kanji="履歴"
-          label={RECENT_LABEL}
-          variant="compact"
-          description={RECENT_DESCRIPTION}
-        />
+      <SectionCard
+        id="activity"
+        kanji="履歴"
+        label={RECENT_LABEL}
+        variant="compact"
+        description={RECENT_DESCRIPTION}
+        className={RECENT_EXTRA_CLASS}
+      >
         <div className="flex min-h-[10rem] items-center py-5">
           <ConnectionErrorNotice sectionName="Recent activity" />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'unavailable') {
     return (
-      <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader
-          id="activity-label"
-          kanji="履歴"
-          label={RECENT_LABEL}
-          variant="compact"
-          description={RECENT_DESCRIPTION}
-        />
+      <SectionCard
+        id="activity"
+        kanji="履歴"
+        label={RECENT_LABEL}
+        variant="compact"
+        description={RECENT_DESCRIPTION}
+        className={RECENT_EXTRA_CLASS}
+      >
         <UnavailableState
           title="Recent reviews are not connected yet"
           body="The review queue still works. Once history is available, this space will show reviewed cards, rest days, and retention for the last week."
           action={{ href: '/review', label: 'Start reviews' }}
         />
-      </section>
+      </SectionCard>
     )
   }
 
@@ -108,35 +109,34 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
 
   if (normalizedRows.length === 0) {
     return (
-      <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-        <CardHeader
-          id="activity-label"
-          kanji="履歴"
-          label={RECENT_LABEL}
-          variant="compact"
-          description={RECENT_DESCRIPTION}
-        />
+      <SectionCard
+        id="activity"
+        kanji="履歴"
+        label={RECENT_LABEL}
+        variant="compact"
+        description={RECENT_DESCRIPTION}
+        className={RECENT_EXTRA_CLASS}
+      >
         <EmptyState
           title="Your first review will draw the week"
           body="After one session, this becomes a seven-day trail of practice and retention."
           action={{ href: '/review', label: 'Start reviews' }}
           visual="recent"
         />
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section aria-labelledby="activity-label" className={RECENT_CHROME}>
-      <CardHeader
-        id="activity-label"
-        kanji="履歴"
-        label={RECENT_LABEL}
-        variant="compact"
-        description={RECENT_DESCRIPTION}
-        rightContent={<span>7 days</span>}
-      />
-
+    <SectionCard
+      id="activity"
+      kanji="履歴"
+      label={RECENT_LABEL}
+      variant="compact"
+      description={RECENT_DESCRIPTION}
+      rightContent={<span>7 days</span>}
+      className={RECENT_EXTRA_CLASS}
+    >
       <RecentReviewsKey />
 
       <ul>
@@ -144,7 +144,7 @@ export function RecentActivity({ state, rows = [] }: RecentActivityProps): React
           <Row key={`${row.date}-${index}`} row={row} index={index} />
         ))}
       </ul>
-    </section>
+    </SectionCard>
   )
 }
 

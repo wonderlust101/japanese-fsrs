@@ -8,9 +8,9 @@ import {
   safeNonNegativeInteger,
 } from './dashboard-format'
 import { DASHBOARD_EASE } from './dashboard-motion'
+import { SectionCard } from '@/components/ui/SectionCard'
+
 import {
-  CardHeader,
-  CHART_MODULE_CHROME,
   ConnectionErrorNotice,
   EmptyState,
   type ModuleState,
@@ -74,54 +74,55 @@ const FORECAST_DESCRIPTION = 'Due reviews and available new cards for the next s
 export function ForecastChart({ state, days = [] }: ForecastChartProps): React.JSX.Element {
   if (state === 'loading') {
     return (
-      <section aria-labelledby="forecast-label" aria-busy="true" className={CHART_MODULE_CHROME}>
-        <CardHeader
-          id="forecast-label"
-          kanji="予測"
-          label="Review forecast"
-          variant="chart"
-          description={FORECAST_DESCRIPTION}
-          rightContent={<SkeletonBlock width={88} height={12} />}
-        />
+      <SectionCard
+        id="forecast"
+        kanji="予測"
+        label="Review forecast"
+        variant="chart"
+        description={FORECAST_DESCRIPTION}
+        rightContent={<SkeletonBlock width={88} height={12} />}
+        ariaBusy
+        chrome="chart"
+      >
         <ForecastSkeletonChart />
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-labelledby="forecast-label" className={CHART_MODULE_CHROME}>
-        <CardHeader
-          id="forecast-label"
-          kanji="予測"
-          label="Review forecast"
-          variant="chart"
-          description={FORECAST_DESCRIPTION}
-        />
+      <SectionCard
+        id="forecast"
+        kanji="予測"
+        label="Review forecast"
+        variant="chart"
+        description={FORECAST_DESCRIPTION}
+        chrome="chart"
+      >
         <div className="min-h-[15rem] pt-3 pb-8">
           <ConnectionErrorNotice sectionName="The forecast" />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'unavailable') {
     return (
-      <section aria-labelledby="forecast-label" className={CHART_MODULE_CHROME}>
-        <CardHeader
-          id="forecast-label"
-          kanji="予測"
-          label="Review forecast"
-          variant="chart"
-          description={FORECAST_DESCRIPTION}
-        />
+      <SectionCard
+        id="forecast"
+        kanji="予測"
+        label="Review forecast"
+        variant="chart"
+        description={FORECAST_DESCRIPTION}
+        chrome="chart"
+      >
         <UnavailableState
           title="Forecast data is not connected yet"
           body="Reviews still work. Once forecast data is available, this chart will show the next stretch of due reviews and new cards."
           action={{ href: '/review', label: "Review today's stack" }}
           className="pt-3 pb-8"
         />
-      </section>
+      </SectionCard>
     )
   }
 
@@ -131,16 +132,15 @@ export function ForecastChart({ state, days = [] }: ForecastChartProps): React.J
   const isEmpty = days14.length === 0 || total === 0
 
   return (
-    <section aria-labelledby="forecast-label" className={CHART_MODULE_CHROME}>
-      <CardHeader
-        id="forecast-label"
-        kanji="予測"
-        label="Review forecast"
-        variant="chart"
-        description={FORECAST_DESCRIPTION}
-        rightContent={!isEmpty ? <ForecastFacts total={total} peakDay={peakDay} /> : undefined}
-      />
-
+    <SectionCard
+      id="forecast"
+      kanji="予測"
+      label="Review forecast"
+      variant="chart"
+      description={FORECAST_DESCRIPTION}
+      {...(!isEmpty && { rightContent: <ForecastFacts total={total} peakDay={peakDay} /> })}
+      chrome="chart"
+    >
       {!isEmpty && (
         <>
           <ForecastLegend />
@@ -160,7 +160,7 @@ export function ForecastChart({ state, days = [] }: ForecastChartProps): React.J
       <div className="hidden lg:block">
         {isEmpty ? <ForecastEmptyChart /> : <BarChart days={days14} />}
       </div>
-    </section>
+    </SectionCard>
   )
 }
 

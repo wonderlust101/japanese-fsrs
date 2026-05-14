@@ -1,8 +1,8 @@
+import { SectionCard } from '@/components/ui/SectionCard'
+
 import {
-  CardHeader,
   ConnectionErrorNotice,
   EmptyState,
-  LIST_MODULE_CHROME,
   type ModuleState,
   SkeletonBlock,
   UnavailableState,
@@ -26,7 +26,7 @@ interface PracticeSignalProps {
   idiom?:   DailyIdiom
 }
 
-const PRACTICE_SIGNAL_CHROME = `${LIST_MODULE_CHROME} flex flex-col`
+const PRACTICE_SIGNAL_EXTRA_CLASS = 'flex flex-col'
 const PRACTICE_FOCUS_LABEL = 'Practice focus'
 const PRACTICE_FOCUS_DESCRIPTION = 'One word, reading, or grammar pattern that deserves extra care today.'
 
@@ -41,69 +41,69 @@ export function PracticeSignal({
 
   if (state === 'loading') {
     return (
-      <section aria-labelledby="practice-signal-label" aria-busy="true" className={PRACTICE_SIGNAL_CHROME}>
-        <CardHeader
-          id="practice-signal-label"
-          kanji="要"
-          label={PRACTICE_FOCUS_LABEL}
-          variant="compact"
-          description={PRACTICE_FOCUS_DESCRIPTION}
-          rightContent={<SkeletonBlock width={64} height={10} />}
-        />
+      <SectionCard
+        id="practice-signal"
+        kanji="要"
+        label={PRACTICE_FOCUS_LABEL}
+        variant="compact"
+        description={PRACTICE_FOCUS_DESCRIPTION}
+        rightContent={<SkeletonBlock width={64} height={10} />}
+        ariaBusy
+        className={PRACTICE_SIGNAL_EXTRA_CLASS}
+      >
         <div className="flex min-h-[14rem] items-center">
           <LoadingBody />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-labelledby="practice-signal-label" className={PRACTICE_SIGNAL_CHROME}>
-        <CardHeader
-          id="practice-signal-label"
-          kanji="要"
-          label={PRACTICE_FOCUS_LABEL}
-          variant="compact"
-          description={PRACTICE_FOCUS_DESCRIPTION}
-        />
+      <SectionCard
+        id="practice-signal"
+        kanji="要"
+        label={PRACTICE_FOCUS_LABEL}
+        variant="compact"
+        description={PRACTICE_FOCUS_DESCRIPTION}
+        className={PRACTICE_SIGNAL_EXTRA_CLASS}
+      >
         <div className="flex min-h-[14rem] items-center py-5">
           <ConnectionErrorNotice sectionName="Practice focus" />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'unavailable') {
     return (
-      <section aria-labelledby="practice-signal-label" className={PRACTICE_SIGNAL_CHROME}>
-        <CardHeader
-          id="practice-signal-label"
-          kanji="要"
-          label={PRACTICE_FOCUS_LABEL}
-          variant="compact"
-          description={PRACTICE_FOCUS_DESCRIPTION}
-        />
+      <SectionCard
+        id="practice-signal"
+        kanji="要"
+        label={PRACTICE_FOCUS_LABEL}
+        variant="compact"
+        description={PRACTICE_FOCUS_DESCRIPTION}
+        className={PRACTICE_SIGNAL_EXTRA_CLASS}
+      >
         <UnavailableState
           title="Practice focus needs review data"
           body="Start from the review queue for now. Once connected, this card names the one pattern most worth a lighter second pass today."
           action={{ href: '/review', label: 'Start reviews' }}
         />
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section aria-labelledby="practice-signal-label" className={PRACTICE_SIGNAL_CHROME}>
-      <CardHeader
-        id="practice-signal-label"
-        kanji="要"
-        label={PRACTICE_FOCUS_LABEL}
-        variant="compact"
-        description={PRACTICE_FOCUS_DESCRIPTION}
-        rightContent={date !== undefined ? <span>{date}</span> : undefined}
-      />
-
+    <SectionCard
+      id="practice-signal"
+      kanji="要"
+      label={PRACTICE_FOCUS_LABEL}
+      variant="compact"
+      description={PRACTICE_FOCUS_DESCRIPTION}
+      {...(date !== undefined && { rightContent: <span>{date}</span> })}
+      className={PRACTICE_SIGNAL_EXTRA_CLASS}
+    >
       <div className="flex min-h-[14rem] flex-1 flex-col justify-center">
         {insight !== null && insight !== undefined && <InsightBody insight={insight} />}
         {(insight === null || insight === undefined) && idiom !== undefined && <IdiomBody idiom={idiom} />}
@@ -116,7 +116,7 @@ export function PracticeSignal({
           />
         )}
       </div>
-    </section>
+    </SectionCard>
   )
 }
 

@@ -29,7 +29,7 @@ interface CardHeaderProps {
    * label. Required for any carded section that uses aria-labelledby.
    */
   id?: string
-  /** Single kanji or 2-char compound. Single chars render at text-2xl, compounds at text-xl. */
+  /** Single kanji or 2-char compound. Rendered at text-xl in all cases. */
   kanji:    string
   /** Small-caps mono label rendered after the kanji. */
   label:    string
@@ -41,7 +41,8 @@ interface CardHeaderProps {
   rightContent?: React.ReactNode
   /**
    * Archetype rhythm. Keeps the kanji header vocabulary intact while letting
-   * chart/list/progress modules avoid identical spacing.
+   * chart/list/progress modules avoid identical spacing. Kanji size is now
+   * fixed at text-xl regardless of variant; this prop only affects margins.
    */
   variant?: 'default' | 'compact' | 'chart'
 }
@@ -55,13 +56,11 @@ export function CardHeader({
   rightContent,
   variant = 'default',
 }: CardHeaderProps): React.JSX.Element {
-  // Utility cards keep kanji smaller than the masthead/hero so the Japanese
-  // ornament supports scanning without competing with the main practice surface.
+  // Kanji ornament always renders at text-xl. Earlier iterations varied size
+  // by variant + compound length; that was retired in favor of one
+  // consistent ornament across all surfaces (dashboard, profile, settings).
   const isCompound = kanji.length > 1
-  const kanjiSize =
-    variant === 'chart' || variant === 'compact'
-      ? (isCompound ? 'text-xl' : 'text-2xl')
-      : 'text-2xl'
+  const kanjiSizeClass = 'text-xl'
   const kanjiGap =
     isCompound ? 'gap-2.5' : 'gap-3'
   const hasDescription = description !== undefined
@@ -74,7 +73,7 @@ export function CardHeader({
       <span
         lang="ja"
         aria-hidden="true"
-        className={`shrink-0 whitespace-nowrap font-display ${kanjiSize} text-inari-vermillion leading-none translate-y-[0.05em] select-none`}
+        className={`shrink-0 whitespace-nowrap font-display ${kanjiSizeClass} text-inari-vermillion leading-none translate-y-[0.05em] select-none`}
       >
         {kanji}
       </span>

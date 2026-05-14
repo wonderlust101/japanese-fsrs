@@ -11,11 +11,11 @@ import {
   safeNonNegativeInteger,
 } from './dashboard-format'
 import { DashboardRowMotion } from './dashboard-motion'
+import { SectionCard } from '@/components/ui/SectionCard'
+
 import {
-  CardHeader,
   ConnectionErrorNotice,
   EmptyState,
-  LIST_MODULE_CHROME,
   type ModuleState,
   SkeletonBlock,
   UnavailableState,
@@ -46,15 +46,15 @@ const DECKS_DESCRIPTION = 'Decks in your current study shelf.'
 export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.Element {
   if (state === 'loading') {
     return (
-      <section aria-labelledby="decks-label" aria-busy="true" className={LIST_MODULE_CHROME}>
-        <CardHeader
-          id="decks-label"
-          kanji="教材"
-          label="Your decks"
-          variant="compact"
-          description={DECKS_DESCRIPTION}
-          rightContent={<SkeletonBlock width={56} height={11} />}
-        />
+      <SectionCard
+        id="decks"
+        kanji="教材"
+        label="Your decks"
+        variant="compact"
+        description={DECKS_DESCRIPTION}
+        rightContent={<SkeletonBlock width={56} height={11} />}
+        ariaBusy
+      >
         <ul className="-mx-2 sm:-mx-3">
           {[60, 45, 70, 50].map((width, i) => (
             <DashboardRowMotion
@@ -76,43 +76,41 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
             </DashboardRowMotion>
           ))}
         </ul>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-labelledby="decks-label" className={LIST_MODULE_CHROME}>
-        <CardHeader
-          id="decks-label"
-          kanji="教材"
-          label="Your decks"
-          variant="compact"
-          description={DECKS_DESCRIPTION}
-        />
+      <SectionCard
+        id="decks"
+        kanji="教材"
+        label="Your decks"
+        variant="compact"
+        description={DECKS_DESCRIPTION}
+      >
         <div className="min-h-[14rem] py-6">
           <ConnectionErrorNotice sectionName="Your active decks" />
         </div>
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'unavailable') {
     return (
-      <section aria-labelledby="decks-label" className={LIST_MODULE_CHROME}>
-        <CardHeader
-          id="decks-label"
-          kanji="教材"
-          label="Your decks"
-          variant="compact"
-          description={DECKS_DESCRIPTION}
-        />
+      <SectionCard
+        id="decks"
+        kanji="教材"
+        label="Your decks"
+        variant="compact"
+        description={DECKS_DESCRIPTION}
+      >
         <UnavailableState
           title="Deck data is not connected yet"
           body="You can still review from the main queue. Once deck rollups are available, this list will show level, progress, and due cards for each deck."
           action={{ href: '/review', label: "Review today's stack" }}
         />
-      </section>
+      </SectionCard>
     )
   }
 
@@ -120,38 +118,35 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
 
   if (normalizedDecks.length === 0) {
     return (
-      <section aria-labelledby="decks-label" className={LIST_MODULE_CHROME}>
-        <CardHeader
-          id="decks-label"
-          kanji="教材"
-          label="Your decks"
-          variant="compact"
-          description={DECKS_DESCRIPTION}
-        />
+      <SectionCard
+        id="decks"
+        kanji="教材"
+        label="Your decks"
+        variant="compact"
+        description={DECKS_DESCRIPTION}
+      >
         <EmptyShelf />
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section aria-labelledby="decks-label" className={LIST_MODULE_CHROME}>
-      <CardHeader
-        id="decks-label"
-        kanji="教材"
-        label="Your decks"
-        count={normalizedDecks.length}
-        variant="compact"
-        description={DECKS_DESCRIPTION}
-        rightContent={
-          <Link
-            href="/decks"
-            className="dashboard-motion-colors -mx-2 inline-flex min-h-11 items-center rounded-[2px] px-2 underline-offset-4 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45"
-          >
-            all decks →
-          </Link>
-        }
-      />
-
+    <SectionCard
+      id="decks"
+      kanji="教材"
+      label="Your decks"
+      count={normalizedDecks.length}
+      variant="compact"
+      description={DECKS_DESCRIPTION}
+      rightContent={
+        <Link
+          href="/decks"
+          className="dashboard-motion-colors -mx-2 inline-flex min-h-11 items-center rounded-[2px] px-2 underline-offset-4 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45"
+        >
+          all decks →
+        </Link>
+      }
+    >
       <ul className="-mx-2 mt-1 divide-y divide-soft-hairline/70 sm:-mx-3">
         {normalizedDecks.map((deck, index) => {
           const deckHref = deck.id.length > 0
@@ -207,7 +202,7 @@ export function ActiveDecks({ state, decks = [] }: ActiveDecksProps): React.JSX.
           )
         })}
       </ul>
-    </section>
+    </SectionCard>
   )
 }
 
