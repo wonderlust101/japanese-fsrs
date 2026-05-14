@@ -197,6 +197,10 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - `POST /api/v1/leeches/:id/resolve` — idempotent flip with COALESCE-style "preserve original resolved_at" semantics.
 	  - `POST /api/v1/leeches/:id/reopen` — translates SQLSTATE 23505 from the partial unique index `leeches_card_user_unresolved_idx` to HTTP 409 `LEECH_ALREADY_OPEN`.
 	  - No FSRS state touched; both endpoints inherit auth + `defaultUserRateLimitMiddleware`.
+- [x] **Leeches list spec-alignment patch (Stage 2.5)**
+	  - Added `deckOrder` to `leechSortEnum` and the `diagnosis: available | missing` filter to `listLeechesQuerySchema`, closing the two gaps the updated spec surfaced.
+	  - Cursor pagination remains restricted to time-keyed sorts; `deckOrder` is top-N only (same constraint as `mostLapses`) until an RPC lifts it.
+	  - The paid-tier `diagnosis: 'not included in plan'` arm is intentionally omitted until entitlements ship.
 
 %% kanban:settings
 ```

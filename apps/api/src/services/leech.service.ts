@@ -162,27 +162,39 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
  *   - 'oldestUnresolved'           — ORDER BY created_at ASC,  id ASC
  *   - 'mostLapses'                 — ORDER BY card.lapses DESC NULLS LAST,
  *                                             created_at DESC, id DESC
+ *   - 'deckOrder'                  — ORDER BY card.deck_id ASC,
+ *                                             created_at DESC, id DESC
  *
  * Cursor pagination is supported for the two time-keyed sorts; both keys are
  * immutable on `leeches`, so the cursor is stable across concurrent UPDATEs
  * (a resolve flip does not move a row in the index).
  *
- * `mostLapses` is currently top-N only: the sort head key is on the joined
- * card row, and a correct keyset implementation needs an RPC that can express
- * the `(lapses, created_at, id)` tuple comparison atomically. A follow-up RPC
- * migration in a later stage can lift this restriction.
+ * `mostLapses` and `deckOrder` are currently top-N only: their head sort keys
+ * live on the joined card row, and a correct keyset implementation needs an
+ * RPC that can express the multi-column tuple comparison atomically. A
+ * follow-up RPC migration in a later stage can lift this restriction.
+ *
+ * Filter dimensions (`status`, `deckId`, `jlptLevel`, `cardType`) all apply at
+ * the SQL `WHERE` clause boundary. The `diagnosis` filter is in the same shape
+ * but lives on `leeches` itself, not on the joined card row, so it does not
+ * trigger the LEFT→INNER join switch that the card-side filters do.
  */
 export async function listLeeches(
   userId: string,
   params: ListLeechesQuery,
 ): Promise<ApiLeechListResponse> {
-  const { status, deckId, jlptLevel, cardType, sort, limit, cursor } = params
+  const { status, deckId, jlptLevel, cardType, diagnosis, sort, limit, cursor } = params
 
   // Card-side filters force an inner join so non-matching cards drop the
   // parent leech rather than surface with `card: null`. Orphans (card_id IS
   // NULL) are dropped naturally when any card filter is applied — that's the
   // desired behavior since the user is asking "which leeches match this
   // deck/JLPT/etc."
+  //
+  // The `diagnosis` filter is intentionally NOT part of hasCardFilter — it
+  // lives on `leeches`, not on `cards`. Forcing inner-join because of it
+  // would incorrectly drop orphan leeches (card_id NULL) where a diagnosis
+  // was recorded before the card was deleted.
   const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || cardType !== undefined
   const selectStr = hasCardFilter ? LEECH_SELECT_INNER : LEECH_SELECT_LEFT
 
@@ -197,6 +209,13 @@ export async function listLeeches(
   if (jlptLevel !== undefined) q = q.eq('card.jlpt_level', jlptLevel)
   if (cardType  !== undefined) q = q.eq('card.card_type',  cardType)
 
+  if (diagnosis === 'available') {
+    // PostgREST compiles `.not('diagnosis', 'is', null)` to `diagnosis IS NOT NULL`.
+    q = q.not('diagnosis', 'is', null)
+  } else if (diagnosis === 'missing') {
+    q = q.is('diagnosis', null)
+  }
+
   // ── Ordering ──
   if (sort === 'mostRecent') {
     q = q
@@ -206,21 +225,32 @@ export async function listLeeches(
     q = q
       .order('created_at', { ascending: true })
       .order('id',         { ascending: true })
-  } else {
-    // mostLapses. `foreignTable` orders by the joined cards row; nullsFirst:false
-    // keeps orphan leeches (card row absent) at the end of the list.
+  } else if (sort === 'mostLapses') {
+    // `foreignTable` orders by the joined cards row; nullsFirst:false keeps
+    // orphan leeches (card row absent) at the end of the list.
     q = q
       .order('lapses',     { ascending: false, nullsFirst: false, foreignTable: 'cards' })
+      .order('created_at', { ascending: false })
+      .order('id',         { ascending: false })
+  } else {
+    // deckOrder. Groups adjacent leeches by deck. Across decks the order is
+    // by deck UUID (deterministic but not alphabetical) — that's an acceptable
+    // trade for avoiding an extra join just to sort on deck.name. In practice
+    // this sort is most useful paired with a deckId filter, where intra-deck
+    // ordering matters and inter-deck ordering doesn't.
+    q = q
+      .order('deck_id',    { ascending: true, foreignTable: 'cards' })
       .order('created_at', { ascending: false })
       .order('id',         { ascending: false })
   }
 
   // ── Cursor ──
   if (cursor !== undefined) {
-    if (sort === 'mostLapses') {
-      // See docstring — mostLapses is top-N only for now. Treat the cursor as
-      // invalid so the client gets a clean 400 rather than silently returning
-      // the same page.
+    if (sort === 'mostLapses' || sort === 'deckOrder') {
+      // See docstring — both sorts are top-N only for now. Their head sort key
+      // lives on the joined card row, so a correct keyset cursor needs an RPC
+      // we haven't built. A clean 400 is better than silently returning the
+      // same page on every "next" click.
       throw new AppError(400, 'Cursor pagination is not supported for this sort order', { code: 'CURSOR_INVALID' })
     }
     const { createdAt, id } = decodeCursor(cursor, leechCreatedAtCursorSchema)
@@ -249,7 +279,7 @@ export async function listLeeches(
   const items   = visible.map(toListItem)
 
   let nextCursor: string | null = null
-  if (hasMore && sort !== 'mostLapses') {
+  if (hasMore && sort !== 'mostLapses' && sort !== 'deckOrder') {
     const last = visible[visible.length - 1]
     if (last !== undefined) {
       nextCursor = encodeCursor({ createdAt: last.created_at, id: last.id })

@@ -157,6 +157,23 @@ describe('leech schemas', () => {
     expect(leechIdParamSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false)
     expect(leechIdParamSchema.safeParse({ id: 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c' }).success).toBe(true)
   })
+
+  it('listLeechesQuerySchema accepts the deckOrder sort', () => {
+    const result = listLeechesQuerySchema.safeParse({ sort: 'deckOrder' })
+    expect(result.success).toBe(true)
+  })
+
+  it('listLeechesQuerySchema accepts available/missing diagnosis values', () => {
+    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'available' }).success).toBe(true)
+    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'missing'   }).success).toBe(true)
+  })
+
+  it('listLeechesQuerySchema rejects unknown diagnosis values (paid arm intentionally omitted)', () => {
+    // The spec's third arm 'not included in plan' is a paid-tier signal and is
+    // intentionally not in the enum yet. When entitlements ship, extend the enum.
+    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'pending'  }).success).toBe(false)
+    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'paid'     }).success).toBe(false)
+  })
 })
 
 // ── toListItem ──────────────────────────────────────────────────────────────
@@ -476,5 +493,109 @@ describe('leech.service — reopenLeech', () => {
     }
     const e = caught as { statusCode?: number }
     expect(e.statusCode).toBe(500)
+  })
+})
+
+// ── listLeeches — Stage 2.5: deckOrder sort + diagnosis filter ──────────────
+
+describe('leech.service — listLeeches deckOrder sort', () => {
+  it('orders by foreign-table cards.deck_id ascending, then created_at desc, then id desc', async () => {
+    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
+    await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder' }))
+
+    const orderCalls = state.calls.filter((c) => c.method === 'order')
+    // First order call must target deck_id on the joined cards relation.
+    expect(orderCalls[0]?.args[0]).toBe('deck_id')
+    const firstOpts = orderCalls[0]?.args[1] as { ascending?: boolean; foreignTable?: string }
+    expect(firstOpts.ascending).toBe(true)
+    expect(firstOpts.foreignTable).toBe('cards')
+    // Then created_at desc, id desc as the in-deck tiebreakers.
+    expect(orderCalls[1]?.args[0]).toBe('created_at')
+    expect(orderCalls[2]?.args[0]).toBe('id')
+  })
+
+  it('throws CURSOR_INVALID 400 when a cursor is supplied with deckOrder', async () => {
+    const cursor = Buffer.from(JSON.stringify({
+      createdAt: '2026-05-01T00:00:00.000Z',
+      id:        'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c',
+    }), 'utf8').toString('base64url')
+
+    let caught: unknown
+    try {
+      await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder', cursor }))
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(400)
+    expect(e.code).toBe('CURSOR_INVALID')
+  })
+
+  it('never emits a nextCursor for deckOrder, even when hasMore is true', async () => {
+    // Three rows, limit 2 → service detects hasMore but must withhold the cursor.
+    const rows = [
+      { ...SAMPLE_LEECH_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a' },
+      { ...SAMPLE_LEECH_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b' },
+      { ...SAMPLE_LEECH_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c' },
+    ]
+    state.responses['leeches'] = [{ data: rows, error: null }]
+
+    const out = await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder', limit: 2 }))
+    expect(out.hasMore).toBe(true)
+    expect(out.nextCursor).toBeNull()
+  })
+})
+
+describe('leech.service — listLeeches diagnosis filter', () => {
+  it('diagnosis=available adds a NOT IS NULL filter without forcing inner-join', async () => {
+    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
+    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'available' }))
+
+    // Filter must be a .not('diagnosis', 'is', null) call against the leeches table.
+    const notCalls = state.calls.filter((c) => c.method === 'not')
+    expect(notCalls).toContainEqual({ method: 'not', args: ['diagnosis', 'is', null] })
+
+    // No card-side filter was set, so the embed must stay LEFT JOIN. Inspect the
+    // select-call argument and assert it does NOT contain the inner-join marker.
+    const selectCalls = state.calls.filter((c) => c.method === 'select')
+    const selectStr = selectCalls[0]?.args[0]
+    expect(typeof selectStr).toBe('string')
+    expect(String(selectStr).includes('cards!inner')).toBe(false)
+  })
+
+  it('diagnosis=missing adds an IS NULL filter without forcing inner-join', async () => {
+    state.responses['leeches'] = [{ data: [], error: null }]
+    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'missing' }))
+
+    const isCalls = state.calls.filter((c) => c.method === 'is')
+    expect(isCalls).toContainEqual({ method: 'is', args: ['diagnosis', null] })
+
+    const selectCalls = state.calls.filter((c) => c.method === 'select')
+    const selectStr   = selectCalls[0]?.args[0]
+    expect(String(selectStr).includes('cards!inner')).toBe(false)
+  })
+
+  it('omitting diagnosis does not call .not or .is on the diagnosis column', async () => {
+    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
+    await listLeeches('user-1', listLeechesQuerySchema.parse({}))
+
+    const diagnosisCalls = state.calls.filter((c) =>
+      (c.method === 'not' || c.method === 'is') && c.args[0] === 'diagnosis',
+    )
+    expect(diagnosisCalls).toHaveLength(0)
+  })
+
+  it('diagnosis combines with a deckId card-filter — uses inner-join and applies both', async () => {
+    state.responses['leeches'] = [{ data: [], error: null }]
+    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'available', deckId: DECK_ID }))
+
+    // Card-side deck filter forces inner-join — diagnosis filter rides alongside.
+    const selectStr = state.calls.find((c) => c.method === 'select')?.args[0]
+    expect(String(selectStr).includes('cards!inner')).toBe(true)
+
+    const eqCalls = state.calls.filter((c) => c.method === 'eq')
+    expect(eqCalls).toContainEqual({ method: 'eq', args: ['card.deck_id', DECK_ID] })
+    const notCalls = state.calls.filter((c) => c.method === 'not')
+    expect(notCalls).toContainEqual({ method: 'not', args: ['diagnosis', 'is', null] })
   })
 })
