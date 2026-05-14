@@ -45,9 +45,20 @@ export const GeneratedMnemonicSchema = z.object({
   mnemonic: safeStr,
 })
 
+// Diagnosis + prescription output for a leech. The diagnosis identifies *why*
+// the card keeps lapsing (ambiguous reading, weak mnemonic, similar-kanji
+// confusion, context-thin sentence). The prescription gives the learner one
+// concrete next-step fix. Both strings are stripMarkup-transformed defensively
+// even though the prompt is JSON-mode.
+export const GeneratedLeechDiagnosisSchema = z.object({
+  diagnosis:    safeStr,
+  prescription: safeStr,
+})
+
 export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>
 export type GeneratedCardData        = z.infer<typeof GeneratedCardDataSchema>
 export type GenerateSentencesInput   = z.infer<typeof generateSentencesInputSchema>
 export type GeneratedSentences       = z.infer<typeof GeneratedSentencesSchema>
 export type GenerateMnemonicInput    = z.infer<typeof generateMnemonicInputSchema>
 export type GeneratedMnemonic        = z.infer<typeof GeneratedMnemonicSchema>
+export type GeneratedLeechDiagnosis  = z.infer<typeof GeneratedLeechDiagnosisSchema>

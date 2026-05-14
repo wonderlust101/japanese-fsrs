@@ -61,6 +61,12 @@ export const getDrillSession: RequestHandler = async (req, res): Promise<void> =
   res.json(session)
 }
 
+export const diagnoseLeech: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = leechIdParamSchema.parse(req.params)
+  const leech  = await leechService.diagnoseLeech(req.user.id, id)
+  res.json(leech)
+}
+
 export const recordDrillAttempt: RequestHandler = async (req, res): Promise<void> => {
   const { sessionId } = drillSessionIdParamSchema.parse(req.params)
   const input         = recordDrillAttemptSchema.parse(req.body)

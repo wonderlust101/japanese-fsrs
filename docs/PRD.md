@@ -8,7 +8,7 @@ Current project tasks live in [KANBAN_BOARD.md](KANBAN_BOARD.md). Status summary
 
 ## Product Goal
 
-Tomo is a calm, Japanese-aware spaced-repetition practice app for serious adult learners. It combines FSRS scheduling, curated Japanese decks, manual card creation, analytics, and paid AI assistance in one product so learners do not need to stitch together Anki, chatbots, and separate Japanese-learning tools.
+Tomo is a calm, Japanese-aware spaced-repetition practice app for serious adult learners. It combines FSRS scheduling, curated Japanese decks, manual card creation, analytics, and AI assistance (card generation, contextual sentences, mnemonics, leech diagnosis) in one product so learners do not need to stitch together Anki, chatbots, and separate Japanese-learning tools. For the MVP release, every feature is free.
 
 The core job-to-be-done is: help learners retain Japanese vocabulary, kanji, and grammar with low friction and useful insight, without making daily review feel like grinding.
 
@@ -21,10 +21,10 @@ The core job-to-be-done is: help learners retain Japanese vocabulary, kanji, and
 | Cards and decks | Support user decks, curated premade decks, personal copies of premade content, manual card creation, AI-assisted card creation, semantic similarity, and version-safe edits. |
 | Japanese content | Represent JLPT levels including `beyond_jlpt`; support vocabulary, grammar, and sentence field shapes; preserve Japanese typography, furigana, and CJK rendering. |
 | Personalization | Store native language, JLPT target, study goal, daily limits, retention target, timezone, and user interests. Use these preferences to shape review limits and AI output. |
-| AI learning assistance | Paid-tier features include card generation, contextual example sentences, mnemonics, and leech diagnosis or prescriptive learning guidance. AI should be visible through output quality, not through chrome or sparkle branding. |
+| AI learning assistance | All MVP learners get card generation, contextual example sentences, mnemonics, and leech diagnosis with prescriptive learning guidance. AI is gated by authentication and per-user cost-control rate limits only; no entitlement gates. AI should be visible through output quality, not through chrome or sparkle branding. |
 | Analytics | Provide retention heatmap, accuracy by cognitive modality, JLPT gap/progress, milestone forecasts, and review forecasts. Streaks are deferred to a later product version. |
 | Accessibility | Meet WCAG 2.1 AA as a floor; keep keyboard review canonical; support screen readers, `lang="ja"`, semantic furigana, reduced motion, and color-blind-safe review affordances. |
-| Business model | Keep the free tier a complete SRS with manual cards, premade decks, analytics, offline review, and accessibility. Gate AI assistance behind the paid tier. |
+| Business model | All features ship free for the MVP release. Code paths must not check entitlement / tier flags; AI surfaces are gated only by auth + cost-control rate limits. A monetization model may be revisited in a later phase once the product has shipped and reached learners. |
 
 ## Scope Guidance
 
@@ -43,4 +43,4 @@ Active work is tracked in [KANBAN_BOARD.md](KANBAN_BOARD.md). When requirements 
 
 ---
 
-*Last updated: 2026-05-12*
+*Last updated: 2026-05-14 (Stage 7: all features free for MVP).*

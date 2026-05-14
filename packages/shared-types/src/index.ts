@@ -98,10 +98,11 @@ export type {
 
 export {
   GeneratedCardDataSchema, GeneratedSentencesSchema, GeneratedMnemonicSchema,
+  GeneratedLeechDiagnosisSchema,
   generateCardInputSchema, generateSentencesInputSchema, generateMnemonicInputSchema,
 } from './schemas/ai.schema.ts'
 export type {
-  GeneratedCardData, GeneratedSentences, GeneratedMnemonic,
+  GeneratedCardData, GeneratedSentences, GeneratedMnemonic, GeneratedLeechDiagnosis,
 } from './schemas/ai.schema.ts'
 
 export { updateProfileSchema } from './schemas/profile.schema.ts'

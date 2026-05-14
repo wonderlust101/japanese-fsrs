@@ -22,10 +22,11 @@ export const leechSortEnum = z.enum([
 ])
 export type LeechSortOrder = z.infer<typeof leechSortEnum>
 
-/** Diagnosis filter dimension for the leeches list. The third spec arm —
- *  "not included in plan" — is intentionally omitted here because it is a
- *  paid-tier entitlement signal, not a column filter. When entitlements ship,
- *  add a third arm in this enum and a matching branch in the service. */
+/** Diagnosis filter dimension for the leeches list. The spec's third arm,
+ *  "not included in plan," was an entitlement-tier signal — Stage 7 removed
+ *  the tier model (all features are free for the MVP), so this enum stays at
+ *  the two column-based arms. The arm can be reintroduced if monetization
+ *  ever returns. */
 export const leechDiagnosisFilterEnum = z.enum(['available', 'missing'])
 export type LeechDiagnosisFilter = z.infer<typeof leechDiagnosisFilterEnum>
 

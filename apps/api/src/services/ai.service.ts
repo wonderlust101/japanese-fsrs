@@ -8,10 +8,12 @@ import {
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
+  GeneratedLeechDiagnosisSchema,
   sanitizeForPrompt,
   type GeneratedCardData,
   type GeneratedSentences,
   type GeneratedMnemonic,
+  type GeneratedLeechDiagnosis,
 } from '@fsrs-japanese/shared-types'
 import { componentLogger } from '../lib/logger.ts'
 import { withBreaker } from '../lib/circuit-breaker.ts'
@@ -45,6 +47,11 @@ const CHAT_MODEL = env.OPENAI_CHAT_MODEL
 const CARD_CACHE_TTL      = 60 * 60 * 24 * 7    // 7 days — per TDD §10.1
 const SENTENCES_CACHE_TTL = 60 * 60 * 24 * 7    // 7 days
 const MNEMONIC_CACHE_TTL  = 60 * 60 * 24 * 30   // 30 days — per TDD §10.1
+// Diagnosis is leech-specific (driven by lapse pattern) and stays valid only
+// while the underlying card and review history are stable. 30 days is the
+// same TTL as mnemonics — both are advisory text that doesn't need to be
+// re-derived on every retry.
+const DIAGNOSIS_CACHE_TTL = 60 * 60 * 24 * 30
 
 // Hard cap on the joined interests fragment when it lands in a prompt — even
 // 20 individually-bounded interests can produce a 1KB+ string that crowds out
@@ -377,6 +384,132 @@ Constraints:
   }))
 
   await redis.set(cacheKey, JSON.stringify(result), { ex: MNEMONIC_CACHE_TTL })
+    .catch((err: unknown) => {
+      log.warn({
+        cacheKey,
+        err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+      }, 'AI cache write failed; result still returned')
+    })
+  return result
+}
+
+/**
+ * Generates a diagnosis + prescription for a leech: an explanation of *why*
+ * the card keeps lapsing and one concrete next-step fix the learner can
+ * apply. The leech-management UI surfaces these alongside the card content.
+ *
+ * Cache key includes the card's word + the lapse count, so a card that gets
+ * worse over time can regenerate; a card whose lapse pattern is stable
+ * returns the cached diagnosis cheaply.
+ *
+ * @param word          Card front (vocabulary word, grammar pattern, or
+ *                      sentence front) — used for prompt context.
+ * @param reading       Optional reading (kana). When null, the model is told
+ *                      to infer or skip.
+ * @param meaning       Card back (English meaning / translation).
+ * @param lapseCount    Current `cards.lapses` — the only quantitative signal
+ *                      we pass to the model.
+ * @param recentRatings Last N ratings from `review_logs.rating`, oldest →
+ *                      newest. Empty array is acceptable.
+ * @param userLevel     Learner's JLPT target (e.g. 'N3').
+ * @param nativeLanguage Learner's L1, for the prescription's voice.
+ *
+ * Throws `OPENAI_KEY_MISSING` if env unset, `OPENAI_EMPTY_RESPONSE` on
+ * malformed model output, or a `ServiceUnavailableError` (503) when the
+ * chat breaker is open. ZodError if structured-output validation fails.
+ */
+export async function generateLeechDiagnosis(
+  word:           string,
+  reading:        string | null,
+  meaning:        string,
+  lapseCount:     number,
+  recentRatings:  string[],
+  userLevel:      string,
+  nativeLanguage: string,
+  opts?:          { signal?: AbortSignal },
+): Promise<GeneratedLeechDiagnosis> {
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
+  const client = openai  // see generateCard for the narrowing rationale.
+
+  const safeWord    = sanitizeForPrompt(word)
+  const safeReading = reading !== null ? sanitizeForPrompt(reading) : ''
+  const safeMeaning = sanitizeForPrompt(meaning)
+  const safeLevel   = sanitizeForPrompt(userLevel)
+  const safeNative  = sanitizeForPrompt(nativeLanguage)
+  // Ratings are well-known enum values from review_logs.rating; sanitize
+  // defensively in case future ratings include user text.
+  const safeRatings = recentRatings.map((r) => sanitizeForPrompt(r))
+
+  // Cache key encodes the inputs that affect the diagnosis output. Reading is
+  // optional; lapse count is the lever; recent ratings are the pattern; level
+  // + native language affect voice. Same word + same pattern + same learner
+  // produces the same diagnosis.
+  const cacheKey = `diagnosis:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(',')}`
+
+  const fromCache = await readCache(cacheKey, GeneratedLeechDiagnosisSchema)
+  if (fromCache !== null) return fromCache
+
+  const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+    let response
+    try {
+      response = await client.chat.completions.create({
+        model: CHAT_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are a Japanese-language SRS coach. The learner has lapsed on a card multiple times; you must diagnose why and prescribe one concrete next-step fix.
+Always respond with valid JSON.
+Learner level: ${safeLevel}. Native language: ${safeNative}.
+
+Common reasons a Japanese-learning card lapses:
+- Ambiguous reading (e.g. 生 has many on'yomi/kun'yomi)
+- Similar-kanji visual confusion (e.g. 持/侍, 王/玉)
+- Okurigana inconsistency (e.g. 行う vs 行なう)
+- Weak mnemonic linking sound to meaning
+- Context-thin sentence — the meaning only makes sense in a specific register
+- Pitch-accent confusion (heteronyms with different accents)
+- Polysemy — one word, several distinct senses
+
+Your diagnosis must name the most likely reason in plain learner language (not jargon). Your prescription must propose one concrete action: a specific mnemonic image, a kanji disambiguation tip, an example-sentence pattern to learn, or a similar-cards study set to drill.`,
+          },
+          {
+            role: 'user',
+            content: `Card front: ${safeWord}
+Reading: ${safeReading !== '' ? safeReading : '(unknown)'}
+Meaning: ${safeMeaning}
+Current lapse count: ${lapseCount}
+Recent ratings (oldest → newest): ${safeRatings.length > 0 ? safeRatings.join(', ') : '(none recorded)'}
+
+Return JSON with this exact shape:
+{ "diagnosis": string, "prescription": string }
+
+Constraints:
+- diagnosis: under 200 characters, plain language, names the likely cause.
+- prescription: under 240 characters, names ONE concrete next step.
+- Use the user's native language for both fields.
+- Do not mention "AI" or apologize for being a model.`,
+          },
+        ],
+      }, { signal: opts?.signal })
+    } catch (err) {
+      log.error({
+        err: {
+          name:    err instanceof Error ? err.name : 'Unknown',
+          message: scrubKeyish(err),
+        },
+      }, 'generateLeechDiagnosis OpenAI request failed')
+      throw err
+    }
+
+    const raw = response.choices[0]?.message.content
+    if (raw === null || raw === undefined) {
+      throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
+    }
+    return GeneratedLeechDiagnosisSchema.parse(JSON.parse(raw))
+  }))
+
+  await redis.set(cacheKey, JSON.stringify(result), { ex: DIAGNOSIS_CACHE_TTL })
     .catch((err: unknown) => {
       log.warn({
         cacheKey,

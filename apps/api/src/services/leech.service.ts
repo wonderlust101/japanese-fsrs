@@ -5,6 +5,7 @@ import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+import { generateLeechDiagnosis } from './ai.service.ts'
 import {
   leechCreatedAtCursorSchema,
   type CreateDrillSessionInput,
@@ -776,4 +777,180 @@ export async function transitionDrillSession(
   // identical and frontends can drop the response into their TanStack Query
   // session-detail cache directly.
   return getDrillSession(userId, sessionId)
+}
+
+// ─── Leech diagnosis (Stage 7) ────────────────────────────────────────────────
+//
+// `POST /api/v1/leeches/:id/diagnose` populates a leech's `diagnosis` and
+// `prescription` columns with AI-generated text. As of Stage 7 this is a free
+// MVP feature (no entitlement gating). Replay-on-existing semantics keep
+// OpenAI cost bounded: a leech that already has diagnosis returns the stored
+// values without re-calling the model. To regenerate, the client first
+// resolves+reopens the leech (which clears the row).
+
+/** Slim card projection used by diagnosis prompt construction. */
+const LeechDiagnosisCardRowSchema = z.object({
+  fields_data: z.record(z.string(), z.unknown()),
+  layout_type: z.enum(['vocabulary', 'grammar', 'sentence']),
+  lapses:      z.number().int().nonnegative(),
+})
+
+/** Profile slice we read for diagnosis voice (JLPT target + native language). */
+const ProfileForDiagnosisSchema = z.object({
+  jlpt_target:     z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']).nullable(),
+  native_language: z.string(),
+})
+
+/** Recent review-log ratings for the card, oldest → newest. */
+const ReviewLogRatingRowSchema = z.object({
+  rating: z.string(),
+})
+
+/**
+ * Generates and persists a diagnosis + prescription for a leech, then returns
+ * the full joined detail (matching the `GET /:id` shape). Replay-on-existing:
+ * if the leech already has diagnosis text, no AI call is made and the stored
+ * values are returned.
+ *
+ * Throws:
+ *   • 404 LEECH_NOT_FOUND — leech missing or wrong owner.
+ *   • 422 CARD_FIELDS_INSUFFICIENT — orphan leech (card deleted) or
+ *     card's fields_data lacks the word/meaning fields the prompt needs.
+ *   • Anything else from `generateLeechDiagnosis` (OPENAI_KEY_MISSING,
+ *     OPENAI_EMPTY_RESPONSE, 503 from the chat breaker).
+ *
+ * Scheduler invariance: this function reads `cards`, `review_logs`, and
+ * `leeches`. It writes only to `leeches` (the diagnosis + prescription text
+ * columns). It does NOT mutate `cards.state` or any FSRS field, and it does
+ * NOT insert into `review_logs`. The property-based suite covers the read-
+ * only side; the write-only-to-leeches side is verified by the per-test
+ * assertion that the only UPDATE is against `from('leeches')`.
+ */
+export async function diagnoseLeech(userId: string, leechId: string): Promise<ApiLeechListItem> {
+  // 1. Fetch the leech + its card (slim projection for prompt inputs).
+  //    Filter by user_id to give 404 on cross-user attempts.
+  const { data: leechRow, error: fetchError } = await supabaseAdmin
+    .from('leeches')
+    .select(`
+      id,
+      card_id,
+      diagnosis,
+      prescription,
+      resolved,
+      card:cards (
+        fields_data,
+        layout_type,
+        lapses
+      )
+    `)
+    .eq('id', leechId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (fetchError !== null) {
+    log.error({ leechId, err: { message: fetchError.message, code: fetchError.code } },
+              'diagnoseLeech leech fetch failed')
+    throw dbError('fetch leech for diagnosis', fetchError)
+  }
+  if (leechRow === null) {
+    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+  }
+
+  // 2. Replay-on-existing: if the leech already has diagnosis text, return
+  //    the full envelope without calling OpenAI. Idempotent and cost-bounded.
+  if (leechRow.diagnosis !== null && leechRow.prescription !== null) {
+    return getLeechById(userId, leechId)
+  }
+
+  // 3. Orphan leech (card_id NULL after card deletion) or insufficient card
+  //    fields → 422. The prompt needs at least word/meaning to be useful.
+  if (leechRow.card_id === null || leechRow.card === null) {
+    throw new AppError(422, 'Cannot diagnose an orphan leech (card has been deleted)', {
+      code: 'CARD_FIELDS_INSUFFICIENT',
+    })
+  }
+
+  const card = LeechDiagnosisCardRowSchema.parse(leechRow.card)
+
+  // Extract word/reading/meaning from fields_data via the shared helper so
+  // vocabulary and grammar cards both work; sentence-layout cards return
+  // null fields and fail with the same 422.
+  const fields = getWordFields({
+    layoutType: card.layout_type as LayoutType,
+    fieldsData: card.fields_data as FieldsData,
+  })
+  if (fields === null) {
+    throw new AppError(422, 'Card layout does not expose word/reading/meaning required for diagnosis', {
+      code: 'CARD_FIELDS_INSUFFICIENT',
+    })
+  }
+
+  // 4. Fetch the learner's profile slice (JLPT target + native language) for
+  //    the prompt's voice. Fall back to safe defaults if missing — diagnosis
+  //    should not fail just because preferences are sparse.
+  const { data: profileRow, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('jlpt_target, native_language')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (profileError !== null) {
+    log.warn({ userId, err: { message: profileError.message, code: profileError.code } },
+             'diagnoseLeech profile fetch failed; falling back to defaults')
+  }
+  const profile = profileRow !== null
+    ? ProfileForDiagnosisSchema.parse(profileRow)
+    : { jlpt_target: null, native_language: 'en' }
+
+  // 5. Pull the last 10 review-log ratings for the card, oldest → newest, so
+  //    the prompt can see whether the lapses cluster recent or are stable.
+  //    Limit 10 to keep prompt size bounded and the query fast.
+  const { data: ratingRows, error: ratingError } = await supabaseAdmin
+    .from('review_logs')
+    .select('rating')
+    .eq('card_id', leechRow.card_id)
+    .eq('user_id', userId)
+    .order('reviewed_at', { ascending: false })
+    .limit(10)
+
+  if (ratingError !== null) {
+    log.warn({ leechId, err: { message: ratingError.message, code: ratingError.code } },
+             'diagnoseLeech review_logs fetch failed; proceeding with empty pattern')
+  }
+  const recentRatings = (ratingRows ?? [])
+    .map((r) => ReviewLogRatingRowSchema.parse(r).rating)
+    .reverse()   // oldest → newest for the prompt
+
+  // 6. Call OpenAI via the AI service. The semaphore + breaker + cache live
+  //    there; this service just provides the inputs and writes the output.
+  const generated = await generateLeechDiagnosis(
+    fields.word,
+    fields.reading,
+    fields.meaning,
+    card.lapses,
+    recentRatings,
+    profile.jlpt_target ?? 'N5',
+    profile.native_language,
+  )
+
+  // 7. Persist the diagnosis + prescription onto the leech row. Only updates
+  //    the two text columns; FSRS state and resolution status are untouched.
+  const { error: updateError } = await supabaseAdmin
+    .from('leeches')
+    .update({
+      diagnosis:    generated.diagnosis,
+      prescription: generated.prescription,
+    })
+    .eq('id',      leechId)
+    .eq('user_id', userId)
+
+  if (updateError !== null) {
+    log.error({ leechId, err: { message: updateError.message, code: updateError.code } },
+              'diagnoseLeech update failed')
+    throw dbError('persist leech diagnosis', updateError)
+  }
+
+  // 8. Return the full joined detail so the client can drop the response into
+  //    its TanStack Query cache directly. Same shape as GET /:id.
+  return getLeechById(userId, leechId)
 }

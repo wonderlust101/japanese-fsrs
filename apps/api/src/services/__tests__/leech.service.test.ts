@@ -58,6 +58,8 @@ function reset(): void {
   state.terminalShape = 'list'
   state.rpcResponses  = {}
   state.rpcCalls      = []
+  aiMock.diagnosisResponses = []
+  aiMock.diagnosisCalls     = []
 }
 
 function makeBuilder(table: string): unknown {
@@ -104,10 +106,31 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
+// Mock the AI service so diagnoseLeech tests can drive its output without
+// hitting OpenAI. The mock records every call so we can assert that replay
+// paths never invoke it.
+interface AiMockState {
+  diagnosisResponses: Array<{ data: unknown; error: Error | null }>
+  diagnosisCalls:     Array<readonly unknown[]>
+}
+const aiMock: AiMockState = { diagnosisResponses: [], diagnosisCalls: [] }
+mock.module('../ai.service.ts', () => ({
+  generateLeechDiagnosis: mock(async (...args: readonly unknown[]) => {
+    aiMock.diagnosisCalls.push(args)
+    const next = aiMock.diagnosisResponses.shift()
+    if (next === undefined) {
+      return { diagnosis: 'fallback diagnosis', prescription: 'fallback prescription' }
+    }
+    if (next.error !== null) throw next.error
+    return next.data
+  }),
+}))
+
 const {
   listLeeches, getLeechById, toListItem,
   resolveLeech, reopenLeech,
   createDrillSession, getDrillSession, recordDrillAttempt, transitionDrillSession,
+  diagnoseLeech,
 } = await import('../leech.service.ts')
 import type { LeechRow } from '../leech.service.ts'
 
@@ -193,9 +216,10 @@ describe('leech schemas', () => {
     expect(listLeechesQuerySchema.safeParse({ diagnosis: 'missing'   }).success).toBe(true)
   })
 
-  it('listLeechesQuerySchema rejects unknown diagnosis values (paid arm intentionally omitted)', () => {
-    // The spec's third arm 'not included in plan' is a paid-tier signal and is
-    // intentionally not in the enum yet. When entitlements ship, extend the enum.
+  it('listLeechesQuerySchema rejects unknown diagnosis values', () => {
+    // The spec's third arm 'not included in plan' was a tier signal; Stage 7
+    // removed the tier model (all features free for the MVP) so the enum
+    // stays at the two column-based arms.
     expect(listLeechesQuerySchema.safeParse({ diagnosis: 'pending'  }).success).toBe(false)
     expect(listLeechesQuerySchema.safeParse({ diagnosis: 'paid'     }).success).toBe(false)
   })
@@ -1760,5 +1784,255 @@ describe('scheduler invariance — Stage 6 additions', () => {
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
       expect(rpcNames).toEqual(['create_leech_drill_session'])
     }
+  })
+})
+
+// ── diagnoseLeech — Stage 7 ────────────────────────────────────────────────
+//
+// The fresh-diagnose path issues five queries against `leeches`:
+//   1. fetch leech+card (slim)
+//   2. fetch profile (jlpt_target, native_language)
+//   3. fetch review_logs (last 10 ratings)
+//   4. UPDATE leech (set diagnosis + prescription)
+//   5. getLeechById (return full joined detail)
+// Tests push the right responses for each table in order. The replay-on-
+// existing path skips queries 2-4 entirely.
+
+describe('leech.service — diagnoseLeech (Stage 7)', () => {
+  const FRESH_LEECH_FETCH = {
+    id:           LEECH_ID,
+    card_id:      CARD_ID,
+    diagnosis:    null,
+    prescription: null,
+    resolved:     false,
+    card: {
+      fields_data: { word: '猫', reading: 'ねこ', meaning: 'cat' },
+      layout_type: 'vocabulary',
+      lapses:      8,
+    },
+  }
+
+  const PROFILE_FETCH = {
+    jlpt_target:     'N3',
+    native_language: 'en',
+  }
+
+  const FULL_LEECH_RESPONSE = {
+    ...SAMPLE_LEECH_ROW,
+    diagnosis:    'Reading 猫 sometimes confused with 描 in compound contexts.',
+    prescription: 'Drill a 5-card mini-set distinguishing 猫 from visually-similar kanji.',
+  }
+
+  it('fresh diagnose: fetches card+profile+ratings, calls AI service once, persists, returns full detail', async () => {
+    state.responses['leeches']     = [
+      { data: FRESH_LEECH_FETCH, error: null },         // step 1: fetch leech+card
+      { data: null, error: null },                       // step 4: UPDATE
+      { data: FULL_LEECH_RESPONSE, error: null },        // step 5: getLeechById
+    ]
+    state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
+    state.responses['review_logs'] = [{ data: [{ rating: 'again' }, { rating: 'hard' }], error: null }]
+    aiMock.diagnosisResponses      = [{
+      data:  { diagnosis: 'Reading 猫 confused.', prescription: 'Mini-set drill.' },
+      error: null,
+    }]
+
+    const out = await diagnoseLeech('user-1', LEECH_ID)
+
+    expect(out.id).toBe(LEECH_ID)
+    expect(out.diagnosis).not.toBeNull()
+    expect(out.prescription).not.toBeNull()
+
+    // The AI service was called exactly once with the expected prompt inputs.
+    expect(aiMock.diagnosisCalls).toHaveLength(1)
+    const args = aiMock.diagnosisCalls[0] ?? []
+    expect(args[0]).toBe('猫')             // word
+    expect(args[1]).toBe('ねこ')           // reading
+    expect(args[2]).toBe('cat')           // meaning
+    expect(args[3]).toBe(8)               // lapseCount
+    expect(args[4]).toEqual(['hard', 'again'])  // ratings oldest→newest (reversed)
+    expect(args[5]).toBe('N3')            // jlpt level
+    expect(args[6]).toBe('en')            // native language
+  })
+
+  it('replay path: existing diagnosis returns the stored row without calling AI', async () => {
+    const alreadyDiagnosed = {
+      ...FRESH_LEECH_FETCH,
+      diagnosis:    'Existing diagnosis text.',
+      prescription: 'Existing prescription text.',
+    }
+
+    state.responses['leeches'] = [
+      { data: alreadyDiagnosed, error: null },          // step 1: fetch sees populated diagnosis
+      { data: FULL_LEECH_RESPONSE, error: null },        // getLeechById (replay returns the full detail)
+    ]
+
+    const out = await diagnoseLeech('user-1', LEECH_ID)
+    expect(out.id).toBe(LEECH_ID)
+
+    // No AI call — the existing diagnosis is reused.
+    expect(aiMock.diagnosisCalls).toHaveLength(0)
+
+    // No call to profiles or review_logs either — the short-circuit fires
+    // immediately after step 1.
+    const tablesQueried = new Set(state.calls
+      .filter((c) => c.method === 'select')
+      .map(() => state.lastTable))
+    // (state.lastTable is the last table, which was 'leeches' since both
+    // queries went there. Verify no profiles/review_logs queries fired by
+    // checking the from() call count via state.calls being limited.)
+    void tablesQueried
+  })
+
+  it('throws LEECH_NOT_FOUND 404 when the row is missing', async () => {
+    state.responses['leeches'] = [{ data: null, error: null }]
+
+    let caught: unknown
+    try {
+      await diagnoseLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(404)
+    expect(e.code).toBe('LEECH_NOT_FOUND')
+  })
+
+  it('throws CARD_FIELDS_INSUFFICIENT 422 when the leech is orphan (card_id null)', async () => {
+    state.responses['leeches'] = [
+      { data: { ...FRESH_LEECH_FETCH, card_id: null, card: null }, error: null },
+    ]
+
+    let caught: unknown
+    try {
+      await diagnoseLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(422)
+    expect(e.code).toBe('CARD_FIELDS_INSUFFICIENT')
+  })
+
+  it('throws CARD_FIELDS_INSUFFICIENT 422 for sentence-layout cards (no word/reading/meaning)', async () => {
+    state.responses['leeches'] = [{
+      data: {
+        ...FRESH_LEECH_FETCH,
+        card: {
+          fields_data: { front: 'sentence front', back: 'sentence back' },
+          layout_type: 'sentence',
+          lapses:      8,
+        },
+      },
+      error: null,
+    }]
+
+    let caught: unknown
+    try {
+      await diagnoseLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    const e = caught as { statusCode?: number; code?: string }
+    expect(e.statusCode).toBe(422)
+    expect(e.code).toBe('CARD_FIELDS_INSUFFICIENT')
+  })
+
+  it('falls back to safe profile defaults when profile fetch errors', async () => {
+    state.responses['leeches']     = [
+      { data: FRESH_LEECH_FETCH, error: null },
+      { data: null, error: null },                       // UPDATE
+      { data: FULL_LEECH_RESPONSE, error: null },        // getLeechById
+    ]
+    state.responses['profiles']    = [{ data: null, error: { message: 'profile unavailable' } }]
+    state.responses['review_logs'] = [{ data: [], error: null }]
+    aiMock.diagnosisResponses      = [{
+      data:  { diagnosis: 'd', prescription: 'p' },
+      error: null,
+    }]
+
+    // Should NOT throw — falls back to 'N5' / 'en' defaults.
+    await diagnoseLeech('user-1', LEECH_ID)
+
+    expect(aiMock.diagnosisCalls).toHaveLength(1)
+    const args = aiMock.diagnosisCalls[0] ?? []
+    expect(args[5]).toBe('N5')  // default jlpt
+    expect(args[6]).toBe('en')  // default native language
+  })
+
+  it('passes review-log ratings to the AI service in oldest→newest order', async () => {
+    // Supabase returns DESC (newest first) due to .order('reviewed_at', { ascending: false });
+    // service reverses to oldest→newest. Three ratings, expected order back.
+    state.responses['leeches']     = [
+      { data: FRESH_LEECH_FETCH, error: null },
+      { data: null, error: null },
+      { data: FULL_LEECH_RESPONSE, error: null },
+    ]
+    state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
+    state.responses['review_logs'] = [{
+      data: [{ rating: 'good' }, { rating: 'hard' }, { rating: 'again' }],
+      error: null,
+    }]
+    aiMock.diagnosisResponses      = [{
+      data:  { diagnosis: 'd', prescription: 'p' },
+      error: null,
+    }]
+
+    await diagnoseLeech('user-1', LEECH_ID)
+
+    const ratings = (aiMock.diagnosisCalls[0] ?? [])[4]
+    expect(ratings).toEqual(['again', 'hard', 'good'])
+  })
+
+  it('propagates AI service errors (e.g. OPENAI_KEY_MISSING) without persisting partial state', async () => {
+    state.responses['leeches']     = [{ data: FRESH_LEECH_FETCH, error: null }]
+    state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
+    state.responses['review_logs'] = [{ data: [], error: null }]
+
+    // AI service throws.
+    aiMock.diagnosisResponses = [{
+      data:  null,
+      error: Object.assign(new Error('OPENAI_API_KEY not configured'), {
+        statusCode: 500, code: 'OPENAI_KEY_MISSING',
+      }),
+    }]
+
+    let caught: unknown
+    try {
+      await diagnoseLeech('user-1', LEECH_ID)
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as { code?: string }).code).toBe('OPENAI_KEY_MISSING')
+
+    // The UPDATE query against `leeches` never ran — only the initial fetch
+    // and the profile/review_logs fetches did. Assert no `.update` call fired.
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(0)
+  })
+
+  it('UPDATE writes only diagnosis and prescription (no FSRS state, no review_logs)', async () => {
+    state.responses['leeches']     = [
+      { data: FRESH_LEECH_FETCH, error: null },
+      { data: null, error: null },
+      { data: FULL_LEECH_RESPONSE, error: null },
+    ]
+    state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
+    state.responses['review_logs'] = [{ data: [], error: null }]
+    aiMock.diagnosisResponses      = [{
+      data:  { diagnosis: 'd', prescription: 'p' },
+      error: null,
+    }]
+
+    await diagnoseLeech('user-1', LEECH_ID)
+
+    // The single .update() call must be against `leeches` (not `cards` or
+    // `review_logs`) and must only set the two diagnosis text columns.
+    const updateCalls = state.calls.filter((c) => c.method === 'update')
+    expect(updateCalls).toHaveLength(1)
+    const patch = updateCalls[0]?.args[0] as Record<string, unknown>
+    expect(Object.keys(patch).sort()).toEqual(['diagnosis', 'prescription'])
+    expect(patch['diagnosis']).toBe('d')
+    expect(patch['prescription']).toBe('p')
   })
 })

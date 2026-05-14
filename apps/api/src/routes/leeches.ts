@@ -1,7 +1,11 @@
 import { Router } from 'express'
 
 import { authMiddleware } from '../middleware/auth.ts'
-import { defaultUserRateLimitMiddleware } from '../middleware/rateLimit.ts'
+import {
+  aiDailyQuotaMiddleware,
+  aiRateLimitMiddleware,
+  defaultUserRateLimitMiddleware,
+} from '../middleware/rateLimit.ts'
 import * as leechesController from '../controllers/leeches.controller.ts'
 
 const router = Router()
@@ -24,5 +28,16 @@ router.get('/:id', leechesController.get)
 
 router.post('/:id/resolve', leechesController.resolve)
 router.post('/:id/reopen',  leechesController.reopen)
+
+// Diagnosis is an AI feature: stack the AI rate limiter + daily quota in
+// front of the default user-rate-limit middleware that's already on the
+// router. Stage 7 made diagnosis a free MVP feature, so the only gates are
+// auth + the cost-control limiters.
+router.post(
+  '/:id/diagnose',
+  aiRateLimitMiddleware,
+  aiDailyQuotaMiddleware,
+  leechesController.diagnoseLeech,
+)
 
 export default router

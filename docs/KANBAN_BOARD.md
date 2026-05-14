@@ -12,13 +12,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Replace hardcoded starter deck recommendations in `apps/web/app/onboarding/decks/page.tsx`.
 	  - Add the `/onboarding/recommendations` endpoint referenced by the onboarding deck-step comment.
 	  - Subscribe selected decks through `/api/v1/premade-decks/:id/subscribe`.
-- [ ] **Implement paid/free tier entitlement gates**
-	  - Add a persisted user tier or entitlement model.
-	  - Gate paid AI features server-side instead of relying only on auth, rate limits, and daily quota.
-	  - Keep free-tier manual SRS, premade decks, analytics, offline review, and accessibility available.
-	  - Issue type: business-rule and backend enforcement gap.
-	  - Current mismatch: product requirements describe paid AI behavior, but code does not yet expose a durable entitlement source that routes/services can enforce.
-	  - Done when paid-only AI paths fail closed for users without entitlement and free-tier paths continue to work without paid entitlement.
 - [ ] **Build premade deck update and merge workflow**
 	  - Surface `premade_decks.version > last_seen_version`.
 	  - Preserve user FSRS state while syncing new or corrected premade content.
@@ -31,8 +24,9 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [ ] **Add leeches list and drill support — frontend wiring**
 	  - Wire the dashboard leeches card, drill entry point, and a `hasLeeches` signal to the new endpoints.
 	  - Build the drill UI (focused-practice screen, session resume, attempt submission, finish/abort buttons).
+	  - Wire the diagnosis surface — call `POST /api/v1/leeches/:id/diagnose`, render the returned diagnosis + prescription in the leech details panel.
 	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
-	  - **Backend is feature-complete** — Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), 4 (drill session resume + stale detection), 5 (drill attempts + scheduler-invariance suite), and 6 (session lifecycle + source expansion) are all shipped. The only remaining backend surface is AI diagnosis, gated on the separately-tracked paid-tier entitlement work.
+	  - **Backend is fully complete** — Stages 1 (list + detail), 2 (resolve + reopen), 2.5 (spec-alignment patch), 3 (drill session creation + snapshot), 4 (drill session resume + stale detection), 5 (drill attempts + scheduler-invariance suite), 6 (session lifecycle + source expansion), and 7 (free MVP completion + AI diagnosis) are all shipped.
 - [ ] **Finish dashboard backend-backed state**
 	  - Add or derive weekly review and retention summary data only if a current dashboard surface needs it.
 	  - Keep recent activity derived from heatmap data unless a dedicated endpoint becomes necessary.
@@ -44,7 +38,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Done when deck rollups, leech signals, and the restored Tomo daily note surface are no longer backed by unavailable/demo data.
 - [ ] **Build Tomo daily note API and content source**
 	  - Add a route family such as `GET /api/v1/tomo/note`.
-	  - Support paid insight and free/fallback idiom variants as referenced in dashboard comments.
+	  - For the MVP, ship a single free variant (no tier-based variants). AI-generated insight and curated idiom fallback both available to every learner; the rate limiters handle cost control.
 	  - Add a curated idiom source and cache AI insight output safely.
 	  - The current dashboard practice-signal module is temporary; restore the dashboard area back to Tomo daily notes when this API lands.
 - [ ] **Define sentence-layout card workflow**
@@ -199,7 +193,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [x] **Leeches list spec-alignment patch (Stage 2.5)**
 	  - Added `deckOrder` to `leechSortEnum` and the `diagnosis: available | missing` filter to `listLeechesQuerySchema`, closing the two gaps the updated spec surfaced.
 	  - Cursor pagination remains restricted to time-keyed sorts; `deckOrder` is top-N only (same constraint as `mostLapses`) until an RPC lifts it.
-	  - The paid-tier `diagnosis: 'not included in plan'` arm is intentionally omitted until entitlements ship.
+	  - The spec's third `diagnosis` arm `'not included in plan'` was a tier signal — Stage 7 removed the tier model, so the enum stays at `available | missing`.
 - [x] **Leech drill session creation + snapshot (Stage 3)**
 	  - `POST /api/v1/leeches/drill-sessions` builds a persisted, focused drill queue gated by `Idempotency-Key` so network retries can't mint duplicate sessions.
 	  - Two new tables (migration `20260531000000_leech_drill_sessions.sql`): `leech_drill_sessions` (envelope) and `leech_drill_session_cards` (per-card baseline_* FSRS snapshot + versioned `v1:` canonical_state_fingerprint).
@@ -225,7 +219,14 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - The Stage 4 fingerprint helper is unchanged — same byte-for-byte output, existing sessions' stored hashes stay valid.
 	  - New SECURITY DEFINER RPC `transition_leech_drill_session` (RETURNS void; service does a follow-up `get_leech_drill_session` for the post-state envelope so the wire shape stays identical to Stage 4's GET response). `FOR UPDATE` lock guards against concurrent transitions.
 	  - 22 new unit tests including extension of the property-based scheduler-invariance suite to cover `transitionDrillSession` and all five `createDrillSession` source values.
-	  - **Backend is now feature-complete** except for AI diagnosis (paid-tier-gated, out of scope until entitlements land) and the optional `leech_drill_card_states` aggregate (deferred, no consumer surface).
+	  - **Backend is feature-complete** for everything except AI diagnosis (Stage 7 added that) and the optional `leech_drill_card_states` aggregate (deferred, no consumer surface).
+- [x] **Free MVP completion + AI leech diagnosis (Stage 7)**
+	  - Removed the paid/free tier model entirely. For the MVP release, every Tomo feature is available to every authenticated learner. Code paths no longer reference any entitlement; rate limiters are the only cost-control mechanism.
+	  - `POST /api/v1/leeches/:id/diagnose` ships as a free MVP endpoint. Builds prompt context from card content + recent review-log ratings + lapse count + learner profile (JLPT target, native language). Replay-on-existing semantics: a leech already populated with diagnosis returns the stored values without re-calling OpenAI; clients regenerate by resolving+reopening the leech.
+	  - New shared-types schema `GeneratedLeechDiagnosisSchema` + service function `generateLeechDiagnosis` follow the same Redis-cache + OpenAI-breaker + sanitization pattern as existing AI endpoints. Cache key includes lapse pattern so the diagnosis can adapt as a card gets worse.
+	  - Scheduler invariance preserved: the diagnose service writes ONLY `leeches.diagnosis` and `leeches.prescription`. It does not mutate `cards` FSRS state or insert into `review_logs`. A new test asserts the single `.update()` call's patch keys are exactly `['diagnosis', 'prescription']`.
+	  - 422 `CARD_FIELDS_INSUFFICIENT` for orphan leeches and sentence-layout cards that lack the word/reading/meaning fields the prompt needs. Profile fetch errors fall back to safe defaults (`N5`, `en`) rather than failing the diagnosis.
+	  - Documentation revised across `PRODUCT.md`, `PRD.md`, the leech spec doc, and this kanban to drop tier language. The dedicated "Implement paid/free tier entitlement gates" To-Do entry was removed.
 
 %% kanban:settings
 ```
