@@ -75,7 +75,7 @@ export const batch: RequestHandler = async (req, res): Promise<void> => {
  */
 export const forecast: RequestHandler = async (req, res): Promise<void> => {
   const profile = await profileService.getProfile(req.user.id)
-  const data = await reviewService.getReviewForecast(req.user.id, profile.timezone)
+  const data = await reviewService.getReviewForecast(req.user.id, profile)
   res.json(data)
 }
 

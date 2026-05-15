@@ -768,25 +768,42 @@ export type Database = {
         }
         Returns: string
       }
-      create_leech_drill_session: {
-        Args: {
-          p_card_id: string | null
-          p_card_ids: string[] | null
-          p_card_type: string
-          p_deck_id: string
-          p_jlpt_level: string
-          p_limit: number
-          p_min_lapses: number | null
-          p_mode: string
-          p_order: string
-          p_repeat_policy: string
-          p_source: string
-          p_source_query: Json
-          p_stop_rule: Json
-          p_user_id: string
-        }
-        Returns: Json
-      }
+      create_leech_drill_session:
+        | {
+            Args: {
+              p_card_type: string
+              p_deck_id: string
+              p_jlpt_level: string
+              p_limit: number
+              p_mode: string
+              p_order: string
+              p_repeat_policy: string
+              p_source: string
+              p_source_query: Json
+              p_stop_rule: Json
+              p_user_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_card_id: string
+              p_card_ids: string[]
+              p_card_type: string
+              p_deck_id: string
+              p_jlpt_level: string
+              p_limit: number
+              p_min_lapses: number
+              p_mode: string
+              p_order: string
+              p_repeat_policy: string
+              p_source: string
+              p_source_query: Json
+              p_stop_rule: Json
+              p_user_id: string
+            }
+            Returns: Json
+          }
       delete_idempotency_key: {
         Args: { p_key: string; p_user_id: string }
         Returns: undefined
@@ -812,10 +829,9 @@ export type Database = {
           total: number
         }[]
       }
-      get_dashboard_data: {
-        Args: { p_timezone?: string; p_user_id: string }
-        Returns: Json
-      }
+      get_dashboard_data:
+        | { Args: { p_user_id: string }; Returns: Json }
+        | { Args: { p_timezone?: string; p_user_id: string }; Returns: Json }
       get_due_cards: {
         Args: {
           p_daily_new_cards_limit: number
@@ -867,7 +883,13 @@ export type Database = {
         }[]
       }
       get_review_forecast: {
-        Args: { p_days?: number; p_timezone?: string; p_user_id: string }
+        Args: {
+          p_daily_new_cards_limit?: number
+          p_daily_review_limit?: number
+          p_days?: number
+          p_timezone?: string
+          p_user_id: string
+        }
         Returns: {
           backlog_count: number
           count: number
@@ -1070,14 +1092,11 @@ export type Database = {
           subscription_id: string
         }[]
       }
-      // Added by migration 20260603000000_drill_session_lifecycle_and_sources.sql.
-      // Will be regenerated automatically the next time `supabase gen types
-      // typescript` runs against the live schema.
       transition_leech_drill_session: {
         Args: {
-          p_user_id: string
           p_session_id: string
           p_target_status: string
+          p_user_id: string
         }
         Returns: undefined
       }

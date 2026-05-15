@@ -117,14 +117,16 @@ export async function getDueCards(
  */
 export async function getReviewForecast(
   userId:   string,
-  timeZone: string,
+  profile:  Profile,
   days      = 14,
 ): Promise<ApiList<ApiForecastDay>> {
-  const normalizedTimeZone = normalizeTimeZone(timeZone)
+  const normalizedTimeZone = normalizeTimeZone(profile.timezone)
   const { data, error } = await supabaseAdmin.rpc('get_review_forecast', {
-    p_user_id:   userId,
-    p_days:      days,
-    p_timezone:  normalizedTimeZone,
+    p_user_id:               userId,
+    p_days:                  days,
+    p_timezone:              normalizedTimeZone,
+    p_daily_review_limit:    profile.dailyReviewLimit,
+    p_daily_new_cards_limit: profile.dailyNewCardsLimit,
   })
 
   if (error !== null) {
