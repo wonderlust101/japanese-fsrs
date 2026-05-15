@@ -16,9 +16,15 @@ import {
 } from './today-format'
 import { SkeletonBlock } from './section-primitives'
 
-const HORIZON_DAYS = 7
+// ── Layout constants ─────────────────────────────────────────────────────────
+// 7-day horizon (today + next 6). On narrow screens the last 2 days are
+// visually hidden — the chart fills 168px tall.
+const HORIZON_DAYS        = 7
 const MOBILE_VISIBLE_DAYS = 5
-const CHART_HEIGHT = 168
+const CHART_HEIGHT        = 168
+
+// ── Segment tokens ───────────────────────────────────────────────────────────
+// Same three segments, sorted differently for stacking vs legend display.
 
 export type WeekRhythmState = 'default' | 'loading' | 'error'
 
@@ -36,8 +42,8 @@ const SEGMENT_BY_KEY = {
   new:     { key: 'new',     label: 'New',     color: 'var(--color-queue-new-mark)'     },
 } satisfies Record<SegmentKey, Segment>
 
-// Stacked render order: backlog at top, review middle, new at bottom (because
-// the stack uses flex-col-reverse so the first array entry sits at the top).
+// The stack uses flex-col-reverse, so the first array entry renders at the
+// top: backlog (top) → review (middle) → new (bottom).
 const STACK_SEGMENTS: Segment[] = [
   SEGMENT_BY_KEY.backlog,
   SEGMENT_BY_KEY.review,
@@ -56,6 +62,8 @@ interface WeekRhythmStripProps {
   apiDays:  ReadonlyArray<ApiForecastDay>
 }
 
+// ── Types ────────────────────────────────────────────────────────────────────
+
 interface RhythmDay {
   key:     string
   label:   string
@@ -66,6 +74,9 @@ interface RhythmDay {
   backlog: number
   isToday: boolean
 }
+
+// ── Day computation ──────────────────────────────────────────────────────────
+// Trim the 14-day API payload down to the 7-day horizon starting at todayKey.
 
 function buildDays(
   apiDays:  ReadonlyArray<ApiForecastDay>,
@@ -97,11 +108,15 @@ function buildDays(
   return out
 }
 
+// ── Container chrome ─────────────────────────────────────────────────────────
+
 const CONTAINER_CHROME = [
   'relative overflow-hidden rounded-[2px]',
   'border border-soft-hairline bg-warm-paper-raised',
   'px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
 ].join(' ')
+
+// ── Public component ─────────────────────────────────────────────────────────
 
 export function WeekRhythmStrip({
   state,
@@ -203,6 +218,8 @@ export function WeekRhythmStrip({
     </section>
   )
 }
+
+// ── Chart components ─────────────────────────────────────────────────────────
 
 interface BarColumnProps {
   day:           RhythmDay
@@ -332,6 +349,8 @@ function Legend(): React.JSX.Element {
     </ul>
   )
 }
+
+// ── Chrome and copy ──────────────────────────────────────────────────────────
 
 function TopStripe(): React.JSX.Element {
   return (

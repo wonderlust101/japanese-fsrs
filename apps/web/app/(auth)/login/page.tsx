@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 
-import { Button }         from '@/components/ui/Button'
-import { CapsLockHint }   from '@/components/ui/CapsLockHint'
-import { Card }           from '@/components/ui/Card'
-import { Input }          from '@/components/ui/Input'
-import { Logo }           from '@/components/ui/Logo'
-import { ArrowGlyph }     from '@/components/icons/arrow-glyph'
-import { loginAction }    from '@/lib/actions/auth.actions'
+import { Button }            from '@/components/ui/Button'
+import { CapsLockHint }      from '@/components/ui/CapsLockHint'
+import { Card }              from '@/components/ui/Card'
+import { Input }             from '@/components/ui/Input'
+import { Logo }              from '@/components/ui/Logo'
+import { ArrowGlyph }        from '@/components/icons/arrow-glyph'
+import { loginAction }       from '@/lib/actions/auth.actions'
+import { getJapaneseGreeting } from '@/lib/japanese-greeting'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': "That didn't match. Try again, or reset your password.",
@@ -25,13 +26,6 @@ function friendlyError(message: string): string {
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function getJapaneseGreeting(hour: number): string {
-  if (hour >= 5  && hour < 11) return 'おはよう'
-  if (hour >= 11 && hour < 17) return 'こんにちは'
-  if (hour >= 17 && hour < 22) return 'こんばんは'
-  return 'おかえり'
-}
 
 export default function LoginPage(): React.JSX.Element {
   const router                                          = useRouter()

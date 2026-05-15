@@ -82,6 +82,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## Done
 
+- [x] **Today client readability pass (2026-05-15)** — `today-client.tsx` shrunk from 804 → ~365 lines by extracting pure helpers into `today-due-queue.ts` (queue math) and `today-preview-data.ts` (dev-only mocks). Greeting helpers moved to shared `lib/japanese-greeting.ts` (deduplicates the same logic from the login page). Banner-comment readability passes applied to `today-hero.tsx`, `section-primitives.tsx`, and `week-rhythm-strip.tsx`. No functional or visual changes. Verified via typecheck + lint + build.
 - [x] **Canonical documentation cleanup** — product, design, database truth pinned to `docs/PRODUCT.md`, `docs/DESIGN.md`, `docs/DATABASE.md`.
 - [x] **Auth and account management** — signup, OTP, login, refresh, logout, password change, account deletion.
 - [x] **Profile preferences and interests** — profile CRUD, study preferences, JLPT target, daily limits, timezone, interests.

@@ -1,16 +1,13 @@
 'use client'
 
-/**
- * Shared section primitives for the dashboard's editorial chapter rhythm.
- *
- * v6 introduces `CardHeader` as the primary header pattern: a quiet vermillion
- * kanji cue + small-caps mono label, optional context line, and hairline rule
- * below. Dashboard section cards use this header so modules keep one scanning
- * rhythm while still letting dense cards explain their scope.
- *
- * Empty, unavailable, loading, and error states share the same paper-card
- * vocabulary so sections can change state without changing visual language.
- */
+// Reusable visuals for Today modules: card chrome, empty/error states,
+// skeletons, and decorative preview art.
+//
+// File map:
+//   Exported: CardHeader → SkeletonBlock → EmptyState → UnavailableState →
+//             ConnectionErrorNotice.
+//   Internal: PreviewStage and tone tokens → visual previews (Shelf, Forecast,
+//             Focus, WeakSpots, Recent) → NoticeFrame → ErrorSignalPreview.
 
 import Link from 'next/link'
 

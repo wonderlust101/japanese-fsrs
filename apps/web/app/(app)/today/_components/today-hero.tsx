@@ -14,18 +14,15 @@ import {
 } from './today-format'
 import { SkeletonBlock } from './section-primitives'
 
-/**
- * Encouraging "preparation" lines shown on the Today hero in place of the
- * old queue-restating body. Each is a small teacher-voice frame for the
- * practice itself: never about the user's willpower (anti-cheerleading per
- * PRODUCT.md), never about the queue (the H2 numeral + QueueFactChips
- * already carry that). Some lines implicitly prepare the user for SRS
- * realities (forgetting is the point; long-interval cards feel new again).
- *
- * The pool rotates by calendar date so a single day's sessions see the
- * same line, but the line varies across days (per delight.md: "vary
- * responses, reveal deeper layers with continued use").
- */
+// File map:
+//   Types → resting/starter decks → DashboardHero (entry) →
+//   variant content (Due, CaughtUp, FirstTime, Loading, Error, Resume) →
+//   shared layout (HeroLayout, HeroKicker, QueueFactChips, HeroPrimaryAction) →
+//   deck stack visuals → loading/error visuals → normalizers → color tokens.
+
+// ── Preparation lines ────────────────────────────────────────────────────────
+// Teacher-voice frames shown on the Due hero. Date-seeded so a single day's
+// sessions see the same line; varies across days.
 const PREPARATION_LINES = [
   'Each card seen is one settled.',
   'Be honest with the ratings. The schedule does the rest.',
@@ -38,11 +35,8 @@ const PREPARATION_LINES = [
 
 const DEFAULT_PREPARATION_LINE: string = PREPARATION_LINES[0]
 
-/**
- * Deterministic pick from the line pool. The seed is normally today's
- * YYYY-MM-DD so the line is stable within a day, but pure so callers can
- * pass any seed they like (tests, previews).
- */
+// Deterministic pick from the line pool — pure so tests/previews can pass
+// any seed.
 function pickPreparationLine(seed: string): string {
   let hash = 0
   for (let i = 0; i < seed.length; i += 1) {
@@ -50,6 +44,8 @@ function pickPreparationLine(seed: string): string {
   }
   return PREPARATION_LINES[hash % PREPARATION_LINES.length] ?? DEFAULT_PREPARATION_LINE
 }
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export type HeroKind = 'due' | 'caught-up' | 'first-time' | 'loading' | 'error' | 'resume'
 
@@ -92,6 +88,8 @@ interface DashboardHeroProps {
   variant: DashboardHeroVariant
 }
 
+// ── Placeholder decks ────────────────────────────────────────────────────────
+
 const RESTING_DECKS: HeroDeckPreview[] = [
   {
     id:       'resting-review',
@@ -133,6 +131,8 @@ const STARTER_DECKS: HeroDeckPreview[] = [
   },
 ]
 
+// ── Entry component ──────────────────────────────────────────────────────────
+
 export function DashboardHero({ variant }: DashboardHeroProps): React.JSX.Element {
   const isError = variant.kind === 'error'
 
@@ -168,15 +168,13 @@ export function DashboardHero({ variant }: DashboardHeroProps): React.JSX.Elemen
   )
 }
 
+// ── Variant: Due ─────────────────────────────────────────────────────────────
+
 function DueContent({ queue }: { queue: DueQueue }): React.JSX.Element {
   const safeQueue = normalizeDueQueue(queue)
   const cardWord = safeQueue.total === 1 ? 'card' : 'cards'
 
-  // Daily-rotating teacher-voice preparation line. SSR renders the first
-  // line as a stable default; client hydrates the date-seeded pick. The
-  // visible line is identical across the same calendar day so a user
-  // returning at lunch and at night gets the same quiet preface; tomorrow
-  // brings the next line in the rotation.
+  // SSR uses the stable default; client hydrates the date-seeded pick.
   const [preparationLine, setPreparationLine] = useState<string>(DEFAULT_PREPARATION_LINE)
   useEffect(() => {
     const dateKey = new Date().toISOString().slice(0, 10)
@@ -224,6 +222,8 @@ function DueContent({ queue }: { queue: DueQueue }): React.JSX.Element {
   )
 }
 
+// ── Variant: CaughtUp ────────────────────────────────────────────────────────
+
 function CaughtUpContent(): React.JSX.Element {
   return (
     <HeroLayout visual={<DeckStack decks={RESTING_DECKS} overflowDecks={0} resting />}>
@@ -251,6 +251,8 @@ function CaughtUpContent(): React.JSX.Element {
   )
 }
 
+// ── Variant: FirstTime ───────────────────────────────────────────────────────
+
 function FirstTimeContent(): React.JSX.Element {
   return (
     <HeroLayout visual={<DeckStack decks={STARTER_DECKS} overflowDecks={0} />}>
@@ -273,6 +275,8 @@ function FirstTimeContent(): React.JSX.Element {
     </HeroLayout>
   )
 }
+
+// ── Variant: Loading ─────────────────────────────────────────────────────────
 
 function LoadingContent(): React.JSX.Element {
   return (
@@ -309,6 +313,8 @@ function LoadingContent(): React.JSX.Element {
     </HeroLayout>
   )
 }
+
+// ── Variant: Resume ──────────────────────────────────────────────────────────
 
 function ResumeContent({ context }: { context: ResumeContextSnapshot }): React.JSX.Element {
   const remaining = safeNonNegativeInteger(context.remaining)
@@ -352,6 +358,8 @@ function ResumeContent({ context }: { context: ResumeContextSnapshot }): React.J
   )
 }
 
+// ── Variant: Error ───────────────────────────────────────────────────────────
+
 function ErrorContent(): React.JSX.Element {
   return (
     <HeroLayout visual={<ErrorQueueVisual />}>
@@ -390,6 +398,8 @@ function ErrorContent(): React.JSX.Element {
     </HeroLayout>
   )
 }
+
+// ── Shared layout: HeroLayout, HeroKicker, QueueFactChips, HeroPrimaryAction ─
 
 function HeroLayout({
   visual,
@@ -605,6 +615,8 @@ function HeroPrimaryAction({
   )
 }
 
+// ── Deck stack ───────────────────────────────────────────────────────────────
+
 function DeckStack({
   decks,
   overflowDecks,
@@ -752,6 +764,8 @@ function HeroDeckTagPill({ tag }: { tag: HeroDeckTag }): React.JSX.Element {
   return <span className="h-5" aria-hidden="true" />
 }
 
+// ── Loading and error visuals ────────────────────────────────────────────────
+
 function LoadingDeckStack(): React.JSX.Element {
   return (
     <div className="today-hero-deck-stack relative z-10 h-[17.25rem] w-full max-w-[28rem]" aria-hidden="true">
@@ -830,6 +844,8 @@ function ErrorQueueVisual(): React.JSX.Element {
   )
 }
 
+// ── Normalizers ──────────────────────────────────────────────────────────────
+
 function normalizeDueQueue(queue: DueQueue): DueQueue {
   const newCnt = safeNonNegativeInteger(queue.newCnt)
   const review = safeNonNegativeInteger(queue.review)
@@ -871,6 +887,8 @@ function normalizeHeroDeck(deck: HeroDeckPreview): HeroDeckPreview {
     ...(reviewCount === undefined ? {} : { reviewCount: safeNonNegativeInteger(reviewCount) }),
   }
 }
+
+// ── Color tokens ─────────────────────────────────────────────────────────────
 
 const LEVEL_MARK_COLORS: Record<JlptPillLevel, string> = {
   N5:          'var(--color-deck-n5-mark)',
