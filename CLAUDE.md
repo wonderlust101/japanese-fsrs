@@ -275,7 +275,8 @@ Always refer to the canonical docs before suggesting architectural changes, prod
 - **Active Board:** [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md) - current project tasks and owner decisions in motion.
 - **Status Index:** [docs/IMPLEMENTATION_STATUS.md](./docs/IMPLEMENTATION_STATUS.md) - current status index; detailed code-inspected evidence lives in `docs/status/`.
 - **Testing:** [docs/TESTING.md](./docs/TESTING.md) - test tiers, locations, mocking, and execution guidance.
+- **Information Architecture / Wireframes:** [docs/information_architecture/README.md](./docs/information_architecture/README.md) - per-page wireframes (one file per screen) plus the cross-page [sitemap](./docs/information_architecture/00_sitemap.md). Consult before changing page structure, navigation, or adding new screens.
 
 ---
 
-*Last updated: 2026-05-10*
+*Last updated: 2026-05-14*
