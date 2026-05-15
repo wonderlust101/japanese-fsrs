@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'motion/react'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import {
@@ -10,7 +9,6 @@ import {
 } from '@/stores/onboarding.store'
 import { CardStack } from '@/components/ui/CardStack'
 import { Logo } from '@/components/ui/Logo'
-import { EASE_OUT_EXPO } from '@/lib/motion'
 
 // Welcome cover sits before the questionnaire. Treat it as index -1 so a
 // welcome → step-1 transition reads as forward, and step-1 → welcome reads
@@ -87,11 +85,8 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
               internal pieces (counter, bars) stay static — only the
               wrapper moves, so the row arrives as one element. */}
           {!isWelcome && (
-            <motion.div
+            <div
               key={pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.50, ease: EASE_OUT_EXPO }}
               className="mb-4 px-1 flex items-center gap-4"
             >
               <p className="sr-only" aria-live="polite">
@@ -128,7 +123,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
                   )
                 })}
               </div>
-            </motion.div>
+            </div>
           )}
 
           <CardStack

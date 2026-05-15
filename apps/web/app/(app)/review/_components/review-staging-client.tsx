@@ -12,10 +12,6 @@ import {
   type DashboardCalendarContext,
 } from '@/app/(app)/today/_components/today-calendar'
 import { safeNonNegativeInteger } from '@/app/(app)/today/_components/today-format'
-import {
-  DashboardModuleReveal,
-  DashboardStatePresence,
-} from '@/app/(app)/today/_components/today-motion'
 import { inferDeckLevel } from '@/lib/deck-level'
 import { useHeatmapData } from '@/lib/api/analytics'
 import { useDecks } from '@/lib/api/decks'
@@ -361,8 +357,8 @@ export function ReviewStagingClient({
       <div className="grid gap-y-6 lg:gap-y-8">
         {/* Row 1 — Briefing (8) + Settings (4) */}
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
-          <DashboardModuleReveal className="lg:col-span-8">
-            <DashboardStatePresence stateKey={briefingMotionKey}>
+          <div className="lg:col-span-8">
+            <div key={briefingMotionKey}>
               <StagingBriefing
                 state={briefingState}
                 totalDue={totalDue}
@@ -383,29 +379,29 @@ export function ReviewStagingClient({
                 secondaryHref={isFirstTime ? '/decks' : undefined}
                 beginDisabled={totalDue === 0}
               />
-            </DashboardStatePresence>
-          </DashboardModuleReveal>
+            </div>
+          </div>
 
-          <DashboardModuleReveal className="lg:col-span-4" delay={0.06}>
+          <div className="lg:col-span-4">
             <StagingSettings
               mode={mode}
               onModeChange={setMode}
               disabled={isCaughtUp || isFirstTime || isLoading || isError}
             />
-          </DashboardModuleReveal>
+          </div>
         </div>
 
         {/* Row 2 — Pinned deck (full width) */}
-        <DashboardModuleReveal delay={0.10}>
-          <DashboardStatePresence stateKey={deckMotionKey}>
+        <div>
+          <div key={deckMotionKey}>
             <StagingPinnedDeck
               state={isLoading ? 'loading' : isError ? 'error' : 'default'}
               deck={pinnedDeck}
               note={tomoNote}
               isFirstTime={isFirstTime}
             />
-          </DashboardStatePresence>
-        </DashboardModuleReveal>
+          </div>
+        </div>
 
         {/* Footer note */}
         <p className="mt-2 border-t border-soft-hairline/70 pt-4 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi/85">

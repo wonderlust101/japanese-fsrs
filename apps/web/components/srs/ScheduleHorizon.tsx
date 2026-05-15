@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
 
 interface ScheduleHorizonProps {
   /** Total cards across subscribed decks. Used to scale the daily projections. */
@@ -25,7 +24,7 @@ export function ScheduleHorizon({
   paceNewPerDay = 20,
   className     = '',
 }: ScheduleHorizonProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
 
   // Stylized review-count distribution per day. Front-loaded (early days have
   // more learning churn), then settles to a steady state once intervals expand.
@@ -55,39 +54,23 @@ export function ScheduleHorizon({
       </div>
 
       <div className="flex items-end justify-between gap-1 h-[160px] border-b border-soft-hairline">
-        {days.map((d, i) => {
+        {days.map((d, _i) => {
           // Fractions (0–1) drive scaleY; the secondary bar translates by the
           // primary's scaled height so the two stack without animating layout.
-          const newFrac    = d.newCount    / maxStack
-          const reviewFrac = d.reviewCount / maxStack
+          const _newFrac   = d.newCount    / maxStack
+          const _reviewFrac = d.reviewCount / maxStack
 
           return (
             // Absolute-positioned bars on a full-height column; animation runs
             // entirely on transform so 28 simultaneous bars compose on the GPU
             // instead of triggering 28 layouts per frame.
             <div key={d.day} className="relative flex-1 h-full">
-              <motion.div
+              <div
                 className="absolute inset-0 bg-inari-vermillion origin-bottom"
-                style={{ willChange: 'transform' }}
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: newFrac }}
-                transition={
-                  reducedMotion === true
-                    ? { duration: 0 }
-                    : { duration: 0.45, delay: i * 0.02, ease: [0.16, 1, 0.3, 1] }
-                }
-              />
-              <motion.div
+                style={{ willChange: 'transform' }}              />
+              <div
                 className="absolute inset-0 bg-sumi-ink/60 origin-bottom"
-                style={{ willChange: 'transform' }}
-                initial={{ scaleY: 0, y: 0 }}
-                animate={{ scaleY: reviewFrac, y: `-${newFrac * 100}%` }}
-                transition={
-                  reducedMotion === true
-                    ? { duration: 0 }
-                    : { duration: 0.45, delay: i * 0.02 + 0.04, ease: [0.16, 1, 0.3, 1] }
-                }
-              />
+                style={{ willChange: 'transform' }}              />
             </div>
           )
         })}

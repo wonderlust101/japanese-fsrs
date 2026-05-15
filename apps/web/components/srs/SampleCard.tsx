@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 
 interface SampleCardProps {
   /** The Japanese word the sample card displays. */
@@ -32,7 +31,7 @@ export function SampleCard({
   changeKey = `${word}-${reading}-${meaning}`,
   className = '',
 }: SampleCardProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
 
   return (
     <div
@@ -48,18 +47,9 @@ export function SampleCard({
         className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[2px] bg-inari-vermillion"
       />
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={changeKey}
-          initial={reducedMotion === true ? { opacity: 1 } : { opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reducedMotion === true ? { opacity: 0 } : { opacity: 0, y: -4 }}
-          transition={
-            reducedMotion === true
-              ? { duration: 0 }
-              : { duration: 0.24, ease: [0.16, 1, 0.3, 1] }
-          }
-        >
+      <>
+        <div
+          key={changeKey}        >
           <ruby
             lang="ja"
             className="font-japanese text-2xl font-medium text-sumi-ink leading-tight"
@@ -75,8 +65,8 @@ export function SampleCard({
               {caption}
             </p>
           )}
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </>
     </div>
   )
 }

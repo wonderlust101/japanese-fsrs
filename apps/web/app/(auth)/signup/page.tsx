@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { motion } from 'motion/react'
 
 import { Button }       from '@/components/ui/Button'
 import { CapsLockHint } from '@/components/ui/CapsLockHint'
@@ -19,7 +18,6 @@ import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
 import { env } from '@/lib/env'
 import { useUserStore } from '@/stores/user.store'
 import { signupSchema } from '@fsrs-japanese/shared-types'
-import { FadeUpChild, fadeUpStaggerTightVariants, fadeUpVariants, staggerVariants, useStaggerEntrance } from '@/lib/motion'
 
 const OTP_RESEND_COOLDOWN = 60
 
@@ -186,12 +184,11 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
     setCapsLockOn(e.getModifierState('CapsLock'))
   }
 
-  const { initial, animate } = useStaggerEntrance()
 
   return (
     <Card variant="default">
-      <motion.div initial={initial} animate={animate} variants={staggerVariants} className="flex flex-col gap-8">
-        <motion.header variants={fadeUpVariants} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-8">
+        <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
           <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1] mt-2">
             Create your account.
@@ -199,10 +196,10 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
           <p className="text-base text-faded-sumi leading-relaxed">
             A few questions, then your first cards.
           </p>
-        </motion.header>
+        </header>
 
-        <motion.form variants={fadeUpStaggerTightVariants} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <FadeUpChild>
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+          <div>
             <Input
               label="Email"
               type="email"
@@ -216,9 +213,9 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
               placeholder="you@example.com"
               error={errors.email}
             />
-          </FadeUpChild>
+          </div>
 
-          <FadeUpChild>
+          <div>
             <Input
               label="Display name"
               type="text"
@@ -233,9 +230,9 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
               hint="How you'd like to be addressed"
               error={errors.displayName}
             />
-          </FadeUpChild>
+          </div>
 
-          <FadeUpChild className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <Input
               label="Password"
               type="password"
@@ -253,9 +250,9 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
               error={errors.password}
             />
             {capsLockOn && <CapsLockHint />}
-          </FadeUpChild>
+          </div>
 
-          <FadeUpChild>
+          <div>
             <Input
               label="Confirm password"
               type="password"
@@ -269,7 +266,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
               placeholder="••••••••"
               error={errors.confirmPassword}
             />
-          </FadeUpChild>
+          </div>
 
           {errors.form !== undefined && (
             <p role="alert" className="text-sm text-error">
@@ -277,7 +274,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             </p>
           )}
 
-          <FadeUpChild>
+          <div>
             <Button
               type="submit"
               variant="primary"
@@ -288,10 +285,10 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             >
               Create account
             </Button>
-          </FadeUpChild>
-        </motion.form>
+          </div>
+        </form>
 
-        <motion.div variants={fadeUpVariants} className="pt-2 border-t border-soft-hairline flex flex-col gap-2">
+        <div className="pt-2 border-t border-soft-hairline flex flex-col gap-2">
           <p className="text-base text-faded-sumi">
             Already have an account?{' '}
             <Link
@@ -310,8 +307,8 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
               Get help
             </Link>
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </Card>
   )
 }
@@ -360,12 +357,11 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
     resendMutation.mutate()
   }
 
-  const { initial, animate } = useStaggerEntrance()
 
   return (
     <Card variant="default">
-      <motion.div initial={initial} animate={animate} variants={staggerVariants} className="flex flex-col gap-8">
-        <motion.header variants={fadeUpVariants} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-8">
+        <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
           <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1] mt-2">
             Quick check.
@@ -375,17 +371,17 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
             <span className="font-medium text-sumi-ink break-all">{email}</span>.
             It expires in 1 minute.
           </p>
-        </motion.header>
+        </header>
 
-        <motion.div variants={fadeUpStaggerTightVariants} className="flex flex-col items-center gap-6">
-          <FadeUpChild>
+        <div className="flex flex-col items-center gap-6">
+          <div>
             <OTPInput
               key={otpErrorVersion}
               onComplete={handleOtpComplete}
               error={otpError}
               isLoading={verifyMutation.isPending}
             />
-          </FadeUpChild>
+          </div>
 
           {otpError !== null && (
             <p role="alert" className="text-sm text-error text-center">
@@ -393,7 +389,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
             </p>
           )}
 
-          <FadeUpChild className="text-center text-sm text-faded-sumi">
+          <div className="text-center text-sm text-faded-sumi">
             {remaining > 0 ? (
               <span>Resend in {remaining}s</span>
             ) : (
@@ -406,7 +402,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
                 Resend code
               </button>
             )}
-          </FadeUpChild>
+          </div>
 
           {resendMsg !== null && (
             <p
@@ -419,9 +415,9 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
               {resendMsg}
             </p>
           )}
-        </motion.div>
+        </div>
 
-        <motion.div variants={fadeUpVariants} className="pt-2 border-t border-soft-hairline">
+        <div className="pt-2 border-t border-soft-hairline">
           <p className="text-base text-faded-sumi text-center">
             Wrong email?{' '}
             <button
@@ -432,8 +428,8 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
               Go back
             </button>
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </Card>
   )
 }

@@ -1,12 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'motion/react'
 
 import { ArrowGlyph } from '@/components/icons/arrow-glyph'
 import { Logo } from '@/components/ui/Logo'
 import { StatusPill } from '@/components/ui/Pill'
-import { EASE_OUT_EXPO } from '@/lib/motion'
 
 import {
   formatCompactCount,
@@ -349,21 +347,13 @@ function PrimaryRow({
   secondaryLabel?: string | undefined
   secondaryHref?:  string | undefined
 }): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
   const isCaughtUp    = state === 'all-clear'
   const isFirstTime   = state === 'first-time'
 
   return (
-    <motion.div
-      className="mt-7 flex flex-wrap items-center gap-3"
-      initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
-      animate={reducedMotion === true ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={{
-        duration: reducedMotion === true ? 0 : 0.26,
-        ease:     EASE_OUT_EXPO,
-        delay:    reducedMotion === true ? 0 : 0.06,
-      }}
-    >
+    <div
+      className="mt-7 flex flex-wrap items-center gap-3"    >
       {isFirstTime ? (
         <PrimaryLink href={secondaryHref ?? '/decks'} label={secondaryLabel ?? 'Browse decks'} />
       ) : isCaughtUp ? (
@@ -371,7 +361,7 @@ function PrimaryRow({
       ) : (
         <PrimaryButton onClick={onBegin} disabled={beginDisabled} label="Begin reviews" />
       )}
-    </motion.div>
+    </div>
   )
 }
 

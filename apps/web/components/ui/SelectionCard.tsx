@@ -1,7 +1,6 @@
 'use client'
 
 import { forwardRef } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
 import { CheckMark } from '@/components/icons/study-marks'
 
 interface SelectionCardProps {
@@ -59,24 +58,12 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
           className,
         ].join(' ')}
       >
-        {/* Selected check, top-right line-art draw-on */}
+        {/* Selected check, top-right */}
         <span
           aria-hidden="true"
           className="absolute top-3 right-3 inline-flex text-inari-vermillion pointer-events-none"
         >
-          <AnimatePresence>
-            {selected && (
-              <motion.span
-                key="check"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{    opacity: 0 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <CheckMark />
-              </motion.span>
-            )}
-          </AnimatePresence>
+          {selected && <CheckMark />}
         </span>
 
         {layout === 'stack' ? (

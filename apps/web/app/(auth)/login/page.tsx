@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'motion/react'
 
 import { Button }         from '@/components/ui/Button'
 import { CapsLockHint }   from '@/components/ui/CapsLockHint'
@@ -13,7 +12,6 @@ import { Input }          from '@/components/ui/Input'
 import { Logo }           from '@/components/ui/Logo'
 import { ArrowGlyph }     from '@/components/icons/arrow-glyph'
 import { loginAction }    from '@/lib/actions/auth.actions'
-import { EASE_OUT_EXPO, FadeUpChild, fadeUpStaggerTightVariants, fadeUpVariants, staggerVariants, useStaggerEntrance } from '@/lib/motion'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': "That didn't match. Try again, or reset your password.",
@@ -37,7 +35,6 @@ function getJapaneseGreeting(hour: number): string {
 
 export default function LoginPage(): React.JSX.Element {
   const router                                          = useRouter()
-  const reducedMotion                                   = useReducedMotion()
   const [email, setEmail]                               = useState('')
   const [password, setPassword]                         = useState('')
   const [emailError, setEmailError]                     = useState<string | undefined>(undefined)
@@ -85,17 +82,12 @@ export default function LoginPage(): React.JSX.Element {
   const passwordError   = clientPasswordError ?? apiPasswordError
   const formError       = error !== null && !isCredsError ? friendlyError(error.message) : null
 
-  const { initial, animate } = useStaggerEntrance()
 
   return (
     <Card variant="default">
-      <motion.div
-        initial={initial}
-        animate={animate}
-        variants={staggerVariants}
-        className="flex flex-col gap-8"
+      <div        className="flex flex-col gap-8"
       >
-        <motion.header variants={fadeUpVariants} className="flex flex-col gap-3">
+        <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
           <p
             lang="ja"
@@ -103,28 +95,20 @@ export default function LoginPage(): React.JSX.Element {
             aria-hidden="true"
           >
             {japaneseGreeting !== null && (
-              <motion.span
-                initial={reducedMotion === true ? false : { opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={
-                  reducedMotion === true
-                    ? { duration: 0 }
-                    : { duration: 0.42, delay: 0.20, ease: EASE_OUT_EXPO }
-                }
-                className="inline-block"
+              <span                className="inline-block"
               >
                 {japaneseGreeting}
-              </motion.span>
+              </span>
             )}
           </p>
           <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1]">
             <span className="block">Welcome back.</span>
             <span className="block">Ready to practice?</span>
           </h1>
-        </motion.header>
+        </header>
 
-        <motion.form variants={fadeUpStaggerTightVariants} onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <FadeUpChild>
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+          <div>
             <Input
               label="Email"
               type="email"
@@ -138,9 +122,9 @@ export default function LoginPage(): React.JSX.Element {
               placeholder="you@example.com"
               error={emailError}
             />
-          </FadeUpChild>
+          </div>
 
-          <FadeUpChild className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <Input
               label="Password"
               type="password"
@@ -157,16 +141,16 @@ export default function LoginPage(): React.JSX.Element {
               error={passwordError}
             />
             {capsLockOn && <CapsLockHint />}
-          </FadeUpChild>
+          </div>
 
-          <FadeUpChild className="flex items-center justify-end">
+          <div className="flex items-center justify-end">
             <Link
               href="/forgot-password"
               className="text-sm text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
             >
               Forgot password?
             </Link>
-          </FadeUpChild>
+          </div>
 
           {formError !== null && (
             <p role="alert" className="text-sm text-error">
@@ -174,7 +158,7 @@ export default function LoginPage(): React.JSX.Element {
             </p>
           )}
 
-          <FadeUpChild>
+          <div>
             <Button
               type="submit"
               variant="primary"
@@ -185,10 +169,10 @@ export default function LoginPage(): React.JSX.Element {
             >
               Sign in
             </Button>
-          </FadeUpChild>
-        </motion.form>
+          </div>
+        </form>
 
-        <motion.div variants={fadeUpVariants} className="pt-2 border-t border-soft-hairline flex flex-col gap-2">
+        <div className="pt-2 border-t border-soft-hairline flex flex-col gap-2">
           <p className="text-base text-faded-sumi">
             No account yet?{' '}
             <Link
@@ -207,8 +191,8 @@ export default function LoginPage(): React.JSX.Element {
               Get help
             </Link>
           </p>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </Card>
   )
 }

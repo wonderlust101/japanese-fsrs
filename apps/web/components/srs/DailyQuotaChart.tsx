@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
 
 type ScheduleKey = 'light' | 'steady' | 'intensive' | null
 
@@ -29,7 +28,7 @@ const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
  * pace is null shows ghost bars at base opacity.
  */
 export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
   const spec = pace !== null ? PACES[pace] : null
 
   // Reviews scale with reviewMult; vary slightly per day for visual rhythm.
@@ -50,8 +49,8 @@ export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps):
         {DAY_LABELS.map((day, i) => {
           const newCount     = spec?.newPerDay ?? 0
           const reviewCount  = dailyReviews[i] ?? 0
-          const newPercent   = maxStackTotal > 0 ? (newCount    / maxStackTotal) : 0
-          const reviewPct    = maxStackTotal > 0 ? (reviewCount / maxStackTotal) : 0
+          const _newPercent  = maxStackTotal > 0 ? (newCount    / maxStackTotal) : 0
+          const _reviewPct   = maxStackTotal > 0 ? (reviewCount / maxStackTotal) : 0
 
           return (
             // Each column is full-height with absolutely-positioned bars. Bars
@@ -59,28 +58,12 @@ export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps):
             // animation on the compositor and avoids 14 simultaneous layouts
             // per pace change.
             <div key={day} className="relative flex-1 max-w-[32px] h-full">
-              <motion.div
+              <div
                 className="absolute inset-0 bg-inari-vermillion origin-bottom"
-                style={{ willChange: 'transform' }}
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: newPercent }}
-                transition={
-                  reducedMotion === true
-                    ? { duration: 0 }
-                    : { duration: 0.42, delay: i * 0.02, ease: [0.16, 1, 0.3, 1] }
-                }
-              />
-              <motion.div
+                style={{ willChange: 'transform' }}              />
+              <div
                 className="absolute inset-0 bg-sumi-ink/60 origin-bottom"
-                style={{ willChange: 'transform' }}
-                initial={{ scaleY: 0, y: 0 }}
-                animate={{ scaleY: reviewPct, y: `-${newPercent * 100}%` }}
-                transition={
-                  reducedMotion === true
-                    ? { duration: 0 }
-                    : { duration: 0.42, delay: i * 0.02 + 0.04, ease: [0.16, 1, 0.3, 1] }
-                }
-              />
+                style={{ willChange: 'transform' }}              />
             </div>
           )
         })}

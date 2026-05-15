@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 
 interface RubyChunk {
   base:    string
@@ -33,7 +32,7 @@ export function SampleSentence({
   changeKey,
   className = '',
 }: SampleSentenceProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
 
   const key = changeKey ?? chunks.map((c) => typeof c === 'string' ? c : c.base).join('')
 
@@ -50,18 +49,9 @@ export function SampleSentence({
         className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[2px] bg-inari-vermillion"
       />
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={key}
-          initial={reducedMotion === true ? { opacity: 1 } : { opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reducedMotion === true ? { opacity: 0 } : { opacity: 0, y: -4 }}
-          transition={
-            reducedMotion === true
-              ? { duration: 0 }
-              : { duration: 0.24, ease: [0.16, 1, 0.3, 1] }
-          }
-        >
+      <>
+        <div
+          key={key}        >
           <p lang="ja" className="font-japanese text-base text-sumi-ink leading-relaxed">
             {chunks.map((chunk, i) => {
               if (typeof chunk === 'string') return <span key={i}>{chunk}</span>
@@ -81,8 +71,8 @@ export function SampleSentence({
               {caption}
             </p>
           )}
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </>
     </div>
   )
 }

@@ -1,7 +1,5 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
-
 type LevelKey = 'beginner' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
 
 interface VolumeBarProps {
@@ -33,7 +31,6 @@ const LEVELS: ReadonlyArray<LevelMark> = [
  * shows the cards count for the selected level.
  */
 export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
   const selectedLevel = selected !== null ? LEVELS.find((l) => l.key === selected) : null
   const fillHeight    = selectedLevel?.yPercent ?? 0
 
@@ -50,16 +47,9 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
             height (which would trigger layout every frame). Anchor at bottom so
             the bar grows upward. */}
         <div className="relative w-12 h-[280px] bg-cream-inset rounded-[2px] overflow-hidden border border-soft-hairline">
-          <motion.div
+          <div
             className="absolute inset-0 bg-inari-vermillion origin-bottom"
-            style={{ willChange: 'transform' }}
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: fillHeight }}
-            transition={
-              reducedMotion === true
-                ? { duration: 0 }
-                : { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
-            }
+            style={{ transform: `scaleY(${fillHeight})` }}
           />
         </div>
 

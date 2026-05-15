@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'motion/react'
 
 import {
   clampPercent,
@@ -14,7 +13,6 @@ import {
   type ModuleState,
 } from '@/app/(app)/today/_components/section-primitives'
 import { JlptPill, type JlptPillLevel } from '@/components/ui/Pill'
-import { EASE_OUT_EXPO } from '@/lib/motion'
 
 import { pluralizeCards } from './staging-format'
 
@@ -170,7 +168,7 @@ function DeckBody({
   deck: PinnedDeck
   note: TomoNote | null
 }): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
   const mastery = deck.masteryPercent !== undefined && deck.masteryPercent !== null
     ? clampPercent(deck.masteryPercent)
     : null
@@ -178,11 +176,7 @@ function DeckBody({
   const breakdownLine = buildBreakdownLine(deck)
 
   return (
-    <motion.div
-      initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
-      animate={reducedMotion === true ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={{ duration: reducedMotion === true ? 0 : 0.26, ease: EASE_OUT_EXPO }}
-    >
+    <div    >
       <div className="grid gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
         <div className="min-w-0">
           <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
@@ -210,7 +204,7 @@ function DeckBody({
       </div>
 
       <TomoNoteBlock note={note} />
-    </motion.div>
+    </div>
   )
 }
 
@@ -303,8 +297,8 @@ function FirstTimeTiles(): React.JSX.Element {
   ]
   return (
     <div className="grid gap-3 sm:grid-cols-3">
-      {tiles.map((tile, index) => (
-        <FirstTimeTile key={tile.href} tile={tile} index={index} />
+      {tiles.map((tile) => (
+        <FirstTimeTile key={tile.href} tile={tile} />
       ))}
     </div>
   )
@@ -312,22 +306,12 @@ function FirstTimeTiles(): React.JSX.Element {
 
 function FirstTimeTile({
   tile,
-  index,
 }: {
   tile:  { level: JlptPillLevel; kanji: string; title: string; description: string; href: string }
-  index: number
 }): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
   return (
-    <motion.div
-      initial={reducedMotion === true ? false : { opacity: 0, y: 6 }}
-      animate={reducedMotion === true ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={{
-        duration: reducedMotion === true ? 0 : 0.24,
-        ease:     EASE_OUT_EXPO,
-        delay:    reducedMotion === true ? 0 : Math.min(index * 0.04, 0.16),
-      }}
-      className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset/40 px-4 py-4"
+    <div      className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset/40 px-4 py-4"
     >
       <div className="flex items-baseline justify-between gap-2">
         <span
@@ -352,7 +336,7 @@ function FirstTimeTile({
         Browse
         <span aria-hidden="true" className="transition-transform duration-200 ease-out group-hover:translate-x-0.5">→</span>
       </Link>
-    </motion.div>
+    </div>
   )
 }
 

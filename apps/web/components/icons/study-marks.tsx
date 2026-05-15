@@ -7,8 +7,6 @@
  * "study tool icons" not "hand-brushed marks."
  */
 
-import { motion } from 'motion/react'
-
 const STROKE = 1.25
 
 const COMMON_PROPS = {
@@ -28,46 +26,24 @@ interface IconProps {
 
 interface CheckMarkProps {
   className?: string
-  /** Animation delay in seconds. */
+  /** Retained for back-compat; ignored since the motion library was removed. */
   delay?:    number
-  /** Animate the path drawing on. Default true. */
+  /** Retained for back-compat; ignored since the motion library was removed. */
   animate?:  boolean
 }
 
-export function CheckMark({ className = '', delay = 0, animate = true }: CheckMarkProps): React.JSX.Element {
+export function CheckMark({ className = '' }: CheckMarkProps): React.JSX.Element {
   const pathD = 'M3.5 9 L 7.5 13 L 14.5 5'
-
-  if (!animate) {
-    return (
-      <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" className={className}>
-        <path
-          d={pathD}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )
-  }
 
   return (
     <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" className={className}>
-      <motion.path
+      <path
         d={pathD}
         fill="none"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        exit={{    pathLength: 0, opacity: 0 }}
-        transition={{
-          pathLength: { duration: 0.24, delay, ease: [0.16, 1, 0.3, 1] },
-          opacity:    { duration: 0.10, delay, ease: [0.16, 1, 0.3, 1] },
-        }}
       />
     </svg>
   )

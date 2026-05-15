@@ -2,11 +2,9 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
 
 import { ArrowGlyph } from '@/components/icons/arrow-glyph'
 import { Logo } from '@/components/ui/Logo'
-import { EASE_OUT_EXPO } from '@/lib/motion'
 
 /**
  * Shared composition for surfaces that signal "no content lives here" (not-
@@ -46,18 +44,10 @@ interface PageStateFrameProps {
  * vertical centering. Inner card composition is identical between variants.
  */
 export function PageStateFrame({ variant, children }: PageStateFrameProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
-
   const card = (
-    <motion.section
+    <section
       role="region"
       aria-labelledby="page-state-headline"
-      initial={reducedMotion === true ? false : { opacity: 0, y: 8 }}
-      animate={reducedMotion === true ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={{
-        duration: reducedMotion === true ? 0 : 0.32,
-        ease:     EASE_OUT_EXPO,
-      }}
       className={[
         'relative w-full max-w-[min(640px,92vw)] overflow-hidden rounded-[2px]',
         'border border-soft-hairline bg-warm-paper-raised',
@@ -71,7 +61,7 @@ export function PageStateFrame({ variant, children }: PageStateFrameProps): Reac
       <div className="relative z-0 flex flex-col items-center text-center">
         {children}
       </div>
-    </motion.section>
+    </section>
   )
 
   if (variant === 'inshell') {

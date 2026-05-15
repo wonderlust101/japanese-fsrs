@@ -1,6 +1,5 @@
 'use client'
 
-import { motion, useReducedMotion } from 'motion/react'
 
 interface ForgettingCurveProps {
   className?: string
@@ -22,7 +21,7 @@ interface ForgettingCurveProps {
 export function ForgettingCurve({
   className = '',
 }: ForgettingCurveProps): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const _reducedMotion = false
 
   // Plot 30 days. R = 0.9 ^ (t / S) with S=10 (a typical mid-stability card).
   // Bake the curve as an SVG path; the live "breath" is opacity-only.
@@ -62,24 +61,13 @@ export function ForgettingCurve({
 
   return (
     <div className={className} style={{ aspectRatio: `${W} / ${H}` }}>
-      <motion.svg
+      <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
         height="100%"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="Memory curve: how recall fades over time without practice"
-        animate={
-          reducedMotion === true
-            ? { opacity: 1 }
-            : { opacity: [0.85, 1, 0.85] }
-        }
-        transition={
-          reducedMotion === true
-            ? { duration: 0 }
-            : { duration: 6, repeat: Infinity, ease: 'easeInOut' }
-        }
-      >
+        aria-label="Memory curve: how recall fades over time without practice"      >
         {/* Y-axis tick lines */}
         {yTicks.map((t) => (
           <g key={t.label}>
@@ -157,7 +145,7 @@ export function ForgettingCurve({
         >
           RECALL × DAYS
         </text>
-      </motion.svg>
+      </svg>
     </div>
   )
 }
