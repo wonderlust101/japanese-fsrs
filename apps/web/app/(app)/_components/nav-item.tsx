@@ -10,7 +10,7 @@ import {
   IconBrowse,
   IconDashboard,
   IconDecks,
-  IconReview,
+  IconPlus,
 }                                           from '@/components/icons/chrome-marks'
 import { OfflineQueueBadge }                from './offline-queue-badge'
 import type { NavIconKey, NavItemConfig }   from './nav-config'
@@ -25,12 +25,13 @@ import type { NavIconKey, NavItemConfig }   from './nav-config'
  * `currentColor`; the icon never animates on hover or active.
  */
 const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
-  home:         IconDashboard,
-  review:       IconReview,
-  decks:        IconDecks,
-  browse:       IconBrowse,
-  'find-decks': IconBrowse,
-  analytics:    IconAnalytics,
+  home:      IconDashboard,
+  add:       IconPlus,
+  review:    IconBrowse,
+  decks:     IconDecks,
+  browse:    IconBrowse,
+  cards:     IconBrowse,
+  analytics: IconAnalytics,
 }
 
 interface NavItemProps {
@@ -52,7 +53,7 @@ interface NavItemProps {
   subLabel?: string
   /** External override for active state. When provided, takes precedence
    *  over the locally-computed pathname match. Used by parent rows with
-   *  prefix-sharing siblings (e.g. `/decks` and `/decks/browse`) so only
+   *  prefix-sharing siblings (e.g. `/decks` and `/cards`) so only
    *  the longest matching child renders as active. */
   forceActive?: boolean
 }
@@ -95,7 +96,7 @@ export function NavItem({
   const matches  = isMatch(pathname, item.href)
   const isActive = forceActive ?? (matches && !childMatches)
 
-  // Among children with prefix-sharing hrefs (e.g. `/decks` vs `/decks/browse`),
+  // Among children with prefix-sharing hrefs (e.g. `/decks` vs `/cards`),
   // only the longest matching href should render active. Computing it here
   // (where sibling context is available) and forwarding via `forceActive` is
   // the only place we can resolve the ambiguity — each child NavItem on its

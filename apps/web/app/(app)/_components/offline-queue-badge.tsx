@@ -16,7 +16,7 @@ interface Props {
  * a "!" suffix when the queue has tipped into the stuck state.
  *
  * When stuck, the badge IS the recovery affordance: it renders as a Link
- * to /review so the user doesn't have to find Reviews separately. When
+ * to /review/setup so the user doesn't have to find Reviews separately. When
  * syncing (non-stuck), it stays an indicator-only span.
  */
 export function OfflineQueueBadge({ floating = false }: Props): React.JSX.Element | null {
@@ -52,7 +52,7 @@ export function OfflineQueueBadge({ floating = false }: Props): React.JSX.Elemen
       ' hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error'
     return (
       <Link
-        href="/review"
+        href="/review/setup"
         aria-label={ariaLabel}
         title={ariaLabel}
         className={linkClasses}

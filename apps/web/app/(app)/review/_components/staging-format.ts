@@ -1,12 +1,12 @@
 /**
  * Tiny formatting helpers specific to the review staging surface.
  *
- * Kept separate from the dashboard's `dashboard-format.ts` so the staging
+ * Kept separate from the dashboard's `today-format.ts` so the staging
  * page can iterate on its own copy and pluralization without leaking
  * staging-specific phrasings into the dashboard.
  */
 
-import { formatExactCount } from '@/app/(app)/dashboard/_components/dashboard-format'
+import { formatExactCount } from '@/app/(app)/today/_components/today-format'
 
 export function pluralizeCards(count: number): string {
   return count === 1 ? 'card' : 'cards'

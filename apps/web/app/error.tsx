@@ -123,7 +123,7 @@ export default function RootError({ error, reset }: ErrorBoundaryProps): React.J
         Try again
       </PrimaryAction>
       <InlinePathsRow>
-        <InlinePath href="/dashboard">Back to dashboard</InlinePath>
+        <InlinePath href="/today">Back to home</InlinePath>
         <InlinePath onClick={handleReport}>
           {reported ? 'Copied' : 'Report this'}
         </InlinePath>

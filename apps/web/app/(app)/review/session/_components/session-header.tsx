@@ -24,7 +24,7 @@ export function SessionHeader(): React.JSX.Element {
 
   function handleEnd() {
     endSession()
-    router.push('/review')
+    router.push('/review/setup')
   }
 
   return (

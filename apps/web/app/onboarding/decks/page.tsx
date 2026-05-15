@@ -68,7 +68,7 @@ export default function DecksPage(): React.JSX.Element {
     mutationFn: (payload: UpdateProfileInput) => updateProfileAction(payload),
     onSuccess: () => {
       reset()
-      router.push('/dashboard')
+      router.push('/today')
     },
   })
 
@@ -80,7 +80,7 @@ export default function DecksPage(): React.JSX.Element {
       // the prior escape-link behavior: profile mutation is reserved for
       // the explicit "Add and begin" path so unfinished onboardings don't
       // land partial answers on the server.
-      router.push('/dashboard')
+      router.push('/today')
       return
     }
 

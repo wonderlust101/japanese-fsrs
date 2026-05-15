@@ -311,7 +311,7 @@ export function PrimaryAction({
   const className = [
     'inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-2.5',
     'rounded-[2px] px-8 py-3 text-base font-semibold',
-    'dashboard-motion-transform',
+    'today-motion-transform',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2',
     isError
       ? 'bg-error text-warm-paper-raised hover:-translate-y-0.5 hover:bg-error-deep active:translate-y-0 focus-visible:outline-error-deep'
@@ -464,7 +464,7 @@ interface DevPanelProps {
    * the body for prod builds when NODE_ENV is statically known.
    *
    * The `| undefined` widening on each field matches the project's pattern
-   * (see DueQueue in dashboard-hero.tsx). With `exactOptionalPropertyTypes`
+   * (see DueQueue in today-hero.tsx). With `exactOptionalPropertyTypes`
    * on, callers can pass `digest: error.digest` directly even when the
    * underlying `error.digest` is itself `string | undefined`.
    */

@@ -42,9 +42,9 @@ function FloatingLauncherInner(): React.JSX.Element {
   const pathname      = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const isDashboard = pathname === '/dashboard'
-  const isProfile   = pathname === '/profile'
-  const isReview    = pathname === '/review'
+  const isDashboard = pathname === '/today'
+  const isProfile   = pathname.startsWith('/settings')
+  const isReview    = pathname.startsWith('/review')
 
   const {
     corner,

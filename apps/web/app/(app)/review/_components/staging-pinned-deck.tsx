@@ -7,12 +7,12 @@ import {
   clampPercent,
   formatExactCount,
   safeNonNegativeInteger,
-} from '@/app/(app)/dashboard/_components/dashboard-format'
+} from '@/app/(app)/today/_components/today-format'
 import {
   ConnectionErrorNotice,
   SkeletonBlock,
   type ModuleState,
-} from '@/app/(app)/dashboard/_components/section-primitives'
+} from '@/app/(app)/today/_components/section-primitives'
 import { JlptPill, type JlptPillLevel } from '@/components/ui/Pill'
 import { EASE_OUT_EXPO } from '@/lib/motion'
 
@@ -284,21 +284,21 @@ function FirstTimeTiles(): React.JSX.Element {
       kanji:       '五',
       title:       'JLPT N5 vocabulary',
       description: 'The first ~800 words and a daily rhythm to learn them.',
-      href:        '/decks/browse?level=N5',
+      href:        '/decks?level=N5',
     },
     {
       level:       'N4' as JlptPillLevel,
       kanji:       '漢',
       title:       'Joyo kanji recognition',
       description: 'A slow build through the Joyo kanji at a pace you set.',
-      href:        '/decks/browse?type=kanji',
+      href:        '/decks?type=kanji',
     },
     {
       level:       'beyond_jlpt' as JlptPillLevel,
       kanji:       '文',
       title:       'Grammar patterns',
       description: 'Short example-driven grammar from N5 through Beyond.',
-      href:        '/decks/browse?type=grammar',
+      href:        '/decks?type=grammar',
     },
   ]
   return (

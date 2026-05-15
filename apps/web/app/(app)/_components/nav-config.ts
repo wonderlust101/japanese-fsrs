@@ -15,10 +15,11 @@
 
 export type NavIconKey =
   | 'home'
+  | 'add'
   | 'review'
   | 'decks'
   | 'browse'
-  | 'find-decks'
+  | 'cards'
   | 'analytics'
 
 export interface NavItemConfig {
@@ -43,30 +44,34 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     label: 'Practice',
     kanji: '練',
     items: [
-      { href: '/dashboard', iconKey: 'home',   label: 'Home' },
-      { href: '/review',    iconKey: 'review', label: 'Reviews', hasOfflineBadge: true, hasDueCount: true },
+      { href: '/today', iconKey: 'home', label: 'Today' },
+      { href: '/add',   iconKey: 'add',  label: 'Add'   },
     ],
   },
   {
     label: 'Library',
     kanji: '書',
     items: [
-      {
-        href:    '/decks',
-        iconKey: 'decks',
-        label:   'Decks',
-        children: [
-          { href: '/decks',        iconKey: 'browse',     label: 'Browse decks' },
-          { href: '/decks/browse', iconKey: 'find-decks', label: 'Find decks'   },
-        ],
-      },
+      { href: '/decks', iconKey: 'decks', label: 'Decks' },
+      { href: '/cards', iconKey: 'cards', label: 'Cards' },
     ],
   },
   {
     label: 'Insights',
     kanji: '析',
     items: [
-      { href: '/analytics', iconKey: 'analytics', label: 'Analytics' },
+      {
+        href:    '/insights',
+        iconKey: 'analytics',
+        label:   'Insights',
+        children: [
+          { href: '/insights',            iconKey: 'analytics', label: 'Overview'   },
+          { href: '/insights/mistakes',   iconKey: 'browse',    label: 'Mistakes'   },
+          { href: '/insights/progress',   iconKey: 'browse',    label: 'Progress'   },
+          { href: '/insights/forecast',   iconKey: 'browse',    label: 'Forecast'   },
+          { href: '/insights/statistics', iconKey: 'browse',    label: 'Statistics' },
+        ],
+      },
     ],
   },
 ]

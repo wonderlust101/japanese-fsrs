@@ -8,6 +8,20 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## To Do
 
+- [ ] **IA wireframe doc cleanup (low-risk)**
+	  - `docs/information_architecture/00_sitemap.md:65` contains a stray absolute path (`/home/sergei/Downloads/tomo_wireframes_by_page/01_today.md`) injected mid-tree — delete.
+	  - `00_sitemap.md:30` says *"the generated Lapis-compatible note"*. "Lapis" is a foreign product name; replace with "Tomo card note".
+	  - `03_review_session.md:201` references *"the legacy design system's four-channel rating rule"* — current design system lives in [DESIGN.md](DESIGN.md); drop the "legacy" framing.
+- [ ] **Reconcile IA card types with `card_type` schema**
+	  - Canonical enum is `comprehension | production | listening` ([`packages/shared-types/src/fsrs.types.ts`](../packages/shared-types/src/fsrs.types.ts), [DATABASE.md](DATABASE.md), [TDD.md](TDD.md)). IA describes *Vocabulary Recognition* + *Sentence Understanding* + *Production* and omits Listening entirely (`03_review_session.md`, `08_generated_card_review.md`, `11_card_detail.md`, `00_sitemap.md:60`).
+	  - Decide: ship Listening for MVP (add wireframes for audio-front cards) **or** defer Listening explicitly in IA + canonical docs. Clarify that "Vocabulary Recognition" and "Sentence Understanding" are `layout_type` variants of `comprehension`, not peer `card_type` values.
+- [ ] **Resolve "Problem Card" vs "Leech" vocabulary**
+	  - Backend, kanban, status, and PRODUCT.md all say "leech" (`/api/v1/leeches`, leech-drill, AI leech diagnosis). New IA renames the surface to **Problem Card Repair** with `/review/repair` + `/review/repair/[cardId]` (`05_…`, `06_…`).
+	  - Either bless "Problem Card" as the canonical user-facing label (requires explicit PRODUCT.md edit) or rewrite the IA pair to use "Leech". Pick one before the leeches frontend lands.
+- [ ] **Flesh out IA stub pages**
+	  - Phase 1 of the App Router migration shipped 2026-05-14: `/dashboard`→`/today`, `/analytics`→`/insights`, `/decks/browse` removed, `/profile` removed, card detail hoisted to `/cards/[cardId]`, `/review` staging moved under `/review/setup`, and stubs scaffolded for `/add`, `/add/review`, `/cards`, `/cards/[cardId]/repair`, `/decks/[id]/preview`, `/insights/{mistakes,progress,forecast,statistics}`. Stubs render a page title + outgoing IA links only — implementations are the follow-up work. Tracked per surface in [`status/FRONTEND.md`](status/FRONTEND.md).
+- [ ] **Settings IA: missing sections**
+	  - IA `18_settings.md` proposes top-level Account / Learning / Review behavior / Display / Data and sync / Security. Current app ships `/settings`, `/settings/learning`, `/settings/profile`, `/settings/security` only. Display, Data & sync, and Review-behavior sections need designs + routes (or explicit deferral notes in IA).
 - [ ] **Onboarding deck recommendations API**
 	  - Add `/onboarding/recommendations` referenced by `apps/web/app/onboarding/decks/page.tsx`.
 	  - Wire selected decks through `/api/v1/premade-decks/:id/subscribe`.

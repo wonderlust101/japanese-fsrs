@@ -119,7 +119,7 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
           aria-label="Account options"
           className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-[2px] border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
-          <Link href="/profile" role="menuitem" onClick={handleItemClick} className={itemClass}>
+          <Link href="/settings/profile" role="menuitem" onClick={handleItemClick} className={itemClass}>
             <UserIcon size={16} className="shrink-0 text-faded-sumi" />
             <span className="flex-1">Profile</span>
           </Link>

@@ -587,7 +587,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
         Find a curated premade deck to begin, or create your own.
       </p>
       <div className="mt-5 flex items-center justify-center gap-2">
-        <Link href="/decks/browse">
+        <Link href="/decks">
           <Button size="md">Find a deck</Button>
         </Link>
         <Button size="md" variant="ghost" onClick={onCreate}>

@@ -32,7 +32,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   // mutation to settle rather than racing with it.
   useEffect(() => {
     if (!isStarted) {
-      router.replace('/review')
+      router.replace('/review/setup')
     }
   }, [isStarted, router])
 

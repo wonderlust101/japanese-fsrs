@@ -50,13 +50,13 @@ export default function LoginPage(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    router.prefetch('/dashboard')
+    router.prefetch('/today')
   }, [router])
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: () => loginAction(email, password),
     onSuccess:  () => {
-      router.push('/dashboard')
+      router.push('/today')
       router.refresh()
     },
   })

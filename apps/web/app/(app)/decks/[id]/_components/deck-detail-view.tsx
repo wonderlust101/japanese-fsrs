@@ -156,7 +156,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
               </div>
             </div>
 
-            <Link href={`/review?deckId=${deckId}`}>
+            <Link href={`/review/setup?deckId=${deckId}`}>
               <Button size="sm">▶ Start reviews</Button>
             </Link>
           </div>

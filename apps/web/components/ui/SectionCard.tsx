@@ -4,7 +4,7 @@ import {
   CardHeader,
   CHART_MODULE_CHROME,
   LIST_MODULE_CHROME,
-} from '@/app/(app)/dashboard/_components/section-primitives'
+} from '@/app/(app)/today/_components/section-primitives'
 
 interface SectionCardProps {
   /**

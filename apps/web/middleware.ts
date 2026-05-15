@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
   if (user && isAuthPage) {
     // Authenticated user hitting an auth page → send straight to the app.
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/today'
     return NextResponse.redirect(url)
   }
 
@@ -65,10 +65,16 @@ export const config = {
     // taking a two-hop journey: / → /onboarding → /login.
     '/',
     // Protected (app) routes
-    '/dashboard/:path*',
+    '/today/:path*',
+    '/today',
+    '/add/:path*',
+    '/add',
     '/review/:path*',
     '/decks/:path*',
-    '/analytics/:path*',
+    '/cards/:path*',
+    '/cards',
+    '/insights/:path*',
+    '/insights',
     '/settings/:path*',
     // Onboarding — requires authentication; unauthenticated users are sent to /login
     '/onboarding/:path*',

@@ -54,8 +54,8 @@ export function ReviewComponentsSection(): React.JSX.Element {
               <p>
                 To preview it in context, start a real review:
                 {' '}
-                <Link href="/review" className="text-inari-vermillion hover:text-inari-vermillion-deep underline underline-offset-2">
-                  /review
+                <Link href="/review/setup" className="text-inari-vermillion hover:text-inari-vermillion-deep underline underline-offset-2">
+                  /review/setup
                 </Link>.
               </p>
             </div>

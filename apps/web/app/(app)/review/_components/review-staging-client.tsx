@@ -10,12 +10,12 @@ import {
   calendarDateKeyFromApiDate,
   isDashboardDateKey,
   type DashboardCalendarContext,
-} from '@/app/(app)/dashboard/_components/dashboard-calendar'
-import { safeNonNegativeInteger } from '@/app/(app)/dashboard/_components/dashboard-format'
+} from '@/app/(app)/today/_components/today-calendar'
+import { safeNonNegativeInteger } from '@/app/(app)/today/_components/today-format'
 import {
   DashboardModuleReveal,
   DashboardStatePresence,
-} from '@/app/(app)/dashboard/_components/dashboard-motion'
+} from '@/app/(app)/today/_components/today-motion'
 import { inferDeckLevel } from '@/lib/deck-level'
 import { useHeatmapData } from '@/lib/api/analytics'
 import { useDecks } from '@/lib/api/decks'
@@ -327,7 +327,7 @@ export function ReviewStagingClient({
   }
 
   function handleStudyAhead(): void {
-    router.push('/review?mode=ahead')
+    router.push('/review/setup?mode=ahead')
   }
 
   function handleRefresh(): void {
@@ -380,7 +380,7 @@ export function ReviewStagingClient({
                   isFirstTime ? 'Browse decks' :
                   isCaughtUp ? 'Study ahead' : undefined
                 }
-                secondaryHref={isFirstTime ? '/decks/browse' : undefined}
+                secondaryHref={isFirstTime ? '/decks' : undefined}
                 beginDisabled={totalDue === 0}
               />
             </DashboardStatePresence>

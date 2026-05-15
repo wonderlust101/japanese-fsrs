@@ -35,7 +35,7 @@ export const NEXT_STEP: Record<OnboardingStepPath, string> = {
   '/onboarding/goal':      '/onboarding/interests',
   '/onboarding/interests': '/onboarding/schedule',
   '/onboarding/schedule':  '/onboarding/decks',
-  '/onboarding/decks':     '/dashboard',
+  '/onboarding/decks':     '/today',
 }
 
 // ── Store shape ───────────────────────────────────────────────────────────────

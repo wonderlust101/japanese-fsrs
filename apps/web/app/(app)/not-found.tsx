@@ -37,7 +37,7 @@ export default function AppNotFound(): React.JSX.Element {
       </VisualSlot>
       <PageHeadline>This path isn&apos;t part of Tomo.</PageHeadline>
       <PageBody>Nothing has been lost.</PageBody>
-      <PrimaryAction href="/dashboard">Back to home</PrimaryAction>
+      <PrimaryAction href="/today">Back to home</PrimaryAction>
       <DevPanel pathname={pathname} />
     </PageStateFrame>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { formatExactCount } from '@/app/(app)/dashboard/_components/dashboard-format'
+import { formatExactCount } from '@/app/(app)/today/_components/today-format'
 
 import { StagingOfflineChip } from './staging-offline-chip'
 

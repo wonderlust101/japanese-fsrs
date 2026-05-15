@@ -11,8 +11,8 @@ import { EASE_OUT_EXPO } from '@/lib/motion'
 import {
   formatCompactCount,
   formatExactCount,
-} from '@/app/(app)/dashboard/_components/dashboard-format'
-import { SkeletonBlock } from '@/app/(app)/dashboard/_components/section-primitives'
+} from '@/app/(app)/today/_components/today-format'
+import { SkeletonBlock } from '@/app/(app)/today/_components/section-primitives'
 
 import { pluralizeCards } from './staging-format'
 
@@ -365,7 +365,7 @@ function PrimaryRow({
       }}
     >
       {isFirstTime ? (
-        <PrimaryLink href={secondaryHref ?? '/decks/browse'} label={secondaryLabel ?? 'Browse decks'} />
+        <PrimaryLink href={secondaryHref ?? '/decks'} label={secondaryLabel ?? 'Browse decks'} />
       ) : isCaughtUp ? (
         <SecondaryButton onClick={onSecondary ?? (() => undefined)} label={secondaryLabel ?? 'Study ahead'} />
       ) : (

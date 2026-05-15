@@ -73,7 +73,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
   // Guard: no active session → back to review hub
   useEffect(() => {
     if (sessionId === null) {
-      router.replace('/review')
+      router.replace('/review/setup')
     }
   }, [sessionId, router])
 
@@ -91,7 +91,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 
   function handleDashboard() {
     reset()
-    router.push('/dashboard')
+    router.push('/today')
   }
 
   const today = new Date().toLocaleDateString('en-US', {
