@@ -10,7 +10,7 @@ import {
   formatCompactCount,
   formatExactCount,
 } from '@/app/(app)/today/_components/today-format'
-import { SkeletonBlock } from '@/app/(app)/today/_components/section-primitives'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 import { pluralizeCards } from './staging-format'
 
@@ -217,18 +217,18 @@ function LoadingContent(): React.JSX.Element {
   return (
     <div>
       <div className="flex items-baseline gap-3">
-        <SkeletonBlock width={32} height={28} className="rounded-[2px]" />
-        <SkeletonBlock width={132} height={14} />
+        <Skeleton width={32} height={28} className="rounded-[2px]" />
+        <Skeleton width={132} height={14} />
       </div>
       <hr aria-hidden="true" className="mt-3 border-0 border-t border-soft-hairline" />
-      <SkeletonBlock width="min(440px, 92%)" height={48} className="mt-6 rounded-[4px]" />
-      <SkeletonBlock width="min(520px, 100%)" height={18} className="mt-5 rounded-[4px]" />
+      <Skeleton width="min(440px, 92%)" height={48} className="mt-6 rounded-[4px]" />
+      <Skeleton width="min(520px, 100%)" height={18} className="mt-5 rounded-[4px]" />
       <div className="mt-6 flex flex-wrap gap-2">
         {[110, 124, 100].map((w, i) => (
-          <SkeletonBlock key={i} width={w} height={28} className="rounded-full" />
+          <Skeleton key={i} width={w} height={28} className="rounded-full" />
         ))}
       </div>
-      <SkeletonBlock width={210} height={48} className="mt-7 rounded-[2px]" />
+      <Skeleton width={210} height={48} className="mt-7 rounded-[2px]" />
     </div>
   )
 }
@@ -347,7 +347,6 @@ function PrimaryRow({
   secondaryLabel?: string | undefined
   secondaryHref?:  string | undefined
 }): React.JSX.Element {
-  const _reducedMotion = false
   const isCaughtUp    = state === 'all-clear'
   const isFirstTime   = state === 'first-time'
 

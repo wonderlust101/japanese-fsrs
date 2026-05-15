@@ -1,8 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
+
+import { QuietLink } from '@/components/ui/QuietLink'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 import {
   addDaysToDateKey,
@@ -14,7 +17,6 @@ import {
   formatCompactCount,
   safeNonNegativeInteger,
 } from './today-format'
-import { SkeletonBlock } from './section-primitives'
 
 // ── Layout constants ─────────────────────────────────────────────────────────
 // 7-day horizon (today + next 6). On narrow screens the last 2 days are
@@ -108,15 +110,10 @@ function buildDays(
   return out
 }
 
-// ── Container chrome ─────────────────────────────────────────────────────────
-
-const CONTAINER_CHROME = [
-  'relative overflow-hidden rounded-[2px]',
-  'border border-soft-hairline bg-warm-paper-raised',
-  'px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
-].join(' ')
-
 // ── Public component ─────────────────────────────────────────────────────────
+// SectionCard provides the kanji 週 + "The week ahead" label, the hairline
+// divider rule, and the aria-labelledby plumbing between <section> and <h2>.
+// The "See the next two weeks →" QuietLink rides in the header's right slot.
 
 export function WeekRhythmStrip({
   state,
@@ -125,23 +122,36 @@ export function WeekRhythmStrip({
 }: WeekRhythmStripProps): React.JSX.Element {
   if (state === 'loading') {
     return (
-      <section aria-label="The week ahead" className={CONTAINER_CHROME}>
-        <TopStripe />
-        <Header />
+      <SectionCard
+        id="week-rhythm"
+        kanji="週"
+        label="The week ahead"
+        description="Your review queue, day by day."
+        variant="chart"
+        chrome="chart"
+        ariaBusy
+        rightContent={<QuietLink href="/insights/forecast">See the next two weeks →</QuietLink>}
+      >
         <SkeletonChart />
-      </section>
+      </SectionCard>
     )
   }
 
   if (state === 'error') {
     return (
-      <section aria-label="The week ahead" className={CONTAINER_CHROME}>
-        <TopStripe />
-        <Header />
+      <SectionCard
+        id="week-rhythm"
+        kanji="週"
+        label="The week ahead"
+        description="Your review queue, day by day."
+        variant="chart"
+        chrome="chart"
+        rightContent={<QuietLink href="/insights/forecast">See the next two weeks →</QuietLink>}
+      >
         <p className="mt-4 font-mono text-xs text-faded-sumi">
           Could not load the next seven days. Refresh to retry.
         </p>
-      </section>
+      </SectionCard>
     )
   }
 
@@ -156,19 +166,30 @@ export function WeekRhythmStrip({
 
   if (isEmptyForecast) {
     return (
-      <section aria-label="The week ahead" className={CONTAINER_CHROME}>
-        <TopStripe />
-        <Header />
+      <SectionCard
+        id="week-rhythm"
+        kanji="週"
+        label="The week ahead"
+        description="Your review queue, day by day."
+        variant="chart"
+        chrome="chart"
+        rightContent={<QuietLink href="/insights/forecast">See the next two weeks →</QuietLink>}
+      >
         <EmptyForecast />
-      </section>
+      </SectionCard>
     )
   }
 
   return (
-    <section aria-label="The week ahead" className={CONTAINER_CHROME}>
-      <TopStripe />
-      <Header />
-
+    <SectionCard
+      id="week-rhythm"
+      kanji="週"
+      label="The week ahead"
+      variant="chart"
+      chrome="chart"
+      description="Your review queue, day by day."
+      rightContent={<QuietLink href="/insights/forecast">See the next two weeks →</QuietLink>}
+    >
       <div className="mt-5">
         <ol
           className="flex items-end gap-1.5 sm:gap-2 lg:gap-3"
@@ -215,7 +236,7 @@ export function WeekRhythmStrip({
       </div>
 
       {glossaryOpen && <Glossary />}
-    </section>
+    </SectionCard>
   )
 }
 
@@ -315,7 +336,7 @@ function SkeletonChart(): React.JSX.Element {
       <div className="flex items-end gap-1.5 sm:gap-2 lg:gap-3" style={{ height: `${CHART_HEIGHT}px` }}>
         {heights.map((height, i) => (
           <div key={i} className="flex h-full min-w-0 flex-1 items-end justify-center">
-            <SkeletonBlock width="72%" height={height} className="rounded-t-[1px]" />
+            <Skeleton width="72%" height={height} className="rounded-t-[1px]" />
           </div>
         ))}
       </div>
@@ -323,7 +344,7 @@ function SkeletonChart(): React.JSX.Element {
       <div className="mt-3 flex items-start gap-1.5 sm:gap-2 lg:gap-3">
         {heights.map((_, i) => (
           <div key={i} className="flex-1 text-center">
-            <SkeletonBlock width="60%" height={11} className="mx-auto" />
+            <Skeleton width="60%" height={11} className="mx-auto" />
           </div>
         ))}
       </div>
@@ -350,46 +371,13 @@ function Legend(): React.JSX.Element {
   )
 }
 
-// ── Chrome and copy ──────────────────────────────────────────────────────────
-
-function TopStripe(): React.JSX.Element {
-  return (
-    <span aria-hidden="true" className="absolute inset-x-0 top-0 z-20 h-px bg-inari-vermillion/45" />
-  )
-}
-
-function Header(): React.JSX.Element {
-  // On phones the action stacks below the title so neither side has to
-  // squeeze: the link's "See the next two weeks →" is too wide to share a
-  // row with the title at 320px. From sm+ they sit on one baseline.
-  return (
-    <div className="flex flex-col gap-y-1 border-b border-soft-hairline pb-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-4 sm:gap-y-0">
-      <h2 className="flex items-baseline gap-2.5">
-        <span lang="ja" aria-hidden="true" className="font-display text-xl text-inari-vermillion leading-none translate-y-[0.05em]">
-          週
-        </span>
-        <span className="font-mono text-sm font-medium uppercase tracking-normal text-sumi-ink/80">
-          The week ahead
-        </span>
-      </h2>
-      <Link
-        href="/insights/forecast"
-        className={[
-          '-ml-1 inline-flex min-h-9 w-fit items-center px-1 py-2 font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi',
-          'sm:ml-0 sm:min-h-0 sm:px-0 sm:py-0',
-          'today-motion-colors hover:text-inari-vermillion underline-offset-4 hover:underline',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-inari-vermillion/45',
-        ].join(' ')}
-      >
-        See the next two weeks →
-      </Link>
-    </div>
-  )
-}
+// ── Copy ─────────────────────────────────────────────────────────────────────
 
 function EmptyForecast(): React.JSX.Element {
+  // No top divider here — SectionCard's CardHeader already draws the hairline
+  // rule directly above this content.
   return (
-    <div className="mt-5 flex flex-col items-start gap-y-1.5 border-t border-soft-hairline pt-5">
+    <div className="mt-4 flex flex-col items-start gap-y-1.5">
       <p className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi">
         Quiet week
       </p>
@@ -408,20 +396,13 @@ function GlossaryToggle({
   onToggle: () => void
 }): React.JSX.Element {
   return (
-    <button
-      type="button"
+    <QuietLink
       onClick={onToggle}
       aria-expanded={open}
       aria-controls="week-rhythm-glossary"
-      className={[
-        '-ml-1 inline-flex min-h-9 w-fit items-center px-1 py-2 font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi',
-        'sm:ml-0 sm:min-h-0 sm:px-0 sm:py-0',
-        'today-motion-colors hover:text-inari-vermillion underline-offset-4 hover:underline',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-inari-vermillion/45',
-      ].join(' ')}
     >
       {open ? 'Hide definitions' : 'What do these mean?'}
-    </button>
+    </QuietLink>
   )
 }
 

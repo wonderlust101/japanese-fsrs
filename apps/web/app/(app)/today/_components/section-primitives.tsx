@@ -9,11 +9,13 @@
 //   Internal: PreviewStage and tone tokens → visual previews (Shelf, Forecast,
 //             Focus, WeakSpots, Recent) → NoticeFrame → ErrorSignalPreview.
 
-import Link from 'next/link'
-
 import { StatusPill } from '@/components/ui/Pill'
+import { QuietLink } from '@/components/ui/QuietLink'
 
 import { formatExactCount } from './today-format'
+
+// Re-export for in-folder callers (today, staging) that already import from here.
+export { Skeleton as SkeletonBlock } from '@/components/ui/Skeleton'
 
 // ── CardHeader (kanji ornament + small-caps mono + right action + rule) ──────
 
@@ -54,17 +56,14 @@ export function CardHeader({
   // Kanji ornament always renders at text-xl. Earlier iterations varied size
   // by variant + compound length; that was retired in favor of one
   // consistent ornament across all surfaces (dashboard, profile, settings).
-  const isCompound = kanji.length > 1
   const kanjiSizeClass = 'text-xl'
-  const kanjiGap =
-    isCompound ? 'gap-2.5' : 'gap-3'
   const hasDescription = description !== undefined
   const headerMargin = hasDescription ? 'mb-5' :
     variant === 'chart'    ? 'mb-3' :
     variant === 'compact'  ? 'mb-4' :
                               'mb-5'
   const title = (
-    <h2 id={id} className={`flex min-w-0 flex-wrap items-baseline ${kanjiGap}`}>
+    <h2 id={id} className={`flex min-w-0 flex-wrap items-baseline gap-3`}>
       <span
         lang="ja"
         aria-hidden="true"
@@ -84,7 +83,7 @@ export function CardHeader({
   return (
     <header className={headerMargin}>
       {hasDescription ? (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:content-center">
           <div className="min-w-0">
             {title}
             <p className="mt-2 max-w-[58ch] break-words text-[0.8125rem] leading-[1.55] text-faded-sumi">
@@ -98,7 +97,12 @@ export function CardHeader({
           )}
         </div>
       ) : (
-        <div className="flex min-w-0 items-baseline justify-between gap-4">
+        // Stacks below sm so a wide rightContent (e.g. "See the next two
+        // weeks →") doesn't pinch the title on phones; flips to a single
+        // baseline-aligned row at sm+. Mirrors the with-description grid's
+        // responsive shape so both CardHeader paths feel identical at the
+        // viewport boundary.
+        <div className="flex min-w-0 flex-col gap-y-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-x-4 sm:gap-y-0">
           {title}
           {rightContent !== undefined && (
             // The slot preserves header rhythm; interactive children own their
@@ -131,36 +135,6 @@ export const LIST_MODULE_CHROME = [
   'border border-soft-hairline rounded-[2px]',
   'px-5 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
 ].join(' ')
-
-// ── Skeleton primitives ──────────────────────────────────────────────────────
-
-interface SkeletonBlockProps {
-  className?: string
-  width?:     string | number
-  height?:    string | number
-}
-
-/**
- * Shimmering skeleton block. Tinted toward the warm-paper neutrals so the
- * skeleton reads as "data loading" without leaving Tomo's quiet palette.
- */
-export function SkeletonBlock({
-  className = '',
-  width,
-  height,
-}: SkeletonBlockProps): React.JSX.Element {
-  const style: React.CSSProperties = {}
-  if (width  !== undefined) style.width  = typeof width  === 'number' ? `${width}px`  : width
-  if (height !== undefined) style.height = typeof height === 'number' ? `${height}px` : height
-
-  return (
-    <div
-      aria-hidden="true"
-      className={`dashboard-skeleton rounded-[2px] ${className}`}
-      style={style}
-    />
-  )
-}
 
 // ── Empty and notice atoms ───────────────────────────────────────────────────
 
@@ -212,19 +186,16 @@ export function EmptyState({
             {body}
           </p>
           {action !== undefined && (
-            <Link
-              href={action.href}
-              aria-label={action.ariaLabel}
-              className="today-motion-colors group mt-4 inline-flex min-h-11 max-w-full flex-wrap items-center gap-2 break-words font-mono text-xs tracking-wide text-inari-vermillion underline-offset-4 hover:text-inari-vermillion-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-inari-vermillion/45"
-            >
-              <span>{action.label}</span>
-              <span
-                aria-hidden="true"
-                className="today-motion-transform group-hover:translate-x-0.5"
+            <div className="mt-4">
+              <QuietLink
+                href={action.href}
+                tone="brand"
+                trailingArrow
+                {...(action.ariaLabel !== undefined ? { ariaLabel: action.ariaLabel } : {})}
               >
-                →
-              </span>
-            </Link>
+                {action.label}
+              </QuietLink>
+            </div>
           )}
         </div>
 
@@ -715,14 +686,9 @@ function ErrorPreviewStage({
   children: React.ReactNode
   label:    string
 }): React.JSX.Element {
-  const reducedMotion = false as boolean
-  const hoverProps = reducedMotion === true
-    ? {}
-    : { whileHover: { y: -1 } }
-
   return (
     <div
-      {...hoverProps}      aria-hidden="true"
+      aria-hidden="true"
       className={[
         'dashboard-error-preview group/error relative min-h-[7.25rem] overflow-hidden rounded-[2px]',
         'border border-error/20 bg-warm-paper-raised/70 px-4 py-3',
@@ -783,18 +749,11 @@ function NoticeFrame({
               {staleFallback}
             </p>
           )}
-          <Link
-            href={retryHref}
-            className="today-motion-colors group mt-4 inline-flex min-h-11 max-w-full flex-wrap items-center gap-2 break-words font-mono text-xs tracking-wide text-error-deep underline-offset-4 hover:text-error hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-error/45"
-          >
-            <span>{refreshLabel}</span>
-            <span
-              aria-hidden="true"
-              className="today-motion-transform group-hover:translate-x-0.5"
-            >
-              →
-            </span>
-          </Link>
+          <div className="mt-4">
+            <QuietLink href={retryHref} tone="error" trailingArrow>
+              {refreshLabel}
+            </QuietLink>
+          </div>
         </div>
 
         {visual !== null && visual !== undefined && <ErrorSignalPreview visual={visual} />}

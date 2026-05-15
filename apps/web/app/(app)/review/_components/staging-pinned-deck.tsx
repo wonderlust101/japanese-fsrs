@@ -9,10 +9,10 @@ import {
 } from '@/app/(app)/today/_components/today-format'
 import {
   ConnectionErrorNotice,
-  SkeletonBlock,
   type ModuleState,
 } from '@/app/(app)/today/_components/section-primitives'
 import { JlptPill, type JlptPillLevel } from '@/components/ui/Pill'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 import { pluralizeCards } from './staging-format'
 
@@ -168,7 +168,6 @@ function DeckBody({
   deck: PinnedDeck
   note: TomoNote | null
 }): React.JSX.Element {
-  const _reducedMotion = false
   const mastery = deck.masteryPercent !== undefined && deck.masteryPercent !== null
     ? clampPercent(deck.masteryPercent)
     : null
@@ -309,10 +308,9 @@ function FirstTimeTile({
 }: {
   tile:  { level: JlptPillLevel; kanji: string; title: string; description: string; href: string }
 }): React.JSX.Element {
-  const _reducedMotion = false
   return (
-    <div      className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset/40 px-4 py-4"
-    >
+    <div className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset/40 px-4 py-4">
+
       <div className="flex items-baseline justify-between gap-2">
         <span
           lang="ja"
@@ -357,14 +355,14 @@ function DeckLoadingBody(): React.JSX.Element {
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline">
-        <SkeletonBlock width="48%" height={28} />
-        <SkeletonBlock width={68} height={20} />
+        <Skeleton width="48%" height={28} />
+        <Skeleton width={68} height={20} />
       </div>
-      <SkeletonBlock width="100%" height={8} className="mt-5 rounded-[1px]" />
-      <SkeletonBlock width="78%" height={16} className="mt-3" />
-      <SkeletonBlock width="32%" height={12} className="mt-7" />
-      <SkeletonBlock width="92%" height={16} className="mt-3" />
-      <SkeletonBlock width="84%" height={16} className="mt-1.5" />
+      <Skeleton width="100%" height={8} className="mt-5 rounded-[1px]" />
+      <Skeleton width="78%" height={16} className="mt-3" />
+      <Skeleton width="32%" height={12} className="mt-7" />
+      <Skeleton width="92%" height={16} className="mt-3" />
+      <Skeleton width="84%" height={16} className="mt-1.5" />
     </div>
   )
 }

@@ -6,6 +6,14 @@ import {
   LIST_MODULE_CHROME,
 } from '@/app/(app)/today/_components/section-primitives'
 
+type StripeTone = 'brand' | 'aizome' | 'error' | 'none'
+
+const STRIPE_TONE_VAR: Record<Exclude<StripeTone, 'none'>, string> = {
+  brand:  'var(--color-inari-vermillion)',
+  aizome: 'var(--color-aizome-indigo)',
+  error:  'var(--color-error)',
+}
+
 interface SectionCardProps {
   /**
    * Section id. When provided, lands on the outer <section> element
@@ -33,11 +41,19 @@ interface SectionCardProps {
   /**
    * Outer chrome flavour. `'list'` (default) uses LIST_MODULE_CHROME —
    * the canonical card surface (h-full, responsive padding). `'chart'`
-   * uses CHART_MODULE_CHROME — `relative overflow-hidden` with slightly
-   * tighter horizontal padding at the base breakpoint, for chart
-   * modules whose content needs the overflow clip.
+   * uses CHART_MODULE_CHROME — slightly tighter horizontal padding at the
+   * base breakpoint, for chart modules whose content needs to clip to the
+   * rounded edges.
    */
   chrome?:       'list' | 'chart'
+  /**
+   * Top-edge identity stripe. Defaults to `'brand'` (Inari Vermillion) —
+   * every SectionCard surface carries the brand stripe by default. Use
+   * `'aizome'` or `'error'` for status-coded modules, or `'none'` to opt
+   * out entirely. The stripe is always 2px (the canonical rule weight) —
+   * the lighter hairline isn't appropriate for the SectionCard surface.
+   */
+  stripeTone?:   StripeTone
   /** Mirrors the aria-busy attribute on the outer <section>. Use during
    *  loading states; consumers shouldn't set it permanently. */
   ariaBusy?:     boolean
@@ -52,6 +68,10 @@ interface SectionCardProps {
  * card + soft-hairline border + responsive padding) with CardHeader
  * (vermillion kanji at text-xl + small-caps mono label + optional
  * count/description/action + hairline rule beneath).
+ *
+ * Every SectionCard surface carries a 2px Inari Vermillion top-edge stripe
+ * by default — the identity device that signals "this is a Tomo module."
+ * Override via `stripeTone` ('aizome' / 'error' / 'none') when needed.
  *
  * Use this anywhere you'd otherwise write the longer pattern by hand:
  *
@@ -70,12 +90,19 @@ interface SectionCardProps {
  */
 export function SectionCard({
   id, kanji, label, count, description, rightContent, variant,
-  chrome = 'list', ariaBusy, className = '', children,
+  chrome = 'list', stripeTone = 'brand', ariaBusy, className = '', children,
 }: SectionCardProps): React.JSX.Element {
   const baseChrome = chrome === 'chart' ? CHART_MODULE_CHROME : LIST_MODULE_CHROME
-  const outerClass = className.length > 0 ? `${baseChrome} ${className}` : baseChrome
+  // Inject `relative overflow-hidden` so the stripe positions to the card's
+  // top edge and clips cleanly to the 2px corners. CHART_MODULE_CHROME
+  // already includes both (harmless duplication); LIST_MODULE_CHROME does
+  // not, so the injection is what makes the stripe work on list-flavored
+  // SectionCards.
+  const stripeShellClass = 'relative overflow-hidden'
+  const outerClass = [stripeShellClass, baseChrome, className].filter((c) => c.length > 0).join(' ')
 
   const headingId = id !== undefined ? `${id}-heading` : undefined
+  const stripeColor = stripeTone === 'none' ? undefined : STRIPE_TONE_VAR[stripeTone]
 
   return (
     <section
@@ -84,6 +111,13 @@ export function SectionCard({
       {...(ariaBusy  === true      && { 'aria-busy': true })}
       className={outerClass}
     >
+      {stripeColor !== undefined && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 z-10 h-[2px]"
+          style={{ backgroundColor: stripeColor }}
+        />
+      )}
       <CardHeader
         kanji={kanji}
         label={label}

@@ -6,13 +6,14 @@ import { useEffect, useState } from 'react'
 import { ArrowGlyph } from '@/components/icons/arrow-glyph'
 import { Logo } from '@/components/ui/Logo'
 import { JlptPill, StatusPill, type JlptPillLevel } from '@/components/ui/Pill'
+import { QuietLink } from '@/components/ui/QuietLink'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 import {
   formatCompactCount,
   formatExactCount,
   safeNonNegativeInteger,
 } from './today-format'
-import { SkeletonBlock } from './section-primitives'
 
 // File map:
 //   Types → resting/starter decks → DashboardHero (entry) →
@@ -282,14 +283,14 @@ function LoadingContent(): React.JSX.Element {
   return (
     <HeroLayout visual={<LoadingDeckStack />}>
       <div className="flex items-baseline gap-3">
-        <SkeletonBlock width={34} height={36} className="rounded-[2px]" />
-        <SkeletonBlock width={132} height={16} />
+        <Skeleton width={34} height={36} className="rounded-[2px]" />
+        <Skeleton width={132} height={16} />
       </div>
       <hr aria-hidden="true" className="mt-3 border-0 border-t border-soft-hairline" />
 
-      <SkeletonBlock width="min(440px, 92%)" height={64} className="mt-6 rounded-[4px]" />
-      <SkeletonBlock width="min(560px, 100%)" height={20} className="mt-5 rounded-[4px]" />
-      <SkeletonBlock width="min(460px, 86%)" height={20} className="mt-2 rounded-[4px]" />
+      <Skeleton width="min(440px, 92%)" height={64} className="mt-6 rounded-[4px]" />
+      <Skeleton width="min(560px, 100%)" height={20} className="mt-5 rounded-[4px]" />
+      <Skeleton width="min(460px, 86%)" height={20} className="mt-2 rounded-[4px]" />
 
       <div className="mt-6 flex items-stretch">
         {[0, 1].map((i) => (
@@ -301,15 +302,15 @@ function LoadingContent(): React.JSX.Element {
             ].join(' ')}
           >
             <div className="flex items-center gap-2">
-              <SkeletonBlock width={2} height={20} className="sm:!h-6 lg:!h-7" />
-              <SkeletonBlock width={32} height={20} className="rounded-[2px] sm:!h-6 lg:!h-7" />
+              <Skeleton width={2} height={20} className="sm:!h-6 lg:!h-7" />
+              <Skeleton width={32} height={20} className="rounded-[2px] sm:!h-6 lg:!h-7" />
             </div>
-            <SkeletonBlock width={48} height={11} className="rounded-[1px]" />
+            <Skeleton width={48} height={11} className="rounded-[1px]" />
           </div>
         ))}
       </div>
 
-      <SkeletonBlock width={220} height={56} className="mt-8 rounded-[2px]" />
+      <Skeleton width={220} height={56} className="mt-8 rounded-[2px]" />
     </HeroLayout>
   )
 }
@@ -344,16 +345,11 @@ function ResumeContent({ context }: { context: ResumeContextSnapshot }): React.J
 
       <HeroPrimaryAction href="/review/session">Resume review</HeroPrimaryAction>
 
-      <Link
-        href="/review/setup"
-        className={[
-          'mt-3 -ml-2 inline-flex min-h-11 items-center gap-2 px-2 py-2 font-mono text-xs uppercase tracking-[0.12em]',
-          'text-faded-sumi today-motion-colors hover:text-sumi-ink underline-offset-4 hover:underline',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-inari-vermillion/45',
-        ].join(' ')}
-      >
-        Start a new session instead
-      </Link>
+      <div className="mt-3">
+        <QuietLink href="/review/setup" tone="sumi">
+          Start a new session instead
+        </QuietLink>
+      </div>
     </HeroLayout>
   )
 }
@@ -779,12 +775,12 @@ function LoadingDeckStack(): React.JSX.Element {
         >
           <div className="today-hero-card-surface relative overflow-hidden rounded-[2px] border border-soft-hairline/80 border-t-inari-vermillion/50 bg-warm-paper-raised p-4">
             <div className="flex justify-between">
-              <SkeletonBlock width={56} height={10} />
-              <SkeletonBlock width={42} height={16} className="rounded-full" />
+              <Skeleton width={56} height={10} />
+              <Skeleton width={42} height={16} className="rounded-full" />
             </div>
-            <SkeletonBlock width="78%" height={20} className="mt-5" />
-            <SkeletonBlock width="56%" height={14} className="mt-3" />
-            <SkeletonBlock width="36%" height={14} className="mt-6" />
+            <Skeleton width="78%" height={20} className="mt-5" />
+            <Skeleton width="56%" height={14} className="mt-3" />
+            <Skeleton width="36%" height={14} className="mt-6" />
           </div>
         </div>
       ))}
