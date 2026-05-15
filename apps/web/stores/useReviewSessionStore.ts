@@ -156,3 +156,20 @@ export const useSessionId        = (): string | null =>
 
 export const useSessionActions   = (): ReviewSessionActions =>
   useReviewSessionStore((s) => s.actions)
+
+// ── Resume context ────────────────────────────────────────────────────────────
+// Today reads this to decide whether to render the 'resume' hero variant. Only
+// `phase === 'active'` counts — `finished` has no cards left to review.
+
+export interface ResumeContext {
+  sessionId: string
+  remaining: number
+}
+
+export const useResumeContext = (): ResumeContext | null =>
+  useReviewSessionStore((s) => {
+    if (s.phase !== 'active') return null
+    const remaining = Math.max(0, s.queue.length - s.currentIndex)
+    if (remaining === 0) return null
+    return { sessionId: s.sessionId, remaining }
+  })

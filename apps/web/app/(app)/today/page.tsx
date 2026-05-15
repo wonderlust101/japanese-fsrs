@@ -9,7 +9,7 @@ import { TopBar } from '../_components/top-bar'
 import { buildDashboardCalendarContext } from './_components/today-calendar'
 import { DashboardClient } from './_components/today-client'
 
-export const metadata: Metadata = { title: 'Dashboard' }
+export const metadata: Metadata = { title: 'Today' }
 
 function firstName(displayName: string | undefined): string | null {
   const trimmed = displayName?.trim()
@@ -32,7 +32,7 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
     <>
       <TopBar desktopHidden />
 
-      <div className="pb-24 lg:pb-32">
+      <div className="flex min-h-full flex-col pb-40 lg:pb-32">
         <DashboardClient
           dateLabel={calendar.dateLabel}
           dateTime={calendar.dateTime}

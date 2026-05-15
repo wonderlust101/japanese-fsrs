@@ -1,13 +1,31 @@
 'use client'
 
-export type ModulePreviewState = 'default' | 'loading' | 'empty' | 'error' | 'unavailable'
+/**
+ * Dev-only preview controls for the secondary modules on Today.
+ *
+ * Today's only secondary module after the redesign is the WeekRhythmStrip
+ * ("The week ahead"). Earlier iterations of the page rendered a forecast
+ * chart, active decks, leeches, recent activity, and a practice signal —
+ * those modules were detached during the redesign and their preview
+ * controls came with them. This toolbar now exposes just the strip, with
+ * two orthogonal axes: a render state (default / loading / error) and a
+ * data pattern (the week's overall shape).
+ */
+
+export type WeekRhythmPreviewState = 'default' | 'loading' | 'error'
+
+export type WeekRhythmPattern =
+  | 'typical'        // mixed mid-volume days, today highest
+  | 'caught-up'      // all zeros — empty quiet week
+  | 'backlog-heavy'  // overdue dominant on today, decreases over week
+  | 'new-heavy'      // a lot of new cards each day
+  | 'ramp-up'        // load grows day by day
+  | 'winding-down'   // load decreases day by day
+  | 'busy-today'     // today huge, rest tiny
 
 export interface ModuleDevControls {
-  tomo:     ModulePreviewState
-  forecast: ModulePreviewState
-  decks:    ModulePreviewState
-  leeches:  ModulePreviewState
-  recent:   ModulePreviewState
+  weekState:   WeekRhythmPreviewState
+  weekPattern: WeekRhythmPattern
 }
 
 interface DashboardModulesDevToolbarProps {
@@ -16,20 +34,20 @@ interface DashboardModulesDevToolbarProps {
   variant?: 'floating' | 'panel'
 }
 
-const STATE_OPTIONS: Array<{ value: ModulePreviewState; label: string }> = [
+const STATE_OPTIONS: Array<{ value: WeekRhythmPreviewState; label: string }> = [
   { value: 'default', label: 'Default' },
   { value: 'loading', label: 'Loading' },
-  { value: 'empty',   label: 'Empty'   },
   { value: 'error',   label: 'Error'   },
-  { value: 'unavailable', label: 'Unavailable' },
 ]
 
-const MODULE_OPTIONS: Array<{ key: keyof ModuleDevControls; label: string }> = [
-  { key: 'forecast', label: 'Forecast' },
-  { key: 'decks',    label: 'Decks'    },
-  { key: 'leeches',  label: 'Leeches'  },
-  { key: 'recent',   label: 'Recent'   },
-  { key: 'tomo',     label: 'Signal'   },
+const PATTERN_OPTIONS: Array<{ value: WeekRhythmPattern; label: string }> = [
+  { value: 'typical',       label: 'Typical mix'    },
+  { value: 'busy-today',    label: 'Busy today'     },
+  { value: 'backlog-heavy', label: 'Backlog heavy'  },
+  { value: 'new-heavy',     label: 'New heavy'      },
+  { value: 'ramp-up',       label: 'Ramping up'     },
+  { value: 'winding-down',  label: 'Winding down'   },
+  { value: 'caught-up',     label: 'Caught up week' },
 ]
 
 export function DashboardModulesDevToolbar({
@@ -37,38 +55,41 @@ export function DashboardModulesDevToolbar({
   onChange,
   variant = 'floating',
 }: DashboardModulesDevToolbarProps): React.JSX.Element {
-  function update(key: keyof ModuleDevControls, value: ModulePreviewState): void {
+  function update<K extends keyof ModuleDevControls>(key: K, value: ModuleDevControls[K]): void {
     onChange({ ...controls, [key]: value })
   }
 
   const chromeClass = variant === 'floating'
-    ? 'fixed bottom-4 left-4 z-50 w-[min(25rem,calc(100vw-2rem))] rounded-[2px] border border-sumi-ink/15 bg-sumi-ink text-warm-paper-raised shadow-lg px-4 py-3'
+    ? 'fixed bottom-4 left-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-[2px] border border-sumi-ink/15 bg-sumi-ink text-warm-paper-raised shadow-lg px-4 py-3'
     : 'min-w-0 rounded-[2px] border border-sumi-ink/15 bg-sumi-ink text-warm-paper-raised px-4 py-3'
 
   return (
     <aside
-      aria-label="Dashboard module preview controls"
+      aria-label="Week ahead preview controls"
       className={chromeClass}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-warm-paper-raised">
-          Module states
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-warm-paper-raised">
+          Week ahead preview
         </p>
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/55">
           dev only
         </p>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {MODULE_OPTIONS.map((option) => (
-          <ToolbarSelect
-            key={option.key}
-            label={option.label}
-            value={controls[option.key]}
-            options={STATE_OPTIONS}
-            onChange={(value) => update(option.key, value)}
-          />
-        ))}
+      <div className="mt-3 grid grid-cols-1 gap-2">
+        <ToolbarSelect
+          label="State"
+          value={controls.weekState}
+          options={STATE_OPTIONS}
+          onChange={(value) => update('weekState', value as WeekRhythmPreviewState)}
+        />
+        <ToolbarSelect
+          label="Pattern"
+          value={controls.weekPattern}
+          options={PATTERN_OPTIONS}
+          onChange={(value) => update('weekPattern', value as WeekRhythmPattern)}
+        />
       </div>
     </aside>
   )

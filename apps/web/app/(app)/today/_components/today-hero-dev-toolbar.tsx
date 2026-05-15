@@ -25,6 +25,7 @@ const VARIANT_OPTIONS: Array<{ value: HeroKind; label: string }> = [
   { value: 'due',        label: 'Due' },
   { value: 'caught-up',  label: 'Caught up' },
   { value: 'first-time', label: 'First time' },
+  { value: 'resume',     label: 'Resume' },
   { value: 'loading',    label: 'Loading' },
   { value: 'error',      label: 'Error' },
 ]
@@ -75,7 +76,7 @@ export function DashboardHeroDevToolbar({
       className={chromeClass}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-warm-paper-raised">
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-warm-paper-raised">
           Hero preview
         </p>
         <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/55">

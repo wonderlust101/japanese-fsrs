@@ -13,12 +13,10 @@
  */
 
 import Link from 'next/link'
-import { motion, useReducedMotion } from 'motion/react'
 
 import { StatusPill } from '@/components/ui/Pill'
 
 import { formatExactCount } from './today-format'
-import { DASHBOARD_EASE } from './today-motion'
 
 // ── CardHeader (kanji ornament + small-caps mono + right action + rule) ──────
 
@@ -296,7 +294,7 @@ function PreviewStage({
   return (
     <div
       className={[
-        'dashboard-empty-preview-stage relative min-h-[7.25rem] w-full overflow-hidden rounded-[2px]',
+        'today-empty-preview-stage relative min-h-[7.25rem] w-full overflow-hidden rounded-[2px]',
         toneClass.frame,
         'px-4 py-3 sm:px-5',
         className,
@@ -375,12 +373,12 @@ function ShelfPreview(): React.JSX.Element {
             key={card.label}
             className={[
               'flex h-[4.75rem] w-[clamp(2.75rem,10vw,3.75rem)] items-center justify-center rounded-[2px]',
-              'dashboard-empty-preview-card border font-display text-xl leading-none',
+              'today-empty-preview-card border font-display text-xl leading-none',
               card.className,
             ].join(' ')}
             style={{ transitionDelay: card.delay }}
           >
-            <span lang="ja" className="dashboard-empty-preview-glyph">
+            <span lang="ja" className="today-empty-preview-glyph">
               {card.label}
             </span>
           </span>
@@ -415,7 +413,7 @@ function ForecastPreview(): React.JSX.Element {
         {bars.map((bar, index) => (
           <span
             key={index}
-            className={`dashboard-empty-preview-meter flex-1 rounded-t-[1px] ${bar}`}
+            className={`today-empty-preview-meter flex-1 rounded-t-[1px] ${bar}`}
             style={{ transitionDelay: `${index * 8}ms` }}
           />
         ))}
@@ -444,7 +442,7 @@ function FocusPreview(): React.JSX.Element {
       <span
         lang="ja"
         aria-hidden="true"
-        className="dashboard-empty-preview-accent absolute right-4 top-3 select-none font-display text-[3.75rem] leading-none text-inari-vermillion/[0.09]"
+        className="today-empty-preview-accent absolute right-4 top-3 select-none font-display text-[3.75rem] leading-none text-inari-vermillion/[0.09]"
       >
         要
       </span>
@@ -462,8 +460,8 @@ function FocusPreview(): React.JSX.Element {
         </div>
         <div className="mt-5 space-y-2.5">
           <span className="block h-1.5 w-11/12 rounded-[1px] bg-soft-hairline/80" />
-          <span className="dashboard-empty-preview-accent block h-1.5 w-7/12 rounded-[1px] bg-inari-vermillion/[0.16]" />
-          <span className="dashboard-empty-preview-accent block h-1.5 w-9/12 rounded-[1px] bg-inari-vermillion/[0.28] [transition-delay:40ms]" />
+          <span className="today-empty-preview-accent block h-1.5 w-7/12 rounded-[1px] bg-inari-vermillion/[0.16]" />
+          <span className="today-empty-preview-accent block h-1.5 w-9/12 rounded-[1px] bg-inari-vermillion/[0.28] [transition-delay:40ms]" />
         </div>
       </div>
     </PreviewStage>
@@ -507,7 +505,7 @@ function WeakSpotsPreview(): React.JSX.Element {
               card.className,
             ].join(' ')}
           >
-            <span className={`dashboard-empty-preview-accent absolute inset-x-0 top-0 h-[2px] ${card.marker}`} />
+            <span className={`today-empty-preview-accent absolute inset-x-0 top-0 h-[2px] ${card.marker}`} />
             <span className="absolute left-3 top-3 font-mono text-[0.625rem] font-medium uppercase tracking-[0.08em] text-faded-sumi">
               {card.label}
             </span>
@@ -517,7 +515,7 @@ function WeakSpotsPreview(): React.JSX.Element {
               </span>
             </div>
             <span className="absolute bottom-3 left-3 right-3 text-center font-mono text-[0.625rem] font-medium uppercase tracking-[0.06em] text-inari-vermillion-deep">
-              <span className="dashboard-empty-preview-glyph inline-block">
+              <span className="today-empty-preview-glyph inline-block">
                 {card.misses}
               </span>
             </span>
@@ -547,7 +545,7 @@ function RecentPreview(): React.JSX.Element {
             <span
               className={[
                 'w-full max-w-12 rounded-t-[1px]',
-                'dashboard-empty-preview-meter origin-bottom',
+                'today-empty-preview-meter origin-bottom',
                 day.tone,
                 day.size,
               ].join(' ')}
@@ -720,21 +718,14 @@ function ErrorPreviewStage({
   children: React.ReactNode
   label:    string
 }): React.JSX.Element {
-  const reducedMotion = useReducedMotion()
+  const reducedMotion = false as boolean
   const hoverProps = reducedMotion === true
     ? {}
     : { whileHover: { y: -1 } }
 
   return (
-    <motion.div
-      {...hoverProps}
-      initial={reducedMotion === true ? false : { opacity: 0, y: 5 }}
-      animate={reducedMotion === true ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={{
-        duration: reducedMotion === true ? 0 : 0.24,
-        ease:     DASHBOARD_EASE,
-      }}
-      aria-hidden="true"
+    <div
+      {...hoverProps}      aria-hidden="true"
       className={[
         'dashboard-error-preview group/error relative min-h-[7.25rem] overflow-hidden rounded-[2px]',
         'border border-error/20 bg-warm-paper-raised/70 px-4 py-3',
@@ -750,7 +741,7 @@ function ErrorPreviewStage({
         {label}
       </span>
       {children}
-    </motion.div>
+    </div>
   )
 }
 
