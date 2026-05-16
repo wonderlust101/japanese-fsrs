@@ -159,7 +159,7 @@ export function DashboardClient({
             }
 
             event.preventDefault();
-            router.push(resume !== null ? '/review/session' : '/review/setup');
+            router.push('/review/session');
         }
 
         window.addEventListener('keydown', handleKey);

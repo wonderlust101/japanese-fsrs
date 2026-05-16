@@ -218,7 +218,12 @@ function DueContent({ queue }: { queue: DueQueue }): React.JSX.Element {
         backlogCount={safeQueue.backlog}
       />
 
-      <HeroPrimaryAction href="/review/setup">Start reviews</HeroPrimaryAction>
+      <HeroPrimaryAction href="/review/session">Start reviews</HeroPrimaryAction>
+      <p className="mt-3">
+        <QuietLink href="/review/setup" tone="sumi">
+          Customize this session
+        </QuietLink>
+      </p>
     </HeroLayout>
   )
 }
