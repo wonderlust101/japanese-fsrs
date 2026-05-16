@@ -37,6 +37,15 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - `GET /api/v1/tomo/note` — single free MVP variant (AI insight + curated idiom fallback).
 - [ ] **Sentence-layout card workflow**
 	  - Commit a concrete contract for sentence `fields_data` (creation, validation, review behavior).
+- [ ] **Card content fields for Lapis-style review UI** *(backend / schema)*
+	  - The review session redesign (2026-05-15) wires UI slots for fields the frontend currently has no data path for. Without these, the slots render empty in production and only light up under dev fixtures.
+	  - Additive, all-optional fields to land on `WordFieldsSchema` / `ExampleSentenceSchema` (`packages/shared-types/src/schemas/field-shapes.schema.ts`) plus matching `fields_data` CHECK loosening if needed:
+	    - `picture?: string` (URL) on `WordFieldsSchema` — picture-right column in the back composition.
+	    - `expressionAudio?: string` (URL) on `WordFieldsSchema` — autoplay on reveal next to reading.
+	    - `sentenceAudio?: string` (URL) on `ExampleSentenceSchema` — autoplay on reveal alongside expression audio.
+	    - `pitchPosition?: number` (0/1/2/…) on `WordFieldsSchema` — drives the mora-line pitch graph alongside the existing free-form `pitchAccent` string. Parse fallback already in place when only the string is present.
+	    - `nuance?: string` on `WordFieldsSchema` — short AI-authored prose explaining usage register, connotation, and synonym distinctions. Renders as the first tab on the back of the card (per v4 design). Currently exists only on sentence-layout cards' free-form `fields_data`; needs to extend to vocab/grammar layouts.
+	  - All fields are nullable and additive; no card-creation path is required to populate them yet, but generated/seeded content should fill them when available. Frontend treats absence as graceful empty.
 - [ ] **Persist review personal-best records**
 	  - Replace the `localStorage` placeholder with a user-scoped persistence model.
 - [ ] **Launch-size premade catalogue** — content work; expand JLPT + Joyo + grammar coverage beyond starter seeds.
@@ -82,6 +91,7 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## Done
 
+- [x] **Review Summary redesign (2026-05-15)** — implements `docs/information_architecture/04_review_summary.md`. Closure-first page composed entirely of `SectionCard`s: full-width closure card (kanji `終` / `中` via `kicker` field on `SummaryContent`; display-register headline; mono receipt; pattern-aware rationale; primary `Button` plus optional editorial secondary; responsive kitsune `Logo` at 96/144 anchored right on `lg+`), 2-col middle row with Session details SectionCard (hairline-separated "What to notice" diagnosis + `RatingDistributionBar`) paired with Problem cards SectionCard (kanji `困`, when leeches present) or a promoted `WeekRhythmStrip` (when not), and a full-width `WeekRhythmStrip` row below when problem cards take the middle row's right cell. Outer/inner mirrors Setup's `flex flex-1 + content-center` so short-content states sit balanced in the viewport. State classifier (`lib/review/summary-pattern.ts`) maps `SessionSummary` + an `ended=early` query signal onto six patterns (strong / mixed / difficult / leech / ended-early / no-pattern); state changes content, not layout. `WeekRhythmStrip` wired via `useReviewForecast` + browser-timezone-resolved `todayKey` from `buildDashboardCalendarContext`. Bespoke `SummaryHero` + 3-day `TomorrowGlance` components retired; their roles absorbed into SectionCard chrome and the richer 7-day strip respectively. Session page's "End session" routes to the Summary (was `/today`) so early exits get the same calm close. Session dev toolbar carries a "Summary states" section and the page renders an in-page `SummaryDevSwitcher` in non-production builds. Verified via typecheck + lint.
 - [x] **Today client readability pass (2026-05-15)** — `today-client.tsx` shrunk from 804 → ~365 lines by extracting pure helpers into `today-due-queue.ts` (queue math) and `today-preview-data.ts` (dev-only mocks). Greeting helpers moved to shared `lib/japanese-greeting.ts` (deduplicates the same logic from the login page). Banner-comment readability passes applied to `today-hero.tsx`, `section-primitives.tsx`, and `week-rhythm-strip.tsx`. No functional or visual changes. Verified via typecheck + lint + build.
 - [x] **Canonical documentation cleanup** — product, design, database truth pinned to `docs/PRODUCT.md`, `docs/DESIGN.md`, `docs/DATABASE.md`.
 - [x] **Auth and account management** — signup, OTP, login, refresh, logout, password change, account deletion.
