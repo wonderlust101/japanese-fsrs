@@ -54,6 +54,15 @@ interface SectionCardProps {
    * the lighter hairline isn't appropriate for the SectionCard surface.
    */
   stripeTone?:   StripeTone
+  /**
+   * When true, the CardHeader is not rendered. Only the stripe + body +
+   * (optionally) a floated `rightContent` slot remain. Used by surfaces that
+   * provide their own title chrome elsewhere (Review Session v4: the session
+   * top bar carries the kicker; the card surface only needs the stripe and a
+   * card-scoped overflow menu). `kanji` and `label` are still required by
+   * the type so calls remain explicit; pass empty strings when omitted.
+   */
+  omitTitle?:    boolean
   /** Mirrors the aria-busy attribute on the outer <section>. Use during
    *  loading states; consumers shouldn't set it permanently. */
   ariaBusy?:     boolean
@@ -90,7 +99,7 @@ interface SectionCardProps {
  */
 export function SectionCard({
   id, kanji, label, count, description, rightContent, variant,
-  chrome = 'list', stripeTone = 'brand', ariaBusy, className = '', children,
+  chrome = 'list', stripeTone = 'brand', omitTitle = false, ariaBusy, className = '', children,
 }: SectionCardProps): React.JSX.Element {
   const baseChrome = chrome === 'chart' ? CHART_MODULE_CHROME : LIST_MODULE_CHROME
   // Inject `relative overflow-hidden` so the stripe positions to the card's
@@ -118,15 +127,23 @@ export function SectionCard({
           style={{ backgroundColor: stripeColor }}
         />
       )}
-      <CardHeader
-        kanji={kanji}
-        label={label}
-        {...(headingId    !== undefined && { id: headingId })}
-        {...(count        !== undefined && { count })}
-        {...(description  !== undefined && { description })}
-        {...(rightContent !== undefined && { rightContent })}
-        {...(variant      !== undefined && { variant })}
-      />
+      {omitTitle ? (
+        rightContent !== undefined && (
+          <div className="absolute right-3 top-3 z-20 font-mono text-xs text-faded-sumi">
+            {rightContent}
+          </div>
+        )
+      ) : (
+        <CardHeader
+          kanji={kanji}
+          label={label}
+          {...(headingId    !== undefined && { id: headingId })}
+          {...(count        !== undefined && { count })}
+          {...(description  !== undefined && { description })}
+          {...(rightContent !== undefined && { rightContent })}
+          {...(variant      !== undefined && { variant })}
+        />
+      )}
       {children}
     </section>
   )

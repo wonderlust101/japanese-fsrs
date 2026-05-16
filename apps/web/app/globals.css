@@ -96,6 +96,28 @@
   --color-queue-review-wash:  oklch(0.925 0.042 18);
   --color-queue-new-wash:     oklch(0.920 0.045 258);
 
+  /* ── Pitch accent palette (Review Session v4.1) ───────────────────────
+     Dedicated tokens for the pitch staff. Trimmed ~30% in chroma relative
+     to the saturated JLPT pulls so the staff reads as a tonal annotation
+     over the kanji rather than a stoplight. Isolated from JLPT and rating
+     palettes so future palette work on either can never accidentally
+     drag pitch with it. */
+  --color-pitch-heiban:    oklch(0.50 0.105 240); /* aizome-leaning blue */
+  --color-pitch-atamadaka: oklch(0.52 0.130 22);  /* muted brand red */
+  --color-pitch-nakadaka: oklch(0.55 0.115 60);   /* muted amber */
+  --color-pitch-odaka:    oklch(0.50 0.105 145);  /* muted leaf green */
+
+  /* ── Rating palette (Review Session v4) ──────────────────────────────
+     Anki convention through Tomo tones: red / terracotta / sage / aizome.
+     Used only by the rating bar on the Review Session surface; isolated
+     from JLPT and deck palettes so a future palette swap on either of
+     those doesn't drag the rating colors with it. OKLCH so chroma stays
+     legible across light/dark text overlays. */
+  --color-rating-again: oklch(0.46 0.135 22);  /* darker, deeper vermillion */
+  --color-rating-hard:  oklch(0.55 0.135 48);  /* warm terracotta */
+  --color-rating-good:  oklch(0.52 0.090 142); /* mossy sage */
+  --color-rating-easy:  oklch(0.40 0.085 258); /* aizome deep blue */
+
   /* ── Semantic aliases (form errors, surfaces) ─────────────────────── */
   --color-surface-base:    var(--color-warm-paper-base);
   --color-surface-raised:  var(--color-warm-paper-raised);
