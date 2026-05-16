@@ -368,14 +368,20 @@ export function GeneratedReviewClient(): React.JSX.Element {
     <Frame>
       <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
 
-      <DeckRow options={deckOptions} value={deckId} onChange={setDeckId} loading={decksQuery.isLoading} />
+      <DeckCard
+        options={deckOptions}
+        value={deckId}
+        onChange={setDeckId}
+        loading={decksQuery.isLoading}
+        deckName={deckName}
+      />
+
+      <SectionEyebrow />
 
       {/* Two-column desktop: field SectionCards left, sticky preview right. */}
-      <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+      <div className="grid gap-6 lg:grid-cols-12 lg:items-start lg:gap-10">
         {/* Left: field SectionCards */}
         <div className="lg:col-span-7 flex flex-col gap-6 lg:gap-7">
-          <SectionEyebrow />
-
           <SectionCard kanji="義" label="Definition" stripeTone="brand">
             <div className="flex flex-col gap-5 pt-1">
               <Textarea
@@ -615,33 +621,55 @@ function SectionEyebrow(): React.JSX.Element {
   )
 }
 
-// ── Deck row ──────────────────────────────────────────────────────────────────
+// ── Deck card ─────────────────────────────────────────────────────────────────
+//
+// Promoted to a full-width SectionCard at the top of the page so the deck
+// decision reads as load-bearing, not optional. When no deck is chosen the
+// SectionCard's stripe flips to error tone and an inline "Required" line
+// appears under the select — same chrome as a save-blocker callout.
 
-interface DeckRowProps {
+interface DeckCardProps {
   options:  ReadonlyArray<TomoSelectOption<string>>
   value:    string | null
   onChange: (next: string) => void
   loading:  boolean
+  deckName: string | null
 }
 
-function DeckRow({ options, value, onChange, loading }: DeckRowProps): React.JSX.Element {
+function DeckCard({ options, value, onChange, loading, deckName }: DeckCardProps): React.JSX.Element {
+  const empty = value === null
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      <div className="flex flex-col">
-        <span className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">Deck</span>
-        <span className="text-sm text-faded-sumi">Where this card will live.</span>
+    <SectionCard
+      kanji="組"
+      label="Deck"
+      stripeTone={empty ? 'error' : 'brand'}
+      description={
+        empty
+          ? 'Pick where this card will live — required to save.'
+          : `This card will be saved to ${deckName ?? 'your selected deck'}.`
+      }
+    >
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-4">
+        <div className="w-full sm:max-w-[480px]">
+          <TomoSelect<string>
+            value={value ?? ''}
+            options={options}
+            onValueChange={onChange}
+            ariaLabel="Choose a deck"
+            placeholder={loading ? 'Loading decks…' : 'Choose a deck…'}
+            disabled={loading || options.length === 0}
+          />
+        </div>
+        {empty && (
+          <p
+            role="status"
+            className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-error"
+          >
+            Required · pick a deck before saving.
+          </p>
+        )}
       </div>
-      <div className="w-full sm:max-w-[360px]">
-        <TomoSelect<string>
-          value={value ?? ''}
-          options={options}
-          onValueChange={onChange}
-          ariaLabel="Choose a deck"
-          placeholder={loading ? 'Loading decks…' : 'Choose a deck…'}
-          disabled={loading || options.length === 0}
-        />
-      </div>
-    </div>
+    </SectionCard>
   )
 }
 
@@ -656,35 +684,37 @@ interface PreviewBlockProps {
 }
 
 function PreviewBlock({ card, flipped, onFlip, loading, aiError }: PreviewBlockProps): React.JSX.Element {
+  const flipToggle = (
+    <button
+      type="button"
+      onClick={onFlip}
+      aria-pressed={flipped}
+      aria-label={flipped ? 'Show front of card' : 'Show back of card'}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5',
+        'font-mono text-[0.65rem] uppercase tracking-[0.16em]',
+        'text-faded-sumi hover:text-sumi-ink transition-colors duration-150',
+        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+      )}
+    >
+      <RotateCcw size={11} strokeWidth={1.5} aria-hidden="true" />
+      {flipped ? 'Show front' : 'Show back'}
+    </button>
+  )
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
-          Preview · the card in practice
-        </p>
-        <button
-          type="button"
-          onClick={onFlip}
-          aria-pressed={flipped}
-          aria-label={flipped ? 'Show front of card' : 'Show back of card'}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5',
-            'font-mono text-[0.65rem] uppercase tracking-[0.16em]',
-            'text-faded-sumi hover:text-sumi-ink transition-colors duration-150',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          )}
-        >
-          <RotateCcw size={11} strokeWidth={1.5} aria-hidden="true" />
-          {flipped ? 'Show front' : 'Show back'}
-        </button>
-      </div>
-
-      <SectionCard kanji="" label="" stripeTone="brand" omitTitle>
+      <SectionCard
+        kanji="観"
+        label="Preview"
+        description="The card as the learner will see it in practice."
+        rightContent={flipToggle}
+      >
         <div
           aria-live="polite"
           aria-atomic="true"
           className={cn(
-            'px-1 pt-5 pb-6 md:px-2 md:pt-7 md:pb-8 transition-opacity duration-200 ease-out',
+            'px-1 pt-3 pb-4 md:px-2 md:pt-5 md:pb-6 transition-opacity duration-200 ease-out',
             loading && 'opacity-70',
           )}
         >
