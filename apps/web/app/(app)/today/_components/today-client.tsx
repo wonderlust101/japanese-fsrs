@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { QuietLink } from '@/components/ui/QuietLink';
+import { ExitLinksRow } from '@/app/(app)/_components/exit-links-row';
 import {
     getEnglishWelcomeClause,
     getGreetingBucket,
@@ -233,7 +232,7 @@ export function DashboardClient({
                     apiDays={weekRhythmDays}
                 />
 
-                <ExitLinksRow/>
+                <ExitLinksRow links={EXIT_LINKS}/>
             </div>
         </div>
     );
@@ -293,46 +292,3 @@ const EXIT_LINKS: ReadonlyArray<{href: string; label: string}> = [
     {href : '/insights/progress', label : "See how you're trending"},
     {href : '/decks', label : 'Manage decks'}
 ];
-
-function ExitLinksRow(): React.JSX.Element {
-    return (
-        <nav aria-label="More on Tomo">
-            <ul className="flex flex-col border-t border-soft-hairline sm:hidden">
-                {EXIT_LINKS.map((link) => (
-                    <li key={link.href}>
-                        <Link
-                            href={link.href}
-                            className={[
-                                'flex min-h-11 items-center justify-between gap-3 border-b border-soft-hairline px-1 py-2.5',
-                                'font-mono text-xs uppercase tracking-[0.10em] text-sumi-ink/80',
-                                'today-motion-colors',
-                                'hover:text-inari-vermillion active:bg-cream-inset/60',
-                                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45'
-                            ].join(' ')}
-                        >
-                            <span>{link.label}</span>
-                            <span aria-hidden="true" className="font-mono text-base leading-none text-faded-sumi/70">
-                →
-              </span>
-                        </Link>
-                    </li>
-                ))}
-            </ul>
-
-            <ul className="hidden flex-wrap items-center gap-x-3 gap-y-1 sm:flex">
-                {EXIT_LINKS.map((link, index) => (
-                    <li key={link.href} className="flex items-center gap-x-3">
-                        {index > 0 && (
-                            <span aria-hidden="true" className="font-mono text-xs text-faded-sumi/45">
-                ·
-              </span>
-                        )}
-                        <QuietLink href={link.href} trailingArrow>
-                            {link.label}
-                        </QuietLink>
-                    </li>
-                ))}
-            </ul>
-        </nav>
-    );
-}

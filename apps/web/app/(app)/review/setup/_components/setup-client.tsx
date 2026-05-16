@@ -9,8 +9,10 @@ import type { ApiDueCard, ApiDeck } from '@fsrs-japanese/shared-types'
 
 import { Button } from '@/components/ui/Button'
 import { Logo } from '@/components/ui/Logo'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
 import { cn } from '@/lib/utils'
 import { inferDeckLevel } from '@/lib/deck-level'
 import { useDecks } from '@/lib/api/decks'
@@ -224,20 +226,12 @@ export function SetupClient({
     <div className="relative isolate flex flex-1 flex-col">
       <div className="relative z-10 grid flex-1 grid-cols-1 content-center gap-y-8 mx-auto w-full max-w-[1440px] px-6 pt-8 md:px-12 md:pt-10 lg:px-16 lg:pt-12">
       {/* Header */}
-      <header>
-        <p className="flex items-baseline gap-3 font-mono text-sm uppercase tracking-[0.16em] text-faded-sumi">
-          <span lang="ja" aria-hidden="true" className="font-display text-lg text-inari-vermillion leading-none translate-y-[0.05em]">
-            備
-          </span>
-          <span>Review setup</span>
-        </p>
-        <h1 className="mt-3 font-medium font-display text-2xl text-sumi-ink text-[1.65rem] sm:text-[1.95rem] lg:text-[2.25rem]">
-          Tune today's session.
-        </h1>
-        <p className="mt-1 max-w-prose text-sm leading-relaxed text-faded-sumi lg:text-base">
-          Your deck defaults stay the same. These choices only apply today.
-        </p>
-      </header>
+      <PageHeader
+        kanji="備"
+        label="Review setup"
+        title="Tune today's session."
+        subtitle="Your deck defaults stay the same. These choices only apply today."
+      />
 
       {/* Offline banner */}
       {showOffline && <OfflineBanner />}
@@ -283,17 +277,9 @@ export function SetupClient({
 
       {/* Mobile sticky action bar */}
       {!isError && !isFirstTime && (
-        <div
-          className={cn(
-            'fixed inset-x-0 bottom-0 z-30 border-t border-soft-hairline',
-            'bg-warm-paper-raised/95 backdrop-blur-sm px-4 py-3 sm:px-6',
-            'lg:hidden',
-          )}
-        >
-          <div className="mx-auto max-w-[1440px]">
-            {actions}
-          </div>
-        </div>
+        <MobileStickyActionBar ariaLabel="Start review session">
+          {actions}
+        </MobileStickyActionBar>
       )}
 
       {previewActive && (

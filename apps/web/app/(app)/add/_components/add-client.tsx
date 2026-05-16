@@ -13,10 +13,13 @@ import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
-import { Select } from '@/components/ui/Select'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { ExitLinksRow } from '@/app/(app)/_components/exit-links-row'
+import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
 import { useDecks } from '@/lib/api/decks'
 import {
   useCaptureDraftActions,
@@ -25,29 +28,9 @@ import {
 } from '@/stores/useCaptureDraftStore'
 
 import { AddChipRow, type AddChipDescriptor } from './add-chip-row'
+import { AddPreviewCard, type CaptureCount } from './add-preview-card'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-//
-// Date-seeded teacher line, mirroring today-hero's PREPARATION_LINES rhythm.
-// Surfaces in the SectionCard description slot.
-
-const CAPTURE_LINES = [
-  'A new word found is the start of remembering.',
-  'Write it before the moment is gone.',
-  'Two fields. The rest can wait.',
-  'Sentence first. Tomo will do the rest.',
-  'Catch what caught you.',
-] as const
-
-const DEFAULT_CAPTURE_LINE: string = CAPTURE_LINES[0]
-
-function pickCaptureLine(seed: string): string {
-  let hash = 0
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
-  }
-  return CAPTURE_LINES[hash % CAPTURE_LINES.length] ?? DEFAULT_CAPTURE_LINE
-}
 
 const CARD_TYPE_OPTIONS: ReadonlyArray<{ value: CaptureCardType; label: string }> = [
   { value: 'auto',          label: 'Suggest for me' },
@@ -57,6 +40,18 @@ const CARD_TYPE_OPTIONS: ReadonlyArray<{ value: CaptureCardType; label: string }
 ]
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB; preview-only, never uploaded yet.
+
+// Today / This-week capture counts. We don't currently have a user-scoped
+// "list my recent cards" endpoint; render `—` until one exists. The brief
+// approves this fallback.
+const TODAY_COUNT: CaptureCount = null
+const WEEK_COUNT:  CaptureCount = null
+
+const EXIT_LINKS = [
+  { href: '/decks',             label: 'Manage decks'           },
+  { href: '/insights/progress', label: "See how you're trending" },
+  { href: '/today',             label: 'Back to today'          },
+] as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,8 +67,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 // ── Add client ────────────────────────────────────────────────────────────────
 
 interface AddClientProps {
-  /** Stable date key (yyyy-mm-dd) for seeding the teacher line — keeps the
-   *  same line for a single calendar day. Computed on the server. */
+  /** Stable date key (yyyy-mm-dd) for seeding the empty-state quote. */
   todayKey: string
 }
 
@@ -102,7 +96,8 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   // ── Derived ─────────────────────────────────────────────────────────────
   const trimmedWord     = word.trim()
   const trimmedSentence = sentence.trim()
-  const wordPresent     = trimmedWord.length > 0
+  const wordPresent     = trimmedWord.length     > 0
+  const sentencePresent = trimmedSentence.length > 0
 
   const decksQuery = useDecks(50)
   const deckOptions = useMemo(() => {
@@ -115,8 +110,6 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       })),
     ]
   }, [decksQuery.data])
-
-  const captureLine = useMemo(() => pickCaptureLine(todayKey), [todayKey])
 
   const chips: ReadonlyArray<AddChipDescriptor> = useMemo(() => [
     {
@@ -229,9 +222,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       source:       source.trim(),
       cardType,
       // Image preview is held client-side only. The downstream create-card
-      // call deliberately omits it from the request body in this iteration —
-      // backend image-upload contract is deferred. We still persist the data
-      // URL through the draft so /add/review can render the preview.
+      // call deliberately omits it from the request body in this iteration.
       imageName,
       imageDataUrl,
       updatedAt:    Date.now(),
@@ -248,15 +239,13 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   }, [])
 
   // ── Sentence warning gate ───────────────────────────────────────────────
-  // Per the brief: button copy stays "Create card"; warning surfaces above the
-  // button row when the sentence is empty *and* the user has either touched
-  // the sentence field or attempted to submit. Stays passive — never blocks.
-  const sentencePresent = trimmedSentence.length > 0
+  // The preview already telegraphs target-not-found, so we only surface the
+  // form-level "no sentence" warning when sentence is *empty*. Two-click gate:
+  // first click surfaces the warning, second click submits anyway.
   useEffect(() => {
     if (sentencePresent) setShowSentenceWarning(false)
   }, [sentencePresent])
 
-  // ── Keyboard: Cmd/Ctrl + Enter submits ──────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
       const submitCombo = (e.metaKey || e.ctrlKey) && e.key === 'Enter'
@@ -277,16 +266,12 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     if (wordPresent && !sentencePresent) setShowSentenceWarning(true)
   }, [wordPresent, sentencePresent])
 
-  // Once the warning is showing, a second click on Create card should proceed
-  // even without a sentence. Track that with a small "armed" flag.
   const [warningArmed, setWarningArmed] = useState<boolean>(false)
   useEffect(() => {
     if (!showSentenceWarning) {
       setWarningArmed(false)
       return
     }
-    // Arm one tick after the warning appears so the same click that surfaced
-    // the warning doesn't immediately submit.
     const id = window.setTimeout(() => setWarningArmed(true), 0)
     return () => window.clearTimeout(id)
   }, [showSentenceWarning])
@@ -304,103 +289,158 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     if (warningArmed) submit()
   }, [wordPresent, sentencePresent, showSentenceWarning, warningArmed, submit])
 
+  // ── Action area (shared between sticky aside and mobile bar) ────────────
+  const actions = (
+    <ActionArea
+      disabled={!wordPresent}
+      submitting={submitting}
+      onSubmit={handlePrimaryClickArmed}
+      onCancel={cancelSubmit}
+    />
+  )
+
   // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <main className="mx-auto w-full max-w-[760px] px-4 pt-6 sm:px-6 lg:pt-10">
-      <SectionCard
-        id="add-japanese"
-        kanji="採"
-        label="CAPTURE"
-        description={captureLine}
-        stripeTone="brand"
-      >
-        <form
-          className="flex flex-col gap-7 pt-2 sm:pt-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            handlePrimaryClickArmed()
-          }}
-          noValidate
-        >
-          <Input
-            label="Word"
-            value={word}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setWord(e.target.value)}
-            placeholder="e.g. 木漏れ日"
-            script="mixed"
-            size="lg"
-            autoFocus
-            autoComplete="off"
-            spellCheck={false}
-          />
+    <div className="relative isolate flex flex-1 flex-col">
+      <div className="relative z-10 grid flex-1 grid-cols-1 content-center gap-y-8 mx-auto w-full max-w-[1440px] px-6 pt-8 md:px-12 md:pt-10 lg:px-16 lg:pt-12">
+        <PageHeader
+          kanji="採"
+          label="Capture"
+          title="Save what you found."
+          subtitle="Tomo adds context, you stay in the moment."
+        />
 
-          <Textarea
-            label="Where you found it"
-            value={sentence}
-            onChange={(e) => setSentence(e.target.value)}
-            onBlur={handleSentenceBlur}
-            placeholder="今日は木漏れ日だから、人が少ない。"
-            script="mixed"
-            block
-            rows={4}
-            hint={
-              !sentencePresent && !showSentenceWarning
-                ? 'Sentence helps Tomo pick the right meaning.'
-                : undefined
-            }
-          />
+        <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+          {/* Left: sticky preview aside */}
+          <aside className="lg:col-span-5 lg:sticky lg:top-10 lg:self-start">
+            <AddPreviewCard
+              word={trimmedWord}
+              sentence={trimmedSentence}
+              todayKey={todayKey}
+              todayCount={TODAY_COUNT}
+              weekCount={WEEK_COUNT}
+              dimmed={submitting}
+              actions={actions}
+            />
+          </aside>
 
-          <AddChipRow
-            chips={chips}
-            activeId={activeChip}
-            onToggle={(id) => setActiveChip((cur) => (cur === id ? null : id))}
-          />
-
-          <div className="border-t border-soft-hairline pt-5">
-            {showSentenceWarning && !sentencePresent && (
-              <SentenceWarning />
-            )}
-
-            <div className="mt-4 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p
-                className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi"
-                aria-hidden="true"
+          {/* Right: form card */}
+          <div className="lg:col-span-7">
+            <SectionCard
+              id="add-form"
+              kanji="記"
+              label="Write it down"
+              description="Sentence carries the meaning. Optional details make the card more yours."
+              stripeTone="brand"
+            >
+              <form
+                className="flex flex-col gap-7 pt-1"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  handlePrimaryClickArmed()
+                }}
+                noValidate
               >
-                ⌘ ⏎ to create
-              </p>
-              <div className="flex items-center justify-end gap-3">
-                {submitting && (
-                  <QuietLink
-                    onClick={cancelSubmit}
-                    tone="sumi"
-                    size="sm"
-                    ariaLabel="Cancel card creation"
-                  >
-                    Cancel
-                  </QuietLink>
-                )}
-                <Button
-                  type="submit"
-                  variant="primary"
+                <Input
+                  label="Word"
+                  value={word}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setWord(e.target.value)}
+                  placeholder="e.g. 木漏れ日"
+                  script="mixed"
                   size="lg"
-                  disabled={!wordPresent}
-                  loading={submitting}
-                  className="w-full sm:w-auto sm:min-w-[180px]"
-                >
-                  {submitting ? 'Building card' : 'Create card'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </form>
-      </SectionCard>
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck={false}
+                />
 
-      <p className="mx-1 mt-6 text-sm text-faded-sumi">
-        Captured here goes to{' '}
-        <span className="text-sumi-ink/80">Generated card review</span>{' '}
-        — pick the right meaning, then save to a deck.
-      </p>
-    </main>
+                <Textarea
+                  label="Where you found it"
+                  value={sentence}
+                  onChange={(e) => setSentence(e.target.value)}
+                  onBlur={handleSentenceBlur}
+                  placeholder="今日は木漏れ日だから、人が少ない。"
+                  script="mixed"
+                  block
+                  rows={4}
+                  hint={
+                    !sentencePresent && !showSentenceWarning
+                      ? 'Sentence helps Tomo pick the right meaning.'
+                      : undefined
+                  }
+                />
+
+                {showSentenceWarning && !sentencePresent && <SentenceWarning />}
+
+                <AddChipRow
+                  chips={chips}
+                  activeId={activeChip}
+                  onToggle={(id) => setActiveChip((cur) => (cur === id ? null : id))}
+                />
+
+                <p
+                  aria-hidden="true"
+                  className="hidden lg:block font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi"
+                >
+                  ⌘ ⏎ to create
+                </p>
+
+                {/* Submit button kept inside the form for native Enter/submit
+                    semantics, but visually hidden at lg+ where the sticky
+                    aside owns the primary action. */}
+                <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>
+                  Create card
+                </button>
+              </form>
+            </SectionCard>
+          </div>
+        </div>
+
+        <ExitLinksRow links={EXIT_LINKS} />
+      </div>
+
+      <MobileStickyActionBar ariaLabel="Create card">
+        {actions}
+      </MobileStickyActionBar>
+    </div>
+  )
+}
+
+// ── Action area ──────────────────────────────────────────────────────────────
+
+interface ActionAreaProps {
+  disabled:   boolean
+  submitting: boolean
+  onSubmit:   () => void
+  onCancel:   () => void
+}
+
+function ActionArea({ disabled, submitting, onSubmit, onCancel }: ActionAreaProps): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-end gap-3">
+        {submitting && (
+          <QuietLink
+            onClick={onCancel}
+            tone="sumi"
+            size="sm"
+            ariaLabel="Cancel card creation"
+          >
+            Cancel
+          </QuietLink>
+        )}
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          disabled={disabled}
+          loading={submitting}
+          onClick={onSubmit}
+          className="w-full sm:min-w-[180px]"
+        >
+          {submitting ? 'Building card' : 'Create card'}
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -419,7 +459,7 @@ function SentenceWarning(): React.JSX.Element {
         i
       </span>
       <p className="text-sm leading-6 text-sumi-ink/80">
-        No sentence yet. Tomo will pick a default meaning — sentence context
+        No sentence yet. Tomo will pick a default meaning. Sentence context
         produces a more personal card. Tap{' '}
         <span className="font-medium text-sumi-ink">Create card</span> again to
         continue without one.
@@ -468,7 +508,7 @@ function ImageEditor({
           />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm text-sumi-ink">{imageName}</span>
-            <span className="text-xs text-faded-sumi">Preview only — image upload coming soon.</span>
+            <span className="text-xs text-faded-sumi">Preview only, image upload coming soon.</span>
           </div>
           <QuietLink onClick={onClear} tone="sumi" size="sm">Remove</QuietLink>
         </div>
@@ -481,7 +521,7 @@ function ImageEditor({
           >
             Choose file…
           </button>
-          <span className="text-xs text-faded-sumi">PNG, JPG, WebP, GIF · up to 5MB.</span>
+          <span className="text-xs text-faded-sumi">PNG, JPG, WebP, GIF up to 5MB.</span>
         </div>
       )}
 
