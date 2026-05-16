@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { reviewRatingEnum } from '@fsrs-japanese/shared-types'
 
+import { randomUUID } from '@/lib/random-uuid'
+
 const QueuedReviewSchema = z.object({
   cardId:         z.string().uuid(),
   rating:         reviewRatingEnum,
@@ -70,7 +72,7 @@ export const offlineQueue = {
     queue.push({
       ...review,
       queuedAt:       Date.now(),
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey: randomUUID(),
     })
     localStorage.setItem(KEY, JSON.stringify(queue))
     notify()
@@ -87,7 +89,7 @@ export const offlineQueue = {
     const reviews  = readQueue()
     if (reviews.length === 0) return { reviews, batchKey: '' }
     // Reuse a pending batch key if one is held over from a prior failed attempt.
-    const batchKey = readPendingBatchKey() ?? crypto.randomUUID()
+    const batchKey = readPendingBatchKey() ?? randomUUID()
     if (typeof window !== 'undefined') {
       localStorage.setItem(BATCH_KEY_STORAGE, batchKey)
       localStorage.removeItem(KEY)
