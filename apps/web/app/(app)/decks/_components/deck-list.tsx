@@ -7,7 +7,7 @@ import type { ApiDeck, ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { Button } from '@/components/ui/Button'
-import { IconPlus } from '@/components/icons/chrome-marks'
+import { IconEdit, IconPlus } from '@/components/icons/chrome-marks'
 import { deleteDeckAction, getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { inferDeckLevel } from '@/lib/deck-level'
@@ -93,6 +93,7 @@ export function DeckListView(): React.JSX.Element {
   const [searchInputValue, setSearchInputValue] = useState('')
   const [searchQuery,      setSearchQuery]      = useState('')
   const [page,             setPage]             = useState(1)
+  const [manageMode,       setManageMode]       = useState(false)
   const [curateMode,       setCurateMode]       = useState(false)
   const [selectedIds,      setSelectedIds]      = useState<ReadonlySet<string>>(new Set())
   const [dragState,        setDragState]        = useState<DragState | null>(null)
@@ -357,7 +358,13 @@ export function DeckListView(): React.JSX.Element {
   return (
     <>
       <TopBar>
-        <h1 className="flex-1 text-base font-semibold text-sumi-ink">Library</h1>
+        <h1 className="flex-1 text-base font-semibold text-sumi-ink">Decks</h1>
+        <Link
+          href="/decks/premade"
+          className="hidden text-sm text-faded-sumi underline-offset-2 hover:text-sumi-ink hover:underline sm:inline-block"
+        >
+          Explore premade decks
+        </Link>
         <Button
           size="sm"
           variant="secondary"
@@ -376,7 +383,7 @@ export function DeckListView(): React.JSX.Element {
           showCurateMode ? 'bg-cool-paper-shade' : 'bg-cool-paper-base',
         ].join(' ')}
       >
-        <div className="relative mx-auto max-w-[64rem] px-4 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16">
           {/* Page-scope ornaments that frame the page as a printed
               register: a 2px vermillion top rule across the full page
               width, and a 1px vermillion left margin rule running
@@ -395,29 +402,60 @@ export function DeckListView(): React.JSX.Element {
               Cool Paper Shade panel. */}
           <DecksHeader variant={headerVariant} />
 
-          {/* Section marker for the utility row */}
-          {!(headerVariant.kind === 'empty') && (
-            <div className="mt-2 mb-1.5">
-              <SectionMarker label="Filter" />
-            </div>
+          {/* Default-mode slim row: search + Manage toggle. Manage gates
+              the power-user chrome (sort, type filter, archived, curate)
+              so a regular learner meets a calm page first. */}
+          {!(headerVariant.kind === 'empty') && !manageMode && (
+            <section
+              aria-label="Deck list controls"
+              ref={(node) => { utilityRowRef.current = node }}
+              className="mt-4 flex flex-col gap-2 border-t border-soft-hairline pt-4 sm:flex-row sm:items-center sm:gap-3 sm:py-4"
+            >
+              <DefaultSearchInput
+                value={searchInputValue}
+                onChange={setSearchInputValue}
+              />
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => setManageMode(true)}
+                className="ui-motion-colors inline-flex h-9 items-center gap-2 self-start rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-3 text-sm text-sumi-ink hover:border-faded-sumi hover:bg-cream-inset focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:self-auto"
+                aria-pressed={false}
+              >
+                <IconEdit className="h-3.5 w-3.5" />
+                <span>Manage</span>
+              </button>
+            </section>
           )}
 
-          {/* Shared utility row */}
-          {!(headerVariant.kind === 'empty') && (
-            <section ref={(node) => { utilityRowRef.current = node }}>
-              <DecksUtilityRow
-                sort={prefs.sort}
-                typeFilter={prefs.typeFilter}
-                showArchived={prefs.showArchived}
-                searchQuery={searchInputValue}
-                curateActive={curateMode}
-                onSort={setSort}
-                onTypeFilter={setTypeFilter}
-                onShowArchived={setShowArchived}
-                onSearchQuery={setSearchInputValue}
-                onCurate={() => setCurateMode((v) => !v)}
-              />
-            </section>
+          {/* Manage-mode chrome. Section marker + full utility row. */}
+          {!(headerVariant.kind === 'empty') && manageMode && (
+            <>
+              <div className="mt-2 mb-1.5 flex items-center justify-between">
+                <SectionMarker label="Manage" />
+                <button
+                  type="button"
+                  onClick={() => { setManageMode(false); setCurateMode(false) }}
+                  className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                >
+                  Done managing
+                </button>
+              </div>
+              <section ref={(node) => { utilityRowRef.current = node }}>
+                <DecksUtilityRow
+                  sort={prefs.sort}
+                  typeFilter={prefs.typeFilter}
+                  showArchived={prefs.showArchived}
+                  searchQuery={searchInputValue}
+                  curateActive={curateMode}
+                  onSort={setSort}
+                  onTypeFilter={setTypeFilter}
+                  onShowArchived={setShowArchived}
+                  onSearchQuery={setSearchInputValue}
+                  onCurate={() => setCurateMode((v) => !v)}
+                />
+              </section>
+            </>
           )}
 
           {/* Section marker for the deck list */}
@@ -503,6 +541,21 @@ export function DeckListView(): React.JSX.Element {
               onPageChange={setPage}
             />
           )}
+
+          {/* End-of-page premade callout. Quiet, single line, never an ad.
+              Hidden in Manage mode so it doesn't compete with curate chrome. */}
+          {!isLoading && !isError && allDecks.length > 0 && !manageMode && (
+            <div className="mt-10 border-t border-soft-hairline pt-5 text-sm text-faded-sumi">
+              Looking for more decks?{' '}
+              <Link
+                href="/decks/premade"
+                className="text-sumi-ink underline-offset-2 hover:underline"
+              >
+                Browse premade decks
+              </Link>
+              .
+            </div>
+          )}
         </div>
       </div>
 
@@ -584,17 +637,72 @@ function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
     <div className="mt-2 rounded-[2px] border border-soft-hairline bg-cream-inset/60 p-8 text-center sm:p-12">
       <p className="text-base font-medium text-sumi-ink">No decks yet</p>
       <p className="mx-auto mt-1.5 max-w-[36ch] text-sm text-faded-sumi">
-        Find a curated premade deck to begin, or create your own.
+        Start with a curated premade deck, or build your own from scratch.
       </p>
       <div className="mt-5 flex items-center justify-center gap-2">
-        <Link href="/decks">
-          <Button size="md">Find a deck</Button>
+        <Link href="/decks/premade">
+          <Button size="md">Browse premade decks</Button>
         </Link>
         <Button size="md" variant="ghost" onClick={onCreate}>
           Create your own deck
         </Button>
       </div>
     </div>
+  )
+}
+
+// Slim search input used by the default-mode chrome. Mirrors the styling
+// of the Manage utility row's input so the visual identity stays consistent
+// across both modes.
+function DefaultSearchInput({
+  value,
+  onChange,
+}: {
+  value:    string
+  onChange: (next: string) => void
+}): React.JSX.Element {
+  return (
+    <div className="relative flex-1 sm:max-w-[24rem]">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faded-sumi"
+      >
+        <SearchGlyph />
+      </span>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Find a deck"
+        aria-label="Find a deck"
+        className={[
+          'ui-motion-colors w-full h-9 rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
+          'hover:border-faded-sumi',
+          'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
+          '[&::-webkit-search-cancel-button]:appearance-none',
+          '[&::-webkit-search-decoration]:appearance-none',
+        ].join(' ')}
+      />
+    </div>
+  )
+}
+
+function SearchGlyph(): React.JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="6" cy="6" r="4" />
+      <path d="M9 9l3 3" />
+    </svg>
   )
 }
 
