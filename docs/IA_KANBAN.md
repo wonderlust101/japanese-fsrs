@@ -27,8 +27,8 @@ Scoped tracking for information-architecture work only — per-page design adopt
 	  - Post-session reflection screen needs design pass: which performance signals to surface, mistake call-outs, and the "next action" affordances (forward to Insights Mistakes vs. inline drill).
 - [ ] **IA: Add Japanese (`06_add_japanese.md`) capture-first flow**
 	  - Stub at `/add`. IA principle: capture before deck choice. Wire the input → generated-card-review (`07_…`) → save handoff. No deck selection on the entry surface.
-- [ ] **IA: Generated Card Review (`07_generated_card_review.md`)**
-	  - Stub at `/add/review`. Needs: meaning chooser, generated-field review controls, card-type selector (waiting on the schema reconciliation above), deck assignment, save action.
+- [x] **IA: Generated Card Review (`07_generated_card_review.md`) — shipped 2026-05-16**
+	  - `/add/review` renders `apps/web/app/(app)/add/review/_components/generated-review-client.tsx`. Centered single column (max-w-[760px]) with path-aware header (`校 · Review prepared card` for AI, `確 · Confirm your card` for manual). Compact deck row, flippable card preview that reuses `CardFront`/`CardBack` inside a `SectionCard` with `stripeTone="brand"`, "Build the back of your card" field stack with inline `Try another sentence` / `Try another mnemonic` regenerate links on AI fields, `Advanced` disclosure for part of speech / pitch accent / tags, card-type chooser anchored above Save with live `Save N cards` copy. Save gated on a blockers list (definition, deck, ≥1 card type, sentence-contains-word). Success state replaces the page with `済 · Saved` + Add another / Return to Today / Open cards. Follow-ups: real mnemonic regen (needs a saved card id), image generation, per-field error callouts.
 - [ ] **IA: Cards browser (`09_cards.md`)**
 	  - Stub at `/cards`. Needs: search, filters, saved views, mass tagging, bulk actions, cross-deck operations. Largest greenfield IA surface remaining.
 - [ ] **IA: Card Detail (`10_card_detail.md`)**

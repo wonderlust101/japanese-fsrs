@@ -1,13 +1,18 @@
-import { StubPage } from '../../_components/StubPage'
+import type { Metadata } from 'next'
+
+import { TopBar } from '../../_components/top-bar'
+
+import { GeneratedReviewClient } from './_components/generated-review-client'
+
+export const metadata: Metadata = { title: 'Add Japanese — review' }
 
 export default function GeneratedCardReviewPage(): React.JSX.Element {
   return (
-    <StubPage
-      title="Generated Card Review"
-      links={[
-        { href: '/cards', label: 'Cards' },
-        { href: '/today', label: 'Today' },
-      ]}
-    />
+    <>
+      <TopBar desktopHidden />
+      <div className="flex min-h-full flex-col pb-40 lg:pb-32">
+        <GeneratedReviewClient />
+      </div>
+    </>
   )
 }
