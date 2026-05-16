@@ -788,9 +788,10 @@ function ImageField({
 
 // ── Save block ────────────────────────────────────────────────────────────────
 //
-// Lives directly under the preview in the right column so the act of saving
-// pairs with the artifact being saved. The blocker line names the single
-// most-load-bearing missing input; everything else stays quiet.
+// Inline action under the preview — no SectionCard wrapper. The preview is
+// the artifact, this is the verb. A single status line above the button
+// names the load-bearing blocker (or confirms readiness) so the requirement
+// stays visible without competing for attention.
 
 interface SaveBlockProps {
   saveLabel: string
@@ -805,31 +806,31 @@ function SaveBlock({
   saveLabel, canSave, saving, blockers, saveError, onSave,
 }: SaveBlockProps): React.JSX.Element {
   return (
-    <SectionCard kanji="保" label="Save">
-      <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex-1 min-w-0">
-          {blockers.length > 0 ? (
-            <p className="text-sm text-faded-sumi" role="status">{blockers[0]}</p>
-          ) : (
-            <p className="text-sm text-faded-sumi">Ready to save.</p>
-          )}
-          {saveError !== null && (
-            <p className="text-sm text-error mt-1" role="alert">{saveError}</p>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="lg"
-          onClick={onSave}
-          disabled={!canSave}
-          loading={saving}
-          className="w-full sm:w-auto sm:min-w-[180px]"
-        >
-          {saveLabel}
-        </Button>
-      </div>
-    </SectionCard>
+    <div className="flex flex-col gap-3 px-1">
+      {blockers.length > 0 ? (
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi" role="status">
+          {blockers[0]}
+        </p>
+      ) : (
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
+          Ready to save.
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="primary"
+        size="lg"
+        onClick={onSave}
+        disabled={!canSave}
+        loading={saving}
+        className="w-full"
+      >
+        {saveLabel}
+      </Button>
+      {saveError !== null && (
+        <p className="text-sm text-error" role="alert">{saveError}</p>
+      )}
+    </div>
   )
 }
 
