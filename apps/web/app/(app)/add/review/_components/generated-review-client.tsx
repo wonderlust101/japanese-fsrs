@@ -15,7 +15,6 @@ import { RotateCcw } from 'lucide-react'
 import type { ApiDueCard, JLPTLevel } from '@fsrs-japanese/shared-types'
 
 import { Button }       from '@/components/ui/Button'
-import { Checkbox }     from '@/components/ui/Checkbox'
 import { Input }        from '@/components/ui/Input'
 import { Logo }         from '@/components/ui/Logo'
 import { PageHeader }   from '@/components/ui/PageHeader'
@@ -80,15 +79,10 @@ function makeEmptyFields(): CardFields {
   }
 }
 
-interface CardTypeSelection { comprehension: boolean; production: boolean; listening: boolean }
-const DEFAULT_TYPES: CardTypeSelection = { comprehension: true, production: false, listening: false }
-
-type ApiCardType = 'comprehension' | 'production' | 'listening'
-const TYPE_LABEL: Record<ApiCardType, string> = {
-  comprehension: 'Vocabulary recognition',
-  production:    'Production (English → Japanese)',
-  listening:     'Listening',
-}
+// Recognition is the only card type this page produces. Production and
+// listening live behind a future configuration; the chooser is intentionally
+// absent so the save flow stays one click.
+const SAVE_CARD_TYPE = 'comprehension' as const
 
 const JLPT_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
   { value: '',            label: 'No level set'      },
@@ -169,7 +163,6 @@ export function GeneratedReviewClient(): React.JSX.Element {
     picture:    draft.imageDataUrl,
   }))
   const [deckId,  setDeckId]  = useState<string | null>(draft.deckId)
-  const [types,   setTypes]   = useState<CardTypeSelection>(DEFAULT_TYPES)
   const [flipped, setFlipped] = useState<boolean>(false)
 
   const isAiPath = draft.mode === 'generate'
@@ -233,26 +226,17 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // ── Derived ───────────────────────────────────────────────────────────
   const previewCard = useMemo(() => buildPreviewCard(fields), [fields])
 
-  const selectedTypes: ApiCardType[] = useMemo(() => {
-    const out: ApiCardType[] = []
-    if (types.comprehension) out.push('comprehension')
-    if (types.production)    out.push('production')
-    if (types.listening)     out.push('listening')
-    return out
-  }, [types])
-
   const blockers = useMemo<string[]>(() => {
     const list: string[] = []
     if (fields.meaning.trim().length === 0) list.push('Add a definition to save.')
     if (deckId === null)                    list.push('Pick a deck to save into.')
-    if (selectedTypes.length === 0)         list.push('Choose at least one card type.')
     const sentence = fields.sentenceJa.trim()
     const word     = fields.word.trim()
     if (sentence.length > 0 && word.length > 0 && !sentence.includes(word)) {
       list.push('Your sentence doesn’t include the word — fix the sentence or word to save.')
     }
     return list
-  }, [fields.meaning, fields.sentenceJa, fields.word, deckId, selectedTypes])
+  }, [fields.meaning, fields.sentenceJa, fields.word, deckId])
 
   const canSave = !generating && !saving && blockers.length === 0
 
@@ -299,24 +283,22 @@ export function GeneratedReviewClient(): React.JSX.Element {
       const preview = buildPreviewCard(fields)
       const fieldsData = preview.fieldsData as Record<string, unknown>
       const tagList = parseList(fields.tags)
-      for (const cardType of selectedTypes) {
-        await saveCardAction(deckId, {
-          mode: 'manual',
-          fieldsData,
-          cardType,
-          layoutType: 'vocabulary',
-          ...(tagList.length > 0 ? { tags: tagList } : {}),
-          ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
-        })
-      }
-      setSaved({ count: selectedTypes.length, deckName: deckName ?? 'your deck' })
+      await saveCardAction(deckId, {
+        mode: 'manual',
+        fieldsData,
+        cardType: SAVE_CARD_TYPE,
+        layoutType: 'vocabulary',
+        ...(tagList.length > 0 ? { tags: tagList } : {}),
+        ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
+      })
+      setSaved({ count: 1, deckName: deckName ?? 'your deck' })
       captureActions.reset()
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
     } finally {
       setSaving(false)
     }
-  }, [canSave, deckId, fields, selectedTypes, deckName, captureActions])
+  }, [canSave, deckId, fields, deckName, captureActions])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
@@ -359,10 +341,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
         subtitle: 'Add the details a learner will see after they flip during practice.',
       }
 
-  const saveCount = selectedTypes.length
-  const saveLabel = saveCount === 0
-    ? 'Save card'
-    : `Save ${saveCount} ${saveCount === 1 ? 'card' : 'cards'}`
+  const saveLabel = 'Save card'
 
   return (
     <Frame>
@@ -370,10 +349,10 @@ export function GeneratedReviewClient(): React.JSX.Element {
 
       <SectionEyebrow />
 
-      {/* Two-column desktop: field SectionCards left, sticky preview right. */}
+      {/* Two-column desktop (6/6): field SectionCards left, preview + Save right. */}
       <div className="grid gap-6 lg:grid-cols-12 lg:items-start lg:gap-10">
         {/* Left: field SectionCards */}
-        <div className="lg:col-span-7 flex flex-col gap-6 lg:gap-7">
+        <div className="lg:col-span-6 flex flex-col gap-6 lg:gap-7">
           <DeckCard
             options={deckOptions}
             value={deckId}
@@ -568,8 +547,10 @@ export function GeneratedReviewClient(): React.JSX.Element {
           </SectionCard>
         </div>
 
-        {/* Right: sticky preview */}
-        <aside className="lg:col-span-5 lg:sticky lg:top-10 lg:self-start flex flex-col gap-4">
+        {/* Right: preview + Save action, paired so the act of saving sits
+            beside the artifact being saved. Sticky on lg so the preview
+            and CTA travel with the editor as the form scrolls. */}
+        <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-6">
           <PreviewBlock
             card={previewCard}
             flipped={flipped}
@@ -577,20 +558,16 @@ export function GeneratedReviewClient(): React.JSX.Element {
             loading={generating}
             aiError={aiError}
           />
+          <SaveBlock
+            saveLabel={saveLabel}
+            canSave={canSave}
+            saving={saving}
+            blockers={blockers}
+            saveError={saveError}
+            onSave={onSave}
+          />
         </aside>
       </div>
-
-      {/* Card-type chooser + Save, anchored beneath the grid */}
-      <SaveBlock
-        types={types}
-        onTypesChange={setTypes}
-        saveLabel={saveLabel}
-        canSave={canSave}
-        saving={saving}
-        blockers={blockers}
-        saveError={saveError}
-        onSave={onSave}
-      />
     </Frame>
   )
 }
@@ -810,68 +787,47 @@ function ImageField({
 }
 
 // ── Save block ────────────────────────────────────────────────────────────────
+//
+// Lives directly under the preview in the right column so the act of saving
+// pairs with the artifact being saved. The blocker line names the single
+// most-load-bearing missing input; everything else stays quiet.
 
 interface SaveBlockProps {
-  types:         CardTypeSelection
-  onTypesChange: (next: CardTypeSelection) => void
-  saveLabel:     string
-  canSave:       boolean
-  saving:        boolean
-  blockers:      string[]
-  saveError:     string | null
-  onSave:        () => void
+  saveLabel: string
+  canSave:   boolean
+  saving:    boolean
+  blockers:  string[]
+  saveError: string | null
+  onSave:    () => void
 }
 
 function SaveBlock({
-  types, onTypesChange, saveLabel, canSave, saving, blockers, saveError, onSave,
+  saveLabel, canSave, saving, blockers, saveError, onSave,
 }: SaveBlockProps): React.JSX.Element {
   return (
-    <SectionCard kanji="札" label="Cards to save" description="Pick which directions to practise.">
-      <div className="flex flex-col gap-5 pt-1">
-        <div className="flex flex-col gap-1">
-          <Checkbox.Row
-            checked={types.comprehension}
-            onChange={(next) => onTypesChange({ ...types, comprehension: next })}
-            label={TYPE_LABEL.comprehension}
-            description="See the word, recall the meaning."
-          />
-          <Checkbox.Row
-            checked={types.production}
-            onChange={(next) => onTypesChange({ ...types, production: next })}
-            label={TYPE_LABEL.production}
-            description="See the meaning, recall the word. Harder; off by default."
-          />
-          <Checkbox.Row
-            checked={types.listening}
-            onChange={(next) => onTypesChange({ ...types, listening: next })}
-            label={TYPE_LABEL.listening}
-            description="Hear the word, recall the meaning. Off by default."
-          />
+    <SectionCard kanji="保" label="Save">
+      <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1 min-w-0">
+          {blockers.length > 0 ? (
+            <p className="text-sm text-faded-sumi" role="status">{blockers[0]}</p>
+          ) : (
+            <p className="text-sm text-faded-sumi">Ready to save.</p>
+          )}
+          {saveError !== null && (
+            <p className="text-sm text-error mt-1" role="alert">{saveError}</p>
+          )}
         </div>
-
-        <div className="flex flex-col gap-3 border-t border-soft-hairline pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex-1">
-            {blockers.length > 0 ? (
-              <p className="text-sm text-faded-sumi" role="status">{blockers[0]}</p>
-            ) : (
-              <p className="text-sm text-faded-sumi">Ready to save.</p>
-            )}
-            {saveError !== null && (
-              <p className="text-sm text-error mt-1" role="alert">{saveError}</p>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="primary"
-            size="lg"
-            onClick={onSave}
-            disabled={!canSave}
-            loading={saving}
-            className="w-full sm:w-auto sm:min-w-[200px]"
-          >
-            {saveLabel}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          onClick={onSave}
+          disabled={!canSave}
+          loading={saving}
+          className="w-full sm:w-auto sm:min-w-[180px]"
+        >
+          {saveLabel}
+        </Button>
       </div>
     </SectionCard>
   )
