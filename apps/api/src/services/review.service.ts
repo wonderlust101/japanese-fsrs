@@ -191,7 +191,14 @@ export async function getSessionSummary(
   )
 
   if (error !== null) {
-    if (error.code === '02000' && error.message.includes('session_not_found')) {
+    // PL/pgSQL's `no_data_found` raises with SQLSTATE `P0002`, not the
+    // SQL-standard `02000` — the two are distinct condition codes that
+    // share a name. Match both, plus the message text, so the 404 path
+    // fires regardless of which one the runtime surfaces.
+    const isSessionNotFound =
+      (error.code === 'P0002' || error.code === '02000') ||
+      error.message.includes('session_not_found')
+    if (isSessionNotFound) {
       throw new AppError(404, 'Session not found', { code: 'SESSION_NOT_FOUND' })
     }
     throw dbError('fetch session summary', error)
