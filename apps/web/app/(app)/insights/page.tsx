@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 
-import { AnalyticsDashboard } from './_components/AnalyticsDashboard'
+import { InsightsOverview } from './_components/InsightsOverview'
 
-export const metadata: Metadata = { title: 'Analytics' }
+export const metadata: Metadata = { title: 'Insights' }
 
-export default function AnalyticsPage(): React.JSX.Element {
-  return <AnalyticsDashboard />
+export default function InsightsOverviewPage(): React.JSX.Element {
+  return <InsightsOverview />
 }

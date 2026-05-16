@@ -1,10 +1,9 @@
-import { StubPage } from '../../_components/StubPage'
+import type { Metadata } from 'next'
+
+import { ProgressView } from './_components/ProgressView'
+
+export const metadata: Metadata = { title: 'Insights — Progress' }
 
 export default function InsightsProgressPage(): React.JSX.Element {
-  return (
-    <StubPage
-      title="Insights — Progress"
-      links={[{ href: '/insights', label: 'Insights overview' }]}
-    />
-  )
+  return <ProgressView />
 }

@@ -1,14 +1,9 @@
-import { StubPage } from '../../_components/StubPage'
+import type { Metadata } from 'next'
+
+import { MistakesView } from './_components/MistakesView'
+
+export const metadata: Metadata = { title: 'Insights — Mistakes' }
 
 export default function InsightsMistakesPage(): React.JSX.Element {
-  return (
-    <StubPage
-      title="Insights — Mistakes"
-      links={[
-        { href: '/insights',     label: 'Insights overview' },
-        { href: '/cards',        label: 'Cards' },
-        { href: '/review/setup', label: 'Review setup' },
-      ]}
-    />
-  )
+  return <MistakesView />
 }

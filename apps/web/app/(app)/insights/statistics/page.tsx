@@ -1,10 +1,9 @@
-import { StubPage } from '../../_components/StubPage'
+import type { Metadata } from 'next'
+
+import { StatisticsView } from './_components/StatisticsView'
+
+export const metadata: Metadata = { title: 'Insights — Statistics' }
 
 export default function InsightsStatisticsPage(): React.JSX.Element {
-  return (
-    <StubPage
-      title="Insights — Statistics"
-      links={[{ href: '/insights', label: 'Insights overview' }]}
-    />
-  )
+  return <StatisticsView />
 }
