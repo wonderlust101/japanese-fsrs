@@ -42,30 +42,28 @@ export const requestLogger = pinoHttp({
     return 'info'
   },
 
-  // Production: trim the auto-serialized req/res so log payloads stay tight.
-  // The redact config in lib/logger.ts strips authorization + cookie headers
-  // on top of this. Dev: omit serializers so pino-http's defaults run, which
-  // include headers, query, remote address, response headers, etc.
+  // Trim the auto-serialized req/res so log payloads stay tight in both
+  // environments. pino-http's defaults emit full headers (including the
+  // Authorization JWT) and the entire res block on every line; that's
+  // noise in dev and a redact-config liability in prod.
   //
-  // Querystring is stripped from `url` in prod: pino's `redact` config matches
-  // by field name and cannot scrub substrings inside a URL string. If a future
-  // route ever accepted a token in querystring (OAuth callback, password-reset
-  // link, etc.) the raw `req.url` would carry it into every log line. The path
-  // itself stays visible for debugging; structured fields (reqId, method,
-  // statusCode) carry the rest.
-  ...(isDev ? {} : {
-    serializers: {
-      req(req): { id: unknown; method: unknown; url: unknown; hasAuth: boolean } {
-        return {
-          id:      req.id,
-          method:  req.method,
-          url:     typeof req.url === 'string' ? req.url.split('?')[0] : req.url,
-          hasAuth: req.headers?.authorization !== undefined,
-        }
-      },
-      res(res): { statusCode: number } {
-        return { statusCode: res.statusCode }
-      },
+  // Dev keeps the querystring on `url` so route debugging stays easy; prod
+  // strips it because pino's `redact` matches by field name and cannot
+  // scrub substrings inside a URL string. If a future route ever accepts a
+  // token in the querystring (OAuth callback, password-reset link, etc.)
+  // the raw `req.url` would carry it into every log line.
+  //
+  // For deeper detail in dev, attach structured fields explicitly via
+  // `req.log.debug({ ... }, 'message')` inside the handler.
+  serializers: {
+    req(req): { id: unknown; method: unknown; url: unknown } {
+      const url = typeof req.url === 'string'
+        ? (isDev ? req.url : req.url.split('?')[0])
+        : req.url
+      return { id: req.id, method: req.method, url }
     },
-  }),
+    res(res): { statusCode: number } {
+      return { statusCode: res.statusCode }
+    },
+  },
 })
