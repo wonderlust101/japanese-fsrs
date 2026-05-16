@@ -1,23 +1,40 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { useRouter }         from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-import Link               from 'next/link'
-import { Button }            from '@/components/ui/Button'
-import { FuriganaText }      from '@/components/ui/FuriganaText'
-import { RatingBreakdown }   from '@/components/review/RatingBreakdown'
-import { useSearchParams }    from 'next/navigation'
-import { useSessionSummary } from '@/lib/api/reviews'
-import { useSessionActions } from '@/stores/useReviewSessionStore'
-import { sessionSummaryParamsSchema } from '@fsrs-japanese/shared-types'
-import { z } from 'zod'
+import { Button }                                              from '@/components/ui/Button'
+import { Card }                                                from '@/components/ui/Card'
+import { Logo }                                                from '@/components/ui/Logo'
+import { SectionCard }                                         from '@/components/ui/SectionCard'
+import { RatingDistributionBar, buildDistributionTakeaway }    from '@/components/review/summary/RatingDistributionBar'
+import { ProblemCardRow }                                      from '@/components/review/summary/ProblemCardRow'
+import { WeekRhythmStrip, type WeekRhythmState }               from '@/app/(app)/today/_components/week-rhythm-strip'
+import { buildDashboardCalendarContext }                       from '@/app/(app)/today/_components/today-calendar'
+import { useReviewForecast, useSessionSummary }                from '@/lib/api/reviews'
+import {
+  useSessionActions,
+  useSessionHistory,
+  useSessionId,
+} from '@/stores/useReviewSessionStore'
+import {
+  buildSummaryContent,
+  type ActionRoute,
+  type SessionPattern,
+  type SummaryContent,
+} from '@/lib/review/summary-pattern'
+import { readLastFinishedSession } from '@/lib/review/last-finished-session'
 
-const PERSONAL_BEST_KEY = 'fsrs:longestSession'
+import {
+  SUMMARY_FIXTURES,
+  SUMMARY_FIXTURE_KEYS,
+  FIXTURE_MEANINGS,
+} from './_components/summary-fixtures'
+import { SummaryDevSwitcher } from './_components/summary-dev-switcher'
 
-// Coerces the localStorage value to a non-negative integer, falling back to 0
-// for missing / NaN / tampered values.
-const personalBestSchema = z.coerce.number().int().nonnegative().catch(0)
+import type { SessionLeech, SessionSummary } from '@fsrs-japanese/shared-types'
+
+const FIXTURE_KEY_SET = new Set<SessionPattern>(SUMMARY_FIXTURE_KEYS)
 
 function formatTime(ms: number): string {
   const s = Math.round(ms / 1000)
@@ -25,234 +42,436 @@ function formatTime(ms: number): string {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-function MetricCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-3xl font-bold text-sumi-ink">{value}</span>
-      <span className="text-xs text-faded-sumi uppercase tracking-wide">{label}</span>
-    </div>
-  )
-}
-
-function formatNextDue(isoDate: string): string {
-  const due    = new Date(isoDate)
-  const now    = new Date()
-  const today  = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
-  const diffDays = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000)
-
-  const time = due.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-
-  if (diffDays === 0) return `Today at ${time}`
-  if (diffDays === 1) return `Tomorrow at ${time}`
-  const date = due.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  return `${date} at ${time}`
-}
-
-function MetricSkeleton() {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="h-9 w-16 rounded bg-cream-inset animate-pulse" />
-      <div className="h-3 w-12 rounded bg-cream-inset animate-pulse" />
-    </div>
-  )
-}
-
 export default function ReviewSummaryPage(): React.JSX.Element {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const parsedParams = sessionSummaryParamsSchema.safeParse({ sessionId: searchParams.get('id') })
-  const sessionId    = parsedParams.success ? parsedParams.data.sessionId : null
   const { reset }    = useSessionActions()
 
-  const { data: summary, isLoading, isError } = useSessionSummary(sessionId)
+  const rawId        = searchParams.get('id')
+  const endedEarly   = searchParams.get('ended') === 'early'
+  const fixtureParam = searchParams.get('fixture')
 
-  const bestAppliedRef = useRef(false)
-  const isNewRecord    = useRef(false)
+  // Dev fixture short-circuit: when `?fixture=<pattern>` is present and the
+  // app is not in production, render the matching synthetic summary. Lets
+  // the dev dock preview every state without spinning a real session.
+  const fixtureSummary = useMemo<SessionSummary | null>(() => {
+    if (process.env.NODE_ENV === 'production') return null
+    if (fixtureParam === null) return null
+    const key = fixtureParam as SessionPattern
+    if (!FIXTURE_KEY_SET.has(key)) return null
+    return SUMMARY_FIXTURES[key]
+  }, [fixtureParam])
 
-  // Guard: no active session → back to review hub
+  const usingFixture = fixtureSummary !== null
+
+  // Local short-circuit: the session store still holds the finished session
+  // in memory (phase === 'finished'). When `?ended=early` matches the local
+  // session id AND no cards were rated, the API would round-trip to return
+  // an empty payload (or a 404). Skip the call entirely and render from
+  // local state — instant, and survives a backend outage.
+  const localSessionId      = useSessionId()
+  const localSessionHistory = useSessionHistory()
+  const lastFinished        = useMemo(() => readLastFinishedSession(), [])
+  const liveStoreSaysEmpty  = rawId !== null
+    && rawId === localSessionId
+    && localSessionHistory.length === 0
+  const handoffSaysEmpty    = rawId !== null
+    && lastFinished !== null
+    && lastFinished.sessionId === rawId
+    && lastFinished.historyCount === 0
+  const skipApi = !usingFixture
+    && endedEarly
+    && (liveStoreSaysEmpty || handoffSaysEmpty)
+
+  // Guard: with no session id and no fixture, route back to setup.
   useEffect(() => {
-    if (sessionId === null) {
+    if (usingFixture) return
+    if (rawId === null || rawId === '') {
       router.replace('/review/setup')
     }
-  }, [sessionId, router])
+  }, [usingFixture, rawId, router])
 
-  // Personal-best comparison runs once when data arrives (localStorage placeholder)
+  const query        = useSessionSummary(usingFixture || skipApi ? null : rawId)
+  const forecastQuery = useReviewForecast()
+
+  // todayKey for WeekRhythmStrip — resolved client-side from the browser's
+  // timezone so the chart aligns with the user's "today." `null` on first
+  // render (SSR / hydration) keeps the strip in `loading` state until the
+  // effect resolves it.
+  const [todayKey, setTodayKey] = useState<string | null>(null)
   useEffect(() => {
-    if (summary === undefined || bestAppliedRef.current) return
-    bestAppliedRef.current = true
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    setTodayKey(buildDashboardCalendarContext(new Date(), tz).todayKey)
+  }, [])
 
-    const previousBest = personalBestSchema.parse(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0')
-    if (summary.totalCards > previousBest) {
-      isNewRecord.current = true
-      localStorage.setItem(PERSONAL_BEST_KEY, String(summary.totalCards))
-    }
-  }, [summary])
+  // Synthetic empty-session payload used when the user ended early before
+  // any reviews persisted. Mirrors the SessionSummary contract with zeros
+  // so the rest of the page can render the ended-early pattern unchanged.
+  const emptyEndedEarlySummary: SessionSummary = useMemo(() => ({
+    sessionId:       rawId ?? '',
+    totalCards:      0,
+    totalTimeMs:     0,
+    accuracyPct:     0,
+    nextDueAt:       null,
+    ratingBreakdown: { again: 0, hard: 0, good: 0, easy: 0 },
+    leeches:         [],
+  }), [rawId])
 
-  function handleDashboard() {
-    reset()
-    router.push('/today')
+  const summary: SessionSummary | undefined = usingFixture
+    ? fixtureSummary
+    : skipApi
+      ? emptyEndedEarlySummary
+      : query.data
+
+  if (!usingFixture && !skipApi && query.isLoading && summary === undefined) {
+    return <SummaryFrame><SummarySkeleton /></SummaryFrame>
   }
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month:   'long',
-    day:     'numeric',
-  })
+  // Error / no-data branches. The ended-early path is forgiving: the
+  // summary endpoint may legitimately have no rows yet (race against the
+  // last deferred submission) or none at all (no cards rated), and either
+  // way the learner should leave on a calm note, not an error card.
+  const apiUnavailable = !usingFixture && !skipApi && (query.isError || summary === undefined)
+  if (apiUnavailable && !endedEarly) {
+    return (
+      <SummaryFrame>
+        <div className="mx-auto w-full max-w-[640px]">
+          <Card variant="default" stripeTone="error">
+            <h1 className="font-display text-2xl text-sumi-ink">Couldn’t load summary.</h1>
+            <p className="mt-2 text-sm text-faded-sumi">
+              Your reviews are saved. Open Today to continue, or refresh to try again.
+            </p>
+            <div className="mt-6">
+              <Button variant="primary" onClick={() => router.push('/today')}>
+                Back to Today
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </SummaryFrame>
+    )
+  }
 
-  const previousBest =
-    typeof window !== 'undefined'
-      ? personalBestSchema.parse(localStorage.getItem(PERSONAL_BEST_KEY) ?? '0')
-      : 0
+  const resolved: SessionSummary = summary ?? emptyEndedEarlySummary
+  const content   = buildSummaryContent(resolved, endedEarly || resolved.totalCards === 0)
+  const takeaway  = buildDistributionTakeaway(resolved.ratingBreakdown, resolved.totalCards)
+
+  const showProblemCards = content.showProblemCards && resolved.leeches.length > 0
+
+  function handlePrimary(): void {
+    runAction(content.primary.route)
+  }
+  function handleSecondary(): void {
+    if (content.secondary === undefined) return
+    runAction(content.secondary.route)
+  }
+
+  function runAction(route: ActionRoute): void {
+    reset()
+    switch (route.kind) {
+      case 'today':           router.push('/today'); return
+      case 'insights':        router.push('/insights'); return
+      case 'repair':          router.push('/review/repair'); return
+      case 'review-problem':  {
+        const ids = route.cardIds.join(',')
+        router.push(`/review/repair?cards=${encodeURIComponent(ids)}`)
+        return
+      }
+    }
+  }
+
+  // WeekRhythmStrip wiring. Strip is shown on every state except when the
+  // browser still hasn't resolved its timezone (kept in `loading` until
+  // todayKey lands). The forecast query feeds apiDays and drives the
+  // strip's internal loading/error chrome.
+  const weekRhythmState: WeekRhythmState =
+    todayKey === null || forecastQuery.isLoading ? 'loading' :
+    forecastQuery.isError                        ? 'error'   :
+                                                   'default'
+  const weekRhythmDays = forecastQuery.data?.items ?? []
+  const weekRhythmTodayKey = todayKey ?? '1970-01-01'
+
+  const weekStrip = (
+    <WeekRhythmStrip
+      state={weekRhythmState}
+      todayKey={weekRhythmTodayKey}
+      apiDays={weekRhythmDays}
+    />
+  )
 
   return (
-    <div className="flex flex-col items-center px-4 py-12 gap-6 max-w-xl mx-auto">
+    <SummaryFrame>
+      <ClosureCard
+        content={content}
+        resolved={resolved}
+        endedEarly={endedEarly}
+        onPrimary={handlePrimary}
+        onSecondary={handleSecondary}
+      />
 
-      {/* Header */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-8 flex flex-col items-center gap-2 text-center">
-        <div className="text-4xl mb-1">✓</div>
-        <h1 className="text-2xl font-bold text-sumi-ink">Review complete</h1>
-        <p className="text-sm text-faded-sumi">{today}</p>
-      </div>
-
-      {/* Metrics grid */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6">
-        <div className="grid grid-cols-3 divide-x divide-soft-hairline">
-          {isLoading ? (
-            <>
-              <div className="px-4"><MetricSkeleton /></div>
-              <div className="px-4"><MetricSkeleton /></div>
-              <div className="px-4"><MetricSkeleton /></div>
-            </>
-          ) : isError || summary === undefined ? (
-            <div className="col-span-3 text-center text-sm text-faded-sumi py-4">
-              Could not load review summary.
-            </div>
-          ) : (
-            <>
-              <div className="px-4 flex items-center justify-center">
-                <MetricCell label="Cards" value={String(summary.totalCards)} />
-              </div>
-              <div className="px-4 flex items-center justify-center">
-                <MetricCell label="Time" value={formatTime(summary.totalTimeMs)} />
-              </div>
-              <div className="px-4 flex items-center justify-center">
-                <MetricCell label="Retention" value={`${summary.accuracyPct}%`} />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Rating Breakdown */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Rating breakdown
-        </h2>
-        {isLoading ? (
-          <div className="flex flex-col gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-3 w-10 rounded bg-cream-inset animate-pulse shrink-0" />
-                <div className="flex-1 h-2.5 rounded-full bg-cream-inset animate-pulse" />
-                <div className="h-3 w-5 rounded bg-cream-inset animate-pulse shrink-0" />
-              </div>
-            ))}
-          </div>
-        ) : summary !== undefined ? (
-          <RatingBreakdown breakdown={summary.ratingBreakdown} total={summary.totalCards} />
-        ) : null}
-      </div>
-
-      {/* Cards to Watch */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Weak spots (leeches)
-        </h2>
-
-        {isLoading ? (
-          <div className="flex flex-col gap-3">
-            {[0, 1].map((i) => (
-              <div key={i} className="h-10 rounded-lg bg-cream-inset animate-pulse" />
-            ))}
-          </div>
-        ) : summary !== undefined && summary.leeches.length === 0 ? (
-          <p className="text-sm text-faded-sumi">
-            No leeches today. Your recall is holding steady.
-          </p>
-        ) : summary !== undefined ? (
-          <ul className="flex flex-col divide-y divide-soft-hairline">
-            {summary.leeches.map((leech) => (
-              <li key={leech.leechId}>
-                <Link
-                  href={`/decks/${leech.deckId}/cards/${leech.cardId}`}
-                  className="flex items-center justify-between py-3 group"
-                >
-                  {leech.reading !== null ? (
-                    <FuriganaText
-                      text={leech.word}
-                      reading={leech.reading}
-                      className="font-japanese text-base font-medium text-sumi-ink group-hover:text-inari-vermillion transition-colors"
-                    />
-                  ) : (
-                    <span lang="ja" className="font-japanese text-base font-medium text-sumi-ink group-hover:text-inari-vermillion transition-colors">
-                      {leech.word}
-                    </span>
-                  )}
-                  <span className="text-faded-sumi text-sm">→</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-
-      {/* Personal Bests */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Personal Bests
-        </h2>
-
-        {isLoading ? (
-          <div className="h-5 w-48 rounded bg-cream-inset animate-pulse" />
-        ) : summary !== undefined && summary.totalCards > 0 ? (
-          <div className="flex items-center gap-2 text-sm text-sumi-ink">
-            {isNewRecord.current ? (
-              <>
-                <span className="text-yellow-500 text-base">★</span>
-                <span className="font-semibold">New record!</span>
-                <span>{summary.totalCards} cards in one session</span>
-              </>
-            ) : (
-              <>
-                <span className="text-faded-sumi text-base">★</span>
-                <span>Best: <span className="font-semibold">{previousBest} cards</span> in one session</span>
-              </>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Next Review */}
-      <div className="w-full rounded-[14px] bg-warm-paper-raised shadow-card p-6 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-faded-sumi">
-          Next review
-        </h2>
-        {isLoading ? (
-          <div className="h-5 w-48 rounded bg-cream-inset animate-pulse" />
-        ) : summary?.nextDueAt != null ? (
-          <p className="text-sm text-sumi-ink">
-            <span className="font-semibold">{formatNextDue(summary.nextDueAt)}</span>
-          </p>
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <SessionDetailsCard
+          content={content}
+          breakdown={resolved.ratingBreakdown}
+          total={resolved.totalCards}
+          takeaway={takeaway}
+        />
+        {showProblemCards ? (
+          <ProblemCardsCard
+            leeches={resolved.leeches}
+            usingFixture={usingFixture}
+            onRepair={(leech) => runAction({ kind: 'review-problem', cardIds: [leech.cardId] })}
+          />
         ) : (
-          <p className="text-sm text-faded-sumi">No upcoming reviews scheduled.</p>
+          weekStrip
         )}
       </div>
 
-      {/* Navigation */}
-      <Button onClick={handleDashboard} className="w-full max-w-xs">
-        Back to dashboard
-      </Button>
+      {showProblemCards && weekStrip}
+
+      {process.env.NODE_ENV !== 'production' && (
+        <SummaryDevSwitcher
+          active={usingFixture ? (fixtureParam as SessionPattern) : null}
+        />
+      )}
+    </SummaryFrame>
+  )
+}
+
+// ── Frame ───────────────────────────────────────────────────────────────────
+// Mirror of Setup's outer/inner pattern: outer `flex flex-1 flex-col` so the
+// inner `grid flex-1 ... content-center` can claim the full available height
+// and center its rows when content is short.
+
+function SummaryFrame({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="relative isolate flex flex-1 flex-col">
+        <div className="relative z-10 mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 content-center gap-y-8 px-6 pb-12 pt-8 md:px-12 md:pb-16 md:pt-10 lg:gap-y-10 lg:px-16 lg:pb-20 lg:pt-12">
+          {children}
+        </div>
+      </div>
     </div>
+  )
+}
+
+// ── Closure card ────────────────────────────────────────────────────────────
+// Full-width SectionCard. Internal 2-col on lg+: text-left (kicker comes from
+// SectionCard's own header, so the card body holds headline + receipt +
+// rationale + action), mark-right at responsive 96 / 144px.
+
+function ClosureCard({
+  content,
+  resolved,
+  endedEarly,
+  onPrimary,
+  onSecondary,
+}: {
+  content:     SummaryContent
+  resolved:    SessionSummary
+  endedEarly:  boolean
+  onPrimary:   () => void
+  onSecondary: () => void
+}): React.JSX.Element {
+  const cardsWord  = resolved.totalCards === 1 ? 'card' : 'cards'
+  const statusWord = endedEarly ? 'ended early' : 'completed'
+
+  return (
+    <SectionCard
+      id="summary-closure"
+      kanji={content.kicker.kanji}
+      label={content.kicker.label}
+    >
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <h1 className="break-words font-display text-[2rem] sm:text-[2.5rem] lg:text-[2.875rem] leading-[1.05] text-sumi-ink">
+            {content.heroHeadline}
+          </h1>
+
+          {content.heroSubcopy !== undefined && (
+            <p className="mt-3 max-w-[55ch] text-base text-faded-sumi leading-relaxed">
+              {content.heroSubcopy}
+            </p>
+          )}
+
+          <p className="mt-6 font-mono text-xs sm:text-sm text-faded-sumi">
+            <span className="text-sumi-ink">{resolved.totalCards}</span> {cardsWord}
+            <span aria-hidden="true" className="mx-2 text-soft-hairline">·</span>
+            <span className="text-sumi-ink">{formatTime(resolved.totalTimeMs)}</span>
+            <span aria-hidden="true" className="mx-2 text-soft-hairline">·</span>
+            {statusWord}
+          </p>
+
+          <div className="mt-7 flex flex-col gap-4">
+            <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+              {content.rationale}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button variant="primary" size="lg" onClick={onPrimary}>
+                {content.primary.label}
+              </Button>
+              {content.secondary !== undefined && (
+                <Button variant="editorial" size="lg" onClick={onSecondary}>
+                  {content.secondary.label}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Responsive kitsune: 96px below lg, 144px on lg+. Two Logo
+            instances keep the next/image width/height attributes accurate
+            at each size; the SVG asset is cached so the second load is free. */}
+        <div
+          aria-hidden="true"
+          className="flex items-center justify-center lg:order-last lg:pl-4"
+        >
+          <span className="inline-flex lg:hidden">
+            <Logo size={96} showWordmark={false} priority />
+          </span>
+          <span className="hidden lg:inline-flex">
+            <Logo size={144} showWordmark={false} priority />
+          </span>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Session details card ────────────────────────────────────────────────────
+// Two sub-sections inside one SectionCard, separated by a hairline. Top:
+// "What to notice" diagnosis prose. Bottom: "Rating breakdown" with the
+// existing distribution bar. The card's outer kanji header (詳 / Session
+// details) labels the whole moment.
+
+function SessionDetailsCard({
+  content,
+  breakdown,
+  total,
+  takeaway,
+}: {
+  content:   SummaryContent
+  breakdown: { again: number; hard: number; good: number; easy: number }
+  total:     number
+  takeaway:  string
+}): React.JSX.Element {
+  return (
+    <SectionCard
+      id="summary-details"
+      kanji="詳"
+      label="Session details"
+    >
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+          What to notice
+        </p>
+        <p className="max-w-[62ch] text-base leading-relaxed text-sumi-ink">
+          {content.diagnosisLead}
+        </p>
+        {content.diagnosisAside !== null && (
+          <p className="max-w-[62ch] text-sm leading-relaxed text-faded-sumi">
+            {content.diagnosisAside}
+          </p>
+        )}
+      </div>
+
+      <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
+
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+          Rating breakdown
+        </p>
+        <RatingDistributionBar breakdown={breakdown} total={total} takeaway={takeaway} />
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Problem cards card ──────────────────────────────────────────────────────
+// SectionCard with the leech list inside. Divide-y between rows; no
+// top/bottom borders since the card chrome already contains the list.
+
+function ProblemCardsCard({
+  leeches,
+  usingFixture,
+  onRepair,
+}: {
+  leeches:      SessionLeech[]
+  usingFixture: boolean
+  onRepair:     (leech: SessionLeech) => void
+}): React.JSX.Element {
+  return (
+    <SectionCard
+      id="summary-problem-cards"
+      kanji="困"
+      label="Problem cards"
+      count={leeches.length}
+    >
+      <ul className="divide-y divide-soft-hairline">
+        {leeches.map((leech) => (
+          <li key={leech.leechId}>
+            <ProblemCardRow
+              leech={leech}
+              meaning={usingFixture ? FIXTURE_MEANINGS[leech.cardId] : undefined}
+              onRepair={onRepair}
+            />
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
+  )
+}
+
+// ── Skeleton ────────────────────────────────────────────────────────────────
+// Mirrors the resolved layout: closure SectionCard placeholder + 2-col row
+// (session details + a generic supporting placeholder) + week strip via
+// WeekRhythmStrip's own loading chrome. Keeps the bordered SectionCard
+// silhouette stable through hydration.
+
+function SummarySkeleton(): React.JSX.Element {
+  return (
+    <>
+      <SectionCard kanji="終" label="Session closed" ariaBusy>
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0 space-y-4">
+            <div className="h-10 w-3/4 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-4 w-1/2 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-3 w-44 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-10 w-40 animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+          <div className="flex items-center justify-center lg:pl-4" aria-hidden="true">
+            <div className="h-24 w-24 animate-pulse rounded-full bg-cream-inset lg:h-36 lg:w-36" />
+          </div>
+        </div>
+      </SectionCard>
+
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <SectionCard kanji="詳" label="Session details" ariaBusy>
+          <div className="space-y-3">
+            <div className="h-2 w-24 animate-pulse rounded-[1px] bg-cream-inset" />
+            <div className="h-4 w-full animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-4 w-2/3 animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+          <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
+          <div className="space-y-3">
+            <div className="h-2 w-32 animate-pulse rounded-[1px] bg-cream-inset" />
+            <div className="h-3 w-full animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-3 w-1/2 animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+        </SectionCard>
+
+        <SectionCard kanji="週" label="The week ahead" ariaBusy>
+          <div className="mt-2 flex h-[168px] items-end gap-2">
+            {[46, 72, 34, 88, 58, 26, 64].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 animate-pulse rounded-t-[1px] bg-cream-inset"
+                style={{ height: `${h}px` }}
+              />
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+    </>
   )
 }

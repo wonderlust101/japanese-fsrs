@@ -66,10 +66,16 @@ export function useReviewForecast(): UseQueryResult<ApiList<ApiForecastDay>> {
 export function useSessionSummary(sessionId: string | null): UseQueryResult<SessionSummary> {
   const safeId = sessionId ?? ''
   return useQuery({
-    queryKey: queryKeys.reviews.summary(safeId),
-    queryFn:  () => getSessionSummaryAction(safeId),
-    enabled:  sessionId !== null,
+    queryKey:  queryKeys.reviews.summary(safeId),
+    queryFn:   () => getSessionSummaryAction(safeId),
+    enabled:   sessionId !== null,
     staleTime: Infinity,
+    // The summary endpoint returns 404 for "no rows for this session id"
+    // (including the legitimate ended-early-with-no-reviews case). Default
+    // retry behavior would chase those 404s through ~10s of exponential
+    // backoff before the page can render its forgiving empty state.
+    // Single-shot read; if it failed once it will fail again the same way.
+    retry: false,
   })
 }
 
