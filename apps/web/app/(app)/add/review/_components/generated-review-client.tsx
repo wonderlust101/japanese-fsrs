@@ -368,20 +368,20 @@ export function GeneratedReviewClient(): React.JSX.Element {
     <Frame>
       <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
 
-      <DeckCard
-        options={deckOptions}
-        value={deckId}
-        onChange={setDeckId}
-        loading={decksQuery.isLoading}
-        deckName={deckName}
-      />
-
       <SectionEyebrow />
 
       {/* Two-column desktop: field SectionCards left, sticky preview right. */}
       <div className="grid gap-6 lg:grid-cols-12 lg:items-start lg:gap-10">
         {/* Left: field SectionCards */}
         <div className="lg:col-span-7 flex flex-col gap-6 lg:gap-7">
+          <DeckCard
+            options={deckOptions}
+            value={deckId}
+            onChange={setDeckId}
+            loading={decksQuery.isLoading}
+            deckName={deckName}
+          />
+
           <SectionCard kanji="義" label="Definition" stripeTone="brand">
             <div className="flex flex-col gap-5 pt-1">
               <Textarea
@@ -623,10 +623,10 @@ function SectionEyebrow(): React.JSX.Element {
 
 // ── Deck card ─────────────────────────────────────────────────────────────────
 //
-// Promoted to a full-width SectionCard at the top of the page so the deck
-// decision reads as load-bearing, not optional. When no deck is chosen the
-// SectionCard's stripe flips to error tone and an inline "Required" line
-// appears under the select — same chrome as a save-blocker callout.
+// First SectionCard in the form stack. Treats deck assignment as a structural
+// decision in the same register as Definition / Pronunciation / Teaching
+// notes, with a single inline "Required" line under the select when empty so
+// the requirement is locatable without doubling the Save-block blocker copy.
 
 interface DeckCardProps {
   options:  ReadonlyArray<TomoSelectOption<string>>
@@ -642,15 +642,14 @@ function DeckCard({ options, value, onChange, loading, deckName }: DeckCardProps
     <SectionCard
       kanji="組"
       label="Deck"
-      stripeTone={empty ? 'error' : 'brand'}
       description={
         empty
-          ? 'Pick where this card will live — required to save.'
+          ? 'Pick where this card will live.'
           : `This card will be saved to ${deckName ?? 'your selected deck'}.`
       }
     >
-      <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:gap-4">
-        <div className="w-full sm:max-w-[480px]">
+      <div className="flex flex-col gap-2 pt-1">
+        <div className="w-full sm:max-w-[440px]">
           <TomoSelect<string>
             value={value ?? ''}
             options={options}
