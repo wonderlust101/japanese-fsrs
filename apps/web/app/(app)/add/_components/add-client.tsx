@@ -28,7 +28,7 @@ import {
 } from '@/stores/useCaptureDraftStore'
 
 import { AddChipRow, type AddChipDescriptor } from './add-chip-row'
-import { AddPreviewCard, type CaptureCount } from './add-preview-card'
+import { AddSessionPreview, isTargetMissingFromSentence } from './add-session-preview'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -40,12 +40,6 @@ const CARD_TYPE_OPTIONS: ReadonlyArray<{ value: CaptureCardType; label: string }
 ]
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB; preview-only, never uploaded yet.
-
-// Today / This-week capture counts. We don't currently have a user-scoped
-// "list my recent cards" endpoint; render `—` until one exists. The brief
-// approves this fallback.
-const TODAY_COUNT: CaptureCount = null
-const WEEK_COUNT:  CaptureCount = null
 
 const EXIT_LINKS = [
   { href: '/decks',             label: 'Manage decks'           },
@@ -289,7 +283,17 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     if (warningArmed) submit()
   }, [wordPresent, sentencePresent, showSentenceWarning, warningArmed, submit])
 
-  // ── Action area (shared between sticky aside and mobile bar) ────────────
+  // ── Validation derived state ────────────────────────────────────────────
+  const targetMissing = isTargetMissingFromSentence(trimmedWord, trimmedSentence)
+
+  // The preview's "target not found" footnote is the canonical signal for
+  // mismatched sentences. When it's showing, suppress the form-level empty-
+  // sentence warning so feedback doesn't double. The form-level warning is
+  // strictly for "no sentence at all," and only when the preview can't
+  // surface anything itself.
+  const showFormSentenceWarning = showSentenceWarning && !sentencePresent && !targetMissing
+
+  // ── Action area (shared between desktop sibling and mobile bar) ─────────
   const actions = (
     <ActionArea
       disabled={!wordPresent}
@@ -311,21 +315,8 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
         />
 
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
-          {/* Left: sticky preview aside */}
-          <aside className="lg:col-span-5 lg:sticky lg:top-10 lg:self-start">
-            <AddPreviewCard
-              word={trimmedWord}
-              sentence={trimmedSentence}
-              todayKey={todayKey}
-              todayCount={TODAY_COUNT}
-              weekCount={WEEK_COUNT}
-              dimmed={submitting}
-              actions={actions}
-            />
-          </aside>
-
-          {/* Right: form card */}
-          <div className="lg:col-span-7">
+          {/* Left: form card (v3 swap — form now leads) */}
+          <div className="lg:col-span-6">
             <SectionCard
               id="add-form"
               kanji="記"
@@ -363,13 +354,13 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                   block
                   rows={4}
                   hint={
-                    !sentencePresent && !showSentenceWarning
+                    !sentencePresent && !showFormSentenceWarning
                       ? 'Sentence helps Tomo pick the right meaning.'
                       : undefined
                   }
                 />
 
-                {showSentenceWarning && !sentencePresent && <SentenceWarning />}
+                {showFormSentenceWarning && <SentenceWarning />}
 
                 <AddChipRow
                   chips={chips}
@@ -377,22 +368,36 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                   onToggle={(id) => setActiveChip((cur) => (cur === id ? null : id))}
                 />
 
-                <p
-                  aria-hidden="true"
-                  className="hidden lg:block font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi"
-                >
-                  ⌘ ⏎ to create
-                </p>
-
                 {/* Submit button kept inside the form for native Enter/submit
-                    semantics, but visually hidden at lg+ where the sticky
-                    aside owns the primary action. */}
+                    semantics. Hidden visually at lg+ where the right-column
+                    action block owns the primary control. */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>
                   Create card
                 </button>
               </form>
             </SectionCard>
           </div>
+
+          {/* Right: session-faithful preview + sibling action block (sticky on lg+) */}
+          <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-5">
+            <AddSessionPreview
+              word={trimmedWord}
+              sentence={trimmedSentence}
+              todayKey={todayKey}
+              dimmed={submitting}
+              targetMissing={targetMissing}
+            />
+
+            <div className="hidden lg:flex items-center justify-between gap-4">
+              <p
+                aria-hidden="true"
+                className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi"
+              >
+                ⌘ ⏎ to create
+              </p>
+              {actions}
+            </div>
+          </aside>
         </div>
 
         <ExitLinksRow links={EXIT_LINKS} />
