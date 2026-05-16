@@ -1,13 +1,24 @@
-import { StubPage } from '../_components/StubPage'
+import type { Metadata } from 'next'
 
-export default function AddJapanesePage(): React.JSX.Element {
+import { getProfileAction } from '@/lib/actions/profile.actions'
+import { buildDashboardCalendarContext } from '@/app/(app)/today/_components/today-calendar'
+
+import { TopBar } from '../_components/top-bar'
+
+import { AddClient } from './_components/add-client'
+
+export const metadata: Metadata = { title: 'Add Japanese — capture' }
+
+export default async function AddJapanesePage(): Promise<React.JSX.Element> {
+  const profile  = await getProfileAction()
+  const calendar = buildDashboardCalendarContext(new Date(), profile?.timezone)
+
   return (
-    <StubPage
-      title="Add Japanese"
-      links={[
-        { href: '/add/review', label: 'Generated Card Review' },
-        { href: '/today',      label: 'Today' },
-      ]}
-    />
+    <>
+      <TopBar desktopHidden />
+      <div className="flex min-h-full flex-col pb-40 lg:pb-32">
+        <AddClient todayKey={calendar.todayKey} />
+      </div>
+    </>
   )
 }
