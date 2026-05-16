@@ -5,22 +5,24 @@ import { buildDashboardCalendarContext } from '@/app/(app)/today/_components/tod
 
 import { TopBar } from '../../_components/top-bar'
 
-import { ReviewStagingClient } from '../_components/review-staging-client'
+import { SetupClient } from './_components/setup-client'
 
-export const metadata: Metadata = { title: "Reviews — today's stack" }
+export const metadata: Metadata = { title: 'Review setup — tune today' }
 
-export default async function ReviewStagingPage(): Promise<React.JSX.Element> {
-  const profile = await getProfileAction()
+export default async function ReviewSetupPage(): Promise<React.JSX.Element> {
+  const profile  = await getProfileAction()
   const calendar = buildDashboardCalendarContext(new Date(), profile?.timezone)
 
   return (
     <>
       <TopBar desktopHidden />
 
-      <ReviewStagingClient
-        initialTodayKey={calendar.todayKey}
-        initialTimeZone={calendar.timeZone}
-      />
+      <div className="flex min-h-full flex-col pb-40 lg:pb-32">
+        <SetupClient
+          initialTodayKey={calendar.todayKey}
+          initialTimeZone={calendar.timeZone}
+        />
+      </div>
     </>
   )
 }

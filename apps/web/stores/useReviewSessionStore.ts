@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
+
+import { randomUUID } from '@/lib/random-uuid'
 
 import type { ApiDueCard, SubmitReviewInput } from '@fsrs-japanese/shared-types'
 
@@ -50,11 +53,12 @@ type ReviewSessionState = IdleState | ActiveState | FinishedState
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 interface ReviewSessionActions {
-  startSession: (cards: ApiDueCard[]) => void
-  flipCard:     () => void
-  submitRating: (rating: UserRating) => void
-  endSession:   () => void
-  reset:        () => void
+  startSession:    (cards: ApiDueCard[]) => void
+  flipCard:        () => void
+  submitRating:    (rating: UserRating) => void
+  undoLastRating:  () => void
+  endSession:      () => void
+  reset:           () => void
 }
 
 type ReviewSessionStore = ReviewSessionState & { actions: ReviewSessionActions }
@@ -70,7 +74,7 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
         startSession: (cards) =>
           set({
             phase:          'active',
-            sessionId:      crypto.randomUUID(),
+            sessionId:      randomUUID(),
             queue:          cards,
             currentIndex:   0,
             showAnswer:     false,
@@ -94,6 +98,24 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
             currentIndex:   s.currentIndex + 1,
             showAnswer:     false,
             sessionHistory: [...s.sessionHistory, { card: currentCard, rating }],
+          }, true)
+        },
+
+        undoLastRating: () => {
+          // Rewinds the local session state by one rating. Coordinated with
+          // the page's 3-second deferred-submit timer so the API call is
+          // cancelled (never fired) — no rollback endpoint required.
+          const s = get()
+          if (s.phase !== 'active') return
+          if (s.sessionHistory.length === 0) return
+          if (s.currentIndex === 0) return
+          set({
+            ...s,
+            currentIndex:   s.currentIndex - 1,
+            // The previous card was rated, which means it had been revealed.
+            // Restore that state so the rating bar is immediately usable.
+            showAnswer:     true,
+            sessionHistory: s.sessionHistory.slice(0, -1),
           }, true)
         },
 
@@ -166,10 +188,17 @@ export interface ResumeContext {
   remaining: number
 }
 
+// useShallow: the projection builds a fresh object literal when the session
+// is active, and `useSyncExternalStore` would otherwise see every call as a
+// new snapshot and trigger React's tearing-detection loop ("Maximum update
+// depth exceeded"). The shallow comparator caches the projected reference
+// when sessionId + remaining are unchanged.
 export const useResumeContext = (): ResumeContext | null =>
-  useReviewSessionStore((s) => {
-    if (s.phase !== 'active') return null
-    const remaining = Math.max(0, s.queue.length - s.currentIndex)
-    if (remaining === 0) return null
-    return { sessionId: s.sessionId, remaining }
-  })
+  useReviewSessionStore(
+    useShallow((s) => {
+      if (s.phase !== 'active') return null
+      const remaining = Math.max(0, s.queue.length - s.currentIndex)
+      if (remaining === 0) return null
+      return { sessionId: s.sessionId, remaining }
+    }),
+  )
