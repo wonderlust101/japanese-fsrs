@@ -113,8 +113,6 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       return
     }
     setErrors(NO_ERRORS)
-    setSubmitMode(mode)
-    setSubmitting(true)
 
     const draft: CaptureDraft = {
       word:         trimmedWord,
@@ -132,6 +130,16 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       updatedAt:    Date.now(),
     }
     captureActions.setDraft(draft)
+
+    // Only the Generate path actually does work downstream (AI call on
+    // /add/review). Manual is a pure handoff to a blank edit form, so don't
+    // simulate progress for it: just route. The loading state is reserved for
+    // paths that legitimately take time.
+    if (mode === 'generate') {
+      setSubmitMode('generate')
+      setSubmitting(true)
+    }
+
     startNav(() => router.push('/add/review'))
   }, [submitting, validate, trimmedWord, trimmedSentence, deckId, captureActions, router])
 
