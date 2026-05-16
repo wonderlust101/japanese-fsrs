@@ -1,17 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import type { ApiDueCard, ExampleSentence } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { CardBack } from '@/components/review/session/CardBack'
 import { CardFront } from '@/components/review/session/CardFront'
 import { cn } from '@/lib/utils'
 
 // ── Empty-state quotes ────────────────────────────────────────────────────────
-//
-// Date-seeded teacher-voice line that occupies the card body when nothing has
-// been typed yet. Same hash-by-seed cadence as today-hero's PREPARATION_LINES.
 
 const PREVIEW_LINES = [
   'A word, a sentence, a card.',
@@ -33,42 +31,48 @@ function pickPreviewLine(seed: string): string {
 
 // ── Synthetic card builder ────────────────────────────────────────────────────
 //
-// The session's `CardFront` consumes an `ApiDueCard` and reads it through
-// `resolveCardFields(card)`. To render a faithful forecast of the eventual
-// card, we construct the smallest possible card object from the in-progress
-// draft. Non-content fields (FSRS state, ids, timestamps) are stable
-// placeholders — `CardFront` never reads them.
-//
-// Centralising the construction here is the *only* point where /add knows
-// anything about the session card's data shape; future schema changes touch
-// this function and nothing else in /add.
+// The session's CardFront / CardBack consume an ApiDueCard via
+// `resolveCardFields(card)`. This is the single point /add knows about the
+// session card's data shape; future schema changes touch this function alone.
 
 const PREVIEW_CARD_ID = 'add-preview-card'
 const PREVIEW_DECK_ID = 'add-preview-deck'
-
-interface BuildPreviewCardInput {
-  word:     string
-  sentence: string
-}
 
 interface PreviewFieldsData {
   word:              string
   reading:           string
   meaning:           string
   exampleSentences?: ExampleSentence[]
+  picture?:          string
 }
 
-function buildPreviewCard({ word, sentence }: BuildPreviewCardInput): ApiDueCard {
+interface BuildPreviewCardInput {
+  word:           string
+  sentence:       string
+  reading:        string
+  meaning:        string
+  pictureDataUrl: string | null
+}
+
+function buildPreviewCard({
+  word,
+  sentence,
+  reading,
+  meaning,
+  pictureDataUrl,
+}: BuildPreviewCardInput): ApiDueCard {
   const fieldsData: PreviewFieldsData = {
     word,
-    reading: '',
-    meaning: '',
+    reading,
+    meaning,
   }
 
   if (sentence.length > 0) {
-    fieldsData.exampleSentences = [
-      { ja: sentence, en: '', furigana: sentence },
-    ]
+    fieldsData.exampleSentences = [{ ja: sentence, en: '', furigana: sentence }]
+  }
+
+  if (pictureDataUrl !== null) {
+    fieldsData.picture = pictureDataUrl
   }
 
   return {
@@ -85,49 +89,68 @@ function buildPreviewCard({ word, sentence }: BuildPreviewCardInput): ApiDueCard
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+type PreviewFace = 'front' | 'back'
+
 export interface AddSessionPreviewProps {
-  /** Trimmed word. Empty string means "no word yet." */
-  word:     string
-  /** Trimmed sentence. Empty string means "no sentence yet." */
-  sentence: string
-  /** Date key used to seed the empty-state quote. `yyyy-mm-dd`. */
-  todayKey: string
-  /** When true, applies a soft opacity dim to telegraph the submitting state. */
-  dimmed?:  boolean
-  /** When true, the target word was not found in the sentence — surface the
-   *  footnote below the preview. Caller decides; we only render. */
+  word:           string
+  sentence:       string
+  /** Optional kana reading (from the "Back of card" tab). Surfaces only on
+   *  the back face of the preview. */
+  reading:        string
+  /** Optional English meaning (from the "Back of card" tab). Surfaces only on
+   *  the back face. */
+  meaning:        string
+  /** Optional data-URL preview of the user's uploaded picture. Surfaces only
+   *  on the back face. Never sent to the server in this iteration. */
+  pictureDataUrl: string | null
+  todayKey:       string
+  dimmed?:        boolean
   targetMissing?: boolean
 }
 
 export function AddSessionPreview({
   word,
   sentence,
+  reading,
+  meaning,
+  pictureDataUrl,
   todayKey,
   dimmed = false,
   targetMissing = false,
 }: AddSessionPreviewProps): React.JSX.Element {
   const quote = useMemo(() => pickPreviewLine(todayKey), [todayKey])
+  const [face, setFace] = useState<PreviewFace>('front')
 
   const hasWord = word.length > 0
 
-  // Synthetic card is only constructed when there's content. The empty state
-  // is rendered explicitly so we don't pass an empty headword into VocabHero
-  // (which would collapse the layout).
   const previewCard = useMemo<ApiDueCard | null>(() => {
     if (!hasWord) return null
-    return buildPreviewCard({ word, sentence })
-  }, [hasWord, word, sentence])
+    return buildPreviewCard({ word, sentence, reading, meaning, pictureDataUrl })
+  }, [hasWord, word, sentence, reading, meaning, pictureDataUrl])
 
   return (
-    <div className={cn('flex flex-col gap-3', dimmed && 'opacity-80 transition-opacity duration-200 ease-out')}>
-      <SectionCard kanji="" label="" stripeTone="brand" omitTitle>
+    <div
+      className={cn(
+        'flex flex-col gap-3',
+        dimmed && 'opacity-80 transition-opacity duration-200 ease-out',
+      )}
+    >
+      <SectionCard
+        kanji=""
+        label=""
+        stripeTone="brand"
+        omitTitle
+        {...(hasWord ? { rightContent: <FaceToggle face={face} onChange={setFace} /> } : {})}
+      >
         <div
           aria-live="polite"
           aria-atomic="true"
           className="px-1 pt-5 pb-6 md:px-2 md:pt-7 md:pb-8"
         >
           {previewCard !== null ? (
-            <CardFront card={previewCard} />
+            face === 'front'
+              ? <CardFront card={previewCard} />
+              : <CardBack key={`back-${reading}-${meaning}-${pictureDataUrl ?? ''}`} card={previewCard} />
           ) : (
             <EmptyPreview quote={quote} />
           )}
@@ -146,11 +169,49 @@ export function AddSessionPreview({
   )
 }
 
-// ── Empty-state body ──────────────────────────────────────────────────────────
-//
-// Matches CardFront's outer rhythm (`flex flex-col items-center gap-8 md:gap-10
-// py-4 md:py-8`) so the card frame doesn't collapse when there's no content.
-// Quote sits centered in faded-sumi display register.
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+interface FaceToggleProps {
+  face:     PreviewFace
+  onChange: (next: PreviewFace) => void
+}
+
+function FaceToggle({ face, onChange }: FaceToggleProps): React.JSX.Element {
+  const items: ReadonlyArray<{ value: PreviewFace; label: string }> = [
+    { value: 'front', label: 'Front' },
+    { value: 'back',  label: 'Back'  },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Preview face"
+      className="pointer-events-auto inline-flex items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
+    >
+      {items.map((item) => {
+        const selected = item.value === face
+        return (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(item.value)}
+            className={cn(
+              'px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.14em]',
+              'transition-colors duration-150 ease-out',
+              'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+              selected
+                ? 'bg-cream-inset text-sumi-ink'
+                : 'text-faded-sumi hover:text-sumi-ink',
+            )}
+          >
+            {item.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 function EmptyPreview({ quote }: { quote: string }): React.JSX.Element {
   return (
@@ -162,11 +223,7 @@ function EmptyPreview({ quote }: { quote: string }): React.JSX.Element {
   )
 }
 
-// ── Target-in-sentence check ──────────────────────────────────────────────────
-//
-// Exposed so the caller (AddClient) can decide whether to pass `targetMissing`
-// AND whether to suppress its form-level empty-sentence warning. Kept here so
-// the matching rule lives next to the rendering rule.
+// ── Target-in-sentence check (re-exported, unchanged) ────────────────────────
 
 export function isTargetMissingFromSentence(word: string, sentence: string): boolean {
   if (word.length === 0 || sentence.length === 0) return false

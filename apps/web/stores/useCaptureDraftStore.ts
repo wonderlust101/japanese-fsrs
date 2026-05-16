@@ -21,7 +21,17 @@ export type CaptureCardType = 'comprehension' | 'production' | 'listening' | 'au
 export interface CaptureDraft {
   word:         string
   sentence:     string
+  /** Optional kana reading the user already knows. Empty string means "let
+   *  Tomo infer." Surfaces on the back of the card (`WordStack`). */
+  reading:      string
+  /** Optional English meaning the user wants to lock in. Empty string means
+   *  "let Tomo write one." Surfaces on the back of the card. */
+  meaning:      string
+  /** Optional personal mnemonic. Surfaces as a tab on the back of the card. */
+  mnemonic:     string
   note:         string
+  /** Required at capture per the v4 redesign (explicit IA deviation). Submit
+   *  is gated on `deckId !== null`. */
   deckId:       string | null
   source:       string
   cardType:     CaptureCardType
@@ -35,6 +45,9 @@ export interface CaptureDraft {
 export const EMPTY_CAPTURE_DRAFT: CaptureDraft = {
   word:         '',
   sentence:     '',
+  reading:      '',
+  meaning:      '',
+  mnemonic:     '',
   note:         '',
   deckId:       null,
   source:       '',

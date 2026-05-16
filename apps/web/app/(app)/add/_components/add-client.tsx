@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useTransition,
   type ChangeEvent,
@@ -18,34 +17,19 @@ import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
-import { ExitLinksRow } from '@/app/(app)/_components/exit-links-row'
 import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
 import { useDecks } from '@/lib/api/decks'
 import {
   useCaptureDraftActions,
-  type CaptureCardType,
   type CaptureDraft,
 } from '@/stores/useCaptureDraftStore'
 
-import { AddChipRow, type AddChipDescriptor } from './add-chip-row'
+import { AddOptionalCard, type AddOptionalValues } from './add-optional-card'
 import { AddSessionPreview, isTargetMissingFromSentence } from './add-session-preview'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const CARD_TYPE_OPTIONS: ReadonlyArray<{ value: CaptureCardType; label: string }> = [
-  { value: 'auto',          label: 'Suggest for me' },
-  { value: 'comprehension', label: 'Recognize (J → meaning)' },
-  { value: 'production',    label: 'Produce (meaning → J)' },
-  { value: 'listening',     label: 'Listen (audio → meaning)' },
-]
-
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5MB; preview-only, never uploaded yet.
-
-const EXIT_LINKS = [
-  { href: '/decks',             label: 'Manage decks'           },
-  { href: '/insights/progress', label: "See how you're trending" },
-  { href: '/today',             label: 'Back to today'          },
-] as const
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +45,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 // ── Add client ────────────────────────────────────────────────────────────────
 
 interface AddClientProps {
-  /** Stable date key (yyyy-mm-dd) for seeding the empty-state quote. */
+  /** Stable date key (yyyy-mm-dd) for seeding the preview empty-state quote. */
   todayKey: string
 }
 
@@ -70,34 +54,47 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   const [, startNav]    = useTransition()
   const captureActions  = useCaptureDraftActions()
 
-  // ── Form state ──────────────────────────────────────────────────────────
-  const [word,         setWord]         = useState<string>('')
-  const [sentence,     setSentence]     = useState<string>('')
-  const [note,         setNote]         = useState<string>('')
-  const [deckId,       setDeckId]       = useState<string | null>(null)
-  const [source,       setSource]       = useState<string>('')
-  const [cardType,     setCardType]     = useState<CaptureCardType>('auto')
-  const [imageName,    setImageName]    = useState<string | null>(null)
-  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
-  const [imageError,   setImageError]   = useState<string | null>(null)
+  // ── Required fields ─────────────────────────────────────────────────────
+  const [word,     setWord]     = useState<string>('')
+  const [sentence, setSentence] = useState<string>('')
+  const [deckId,   setDeckId]   = useState<string | null>(null)
 
-  const [activeChip,   setActiveChip]   = useState<string | null>(null)
+  // ── Optional fields (back-of-card + personal) ───────────────────────────
+  const [optional, setOptional] = useState<AddOptionalValues>({
+    reading:      '',
+    meaning:      '',
+    mnemonic:     '',
+    note:         '',
+    source:       '',
+    imageName:    null,
+    imageDataUrl: null,
+  })
+  const [imageError, setImageError] = useState<string | null>(null)
+
+  // ── UX state ────────────────────────────────────────────────────────────
   const [showSentenceWarning, setShowSentenceWarning] = useState<boolean>(false)
-  const [submitting,   setSubmitting]   = useState<boolean>(false)
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [submitting,           setSubmitting]           = useState<boolean>(false)
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const trimmedWord     = word.trim()
   const trimmedSentence = sentence.trim()
   const wordPresent     = trimmedWord.length     > 0
   const sentencePresent = trimmedSentence.length > 0
+  const deckPresent     = deckId !== null
+  const canSubmit       = wordPresent && deckPresent
 
+  const targetMissing = isTargetMissingFromSentence(trimmedWord, trimmedSentence)
+  // The preview footnote handles target-not-found; the form-level warning is
+  // strictly for "no sentence at all" and stays suppressed when the preview
+  // already telegraphs the issue.
+  const showFormSentenceWarning = showSentenceWarning && !sentencePresent && !targetMissing
+
+  // ── Decks ───────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
   const deckOptions = useMemo(() => {
     const items = decksQuery.data?.items ?? []
     return [
-      { value: '', label: 'No deck yet — Tomo will suggest one' },
+      { value: '', label: 'Choose a deck…' },
       ...items.map((d) => ({
         value: d.id,
         label: d.name.trim().length > 0 ? d.name : 'Untitled deck',
@@ -105,137 +102,64 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     ]
   }, [decksQuery.data])
 
-  const chips: ReadonlyArray<AddChipDescriptor> = useMemo(() => [
-    {
-      id: 'image',
-      label: 'Image',
-      filled: imageName !== null,
-      render: () => (
-        <ImageEditor
-          imageName={imageName}
-          imageDataUrl={imageDataUrl}
-          imageError={imageError}
-          fileInputRef={fileInputRef}
-          onPickFile={() => fileInputRef.current?.click()}
-          onClear={() => {
-            setImageName(null)
-            setImageDataUrl(null)
-            setImageError(null)
-            if (fileInputRef.current) fileInputRef.current.value = ''
-          }}
-          onChangeFile={async (file) => {
-            setImageError(null)
-            if (file.size > MAX_IMAGE_BYTES) {
-              setImageError('Image must be 5MB or smaller.')
-              return
-            }
-            try {
-              const dataUrl = await readFileAsDataUrl(file)
-              setImageName(file.name)
-              setImageDataUrl(dataUrl)
-            } catch {
-              setImageError('Could not read that image. Try another file.')
-            }
-          }}
-        />
-      ),
+  const noDecks = !decksQuery.isLoading && (decksQuery.data?.items ?? []).length === 0
+
+  // ── Optional change handlers ────────────────────────────────────────────
+  const updateOptional = useCallback(
+    <K extends keyof AddOptionalValues>(key: K, value: AddOptionalValues[K]): void => {
+      setOptional((prev) => ({ ...prev, [key]: value }))
     },
-    {
-      id: 'note',
-      label: 'Note',
-      filled: note.trim().length > 0,
-      render: () => (
-        <Textarea
-          label="Note to yourself"
-          rows={3}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="A reminder, a pun, why this word stuck."
-          hint="Visible only to you. Carries through to the card."
-        />
-      ),
-    },
-    {
-      id: 'deck',
-      label: 'Deck',
-      filled: deckId !== null,
-      render: () => (
-        <Select
-          label="Deck"
-          value={deckId ?? ''}
-          onChange={(e) => setDeckId(e.target.value === '' ? null : e.target.value)}
-          options={deckOptions}
-          hint={
-            decksQuery.isLoading
-              ? 'Loading your decks…'
-              : 'Leave unset to let Tomo suggest one based on context.'
-          }
-        />
-      ),
-    },
-    {
-      id: 'source',
-      label: 'Source',
-      filled: source.trim().length > 0,
-      render: () => (
-        <Input
-          label="Source (book, episode, URL)"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          placeholder="e.g. NHK Easy, よつばと! ch.3"
-          autoComplete="off"
-        />
-      ),
-    },
-    {
-      id: 'card-type',
-      label: 'Card type',
-      filled: cardType !== 'auto',
-      render: () => (
-        <Select
-          label="Card type preference"
-          value={cardType}
-          onChange={(e) => setCardType(e.target.value as CaptureCardType)}
-          options={[...CARD_TYPE_OPTIONS]}
-          hint="Auto picks the best modality for the word."
-        />
-      ),
-    },
-  ], [imageName, imageDataUrl, imageError, note, deckId, deckOptions, decksQuery.isLoading, source, cardType])
+    [],
+  )
+
+  const handlePickImage = useCallback(async (file: File): Promise<void> => {
+    setImageError(null)
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError('Image must be 5MB or smaller.')
+      return
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      setOptional((prev) => ({ ...prev, imageName: file.name, imageDataUrl: dataUrl }))
+    } catch {
+      setImageError('Could not read that image. Try another file.')
+    }
+  }, [])
+
+  const handleClearImage = useCallback((): void => {
+    setOptional((prev) => ({ ...prev, imageName: null, imageDataUrl: null }))
+    setImageError(null)
+  }, [])
 
   // ── Submit ──────────────────────────────────────────────────────────────
   const submit = useCallback(() => {
-    if (!wordPresent || submitting) return
+    if (!canSubmit || submitting) return
     setSubmitting(true)
 
     const draft: CaptureDraft = {
       word:         trimmedWord,
       sentence:     trimmedSentence,
-      note:         note.trim(),
+      reading:      optional.reading.trim(),
+      meaning:      optional.meaning.trim(),
+      mnemonic:     optional.mnemonic.trim(),
+      note:         optional.note.trim(),
       deckId,
-      source:       source.trim(),
-      cardType,
-      // Image preview is held client-side only. The downstream create-card
-      // call deliberately omits it from the request body in this iteration.
-      imageName,
-      imageDataUrl,
+      source:       optional.source.trim(),
+      cardType:     'auto',
+      imageName:    optional.imageName,
+      imageDataUrl: optional.imageDataUrl,
       updatedAt:    Date.now(),
     }
     captureActions.setDraft(draft)
     startNav(() => router.push('/add/review'))
   }, [
-    wordPresent, submitting, trimmedWord, trimmedSentence, note, deckId, source,
-    cardType, imageName, imageDataUrl, captureActions, router,
+    canSubmit, submitting, trimmedWord, trimmedSentence, deckId, optional,
+    captureActions, router,
   ])
 
-  const cancelSubmit = useCallback(() => {
-    setSubmitting(false)
-  }, [])
+  const cancelSubmit = useCallback(() => setSubmitting(false), [])
 
   // ── Sentence warning gate ───────────────────────────────────────────────
-  // The preview already telegraphs target-not-found, so we only surface the
-  // form-level "no sentence" warning when sentence is *empty*. Two-click gate:
-  // first click surfaces the warning, second click submits anyway.
   useEffect(() => {
     if (sentencePresent) setShowSentenceWarning(false)
   }, [sentencePresent])
@@ -244,7 +168,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     function onKeyDown(e: KeyboardEvent): void {
       const submitCombo = (e.metaKey || e.ctrlKey) && e.key === 'Enter'
       if (!submitCombo) return
-      if (!wordPresent) return
+      if (!canSubmit) return
       e.preventDefault()
       if (!sentencePresent) {
         setShowSentenceWarning(true)
@@ -254,7 +178,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [wordPresent, sentencePresent, submit])
+  }, [canSubmit, sentencePresent, submit])
 
   const handleSentenceBlur = useCallback(() => {
     if (wordPresent && !sentencePresent) setShowSentenceWarning(true)
@@ -271,7 +195,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   }, [showSentenceWarning])
 
   const handlePrimaryClickArmed = useCallback(() => {
-    if (!wordPresent) return
+    if (!canSubmit) return
     if (sentencePresent) {
       submit()
       return
@@ -281,22 +205,12 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       return
     }
     if (warningArmed) submit()
-  }, [wordPresent, sentencePresent, showSentenceWarning, warningArmed, submit])
-
-  // ── Validation derived state ────────────────────────────────────────────
-  const targetMissing = isTargetMissingFromSentence(trimmedWord, trimmedSentence)
-
-  // The preview's "target not found" footnote is the canonical signal for
-  // mismatched sentences. When it's showing, suppress the form-level empty-
-  // sentence warning so feedback doesn't double. The form-level warning is
-  // strictly for "no sentence at all," and only when the preview can't
-  // surface anything itself.
-  const showFormSentenceWarning = showSentenceWarning && !sentencePresent && !targetMissing
+  }, [canSubmit, sentencePresent, showSentenceWarning, warningArmed, submit])
 
   // ── Action area (shared between desktop sibling and mobile bar) ─────────
   const actions = (
     <ActionArea
-      disabled={!wordPresent}
+      disabled={!canSubmit}
       submitting={submitting}
       onSubmit={handlePrimaryClickArmed}
       onCancel={cancelSubmit}
@@ -315,13 +229,14 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
         />
 
         <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
-          {/* Left: form card (v3 swap — form now leads) */}
-          <div className="lg:col-span-6">
+          {/* Left: stacked required + optional cards */}
+          <div className="lg:col-span-6 flex flex-col gap-6">
+            {/* Required */}
             <SectionCard
               id="add-form"
               kanji="記"
               label="Write it down"
-              description="Sentence carries the meaning. Optional details make the card more yours."
+              description="Three fields make a card."
               stripeTone="brand"
             >
               <form
@@ -333,7 +248,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                 noValidate
               >
                 <Input
-                  label="Word"
+                  label="Word or phrase"
                   value={word}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setWord(e.target.value)}
                   placeholder="e.g. 木漏れ日"
@@ -345,7 +260,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                 />
 
                 <Textarea
-                  label="Where you found it"
+                  label="Example sentence"
                   value={sentence}
                   onChange={(e) => setSentence(e.target.value)}
                   onBlur={handleSentenceBlur}
@@ -355,34 +270,46 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                   rows={4}
                   hint={
                     !sentencePresent && !showFormSentenceWarning
-                      ? 'Sentence helps Tomo pick the right meaning.'
+                      ? 'A sentence where the word appears. Helps Tomo pick the right meaning.'
                       : undefined
                   }
                 />
 
                 {showFormSentenceWarning && <SentenceWarning />}
 
-                <AddChipRow
-                  chips={chips}
-                  activeId={activeChip}
-                  onToggle={(id) => setActiveChip((cur) => (cur === id ? null : id))}
+                <DeckField
+                  decks={deckOptions}
+                  value={deckId}
+                  onChange={setDeckId}
+                  loading={decksQuery.isLoading}
+                  noDecks={noDecks}
+                  showRequiredHint={wordPresent && !deckPresent}
                 />
 
-                {/* Submit button kept inside the form for native Enter/submit
-                    semantics. Hidden visually at lg+ where the right-column
-                    action block owns the primary control. */}
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>
                   Create card
                 </button>
               </form>
             </SectionCard>
+
+            {/* Optional (Tabs) */}
+            <AddOptionalCard
+              values={optional}
+              errors={{ imageError }}
+              onChange={updateOptional}
+              onPickImageFile={handlePickImage}
+              onClearImage={handleClearImage}
+            />
           </div>
 
-          {/* Right: session-faithful preview + sibling action block (sticky on lg+) */}
+          {/* Right: session-faithful preview + sibling action block */}
           <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-5">
             <AddSessionPreview
               word={trimmedWord}
               sentence={trimmedSentence}
+              reading={optional.reading.trim()}
+              meaning={optional.meaning.trim()}
+              pictureDataUrl={optional.imageDataUrl}
               todayKey={todayKey}
               dimmed={submitting}
               targetMissing={targetMissing}
@@ -399,13 +326,52 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
             </div>
           </aside>
         </div>
-
-        <ExitLinksRow links={EXIT_LINKS} />
       </div>
 
       <MobileStickyActionBar ariaLabel="Create card">
         {actions}
       </MobileStickyActionBar>
+    </div>
+  )
+}
+
+// ── Deck field ────────────────────────────────────────────────────────────────
+
+interface DeckFieldProps {
+  decks:             ReadonlyArray<{ value: string; label: string }>
+  value:             string | null
+  onChange:          (next: string | null) => void
+  loading:           boolean
+  noDecks:           boolean
+  showRequiredHint:  boolean
+}
+
+function DeckField({
+  decks, value, onChange, loading, noDecks, showRequiredHint,
+}: DeckFieldProps): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-2">
+      <Select
+        label="Deck"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+        options={[...decks]}
+        disabled={loading || noDecks}
+        hint={
+          loading
+            ? 'Loading your decks…'
+            : noDecks
+              ? undefined
+              : showRequiredHint
+                ? 'Pick a deck to save into.'
+                : 'The card will live in this deck.'
+        }
+      />
+      {noDecks && (
+        <p className="text-sm text-faded-sumi">
+          No decks yet. <QuietLink href="/decks" tone="brand" size="sm">Create a deck</QuietLink> to get started.
+        </p>
+      )}
     </div>
   )
 }
@@ -469,70 +435,6 @@ function SentenceWarning(): React.JSX.Element {
         <span className="font-medium text-sumi-ink">Create card</span> again to
         continue without one.
       </p>
-    </div>
-  )
-}
-
-// ── Image editor (chip-promoted) ──────────────────────────────────────────────
-
-interface ImageEditorProps {
-  imageName:     string | null
-  imageDataUrl:  string | null
-  imageError:    string | null
-  fileInputRef:  React.RefObject<HTMLInputElement | null>
-  onPickFile:    () => void
-  onClear:       () => void
-  onChangeFile:  (file: File) => void | Promise<void>
-}
-
-function ImageEditor({
-  imageName, imageDataUrl, imageError, fileInputRef, onPickFile, onClear, onChangeFile,
-}: ImageEditorProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-sumi-ink/85">Image</span>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) void onChangeFile(file)
-        }}
-      />
-
-      {imageDataUrl !== null && imageName !== null ? (
-        <div className="flex items-center gap-3 rounded-[2px] border border-soft-hairline bg-cream-inset px-3 py-2">
-          {/* Preview is a local data URL, never persisted or uploaded here. */}
-          <img
-            src={imageDataUrl}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded-[2px] object-cover"
-          />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm text-sumi-ink">{imageName}</span>
-            <span className="text-xs text-faded-sumi">Preview only, image upload coming soon.</span>
-          </div>
-          <QuietLink onClick={onClear} tone="sumi" size="sm">Remove</QuietLink>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onPickFile}
-            className="ui-motion-colors inline-flex items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-2 text-sm text-sumi-ink hover:bg-cream-inset hover:border-faded-sumi focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            Choose file…
-          </button>
-          <span className="text-xs text-faded-sumi">PNG, JPG, WebP, GIF up to 5MB.</span>
-        </div>
-      )}
-
-      {imageError !== null && (
-        <p role="alert" className="text-sm text-error">{imageError}</p>
-      )}
     </div>
   )
 }
