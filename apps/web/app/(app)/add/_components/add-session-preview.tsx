@@ -1,11 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import type { ApiDueCard, ExampleSentence } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
-import { CardBack } from '@/components/review/session/CardBack'
 import { CardFront } from '@/components/review/session/CardFront'
 import { cn } from '@/lib/utils'
 
@@ -31,9 +30,12 @@ function pickPreviewLine(seed: string): string {
 
 // ── Synthetic card builder ────────────────────────────────────────────────────
 //
-// The session's CardFront / CardBack consume an ApiDueCard via
-// `resolveCardFields(card)`. This is the single point /add knows about the
-// session card's data shape; future schema changes touch this function alone.
+// /add captures only the *front* of the eventual card: word + sentence. The
+// rest of the back-of-card content (reading, meaning, mnemonic, picture) is
+// filled on /add/review. The preview therefore renders only `CardFront`; a
+// Front/Back toggle would have nothing to show on the back. If we ever bring
+// back-of-card capture to /add, the toggle pattern is preserved in git
+// history.
 
 const PREVIEW_CARD_ID = 'add-preview-card'
 const PREVIEW_DECK_ID = 'add-preview-deck'
@@ -43,36 +45,22 @@ interface PreviewFieldsData {
   reading:           string
   meaning:           string
   exampleSentences?: ExampleSentence[]
-  picture?:          string
 }
 
 interface BuildPreviewCardInput {
-  word:           string
-  sentence:       string
-  reading:        string
-  meaning:        string
-  pictureDataUrl: string | null
+  word:     string
+  sentence: string
 }
 
-function buildPreviewCard({
-  word,
-  sentence,
-  reading,
-  meaning,
-  pictureDataUrl,
-}: BuildPreviewCardInput): ApiDueCard {
+function buildPreviewCard({ word, sentence }: BuildPreviewCardInput): ApiDueCard {
   const fieldsData: PreviewFieldsData = {
     word,
-    reading,
-    meaning,
+    reading: '',
+    meaning: '',
   }
 
   if (sentence.length > 0) {
     fieldsData.exampleSentences = [{ ja: sentence, en: '', furigana: sentence }]
-  }
-
-  if (pictureDataUrl !== null) {
-    fieldsData.picture = pictureDataUrl
   }
 
   return {
@@ -89,20 +77,9 @@ function buildPreviewCard({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-type PreviewFace = 'front' | 'back'
-
 export interface AddSessionPreviewProps {
   word:           string
   sentence:       string
-  /** Optional kana reading (from the "Back of card" tab). Surfaces only on
-   *  the back face of the preview. */
-  reading:        string
-  /** Optional English meaning (from the "Back of card" tab). Surfaces only on
-   *  the back face. */
-  meaning:        string
-  /** Optional data-URL preview of the user's uploaded picture. Surfaces only
-   *  on the back face. Never sent to the server in this iteration. */
-  pictureDataUrl: string | null
   todayKey:       string
   dimmed?:        boolean
   targetMissing?: boolean
@@ -111,22 +88,18 @@ export interface AddSessionPreviewProps {
 export function AddSessionPreview({
   word,
   sentence,
-  reading,
-  meaning,
-  pictureDataUrl,
   todayKey,
   dimmed = false,
   targetMissing = false,
 }: AddSessionPreviewProps): React.JSX.Element {
   const quote = useMemo(() => pickPreviewLine(todayKey), [todayKey])
-  const [face, setFace] = useState<PreviewFace>('front')
 
   const hasWord = word.length > 0
 
   const previewCard = useMemo<ApiDueCard | null>(() => {
     if (!hasWord) return null
-    return buildPreviewCard({ word, sentence, reading, meaning, pictureDataUrl })
-  }, [hasWord, word, sentence, reading, meaning, pictureDataUrl])
+    return buildPreviewCard({ word, sentence })
+  }, [hasWord, word, sentence])
 
   return (
     <div
@@ -135,22 +108,14 @@ export function AddSessionPreview({
         dimmed && 'opacity-80 transition-opacity duration-200 ease-out',
       )}
     >
-      <SectionCard
-        kanji=""
-        label=""
-        stripeTone="brand"
-        omitTitle
-        {...(hasWord ? { rightContent: <FaceToggle face={face} onChange={setFace} /> } : {})}
-      >
+      <SectionCard kanji="" label="" stripeTone="brand" omitTitle>
         <div
           aria-live="polite"
           aria-atomic="true"
           className="px-1 pt-5 pb-6 md:px-2 md:pt-7 md:pb-8"
         >
           {previewCard !== null ? (
-            face === 'front'
-              ? <CardFront card={previewCard} />
-              : <CardBack key={`back-${reading}-${meaning}-${pictureDataUrl ?? ''}`} card={previewCard} />
+            <CardFront card={previewCard} />
           ) : (
             <EmptyPreview quote={quote} />
           )}
@@ -169,50 +134,6 @@ export function AddSessionPreview({
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-interface FaceToggleProps {
-  face:     PreviewFace
-  onChange: (next: PreviewFace) => void
-}
-
-function FaceToggle({ face, onChange }: FaceToggleProps): React.JSX.Element {
-  const items: ReadonlyArray<{ value: PreviewFace; label: string }> = [
-    { value: 'front', label: 'Front' },
-    { value: 'back',  label: 'Back'  },
-  ]
-  return (
-    <div
-      role="tablist"
-      aria-label="Preview face"
-      className="pointer-events-auto inline-flex items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
-    >
-      {items.map((item) => {
-        const selected = item.value === face
-        return (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onClick={() => onChange(item.value)}
-            className={cn(
-              'px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.14em]',
-              'transition-colors duration-150 ease-out',
-              'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-              selected
-                ? 'bg-cream-inset text-sumi-ink'
-                : 'text-faded-sumi hover:text-sumi-ink',
-            )}
-          >
-            {item.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 function EmptyPreview({ quote }: { quote: string }): React.JSX.Element {
   return (
     <div className="flex w-full flex-col items-center gap-6 md:gap-8 py-4 md:py-8 min-h-[180px] justify-center">
@@ -222,8 +143,6 @@ function EmptyPreview({ quote }: { quote: string }): React.JSX.Element {
     </div>
   )
 }
-
-// ── Target-in-sentence check (re-exported, unchanged) ────────────────────────
 
 export function isTargetMissingFromSentence(word: string, sentence: string): boolean {
   if (word.length === 0 || sentence.length === 0) return false

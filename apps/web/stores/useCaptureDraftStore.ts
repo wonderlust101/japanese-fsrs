@@ -18,9 +18,18 @@ import { devtools } from 'zustand/middleware'
 
 export type CaptureCardType = 'comprehension' | 'production' | 'listening' | 'auto'
 
+/**
+ * How the user wanted the card to be built when they left /add.
+ *   'generate' — kick off AI generation on /add/review (default).
+ *   'manual'   — skip generation; /add/review opens a manual-edit form.
+ */
+export type CaptureMode = 'generate' | 'manual'
+
 export interface CaptureDraft {
   word:         string
   sentence:     string
+  /** Build path the user chose on /add: 'generate' (AI) or 'manual'. */
+  mode:         CaptureMode
   /** Optional kana reading the user already knows. Empty string means "let
    *  Tomo infer." Surfaces on the back of the card (`WordStack`). */
   reading:      string
@@ -45,6 +54,7 @@ export interface CaptureDraft {
 export const EMPTY_CAPTURE_DRAFT: CaptureDraft = {
   word:         '',
   sentence:     '',
+  mode:         'generate',
   reading:      '',
   meaning:      '',
   mnemonic:     '',
