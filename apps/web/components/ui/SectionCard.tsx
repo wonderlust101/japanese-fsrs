@@ -123,7 +123,12 @@ export function SectionCard({
       {stripeColor !== undefined && (
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 z-10 h-[2px]"
+          // z-[1] is enough to stack above the card's own children (which
+          // default to z-auto); deliberately keeps the stripe below
+          // page-level sticky chrome (TopBar, section tabs) which sit at
+          // z-10+ so the stripe never paints over them as the card
+          // scrolls past.
+          className="absolute inset-x-0 top-0 z-[1] h-[2px]"
           style={{ backgroundColor: stripeColor }}
         />
       )}
