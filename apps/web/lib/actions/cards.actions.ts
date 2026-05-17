@@ -84,6 +84,21 @@ export async function getCardAction(deckId: string, cardId: string): Promise<Api
   )
 }
 
+/**
+ * Fetches a card via the flat `/api/v1/cards/:id` mount. The deck-scoped
+ * mount validates that the card belongs to a specific deck; the flat mount
+ * simply checks user ownership. Use this from `/cards/[cardId]` routes where
+ * the deck id isn't known up front.
+ */
+export async function getCardByIdAction(cardId: string): Promise<ApiCard | null> {
+  return apiCallSafe<ApiCard | null>(
+    `/api/v1/cards/${cardId}`,
+    ApiCardSchema.nullable(),
+    {},
+    null,
+  )
+}
+
 export async function getSimilarCardsAction(cardId: string): Promise<ApiList<ApiSimilarCard>> {
   return apiCallSafe<ApiList<ApiSimilarCard>>(
     `/api/v1/cards/${cardId}/similar`,
@@ -140,5 +155,26 @@ export async function deleteCardAction(cardId: string): Promise<void> {
     voidResponseSchema,
     { method: 'DELETE' },
     'Failed to delete card',
+  )
+}
+
+/**
+ * Move a card to another deck. The frontend ships this expecting the backend
+ * to land a POST /api/v1/cards/:id/move endpoint that takes { deckId } and
+ * relocates the card row (and its content siblings) to the target deck.
+ *
+ * Until the endpoint exists in production, calls will surface as an API error
+ * which the calling dialog surfaces to the user.
+ */
+export async function moveCardAction(cardId: string, targetDeckId: string): Promise<void> {
+  await apiCall<unknown>(
+    `/api/v1/cards/${cardId}/move`,
+    voidResponseSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ deckId: targetDeckId }),
+    },
+    'Failed to move card',
   )
 }
