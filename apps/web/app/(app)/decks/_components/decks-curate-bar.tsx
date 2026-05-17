@@ -19,11 +19,12 @@ interface DecksCurateBarProps {
 }
 
 /**
- * Sticky bottom action bar that appears in Curate mode. Lives 24px above the
- * viewport edge so it doesn't sit flush against the browser chrome. Max-width
- * matches the list container so it visually owns the same column.
- *
- * Hides on small viewports via different sizing (full-width minus 16px padding).
+ * Bottom-anchored bulk action band that appears in Curate mode. Spans the full
+ * viewport width and aligns its inner content to the page's 1440px container
+ * (matching the same `px-4 sm:px-6 lg:px-12 xl:px-16` gutters used by the
+ * deck list above). A 2px Inari Vermillion top rule pulls the bar into the
+ * same brand vocabulary as `SectionCard` and the deck rows — the band reads as
+ * a continuation of the page, not a floating widget on top of it.
  */
 export function DecksCurateBar({
   selectedCount,
@@ -41,17 +42,17 @@ export function DecksCurateBar({
     <div
       role="region"
       aria-label="Bulk deck actions"
-      className={[
-        'pointer-events-none fixed inset-x-0 bottom-3 z-20 flex justify-center px-3',
-        'sm:bottom-5 sm:px-6',
-      ].join(' ')}
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-soft-hairline bg-warm-paper-raised"
     >
-      <div
-        className={[
-          'pointer-events-auto flex w-full max-w-[64rem] items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-2.5',
-          'shadow-[var(--shadow-card)]',
-        ].join(' ')}
-      >
+      {/* 2px vermillion top rule — the same identity device that sits on
+          every SectionCard and DeckCard. Renders above the band's top border
+          so the band reads as 'a Tomo surface', not a floating widget. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
+      />
+
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-12 xl:px-16">
         <button
           type="button"
           onClick={onDone}
@@ -64,22 +65,23 @@ export function DecksCurateBar({
           Done
         </button>
 
-        <span className="hidden font-mono text-xs tabular-nums text-faded-sumi sm:inline">
+        {/* Selection count — same mono small-caps treatment as the
+            decks-tabs / decks-utility-row eyebrows. */}
+        <span className="font-mono text-xs tabular-nums text-faded-sumi">
           <span className="text-sumi-ink">{selectedCount}</span>
-          {' selected of '}
+          {' selected '}
+          <span className="text-faded-sumi/70">of</span>
+          {' '}
           <span className="text-sumi-ink/85">{totalCount}</span>
-        </span>
-        <span className="font-mono text-xs tabular-nums text-faded-sumi sm:hidden">
-          <span className="text-sumi-ink">{selectedCount}</span>/<span>{totalCount}</span>
         </span>
 
         {!canReorder && (
-          <span className="hidden truncate text-xs italic text-faded-sumi md:inline">
-            Sort by Study order to reorder.
+          <span className="hidden truncate font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi md:inline">
+            Sort by Study order to reorder
           </span>
         )}
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <BarAction
             onClick={onMoveToTop}
             disabled={noSelection || !canReorder}

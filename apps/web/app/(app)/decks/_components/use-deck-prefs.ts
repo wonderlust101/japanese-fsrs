@@ -22,10 +22,14 @@ export type DecksSortKey =
 
 export type DecksTypeFilter = 'all' | 'vocabulary' | 'kanji' | 'mixed'
 
+/** Top-level tab on the Decks page. */
+export type DecksViewTab = 'active' | 'mature' | 'archived'
+
 export interface DeckViewPrefs {
   sort:         DecksSortKey
   typeFilter:   DecksTypeFilter
-  showArchived: boolean
+  /** Top-level tab. Replaces the older showArchived boolean. */
+  view:         DecksViewTab
 }
 
 const VIEW_PREFS_KEY      = 'tomo.decks.viewPrefs.v1'
@@ -36,7 +40,26 @@ const RESERVED_LOCAL_NAME_KEY = 'tomo.decks.localNameOverrides.v1'
 const DEFAULT_PREFS: DeckViewPrefs = {
   sort:         'study-order',
   typeFilter:   'all',
-  showArchived: false,
+  view:         'active',
+}
+
+/**
+ * Migrate legacy persisted prefs that still carry `showArchived` (boolean)
+ * into the new `view` tab key. Forward-only: once a user lands on the new
+ * shape, this branch is a no-op.
+ */
+function migratePrefs(raw: unknown): DeckViewPrefs {
+  if (raw === null || typeof raw !== 'object') return DEFAULT_PREFS
+  const obj = raw as Record<string, unknown>
+  const view: DecksViewTab =
+    typeof obj['view'] === 'string' && ['active', 'mature', 'archived'].includes(obj['view'] as string)
+      ? (obj['view'] as DecksViewTab)
+      : obj['showArchived'] === true
+        ? 'archived'
+        : 'active'
+  const sort = (typeof obj['sort'] === 'string' ? obj['sort'] : DEFAULT_PREFS.sort) as DecksSortKey
+  const typeFilter = (typeof obj['typeFilter'] === 'string' ? obj['typeFilter'] : DEFAULT_PREFS.typeFilter) as DecksTypeFilter
+  return { sort, typeFilter, view }
 }
 
 function safeRead<T>(key: string, fallback: T): T {
@@ -61,15 +84,15 @@ function safeWrite<T>(key: string, value: T): void {
 
 export function useViewPrefs(): {
   prefs: DeckViewPrefs
-  setSort:          (sort: DecksSortKey) => void
-  setTypeFilter:    (filter: DecksTypeFilter) => void
-  setShowArchived:  (show: boolean) => void
+  setSort:       (sort: DecksSortKey) => void
+  setTypeFilter: (filter: DecksTypeFilter) => void
+  setView:       (view: DecksViewTab) => void
 } {
   const [prefs, setPrefs] = useState<DeckViewPrefs>(DEFAULT_PREFS)
 
   // Hydrate from localStorage after mount to avoid SSR/CSR text mismatch.
   useEffect(() => {
-    setPrefs(safeRead<DeckViewPrefs>(VIEW_PREFS_KEY, DEFAULT_PREFS))
+    setPrefs(migratePrefs(safeRead<unknown>(VIEW_PREFS_KEY, null)))
   }, [])
 
   const persist = useCallback((next: DeckViewPrefs) => {
@@ -79,9 +102,9 @@ export function useViewPrefs(): {
 
   return {
     prefs,
-    setSort:         (sort)       => persist({ ...prefs, sort }),
-    setTypeFilter:   (typeFilter) => persist({ ...prefs, typeFilter }),
-    setShowArchived: (showArchived) => persist({ ...prefs, showArchived }),
+    setSort:       (sort)       => persist({ ...prefs, sort }),
+    setTypeFilter: (typeFilter) => persist({ ...prefs, typeFilter }),
+    setView:       (view)       => persist({ ...prefs, view }),
   }
 }
 

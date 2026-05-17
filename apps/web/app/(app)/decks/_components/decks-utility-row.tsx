@@ -5,8 +5,6 @@ import { forwardRef, useEffect, useRef } from 'react'
 import {
   IconEdit,
   IconFilter,
-  IconHide,
-  IconReveal,
   IconSearch,
   IconSort,
 } from '@/components/icons/chrome-marks'
@@ -40,27 +38,23 @@ const TYPE_LABEL: Record<DecksTypeFilter, string> = {
 const TYPE_ORDER: ReadonlyArray<DecksTypeFilter> = ['all', 'vocabulary', 'kanji', 'mixed']
 
 interface DecksUtilityRowProps {
-  sort:            DecksSortKey
-  typeFilter:      DecksTypeFilter
-  showArchived:    boolean
-  searchQuery:     string
-  curateActive:    boolean
-  onSort:          (sort: DecksSortKey) => void
-  onTypeFilter:    (filter: DecksTypeFilter) => void
-  onShowArchived:  (show: boolean) => void
-  onSearchQuery:   (query: string) => void
-  onCurate:        () => void
+  sort:          DecksSortKey
+  typeFilter:    DecksTypeFilter
+  searchQuery:   string
+  curateActive:  boolean
+  onSort:        (sort: DecksSortKey) => void
+  onTypeFilter:  (filter: DecksTypeFilter) => void
+  onSearchQuery: (query: string) => void
+  onCurate:      () => void
 }
 
 export function DecksUtilityRow({
   sort,
   typeFilter,
-  showArchived,
   searchQuery,
   curateActive,
   onSort,
   onTypeFilter,
-  onShowArchived,
   onSearchQuery,
   onCurate,
 }: DecksUtilityRowProps): React.JSX.Element {
@@ -89,11 +83,10 @@ export function DecksUtilityRow({
       aria-label="Deck list controls"
       className="flex flex-col gap-3 border-t border-soft-hairline pt-4 pb-4 sm:flex-row sm:items-center sm:gap-3 sm:py-4"
     >
-      {/* Left cluster: sort / type / archive */}
+      {/* Left cluster: sort / type. Archived tab handles archive view. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <SortDropdown current={sort} onChange={onSort} />
         <TypeDropdown current={typeFilter} onChange={onTypeFilter} />
-        <ArchivedToggle showArchived={showArchived} onToggle={onShowArchived} />
       </div>
 
       {/* Right cluster: search + curate. min-w-0 prevents the search from
@@ -206,36 +199,6 @@ function TypeDropdown({
         </>
       )}
     />
-  )
-}
-
-// ── Archive toggle ───────────────────────────────────────────────────────
-
-function ArchivedToggle({
-  showArchived,
-  onToggle,
-}: {
-  showArchived: boolean
-  onToggle:     (show: boolean) => void
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={() => onToggle(!showArchived)}
-      aria-pressed={showArchived}
-      className={[
-        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] pl-2.5 pr-3 text-sm',
-        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-        showArchived
-          ? 'border border-soft-hairline bg-cream-inset text-sumi-ink'
-          : 'border border-transparent text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink',
-      ].join(' ')}
-    >
-      {showArchived
-        ? <IconHide className="h-3.5 w-3.5" />
-        : <IconReveal className="h-3.5 w-3.5" />}
-      <span>{showArchived ? 'Hide archived' : 'Show archived'}</span>
-    </button>
   )
 }
 

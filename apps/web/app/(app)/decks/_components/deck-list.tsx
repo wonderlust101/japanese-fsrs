@@ -7,7 +7,7 @@ import type { ApiDeck, ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { Button } from '@/components/ui/Button'
-import { IconEdit, IconPlus } from '@/components/icons/chrome-marks'
+import { IconPlus } from '@/components/icons/chrome-marks'
 import { deleteDeckAction, getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { inferDeckLevel } from '@/lib/deck-level'
@@ -23,8 +23,8 @@ import {
 import { DecksCurateBar } from './decks-curate-bar'
 import { DecksHeader, type HeaderVariant } from './decks-header'
 import { DecksPagination } from './decks-pagination'
+import { DecksTabs } from './decks-tabs'
 import { DecksUtilityRow } from './decks-utility-row'
-import { SectionMarker } from './section-marker'
 import {
   useArchiveSet,
   useLocalNameOverrides,
@@ -34,6 +34,7 @@ import {
 } from './use-deck-prefs'
 
 const PAGE_SIZE = 12
+const PREMADE_THRESHOLD = 2  // Premade rail appears when active deck count ≤ this.
 
 type Toast = { kind: 'info' | 'error'; message: string; key: number }
 type ActiveDialog =
@@ -64,9 +65,9 @@ export function DeckListView(): React.JSX.Element {
 
   const knownIds = useMemo(() => allDecks.map((d) => d.id), [allDecks])
 
-  // Subscribe to per-deck details so "Most due first" sort and the priority
-  // sub-line have access to dueCount. Shares cache with each DeckCard's own
-  // useQuery, so this doesn't fire extra requests.
+  // Subscribe to per-deck details so "Most due first" sort and the header
+  // status sub-line have access to dueCount. Shares cache with each DeckCard's
+  // own useQuery, so this doesn't fire extra requests.
   const detailResults = useQueries({
     queries: allDecks.map((deck) => ({
       queryKey: queryKeys.decks.detail(deck.id),
@@ -83,8 +84,30 @@ export function DeckListView(): React.JSX.Element {
     return map
   }, [allDecks, detailResults])
 
+  // Mature-card map for the Mature tab. A deck classifies as "mature" when
+  // every card in it has graduated (matureCount === cardCount, cardCount > 0).
+  // Decks whose stats haven't loaded yet are conservatively excluded — they'll
+  // appear once their detail query resolves.
+  const matureByDeckId = useMemo(() => {
+    const map = new Map<string, { mature: number; total: number }>()
+    allDecks.forEach((deck, i) => {
+      const result = detailResults[i]
+      const stats  = result?.data as ApiDeckWithStats | null | undefined
+      if (stats != null) {
+        map.set(deck.id, { mature: stats.matureCount ?? 0, total: stats.cardCount })
+      }
+    })
+    return map
+  }, [allDecks, detailResults])
+
+  function isFullyMature(deckId: string): boolean {
+    const m = matureByDeckId.get(deckId)
+    if (m === undefined) return false
+    return m.total > 0 && m.mature >= m.total
+  }
+
   // ── Persistent state (localStorage) ───────────────────────────────────
-  const { prefs, setSort, setTypeFilter, setShowArchived } = useViewPrefs()
+  const { prefs, setSort, setTypeFilter, setView } = useViewPrefs()
   const studyOrder = useStudyOrder(knownIds)
   const archiveSet = useArchiveSet()
   const nameOverrides = useLocalNameOverrides()
@@ -93,7 +116,6 @@ export function DeckListView(): React.JSX.Element {
   const [searchInputValue, setSearchInputValue] = useState('')
   const [searchQuery,      setSearchQuery]      = useState('')
   const [page,             setPage]             = useState(1)
-  const [manageMode,       setManageMode]       = useState(false)
   const [curateMode,       setCurateMode]       = useState(false)
   const [selectedIds,      setSelectedIds]      = useState<ReadonlySet<string>>(new Set())
   const [dragState,        setDragState]        = useState<DragState | null>(null)
@@ -102,16 +124,13 @@ export function DeckListView(): React.JSX.Element {
 
   const utilityRowRef = useRef<HTMLElement | null>(null)
 
-  // Debounce the search filter so each keystroke doesn't recompute the list.
   useEffect(() => {
     const id = window.setTimeout(() => setSearchQuery(searchInputValue.trim()), 180)
     return () => window.clearTimeout(id)
   }, [searchInputValue])
 
-  // Reset to first page whenever filter/sort/search/archive changes.
-  useEffect(() => { setPage(1) }, [prefs.sort, prefs.typeFilter, prefs.showArchived, searchQuery])
+  useEffect(() => { setPage(1) }, [prefs.sort, prefs.typeFilter, prefs.view, searchQuery])
 
-  // Auto-dismiss toasts.
   useEffect(() => {
     if (toast === null) return
     const id = window.setTimeout(() => setToast(null), 3200)
@@ -124,8 +143,6 @@ export function DeckListView(): React.JSX.Element {
 
   // ── Derived data ──────────────────────────────────────────────────────
 
-  // Each non-archived deck has a stable slot index, 1-based. Archived decks
-  // get null and are excluded from the queue.
   const slotByDeckId = useMemo(() => {
     const map = new Map<string, number>()
     let slot = 1
@@ -136,18 +153,29 @@ export function DeckListView(): React.JSX.Element {
     return map
   }, [studyOrder.resolvedOrder, archiveSet])
 
-  // Map of deck-id → resolved display name (applies any local rename override).
   const displayNameOf = useCallback(
     (deck: ApiDeck) => nameOverrides.nameFor(deck.id, deck.name),
     [nameOverrides],
   )
 
-  // Effective list after filtering by type / archived / search.
   const filteredDecks: ApiDeck[] = useMemo(() => {
     const q = searchQuery.toLowerCase()
     return allDecks.filter((deck) => {
       const archived = archiveSet.isArchived(deck.id)
-      if (prefs.showArchived !== archived) return false
+      // Tab filter: Active = non-archived; Mature = non-archived AND fully mature;
+      // Archived = archived only. Mature is a sub-filter on Active.
+      switch (prefs.view) {
+        case 'active':
+          if (archived) return false
+          break
+        case 'mature':
+          if (archived) return false
+          if (!isFullyMature(deck.id)) return false
+          break
+        case 'archived':
+          if (!archived) return false
+          break
+      }
       if (prefs.typeFilter !== 'all' && deck.deckType !== prefs.typeFilter) return false
       if (q.length > 0) {
         const haystack = `${displayNameOf(deck)} ${deck.description ?? ''}`.toLowerCase()
@@ -155,10 +183,8 @@ export function DeckListView(): React.JSX.Element {
       }
       return true
     })
-  }, [allDecks, prefs.typeFilter, prefs.showArchived, searchQuery, archiveSet, displayNameOf])
+  }, [allDecks, prefs.typeFilter, prefs.view, searchQuery, archiveSet, displayNameOf, matureByDeckId])
 
-  // Sort the filtered list according to the chosen sort. Study order uses the
-  // resolved order's index; non-study sorts use the deck's own metadata.
   const sortedDecks: ApiDeck[] = useMemo(() => {
     const list = [...filteredDecks]
     list.sort((a, b) => compareDecks(a, b, prefs.sort, slotByDeckId, dueByDeckId, displayNameOf))
@@ -172,16 +198,40 @@ export function DeckListView(): React.JSX.Element {
   const pageEnd    = Math.min(pageStart + PAGE_SIZE, totalCount)
   const visibleDecks = useMemo(() => sortedDecks.slice(pageStart, pageEnd), [sortedDecks, pageStart, pageEnd])
 
-  // Drag-to-reorder only operates in V1 (the vertical-list baseline). The
-  // variations carry their own layout topologies, some of which can't host a
-  // single-axis drag reliably; their kebab menus expose Move up / Move down
-  // / Set as priority as accessible alternatives.
-  const canReorder = prefs.sort === 'study-order' && !prefs.showArchived
-  const archivedCount  = useMemo(
+  // Drag-to-reorder is enabled in study-order sort on the active-decks view.
+  // Reordering only makes sense while looking at the live study queue — not
+  // when viewing the mature or archived subsets.
+  const canReorder = prefs.sort === 'study-order' && prefs.view === 'active'
+
+  const archivedCount = useMemo(
     () => allDecks.filter((d) => archiveSet.isArchived(d.id)).length,
     [allDecks, archiveSet],
   )
   const activeCount = allDecks.length - archivedCount
+
+  // Mature-tab population: non-archived decks at 100% mature. Hidden from the
+  // count until stats arrive — same behavior as the filter itself.
+  const matureTabCount = useMemo(() => {
+    let n = 0
+    allDecks.forEach((d) => {
+      if (archiveSet.isArchived(d.id)) return
+      if (isFullyMature(d.id)) n += 1
+    })
+    return n
+  }, [allDecks, archiveSet, matureByDeckId])
+
+  // Roll up due workload across all active decks for the header status line.
+  const { totalDueCount, decksWithDueCount } = useMemo(() => {
+    let total = 0
+    let decks = 0
+    allDecks.forEach((d) => {
+      if (archiveSet.isArchived(d.id)) return
+      const due = dueByDeckId.get(d.id) ?? 0
+      if (due > 0) decks += 1
+      total += due
+    })
+    return { totalDueCount: total, decksWithDueCount: decks }
+  }, [allDecks, archiveSet, dueByDeckId])
 
   const priorityDeckId   = studyOrder.priorityDeckId
   const priorityDeckName = useMemo(() => {
@@ -199,8 +249,15 @@ export function DeckListView(): React.JSX.Element {
     if (searchQuery.length > 0) {
       return { kind: 'search', query: searchQuery, matchedCount: totalCount, totalCount: allDecks.length }
     }
-    return { kind: 'default', activeCount, archivedCount, priorityDeckName }
-  }, [isLoading, isError, allDecks.length, searchQuery, totalCount, activeCount, archivedCount, priorityDeckName])
+    return {
+      kind: 'default',
+      activeCount,
+      archivedCount,
+      priorityDeckName,
+      totalDueCount,
+      decksWithDueCount,
+    }
+  }, [isLoading, isError, allDecks.length, searchQuery, totalCount, activeCount, archivedCount, priorityDeckName, totalDueCount, decksWithDueCount])
 
   // ── Drag-to-reorder pointer state machine ─────────────────────────────
   const handleDragHandleDown = useCallback(
@@ -208,9 +265,6 @@ export function DeckListView(): React.JSX.Element {
       (event: React.PointerEvent<HTMLButtonElement>) => {
         if (!canReorder) return
         event.preventDefault()
-        // Use pointer capture on the document body via window listeners. We don't
-        // capture on the handle itself because the handle is small and the user
-        // will drag well beyond its bounds.
         setDragState({
           draggedId:    deckId,
           draggedIndex: viewIndex,
@@ -246,8 +300,6 @@ export function DeckListView(): React.JSX.Element {
       setDragState((prev) => {
         if (prev === null) return null
         if (prev.overIndex === null || prev.overIndex === prev.draggedIndex) return null
-        // Translate viewIndex (within visibleDecks) into a position within the
-        // resolved studyOrder. Then commit the new study order.
         const fromVisible = visibleDecks[prev.draggedIndex]
         const toVisible   = visibleDecks[prev.overIndex]
         if (fromVisible === undefined || toVisible === undefined) return null
@@ -325,7 +377,6 @@ export function DeckListView(): React.JSX.Element {
   }
 
   function handleBulkDelete(): void {
-    // Sequentially delete; collect failures into a single toast.
     const ids = [...selectedIds]
     setCurateMode(false)
     setActiveDialog({ kind: 'none' })
@@ -354,17 +405,12 @@ export function DeckListView(): React.JSX.Element {
   // ── Render ────────────────────────────────────────────────────────────
 
   const showCurateMode = curateMode && allDecks.length > 0
+  const showPremadeRail = !isLoading && !isError && activeCount > 0 && activeCount <= PREMADE_THRESHOLD
 
   return (
     <>
       <TopBar>
         <h1 className="flex-1 text-base font-semibold text-sumi-ink">Decks</h1>
-        <Link
-          href="/decks/premade"
-          className="hidden text-sm text-faded-sumi underline-offset-2 hover:text-sumi-ink hover:underline sm:inline-block"
-        >
-          Explore premade decks
-        </Link>
         <Button
           size="sm"
           variant="secondary"
@@ -375,8 +421,6 @@ export function DeckListView(): React.JSX.Element {
         </Button>
       </TopBar>
 
-      {/* Page background tone shift in curate mode. The tonal step is the
-          quiet signal that "you are editing the list now." */}
       <div
         className={[
           'ui-motion-colors min-h-screen pb-32',
@@ -384,73 +428,27 @@ export function DeckListView(): React.JSX.Element {
         ].join(' ')}
       >
         <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16">
-          {/* Page-scope ornaments that frame the page as a printed
-              register: a 2px vermillion top rule across the full page
-              width, and a 1px vermillion left margin rule running
-              floor-to-ceiling. */}
-          <span
-            aria-hidden="true"
-            className="block h-[2px] w-full bg-inari-vermillion"
-          />
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute left-0 top-0 bottom-0 w-px bg-inari-vermillion"
-          />
-
-          {/* Section title — the editorial header with mono eyebrow,
-              Bricolage title, status sub-line, all inside a tinted
-              Cool Paper Shade panel. */}
           <DecksHeader variant={headerVariant} />
 
-          {/* Default-mode slim row: search + Manage toggle. Manage gates
-              the power-user chrome (sort, type filter, archived, curate)
-              so a regular learner meets a calm page first. */}
-          {!(headerVariant.kind === 'empty') && !manageMode && (
-            <section
-              aria-label="Deck list controls"
-              ref={(node) => { utilityRowRef.current = node }}
-              className="mt-4 flex flex-col gap-2 border-t border-soft-hairline pt-4 sm:flex-row sm:items-center sm:gap-3 sm:py-4"
-            >
-              <DefaultSearchInput
-                value={searchInputValue}
-                onChange={setSearchInputValue}
-              />
-              <div className="flex-1" />
-              <button
-                type="button"
-                onClick={() => setManageMode(true)}
-                className="ui-motion-colors inline-flex h-9 items-center gap-2 self-start rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-3 text-sm text-sumi-ink hover:border-faded-sumi hover:bg-cream-inset focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:self-auto"
-                aria-pressed={false}
-              >
-                <IconEdit className="h-3.5 w-3.5" />
-                <span>Manage</span>
-              </button>
-            </section>
-          )}
-
-          {/* Manage-mode chrome. Section marker + full utility row. */}
-          {!(headerVariant.kind === 'empty') && manageMode && (
+          {/* Top-level tabs and curate bar. Hidden in the empty state because
+              there's nothing to sort, filter, or page through yet. */}
+          {!(headerVariant.kind === 'empty') && (
             <>
-              <div className="mt-2 mb-1.5 flex items-center justify-between">
-                <SectionMarker label="Manage" />
-                <button
-                  type="button"
-                  onClick={() => { setManageMode(false); setCurateMode(false) }}
-                  className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-                >
-                  Done managing
-                </button>
+              <div className="mt-4">
+                <DecksTabs
+                  view={prefs.view}
+                  counts={{ active: activeCount, mature: matureTabCount, archived: archivedCount }}
+                  onChange={setView}
+                />
               </div>
               <section ref={(node) => { utilityRowRef.current = node }}>
                 <DecksUtilityRow
                   sort={prefs.sort}
                   typeFilter={prefs.typeFilter}
-                  showArchived={prefs.showArchived}
                   searchQuery={searchInputValue}
                   curateActive={curateMode}
                   onSort={setSort}
                   onTypeFilter={setTypeFilter}
-                  onShowArchived={setShowArchived}
                   onSearchQuery={setSearchInputValue}
                   onCurate={() => setCurateMode((v) => !v)}
                 />
@@ -458,14 +456,7 @@ export function DeckListView(): React.JSX.Element {
             </>
           )}
 
-          {/* Section marker for the deck list */}
-          {!isLoading && !isError && allDecks.length > 0 && (
-            <div className="mt-3 mb-2">
-              <SectionMarker label="Decks" />
-            </div>
-          )}
-
-          {/* List area */}
+          {/* Deck list */}
           <section aria-label="Deck list" className="mt-3 space-y-2">
             {isLoading && (
               <>
@@ -484,7 +475,7 @@ export function DeckListView(): React.JSX.Element {
             {!isLoading && !isError && allDecks.length > 0 && visibleDecks.length === 0 && (
               <NoMatchesState
                 query={searchQuery}
-                showArchived={prefs.showArchived}
+                view={prefs.view}
                 typeFilter={prefs.typeFilter}
               />
             )}
@@ -508,7 +499,7 @@ export function DeckListView(): React.JSX.Element {
                   isArchived={isArchived}
                   curateMode={curateMode}
                   selected={selectedIds.has(deck.id)}
-                  dragEnabled={canReorder && curateMode}
+                  dragEnabled={canReorder && !isArchived}
                   isDragging={isDragging}
                   isDropTarget={isDropTarget}
                   canMoveUp={!isArchived && orderIndex > 0}
@@ -529,9 +520,6 @@ export function DeckListView(): React.JSX.Element {
             })}
           </section>
 
-          {/* Pagination. Renders for every variant; all V2-V6 keep V1's
-              vertical-list layout and the orchestrator's pagination chrome
-              fits naturally below their list area. */}
           {!isLoading && !isError && visibleDecks.length > 0 && (
             <DecksPagination
               page={safePage}
@@ -542,24 +530,15 @@ export function DeckListView(): React.JSX.Element {
             />
           )}
 
-          {/* End-of-page premade callout. Quiet, single line, never an ad.
-              Hidden in Manage mode so it doesn't compete with curate chrome. */}
-          {!isLoading && !isError && allDecks.length > 0 && !manageMode && (
-            <div className="mt-10 border-t border-soft-hairline pt-5 text-sm text-faded-sumi">
-              Looking for more decks?{' '}
-              <Link
-                href="/decks/premade"
-                className="text-sumi-ink underline-offset-2 hover:underline"
-              >
-                Browse premade decks
-              </Link>
-              .
-            </div>
+          {/* Premade rail — only when the user is sparse (0–2 active decks).
+              Once they've built their own library, the rail disappears so
+              the page isn't an ad. */}
+          {showPremadeRail && (
+            <PremadeStarterRail />
           )}
         </div>
       </div>
 
-      {/* Curate bar (sticky bottom) */}
       {showCurateMode && (
         <DecksCurateBar
           selectedCount={selectedIds.size}
@@ -573,7 +552,6 @@ export function DeckListView(): React.JSX.Element {
         />
       )}
 
-      {/* Dialogs */}
       <CreateDeckDialog
         open={activeDialog.kind === 'create'}
         onClose={() => setActiveDialog({ kind: 'none' })}
@@ -582,11 +560,7 @@ export function DeckListView(): React.JSX.Element {
       <RenameDeckDialog
         open={activeDialog.kind === 'rename'}
         deck={activeDialog.kind === 'rename' ? activeDialog.deck : null}
-        currentName={
-          activeDialog.kind === 'rename'
-            ? displayNameOf(activeDialog.deck)
-            : ''
-        }
+        currentName={activeDialog.kind === 'rename' ? displayNameOf(activeDialog.deck) : ''}
         onClose={() => setActiveDialog({ kind: 'none' })}
         onLocalRename={(id, name) => nameOverrides.setNameOverride(id, name)}
         onError={(msg) => showToast(msg, 'error')}
@@ -600,7 +574,6 @@ export function DeckListView(): React.JSX.Element {
         onClose={() => setActiveDialog({ kind: 'none' })}
         onError={(msg) => showToast(msg, 'error')}
         onSuccess={(name) => {
-          // Clear any local override and archive bit for the deleted deck.
           if (activeDialog.kind === 'delete') {
             nameOverrides.setNameOverride(activeDialog.deck.id, null)
             archiveSet.restore(activeDialog.deck.id)
@@ -621,11 +594,9 @@ export function DeckListView(): React.JSX.Element {
         onSuccess={(msg) => showToast(msg)}
       />
 
-      {/* Toast */}
       {toast !== null && (
         <ToastView key={toast.key} toast={toast} onDismiss={() => setToast(null)} />
       )}
-
     </>
   )
 }
@@ -634,86 +605,59 @@ export function DeckListView(): React.JSX.Element {
 
 function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
   return (
-    <div className="mt-2 rounded-[2px] border border-soft-hairline bg-cream-inset/60 p-8 text-center sm:p-12">
-      <p className="text-base font-medium text-sumi-ink">No decks yet</p>
-      <p className="mx-auto mt-1.5 max-w-[36ch] text-sm text-faded-sumi">
-        Start with a curated premade deck, or build your own from scratch.
+    <div className="mt-10 flex flex-col items-center justify-center px-4 py-16 text-center sm:py-20">
+      <p className="text-base font-medium text-sumi-ink">You don't have any decks yet.</p>
+      <p className="mx-auto mt-2 max-w-[40ch] text-sm text-faded-sumi">
+        Build your own deck, or start from a curated premade one.
       </p>
-      <div className="mt-5 flex items-center justify-center gap-2">
-        <Link href="/decks/premade">
-          <Button size="md">Browse premade decks</Button>
+      <div className="mt-6 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-center">
+        <Button size="md" onClick={onCreate}>Add Japanese</Button>
+        <Link href="/decks/premade" className="inline-flex">
+          <Button size="md" variant="secondary" className="w-full sm:w-auto">
+            Browse premade decks
+          </Button>
         </Link>
-        <Button size="md" variant="ghost" onClick={onCreate}>
-          Create your own deck
-        </Button>
       </div>
     </div>
   )
 }
 
-// Slim search input used by the default-mode chrome. Mirrors the styling
-// of the Manage utility row's input so the visual identity stays consistent
-// across both modes.
-function DefaultSearchInput({
-  value,
-  onChange,
-}: {
-  value:    string
-  onChange: (next: string) => void
-}): React.JSX.Element {
+function PremadeStarterRail(): React.JSX.Element {
   return (
-    <div className="relative flex-1 sm:max-w-[24rem]">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faded-sumi"
-      >
-        <SearchGlyph />
-      </span>
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Find a deck"
-        aria-label="Find a deck"
-        className={[
-          'ui-motion-colors w-full h-9 rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
-          'hover:border-faded-sumi',
-          'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
-          '[&::-webkit-search-cancel-button]:appearance-none',
-          '[&::-webkit-search-decoration]:appearance-none',
-        ].join(' ')}
-      />
-    </div>
-  )
-}
-
-function SearchGlyph(): React.JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <section
+      aria-labelledby="decks-premade-rail-heading"
+      className="mt-10 border-t border-soft-hairline pt-6"
     >
-      <circle cx="6" cy="6" r="4" />
-      <path d="M9 9l3 3" />
-    </svg>
+      <div className="flex items-baseline justify-between gap-4">
+        <h2
+          id="decks-premade-rail-heading"
+          className="font-display text-base font-medium text-sumi-ink"
+        >
+          Start from a premade deck
+        </h2>
+        <Link
+          href="/decks/premade"
+          className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi hover:text-sumi-ink underline-offset-2 hover:underline"
+        >
+          Browse all
+        </Link>
+      </div>
+      <p className="mt-1.5 max-w-[60ch] text-sm text-faded-sumi">
+        Curated starter decks built for Japanese learners. Subscribe to one and
+        Tomo creates a personal copy you can study, edit, and pause.
+      </p>
+    </section>
   )
 }
 
 function NoMatchesState({
   query,
-  showArchived,
+  view,
   typeFilter,
 }: {
-  query:        string
-  showArchived: boolean
-  typeFilter:   string
+  query:      string
+  view:       'active' | 'mature' | 'archived'
+  typeFilter: string
 }): React.JSX.Element {
   let body: React.ReactNode
   if (query.length > 0) {
@@ -722,8 +666,10 @@ function NoMatchesState({
         No decks match <span className="text-sumi-ink/85">'{query}'</span>. Try a different term.
       </>
     )
-  } else if (showArchived) {
+  } else if (view === 'archived') {
     body = 'No archived decks yet. Archive a deck from its options menu to hide it from the queue.'
+  } else if (view === 'mature') {
+    body = 'No fully-mature decks yet. A deck becomes mature once every card has reached a 21-day interval.'
   } else if (typeFilter !== 'all') {
     body = `No ${typeFilter} decks. Adjust the Type filter to see more.`
   } else {
@@ -801,7 +747,6 @@ function compareDecks(
     case 'alphabetical':
       return displayNameOf(a).localeCompare(displayNameOf(b), 'en', { sensitivity: 'base' })
     case 'recently-reviewed':
-      // Higher updatedAt comes first. The list endpoint guarantees ISO strings.
       return b.updatedAt.localeCompare(a.updatedAt)
     case 'most-due-first': {
       const ad = dueById.get(a.id) ?? 0
