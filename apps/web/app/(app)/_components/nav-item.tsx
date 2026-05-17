@@ -11,6 +11,7 @@ import {
   IconDecks,
   IconPlus,
 }                                           from '@/components/icons/chrome-marks'
+import { useUnresolvedLeechCount }          from '@/lib/api/leeches'
 import { OfflineQueueBadge }                from './offline-queue-badge'
 import type { NavIconKey, NavItemConfig }   from './nav-config'
 
@@ -55,6 +56,13 @@ interface NavItemProps {
    *  prefix-sharing siblings (e.g. `/decks` and `/cards`) so only
    *  the longest matching child renders as active. */
   forceActive?: boolean
+  /**
+   * Trailing count chip rendered after the label for the Insights → Leeches
+   * row. When `count === 0`, no chip renders; when `count > 0`, the chip
+   * displays the integer (or `50+` when `hasMore` is true). Always hidden
+   * in the collapsed rail since the rail shows icons only.
+   */
+  leechBadge?: { count: number; hasMore: boolean }
 }
 
 function isMatch(pathname: string, href: string): boolean {
@@ -109,6 +117,7 @@ export function NavItem({
   collapsed  = false,
   subLabel,
   forceActive,
+  leechBadge,
 }: NavItemProps): React.JSX.Element {
   const pathname     = usePathname()
   const searchParams = useSearchParams()
@@ -291,20 +300,39 @@ export function NavItem({
           }`}
         >
           <ul className="overflow-hidden min-h-0 pt-1.5 space-y-0.5">
-            {children.map((child) => (
-              <NavItem
-                key={child.href}
-                item={child}
-                onNavigate={onNavigate}
-                level={1}
-                forceActive={child.href === activeChildHref}
-              />
-            ))}
+            {children.map((child) => {
+              const Renderer = child.hasLeechCount === true ? LeechCountNavItem : NavItem
+              return (
+                <Renderer
+                  key={child.href}
+                  item={child}
+                  onNavigate={onNavigate}
+                  level={1}
+                  forceActive={child.href === activeChildHref}
+                />
+              )
+            })}
           </ul>
         </div>
       </li>
     )
   }
+
+  // Trailing count chip (Insights → Leeches). Rendered only on leaf rows in
+  // expanded chrome; the rail variant short-circuits earlier. Always derive
+  // the display string from the live count, capping at the request limit
+  // with a `+` overflow when the server signals more pages.
+  const leechBadgeDisplay =
+    leechBadge !== undefined && leechBadge.count > 0
+      ? (leechBadge.hasMore ? `${leechBadge.count}+` : String(leechBadge.count))
+      : null
+
+  // Augment the row's accessible name so screen readers announce the count
+  // as part of the row label, not as a separately-focused element.
+  const rowAriaLabel =
+    leechBadgeDisplay !== null
+      ? `${item.label}, ${leechBadge?.count ?? 0} unresolved`
+      : undefined
 
   return (
     <li>
@@ -312,6 +340,7 @@ export function NavItem({
         href={item.href}
         onClick={onNavigate}
         aria-current={isActive ? 'page' : undefined}
+        {...(rowAriaLabel !== undefined && { 'aria-label': rowAriaLabel })}
         data-active={isActive ? 'true' : undefined}
         className={`${linkBase} ${linkPad}`}
       >
@@ -359,8 +388,40 @@ export function NavItem({
           </span>
         )}
 
+        {leechBadgeDisplay !== null && (
+          <span
+            aria-hidden="true"
+            className={[
+              'relative z-[1] ml-auto shrink-0 inline-flex items-center justify-center',
+              'min-w-[1.25rem] px-1.5 py-px',
+              'rounded-[2px] border border-inari-vermillion/35 bg-warm-paper-raised',
+              'font-mono text-[0.625rem] uppercase tracking-[0.04em] tabular-nums leading-none',
+              'text-inari-vermillion-deep',
+              // When the row is active, the row background shifts to
+              // vermillion-wash; the chip's paper-raised background then
+              // pops cleanly against it without a tone swap.
+            ].join(' ')}
+          >
+            {leechBadgeDisplay}
+          </span>
+        )}
+
         {item.hasOfflineBadge === true && <OfflineQueueBadge />}
       </Link>
     </li>
   )
+}
+
+/**
+ * Wrapper that subscribes to the unresolved-leech count and forwards the
+ * resolved badge data into `NavItem`. Used only when an item config has
+ * `hasLeechCount: true`, so the TanStack Query subscription is local to
+ * the leech row and never fires for nav rows that don't need it.
+ *
+ * Lives in this file so the recursive child render can dispatch to it
+ * inline without a cross-file lookup.
+ */
+function LeechCountNavItem(props: NavItemProps): React.JSX.Element {
+  const { count, hasMore } = useUnresolvedLeechCount()
+  return <NavItem {...props} leechBadge={{ count, hasMore }} />
 }

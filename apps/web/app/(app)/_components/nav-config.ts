@@ -28,6 +28,13 @@ export interface NavItemConfig {
   label:            string
   hasOfflineBadge?: boolean
   hasDueCount?:     boolean
+  /**
+   * Sidebar and drawer should attach a small unresolved-leech count chip to
+   * the row label. The static flag lives here; live data is wired by the
+   * rendering shell (`sidebar.tsx` / `mobile-drawer.tsx`), keeping this
+   * config serializable across the RSC boundary.
+   */
+  hasLeechCount?:   boolean
   children?:        NavItemConfig[]
 }
 
@@ -65,11 +72,12 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
         iconKey: 'analytics',
         label:   'Insights',
         children: [
-          { href: '/insights',            iconKey: 'analytics', label: 'Overview'   },
-          { href: '/insights/mistakes',   iconKey: 'browse',    label: 'Mistakes'   },
-          { href: '/insights/progress',   iconKey: 'browse',    label: 'Progress'   },
-          { href: '/insights/forecast',   iconKey: 'browse',    label: 'Forecast'   },
-          { href: '/insights/statistics', iconKey: 'browse',    label: 'Statistics' },
+          { href: '/insights',            iconKey: 'analytics', label: 'Overview'                          },
+          { href: '/insights/mistakes',   iconKey: 'browse',    label: 'Mistakes'                          },
+          { href: '/insights/leeches',    iconKey: 'browse',    label: 'Leeches',    hasLeechCount: true   },
+          { href: '/insights/progress',   iconKey: 'browse',    label: 'Progress'                          },
+          { href: '/insights/forecast',   iconKey: 'browse',    label: 'Forecast'                          },
+          { href: '/insights/statistics', iconKey: 'browse',    label: 'Statistics'                        },
         ],
       },
     ],
