@@ -8,7 +8,7 @@ This page is about the collection. It should not become the full Cards browser, 
 
 ## Primary User Jobs
 
-- Understand deck scope and health.
+- Understand deck scope.
 - Study this deck.
 - See due cards and future load for this deck.
 - Open Cards filtered to this deck.
@@ -24,7 +24,6 @@ This page is about the collection. It should not become the full Cards browser, 
 1. Deck title and description.
 2. Due count and review load.
 3. Study this deck action.
-4. Deck health summary.
 5. Access to cards in this deck.
 6. Deck options.
 
@@ -48,14 +47,13 @@ This page is about the collection. It should not become the full Cards browser, 
 
 ## UX Notes
 
-The page should make the deck's current condition visible without making the learner read a report. The key questions are: is there work due, is this deck healthy, and what action should I take?
+The page should make the deck's current condition visible without making the learner read a report. The key questions are: is there work due, and what action should I take?
 
 Deck Detail should connect cleanly to Cards. If users want to edit or tag individual cards, the action should route to Cards with this deck filter applied.
 
 ## UI Notes
 
 - Place due workload and study action high in the hierarchy.
-- Use deck health signals sparingly and explain them clearly.
 - Separate deck-level settings from card-level management.
 - Avoid showing a huge card list by default if it makes the page feel heavy.
 - Provide search within deck or a clear link to card browser filtered to deck.
@@ -120,17 +118,16 @@ Show paused status and resume control.
 
 ## Responsive Behavior
 
-Desktop can include deck summary, health, and cards access in one page. Mobile should prioritize due count, study action, and high-level deck info before management actions.
+Desktop can include deck summary, and cards access in one page. Mobile should prioritize due count, study action, and high-level deck info before management actions.
 
 ## Copy Tone
 
-Use direct collection language. Avoid making deck health sound punitive.
+Use direct collection language. 
 
 ## Designer Watchouts
 
 - Do not turn Deck Detail into the full Cards page.
 - Do not hide deck options from power users.
-- Do not make deck health visually alarming unless action is truly needed.
 - Do not require deck-specific Add for normal capture.
 
 

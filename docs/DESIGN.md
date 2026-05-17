@@ -200,7 +200,7 @@ The system runs **cool page, warm card** to make cards read as objects resting o
 
 - **Warm Paper Base** (`#FBF8F4`): legacy alias still referenced by some components; in the card-stack identity, cards live on Warm Paper Raised (below).
 - **Warm Paper Raised** (`#FDFBF7`): the **card surface color**. Slightly warmer and lighter than Warm Paper Base, distinctly warmer than Cool Paper Base. Also the *text color* on saturated-fill components (Primary button, Rating buttons), where pure white would feel cold.
-- **Cream Inset** (`#F4EFE6`): recessed surfaces — sidebar/drawer background, input backgrounds (when an input sits on a page rather than inside a card), code blocks, deck-type badge backgrounds for Vocabulary and Mixed types.
+- **Cream Inset** (`#F4EFE6`): recessed surfaces — input backgrounds (when an input sits on a page rather than inside a card), code blocks, deck-type badge backgrounds for Vocabulary and Mixed types, and hover row tints inside chrome. Note: the sidebar and mobile drawer use Warm Paper Raised, not Cream Inset, so the navigation chrome reads as a warm panel against the cooler page rather than as a recessed inset.
 - **Soft Hairline** (`#E5DCD0`): hairline borders — the 1px card border, the sidebar right edge, the answer-reveal divider, input default border, section dividers in the nav body.
 - **Faded Sumi** (`#6B5F58`): the secondary text color (descriptions, hints, stats labels, Ghost button default, Furigana reading text, default-state nav-icon stroke). Hits WCAG AA against Cool Paper Base and Warm Paper Raised.
 - **Sumi Ink** (`#1F1A18`): the primary text color. Deep ink-brown, not pure black. Carries the "ink on paper" character of the system. Contrast against Cool Paper Base is well into AAA. Also the background fill for the "Again" Rating button.
@@ -275,6 +275,8 @@ Cards (the SRS unit, deck cards in lists, the review card, the auth/onboarding c
 **The State-Only Shadow Rule.** Shadows respond to *state* (focus, popover open, modal presented), not to decoration. Buttons, badges, nav items, and cards are all part of the resting plane until they're triggered. There is no "ambient elevation tier"; surfaces are either flat or actively presenting.
 
 **The Warm-Tint Shadow Rule.** When shadow does appear, its color carries a faint warm cast that matches the warm-paper neutrals. A pure-neutral-black shadow on warm paper looks gray and cold; a warm-tinted shadow harmonizes. Practical implementation: shadow color uses OKLCH (or `rgba(70, 30, 35, X)` as a literal approximation) toward hue ~25, the same hue family as the warm-paper neutrals — never `rgba(0,0,0,X)`.
+
+**The Opaque-Chrome Rule.** Sticky and floating chrome surfaces (mobile sticky action bar, dev panels, toast notifications) commit to fully opaque `bg-warm-paper-raised` rather than translucency-plus-blur. Glass effects (`backdrop-blur-*` plus reduced opacity) are explicitly off-pattern for chrome: warm-paper against the cool page already provides sufficient visual separation via the 1px soft-hairline border and the warm/cool surface contrast. **Modal backdrop carve-out:** the native `<dialog>` element's `::backdrop` pseudo-element (see `apps/web/components/ui/Dialog.tsx`) may pair `bg-sumi-ink/40` with up to `backdrop-blur-[2px]` to deepen the modal stage by softening the page underneath. The blur lives on the page-dimming scrim only; the dialog body itself stays opaque `bg-warm-paper-raised` per the chrome rule above. This is the single documented exception — any other surface that wants blur would need its own explicit carve-out here.
 
 ## Components
 
@@ -395,8 +397,8 @@ Two surfaces — the desktop **Sidebar** (lg+) and the **MobileDrawer** (< lg) �
 
 Single kanji glyphs as navigation icons (a historical proposal of 家 / 本 / 復 / 統 / 設) are not part of the system. Navigation uses the **custom geometric ink-stroke icon set** defined in §Icon System.
 
-- **Sidebar (desktop, lg+):** 288px (`w-72`) fixed-width column, **Cream Inset** (`#F4EFE6`) background, 1px Soft Hairline right border, full screen height. The page beneath the chrome uses **Cool Paper Base** (`#F4F1EC`) so the sidebar reads as a panel resting on a cooler desk surface. The header strip carries the brand `<Logo>` (kitsune mark + Tomo wordmark) at the committed sizing, with a 1px Soft Hairline bottom border. Nav items are pill-rows at 10px radius, padded `px-3 py-2`, with a `0.75rem` gap between icon and label.
-- **MobileDrawer (< lg):** Slide-in left panel, 85vw / max-320px wide, same Cream Inset background, no right border. Backdrop is Sumi Ink at 40% opacity. The drawer header mirrors the sidebar's brand strip, plus a close button (×) at the right. The nav body is identical to the sidebar's; the structure carries through the breakpoint without re-imagining.
+- **Sidebar (desktop, lg+):** 288px (`w-72`) fixed-width column, **Warm Paper Raised** (`#FDFBF7`) background, 1px Soft Hairline right border, full screen height. The page beneath the chrome uses **Cool Paper Base** (`#F4F1EC`) so the sidebar reads as a warm panel resting on a cooler desk surface — the same warm/cool composition that gives cards their object-on-desk feel, extended to the navigation chrome. The header strip carries the brand `<Logo>` (kitsune mark + Tomo wordmark) at the committed sizing, with a 1px Soft Hairline bottom border. Nav items are pill-rows at 10px radius, padded `px-3 py-2`, with a `0.75rem` gap between icon and label.
+- **MobileDrawer (< lg):** Slide-in left panel, 85vw / max-320px wide, same Warm Paper Raised background, no right border. Backdrop is Sumi Ink at 40% opacity. The drawer header mirrors the sidebar's brand strip, plus a close button (×) at the right. The nav body is identical to the sidebar's; the structure carries through the breakpoint without re-imagining.
 - **Section grouping (both surfaces):** Three sections in fixed order — **Practice** (Dashboard, Review), **Library** (Decks → Browse sub-nav), **Insights** (Analytics). Section labels render as `text-xs uppercase tracking-[0.08em] font-semibold` in Faded Sumi. Non-first sections are preceded by a 1px Soft Hairline divider (`mx-3 h-px bg-soft-hairline`) for editorial punctuation.
 - **Icons:** custom geometric ink-stroke SVGs from `apps/web/components/icons/` (IconDashboard, IconReview, IconDecks, IconBrowse, IconAnalytics, plus IconProfile / IconSettings / IconReportBug / IconSignOut for the account menu). Sized at 24px in nav rows, 16px in the account popover. Color is `currentColor` so the icon inherits the row's text color.
 - **Default state:** Sumi Ink label, Faded Sumi 1.75px-stroke icon, transparent row background.
@@ -555,13 +557,13 @@ export interface ChromeMarkEntry {
   component: (props: IconProps) => React.JSX.Element
   reference: string
   group:     'nav' | 'account' | 'status' | 'drawer' | 'topbar' | 'action'
-           | 'edit' | 'data' | 'feedback' | 'progress' | 'lang'
+           | 'edit' | 'data' | 'feedback' | 'progress' | 'lang' | 'utility'
 }
 ```
 
-The eleven `group` values are functional categories, not rendering categories. They drive the showcase's section ordering and would drive any future "icon picker" UI.
+The twelve `group` values are functional categories, not rendering categories. They drive the showcase's section ordering and would drive any future "icon picker" UI. The `utility` group holds geometrically-universal chrome glyphs (chevrons) that don't fit the other functional categories.
 
-### Icon Catalog (all 46)
+### Icon Catalog (all 50)
 
 Path data is exact and minimal — copy directly into a 40×40 SVG to reproduce. All paths inherit `COMMON_PROPS` (`fill="none"`, `stroke="currentColor"`, `strokeWidth={STROKE}`, `strokeLinecap="round"`, `strokeLinejoin="round"`) unless explicitly noted with `fill="currentColor" stroke="none"` (focal/filled elements) or `strokeWidth={STROKE * X}` / `opacity="Y"` (modified weight/opacity).
 
@@ -692,7 +694,7 @@ Path data is exact and minimal — copy directly into a 40×40 SVG to reproduce.
 <circle cx="20" cy="31" r="0.7" fill="currentColor" stroke="none" />
 ```
 
-#### Action (5)
+#### Action (6)
 
 **Play** — Triangle with kanji-stroke weight + entry dot.
 ```tsx
@@ -722,6 +724,12 @@ Path data is exact and minimal — copy directly into a 40×40 SVG to reproduce.
 ```tsx
 <path d="M 5 17 Q 12 30 20 30 Q 28 30 35 17" strokeWidth={STROKE * 1.15} />
 <path d="M 11 27 L 9 31 M 20 30 V 33 M 29 27 L 31 31" strokeWidth={STROKE * 0.65} />
+```
+
+**Undo** — Counterclockwise arc-arrow with kanji-stroke weight on the arrowhead. Distinct from the Rating "Again" hand-drawn curl so the two affordances do not visually overlap.
+```tsx
+<path d="M 12 14 Q 20 8 28 14 Q 33 20 28 26 Q 20 32 12 26" />
+<path d="M 12 8 V 14 H 18" strokeWidth={STROKE * 1.2} />
 ```
 
 #### Edit (5)
@@ -909,6 +917,25 @@ Path data is exact and minimal — copy directly into a 40×40 SVG to reproduce.
 <line x1="20" y1="28" x2="20" y2="32" strokeWidth={STROKE * 0.6} />
 ```
 
+#### Utility (3)
+
+Geometric utility chevrons. No cultural-form reference (per §Icon System catalog of geometrically-universal icons). Kanji-stroke weight rhythm on the arrowhead segments. Consumers rotate via CSS transforms for "up" or other diagonal directions — `IconChevronRight` is used with `rotate-90` for sub-nav and account-menu disclosure; `IconChevronDown` is used with `rotate-180` for MoreDisclosure's collapse state.
+
+**ChevronRight** — Geometric utility chevron pointing right. Used in nav-item sub-nav disclosure, sidebar collapse toggle, user-menu disclosure.
+```tsx
+<path d="M 16 10 L 26 20 L 16 30" strokeWidth={STROKE * 1.2} />
+```
+
+**ChevronLeft** — Mirror of ChevronRight. Used in sidebar collapse toggle when expanded.
+```tsx
+<path d="M 24 10 L 14 20 L 24 30" strokeWidth={STROKE * 1.2} />
+```
+
+**ChevronDown** — Used in MoreDisclosure expansion.
+```tsx
+<path d="M 10 16 L 20 26 L 30 16" strokeWidth={STROKE * 1.2} />
+```
+
 ### Named rules
 
 **The Geometric Ink-Stroke Rule.** Every chrome and component icon is a custom SVG drawn from `apps/web/components/icons/chrome-marks.tsx` (or the co-located onboarding files), matching the construction grammar above. No lucide-react imports are permitted in chrome/component code. The one exception is `ChevronRight` in `nav-item.tsx` for the sub-nav disclosure caret; that single import is the only outstanding Lucide Tax debt in the chrome system.
@@ -969,7 +996,7 @@ These rules carry PRODUCT.md's anti-references into pixel-level specificity for 
 - **Don't** add drop shadow to a card at rest. The Flat-Card Rule applies — depth comes from the warm-vs-cool surface contrast, the 1px border, the 2px Inari Vermillion top stripe, and (on auth/onboarding) the visible stack of fading sibling cards behind. Shadow is reserved for state and overlays.
 - **Don't** write generic AI-SaaS marketing copy. *"AI-Enhanced Japanese SRS"*, *"AI-powered ✨"*, *"Premium ✨ AI-Powered!"* are all banned per PRODUCT.md Principle #7 (Invisible AI, visible craft).
 - **Don't** mimic Anki's punitive utilitarianism. Flat blue defaults, raw HTML cards, "serious learners only" minimalism are the joy-vacuum.
-- **Don't** introduce side-stripe borders (e.g., `border-left: 4px` as a colored callout), gradient text (`background-clip: text` over a gradient), or glassmorphic surfaces (decorative `backdrop-filter: blur`). These are universal absolute bans; they are tells of generic AI-generated UI. Note: the card's 2px Inari Vermillion *top* stripe is allowed because it's a top edge, not a side; left/right colored stripes are still banned.
+- **Don't** introduce side-stripe borders (e.g., `border-left: 4px` as a colored callout), gradient text (`background-clip: text` over a gradient), or glassmorphic surfaces (decorative `backdrop-filter: blur`). These are universal absolute bans; they are tells of generic AI-generated UI. Note: the card's 2px Inari Vermillion *top* stripe is allowed because it's a top edge, not a side; left/right colored stripes are still banned. **Data-viz exception:** stacked-bar segment dividers in chart components (`DeckContributorsCard`, `JlptCoverageStrip`, `AnswerButtonDistribution`, `CardsByDeckBar`, `MaturityFlowBar`) use 1px `border-r border-warm-paper-raised/80` between adjacent segments as a *hairline separator*, not as a colored accent. The pattern is allowed because (a) the border color is paper-on-paper, never the brand red; (b) the wrapper is a data-viz container with `role="group"` or `role="img"`, not a Card/list-row; (c) `last:border-r-0` removes the trailing separator. Do not extend this pattern to Card or list-row chrome.
 - **Don't** add a sparkle icon, an "AI mode" toggle, a "Generated by GPT" footer, or any visible AI labeling to chrome. Per PRODUCT.md Principle #7, the justification is in what the AI *makes*, not what it is *labeled.*
 - **Don't** use mincho serifs (DM Serif Display, Noto Serif JP) anywhere. Display is Bricolage Grotesque, body is DM Sans, Japanese is Noto Sans JP — any "editorial-serif at the top of the page" reflex is off-system.
 - **Don't** introduce a third Latin family. The Two-Family Rule allows exactly Bricolage Grotesque (display) + DM Sans (body and chrome). Hand-calligraphic and brush-style fonts are the only exception, and only on identity surfaces (wordmark, favicon, auth illustration, OG image, milestone illustrations).

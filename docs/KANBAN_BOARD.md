@@ -20,7 +20,9 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Either bless "Problem Card" as the canonical user-facing label (requires explicit PRODUCT.md edit) or rewrite the IA pair to use "Leech". Pick one before the leeches frontend lands.
 - [ ] **Flesh out IA stub pages**
 	  - Phase 1 of the App Router migration shipped 2026-05-14: `/dashboard`→`/today`, `/analytics`→`/insights`, `/decks/browse` removed, `/profile` removed, card detail hoisted to `/cards/[cardId]`, `/review` staging moved under `/review/setup`, and stubs scaffolded for `/add`, `/add/review`, `/cards`, `/cards/[cardId]/repair`, `/decks/[id]/preview`, `/insights/{mistakes,progress,forecast,statistics}`. Stubs render a page title + outgoing IA links only — implementations are the follow-up work. Tracked per surface in [`status/FRONTEND.md`](status/FRONTEND.md).
-	  - **Insights Overview shipped 2026-05-15** per IA `13_insights_overview.md`: `apps/web/app/(app)/insights/page.tsx` now renders a teacher-report Overview with date-seeded headline insight, Progress/Mistakes/Planning sections, and inline section CTAs. The shared route-based tab nav (`InsightsTabs`) lives in `insights/layout.tsx` and applies across all five views. The four sibling tabs (Mistakes, Progress, Forecast, Statistics) replaced their `StubPage` placeholders with topic-scoped bodies that dock the existing chart components inside a shared `InsightsSiblingBody` chrome. Remaining insights work: per-card mistake history, retention timeline, per-deck forecast filter, broader headline-insight template pool.
+	  - **Insights Overview shipped 2026-05-15** per IA `13_insights_overview.md`: `apps/web/app/(app)/insights/page.tsx` now renders a teacher-report Overview with date-seeded headline insight, Progress/Mistakes/Planning sections, and inline section CTAs. The shared route-based tab nav (`InsightsTabs`) lives in `insights/layout.tsx` and applies across all five views. The four sibling tabs (Mistakes, Progress, Forecast, Statistics) replaced their `StubPage` placeholders with topic-scoped bodies that dock the existing chart components inside a shared `InsightsSiblingBody` chrome.
+	  - **Insights Forecast / Statistics / Progress redesigned 2026-05-17** per IA `14_/15_/16_insights_*`. Each page now owns its own `PageHeader` with vermillion kanji ornament (`次` Forecast, `数` Statistics, `進` Progress), `SectionCard` chrome, and bespoke chart vocabulary tuned to its narrative job: Forecast's workload + new-card-impact + catch-up planner; Statistics' five anchored sections with sticky scroll-spy tabs; Progress' double-ribbon retention chart (±1 SE inside ±1 SD), stacked-area maturity pipeline (vermillion alpha ramp), proportionally-sized JLPT coverage strip, and warm-paper year heatmap. Progress legacy widgets (`TodayProgressCard`, `JLPTProgressBars`) removed. Each redesigned page carries a dev panel cycling through documented states.
+	  - **Insights Mistakes redesigned 2026-05-17** per IA `14_insights_mistakes.md`. Field-notes voice page: page kanji `誤`, global filter row (Deck + Time range, default 30d, localStorage-persisted), and five SectionCards in IA order: Pattern Summary (`紋`, editorial diagnosis + chips), Problem Cards (`困`, stem-and-leaf bars at `[2–3] [4–5] [6–7] [8+]` with vermillion on the leech-zone bar; click a bar drills into the underlying card list), Leeches (`蛭`, dedicated list with Repair-all CTA and per-row diagnoses), Confusable Items (`紛`, pair list with dashed "next backend pass" fallback), Card Quality (`欠`, horizontal bars per issue type linking into `/cards?missing=…`). Shared `MistakeRowList` primitive carries the click-row-opens-detail behavior and inline `{N} selected` bulk bar (Review / Repair / Suspend). Dev panel covers off / clean / many / leech-heavy / not-enough / loading / error. Legacy widgets (`AccuracyBreakdown`, `InsightsSiblingBody`) removed. Production rendering uses an empty/limited-data shell until the per-card mistake pipeline ships server-side; the dev preview shows the full design end-to-end. **Remaining:** backend pass for per-day maturity-pipeline snapshots (Progress); backend pipelines for problem-card list, confusable detection, and quality-issue counts (Mistakes); em-dash sweep across user-facing copy; close out the "Leeches frontend wiring" item below — the dashboard leech surface now lives on this page.
 - [ ] **Settings IA: missing sections**
 	  - IA `18_settings.md` proposes top-level Account / Learning / Review behavior / Display / Data and sync / Security. Current app ships `/settings`, `/settings/learning`, `/settings/profile`, `/settings/security` only. Display, Data & sync, and Review-behavior sections need designs + routes (or explicit deferral notes in IA).
 - [ ] **Onboarding deck recommendations API**
@@ -30,7 +32,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - Surface `premade_decks.version > last_seen_version` and merge new content while preserving user FSRS state.
 - [ ] **Leeches frontend wiring**
 	  - Backend is done (Stages 1–8). Build the drill UI, dashboard leeches card, `hasLeeches` signal, and diagnosis surface.
-	  - Spec: [Add Leeches List and Drill Support](Add%20Leeches%20List%20and%20Drill%20Support.md).
 - [ ] **Dashboard backend contracts**
 	  - Add deck rollup endpoint (due / new / review / mastery / last-reviewed).
 	  - Replace remaining placeholder dashboard surfaces with explicit contracts.
@@ -76,7 +77,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 - [ ] **Verify custom system-page coverage** — confirm broad `error.tsx` / `not-found.tsx` / loading coverage before promoting to Done.
 
-
 ## Deferred
 
 - [ ] **Future settings expansion ideas**
@@ -88,7 +88,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 	  - **Potential new tabs:** Notifications (daily reminder, weekly recap), AI (tone, explanation length), Data & Privacy (export, opt-outs), Account (email change, billing, SSO).
 	  - **Ranked next picks:** (1) Notifications, (2) per-modality enablement, (3) public-profile visibility, (4) data export.
 	  - **Trap:** a "Display" tab — most options are OS-level (`prefers-color-scheme`, `prefers-reduced-motion`); shipping it signals distrust of system settings.
-
 
 ## Done
 
