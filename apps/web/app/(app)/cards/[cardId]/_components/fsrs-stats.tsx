@@ -19,31 +19,41 @@ function practiceStateLabel(state: State): string {
   }
 }
 
+/**
+ * Scheduling / FSRS detail rows. Designed to render inside a containing
+ * SectionCard or `<details>` panel — emits a plain key/value list with no
+ * surrounding chrome of its own.
+ */
 export function FsrsStats({ card }: Props): React.JSX.Element {
   const dueDate = new Date(card.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return (
-    <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-      <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Review history</h2>
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-faded-sumi">
-        <span>Stability: <span className="font-medium text-sumi-ink">{formatStability(card.stability)}</span></span>
-        <span aria-hidden="true" className="text-faded-sumi">·</span>
-        <span>Difficulty: <span className="font-medium text-sumi-ink">{card.difficulty.toFixed(1)}</span></span>
-        <span aria-hidden="true" className="text-faded-sumi">·</span>
-        <span>Next review: <span className="font-medium text-sumi-ink">{dueDate}</span></span>
-      </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-faded-sumi">
-        <span>Reviews: <span className="font-medium text-sumi-ink">{card.reps}</span></span>
-        <span aria-hidden="true" className="text-faded-sumi">·</span>
-        <span>Lapses: <span className="font-medium text-sumi-ink">{card.lapses}</span></span>
-        <span aria-hidden="true" className="text-faded-sumi">·</span>
-        <span>State: <span className="font-medium text-sumi-ink">{practiceStateLabel(card.state)}</span></span>
-        {card.isSuspended && (
-          <span className="ml-1 rounded bg-cream-inset px-2 text-xs font-medium text-sumi-ink">
-            Suspended
-          </span>
-        )}
-      </div>
-    </section>
+    <dl className="grid grid-cols-1 gap-y-2.5">
+      <Row label="State"        value={practiceStateLabel(card.state)} />
+      <Row label="Next review"  value={dueDate} />
+      <Row label="Stability"    value={formatStability(card.stability)} />
+      <Row label="Difficulty"   value={card.difficulty.toFixed(1)} />
+      <Row label="Reviews"      value={String(card.reps)} />
+      <Row label="Lapses"       value={String(card.lapses)} emphasize={card.lapses >= 3} />
+      {card.isSuspended && (
+        <Row label="Status"     value="Suspended" emphasize />
+      )}
+    </dl>
+  )
+}
+
+function Row({ label, value, emphasize }: { label: string; value: string; emphasize?: boolean }): React.JSX.Element {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi">{label}</dt>
+      <dd
+        className={[
+          'font-mono text-sm tabular-nums leading-none',
+          emphasize === true ? 'font-semibold text-inari-vermillion-deep' : 'text-sumi-ink',
+        ].join(' ')}
+      >
+        {value}
+      </dd>
+    </div>
   )
 }

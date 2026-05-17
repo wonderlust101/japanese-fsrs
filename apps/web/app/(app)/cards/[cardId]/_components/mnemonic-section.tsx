@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/Button'
+import { SectionCard } from '@/components/ui/SectionCard'
 import { useGenerateMnemonic } from '@/lib/api/ai'
 import { updateCardAction } from '@/lib/actions/cards.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -12,7 +13,7 @@ import { RegeneratePanel } from './regenerate-panel'
 interface Props {
   cardId:      string
   cardVersion: number
-  mnemonic:    string | undefined
+  mnemonic?:   string
   fieldsData:  Record<string, unknown>
 }
 
@@ -43,66 +44,70 @@ export function MnemonicSection({ cardId, cardVersion, mnemonic, fieldsData }: P
     }
   }
 
-  // Don't render the section at all if there's nothing to show or do.
-  if (mnemonic === undefined && pending === null && !generate.isPending && !generate.isError) {
-    return (
-      <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-        <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Mnemonic</h2>
-        <p className="text-sm text-faded-sumi">No mnemonic yet.</p>
-        <Button variant="ghost" size="sm" onClick={regenerate} loading={generate.isPending}>
-          Generate mnemonic →
-        </Button>
-      </section>
-    )
-  }
+  const isEmpty = mnemonic === undefined && pending === null && !generate.isPending && !generate.isError
 
   return (
-    <section className="bg-[var(--color-surface-raised)] rounded-[var(--radius-lg)] shadow-[var(--shadow-card)] p-5 space-y-3">
-      <header className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold text-faded-sumi uppercase tracking-wider">Mnemonic</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={regenerate}
-          loading={generate.isPending && pending === null}
-          disabled={pending !== null}
-        >
-          Regenerate →
-        </Button>
-      </header>
-
-      {pending !== null && (
-        <RegeneratePanel
-          title="New mnemonic"
-          onUseThese={() => void useThis()}
-          onTryAgain={regenerate}
-          onDismiss={() => setPending(null)}
-          isSaving={saving}
-          isRegenerating={generate.isPending}
-        >
-          <p className="text-base text-sumi-ink italic leading-relaxed">{pending}</p>
-        </RegeneratePanel>
-      )}
-
-      {generate.isError && pending === null && (
-        <p className="text-sm text-error" role="alert">
-          {generate.error?.message ?? 'Unknown error'}
-        </p>
-      )}
-
-      {mnemonic !== undefined && (
-        <div>
+    <SectionCard
+      kanji="記"
+      label="Mnemonic"
+      rightContent={
+        isEmpty ? undefined : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={regenerate}
+            loading={generate.isPending && pending === null}
+            disabled={pending !== null}
+          >
+            Regenerate
+          </Button>
+        )
+      }
+    >
+      {isEmpty ? (
+        // Quality suggestion: friendly framing, action inline.
+        <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-faded-sumi">No mnemonic yet. A short memory hook can help this card stick.</p>
+          <Button variant="secondary" size="sm" onClick={regenerate} loading={generate.isPending}>
+            Generate mnemonic
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
           {pending !== null && (
-            <p className="text-xs text-faded-sumi mb-2">Current mnemonic:</p>
+            <RegeneratePanel
+              title="New mnemonic"
+              onUseThese={() => void useThis()}
+              onTryAgain={regenerate}
+              onDismiss={() => setPending(null)}
+              isSaving={saving}
+              isRegenerating={generate.isPending}
+            >
+              <p className="text-base italic leading-relaxed text-sumi-ink">{pending}</p>
+            </RegeneratePanel>
           )}
-          <p className={[
-            'text-base text-sumi-ink italic leading-relaxed',
-            pending !== null ? 'opacity-60' : '',
-          ].join(' ')}>
-            {mnemonic}
-          </p>
+
+          {generate.isError && pending === null && (
+            <p className="text-sm text-inari-vermillion-deep" role="alert">
+              {generate.error?.message ?? 'Unknown error'}
+            </p>
+          )}
+
+          {mnemonic !== undefined && (
+            <div>
+              {pending !== null && (
+                <p className="mb-2 text-xs text-faded-sumi">Current mnemonic:</p>
+              )}
+              <p className={[
+                'text-base italic leading-relaxed text-sumi-ink',
+                pending !== null ? 'opacity-60' : '',
+              ].join(' ')}>
+                {mnemonic}
+              </p>
+            </div>
+          )}
         </div>
       )}
-    </section>
+    </SectionCard>
   )
 }
