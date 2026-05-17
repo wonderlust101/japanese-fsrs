@@ -1,13 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
-
 import {
   IconAnalytics,
   IconBrowse,
+  IconChevronRight,
   IconDashboard,
   IconDecks,
   IconPlus,
@@ -62,6 +61,32 @@ function isMatch(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + '/')
 }
 
+/**
+ * Map of `?from=<section>` query values to the nav href that should be
+ * forced active. Lets a sub-page (e.g. card detail) be reached from
+ * multiple parent sections and have the sidebar highlight whichever
+ * section the user came from, instead of the canonical section the
+ * URL path otherwise implies.
+ */
+const FROM_OVERRIDE_HREF: Record<string, string> = {
+  decks: '/decks',
+}
+
+/**
+ * Resolves whether the current location should hijack active state and
+ * route it to a different nav href. Returns the override href, or
+ * `null` if normal pathname-based matching applies.
+ *
+ * The hijack triggers when the user is on a card-detail page
+ * (`/cards/[id]`) AND the URL carries a `?from=<section>` query that
+ * matches the FROM_OVERRIDE_HREF map.
+ */
+function resolveOverrideHref(pathname: string, from: string | null): string | null {
+  if (!pathname.startsWith('/cards/')) return null
+  if (from === null) return null
+  return FROM_OVERRIDE_HREF[from] ?? null
+}
+
 const NOOP = (): void => {}
 
 /**
@@ -85,15 +110,28 @@ export function NavItem({
   subLabel,
   forceActive,
 }: NavItemProps): React.JSX.Element {
-  const pathname    = usePathname()
-  const Icon        = NAV_ICON_REGISTRY[item.iconKey]
-  const children    = item.children ?? []
-  const hasChildren = children.length > 0
+  const pathname     = usePathname()
+  const searchParams = useSearchParams()
+  const Icon         = NAV_ICON_REGISTRY[item.iconKey]
+  const children     = item.children ?? []
+  const hasChildren  = children.length > 0
 
-  const childMatches = hasChildren && children.some((c) => isMatch(pathname, c.href))
+  // When set, override exact-equality match against this href wins over
+  // the normal pathname-based match — used to redirect the active state
+  // to a section other than the one the URL path implies (see
+  // `resolveOverrideHref`).
+  const overrideHref = resolveOverrideHref(pathname, searchParams.get('from'))
+
+  // Local match predicate that consults the override before falling back
+  // to the module-level pathname predicate. Closes over `overrideHref`
+  // so every match check on this render obeys the same rule.
+  const matchHref = (href: string): boolean =>
+    overrideHref !== null ? href === overrideHref : isMatch(pathname, href)
+
+  const childMatches = hasChildren && children.some((c) => matchHref(c.href))
   // Parent stays *inactive* when a child is active so we never show two active
   // states for one location.
-  const matches  = isMatch(pathname, item.href)
+  const matches  = matchHref(item.href)
   const isActive = forceActive ?? (matches && !childMatches)
 
   // Among children with prefix-sharing hrefs (e.g. `/decks` vs `/cards`),
@@ -104,7 +142,7 @@ export function NavItem({
   // is the better match.
   const activeChildHref = hasChildren
     ? children
-        .filter((c) => isMatch(pathname, c.href))
+        .filter((c) => matchHref(c.href))
         .reduce<string | null>(
           (best, c) => (best === null || c.href.length > best.length ? c.href : best),
           null,
@@ -163,7 +201,7 @@ export function NavItem({
             className="
               relative z-[1] shrink-0 w-7 h-7
               text-faded-sumi transition-colors duration-[200ms]
-              group-hover:text-inari-vermillion
+              group-hover:text-sumi-ink
               group-data-[active=true]:text-inari-vermillion
             "
           />
@@ -228,7 +266,7 @@ export function NavItem({
                 relative z-[1] shrink-0 w-6 h-6
                 text-faded-sumi
                 transition-colors duration-[200ms]
-                group-hover:text-inari-vermillion
+                group-hover:text-sumi-ink
                 group-data-[active=true]:text-inari-vermillion
               "
             />
@@ -238,10 +276,9 @@ export function NavItem({
             {item.label}
           </span>
 
-          <ChevronRight
-            size={16}
+          <IconChevronRight
             aria-hidden="true"
-            className={`relative z-[1] shrink-0 text-faded-sumi transition-transform duration-[200ms] ease-out group-hover:text-sumi-ink ${
+            className={`relative z-[1] shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-[200ms] ease-out group-hover:text-sumi-ink ${
               isExpanded ? 'rotate-90' : ''
             }`}
           />
@@ -300,7 +337,7 @@ export function NavItem({
               relative z-[1] shrink-0 w-6 h-6
               text-faded-sumi
               transition-colors duration-[200ms]
-              group-hover:text-inari-vermillion
+              group-hover:text-sumi-ink
               group-data-[active=true]:text-inari-vermillion
             "
           />

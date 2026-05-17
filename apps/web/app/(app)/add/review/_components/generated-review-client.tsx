@@ -10,7 +10,7 @@ import {
 } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { RotateCcw } from 'lucide-react'
+import { IconUndo } from '@/components/icons/chrome-marks'
 
 import type { ApiDueCard, JLPTLevel } from '@fsrs-japanese/shared-types'
 
@@ -673,7 +673,7 @@ function PreviewBlock({ card, flipped, onFlip, loading, aiError }: PreviewBlockP
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
       )}
     >
-      <RotateCcw size={11} strokeWidth={1.5} aria-hidden="true" />
+      <IconUndo aria-hidden="true" className="w-[11px] h-[11px]" />
       {flipped ? 'Show front' : 'Show back'}
     </button>
   )

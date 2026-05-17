@@ -6,8 +6,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
-import { ChevronRight, Flag, LogOut, Settings, User as UserIcon } from 'lucide-react'
-
+import {
+  IconChevronRight,
+  IconFlag,
+  IconProfile,
+  IconSettings,
+  IconSignOut,
+} from '@/components/icons/chrome-marks'
 import { signOutAction }      from '@/lib/actions/auth.actions'
 import { getUserDisplayName } from '@/lib/supabase/user-metadata'
 
@@ -104,10 +109,9 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
           {initial}
         </span>
         <span className="truncate flex-1 text-left">{displayLabel}</span>
-        <ChevronRight
-          size={16}
+        <IconChevronRight
           aria-hidden="true"
-          className={`shrink-0 text-faded-sumi transition-transform duration-[200ms] ease-out ${
+          className={`shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-[200ms] ease-out ${
             isOpen ? 'rotate-90' : ''
           }`}
         />
@@ -120,20 +124,20 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
           className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-[2px] border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
           <Link href="/settings/profile" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <UserIcon size={16} className="shrink-0 text-faded-sumi" />
+            <IconProfile className="shrink-0 w-4 h-4 text-faded-sumi" />
             <span className="flex-1">Profile</span>
           </Link>
           <Link href="/settings" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <Settings size={16} className="shrink-0 text-faded-sumi" />
+            <IconSettings className="shrink-0 w-4 h-4 text-faded-sumi" />
             <span className="flex-1">Settings</span>
           </Link>
           <Link href="/report-bug" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <Flag size={16} className="shrink-0 text-faded-sumi" />
+            <IconFlag className="shrink-0 w-4 h-4 text-faded-sumi" />
             <span className="flex-1">Report a bug</span>
           </Link>
           <div className="my-1 mx-2 h-px bg-soft-hairline" aria-hidden="true" />
           <button type="button" role="menuitem" onClick={handleSignOut} className={destructiveClass}>
-            <LogOut size={16} className="shrink-0" />
+            <IconSignOut className="shrink-0 w-4 h-4" />
             <span className="flex-1">Sign out</span>
           </button>
         </div>

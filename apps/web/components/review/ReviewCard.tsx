@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MoreHorizontal }       from 'lucide-react'
 import { useQuery }            from '@tanstack/react-query'
+
+import { IconMore }            from '@/components/icons/chrome-marks'
 
 import { SectionCard } from '@/components/ui/SectionCard'
 import { CardBack }   from './session/CardBack'
@@ -221,7 +222,7 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
                     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
                   )}
                 >
-                  <MoreHorizontal size={17} strokeWidth={1.5} aria-hidden="true" />
+                  <IconMore aria-hidden="true" className="w-[17px] h-[17px]" />
                 </span>
               }
             />

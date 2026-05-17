@@ -233,7 +233,7 @@ export function IconPlus({ className = '' }: IconProps): React.JSX.Element {
   )
 }
 
-// ── Action (5) ───────────────────────────────────────────────────────────
+// ── Action (6) ───────────────────────────────────────────────────────────
 
 /** Play. Triangle with kanji-stroke weight + entry dot. */
 export function IconPlay({ className = '' }: IconProps): React.JSX.Element {
@@ -281,6 +281,18 @@ export function IconHide({ className = '' }: IconProps): React.JSX.Element {
     <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
       <path d="M 5 17 Q 12 30 20 30 Q 28 30 35 17" {...COMMON_PROPS} strokeWidth={STROKE * 1.15} />
       <path d="M 11 27 L 9 31 M 20 30 V 33 M 29 27 L 31 31" {...COMMON_PROPS} strokeWidth={STROKE * 0.65} />
+    </svg>
+  )
+}
+
+/** Undo. Counterclockwise arc with kanji-stroke weight on the arrowhead.
+ *  Distinct from the Rating "Again" hand-drawn curl so the two affordances
+ *  do not visually overlap. */
+export function IconUndo({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <path d="M 12 14 Q 20 8 28 14 Q 33 20 28 26 Q 20 32 12 26" {...COMMON_PROPS} />
+      <path d="M 12 8 V 14 H 18" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
     </svg>
   )
 }
@@ -570,13 +582,47 @@ export function IconLightbulb({ className = '' }: IconProps): React.JSX.Element 
   )
 }
 
+// ── Utility (3) ──────────────────────────────────────────────────────────
+//
+// Geometric utility chevrons. No cultural-form reference (per DESIGN.md
+// §Icon System catalog of geometrically-universal icons). Kanji-stroke
+// weight rhythm on the arrowhead segments. Consumers rotate via CSS
+// transforms for "up" or other diagonal directions.
+
+/** ChevronRight. Geometric utility chevron pointing right. */
+export function IconChevronRight({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <path d="M 16 10 L 26 20 L 16 30" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
+    </svg>
+  )
+}
+
+/** ChevronLeft. Mirror of ChevronRight. */
+export function IconChevronLeft({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <path d="M 24 10 L 14 20 L 24 30" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
+    </svg>
+  )
+}
+
+/** ChevronDown. Used in MoreDisclosure expansion. */
+export function IconChevronDown({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <path d="M 10 16 L 20 26 L 30 16" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
+    </svg>
+  )
+}
+
 // ── Catalog ──────────────────────────────────────────────────────────────
 
 export interface ChromeMarkEntry {
   name:      string
   component: (props: IconProps) => React.JSX.Element
   reference: string
-  group:     'nav' | 'account' | 'status' | 'drawer' | 'topbar' | 'action' | 'edit' | 'data' | 'feedback' | 'progress' | 'lang'
+  group:     'nav' | 'account' | 'status' | 'drawer' | 'topbar' | 'action' | 'edit' | 'data' | 'feedback' | 'progress' | 'lang' | 'utility'
 }
 
 export const CHROME_MARKS: ReadonlyArray<ChromeMarkEntry> = [
@@ -607,6 +653,7 @@ export const CHROME_MARKS: ReadonlyArray<ChromeMarkEntry> = [
   { name: 'Skip',          component: IconSkip,          reference: 'Two triangles with kanji-stroke weight.',            group: 'action'   },
   { name: 'Reveal',        component: IconReveal,        reference: 'Eye with calligraphic upper lid + filled pupil.',    group: 'action'   },
   { name: 'Hide',          component: IconHide,          reference: 'Closed eye with brush curve + lash marks.',          group: 'action'   },
+  { name: 'Undo',          component: IconUndo,          reference: 'Counterclockwise arc-arrow with kanji weight.',      group: 'action'   },
   // Edit
   { name: 'AddCard',       component: IconAddCard,       reference: 'Card with Tomo top-stripe + kanji-weight +.',        group: 'edit'     },
   { name: 'Edit',          component: IconEdit,          reference: 'Calligraphy brush with bamboo cap detail.',          group: 'edit'     },
@@ -637,4 +684,8 @@ export const CHROME_MARKS: ReadonlyArray<ChromeMarkEntry> = [
   { name: 'Translate',     component: IconTranslate,     reference: 'Serif A + kana あ + brushstroke arrow.',             group: 'lang'     },
   { name: 'Dictionary',    component: IconDictionary,    reference: 'Wahon book with calligraphic spine + tategaki.',     group: 'lang'     },
   { name: 'Lightbulb',     component: IconLightbulb,     reference: 'Chochin paper lantern with horizontal bands.',       group: 'lang'     },
+  // Utility
+  { name: 'ChevronRight',  component: IconChevronRight,  reference: 'Geometric utility chevron pointing right.',          group: 'utility'  },
+  { name: 'ChevronLeft',   component: IconChevronLeft,   reference: 'Mirror of ChevronRight.',                            group: 'utility'  },
+  { name: 'ChevronDown',   component: IconChevronDown,   reference: 'Geometric utility chevron pointing down.',           group: 'utility'  },
 ] as const

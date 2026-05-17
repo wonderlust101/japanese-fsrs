@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
+
+import { IconClose } from '@/components/icons/chrome-marks'
 
 import { Logo }              from '@/components/ui/Logo'
 import { useDueCards }       from '@/lib/api/reviews'
@@ -133,7 +134,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
             aria-label="Close menu"
             className="flex items-center justify-center w-11 h-11 -mr-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
           >
-            <X size={20} aria-hidden="true" />
+            <IconClose aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
 

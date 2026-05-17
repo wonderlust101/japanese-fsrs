@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-
+import { IconChevronLeft, IconChevronRight } from '@/components/icons/chrome-marks'
 import { Logo }                  from '@/components/ui/Logo'
 import { useDueCards }           from '@/lib/api/reviews'
 import { useLocalStorageBoolean } from '@/lib/hooks/useLocalStorageBoolean'
@@ -228,11 +227,11 @@ function CollapseToggle({
       aria-expanded={!collapsed}
       aria-keyshortcuts="["
       title={(collapsed ? 'Expand sidebar' : 'Collapse sidebar') + ' · ['}
-      className="relative z-[2] flex items-center justify-center w-8 h-8 rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
+      className="relative z-[2] flex items-center justify-center w-11 h-11 rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
     >
       {collapsed
-        ? <ChevronRight size={16} aria-hidden="true" />
-        : <ChevronLeft  size={16} aria-hidden="true" />}
+        ? <IconChevronRight aria-hidden="true" className="w-4 h-4" />
+        : <IconChevronLeft  aria-hidden="true" className="w-4 h-4" />}
     </button>
   )
 }

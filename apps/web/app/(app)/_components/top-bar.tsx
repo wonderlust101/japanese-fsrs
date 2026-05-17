@@ -1,7 +1,6 @@
 'use client'
 
-import { Menu } from 'lucide-react'
-
+import { IconHamburger } from '@/components/icons/chrome-marks'
 import { Logo } from '@/components/ui/Logo'
 import { useMobileNavStore } from '@/stores/useMobileNavStore'
 
@@ -39,7 +38,7 @@ export function TopBar({ children, desktopHidden = false }: TopBarProps): React.
         aria-label="Open menu"
         className="lg:hidden relative flex items-center justify-center w-11 h-11 -ml-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
       >
-        <Menu size={20} aria-hidden="true" />
+        <IconHamburger aria-hidden="true" className="w-5 h-5" />
         <OfflineQueueBadge floating />
       </button>
 

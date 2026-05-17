@@ -1,7 +1,6 @@
 'use client'
 
-import { HelpCircle } from 'lucide-react'
-
+import { IconHelp } from '@/components/icons/chrome-marks'
 import { cn } from '@/lib/utils'
 
 interface SessionTopBarProps {
@@ -79,7 +78,7 @@ export function SessionTopBar({
               'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
             )}
           >
-            <HelpCircle size={16} strokeWidth={1.5} aria-hidden="true" />
+            <IconHelp aria-hidden="true" className="w-4 h-4" />
           </button>
           <button
             type="button"

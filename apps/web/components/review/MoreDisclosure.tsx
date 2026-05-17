@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
 
+import { IconChevronDown } from '@/components/icons/chrome-marks'
 import { cn } from '@/lib/utils'
 
 interface MoreDisclosureProps {
@@ -34,12 +34,10 @@ export function MoreDisclosure({
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-sm',
         )}
       >
-        <ChevronDown
-          size={14}
-          strokeWidth={1.5}
+        <IconChevronDown
           aria-hidden="true"
           className={cn(
-            'transition-transform duration-200 ease-out',
+            'w-3.5 h-3.5 transition-transform duration-200 ease-out',
             open ? 'rotate-180' : 'rotate-0',
           )}
         />
