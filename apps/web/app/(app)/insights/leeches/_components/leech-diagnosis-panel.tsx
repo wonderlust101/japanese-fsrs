@@ -1,0 +1,109 @@
+'use client'
+
+import { Button } from '@/components/ui/Button'
+
+interface LeechDiagnosisPanelProps {
+  diagnosis:    string | null
+  prescription: string | null
+  isLoading:    boolean
+  isError:      boolean
+  errorMessage?: string
+  onDiagnose:   () => void
+  onRetry:      () => void
+}
+
+/**
+ * AI-authored diagnosis + prescription surface. Uses the same dashed-
+ * vermillion register as `regenerate-panel.tsx` so the visual register
+ * across all AI moments stays consistent — anywhere the system speaks in
+ * its "teacher's voice," the chrome looks the same.
+ *
+ * State machine:
+ *   - empty (no diagnosis on record + not loading + not erroring): show a
+ *     primer line + a "Diagnose this leech" button.
+ *   - loading: show a quiet "Reading the lapse pattern…" line + the disabled
+ *     button.
+ *   - error: show the error message + a "Try again" affordance.
+ *   - filled: show diagnosis + (optionally) prescription, no button.
+ *
+ * Per the doc's IA guidance, the chrome label avoids "AI" in user-facing
+ * copy. The kicker reads "Tomo's read" (the teacher framing), and the
+ * "how this was made" disclosure is deferred to a Phase-2 expand affordance
+ * to keep the surface calm.
+ */
+export function LeechDiagnosisPanel({
+  diagnosis,
+  prescription,
+  isLoading,
+  isError,
+  errorMessage,
+  onDiagnose,
+  onRetry,
+}: LeechDiagnosisPanelProps): React.JSX.Element {
+  const hasContent = diagnosis !== null && diagnosis.length > 0
+
+  return (
+    <section
+      aria-labelledby="leech-diagnosis-heading"
+      className="rounded-[2px] border border-dashed border-inari-vermillion bg-vermillion-wash/40 px-4 py-4 sm:px-5 sm:py-5"
+    >
+      <header className="mb-3 flex items-baseline gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
+        <span
+          lang="ja"
+          aria-hidden="true"
+          className="font-display text-sm leading-none translate-y-[0.05em] text-inari-vermillion"
+        >
+          助
+        </span>
+        <span id="leech-diagnosis-heading">Tomo&rsquo;s read</span>
+      </header>
+
+      {hasContent ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[0.9375rem] leading-relaxed text-sumi-ink">
+            {diagnosis}
+          </p>
+          {prescription !== null && prescription.length > 0 && (
+            <p className="border-l-2 border-inari-vermillion/40 pl-3 text-[0.875rem] italic leading-relaxed text-sumi-ink/85">
+              {prescription}
+            </p>
+          )}
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-error-deep">
+            {errorMessage ?? 'Couldn’t generate a diagnosis. Try again in a moment.'}
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onRetry}
+              loading={isLoading}
+            >
+              Try again
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm leading-relaxed text-sumi-ink/85">
+            Read the lapse pattern and surface what&rsquo;s likely tripping comprehension on this card.
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onDiagnose}
+              loading={isLoading}
+            >
+              Diagnose this leech
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
