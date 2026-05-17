@@ -22,6 +22,15 @@ export const queryKeys = {
     jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
     milestones: () => ['analytics', 'milestones'] as const,
   },
+  leeches: {
+    all:    ()                       => ['leeches']                              as const,
+    // The filter object is included in the cache key so each (status, deck,
+    // jlpt, cardType, diagnosis, sort) combination is fetched and cached
+    // independently. Matches the doc's "query keys must include every filter
+    // dimension" requirement.
+    list:   (filters: object)        => [...queryKeys.leeches.all(), 'list', filters] as const,
+    detail: (id: string)             => [...queryKeys.leeches.all(), 'detail', id]    as const,
+  },
   premadeDecks: {
     all:           ()           => ['premade-decks']                                  as const,
     list:          ()           => [...queryKeys.premadeDecks.all(), 'list']          as const,
