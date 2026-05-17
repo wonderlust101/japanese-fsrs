@@ -199,38 +199,34 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
         </header>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <div>
-            <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => {
-                onEmailChange(e.target.value)
-                if (errors.email !== undefined) setErrors((prev) => ({ ...prev, email: undefined }))
-              }}
-              required
-              placeholder="you@example.com"
-              error={errors.email}
-            />
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => {
+              onEmailChange(e.target.value)
+              if (errors.email !== undefined) setErrors((prev) => ({ ...prev, email: undefined }))
+            }}
+            required
+            placeholder="you@example.com"
+            error={errors.email}
+          />
 
-          <div>
-            <Input
-              label="Display name"
-              type="text"
-              autoComplete="name"
-              value={displayName}
-              onChange={(e) => {
-                setDisplayName(e.target.value)
-                if (errors.displayName !== undefined) setErrors((prev) => ({ ...prev, displayName: undefined }))
-              }}
-              required
-              placeholder="Your name"
-              hint="How you'd like to be addressed"
-              error={errors.displayName}
-            />
-          </div>
+          <Input
+            label="Display name"
+            type="text"
+            autoComplete="name"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value)
+              if (errors.displayName !== undefined) setErrors((prev) => ({ ...prev, displayName: undefined }))
+            }}
+            required
+            placeholder="Your name"
+            hint="How you'd like to be addressed"
+            error={errors.displayName}
+          />
 
           <div className="flex flex-col gap-1.5">
             <Input
@@ -252,21 +248,19 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             {capsLockOn && <CapsLockHint />}
           </div>
 
-          <div>
-            <Input
-              label="Confirm password"
-              type="password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value)
-                if (errors.confirmPassword !== undefined) setErrors((prev) => ({ ...prev, confirmPassword: undefined }))
-              }}
-              required
-              placeholder="••••••••"
-              error={errors.confirmPassword}
-            />
-          </div>
+          <Input
+            label="Confirm password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value)
+              if (errors.confirmPassword !== undefined) setErrors((prev) => ({ ...prev, confirmPassword: undefined }))
+            }}
+            required
+            placeholder="••••••••"
+            error={errors.confirmPassword}
+          />
 
           {errors.form !== undefined && (
             <p role="alert" className="text-sm text-error">
@@ -274,18 +268,16 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             </p>
           )}
 
-          <div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              loading={signupMutation.isPending}
-              trailingIcon={<ArrowGlyph direction="right" />}
-              className="w-full mt-2"
-            >
-              Create account
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            loading={signupMutation.isPending}
+            trailingIcon={<ArrowGlyph direction="right" />}
+            className="w-full mt-2"
+          >
+            Create account
+          </Button>
         </form>
 
         <div className="pt-2 border-t border-soft-hairline flex flex-col gap-2">
@@ -374,14 +366,12 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
         </header>
 
         <div className="flex flex-col items-center gap-6">
-          <div>
-            <OTPInput
-              key={otpErrorVersion}
-              onComplete={handleOtpComplete}
-              error={otpError}
-              isLoading={verifyMutation.isPending}
-            />
-          </div>
+          <OTPInput
+            key={otpErrorVersion}
+            onComplete={handleOtpComplete}
+            error={otpError}
+            isLoading={verifyMutation.isPending}
+          />
 
           {otpError !== null && (
             <p role="alert" className="text-sm text-error text-center">

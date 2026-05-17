@@ -152,17 +152,15 @@ export function SecuritySection(): React.JSX.Element {
           {pwdFormError !== null && (
             <p role="alert" className="text-xs text-error">{pwdFormError}</p>
           )}
-          <div>
-            <Button
-              type="submit"
-              variant="secondary"
-              size="sm"
-              loading={pwdSubmitting}
-              disabled={currentPwd.length === 0 || newPwd.length === 0}
-            >
-              Update password
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            variant="secondary"
+            size="sm"
+            loading={pwdSubmitting}
+            disabled={currentPwd.length === 0 || newPwd.length === 0}
+          >
+            Update password
+          </Button>
         </div>
       </form>
 

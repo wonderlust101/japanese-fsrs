@@ -102,21 +102,19 @@ export default function LoginPage(): React.JSX.Element {
         </header>
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-          <div>
-            <Input
-              label="Email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                if (emailError !== undefined) setEmailError(undefined)
-              }}
-              required
-              placeholder="you@example.com"
-              error={emailError}
-            />
-          </div>
+          <Input
+            label="Email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              if (emailError !== undefined) setEmailError(undefined)
+            }}
+            required
+            placeholder="you@example.com"
+            error={emailError}
+          />
 
           <div className="flex flex-col gap-1.5">
             <Input
@@ -152,18 +150,16 @@ export default function LoginPage(): React.JSX.Element {
             </p>
           )}
 
-          <div>
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              loading={isPending}
-              trailingIcon={<ArrowGlyph direction="right" />}
-              className="w-full mt-2"
-            >
-              Sign in
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            loading={isPending}
+            trailingIcon={<ArrowGlyph direction="right" />}
+            className="w-full mt-2"
+          >
+            Sign in
+          </Button>
         </form>
 
         <div className="pt-2 border-t border-soft-hairline flex flex-col gap-2">

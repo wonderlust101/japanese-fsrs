@@ -392,15 +392,13 @@ export function ReviewStagingClient({
         </div>
 
         {/* Row 2 — Pinned deck (full width) */}
-        <div>
-          <div key={deckMotionKey}>
-            <StagingPinnedDeck
-              state={isLoading ? 'loading' : isError ? 'error' : 'default'}
-              deck={pinnedDeck}
-              note={tomoNote}
-              isFirstTime={isFirstTime}
-            />
-          </div>
+        <div key={deckMotionKey}>
+          <StagingPinnedDeck
+            state={isLoading ? 'loading' : isError ? 'error' : 'default'}
+            deck={pinnedDeck}
+            note={tomoNote}
+            isFirstTime={isFirstTime}
+          />
         </div>
 
         {/* Footer note */}
