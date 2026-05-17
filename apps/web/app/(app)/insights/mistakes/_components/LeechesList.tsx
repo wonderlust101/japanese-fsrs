@@ -19,7 +19,6 @@ interface LeechesListProps {
  */
 export function LeechesList({ data }: LeechesListProps): React.JSX.Element {
   const leeches = data.leeches
-  const repairAllHref = `/review/repair?source=leeches&cards=${leeches.map((l) => l.id).join(',')}`
 
   return (
     <div className="flex flex-col gap-y-5">
@@ -29,10 +28,10 @@ export function LeechesList({ data }: LeechesListProps): React.JSX.Element {
         </p>
         {leeches.length > 0 && (
           <Link
-            href={repairAllHref}
+            href="/insights/leeches"
             className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
-            Repair all →
+            Open weak spots →
           </Link>
         )}
       </div>
