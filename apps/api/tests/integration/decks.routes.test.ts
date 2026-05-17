@@ -55,7 +55,14 @@ const API_DECK_KEYS = [
   'version',
 ].sort()
 
-const API_DECK_WITH_STATS_KEYS = [...API_DECK_KEYS, 'dueCount', 'newCount'].sort()
+const API_DECK_WITH_STATS_KEYS = [
+  ...API_DECK_KEYS,
+  'dueCount',
+  'newCount',
+  'matureCount',
+  'dueNewCount',
+  'dueReviewCount',
+].sort()
 
 describeIntegration('decks routes — wire shape', () => {
   it('GET /api/v1/decks returns rows whose keys exactly match ApiDeck', async () => {

@@ -129,7 +129,9 @@ export async function listDecks(
 export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
   const now = new Date().toISOString()
 
-  const [deckResult, dueResult, newResult] = await Promise.all([
+  // Six parallel queries: deck row, total due, total new, mature (state=Review
+  // AND interval ≥ 21d, Anki convention), and the new/review split of `due`.
+  const [deckResult, dueResult, newResult, matureResult, dueNewResult, dueReviewResult] = await Promise.all([
     supabaseAdmin
       .from('decks')
       .select(DECK_COLUMNS)
@@ -154,6 +156,40 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
       .eq('deck_id', deckId)
       .eq('user_id', userId)
       .eq('state', State.New),
+
+    // Mature: graduated to Review state with scheduled interval ≥ 21 days.
+    // Suspended cards excluded so the mature % reflects what's actively in
+    // rotation (matches how dueCount excludes suspended cards).
+    supabaseAdmin
+      .from('cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('deck_id', deckId)
+      .eq('user_id', userId)
+      .eq('state', State.Review)
+      .eq('is_suspended', false)
+      .gte('scheduled_days', 21),
+
+    // Due breakdown — new cards portion of the due bucket.
+    supabaseAdmin
+      .from('cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('deck_id', deckId)
+      .eq('user_id', userId)
+      .lte('due', now)
+      .eq('is_suspended', false)
+      .eq('state', State.New),
+
+    // Due breakdown — review portion (everything in due that is NOT state=New).
+    // We count anything with state != New (Learning / Review / Relearning) to
+    // keep this exhaustive against any future state-enum changes.
+    supabaseAdmin
+      .from('cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('deck_id', deckId)
+      .eq('user_id', userId)
+      .lte('due', now)
+      .eq('is_suspended', false)
+      .neq('state', State.New),
   ])
 
   if (deckResult.error !== null || deckResult.data === null) {
@@ -163,8 +199,11 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
 
   return {
     ...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
-    dueCount: dueResult.count ?? 0,
-    newCount: newResult.count ?? 0,
+    dueCount:       dueResult.count       ?? 0,
+    newCount:       newResult.count       ?? 0,
+    matureCount:    matureResult.count    ?? 0,
+    dueNewCount:    dueNewResult.count    ?? 0,
+    dueReviewCount: dueReviewResult.count ?? 0,
   }
 }
 

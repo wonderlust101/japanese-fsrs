@@ -105,8 +105,16 @@ export const ApiDeckSchema = z.object({
 })
 
 export const ApiDeckWithStatsSchema = ApiDeckSchema.extend({
-  dueCount: z.number(),
-  newCount: z.number(),
+  /** Cards currently due (interval expired) and not suspended. */
+  dueCount:       z.number(),
+  /** Cards in state=New (never reviewed). Snapshot of the entire deck, not "new today". */
+  newCount:       z.number(),
+  /** Cards that have reached graduated maturity: state=Review AND scheduled_days >= 21 (Anki convention). */
+  matureCount:    z.number(),
+  /** Subset of dueCount: due cards in state=New. */
+  dueNewCount:    z.number(),
+  /** Subset of dueCount: due cards in state != New (Review / Learning / Relearning). */
+  dueReviewCount: z.number(),
 })
 
 // ─── Premade decks ────────────────────────────────────────────────────────────
