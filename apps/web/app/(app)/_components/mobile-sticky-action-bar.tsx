@@ -15,9 +15,11 @@ interface MobileStickyActionBarProps {
  * Mobile-only sticky action bar pinned to the bottom of the viewport.
  *
  * Lifted out of `review/setup/_components/setup-client.tsx`. Identical visual
- * treatment: warm-paper-raised at 95% with backdrop-blur, soft-hairline top
- * border, the canonical 1440px content cap, and consistent horizontal padding
- * across breakpoints.
+ * treatment: opaque warm-paper-raised, soft-hairline top border, the canonical
+ * 1440px content cap, and consistent horizontal padding across breakpoints.
+ * Per the Opaque-Chrome Rule (DESIGN.md §Elevation), the bar commits to fully
+ * opaque instead of translucency-plus-blur — warm-paper against the cool page
+ * gives enough separation via the surface contrast and the hairline border.
  *
  * Hidden at `lg+` (where pages park their primary action inside a sticky
  * sidebar instead).
@@ -33,7 +35,7 @@ export function MobileStickyActionBar({
       aria-label={ariaLabel}
       className={cn(
         'fixed inset-x-0 bottom-0 z-30 border-t border-soft-hairline',
-        'bg-warm-paper-raised/95 backdrop-blur-sm px-4 py-3 sm:px-6',
+        'bg-warm-paper-raised px-4 py-3 sm:px-6',
         'lg:hidden',
         className,
       )}
