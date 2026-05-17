@@ -594,7 +594,7 @@ function HeroPrimaryAction({
           'today-motion-transform',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
           variant === 'primary'
-            ? 'today-hero-primary-action bg-inari-vermillion-deep text-warm-paper-raised hover:-translate-y-0.5 hover:bg-inari-vermillion active:translate-y-0 active:scale-[0.98]'
+            ? 'today-hero-primary-action bg-inari-vermillion text-warm-paper-raised hover:-translate-y-0.5 hover:bg-inari-vermillion-deep active:translate-y-0 active:scale-[0.98]'
             : 'border border-soft-hairline bg-warm-paper-raised text-sumi-ink hover:-translate-y-0.5 hover:border-faded-sumi hover:bg-cream-inset active:translate-y-0 active:scale-[0.98]',
         ].join(' ')}
       >
