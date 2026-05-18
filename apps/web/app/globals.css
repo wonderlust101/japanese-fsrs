@@ -30,6 +30,12 @@
   --color-faded-sumi:        #6B5F58;
   --color-sumi-ink:          #1F1A18;
 
+  /* Warm-brown overlay for chart uncertainty bands (RetentionRibbonChart
+     SD/SE ribbons, grid lines, axis labels). Distinct from faded-sumi:
+     slightly darker and more saturated so uncertainty bands read as
+     subordinate "noise" against the vermillion mean line. */
+  --color-retention-uncertainty: oklch(0.42 0.015 50);
+
   /* ── JLPT spectrum (preserved verbatim from the previous system) ─── */
   --color-jlpt-n5-bg:       #DCFCE7;
   --color-jlpt-n5-text:     #15803D;

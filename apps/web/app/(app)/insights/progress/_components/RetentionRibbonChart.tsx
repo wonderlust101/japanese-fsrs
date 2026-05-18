@@ -254,18 +254,18 @@ export function RetentionRibbonChart({
             x2={VB_W - PAD_RIGHT}
             y1={t.y}
             y2={t.y}
-            stroke="rgb(94 72 67 / 0.08)"
+            stroke="color-mix(in oklch, var(--color-retention-uncertainty), transparent 92%)"
             strokeWidth={1}
           />
         ))}
 
         {/* SD ribbon (outer, faded sumi) */}
         {sdPath !== '' && (
-          <path d={sdPath} fill="rgb(94 72 67 / 0.10)" stroke="none" />
+          <path d={sdPath} fill="color-mix(in oklch, var(--color-retention-uncertainty), transparent 90%)" stroke="none" />
         )}
         {/* SE ribbon (inner, vermillion) */}
         {sePath !== '' && (
-          <path d={sePath} fill="rgb(126 31 42 / 0.18)" stroke="none" />
+          <path d={sePath} fill="color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 82%)" stroke="none" />
         )}
 
         {/* Target line (dotted) */}
@@ -274,7 +274,7 @@ export function RetentionRibbonChart({
           x2={VB_W - PAD_RIGHT}
           y1={targetY}
           y2={targetY}
-          stroke="rgb(126 31 42 / 0.55)"
+          stroke="color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 45%)"
           strokeWidth={1}
           strokeDasharray="3 4"
         />
@@ -293,7 +293,7 @@ export function RetentionRibbonChart({
           <path
             d={linePath}
             fill="none"
-            stroke="rgb(126 31 42)"
+            stroke="var(--color-inari-vermillion-deep)"
             strokeWidth={1.75}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -335,7 +335,7 @@ export function RetentionRibbonChart({
           x2={VB_W - PAD_RIGHT}
           y1={VB_H - PAD_BOTTOM}
           y2={VB_H - PAD_BOTTOM}
-          stroke="rgb(94 72 67 / 0.25)"
+          stroke="color-mix(in oklch, var(--color-retention-uncertainty), transparent 75%)"
           strokeWidth={1}
         />
       </svg>
@@ -350,7 +350,7 @@ export function RetentionRibbonChart({
           <span
             aria-hidden="true"
             className="inline-block h-3 w-3 rounded-[1px]"
-            style={{ backgroundColor: 'rgb(126 31 42 / 0.18)' }}
+            style={{ backgroundColor: 'color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 82%)' }}
           />
           ± 1 standard error
         </li>
@@ -358,7 +358,7 @@ export function RetentionRibbonChart({
           <span
             aria-hidden="true"
             className="inline-block h-3 w-3 rounded-[1px]"
-            style={{ backgroundColor: 'rgb(94 72 67 / 0.10)' }}
+            style={{ backgroundColor: 'color-mix(in oklch, var(--color-retention-uncertainty), transparent 90%)' }}
           />
           ± 1 standard deviation
         </li>
