@@ -397,9 +397,16 @@ export const ApiReviewSubmitResponseSchema = ApiReviewedCardSchema
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const ApiHeatmapDaySchema = z.object({
-  date:      z.string(),
-  retention: z.number(),
-  count:     z.number(),
+  date:         z.string(),
+  retention:    z.number(),
+  count:        z.number(),
+  /**
+   * Total time spent reviewing on this day, in seconds. Derived from
+   * `review_logs.review_time_ms` by `get_heatmap_data`; zero if no
+   * reviews carried a duration (pre-instrumentation rows COALESCE to 0).
+   * Powers the Statistics page's activity-strip total-time figure.
+   */
+  totalSeconds: z.number().int().nonnegative(),
 })
 
 export const ApiLayoutAccuracySchema = z.object({
@@ -442,6 +449,40 @@ export const ApiAnalyticsDashboardSchema = z.object({
   accuracy:   apiListEnvelope(ApiLayoutAccuracySchema),
   jlptGap:    apiListEnvelope(ApiJlptGapSchema),
   milestones: apiListEnvelope(ApiMilestoneForecastSchema),
+  /**
+   * Cards added in the learner's current calendar month (tz-aware).
+   * Powers the Progress page's "added this month" summary tile.
+   * Zero for accounts with no cards or no cards created since the
+   * month-boundary.
+   */
+  cardsAddedThisMonth: z.number().int().nonnegative(),
+})
+
+// ─── Insights distributions (Statistics page) ─────────────────────────────────
+//
+// Bundle endpoint at GET /api/v1/insights/distributions. Mirrors the
+// dashboard bundle pattern — four sub-queries, one round-trip, one
+// React Query cache entry. Each histogram emits a stable shape
+// (server-defined bucket labels) so frontend chart consumers don't
+// have to re-derive labels.
+
+export const ApiAnswerRatingDistributionSchema = z.object({
+  again: z.number().int().nonnegative(),
+  hard:  z.number().int().nonnegative(),
+  good:  z.number().int().nonnegative(),
+  easy:  z.number().int().nonnegative(),
+})
+
+export const ApiHistogramBucketSchema = z.object({
+  label: z.string(),
+  count: z.number().int().nonnegative(),
+})
+
+export const ApiInsightsDistributionsSchema = z.object({
+  ratings:    ApiAnswerRatingDistributionSchema,
+  intervals:  z.array(ApiHistogramBucketSchema),
+  stability:  z.array(ApiHistogramBucketSchema),
+  difficulty: z.array(ApiHistogramBucketSchema),
 })
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

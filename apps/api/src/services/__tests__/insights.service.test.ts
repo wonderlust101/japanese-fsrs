@@ -26,6 +26,11 @@ interface MockState {
   rpcResult: RpcRow[] | CardQualityRpcRow[] | MaturitySnapshotRpcRow[] | ConfusablePairRpcRow[] | null
   rpcError:  { message: string; code?: string } | null
   rpcCalls:  Array<{ fn: string; params: unknown }>
+  // Per-RPC overrides for tests that exercise multiple RPC calls in one
+  // service invocation (e.g. getDistributions fan-outs four RPCs). When
+  // a function name is keyed here, the mock returns that entry instead
+  // of the shared `rpcResult` slot — old tests are untouched.
+  rpcByName: Record<string, { data: unknown; error: { message: string; code?: string } | null }>
 }
 
 interface CardQualityRpcRow {
@@ -60,12 +65,15 @@ const state: MockState = {
   rpcResult: null,
   rpcError:  null,
   rpcCalls:  [],
+  rpcByName: {},
 }
 
 mock.module('../../db/supabase.ts', () => ({
   supabaseAdmin: {
     rpc: mock(async (fn: string, params: unknown) => {
       state.rpcCalls.push({ fn, params })
+      const override = state.rpcByName[fn]
+      if (override !== undefined) return override
       return { data: state.rpcResult, error: state.rpcError }
     }),
   },
@@ -76,12 +84,15 @@ const {
   listCardQualityIssues,
   listMaturityHistory,
   listConfusablePairs,
+  getDistributions,
+  getCardsAddedThisMonth,
 } = await import('../insights.service.ts')
 
 beforeEach(() => {
   state.rpcResult = null
   state.rpcError  = null
   state.rpcCalls  = []
+  state.rpcByName = {}
 })
 
 describe('insights.service — listProblemCards', () => {
@@ -467,5 +478,117 @@ describe('insights.service — listConfusablePairs', () => {
     expect(pair.cardA.reading).toBeNull()
     expect(pair.cardA.meaning).toBeNull()
     expect(pair.cardB.word).toBe('完璧')
+  })
+})
+
+// ─── getDistributions ─────────────────────────────────────────────────────────
+
+describe('insights.service — getDistributions', () => {
+  it('bundles four RPC results into the camelCase wire shape', async () => {
+    state.rpcByName = {
+      get_answer_rating_distribution: {
+        data: [
+          { rating: 'again', count: 12 },
+          { rating: 'hard',  count: 8  },
+          { rating: 'good',  count: 64 },
+          { rating: 'easy',  count: 16 },
+        ],
+        error: null,
+      },
+      get_interval_distribution: {
+        data: [
+          { bucket: '1d',    sort_key: 1, count: 10 },
+          { bucket: '2-3d',  sort_key: 2, count: 8  },
+          { bucket: '4-7d',  sort_key: 3, count: 20 },
+        ],
+        error: null,
+      },
+      get_stability_distribution: {
+        data: [
+          { bucket: '0-7d', sort_key: 1, count: 5  },
+          { bucket: '1y+',  sort_key: 6, count: 1  },
+        ],
+        error: null,
+      },
+      get_difficulty_distribution: {
+        data: [
+          { bucket: '2.5-3.5', sort_key: 2, count: 3 },
+          { bucket: '5.5+',    sort_key: 5, count: 1 },
+        ],
+        error: null,
+      },
+    }
+
+    const out = await getDistributions('00000000-0000-4000-8000-000000000099')
+
+    expect(out.ratings).toEqual({ again: 12, hard: 8, good: 64, easy: 16 })
+    expect(out.intervals).toEqual([
+      { label: '1d',   count: 10 },
+      { label: '2-3d', count: 8  },
+      { label: '4-7d', count: 20 },
+    ])
+    expect(out.stability).toEqual([
+      { label: '0-7d', count: 5 },
+      { label: '1y+',  count: 1 },
+    ])
+    expect(out.difficulty).toEqual([
+      { label: '2.5-3.5', count: 3 },
+      { label: '5.5+',    count: 1 },
+    ])
+  })
+
+  it('zero-fills the rating distribution when the RPC returns an empty array', async () => {
+    state.rpcByName = {
+      get_answer_rating_distribution: { data: [], error: null },
+      get_interval_distribution:      { data: [], error: null },
+      get_stability_distribution:     { data: [], error: null },
+      get_difficulty_distribution:    { data: [], error: null },
+    }
+
+    const out = await getDistributions('00000000-0000-4000-8000-000000000099')
+    expect(out.ratings).toEqual({ again: 0, hard: 0, good: 0, easy: 0 })
+    expect(out.intervals).toEqual([])
+    expect(out.stability).toEqual([])
+    expect(out.difficulty).toEqual([])
+  })
+
+  it('throws when any one of the four RPCs errors', async () => {
+    state.rpcByName = {
+      get_answer_rating_distribution: { data: [], error: null },
+      get_interval_distribution:      { data: [], error: { message: 'kaboom', code: 'XX000' } },
+      get_stability_distribution:     { data: [], error: null },
+      get_difficulty_distribution:    { data: [], error: null },
+    }
+
+    await expect(getDistributions('00000000-0000-4000-8000-000000000099')).rejects.toBeDefined()
+  })
+})
+
+// ─── getCardsAddedThisMonth ───────────────────────────────────────────────────
+
+describe('insights.service — getCardsAddedThisMonth', () => {
+  it('forwards the timezone to the RPC and returns the integer count', async () => {
+    state.rpcByName = {
+      get_cards_added_this_month: { data: 17, error: null },
+    }
+    const count = await getCardsAddedThisMonth(
+      '00000000-0000-4000-8000-000000000099',
+      'America/Los_Angeles',
+    )
+    expect(count).toBe(17)
+    const call = state.rpcCalls.find((c) => c.fn === 'get_cards_added_this_month')
+    expect(call).toBeDefined()
+    expect((call?.params as Record<string, unknown>).p_timezone).toBe('America/Los_Angeles')
+  })
+
+  it('returns 0 when the RPC returns null', async () => {
+    state.rpcByName = {
+      get_cards_added_this_month: { data: null, error: null },
+    }
+    const count = await getCardsAddedThisMonth(
+      '00000000-0000-4000-8000-000000000099',
+      'UTC',
+    )
+    expect(count).toBe(0)
   })
 })

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
 import type {
   ApiAnalyticsDashboard,
   ApiMaturitySnapshot,
@@ -13,6 +14,8 @@ import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
 import { useMaturityHistory } from '@/lib/api/insights'
+import { getProfileAction } from '@/lib/actions/profile.actions'
+import { queryKeys } from '@/lib/api/queryKeys'
 
 import { JlptCoverageStrip } from './JlptCoverageStrip'
 import { MatureStackedArea } from './MatureStackedArea'
@@ -98,13 +101,17 @@ function ProgressHeader({ subtitle }: ProgressHeaderProps): React.JSX.Element {
  * empty list because the user has no history), the Mature card falls
  * back to its "a few more weeks of practice will fill this chart" note.
  *
- * Default `desiredRetention` is 0.9 (the FSRS default) until the user's
- * personal setting is plumbed through.
+ * `desiredRetention` is the learner's personal target from `profiles.
+ * retention_target` (exposed via `GET /api/v1/profile`); the page falls
+ * back to the FSRS default of 0.9 only if the profile query hasn't
+ * resolved yet. `cardsAddedThisMonth` is the tz-aware month-to-date
+ * count from the analytics dashboard envelope.
  */
 function adaptDashboard(
-  dashboard:       ApiAnalyticsDashboard,
-  maturityHistory: ReadonlyArray<ApiMaturitySnapshot>,
-  desiredRetention: number,
+  dashboard:           ApiAnalyticsDashboard,
+  maturityHistory:     ReadonlyArray<ApiMaturitySnapshot>,
+  desiredRetention:    number,
+  cardsAddedThisMonth: number,
 ): ProgressData {
   const heatmap: HeatmapCell[] = dashboard.heatmap.items.map((h) => ({
     date:      h.date,
@@ -143,7 +150,7 @@ function adaptDashboard(
     matureCount:         latestMature,
     retention30d,
     activeDaysLast30,
-    cardsAddedThisMonth: 0,
+    cardsAddedThisMonth,
     daysSinceStart:      heatmap.filter((d) => d.count > 0).length,
   }
 
@@ -229,16 +236,26 @@ export function ProgressView(): React.JSX.Element {
   // year of pipeline history. Smaller ranges (30d/90d/6m/1y) inside the
   // chart slice this client-side.
   const maturityHistoryQuery = useMaturityHistory('365')
+  // Profile carries the learner's personal `retentionTarget`. Default 0.9
+  // until the query resolves so the chart never renders a missing line.
+  const profileQuery = useQuery({
+    queryKey:  queryKeys.profile.me(),
+    queryFn:   getProfileAction,
+    staleTime: 1000 * 60 * 60,
+  })
 
   const data = useMemo<ProgressData | null>(() => {
     if (dev.fixtureData !== null) return dev.fixtureData
     if (dashboardQuery.data === undefined) return null
+    const desiredRetention    = profileQuery.data?.retentionTarget ?? 0.9
+    const cardsAddedThisMonth = dashboardQuery.data.cardsAddedThisMonth
     return adaptDashboard(
       dashboardQuery.data,
       maturityHistoryQuery.data ?? [],
-      0.9,
+      desiredRetention,
+      cardsAddedThisMonth,
     )
-  }, [dev.fixtureData, dashboardQuery.data, maturityHistoryQuery.data])
+  }, [dev.fixtureData, dashboardQuery.data, maturityHistoryQuery.data, profileQuery.data])
 
   // Forced dev states win first.
   if (dev.forcedState === 'error') {

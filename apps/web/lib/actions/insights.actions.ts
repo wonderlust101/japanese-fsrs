@@ -5,8 +5,10 @@ import { z } from 'zod'
 import {
   ApiMaturitySnapshotSchema,
   ApiCardQualityIssueSchema,
+  ApiInsightsDistributionsSchema,
   type ApiMaturitySnapshot,
   type ApiCardQualityIssue,
+  type ApiInsightsDistributions,
 } from '@fsrs-japanese/shared-types'
 
 import { apiCallSafe } from '@/lib/api/client'
@@ -47,5 +49,27 @@ export async function getCardQualityIssuesAction(): Promise<ReadonlyArray<ApiCar
     z.array(ApiCardQualityIssueSchema),
     {},
     [],
+  )
+}
+
+/**
+ * Bundled distributions for the Statistics page — `GET /api/v1/insights/distributions`.
+ * Four histograms (rating + interval + FSRS stability + FSRS difficulty) in
+ * one round-trip. Auth/5xx falls back to a zero-filled bundle so the page
+ * keeps rendering calm empty-state copy instead of erroring.
+ */
+const EMPTY_DISTRIBUTIONS: ApiInsightsDistributions = {
+  ratings:    { again: 0, hard: 0, good: 0, easy: 0 },
+  intervals:  [],
+  stability:  [],
+  difficulty: [],
+}
+
+export async function getInsightsDistributionsAction(): Promise<ApiInsightsDistributions> {
+  return apiCallSafe<ApiInsightsDistributions>(
+    '/api/v1/insights/distributions',
+    ApiInsightsDistributionsSchema,
+    {},
+    EMPTY_DISTRIBUTIONS,
   )
 }

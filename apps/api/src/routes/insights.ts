@@ -12,5 +12,6 @@ router.get('/problem-cards',      insightsController.problemCards)
 router.get('/card-quality',       insightsController.cardQuality)
 router.get('/maturity-history',   insightsController.maturityHistory)
 router.get('/confusable-pairs',   insightsController.confusablePairs)
+router.get('/distributions',      insightsController.distributions)
 
 export default router

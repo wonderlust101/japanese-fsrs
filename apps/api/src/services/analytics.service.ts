@@ -62,7 +62,16 @@ export async function getHeatmapData(userId: string, timeZone = 'UTC'): Promise<
     HeatmapRpcSchema,
     'heatmap data',
   )
-  return bounded(rows)
+  // The RPC's snake_case `total_seconds` becomes camelCase `totalSeconds`
+  // on the wire (the wire schema is camelCase per CLAUDE.md). Other
+  // fields are 1:1 so a direct map is enough.
+  const items: ApiHeatmapDay[] = rows.map((r) => ({
+    date:         r.date,
+    retention:    r.retention,
+    count:        r.count,
+    totalSeconds: r.total_seconds,
+  }))
+  return bounded(items)
 }
 
 /**
@@ -137,6 +146,8 @@ const DashboardRpcEnvelopeSchema = z.object({
   accuracy:   AccuracyRpcSchema,
   jlpt_gap:   JlptGapRpcSchema,
   milestones: MilestoneForecastRpcSchema,
+  // Added 2026-05-18. Tz-aware month-to-date personal-card count.
+  cards_added_this_month: z.coerce.number().int().nonnegative(),
 })
 
 /**
@@ -159,9 +170,10 @@ export async function getDashboardData(userId: string, timeZone = 'UTC'): Promis
   // mappers' field renames. A small amount of duplication here vs. calling
   // the granular service functions; trade-off is one round-trip not five.
   const heatmap: ApiHeatmapDay[] = env.heatmap.map((r) => ({
-    date:      r.date,
-    retention: r.retention,
-    count:     r.count,
+    date:         r.date,
+    retention:    r.retention,
+    count:        r.count,
+    totalSeconds: r.total_seconds,
   }))
 
   const accuracy: ApiLayoutAccuracy[] = env.accuracy.map((r) => {
@@ -194,9 +206,10 @@ export async function getDashboardData(userId: string, timeZone = 'UTC'): Promis
   // is wrapped in the universal list envelope; the dashboard itself is a
   // multi-key bundle (one round-trip carrying five sub-results).
   return ApiAnalyticsDashboardSchema.parse({
-    heatmap:    bounded(heatmap),
-    accuracy:   bounded(accuracy),
-    jlptGap:    bounded(jlptGap),
-    milestones: bounded(milestones),
+    heatmap:             bounded(heatmap),
+    accuracy:            bounded(accuracy),
+    jlptGap:             bounded(jlptGap),
+    milestones:          bounded(milestones),
+    cardsAddedThisMonth: env.cards_added_this_month,
   })
 }

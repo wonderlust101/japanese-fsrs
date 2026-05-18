@@ -7,6 +7,9 @@ import {
   layoutTypeEnum,
   jlptLevelEnum,
   ApiCardQualityIssueTypeSchema,
+  type ApiAnswerRatingDistribution,
+  type ApiHistogramBucket,
+  type ApiInsightsDistributions,
   type ApiList,
   type ApiProblemCard,
   type ApiProblemCardBucketSchema,
@@ -276,4 +279,84 @@ export async function listConfusablePairs(
   }))
 
   return { items, nextCursor: null, hasMore: false }
+}
+
+// ─── Statistics distributions ────────────────────────────────────────────────
+//
+// Bundle four small histograms behind one round-trip. The frontend uses a
+// single React Query cache entry; the SQL side issues four parallel RPC
+// calls in `Promise.all` because they're independent reads.
+
+const RatingDistributionRpcRowSchema = z.object({
+  rating: z.enum(['again', 'hard', 'good', 'easy']),
+  count:  z.number().int().nonnegative(),
+})
+
+const HistogramBucketRpcRowSchema = z.object({
+  bucket:    z.string(),
+  // The interval/stability/difficulty RPCs carry a numeric `sort_key` so
+  // the row order is stable even if the planner re-orders the underlying
+  // LATERAL VALUES (it shouldn't, but the explicit ORDER BY in the RPC
+  // depends on this column). We don't surface it on the wire.
+  sort_key:  z.number().int().positive(),
+  count:     z.number().int().nonnegative(),
+})
+
+function ratingRowsToDistribution(
+  rows: ReadonlyArray<z.infer<typeof RatingDistributionRpcRowSchema>>,
+): ApiAnswerRatingDistribution {
+  const out: ApiAnswerRatingDistribution = { again: 0, hard: 0, good: 0, easy: 0 }
+  for (const row of rows) out[row.rating] = row.count
+  return out
+}
+
+function histogramRowsToBuckets(
+  rows: ReadonlyArray<z.infer<typeof HistogramBucketRpcRowSchema>>,
+): ApiHistogramBucket[] {
+  return rows.map((r) => ({ label: r.bucket, count: r.count }))
+}
+
+export async function getDistributions(
+  userId: string,
+): Promise<ApiInsightsDistributions> {
+  const [ratingResult, intervalResult, stabilityResult, difficultyResult] = await Promise.all([
+    supabaseAdmin.rpc('get_answer_rating_distribution', asPayload({ p_user_id: userId })),
+    supabaseAdmin.rpc('get_interval_distribution',      asPayload({ p_user_id: userId })),
+    supabaseAdmin.rpc('get_stability_distribution',     asPayload({ p_user_id: userId })),
+    supabaseAdmin.rpc('get_difficulty_distribution',    asPayload({ p_user_id: userId })),
+  ])
+
+  if (ratingResult.error !== null)     throw dbError('get rating distribution',     ratingResult.error)
+  if (intervalResult.error !== null)   throw dbError('get interval distribution',   intervalResult.error)
+  if (stabilityResult.error !== null)  throw dbError('get stability distribution',  stabilityResult.error)
+  if (difficultyResult.error !== null) throw dbError('get difficulty distribution', difficultyResult.error)
+
+  return {
+    ratings:    ratingRowsToDistribution(
+      z.array(RatingDistributionRpcRowSchema).parse(ratingResult.data ?? []),
+    ),
+    intervals:  histogramRowsToBuckets(
+      z.array(HistogramBucketRpcRowSchema).parse(intervalResult.data ?? []),
+    ),
+    stability:  histogramRowsToBuckets(
+      z.array(HistogramBucketRpcRowSchema).parse(stabilityResult.data ?? []),
+    ),
+    difficulty: histogramRowsToBuckets(
+      z.array(HistogramBucketRpcRowSchema).parse(difficultyResult.data ?? []),
+    ),
+  }
+}
+
+// ─── Tz-aware cards-added-this-month (Progress page summary tile) ───────────
+
+export async function getCardsAddedThisMonth(
+  userId:   string,
+  timezone: string,
+): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc('get_cards_added_this_month', asPayload({
+    p_user_id:  userId,
+    p_timezone: timezone,
+  }))
+  if (error !== null) throw dbError('get cards added this month', error)
+  return z.number().int().nonnegative().parse(data ?? 0)
 }

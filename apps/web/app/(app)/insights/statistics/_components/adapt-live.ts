@@ -3,6 +3,7 @@ import type {
   ApiDeck,
   ApiForecastDay,
   ApiHeatmapDay,
+  ApiInsightsDistributions,
   ApiMaturitySnapshot,
 } from '@fsrs-japanese/shared-types'
 
@@ -12,6 +13,7 @@ import type {
   AnswerButtonDistribution,
   CumulativeDueDay,
   DeckCardCount,
+  FsrsHistogramBucket,
   FsrsState,
   IntervalBucket,
   MaturityCounts,
@@ -20,15 +22,6 @@ import type {
 } from './types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
-
-/**
- * Per-review time estimate used to derive the activity stats strip's
- * "total time" figure. The heatmap endpoint reports review counts and
- * retention, but not duration — Stage 9 hasn't added a per-day seconds
- * aggregate yet — so we approximate at 18 s/review (matches the same
- * heuristic Review Setup uses to size sessions).
- */
-const SECONDS_PER_REVIEW = 18
 
 /**
  * The FSRS request-retention the backend schedules at when the user hasn't
@@ -50,6 +43,8 @@ export interface LiveStatisticsInputs {
   forecast:         ReadonlyArray<ApiForecastDay> | undefined
   /** FSRS request-retention the user is scheduling at. Falls back to 0.85. */
   retentionTarget:  number | null | undefined
+  /** Bundled rating + interval + stability + difficulty histograms. */
+  distributions:    ApiInsightsDistributions | undefined
 }
 
 // ── Public adapter ───────────────────────────────────────────────────────────
@@ -65,10 +60,11 @@ export interface LiveStatisticsInputs {
 export function adaptLiveStatistics(
   inputs: LiveStatisticsInputs,
 ): StatisticsData {
-  const heatmap   = inputs.dashboard?.heatmap.items ?? []
-  const forecast  = inputs.forecast ?? []
-  const matHist   = inputs.maturityHistory ?? []
-  const decks     = inputs.decks ?? []
+  const heatmap       = inputs.dashboard?.heatmap.items ?? []
+  const forecast      = inputs.forecast ?? []
+  const matHist       = inputs.maturityHistory ?? []
+  const decks         = inputs.decks ?? []
+  const distributions = inputs.distributions
 
   const activity      = adaptActivity(heatmap)
   const activityStats = summarizeActivity(activity)
@@ -79,15 +75,17 @@ export function adaptLiveStatistics(
     // Retention chart only needs the trailing window; mirrors the fixture's
     // `activity.slice(-90)` shape — last 90 days when available.
     retention:     activity.slice(-90),
-    answerButtons: emptyAnswerButtons(),
+    answerButtons: distributions?.ratings ?? emptyAnswerButtons(),
     maturity:      adaptMaturity(matHist),
     decks:         adaptDecks(decks),
-    intervals:     emptyIntervals(),
+    intervals:     toHistogramBuckets(distributions?.intervals),
     cumulative:    adaptCumulativeDue(forecast),
     overdue:       adaptOverdue(forecast),
     fsrs:          adaptFsrs({
       retentionTarget: inputs.retentionTarget ?? null,
       activity,
+      stability:       distributions?.stability,
+      difficulty:      distributions?.difficulty,
     }),
   }
 }
@@ -117,7 +115,11 @@ function adaptActivity(
       // Heatmap retention is 0–100 on the wire (InsightsOverview already
       // normalizes the same way). Convert to 0–1 for the chart components.
       retention: row.count > 0 ? row.retention / 100 : 0,
-      seconds:   row.count * SECONDS_PER_REVIEW,
+      // `totalSeconds` is the real per-day duration aggregated from
+      // `review_logs.review_time_ms`. Days where every review pre-dates
+      // the duration instrumentation read as zero — acceptable; the
+      // metric becomes faithful as new reviews accumulate.
+      seconds:   row.totalSeconds,
     }))
 }
 
@@ -233,9 +235,11 @@ function adaptOverdue(forecast: ReadonlyArray<ApiForecastDay>): OverdueImpact {
 interface FsrsAdapterInputs {
   retentionTarget: number | null
   activity:        ReadonlyArray<ActivityDay>
+  stability:       ReadonlyArray<{ label: string; count: number }> | undefined
+  difficulty:      ReadonlyArray<{ label: string; count: number }> | undefined
 }
 
-function adaptFsrs({ retentionTarget, activity }: FsrsAdapterInputs): FsrsState {
+function adaptFsrs({ retentionTarget, activity, stability, difficulty }: FsrsAdapterInputs): FsrsState {
   // True retention = review-weighted mean of per-day retention across the
   // active days the user has reviewed in. Days with no reviews are skipped
   // so a thirty-day vacation doesn't drag the mean toward zero.
@@ -251,25 +255,36 @@ function adaptFsrs({ retentionTarget, activity }: FsrsAdapterInputs): FsrsState 
   return {
     desiredRetention: retentionTarget ?? DEFAULT_RETENTION_TARGET,
     trueRetention,
-    // Stability + difficulty distributions aren't exposed by the dashboard
-    // or insights/maturity-history endpoints. The chart renders a calm
-    // "no data yet" message when these are empty (see FsrsHistogram).
-    stability:  [],
-    difficulty: [],
-    // The backend tracks optimizer state via the per-card FSRS columns but
-    // there's no dedicated "last optimized at" signal on the wire today.
-    // Surface as never-run so the OptimizationStatus card reads accurately.
+    stability:  toFsrsHistogramBuckets(stability),
+    difficulty: toFsrsHistogramBuckets(difficulty),
+    // Optimization status is deferred. There's no FSRS-weight refit
+    // process to status against (no `profiles.fsrs_weights_last_fit`
+    // column today); a column that's NULL for every user forever would
+    // be worse than this honest `'never-run'` reading. Re-evaluate when
+    // the optimizer ships.
     optimizationStatus: 'never-run',
     lastOptimizedAt:    null,
   }
+}
+
+// ── Histogram bucket projections ─────────────────────────────────────────────
+
+function toHistogramBuckets(
+  buckets: ReadonlyArray<{ label: string; count: number }> | undefined,
+): ReadonlyArray<IntervalBucket> {
+  if (buckets === undefined) return []
+  return buckets.map((b) => ({ label: b.label, count: b.count }))
+}
+
+function toFsrsHistogramBuckets(
+  buckets: ReadonlyArray<{ label: string; count: number }> | undefined,
+): ReadonlyArray<FsrsHistogramBucket> {
+  if (buckets === undefined) return []
+  return buckets.map((b) => ({ label: b.label, count: b.count }))
 }
 
 // ── Empty fallbacks ──────────────────────────────────────────────────────────
 
 function emptyAnswerButtons(): AnswerButtonDistribution {
   return { again: 0, hard: 0, good: 0, easy: 0 }
-}
-
-function emptyIntervals(): ReadonlyArray<IntervalBucket> {
-  return []
 }

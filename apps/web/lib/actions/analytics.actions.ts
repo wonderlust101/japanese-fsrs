@@ -56,10 +56,11 @@ export async function getMilestoneForecastAction(): Promise<ApiList<ApiMilestone
 }
 
 const dashboardFallback: ApiAnalyticsDashboard = {
-  heatmap:    emptyList<ApiHeatmapDay>(),
-  accuracy:   emptyList<ApiLayoutAccuracy>(),
-  jlptGap:    emptyList<ApiJlptGap>(),
-  milestones: emptyList<ApiMilestoneForecast>(),
+  heatmap:             emptyList<ApiHeatmapDay>(),
+  accuracy:            emptyList<ApiLayoutAccuracy>(),
+  jlptGap:             emptyList<ApiJlptGap>(),
+  milestones:          emptyList<ApiMilestoneForecast>(),
+  cardsAddedThisMonth: 0,
 }
 
 /**

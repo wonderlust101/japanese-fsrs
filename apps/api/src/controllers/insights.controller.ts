@@ -68,3 +68,18 @@ export const confusablePairs: RequestHandler = async (req, res): Promise<void> =
   const data      = await insightsService.listConfusablePairs(req.user.id, limit)
   res.json(data)
 }
+
+/**
+ * GET /api/v1/insights/distributions
+ *
+ * Bundled response for the Statistics page's four histograms: rating
+ * distribution + interval / FSRS stability / FSRS difficulty buckets.
+ * No query parameters — the response is fully determined by the
+ * authenticated user. Calm zero-rows are emitted for buckets the user
+ * hasn't populated yet; the frontend renders the existing "no data
+ * yet" message in that case.
+ */
+export const distributions: RequestHandler = async (req, res): Promise<void> => {
+  const data = await insightsService.getDistributions(req.user.id)
+  res.json(data)
+}

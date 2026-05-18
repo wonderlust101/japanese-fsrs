@@ -145,7 +145,10 @@ function generateHeatmap(
   for (let i = days - 1; i >= 0; i -= 1) {
     const date = addDays(todayIso, -i)
     const { retention, count } = shape(i)
-    out.push({ date, retention, count })
+    // Dev fixture rows zero-fill totalSeconds; designers don't need real
+    // duration data to preview the chart. The real wire shape carries
+    // SUM(review_time_ms)/1000 per heatmap day.
+    out.push({ date, retention, count, totalSeconds: 0 })
   }
   return out
 }

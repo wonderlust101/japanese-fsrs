@@ -34,6 +34,9 @@ export const queryKeys = {
     // same row twice for the same window).
     maturityHistory: (days: '90' | '180' | '365') =>
       ['insights', 'maturity-history', days] as const,
+    // Bundled rating/interval/stability/difficulty distributions for
+    // the Statistics page. One round-trip, one cache entry.
+    distributions: () => ['insights', 'distributions'] as const,
   },
   weakSpots: {
     all:    ()                       => ['weakSpots']                              as const,

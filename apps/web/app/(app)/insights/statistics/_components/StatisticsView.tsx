@@ -9,7 +9,7 @@ import { Logo } from '@/components/ui/Logo'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
-import { useMaturityHistory } from '@/lib/api/insights'
+import { useInsightsDistributions, useMaturityHistory } from '@/lib/api/insights'
 import { useDecks } from '@/lib/api/decks'
 import { useReviewForecast } from '@/lib/api/reviews'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -73,6 +73,8 @@ export function StatisticsView(): React.JSX.Element {
   const maturityHistoryQuery = useMaturityHistory('90')
   const decksQuery           = useDecks(50)
   const forecastQuery        = useReviewForecast()
+  // Bundled rating + interval + stability + difficulty histograms.
+  const distributionsQuery   = useInsightsDistributions()
   // Profile carries `retentionTarget` — the only piece of FSRS state we can
   // surface without a dedicated optimizer-state endpoint.
   const profileQuery = useQuery({
@@ -88,6 +90,7 @@ export function StatisticsView(): React.JSX.Element {
       decks:           decksQuery.data?.items,
       forecast:        forecastQuery.data?.items,
       retentionTarget: profileQuery.data?.retentionTarget,
+      distributions:   distributionsQuery.data,
     })
   }, [
     dashboardQuery.data,
@@ -95,6 +98,7 @@ export function StatisticsView(): React.JSX.Element {
     decksQuery.data,
     forecastQuery.data,
     profileQuery.data,
+    distributionsQuery.data,
   ])
 
   // Forced dev states override live state classification entirely.

@@ -29,6 +29,9 @@ import type {
   ApiJlptGapSchema,
   ApiMilestoneForecastSchema,
   ApiAnalyticsDashboardSchema,
+  ApiAnswerRatingDistributionSchema,
+  ApiHistogramBucketSchema,
+  ApiInsightsDistributionsSchema,
   ApiReviewedCardSchema,
   ApiReviewSubmitResponseSchema,
   ApiAuthTokensSchema,
@@ -156,6 +159,28 @@ export type ApiMilestoneForecast = z.infer<typeof ApiMilestoneForecastSchema>
 
 /** Bundled analytics response for the dashboard view (one round-trip). */
 export type ApiAnalyticsDashboard = z.infer<typeof ApiAnalyticsDashboardSchema>
+
+/**
+ * Per-rating histogram returned by `GET /api/v1/insights/distributions`.
+ * Always four numeric fields — server zero-fills empty buckets so the
+ * consumer renders a stable shape.
+ */
+export type ApiAnswerRatingDistribution = z.infer<typeof ApiAnswerRatingDistributionSchema>
+
+/**
+ * One bar in a histogram (interval / stability / difficulty). Labels are
+ * defined server-side so the wire shape stays stable and the frontend
+ * doesn't have to re-derive bucket boundaries.
+ */
+export type ApiHistogramBucket = z.infer<typeof ApiHistogramBucketSchema>
+
+/**
+ * Bundled response for `GET /api/v1/insights/distributions`. One
+ * round-trip covers the four Statistics-page histograms that aren't on
+ * the analytics dashboard: rating distribution, interval distribution,
+ * FSRS stability distribution, and FSRS difficulty distribution.
+ */
+export type ApiInsightsDistributions = z.infer<typeof ApiInsightsDistributionsSchema>
 
 // ─── Review submit wire format ────────────────────────────────────────────────
 

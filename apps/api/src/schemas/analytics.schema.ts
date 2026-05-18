@@ -7,9 +7,13 @@ import { layoutTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
 // numbers depending on the type (NUMERIC vs INT). z.coerce.number() normalises.
 
 export const HeatmapRpcRowSchema = z.object({
-  date:      z.string(),
-  retention: z.coerce.number(),
-  count:     z.coerce.number(),
+  date:          z.string(),
+  retention:     z.coerce.number(),
+  count:         z.coerce.number(),
+  // Added 2026-05-18. SUM(review_time_ms)/1000 from get_heatmap_data.
+  // BIGINT on the wire — z.coerce.number() normalizes the string-or-int
+  // serialization Postgres uses for INT8.
+  total_seconds: z.coerce.number(),
 })
 export const HeatmapRpcSchema = z.array(HeatmapRpcRowSchema)
 export type HeatmapRpcRow = z.infer<typeof HeatmapRpcRowSchema>

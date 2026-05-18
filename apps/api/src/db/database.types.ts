@@ -871,9 +871,10 @@ export type Database = {
           total: number
         }[]
       }
-      get_dashboard_data:
-        | { Args: { p_user_id: string }; Returns: Json }
-        | { Args: { p_timezone?: string; p_user_id: string }; Returns: Json }
+      get_dashboard_data: {
+        Args: { p_timezone?: string; p_user_id: string }
+        Returns: Json
+      }
       get_due_cards: {
         Args: {
           p_daily_new_cards_limit: number
@@ -894,9 +895,10 @@ export type Database = {
       get_heatmap_data: {
         Args: { p_timezone?: string; p_user_id: string }
         Returns: {
-          count: number
-          date: string
-          retention: number
+          count:         number
+          date:          string
+          retention:     number
+          total_seconds: number
         }[]
       }
       get_card_quality_issues: {
@@ -1345,6 +1347,26 @@ export type Database = {
           p_remove_tags: string[]
         }
         Returns: Json
+      }
+      get_answer_rating_distribution: {
+        Args: { p_user_id: string }
+        Returns: { rating: string; count: number }[]
+      }
+      get_interval_distribution: {
+        Args: { p_user_id: string }
+        Returns: { bucket: string; sort_key: number; count: number }[]
+      }
+      get_stability_distribution: {
+        Args: { p_user_id: string }
+        Returns: { bucket: string; sort_key: number; count: number }[]
+      }
+      get_difficulty_distribution: {
+        Args: { p_user_id: string }
+        Returns: { bucket: string; sort_key: number; count: number }[]
+      }
+      get_cards_added_this_month: {
+        Args: { p_user_id: string; p_timezone: string }
+        Returns: number
       }
     }
     Enums: {
