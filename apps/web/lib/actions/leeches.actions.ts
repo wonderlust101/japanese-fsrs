@@ -1,8 +1,15 @@
 'use server'
 
 import {
+  ApiLeechDrillAttemptSchema,
+  ApiLeechDrillSessionDetailSchema,
+  ApiLeechDrillSessionSchema,
   ApiLeechListItemSchema,
   ApiLeechListResponseSchema,
+  type ApiLeechDrillAttempt,
+  type ApiLeechDrillAttemptResult,
+  type ApiLeechDrillSession,
+  type ApiLeechDrillSessionDetail,
   type ApiLeechListItem,
   type ApiLeechListResponse,
 } from '@fsrs-japanese/shared-types'
@@ -112,5 +119,158 @@ export async function diagnoseLeechAction(id: string): Promise<ApiLeechListItem>
       body:    JSON.stringify({}),
     },
     'Failed to diagnose this leech',
+  )
+}
+
+// ─── Drill sessions (Phase 2) ────────────────────────────────────────────────
+
+export type CreateDrillSessionInput =
+  | {
+      source:        'unresolvedLeeches'
+      deckId?:       string
+      jlptLevel?:    string
+      cardType?:     string
+      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
+      limit?:        number
+      repeatPolicy?: 'none' | 'missedAfterLag'
+    }
+  | {
+      source:        'deckScoped'
+      deckId:        string
+      jlptLevel?:    string
+      cardType?:     string
+      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
+      limit?:        number
+      repeatPolicy?: 'none' | 'missedAfterLag'
+    }
+  | {
+      source:        'highLapseCandidates'
+      jlptLevel?:    string
+      cardType?:     string
+      minLapses?:    number
+      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
+      limit?:        number
+      repeatPolicy?: 'none' | 'missedAfterLag'
+    }
+  | {
+      source:        'currentCard'
+      cardId:        string
+      limit?:        number
+      repeatPolicy?: 'none' | 'missedAfterLag'
+    }
+  | {
+      source:        'manualSelection'
+      cardIds:       string[]
+      limit?:        number
+      repeatPolicy?: 'none' | 'missedAfterLag'
+    }
+
+/**
+ * Create a new drill session. The backend requires an `Idempotency-Key`
+ * header so a network retry on the start screen doesn't create two parallel
+ * sessions. We mint a fresh UUID per call — replay protection is by payload,
+ * not by key, so a different payload produces a different session.
+ */
+export async function createDrillSessionAction(
+  input: CreateDrillSessionInput,
+): Promise<ApiLeechDrillSession> {
+  const idempotencyKey = crypto.randomUUID()
+  return apiCall<ApiLeechDrillSession>(
+    '/api/v1/leeches/drill-sessions',
+    ApiLeechDrillSessionSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body:    JSON.stringify(input),
+    },
+    'Failed to create drill session',
+  )
+}
+
+/**
+ * Resume / refresh a drill session. Returns the full queue plus per-row
+ * stale flags so the client can warn when canonical scheduler state has
+ * changed underneath the snapshot (a real review happened elsewhere).
+ */
+export async function getDrillSessionAction(
+  sessionId: string,
+): Promise<ApiLeechDrillSessionDetail> {
+  return apiCall<ApiLeechDrillSessionDetail>(
+    `/api/v1/leeches/drill-sessions/${sessionId}`,
+    ApiLeechDrillSessionDetailSchema,
+    {},
+    'Failed to load drill session',
+  )
+}
+
+export interface RecordDrillAttemptInput {
+  eventId:          string
+  sessionCardId:    string
+  leechId?:         string
+  cardId?:          string
+  result:           ApiLeechDrillAttemptResult
+  localSequence?:   number
+  responseTimeMs?:  number
+  shownAt?:         string
+  answeredAt?:      string
+}
+
+/**
+ * Record a drill attempt. The `eventId` is the domain idempotency key —
+ * a retry with the same id returns the original row without a second insert.
+ * Wire payload mirrors `recordDrillAttemptSchema` from the API; the request
+ * body itself is the idempotency key payload (no separate header needed for
+ * drill attempts, unlike create/finish).
+ */
+export async function recordDrillAttemptAction(
+  sessionId: string,
+  input:     RecordDrillAttemptInput,
+): Promise<ApiLeechDrillAttempt> {
+  return apiCall<ApiLeechDrillAttempt>(
+    `/api/v1/leeches/drill-sessions/${sessionId}/attempts`,
+    ApiLeechDrillAttemptSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': input.eventId },
+      body:    JSON.stringify(input),
+    },
+    'Failed to record drill attempt',
+  )
+}
+
+/**
+ * Mark a drill session finished. Bridges to the post-drill summary surface.
+ * Strict-empty body per the backend's `emptyBodySchema`.
+ */
+export async function finishDrillSessionAction(
+  sessionId: string,
+): Promise<ApiLeechDrillSessionDetail> {
+  return apiCall<ApiLeechDrillSessionDetail>(
+    `/api/v1/leeches/drill-sessions/${sessionId}/finish`,
+    ApiLeechDrillSessionDetailSchema,
+    {
+      method:  'POST',
+      body:    JSON.stringify({}),
+    },
+    'Failed to finish drill session',
+  )
+}
+
+/**
+ * Abort a drill session. Used when the learner exits before reaching the
+ * end of the queue. Backend treats this as a terminal status — the session
+ * cannot be resumed once aborted.
+ */
+export async function abortDrillSessionAction(
+  sessionId: string,
+): Promise<ApiLeechDrillSessionDetail> {
+  return apiCall<ApiLeechDrillSessionDetail>(
+    `/api/v1/leeches/drill-sessions/${sessionId}/abort`,
+    ApiLeechDrillSessionDetailSchema,
+    {
+      method:  'POST',
+      body:    JSON.stringify({}),
+    },
+    'Failed to abort drill session',
   )
 }

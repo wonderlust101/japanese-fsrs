@@ -8,17 +8,27 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query'
 import type {
+  ApiLeechDrillAttempt,
+  ApiLeechDrillSession,
+  ApiLeechDrillSessionDetail,
   ApiLeechListItem,
   ApiLeechListResponse,
 } from '@fsrs-japanese/shared-types'
 
 import {
+  abortDrillSessionAction,
+  createDrillSessionAction,
   diagnoseLeechAction,
+  finishDrillSessionAction,
+  getDrillSessionAction,
   getLeechAction,
   listLeechesAction,
+  recordDrillAttemptAction,
   reopenLeechAction,
   resolveLeechAction,
+  type CreateDrillSessionInput,
   type ListLeechesOptions,
+  type RecordDrillAttemptInput,
 } from '../actions/leeches.actions'
 
 import { staleTimes } from './config'
@@ -151,6 +161,99 @@ export function useDiagnoseLeechMutation(): UseMutationResult<
     onSuccess:  (leech) => {
       queryClient.setQueryData(queryKeys.leeches.detail(leech.id), leech)
       invalidateLeeches(queryClient)
+    },
+  })
+}
+
+// ─── Drill (Phase 2) ──────────────────────────────────────────────────────────
+
+/**
+ * Start a drill session. The mutation does NOT invalidate the leech list
+ * because creating a session has no effect on canonical FSRS state — the
+ * doc's scheduler-invariance contract guarantees this. We invalidate only
+ * the drill-session detail cache, which is empty pre-creation anyway.
+ */
+export function useCreateDrillSessionMutation(): UseMutationResult<
+  ApiLeechDrillSession,
+  Error,
+  CreateDrillSessionInput
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createDrillSessionAction,
+    onSuccess:  (session) => {
+      queryClient.setQueryData(
+        queryKeys.leeches.drillSession(session.sessionId),
+        session,
+      )
+    },
+  })
+}
+
+/**
+ * Resume / refresh a drill session. Enabled-gated on the id so the same hook
+ * mounts at the active session page and the summary page without firing a
+ * request when no id is known yet.
+ */
+export function useDrillSessionQuery(
+  sessionId: string | null,
+): UseQueryResult<ApiLeechDrillSessionDetail, Error> {
+  return useQuery({
+    queryKey: queryKeys.leeches.drillSession(sessionId ?? '__none__'),
+    queryFn:  () => {
+      if (sessionId === null) throw new Error('Session id is required')
+      return getDrillSessionAction(sessionId)
+    },
+    enabled:  sessionId !== null,
+  })
+}
+
+interface RecordAttemptVariables {
+  sessionId: string
+  input:     RecordDrillAttemptInput
+}
+
+/**
+ * Record a drill attempt. The `eventId` is the idempotency key — the
+ * mutation is naturally retry-safe. We don't invalidate any queries because
+ * attempt history is read from the local store, not from a server query;
+ * the session detail query is only used for resume, not for per-attempt
+ * progress tracking.
+ */
+export function useRecordDrillAttemptMutation(): UseMutationResult<
+  ApiLeechDrillAttempt,
+  Error,
+  RecordAttemptVariables
+> {
+  return useMutation({
+    mutationFn: ({ sessionId, input }) => recordDrillAttemptAction(sessionId, input),
+  })
+}
+
+export function useFinishDrillSessionMutation(): UseMutationResult<
+  ApiLeechDrillSessionDetail,
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: finishDrillSessionAction,
+    onSuccess:  (detail) => {
+      queryClient.setQueryData(queryKeys.leeches.drillSession(detail.sessionId), detail)
+    },
+  })
+}
+
+export function useAbortDrillSessionMutation(): UseMutationResult<
+  ApiLeechDrillSessionDetail,
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: abortDrillSessionAction,
+    onSuccess:  (detail) => {
+      queryClient.setQueryData(queryKeys.leeches.drillSession(detail.sessionId), detail)
     },
   })
 }
