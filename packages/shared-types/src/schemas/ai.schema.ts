@@ -17,13 +17,35 @@ export const GeneratedCardDataSchema = z.object({
   meaning:          safeStr,
   partOfSpeech:     safeStr.optional(),
   exampleSentences: z.array(
-    z.object({ ja: safeStr, en: safeStr, furigana: safeStr }),
+    z.object({
+      ja:            safeStr,
+      en:            safeStr,
+      furigana:      safeStr,
+      // Mirrors the additive key on `ExampleSentenceSchema` admitted in
+      // Stage 1. Not requested by the current prompt — see the Lapis-fields
+      // block below for the asset-hosting rationale.
+      sentenceAudio: safeStr.optional(),
+    }),
   ).optional(),
   kanjiBreakdown:   z.array(
     z.object({ kanji: safeStr, meaning: safeStr }),
   ).optional(),
   pitchAccent:      safeStr.optional(),
   mnemonic:         safeStr.optional(),
+  // ─── Lapis-style fields (Backend Completion Plan, Stage 2) ──────────────
+  // These mirror the additive keys admitted on `WordFieldsSchema` in Stage 1.
+  // The schema admits them so the structured-output validation passes when
+  // the model populates them; the `generateCard` prompt only requests
+  // `pitchPosition` + `nuance` for now. `picture` / `expressionAudio` /
+  // `sentenceAudio` stay unmapped at the prompt layer until an asset-hosting
+  // story exists — asking the model for a URL it can't fulfill produces
+  // hallucinated 404s, which is worse than no field. The schema admits them
+  // anyway so a future prompt-version bump or out-of-band populator can land
+  // without a second schema change.
+  pitchPosition:    z.number().int().nonnegative().optional(),
+  nuance:           safeStr.optional(),
+  picture:          safeStr.optional(),
+  expressionAudio:  safeStr.optional(),
 })
 
 export const generateSentencesInputSchema = z.object({
@@ -33,7 +55,15 @@ export const generateSentencesInputSchema = z.object({
 
 export const GeneratedSentencesSchema = z.object({
   sentences: z.array(
-    z.object({ ja: safeStr, en: safeStr, furigana: safeStr }),
+    z.object({
+      ja:            safeStr,
+      en:            safeStr,
+      furigana:      safeStr,
+      // Optional Lapis-style asset URL; see GeneratedCardDataSchema's
+      // exampleSentences entry for the asset-hosting rationale. Admitted
+      // so a future prompt-version bump doesn't fail validation.
+      sentenceAudio: safeStr.optional(),
+    }),
   ),
 })
 

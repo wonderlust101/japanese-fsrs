@@ -53,10 +53,12 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
     const word     = '水'
     const level    = 'N5'
     const cached   = JSON.stringify({ word: '水', reading: 'みず', meaning: 'water' })
-    // Compute the cache key shape so we can preload redis directly.
+    // Compute the cache key shape so we can preload redis directly. The
+    // `v2` segment is `CARD_PROMPT_VERSION` (Backend Completion Plan Stage 2)
+    // — bump in lockstep with the service constant.
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    const key  = `card:${word}:${level}:${hash}`
+    const key  = `card:v2:${word}:${level}:${hash}`
     state.redisStore.set(key, cached)
 
     const result = await generateCard(word, level, [])
@@ -88,6 +90,128 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
   })
 })
 
+// ─── Backend Completion Plan Stage 2 ────────────────────────────────────────
+//
+// The generateCard prompt now asks the model for `pitchPosition` (integer ≥ 0)
+// and `nuance` (short prose). These tests pin three contracts:
+//   1. The structured-output Zod schema admits the new fields, so a model
+//      response carrying them round-trips through `.parse()` instead of being
+//      stripped.
+//   2. The cache key embeds `CARD_PROMPT_VERSION = 'v2'`, so entries cached
+//      under the v1 (unversioned) key shape are bypassed by the new key.
+//      Without this contract, a deploy that changes the prompt body would
+//      serve stale outputs from the prior prompt until the 7-day TTL.
+//   3. `picture` / `expressionAudio` / `sentenceAudio` are admitted by the
+//      schema (so a future prompt-version bump can populate them) but the
+//      current prompt does not request them — the schema's optionality is
+//      the contract that lets both states coexist.
+describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
+  it('generateCard returns cached pitchPosition + nuance when present (round-trip through GeneratedCardDataSchema)', async () => {
+    const word     = '空'
+    const level    = 'N5'
+    const cached   = JSON.stringify({
+      word:          '空',
+      reading:       'そら',
+      meaning:       'sky',
+      pitchPosition: 1,
+      nuance:        'Refers to the visible sky; for "outer space" use 宇宙.',
+    })
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+    // Cache key includes the prompt version so this fixture lives at the v2 key.
+    const key = `card:v2:${word}:${level}:${hash}`
+    state.redisStore.set(key, cached)
+
+    const result = await generateCard(word, level, [])
+    expect(result.word).toBe('空')
+    expect(result.pitchPosition).toBe(1)
+    expect(result.nuance).toBe('Refers to the visible sky; for "outer space" use 宇宙.')
+  })
+
+  it('generateCard bypasses pre-Stage-2 cache entries (v2 key shape differs from v1)', async () => {
+    const word    = '川'
+    const level   = 'N5'
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+
+    // Seed an entry under the OLD (pre-Stage-2) key shape — no version prefix.
+    // After deploy, lookups now happen at the v2 key, so this entry is dead
+    // weight until it TTLs out. The new lookup must miss and fall through.
+    const oldKey  = `card:${word}:${level}:${hash}`
+    state.redisStore.set(oldKey, JSON.stringify({ word: 'stale', reading: 'stale', meaning: 'stale' }))
+
+    const result = await generateCard(word, level, []).catch((err) => err)
+    // The OpenAI fall-through is not mocked here — either it resolves with a
+    // fresh payload or it errors. The contract we assert is that the OLD key
+    // is never read: the result is not the stale payload above.
+    if (!(result instanceof Error)) {
+      expect(result.word).not.toBe('stale')
+    }
+    // The old key itself is left untouched (no migration / cleanup). Its
+    // TTL will reclaim it; the new code path simply doesn't read it.
+    expect(state.redisStore.get(oldKey)).toBe(
+      JSON.stringify({ word: 'stale', reading: 'stale', meaning: 'stale' }),
+    )
+  })
+
+  it('GeneratedCardDataSchema accepts an exampleSentence carrying sentenceAudio', async () => {
+    const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
+    const parsed = GeneratedCardDataSchema.parse({
+      word:    '猫',
+      reading: 'ねこ',
+      meaning: 'cat',
+      exampleSentences: [
+        {
+          ja:            '猫が好きです。',
+          en:            'I like cats.',
+          furigana:      'ねこがすきです。',
+          sentenceAudio: 'https://cdn.example.test/sentence-001.mp3',
+        },
+      ],
+    })
+    expect(parsed.exampleSentences?.[0]?.sentenceAudio).toBe('https://cdn.example.test/sentence-001.mp3')
+  })
+
+  it('GeneratedCardDataSchema rejects a negative pitchPosition (defends against bad model output)', async () => {
+    const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
+    const result = GeneratedCardDataSchema.safeParse({
+      word:          '雨',
+      reading:       'あめ',
+      meaning:       'rain',
+      pitchPosition: -1,
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('GeneratedCardDataSchema rejects a non-integer pitchPosition', async () => {
+    const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
+    const result = GeneratedCardDataSchema.safeParse({
+      word:          '雪',
+      reading:       'ゆき',
+      meaning:       'snow',
+      pitchPosition: 1.5,
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('GeneratedCardDataSchema admits picture / expressionAudio fields even though the prompt does not request them', async () => {
+    // The schema is forward-compatible so a future prompt-version bump can
+    // wire up these fields without a second schema change. Today's prompt
+    // explicitly tells the model NOT to invent values for them, but if a
+    // model does produce them they must round-trip cleanly.
+    const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
+    const parsed = GeneratedCardDataSchema.parse({
+      word:            '光',
+      reading:         'ひかり',
+      meaning:         'light',
+      picture:         'https://cdn.example.test/hikari.jpg',
+      expressionAudio: 'https://cdn.example.test/hikari.mp3',
+    })
+    expect(parsed.picture).toBe('https://cdn.example.test/hikari.jpg')
+    expect(parsed.expressionAudio).toBe('https://cdn.example.test/hikari.mp3')
+  })
+})
+
 describe('ai.service — corrupt cached payload is treated as miss', () => {
   // Previous behavior: bad cache → ZodError surfaced as 500 to every caller
   // that hashed to the corrupt key until TTL. New behavior: log + delete +
@@ -98,7 +222,8 @@ describe('ai.service — corrupt cached payload is treated as miss', () => {
   it('generateCard removes the corrupt cache entry (does not surface ZodError)', async () => {
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    const key  = `card:水:N5:${hash}`
+    // Key includes `v2` for CARD_PROMPT_VERSION — see the Stage 2 block below.
+    const key  = `card:v2:水:N5:${hash}`
     const corrupt = JSON.stringify({ word: '水' /* missing reading + meaning */ })
     state.redisStore.set(key, corrupt)
 

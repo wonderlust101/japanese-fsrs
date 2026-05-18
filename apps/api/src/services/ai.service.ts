@@ -61,6 +61,13 @@ const DIAGNOSIS_CACHE_TTL = 60 * 60 * 24 * 30
 // out naturally. Forward-only cache invalidation, zero downtime.
 const DIAGNOSIS_PROMPT_VERSION = 'v1'
 
+// Same pattern as DIAGNOSIS_PROMPT_VERSION. Bumped to 'v2' in Backend
+// Completion Plan Stage 2 when the `generateCard` prompt grew to ask for
+// `pitchPosition` and `nuance`. Entries cached under the v1 (unversioned)
+// key are bypassed by the new key shape, so cache-warm cost spikes once
+// per deploy and steady-state hit rate recovers as v2 entries populate.
+const CARD_PROMPT_VERSION = 'v2'
+
 // Hard cap on the joined interests fragment when it lands in a prompt — even
 // 20 individually-bounded interests can produce a 1KB+ string that crowds out
 // the actual instruction text.
@@ -145,7 +152,11 @@ export async function generateCard(
   const safeLevel     = sanitizeForPrompt(userLevel)
   const safeInterests = interests.map((s) => sanitizeForPrompt(s))
 
-  const cacheKey = `card:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`
+  // Cache key includes CARD_PROMPT_VERSION so a Stage-2 prompt rewrite
+  // (e.g. adding pitchPosition + nuance) cleanly bypasses entries written
+  // by the previous prompt. Mirrors the diagnosis-cache versioning at
+  // ai.service.ts:`DIAGNOSIS_PROMPT_VERSION`.
+  const cacheKey = `card:${CARD_PROMPT_VERSION}:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`
 
   const fromCache = await readCache(cacheKey, GeneratedCardDataSchema)
   if (fromCache !== null) return fromCache
@@ -182,9 +193,17 @@ Return JSON with these keys:
   "partOfSpeech": string,
   "exampleSentences": [{ "ja": string, "en": string, "furigana": string }],
   "kanjiBreakdown": [{ "kanji": string, "meaning": string }],
-  "pitchAccent": string,
+  "pitchAccent": string (free-form notation like "[0]" or "へいばん"),
+  "pitchPosition": integer (mora position of the pitch drop; 0 = heiban / flat, 1 = drop after the first mora, 2 = drop after the second mora, etc. Omit the field if you are not confident.),
+  "nuance": string (1–2 sentences in English on register, connotation, or distinctions vs. close synonyms — what a learner needs to use the word correctly, not just translate it. Omit if there is nothing distinctive to say.),
   "mnemonic": string (memorable association for ${safeLevel} learner)
-}`,
+}
+
+Do NOT invent values for any of:
+- "picture" (image URL)
+- "expressionAudio" (audio URL for the word)
+- "sentenceAudio" (audio URL on example sentences)
+These require hosted assets the system cannot yet produce; if you do not have a real, hostable URL, omit the field entirely.`,
           },
         ],
       }, { signal: opts?.signal })
