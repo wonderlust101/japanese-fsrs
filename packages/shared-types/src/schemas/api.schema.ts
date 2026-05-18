@@ -115,6 +115,14 @@ export const ApiDeckWithStatsSchema = ApiDeckSchema.extend({
   dueNewCount:    z.number(),
   /** Subset of dueCount: due cards in state != New (Review / Learning / Relearning). */
   dueReviewCount: z.number(),
+  /**
+   * Timestamp (ISO 8601) of the most recent review across any card in the
+   * deck — `MAX(cards.last_review)` server-side. `null` when no card in the
+   * deck has been reviewed yet (semantically distinct from a 0 count). Added
+   * by the `list_decks_paginated` rollup migration (Backend Completion Plan
+   * Stage 3) and surfaced on both GET /decks and GET /decks/:id.
+   */
+  lastReviewedAt: z.string().nullable(),
 })
 
 // ─── Premade decks ────────────────────────────────────────────────────────────

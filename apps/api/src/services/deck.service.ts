@@ -38,7 +38,9 @@ type DeckDbRow = z.infer<typeof DeckListRpcRowSchema>
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
 // Mirrors the analytics.service.ts / review.service.ts precedent: parse the
 // RPC result so any future column drift surfaces as a clean ZodError. Shared
-// with direct .from('decks').select(...) reads.
+// with direct .from('decks').select(...) reads — rollup columns added in
+// Backend Completion Plan Stage 3 are `.optional()` here so the schema can
+// validate both shapes (RPC carries them; direct table reads do not).
 const DeckListRpcRowSchema = z.object({
   id:                z.string(),
   name:              z.string(),
@@ -50,6 +52,16 @@ const DeckListRpcRowSchema = z.object({
   version:           z.number(),
   created_at:        z.string(),
   updated_at:        z.string(),
+  // Stage 3 — present on list_decks_paginated rows, absent on direct
+  // `.from('decks').select(DECK_COLUMNS)` reads. Kept optional rather
+  // than splitting into a second schema so the existing shared usage in
+  // createDeck / updateDeck continues to parse cleanly.
+  due_count:         z.number().optional(),
+  new_count:         z.number().optional(),
+  mature_count:      z.number().optional(),
+  due_new_count:     z.number().optional(),
+  due_review_count:  z.number().optional(),
+  last_reviewed_at:  z.string().nullable().optional(),
 })
 
 /** Slim projection used by deleteDeck to detect premade-fork ownership. */
@@ -81,19 +93,50 @@ function toRow(raw: DeckDbRow): ApiDeck {
   }
 }
 
+/**
+ * Maps a raw RPC row carrying rollup columns to the ApiDeckWithStats wire
+ * shape. Used by listDecks (Backend Completion Plan Stage 3 — collapses the
+ * per-deck `getDeck` fanout into one round-trip).
+ *
+ * If the rollup fields are missing (e.g. the caller piped a non-RPC row in
+ * by mistake), counts fall back to 0 and last_reviewed_at to null — the
+ * service-layer Zod validation already rejected drift before reaching here,
+ * so the COALESCE is a safety net rather than a silent data path.
+ */
+function toRowWithStats(raw: DeckDbRow): ApiDeckWithStats {
+  return {
+    ...toRow(raw),
+    dueCount:       raw.due_count        ?? 0,
+    newCount:       raw.new_count        ?? 0,
+    matureCount:    raw.mature_count     ?? 0,
+    dueNewCount:    raw.due_new_count    ?? 0,
+    dueReviewCount: raw.due_review_count ?? 0,
+    lastReviewedAt: raw.last_reviewed_at ?? null,
+  }
+}
+
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns a cursor-paginated list of decks owned by the given user.
- * Backed by the `list_decks_paginated` RPC (migrations 20260522000000 +
- * 20260523000000). Orders by `(created_at DESC, id DESC)` — both keys are
- * immutable, so the cursor is provably stable across concurrent UPDATEs.
+ * Returns a cursor-paginated list of decks owned by the given user, with
+ * per-deck rollups (due / new / mature counts + last-reviewed timestamp)
+ * computed server-side. Backed by the `list_decks_paginated` RPC.
+ *
+ * The rollups were added by Backend Completion Plan Stage 3 (migration
+ * `20260606000000_list_decks_paginated_rollups.sql`) to collapse the
+ * dashboard's N+1 fanout — `/today` and `/decks` previously fired one
+ * `getDeck` call per visible deck just to read the same counts. The wire
+ * shape is now `ApiDeckWithStats`, additive over the prior `ApiDeck` shape
+ * (old clients ignore the new fields).
+ *
+ * Orders by `(created_at DESC, id DESC)` — both keys are immutable, so the
+ * cursor is provably stable across concurrent UPDATEs.
  */
 export async function listDecks(
   userId:  string,
   limit:   number,
   cursor?: string,
-): Promise<ApiList<ApiDeck>> {
+): Promise<ApiList<ApiDeckWithStats>> {
   // Decode opaque cursor → bare id for the RPC. See lib/http.ts for the
   // cursor format rationale.
   const cursorId = cursor !== undefined ? decodeCursor(cursor, deckListCursorSchema).id : null
@@ -110,7 +153,7 @@ export async function listDecks(
 
   const rows    = z.array(DeckListRpcRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
-  const items   = rows.slice(0, limit).map(toRow)
+  const items   = rows.slice(0, limit).map(toRowWithStats)
   const lastId  = items[items.length - 1]?.id
 
   return {
@@ -124,14 +167,21 @@ export async function listDecks(
  * Returns a single deck with computed review stats.
  *
  * Throws 404 if the deck does not exist or does not belong to the user.
- * Three queries run in parallel: the deck row, due-card count, and new-card count.
+ * Seven parallel queries: the deck row, total due, total new, mature,
+ * due/new split, due/review split, and last-reviewed timestamp.
+ *
+ * The list endpoint computes the same rollups via `list_decks_paginated`
+ * (Backend Completion Plan Stage 3). For a single deck, keeping the
+ * direct-table-query path is simpler than narrowing the RPC to one row —
+ * the index coverage on (deck_id, user_id) handles each filter cheaply.
  */
 export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
   const now = new Date().toISOString()
 
-  // Six parallel queries: deck row, total due, total new, mature (state=Review
-  // AND interval ≥ 21d, Anki convention), and the new/review split of `due`.
-  const [deckResult, dueResult, newResult, matureResult, dueNewResult, dueReviewResult] = await Promise.all([
+  // Seven parallel queries: deck row, total due, total new, mature
+  // (state=Review AND interval ≥ 21d, Anki convention), the new/review
+  // split of `due`, and the deck-wide last_review timestamp.
+  const [deckResult, dueResult, newResult, matureResult, dueNewResult, dueReviewResult, lastReviewedResult] = await Promise.all([
     supabaseAdmin
       .from('decks')
       .select(DECK_COLUMNS)
@@ -190,12 +240,35 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
       .lte('due', now)
       .eq('is_suspended', false)
       .neq('state', State.New),
+
+    // Last review across any card in this deck — mirrors the
+    // `MAX(cards.last_review)` aggregate that list_decks_paginated computes
+    // server-side (Stage 3 migration). Returned as a single-row max via
+    // ORDER BY DESC + LIMIT 1; `.maybeSingle()` handles the empty-deck case
+    // by returning `data: null` without raising.
+    supabaseAdmin
+      .from('cards')
+      .select('last_review')
+      .eq('deck_id', deckId)
+      .eq('user_id', userId)
+      .not('last_review', 'is', null)
+      .order('last_review', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (deckResult.error !== null || deckResult.data === null) {
     // PGRST116 = no rows from .single() — deck missing or wrong owner.
     throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
+
+  // `.maybeSingle()` returns null data (not error) on empty result. A real
+  // query error still surfaces as `lastReviewedResult.error` and is treated
+  // as a 500 — same convention as the count queries above.
+  if (lastReviewedResult.error !== null) {
+    throw dbError('read deck last_review', lastReviewedResult.error)
+  }
+  const lastReviewedAt = (lastReviewedResult.data?.last_review ?? null) as string | null
 
   return {
     ...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
@@ -204,6 +277,7 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
     matureCount:    matureResult.count    ?? 0,
     dueNewCount:    dueNewResult.count    ?? 0,
     dueReviewCount: dueReviewResult.count ?? 0,
+    lastReviewedAt,
   }
 }
 
