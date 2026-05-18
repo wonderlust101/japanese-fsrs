@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient, type UseMutationResult, type Use
 
 import { queryKeys }  from './queryKeys'
 import { offlineQueue, MAX_ATTEMPTS } from '../offline-queue'
+import { useReviewSessionStore } from '@/stores/useReviewSessionStore'
 import {
   submitReviewAction,
   submitBatchAction,
@@ -140,8 +141,17 @@ async function runOfflineDrain(): Promise<void> {
   }))
 
   try {
-    await submitBatchAction(wireReviews, batchKey)
+    const result = await submitBatchAction(wireReviews, batchKey)
     offlineQueue.confirmBatch()
+    // Attach the server-side review log ids onto the local session history
+    // so the Review Summary's "Roll back" affordance works for cards that
+    // were submitted via the offline-replay path. The store action is a
+    // no-op when `phase` isn't 'active' | 'finished', so calling it after
+    // navigation away from the session is safe.
+    const attach = useReviewSessionStore.getState().actions.attachReviewLogId
+    for (const r of result.results) {
+      if (r.reviewLogId !== null) attach(r.id, r.reviewLogId)
+    }
   } catch {
     offlineQueue.replayBatch(reviews)
     offlineQueue.recordFailure()

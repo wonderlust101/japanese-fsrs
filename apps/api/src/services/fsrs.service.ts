@@ -41,6 +41,7 @@ const BatchResultRowSchema = z.object({
   difficulty:     z.number().nullable(),
   scheduled_days: z.number().nullable(),
   state:          z.number().nullable(),
+  review_log_id:  z.string().uuid().nullable(),
 })
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -520,11 +521,7 @@ export async function processReviewBatch(
           && r.scheduled_days !== null && r.state !== null) {
         results.push({
           id:            r.card_id,
-          // Batch flushes are typically offline-replay; the per-card
-          // reviewLogId isn't surfaced from the batch RPC today and the
-          // rollback affordance on Review Summary only applies to the
-          // just-finished session anyway, so omitting it here is safe.
-          reviewLogId:   null,
+          reviewLogId:   r.review_log_id,
           due:           r.due,
           stability:     r.stability,
           difficulty:    r.difficulty,

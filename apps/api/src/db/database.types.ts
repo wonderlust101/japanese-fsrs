@@ -1063,6 +1063,7 @@ export type Database = {
           difficulty: number
           due: string
           error_message: string
+          review_log_id: string | null
           scheduled_days: number
           stability: number
           state: number
