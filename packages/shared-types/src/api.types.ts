@@ -16,6 +16,7 @@ import type {
   ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema,
   ApiCopyPremadeDeckResultSchema,
+  ApiTomoNoteSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -53,6 +54,9 @@ export type ApiPremadeDeck            = z.infer<typeof ApiPremadeDeckSchema>
  * `ApiSubscribeResult` shape which carried subscription-junction state.
  */
 export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultSchema>
+
+/** Backend Completion Plan Stage 6. Returned by `GET /api/v1/tomo/note`. */
+export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

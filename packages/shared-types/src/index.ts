@@ -30,6 +30,7 @@ export type {
   ApiDeckWithStats,
   ApiPremadeDeck,
   ApiCopyPremadeDeckResult,
+  ApiTomoNote,
   ApiSimilarCard,
   ApiForecastDay,
   ApiBatchResult,
@@ -55,6 +56,7 @@ export {
   ApiCardSchema, ApiDueCardSchema, ApiCardListItemSchema, ApiSimilarCardSchema,
   ApiDeckSchema, ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema, ApiCopyPremadeDeckResultSchema,
+  ApiTomoNoteSchema, ApiTomoNoteKindSchema,
   ApiForecastDaySchema, ApiBatchResultSchema, apiListEnvelope,
   ApiHeatmapDaySchema, ApiLayoutAccuracySchema,
   ApiJlptGapSchema, ApiMilestoneForecastSchema, ApiAnalyticsDashboardSchema,
@@ -96,11 +98,12 @@ export type {
 
 export {
   GeneratedCardDataSchema, GeneratedSentencesSchema, GeneratedMnemonicSchema,
-  GeneratedLeechDiagnosisSchema,
+  GeneratedLeechDiagnosisSchema, GeneratedTomoNoteSchema,
   generateCardInputSchema, generateSentencesInputSchema, generateMnemonicInputSchema,
 } from './schemas/ai.schema.ts'
 export type {
   GeneratedCardData, GeneratedSentences, GeneratedMnemonic, GeneratedLeechDiagnosis,
+  GeneratedTomoNote,
 } from './schemas/ai.schema.ts'
 
 export { updateProfileSchema } from './schemas/profile.schema.ts'

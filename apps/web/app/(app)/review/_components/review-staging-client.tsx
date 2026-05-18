@@ -16,6 +16,7 @@ import { inferDeckLevel } from '@/lib/deck-level'
 import { useHeatmapData } from '@/lib/api/analytics'
 import { useDecks } from '@/lib/api/decks'
 import { useDueCards } from '@/lib/api/reviews'
+import { useTomoNote } from '@/lib/api/tomo'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
 
 import {
@@ -231,9 +232,17 @@ export function ReviewStagingClient({
     return deriveYesterdayStat(heatmap, calendar.yesterdayKey)
   }, [calendar.yesterdayKey, heatmap, heatmapQuery.data])
 
-  // Tomo's note + leech count APIs don't exist yet (brief open questions #2, #4).
-  // Live values stay null; preview can synthesize them.
-  const liveTomoNote: TomoNote | null   = null
+  // Tomo's note is wired through the daily-note API (Backend Completion
+  // Plan Stage 6). The server caches per learner-local day and substitutes
+  // a curated idiom whenever the AI path is unavailable, so this hook
+  // typically resolves to a populated value; null surfaces only when the
+  // user has no profile row (rare) or before the first paint.
+  const tomoNoteQuery = useTomoNote()
+  const liveTomoNote: TomoNote | null = tomoNoteQuery.data !== undefined && tomoNoteQuery.data !== null
+    ? { body: tomoNoteQuery.data.body, date: tomoNoteQuery.data.dateKey }
+    : null
+  // Leech-count API doesn't exist yet (brief open question #4). Live value
+  // stays null; preview can synthesize it.
   const liveLeechCount: number | null   = null
 
   // ── State machine (live) ────────────────────────────────────────────────

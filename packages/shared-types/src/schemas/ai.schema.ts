@@ -85,6 +85,20 @@ export const GeneratedLeechDiagnosisSchema = z.object({
   prescription: safeStr,
 })
 
+/**
+ * Structured-output shape for the daily Tomo note (Backend Completion Plan
+ * Stage 6). The model returns only the prose body; `kind` and `dateKey` are
+ * set by the service layer so the breaker-open fallback path can substitute
+ * a curated idiom while keeping the wire envelope identical.
+ *
+ * `body` is stripMarkup-transformed defensively even though the prompt is
+ * JSON-mode — defence in depth against a poisoned prompt that tries to
+ * inject HTML / script-like content into a free-form prose field.
+ */
+export const GeneratedTomoNoteSchema = z.object({
+  body: safeStr,
+})
+
 export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>
 export type GeneratedCardData        = z.infer<typeof GeneratedCardDataSchema>
 export type GenerateSentencesInput   = z.infer<typeof generateSentencesInputSchema>
@@ -92,3 +106,4 @@ export type GeneratedSentences       = z.infer<typeof GeneratedSentencesSchema>
 export type GenerateMnemonicInput    = z.infer<typeof generateMnemonicInputSchema>
 export type GeneratedMnemonic        = z.infer<typeof GeneratedMnemonicSchema>
 export type GeneratedLeechDiagnosis  = z.infer<typeof GeneratedLeechDiagnosisSchema>
+export type GeneratedTomoNote        = z.infer<typeof GeneratedTomoNoteSchema>

@@ -4,4 +4,9 @@ export const staleTimes = {
   cardDetail: 1000 * 60 * 30,  // 30 min — content rarely changes
   analytics:  1000 * 60 * 60,  // 1 hour
   forecast:   1000 * 60 * 15,  // 15 min
+  // Tomo note is server-cached for the full learner-local day; the client
+  // staleTime just keeps multiple component mounts from refetching during
+  // a single browsing session. 1 hour is enough — the next /review visit
+  // tomorrow will refetch naturally.
+  tomoNote:   1000 * 60 * 60,  // 1 hour
 } as const

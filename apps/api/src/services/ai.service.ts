@@ -9,11 +9,13 @@ import {
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
   GeneratedLeechDiagnosisSchema,
+  GeneratedTomoNoteSchema,
   sanitizeForPrompt,
   type GeneratedCardData,
   type GeneratedSentences,
   type GeneratedMnemonic,
   type GeneratedLeechDiagnosis,
+  type GeneratedTomoNote,
 } from '@fsrs-japanese/shared-types'
 import { componentLogger } from '../lib/logger.ts'
 import { withBreaker } from '../lib/circuit-breaker.ts'
@@ -67,6 +69,18 @@ const DIAGNOSIS_PROMPT_VERSION = 'v1'
 // key are bypassed by the new key shape, so cache-warm cost spikes once
 // per deploy and steady-state hit rate recovers as v2 entries populate.
 const CARD_PROMPT_VERSION = 'v2'
+
+// Same pattern as DIAGNOSIS_PROMPT_VERSION + CARD_PROMPT_VERSION. Bump on
+// any change to the Tomo daily-note prompt body so cached notes from the
+// previous template aren't served against the new prompt.
+const TOMO_NOTE_PROMPT_VERSION = 'v1'
+
+// Tomo note cache TTL — 36h. The cache key is keyed by `dateKey` (one
+// learner-local day), so a longer TTL never serves the wrong day. 36h is
+// just enough slack to cover late-evening reads that round into the next
+// day in the learner's timezone without leaving the entry sitting in
+// Redis forever.
+const TOMO_NOTE_CACHE_TTL = 60 * 60 * 36
 
 // Hard cap on the joined interests fragment when it lands in a prompt — even
 // 20 individually-bounded interests can produce a 1KB+ string that crowds out
@@ -540,6 +554,127 @@ Constraints:
   }))
 
   await redis.set(cacheKey, JSON.stringify(result), { ex: DIAGNOSIS_CACHE_TTL })
+    .catch((err: unknown) => {
+      log.warn({
+        cacheKey,
+        err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+      }, 'AI cache write failed; result still returned')
+    })
+  return result
+}
+
+/**
+ * Generates one daily Tomo note: a short prose line a learner sees when they
+ * land on the review staging page (Backend Completion Plan Stage 6).
+ *
+ * Cost ceiling is one AI call per learner per day. Caching is keyed by the
+ * learner's local calendar day (`dateKey`) — different timezones get
+ * different keys naturally; same-day retries hit the cache. The
+ * `TOMO_NOTE_PROMPT_VERSION` is baked into the cache key so a prompt edit
+ * cleanly bypasses stale entries (mirrors `DIAGNOSIS_PROMPT_VERSION` and
+ * `CARD_PROMPT_VERSION`).
+ *
+ * @param userId           Learner UUID — used to make the cache key learner-scoped.
+ * @param dateKey          ISO YYYY-MM-DD in the learner's timezone. Caller resolves the timezone.
+ * @param userLevel        JLPT target (e.g. 'N3'); shapes the prompt's level guidance.
+ * @param nativeLanguage   Learner L1 (BCP-47-ish); the response is asked to land in this language.
+ * @param interests        Learner-supplied tags; the model is told to lean on them when relevant.
+ * @param yesterdayReviews Count of reviews the learner completed yesterday. Null when unknown.
+ * @param yesterdayRetention Retention (0..1) over yesterday's reviews. Null when unknown.
+ *
+ * Throws:
+ *   - `OPENAI_KEY_MISSING` (500) when the key isn't configured.
+ *   - `OPENAI_EMPTY_RESPONSE` (502) when the model returns empty content.
+ *   - `ServiceUnavailableError` (503) when the chat breaker is open.
+ *   - `ZodError` when structured-output validation fails.
+ *
+ * Callers (specifically `tomo-note.service.ts`) catch these and fall back to
+ * a curated idiom rather than surfacing a 5xx — the route never returns an
+ * error envelope for this endpoint.
+ */
+export async function generateTomoNote(
+  userId:              string,
+  dateKey:             string,
+  userLevel:           string,
+  nativeLanguage:      string,
+  interests:           string[],
+  yesterdayReviews:    number | null,
+  yesterdayRetention:  number | null,
+  opts?:               { signal?: AbortSignal },
+): Promise<GeneratedTomoNote> {
+  if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
+  const client = openai  // see generateCard for the narrowing rationale.
+
+  const safeLevel     = sanitizeForPrompt(userLevel)
+  const safeNative    = sanitizeForPrompt(nativeLanguage)
+  const safeInterests = interests.map((s) => sanitizeForPrompt(s))
+  // dateKey is server-computed (not user input) but sanitize defensively so
+  // a future caller that pipes user input in can't poison the cache key.
+  const safeDateKey   = sanitizeForPrompt(dateKey)
+
+  // Cache key includes (version, userId, dateKey). userId scopes to one
+  // learner; dateKey scopes to one calendar day in their timezone; version
+  // invalidates the whole keyspace on prompt edits.
+  const cacheKey = `tomo:note:${TOMO_NOTE_PROMPT_VERSION}:${userId}:${safeDateKey}`
+
+  const fromCache = await readCache(cacheKey, GeneratedTomoNoteSchema)
+  if (fromCache !== null) return fromCache
+
+  // Render yesterday's signal into plain prose for the prompt. `(unknown)`
+  // keeps the line readable when the learner hasn't reviewed yet today;
+  // the model is told to handle this case explicitly.
+  const yesterdaySummary = yesterdayReviews !== null
+    ? `Reviewed ${yesterdayReviews} cards yesterday${yesterdayRetention !== null ? ` with ${Math.round(yesterdayRetention * 100)}% retention` : ''}.`
+    : 'No reviews recorded yesterday.'
+
+  const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+    let response
+    try {
+      response = await client.chat.completions.create({
+        model: CHAT_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You are Tomo, a calm Japanese-language tutor. You write one short prose note a day for the learner — surfaced at the moment they sit down to review.
+Always respond with valid JSON.
+Learner level: ${safeLevel}. Native language: ${safeNative}.${safeInterests.length > 0 ? ` Interests: ${joinInterests(safeInterests)}.` : ''}
+
+Voice rules:
+- Quiet and grounded. Not perky. Not motivational-poster.
+- Refer to *the learner's actual practice* when yesterday's data is informative; otherwise speak from craft.
+- One observation or one micro-suggestion. Not a list.
+- Keep it under 200 characters.
+- Use the learner's native language for the prose. You may quote a short Japanese word/phrase in kanji + kana when relevant — that's part of the texture, not a separate translation block.
+- Do not greet, do not sign off, do not mention "AI" or apologize for being a model, do not mention dates or "today / yesterday" literally if the data is missing.`,
+          },
+          {
+            role: 'user',
+            content: `Yesterday's practice: ${yesterdaySummary}
+
+Return JSON with this exact shape:
+{ "body": string }`,
+          },
+        ],
+      }, { signal: opts?.signal })
+    } catch (err) {
+      log.error({
+        err: {
+          name:    err instanceof Error ? err.name : 'Unknown',
+          message: scrubKeyish(err),
+        },
+      }, 'generateTomoNote OpenAI request failed')
+      throw err
+    }
+
+    const raw = response.choices[0]?.message.content
+    if (raw === null || raw === undefined) {
+      throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
+    }
+    return GeneratedTomoNoteSchema.parse(JSON.parse(raw))
+  }))
+
+  await redis.set(cacheKey, JSON.stringify(result), { ex: TOMO_NOTE_CACHE_TTL })
     .catch((err: unknown) => {
       log.warn({
         cacheKey,

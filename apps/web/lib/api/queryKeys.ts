@@ -49,4 +49,11 @@ export const queryKeys = {
   profile: {
     me: () => ['profile', 'me'] as const,
   },
+  tomo: {
+    // Backend Completion Plan Stage 6 — one note per learner per calendar
+    // day. The key is intentionally undated; the server's cache (keyed by
+    // learner-local dateKey) handles the day boundary, and the TanStack
+    // staleTime keeps multiple component subscriptions cheap.
+    note: () => ['tomo', 'note'] as const,
+  },
 } as const

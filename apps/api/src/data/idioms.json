@@ -1,0 +1,87 @@
+{
+  "$schema": "Backend Completion Plan Stage 6 — curated idiom fallbacks for the Tomo daily note. Keyed by JLPT level; the service picks deterministically by (userId, dateKey) hash so a learner gets the same idiom for the same day across retries.",
+  "N5": [
+    {
+      "body": "一日一歩 (いちにちいっぽ) — one step a day. Showing up is the streak; pace is the long game."
+    },
+    {
+      "body": "千里の道も一歩から (せんりのみちもいっぽから). A journey of a thousand ri begins with a single step. Today's review is that step."
+    },
+    {
+      "body": "急がば回れ (いそがばまわれ). When in a hurry, take the longer route. Slow reviews now save fast ones later."
+    },
+    {
+      "body": "好きこそ物の上手なれ (すきこそもののじょうずなれ). What you love, you grow good at. Pick a deck you actually enjoy."
+    }
+  ],
+  "N4": [
+    {
+      "body": "継続は力なり (けいぞくはちからなり). Persistence becomes strength. The cards you reviewed last week are why today feels lighter."
+    },
+    {
+      "body": "雨垂れ石を穿つ (あまだれいしをうがつ). A constant drip wears the stone through. Small daily reviews beat occasional cramming."
+    },
+    {
+      "body": "石の上にも三年 (いしのうえにもさんねん). Three years even on a cold stone. Mastery takes the time it takes."
+    },
+    {
+      "body": "失敗は成功のもと (しっぱいはせいこうのもと). Failure is the seed of success — every lapse is data, not a verdict."
+    }
+  ],
+  "N3": [
+    {
+      "body": "案ずるより産むが易し (あんずるよりうむがやすし). The dread of doing it is heavier than the doing. Start the queue and the rest follows."
+    },
+    {
+      "body": "急いては事を仕損じる (せいてはことをしそんじる). Haste spoils the work. Read the sentence twice before rating."
+    },
+    {
+      "body": "猿も木から落ちる (さるもきからおちる). Even monkeys fall from trees. A mis-rated card is a working day, not a failed one."
+    },
+    {
+      "body": "我慢の上に花が咲く (がまんのうえにはながさく). Flowers bloom on patience. The interval that feels stuck today opens up next week."
+    }
+  ],
+  "N2": [
+    {
+      "body": "塵も積もれば山となる (ちりもつもればやまとなる). Even dust, when it gathers, becomes a mountain. Five minutes a day is the mountain."
+    },
+    {
+      "body": "鉄は熱いうちに打て (てつはあついうちにうて). Strike the iron while it's hot — review the cards that feel uncertain today, not next week."
+    },
+    {
+      "body": "案じるより慣れろ (あんじるよりなれろ). Better to get used to it than to worry about it. The N2 grammar you keep dodging will soften with reps."
+    },
+    {
+      "body": "井の中の蛙大海を知らず (いのなかのかわずたいかいをしらず). The frog in the well knows nothing of the great sea. Try a deck outside your comfort domain this week."
+    }
+  ],
+  "N1": [
+    {
+      "body": "知識は力なり (ちしきはちからなり). Knowledge is power — but only knowledge that's been used. Today's review is the using."
+    },
+    {
+      "body": "温故知新 (おんこちしん). Study the old to know the new. Rolling back to a half-forgotten N3 deck for a week often clarifies an N1 pattern."
+    },
+    {
+      "body": "聞くは一時の恥、聞かぬは一生の恥 (きくはいっときのはじ、きかぬはいっしょうのはじ). Asking is a moment of shame; not asking, a lifetime's. Look up the kanji compound you've been guessing at."
+    },
+    {
+      "body": "百聞は一見に如かず (ひゃくぶんはいっけんにしかず). A hundred hearings are less than one seeing. Read a paragraph of real text today, even if you only understand half."
+    }
+  ],
+  "beyond_jlpt": [
+    {
+      "body": "蛍雪の功 (けいせつのこう). The merit of fireflies and snow — those who studied by their faint light. Quiet hours are the productive ones."
+    },
+    {
+      "body": "守破離 (しゅはり). Protect the form, break the form, leave the form. You're past mimicry; let the rules bend where the meaning is clearer."
+    },
+    {
+      "body": "言わぬが花 (いわぬがはな). The unspoken is the flower. Some words are clearer in what they refuse to say — practice noticing the omission."
+    },
+    {
+      "body": "縁は異なもの (えんはいなもの). Connection is a strange thing. The word you can't shake from a song lyric is the one to learn first."
+    }
+  ]
+}

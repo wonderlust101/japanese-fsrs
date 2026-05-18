@@ -42,6 +42,7 @@ const {
   generateCard,
   generateSentences,
   generateMnemonic,
+  generateTomoNote,
 } = await import('../ai.service.ts')
 
 beforeEach(() => {
@@ -209,6 +210,42 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
     })
     expect(parsed.picture).toBe('https://cdn.example.test/hikari.jpg')
     expect(parsed.expressionAudio).toBe('https://cdn.example.test/hikari.mp3')
+  })
+})
+
+// ─── Backend Completion Plan Stage 6 ────────────────────────────────────────
+// generateTomoNote caches one entry per (userId, dateKey, prompt-version).
+// The version segment isolates cache busts on prompt edits — same pattern
+// as CARD_PROMPT_VERSION + DIAGNOSIS_PROMPT_VERSION.
+describe('ai.service — generateTomoNote cache', () => {
+  it('returns the cached payload directly when present at the v1 key shape', async () => {
+    const userId  = 'user-tomo-1'
+    const dateKey = '2026-05-17'
+    const cached  = JSON.stringify({
+      body: '猫が好きです (neko ga suki desu) — your N3 verb conjugation has been steady this week.',
+    })
+    const key = `tomo:note:v1:${userId}:${dateKey}`
+    state.redisStore.set(key, cached)
+
+    const result = await generateTomoNote(userId, dateKey, 'N3', 'en', [], null, null)
+    expect(result.body).toMatch(/N3 verb conjugation/)
+  })
+
+  it('does not read from a key missing the version segment (forward-only invalidation)', async () => {
+    const userId  = 'user-tomo-2'
+    const dateKey = '2026-05-17'
+    // Pre-version key shape — should NOT be served by the current code.
+    state.redisStore.set(`tomo:note:${userId}:${dateKey}`, JSON.stringify({ body: 'stale' }))
+
+    // OpenAI is unmocked here, so the call will reject. We only assert that
+    // the stale `body: 'stale'` payload was never read — the result either
+    // throws or returns a fresh value, but it never equals the stale body.
+    const result = await generateTomoNote(userId, dateKey, 'N3', 'en', [], null, null)
+      .catch((err) => err)
+
+    if (!(result instanceof Error)) {
+      expect(result.body).not.toBe('stale')
+    }
   })
 })
 
