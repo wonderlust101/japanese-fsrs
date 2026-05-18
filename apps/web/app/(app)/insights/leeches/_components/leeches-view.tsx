@@ -200,9 +200,6 @@ export function LeechesView(): React.JSX.Element {
           <QuietLink href="/insights" tone="sumi" trailingArrow size="sm">
             Back to overview
           </QuietLink>
-          <QuietLink href="/insights/mistakes" tone="sumi" trailingArrow size="sm">
-            Mistakes
-          </QuietLink>
           {!isEmpty && filters.status === 'unresolved' && (
             <QuietLink href="/insights/leeches/drill/setup" tone="brand" trailingArrow size="sm">
               Drill these

@@ -15,7 +15,6 @@
 
 export type NavIconKey =
   | 'reviews'
-  | 'mistakes'
   | 'leeches'
   | 'decks'
   | 'cards'
@@ -53,9 +52,8 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     label: 'Study',
     kanji: '練',
     items: [
-      { href: '/today',             iconKey: 'reviews',  label: 'Reviews', hasDueCount: true },
-      { href: '/insights/mistakes', iconKey: 'mistakes', label: 'Mistakes' },
-      { href: '/insights/leeches',  iconKey: 'leeches',  label: 'Leeches', hasLeechCount: true },
+      { href: '/today',            iconKey: 'reviews', label: 'Reviews', hasDueCount: true   },
+      { href: '/insights/leeches', iconKey: 'leeches', label: 'Leeches', hasLeechCount: true },
     ],
   },
   {

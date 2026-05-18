@@ -9,7 +9,6 @@ import {
   IconDecks,
   IconForecast,
   IconLeeches,
-  IconMistakes,
   IconOverview,
   IconProgress,
   IconReviews,
@@ -30,7 +29,6 @@ import type { NavIconKey, NavItemConfig }   from './nav-config'
  */
 const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
   reviews:    IconReviews,
-  mistakes:   IconMistakes,
   leeches:    IconLeeches,
   decks:      IconDecks,
   cards:      IconCards,
