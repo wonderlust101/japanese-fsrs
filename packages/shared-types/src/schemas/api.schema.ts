@@ -197,6 +197,34 @@ export const ApiProblemCardSchema = z.object({
   lastReview: z.string().nullable(),
 })
 
+// ─── Insights — card-quality issue counts (Stage 8) ──────────────────────────
+//
+// Backend Completion Plan Stage 8. `GET /api/v1/insights/card-quality`
+// returns one row per issue type, surfacing how many of the user's
+// vocabulary+grammar cards are missing a given content field. Sentence-
+// layout cards are excluded — their fields_data shape is intentionally
+// open and doesn't carry these keys.
+//
+// The enum mirrors the SQL RPC's `issue_type` values exactly. The
+// frontend `CardsQualityBars` component currently uses a different
+// (kebab-case) enum — that mismatch is a known frontend follow-up; the
+// backend ships the plan's six types as-is.
+
+export const ApiCardQualityIssueTypeSchema = z.enum([
+  'missing_reading',
+  'missing_meaning',
+  'missing_example',
+  'missing_mnemonic',
+  'missing_picture',
+  'missing_nuance',
+])
+
+export const ApiCardQualityIssueSchema = z.object({
+  issueType: ApiCardQualityIssueTypeSchema,
+  /** Number of the user's vocabulary+grammar cards that exhibit this issue. */
+  count:     z.number().int().nonnegative(),
+})
+
 // ─── Tomo daily note ──────────────────────────────────────────────────────────
 //
 // Backend Completion Plan Stage 6. `GET /api/v1/tomo/note` returns one

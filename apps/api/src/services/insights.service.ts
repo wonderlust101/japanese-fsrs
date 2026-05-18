@@ -7,9 +7,11 @@ import {
   layoutTypeEnum,
   cardTypeEnum,
   jlptLevelEnum,
+  ApiCardQualityIssueTypeSchema,
   type ApiList,
   type ApiProblemCard,
   type ApiProblemCardBucketSchema,
+  type ApiCardQualityIssue,
   type FieldsData,
 } from '@fsrs-japanese/shared-types'
 
@@ -99,6 +101,52 @@ export async function listProblemCards(
 
   const rows  = z.array(ProblemCardRpcRowSchema).parse(data ?? [])
   const items = rows.map(toProblemCard)
+
+  return { items, nextCursor: null, hasMore: false }
+}
+
+// ─── Stage 8 — card-quality issue counts ─────────────────────────────────────
+
+const CardQualityIssueRpcRowSchema = z.object({
+  // Mirrors the RPC's TEXT column. The Zod enum at the API boundary narrows
+  // this back to the wire-format enum, so an unknown value from a future
+  // RPC drift surfaces as a clean ZodError instead of leaking through.
+  issue_type: ApiCardQualityIssueTypeSchema,
+  count:      z.number().int().nonnegative(),
+})
+
+/**
+ * Backend Completion Plan Stage 8. Returns one row per known issue type
+ * (six total), with the count of the user's vocabulary+grammar cards
+ * exhibiting that issue. Sentence-layout cards are excluded server-side.
+ *
+ * The contract guarantees all six issue types are present in every
+ * response, even when every count is zero — the SQL `LATERAL VALUES`
+ * unpivot emits them unconditionally, so frontend consumers can iterate
+ * a stable shape without conditionally handling missing keys.
+ *
+ * `missing_picture` and `missing_nuance` are zero today on most rows
+ * (the AI generator path under Stage 2 produces `nuance` only, and
+ * `picture` requires an asset-hosting story that hasn't shipped). The
+ * counts will populate naturally as generated content lands; no service
+ * change required.
+ */
+export async function listCardQualityIssues(
+  userId: string,
+): Promise<ApiList<ApiCardQualityIssue>> {
+  const { data, error } = await supabaseAdmin.rpc('get_card_quality_issues', asPayload({
+    p_user_id: userId,
+  }))
+
+  if (error !== null) {
+    throw dbError('list card-quality issues', error)
+  }
+
+  const rows = z.array(CardQualityIssueRpcRowSchema).parse(data ?? [])
+  const items: ApiCardQualityIssue[] = rows.map((r) => ({
+    issueType: r.issue_type,
+    count:     r.count,
+  }))
 
   return { items, nextCursor: null, hasMore: false }
 }

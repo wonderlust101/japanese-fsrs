@@ -19,10 +19,19 @@ interface RpcRow {
   last_review: string | null
 }
 
+// Tagged-union mock state — each RPC's tests preload a different row shape,
+// and casts at the seam tell TS which payload is current. Avoids widening
+// `rpcResult` to `unknown[]` which would lose the inferred type on the
+// problem-card tests.
 interface MockState {
-  rpcResult: RpcRow[] | null
+  rpcResult: RpcRow[] | CardQualityRpcRow[] | null
   rpcError:  { message: string; code?: string } | null
   rpcCalls:  Array<{ fn: string; params: unknown }>
+}
+
+interface CardQualityRpcRow {
+  issue_type: string
+  count:      number
 }
 
 const state: MockState = {
@@ -40,7 +49,7 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { listProblemCards } = await import('../insights.service.ts')
+const { listProblemCards, listCardQualityIssues } = await import('../insights.service.ts')
 
 beforeEach(() => {
   state.rpcResult = null
@@ -136,6 +145,107 @@ describe('insights.service — listProblemCards', () => {
     state.rpcResult = []
     const result = await listProblemCards('user-with-nothing', '8plus')
     expect(result.items).toEqual([])
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+  })
+})
+
+// ─── Backend Completion Plan Stage 8 — card-quality issue counts ─────────────
+describe('insights.service — listCardQualityIssues', () => {
+  it('projects RPC rows to camelCase ApiCardQualityIssue and preserves the six-row contract', async () => {
+    // The RPC always returns six rows — one per known issue type — even
+    // when every count is zero. The service is a pass-through projector.
+    state.rpcResult = [
+      { issue_type: 'missing_reading',  count: 0 },
+      { issue_type: 'missing_meaning',  count: 0 },
+      { issue_type: 'missing_example',  count: 12 },
+      { issue_type: 'missing_mnemonic', count: 47 },
+      { issue_type: 'missing_picture',  count: 200 },
+      { issue_type: 'missing_nuance',   count: 188 },
+    ]
+
+    const result = await listCardQualityIssues('user-1')
+
+    expect(result.items).toHaveLength(6)
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+
+    // Indexed-access on `result.items[i]` is `T | undefined` under
+    // noUncheckedIndexedAccess; mapping to an object lookup keeps the
+    // assertions readable without lint-tripping non-null asserts.
+    const byType: Record<string, number> = {}
+    for (const item of result.items) byType[item.issueType] = item.count
+    expect(byType['missing_reading']).toBe(0)
+    expect(byType['missing_example']).toBe(12)
+    expect(byType['missing_mnemonic']).toBe(47)
+    expect(byType['missing_picture']).toBe(200)
+    expect(byType['missing_nuance']).toBe(188)
+  })
+
+  it('passes user_id to the RPC (no other params)', async () => {
+    state.rpcResult = [
+      { issue_type: 'missing_reading',  count: 0 },
+      { issue_type: 'missing_meaning',  count: 0 },
+      { issue_type: 'missing_example',  count: 0 },
+      { issue_type: 'missing_mnemonic', count: 0 },
+      { issue_type: 'missing_picture',  count: 0 },
+      { issue_type: 'missing_nuance',   count: 0 },
+    ]
+    await listCardQualityIssues('user-1')
+
+    const call = state.rpcCalls[0]
+    if (call === undefined) throw new Error('expected one RPC call')
+    expect(call.fn).toBe('get_card_quality_issues')
+    expect(call.params).toEqual({ p_user_id: 'user-1' })
+  })
+
+  it('surfaces a generic 5xx via dbError on RPC failure', async () => {
+    state.rpcError = { message: 'connection refused', code: '08006' }
+
+    let captured: { statusCode: number } | null = null
+    try {
+      await listCardQualityIssues('user-1')
+    } catch (err) {
+      captured = err as { statusCode: number }
+    }
+    expect(captured?.statusCode).toBeGreaterThanOrEqual(500)
+  })
+
+  it('Zod-rejects an RPC response carrying an unknown issue_type (drift guard)', async () => {
+    // A future RPC drift that emits a row with an unrecognised issue_type
+    // must surface as a clean ZodError at the service boundary — not
+    // silently pass through to the consumer.
+    state.rpcResult = [
+      { issue_type: 'missing_reading',  count: 0 },
+      { issue_type: 'missing_meaning',  count: 0 },
+      { issue_type: 'missing_example',  count: 0 },
+      { issue_type: 'missing_mnemonic', count: 0 },
+      { issue_type: 'missing_picture',  count: 0 },
+      { issue_type: 'missing_nuance',   count: 0 },
+      { issue_type: 'missing_speculative_future_field', count: 99 },
+    ]
+
+    let captured: { name?: string } | null = null
+    try {
+      await listCardQualityIssues('user-1')
+    } catch (err) {
+      captured = err as { name?: string }
+    }
+    expect(captured?.name).toBe('ZodError')
+  })
+
+  it('returns the canonical envelope shape with nextCursor null and hasMore false', async () => {
+    // Card-quality bars never paginate — the response is bounded to six
+    // rows. The envelope must report so.
+    state.rpcResult = [
+      { issue_type: 'missing_reading',  count: 1 },
+      { issue_type: 'missing_meaning',  count: 1 },
+      { issue_type: 'missing_example',  count: 1 },
+      { issue_type: 'missing_mnemonic', count: 1 },
+      { issue_type: 'missing_picture',  count: 1 },
+      { issue_type: 'missing_nuance',   count: 1 },
+    ]
+    const result = await listCardQualityIssues('user-1')
     expect(result.nextCursor).toBeNull()
     expect(result.hasMore).toBe(false)
   })

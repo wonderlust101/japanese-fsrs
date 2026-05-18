@@ -18,6 +18,7 @@ import type {
   ApiCopyPremadeDeckResultSchema,
   ApiTomoNoteSchema,
   ApiProblemCardSchema,
+  ApiCardQualityIssueSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -65,6 +66,13 @@ export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
  * toward the lapse-bucket histogram and drill-through use cases.
  */
 export type ApiProblemCard            = z.infer<typeof ApiProblemCardSchema>
+
+/**
+ * Backend Completion Plan Stage 8. One element of the array returned by
+ * `GET /api/v1/insights/card-quality`. Six entries are always present
+ * (one per known issue type) so consumers can iterate a stable shape.
+ */
+export type ApiCardQualityIssue       = z.infer<typeof ApiCardQualityIssueSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

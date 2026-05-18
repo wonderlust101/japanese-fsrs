@@ -813,6 +813,13 @@ export type Database = {
           retention: number
         }[]
       }
+      get_card_quality_issues: {
+        Args: { p_user_id: string }
+        Returns: {
+          issue_type: string
+          count:      number
+        }[]
+      }
       get_jlpt_gap: {
         Args: { p_user_id: string }
         Returns: {

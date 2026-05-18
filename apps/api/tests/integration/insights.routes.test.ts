@@ -203,3 +203,178 @@ describeIntegration('insights routes — Stage 7 problem cards', () => {
     expect(resB.body.items).toEqual([])
   })
 })
+
+// ─── Backend Completion Plan Stage 8 — card-quality issue counts ─────────────
+//
+// Direct-insert fixture helper. Sets `fields_data` precisely so we can
+// trigger each issue-type independently. Bypasses the API because the
+// `createCard` path runs Zod sanitization that strips empty fields,
+// which would defeat the point of testing "field present but empty."
+async function seedCardWithFields(
+  u:           { userId: string; jwt: string; deckId: string },
+  fieldsData:  Record<string, unknown>,
+  layoutType:  'vocabulary' | 'grammar' | 'sentence' = 'vocabulary',
+): Promise<string> {
+  const id = randomUUID()
+  const { error } = await supabaseAdmin.from('cards').insert({
+    id,
+    user_id:        u.userId,
+    deck_id:        u.deckId,
+    layout_type:    layoutType,
+    fields_data:    fieldsData,
+    card_type:      'comprehension',
+    jlpt_level:     'N5',
+    is_suspended:   false,
+  })
+  if (error !== null) throw new Error(`seed quality card failed: ${error.message}`)
+  return id
+}
+
+describeIntegration('insights routes — Stage 8 card-quality issue counts', () => {
+  it('returns six rows (one per known issue type) even when every count is zero', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Seed one card with all fields populated — every count should be zero.
+    await seedCardWithFields(u, {
+      word:    '完璧',
+      reading: 'かんぺき',
+      meaning: 'perfect',
+      mnemonic: 'A complete kanji — every stroke in place.',
+      picture: 'https://cdn.example.test/perfect.jpg',
+      nuance:  'Used to praise without exaggeration; not used ironically.',
+      exampleSentences: [
+        { ja: '完璧です。', en: "It's perfect.", furigana: 'かんぺきです。' },
+      ],
+    })
+
+    const res = await request(app)
+      .get('/api/v1/insights/card-quality')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.items)).toBe(true)
+    expect(res.body.items).toHaveLength(6)
+    expect(res.body.nextCursor).toBeNull()
+    expect(res.body.hasMore).toBe(false)
+
+    const byType: Record<string, number> = {}
+    for (const issue of res.body.items as Array<{ issueType: string; count: number }>) {
+      byType[issue.issueType] = issue.count
+    }
+    // Sanity: all six known types present.
+    expect(Object.keys(byType).sort()).toEqual([
+      'missing_example',
+      'missing_meaning',
+      'missing_mnemonic',
+      'missing_nuance',
+      'missing_picture',
+      'missing_reading',
+    ])
+    // Fully populated card → every issue count is zero.
+    expect(byType['missing_reading']).toBe(0)
+    expect(byType['missing_meaning']).toBe(0)
+    expect(byType['missing_example']).toBe(0)
+    expect(byType['missing_mnemonic']).toBe(0)
+    expect(byType['missing_picture']).toBe(0)
+    expect(byType['missing_nuance']).toBe(0)
+  })
+
+  it('counts a missing-mnemonic / missing-picture / missing-nuance card on those bars', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Required keys present (CHECK constraint enforces them) but the
+    // optional Lapis-style fields and the mnemonic are absent.
+    await seedCardWithFields(u, {
+      word:    '欠',
+      reading: 'けつ',
+      meaning: 'lack',
+      // no mnemonic, picture, nuance, or exampleSentences
+    })
+
+    const res = await request(app)
+      .get('/api/v1/insights/card-quality')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+
+    const byType: Record<string, number> = {}
+    for (const issue of res.body.items as Array<{ issueType: string; count: number }>) {
+      byType[issue.issueType] = issue.count
+    }
+    expect(byType['missing_reading']).toBe(0)
+    expect(byType['missing_meaning']).toBe(0)
+    expect(byType['missing_example']).toBe(1)
+    expect(byType['missing_mnemonic']).toBe(1)
+    expect(byType['missing_picture']).toBe(1)
+    expect(byType['missing_nuance']).toBe(1)
+  })
+
+  it('counts an empty exampleSentences array on the missing_example bar', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // The schema allows an exampleSentences key with an empty array; this
+    // is the edge case the RPC's jsonb_array_length guard handles.
+    await seedCardWithFields(u, {
+      word:    '空',
+      reading: 'から',
+      meaning: 'empty',
+      exampleSentences: [],
+    })
+
+    const res = await request(app)
+      .get('/api/v1/insights/card-quality')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+
+    const byType: Record<string, number> = {}
+    for (const issue of res.body.items as Array<{ issueType: string; count: number }>) {
+      byType[issue.issueType] = issue.count
+    }
+    expect(byType['missing_example']).toBe(1)
+  })
+
+  it('excludes sentence-layout cards from every bucket', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // A sentence-layout card with nothing populated — would trigger every
+    // issue type if not excluded. The RPC scopes to vocabulary/grammar
+    // only, so this card contributes to zero issue counts.
+    await seedCardWithFields(
+      u,
+      { sentence: 'これは文です。', translation: 'This is a sentence.' },
+      'sentence',
+    )
+
+    const res = await request(app)
+      .get('/api/v1/insights/card-quality')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+
+    for (const issue of res.body.items as Array<{ issueType: string; count: number }>) {
+      expect(issue.count).toBe(0)
+    }
+  })
+
+  it('isolates results across users', async () => {
+    const a = await seedUser(); seeded.push(a)
+    const b = await seedUser(); seeded.push(b)
+
+    // a has a card missing nuance; b should see zero across the board.
+    await seedCardWithFields(a, {
+      word:    '個',
+      reading: 'こ',
+      meaning: 'individual / counter',
+    })
+
+    const resB = await request(app)
+      .get('/api/v1/insights/card-quality')
+      .set('Authorization', `Bearer ${b.jwt}`)
+    expect(resB.status).toBe(200)
+    for (const issue of resB.body.items as Array<{ issueType: string; count: number }>) {
+      expect(issue.count).toBe(0)
+    }
+  })
+
+  it('returns 401 for an unauthenticated request', async () => {
+    const res = await request(app).get('/api/v1/insights/card-quality')
+    expect(res.status).toBe(401)
+  })
+})
