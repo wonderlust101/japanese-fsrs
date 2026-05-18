@@ -57,7 +57,7 @@ export function RecommendedDeckCard({
   return (
     <div
       className={[
-        'ui-motion-colors group flex items-center gap-4 px-4 py-3 rounded-[2px]',
+        'ui-motion-colors group flex w-full items-center gap-4 px-4 py-3 sm:px-5 sm:py-4 rounded-[2px]',
         'border',
         subscribed
           ? 'border-inari-vermillion/40 bg-vermillion-wash/40'
@@ -67,11 +67,17 @@ export function RecommendedDeckCard({
       <JlptPill level={level} label={levelLabel} size="sm" />
 
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sumi-ink text-sm truncate">{name}</p>
-        <p className="mt-0.5 text-xs text-faded-sumi truncate">{description}</p>
+        <p className="truncate text-sm font-medium text-sumi-ink">{name}</p>
+        {/* line-clamp-2 lets longer descriptions wrap to two lines instead of
+            cutting off mid-word with a single-line ellipsis. Mirrors how the
+            /decks/premade catalogue treats deck descriptions and keeps the
+            row's vertical rhythm stable across short + medium copy. */}
+        <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-faded-sumi">
+          {description}
+        </p>
       </div>
 
-      <p className="shrink-0 text-xs font-mono tabular-nums text-faded-sumi">
+      <p className="shrink-0 font-mono text-xs tabular-nums text-faded-sumi">
         {count.toLocaleString()}
       </p>
 

@@ -55,7 +55,10 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
     ? 0
     : Math.min(2, Math.max(0, totalSteps - stepIndex - 1))
 
-  const cardWidthClass = isWelcome ? 'max-w-[760px]' : 'max-w-[860px]'
+  // Welcome stays narrow (a focused cover with the forgetting-curve hero);
+  // questionnaire steps run to the app's canonical 1440px so the editorial
+  // canvas reads as a peer of /today, /decks, etc.
+  const cardWidthClass = isWelcome ? 'max-w-[760px]' : 'max-w-[1440px]'
 
   return (
     <div className="relative min-h-screen bg-cool-paper-base text-sumi-ink">
