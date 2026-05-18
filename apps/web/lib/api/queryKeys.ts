@@ -22,20 +22,20 @@ export const queryKeys = {
     jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
     milestones: () => ['analytics', 'milestones'] as const,
   },
-  leeches: {
-    all:    ()                       => ['leeches']                              as const,
+  weakSpots: {
+    all:    ()                       => ['weakSpots']                              as const,
     // The filter object is included in the cache key so each (status, deck,
     // jlpt, diagnosis, sort) combination is fetched and cached
     // independently. Matches the doc's "query keys must include every filter
     // dimension" requirement.
-    list:   (filters: object)        => [...queryKeys.leeches.all(), 'list', filters]      as const,
-    detail: (id: string)             => [...queryKeys.leeches.all(), 'detail', id]         as const,
-    // Drill session cache key family — scoped under leeches.all() so the
+    list:   (filters: object)        => [...queryKeys.weakSpots.all(), 'list', filters]      as const,
+    detail: (id: string)             => [...queryKeys.weakSpots.all(), 'detail', id]         as const,
+    // Drill session cache key family — scoped under weakSpots.all() so the
     // existing namespace-wide invalidation in resolve/reopen/diagnose
-    // sweeps drill caches too. A drill session that targets a leech that
+    // sweeps drill caches too. A drill session that targets a weakSpot that
     // has just been resolved should refetch on next mount, not serve a
     // stale snapshot.
-    drillSession: (id: string)       => [...queryKeys.leeches.all(), 'drillSession', id]   as const,
+    drillSession: (id: string)       => [...queryKeys.weakSpots.all(), 'drillSession', id]   as const,
   },
   premadeDecks: {
     all:    ()           => ['premade-decks']                              as const,

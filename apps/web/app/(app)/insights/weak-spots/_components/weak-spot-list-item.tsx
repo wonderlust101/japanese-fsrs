@@ -4,18 +4,18 @@ import { useRouter } from 'next/navigation'
 
 import { FuriganaText } from '@/components/ui/FuriganaText'
 import { Pill, type JlptPillLevel } from '@/components/ui/Pill'
-import type { ApiLeechListItem } from '@fsrs-japanese/shared-types'
+import type { ApiWeakSpotListItem } from '@fsrs-japanese/shared-types'
 
-interface LeechListItemProps {
-  leech:       ApiLeechListItem
-  onOpen:      (leechId: string) => void
-  onResolve:   (leechId: string) => void
-  onReopen:    (leechId: string) => void
+interface WeakSpotListItemProps {
+  weakSpot:       ApiWeakSpotListItem
+  onOpen:      (weakSpotId: string) => void
+  onResolve:   (weakSpotId: string) => void
+  onReopen:    (weakSpotId: string) => void
   isMutating:  boolean
 }
 
 /**
- * Single leech row. Anatomy ordered top-down:
+ * Single weakSpot row. Anatomy ordered top-down:
  *
  *   1. Japanese hero — word with optional furigana, meaning aside.
  *   2. Metadata strip — deck · modality · JLPT pill · lapses · last review.
@@ -23,7 +23,7 @@ interface LeechListItemProps {
  *   4. Row actions — Drill / View / Resolve (or Reopen for resolved rows).
  *
  * Orphan rows (`cardId === null` and word/reading/meaning all null) render a
- * dimmed "card no longer exists" line — the doc explicitly preserves leech
+ * dimmed "card no longer exists" line — the doc explicitly preserves weakSpot
  * history even after card deletion, so the row must not crash on missing
  * fields, but it also must clearly communicate that drilling/resolving in
  * the live way isn't possible. For now those rows only expose the inert
@@ -33,45 +33,45 @@ interface LeechListItemProps {
  * `event.stopPropagation()` so clicking Drill/Resolve doesn't also open the
  * detail dialog.
  */
-export function LeechListItem({
-  leech,
+export function WeakSpotListItem({
+  weakSpot,
   onOpen,
   onResolve,
   onReopen,
   isMutating,
-}: LeechListItemProps): React.JSX.Element {
+}: WeakSpotListItemProps): React.JSX.Element {
   const router       = useRouter()
-  const isOrphan     = leech.cardId === null
-  const lapseCount   = leech.lapses ?? 0
-  const lastReviewMs = leech.lastReview === null ? null : Date.parse(leech.lastReview)
+  const isOrphan     = weakSpot.cardId === null
+  const lapseCount   = weakSpot.lapses ?? 0
+  const lastReviewMs = weakSpot.lastReview === null ? null : Date.parse(weakSpot.lastReview)
   const lastReviewLabel =
     lastReviewMs === null
       ? null
       : formatRelativeDays(Math.round((Date.now() - lastReviewMs) / 86_400_000))
-  const detectedMs   = Date.parse(leech.createdAt)
+  const detectedMs   = Date.parse(weakSpot.createdAt)
   const detectedLabel = formatRelativeDays(Math.round((Date.now() - detectedMs) / 86_400_000))
-  const hasDiagnosis = leech.diagnosis !== null && leech.diagnosis !== ''
+  const hasDiagnosis = weakSpot.diagnosis !== null && weakSpot.diagnosis !== ''
 
   return (
     <li className="group relative flex flex-col gap-y-3 border-b border-soft-hairline px-4 py-4 last:border-b-0 sm:px-5 sm:py-5">
       {/* Hero row — clickable text area opens the detail dialog */}
       <button
         type="button"
-        onClick={() => onOpen(leech.id)}
+        onClick={() => onOpen(weakSpot.id)}
         className="text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
       >
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="font-display text-[1.0625rem] leading-tight text-sumi-ink sm:text-[1.125rem]">
-            {leech.word !== null && leech.reading !== null ? (
-              <FuriganaText text={leech.word} reading={leech.reading} />
+            {weakSpot.word !== null && weakSpot.reading !== null ? (
+              <FuriganaText text={weakSpot.word} reading={weakSpot.reading} />
             ) : (
               <span className={isOrphan ? 'italic text-faded-sumi' : ''}>
-                {leech.word ?? 'Card no longer exists'}
+                {weakSpot.word ?? 'Card no longer exists'}
               </span>
             )}
           </span>
-          {leech.meaning !== null && (
-            <span className="text-sm text-faded-sumi">{leech.meaning}</span>
+          {weakSpot.meaning !== null && (
+            <span className="text-sm text-faded-sumi">{weakSpot.meaning}</span>
           )}
         </div>
       </button>
@@ -82,21 +82,21 @@ export function LeechListItem({
           <span className="tabular-nums text-sumi-ink/85">{lapseCount}</span>{' '}
           {lapseCount === 1 ? 'lapse' : 'lapses'}
         </span>
-        {leech.deckName !== null && (
+        {weakSpot.deckName !== null && (
           <>
             <span aria-hidden="true">·</span>
-            <span className="truncate normal-case tracking-normal">{leech.deckName}</span>
+            <span className="truncate normal-case tracking-normal">{weakSpot.deckName}</span>
           </>
         )}
-        {leech.jlptLevel !== null && (
+        {weakSpot.jlptLevel !== null && (
           <>
             <span aria-hidden="true">·</span>
             <Pill
               variant="level"
-              tone={jlptPillTone(leech.jlptLevel)}
+              tone={jlptPillTone(weakSpot.jlptLevel)}
               size="sm"
             >
-              {leech.jlptLevel === 'beyond_jlpt' ? 'Beyond' : leech.jlptLevel}
+              {weakSpot.jlptLevel === 'beyond_jlpt' ? 'Beyond' : weakSpot.jlptLevel}
             </Pill>
           </>
         )}
@@ -108,7 +108,7 @@ export function LeechListItem({
         )}
         <span aria-hidden="true">·</span>
         <span>flagged {detectedLabel}</span>
-        {leech.resolved && (
+        {weakSpot.resolved && (
           <>
             <span aria-hidden="true">·</span>
             <span className="text-aizome-indigo">Resolved</span>
@@ -119,9 +119,9 @@ export function LeechListItem({
       {/* Diagnosis status — editorial line */}
       {hasDiagnosis ? (
         <p className="max-w-prose text-[0.8125rem] italic leading-relaxed text-sumi-ink/85">
-          {leech.diagnosis}
+          {weakSpot.diagnosis}
         </p>
-      ) : !isOrphan && !leech.resolved ? (
+      ) : !isOrphan && !weakSpot.resolved ? (
         <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi/85">
           Diagnosis · not requested yet
         </p>
@@ -129,36 +129,36 @@ export function LeechListItem({
 
       {/* Action cluster */}
       <div className="flex flex-wrap items-center gap-2">
-        {!isOrphan && !leech.resolved && (
+        {!isOrphan && !weakSpot.resolved && (
           <RowAction
             tone="primary"
-            onClick={() => router.push(`/insights/weak-spots/drill/setup?cardId=${leech.cardId}`)}
-            ariaLabel={`Drill ${leech.word ?? 'this card'}`}
+            onClick={() => router.push(`/insights/weak-spots/drill/setup?cardId=${weakSpot.cardId}`)}
+            ariaLabel={`Drill ${weakSpot.word ?? 'this card'}`}
           >
             Drill
           </RowAction>
         )}
         <RowAction
           tone="quiet"
-          onClick={() => onOpen(leech.id)}
+          onClick={() => onOpen(weakSpot.id)}
           ariaLabel="View details"
         >
           View details
         </RowAction>
-        {!isOrphan && !leech.resolved && (
+        {!isOrphan && !weakSpot.resolved && (
           <RowAction
             tone="quiet"
-            onClick={() => onResolve(leech.id)}
-            ariaLabel={`Mark ${leech.word ?? 'this card'} resolved`}
+            onClick={() => onResolve(weakSpot.id)}
+            ariaLabel={`Mark ${weakSpot.word ?? 'this card'} resolved`}
             disabled={isMutating}
           >
             Mark resolved
           </RowAction>
         )}
-        {leech.resolved && (
+        {weakSpot.resolved && (
           <RowAction
             tone="quiet"
-            onClick={() => onReopen(leech.id)}
+            onClick={() => onReopen(weakSpot.id)}
             ariaLabel="Reopen this card"
             disabled={isMutating}
           >

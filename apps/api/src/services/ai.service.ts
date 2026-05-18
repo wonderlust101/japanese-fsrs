@@ -8,14 +8,14 @@ import {
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
-  GeneratedLeechDiagnosisSchema,
+  GeneratedWeakSpotDiagnosisSchema,
   GeneratedTomoNoteSchema,
   GeneratedSentenceCardSchema,
   sanitizeForPrompt,
   type GeneratedCardData,
   type GeneratedSentences,
   type GeneratedMnemonic,
-  type GeneratedLeechDiagnosis,
+  type GeneratedWeakSpotDiagnosis,
   type GeneratedTomoNote,
   type GeneratedSentenceCard,
 } from '@fsrs-japanese/shared-types'
@@ -51,7 +51,7 @@ const CHAT_MODEL = env.OPENAI_CHAT_MODEL
 const CARD_CACHE_TTL      = 60 * 60 * 24 * 7    // 7 days — per TDD §10.1
 const SENTENCES_CACHE_TTL = 60 * 60 * 24 * 7    // 7 days
 const MNEMONIC_CACHE_TTL  = 60 * 60 * 24 * 30   // 30 days — per TDD §10.1
-// Diagnosis is leech-specific (driven by lapse pattern) and stays valid only
+// Diagnosis is weakSpot-specific (driven by lapse pattern) and stays valid only
 // while the underlying card and review history are stable. 30 days is the
 // same TTL as mnemonics — both are advisory text that doesn't need to be
 // re-derived on every retry.
@@ -448,9 +448,9 @@ Constraints:
 }
 
 /**
- * Generates a diagnosis + prescription for a leech: an explanation of *why*
+ * Generates a diagnosis + prescription for a weakSpot: an explanation of *why*
  * the card keeps lapsing and one concrete next-step fix the learner can
- * apply. The leech-management UI surfaces these alongside the card content.
+ * apply. The weakSpot-management UI surfaces these alongside the card content.
  *
  * Cache key includes the card's word + the lapse count, so a card that gets
  * worse over time can regenerate; a card whose lapse pattern is stable
@@ -472,7 +472,7 @@ Constraints:
  * malformed model output, or a `ServiceUnavailableError` (503) when the
  * chat breaker is open. ZodError if structured-output validation fails.
  */
-export async function generateLeechDiagnosis(
+export async function generateWeakSpotDiagnosis(
   word:           string,
   reading:        string | null,
   meaning:        string,
@@ -481,7 +481,7 @@ export async function generateLeechDiagnosis(
   userLevel:      string,
   nativeLanguage: string,
   opts?:          { signal?: AbortSignal },
-): Promise<GeneratedLeechDiagnosis> {
+): Promise<GeneratedWeakSpotDiagnosis> {
   if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', { code: 'OPENAI_KEY_MISSING' })
   const client = openai  // see generateCard for the narrowing rationale.
 
@@ -503,7 +503,7 @@ export async function generateLeechDiagnosis(
   // include every dimension that affects the result."
   const cacheKey = `diagnosis:${DIAGNOSIS_PROMPT_VERSION}:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(',')}`
 
-  const fromCache = await readCache(cacheKey, GeneratedLeechDiagnosisSchema)
+  const fromCache = await readCache(cacheKey, GeneratedWeakSpotDiagnosisSchema)
   if (fromCache !== null) return fromCache
 
   const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
@@ -555,7 +555,7 @@ Constraints:
           name:    err instanceof Error ? err.name : 'Unknown',
           message: scrubKeyish(err),
         },
-      }, 'generateLeechDiagnosis OpenAI request failed')
+      }, 'generateWeakSpotDiagnosis OpenAI request failed')
       throw err
     }
 
@@ -563,7 +563,7 @@ Constraints:
     if (raw === null || raw === undefined) {
       throw new AppError(502, 'OpenAI returned an empty response', { code: 'OPENAI_EMPTY_RESPONSE' })
     }
-    return GeneratedLeechDiagnosisSchema.parse(JSON.parse(raw))
+    return GeneratedWeakSpotDiagnosisSchema.parse(JSON.parse(raw))
   }))
 
   await redis.set(cacheKey, JSON.stringify(result), { ex: DIAGNOSIS_CACHE_TTL })

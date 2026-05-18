@@ -11,13 +11,13 @@ export interface YesterdayStat {
 
 interface StagingMetadataRowProps {
   yesterday: YesterdayStat | null
-  /** Reserved for the leech-count chip once the dashboard list API exists. */
+  /** Reserved for the weakSpot-count chip once the dashboard list API exists. */
   leechCount: number | null
 }
 
 /**
  * Editorial metadata strip rendered at the top of the briefing card. Holds
- * three discrete signals — yesterday's recap, the leech count, and the
+ * three discrete signals — yesterday's recap, the weakSpot count, and the
  * offline-queue chip — in a single dot-separated mono row. Each segment
  * renders only when it has something to say; if no segment qualifies,
  * the row renders nothing and the briefing kicker becomes the first line.
@@ -41,7 +41,7 @@ export function StagingMetadataRow({
     segments.push(<YesterdaySegment key="yesterday" label={yesterdayLabel} />)
   }
   if (showLeeches) {
-    segments.push(<LeechesSegment key="leeches" count={leechCount as number} />)
+    segments.push(<LeechesSegment key="weakSpots" count={leechCount as number} />)
   }
   // Offline chip is its own segment but only renders when queue > 0. To keep
   // separators in sync we always include it; if it returns null the wrapping
@@ -99,7 +99,7 @@ function LeechesSegment({ count }: { count: number }): React.JSX.Element {
   return (
     <span className="inline-flex items-baseline gap-1.5 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-faded-sumi">
       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-error/55" />
-      <span>{formatExactCount(count)} leeches in queue</span>
+      <span>{formatExactCount(count)} weakSpots in queue</span>
     </span>
   )
 }

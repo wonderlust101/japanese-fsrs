@@ -16,7 +16,6 @@ export type Database = {
     Tables: {
       cards: {
         Row: {
-          card_type: Database["public"]["Enums"]["card_type"]
           created_at: string
           deck_id: string | null
           difficulty: number
@@ -44,7 +43,6 @@ export type Database = {
           version: number
         }
         Insert: {
-          card_type?: Database["public"]["Enums"]["card_type"]
           created_at?: string
           deck_id?: string | null
           difficulty?: number
@@ -72,7 +70,6 @@ export type Database = {
           version?: number
         }
         Update: {
-          card_type?: Database["public"]["Enums"]["card_type"]
           created_at?: string
           deck_id?: string | null
           difficulty?: number
@@ -310,14 +307,14 @@ export type Database = {
         }
         Relationships: []
       }
-      leech_drill_attempts: {
+      weak_spot_drill_attempts: {
         Row: {
           answered_at: string
           card_id: string | null
           created_at: string
           event_id: string
           id: string
-          leech_id: string | null
+          weak_spot_id: string | null
           local_sequence: number | null
           response_time_ms: number | null
           result: string
@@ -332,7 +329,7 @@ export type Database = {
           created_at?: string
           event_id: string
           id?: string
-          leech_id?: string | null
+          weak_spot_id?: string | null
           local_sequence?: number | null
           response_time_ms?: number | null
           result: string
@@ -347,7 +344,7 @@ export type Database = {
           created_at?: string
           event_id?: string
           id?: string
-          leech_id?: string | null
+          weak_spot_id?: string | null
           local_sequence?: number | null
           response_time_ms?: number | null
           result?: string
@@ -358,35 +355,35 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leech_drill_attempts_card_id_fkey"
+            foreignKeyName: "weak_spot_drill_attempts_card_id_fkey"
             columns: ["card_id"]
             isOneToOne: false
             referencedRelation: "cards"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_attempts_leech_id_fkey"
-            columns: ["leech_id"]
+            foreignKeyName: "weak_spot_drill_attempts_weak_spot_id_fkey"
+            columns: ["weak_spot_id"]
             isOneToOne: false
-            referencedRelation: "leeches"
+            referencedRelation: "weak_spots"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_attempts_session_card_fk"
+            foreignKeyName: "weak_spot_drill_attempts_session_card_fk"
             columns: ["session_card_id", "session_id"]
             isOneToOne: false
-            referencedRelation: "leech_drill_session_cards"
+            referencedRelation: "weak_spot_drill_session_cards"
             referencedColumns: ["id", "session_id"]
           },
           {
-            foreignKeyName: "leech_drill_attempts_session_fk"
+            foreignKeyName: "weak_spot_drill_attempts_session_fk"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "leech_drill_sessions"
+            referencedRelation: "weak_spot_drill_sessions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_attempts_user_id_fkey"
+            foreignKeyName: "weak_spot_drill_attempts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -394,7 +391,7 @@ export type Database = {
           },
         ]
       }
-      leech_drill_session_cards: {
+      weak_spot_drill_session_cards: {
         Row: {
           baseline_difficulty: number
           baseline_due: string
@@ -410,7 +407,7 @@ export type Database = {
           card_id: string | null
           created_at: string
           id: string
-          leech_id: string | null
+          weak_spot_id: string | null
           ordinal: number
           session_id: string
           source_reason: string
@@ -431,7 +428,7 @@ export type Database = {
           card_id?: string | null
           created_at?: string
           id?: string
-          leech_id?: string | null
+          weak_spot_id?: string | null
           ordinal: number
           session_id: string
           source_reason: string
@@ -452,7 +449,7 @@ export type Database = {
           card_id?: string | null
           created_at?: string
           id?: string
-          leech_id?: string | null
+          weak_spot_id?: string | null
           ordinal?: number
           session_id?: string
           source_reason?: string
@@ -460,28 +457,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leech_drill_session_cards_card_id_fkey"
+            foreignKeyName: "weak_spot_drill_session_cards_card_id_fkey"
             columns: ["card_id"]
             isOneToOne: false
             referencedRelation: "cards"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_session_cards_leech_id_fkey"
-            columns: ["leech_id"]
+            foreignKeyName: "weak_spot_drill_session_cards_weak_spot_id_fkey"
+            columns: ["weak_spot_id"]
             isOneToOne: false
-            referencedRelation: "leeches"
+            referencedRelation: "weak_spots"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_session_cards_session_id_fkey"
+            foreignKeyName: "weak_spot_drill_session_cards_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
-            referencedRelation: "leech_drill_sessions"
+            referencedRelation: "weak_spot_drill_sessions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leech_drill_session_cards_user_id_fkey"
+            foreignKeyName: "weak_spot_drill_session_cards_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -489,7 +486,7 @@ export type Database = {
           },
         ]
       }
-      leech_drill_sessions: {
+      weak_spot_drill_sessions: {
         Row: {
           created_at: string
           finished_at: string | null
@@ -534,7 +531,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leech_drill_sessions_user_id_fkey"
+            foreignKeyName: "weak_spot_drill_sessions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -542,7 +539,7 @@ export type Database = {
           },
         ]
       }
-      leeches: {
+      weak_spots: {
         Row: {
           card_id: string | null
           created_at: string
@@ -578,14 +575,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "leeches_card_id_fkey"
+            foreignKeyName: "weak_spots_card_id_fkey"
             columns: ["card_id"]
             isOneToOne: false
             referencedRelation: "cards"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leeches_user_id_fkey"
+            foreignKeyName: "weak_spots_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -816,10 +813,9 @@ export type Database = {
         }
         Returns: string
       }
-      create_leech_drill_session:
+      create_weak_spot_drill_session:
         | {
             Args: {
-              p_card_type: string
               p_deck_id: string
               p_jlpt_level: string
               p_limit: number
@@ -837,7 +833,6 @@ export type Database = {
             Args: {
               p_card_id: string
               p_card_ids: string[]
-              p_card_type: string
               p_deck_id: string
               p_jlpt_level: string
               p_limit: number
@@ -859,7 +854,6 @@ export type Database = {
       find_similar_cards: {
         Args: { p_card_id: string; p_limit?: number; p_user_id: string }
         Returns: {
-          card_type: Database["public"]["Enums"]["card_type"]
           deck_id: string
           fields_data: Json
           id: string
@@ -888,7 +882,6 @@ export type Database = {
           p_user_id: string
         }
         Returns: {
-          card_type: Database["public"]["Enums"]["card_type"]
           deck_id: string
           due: string
           fields_data: Json
@@ -957,7 +950,7 @@ export type Database = {
           total: number
         }[]
       }
-      get_leech_drill_session: {
+      get_weak_spot_drill_session: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: Json
       }
@@ -976,7 +969,6 @@ export type Database = {
         Args: { p_bucket: string; p_user_id: string }
         Returns: {
           card_id:     string
-          card_type:   Database["public"]["Enums"]["card_type"]
           deck_id:     string | null
           due:         string
           fields_data: Json
@@ -1011,7 +1003,6 @@ export type Database = {
       get_stale_embedding_cards: {
         Args: { p_user_id: string }
         Returns: {
-          card_type: Database["public"]["Enums"]["card_type"]
           created_at: string
           deck_id: string
           difficulty: number
@@ -1043,7 +1034,6 @@ export type Database = {
           p_user_id: string
         }
         Returns: {
-          card_type: Database["public"]["Enums"]["card_type"]
           due: string
           fields_data: Json
           id: string
@@ -1164,11 +1154,11 @@ export type Database = {
           success: boolean
         }[]
       }
-      record_leech_drill_attempt: {
+      record_weak_spot_drill_attempt: {
         Args: {
           p_answered_at: string
           p_asserted_card_id: string
-          p_asserted_leech_id: string
+          p_asserted_weak_spot_id: string
           p_event_id: string
           p_local_sequence: number
           p_response_time_ms: number
@@ -1196,7 +1186,7 @@ export type Database = {
           deck_id: string
         }[]
       }
-      transition_leech_drill_session: {
+      transition_weak_spot_drill_session: {
         Args: {
           p_session_id: string
           p_target_status: string
@@ -1207,7 +1197,6 @@ export type Database = {
       update_card_with_sibling_sync: {
         Args: {
           p_card_id: string
-          p_card_type?: Database["public"]["Enums"]["card_type"]
           p_expected_version: number
           p_fields_data?: Json
           p_jlpt_level?: Database["public"]["Enums"]["jlpt_level"]
@@ -1216,7 +1205,6 @@ export type Database = {
           p_user_id: string
         }
         Returns: {
-          card_type: Database["public"]["Enums"]["card_type"]
           created_at: string
           deck_id: string
           difficulty: number
@@ -1273,7 +1261,6 @@ export type Database = {
       }
     }
     Enums: {
-      card_type: "comprehension" | "production" | "listening"
       deck_type: "vocabulary" | "kanji" | "mixed"
       jlpt_level: "N5" | "N4" | "N3" | "N2" | "N1" | "beyond_jlpt"
       layout_type: "vocabulary" | "grammar" | "sentence"
@@ -1405,7 +1392,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      card_type: ["comprehension", "production", "listening"],
       deck_type: ["vocabulary", "kanji", "mixed"],
       jlpt_level: ["N5", "N4", "N3", "N2", "N1", "beyond_jlpt"],
       layout_type: ["vocabulary", "grammar", "sentence"],

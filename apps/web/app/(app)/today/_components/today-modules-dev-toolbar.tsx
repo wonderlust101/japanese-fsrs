@@ -5,7 +5,7 @@
  *
  * Today's only secondary module after the redesign is the WeekRhythmStrip
  * ("The week ahead"). Earlier iterations of the page rendered a forecast
- * chart, active decks, leeches, recent activity, and a practice signal —
+ * chart, active decks, weakSpots, recent activity, and a practice signal —
  * those modules were detached during the redesign and their preview
  * controls came with them. This toolbar now exposes just the strip, with
  * two orthogonal axes: a render state (default / loading / error) and a

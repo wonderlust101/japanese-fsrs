@@ -5,7 +5,7 @@ import {
   rollbackReviewParamSchema,
 } from '@fsrs-japanese/shared-types'
 
-import { emptyBodySchema } from '../schemas/leech.schema.ts'
+import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
 import * as reviewService  from '../services/review.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { processReview, rollbackReview } from '../services/fsrs.service.ts'
@@ -82,7 +82,7 @@ export const forecast: RequestHandler = async (req, res): Promise<void> => {
 /**
  * GET /api/v1/reviews/session-summary/:sessionId
  * Returns aggregate stats for a completed review session: total cards, time
- * spent, accuracy, per-rating breakdown, and any leeches triggered.
+ * spent, accuracy, per-rating breakdown, and any weakSpots triggered.
  */
 export const sessionSummary: RequestHandler = async (req, res): Promise<void> => {
   const { sessionId } = sessionSummaryParamsSchema.parse(req.params)

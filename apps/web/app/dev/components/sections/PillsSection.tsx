@@ -11,7 +11,7 @@ const STATUS_TONES  = [
   'learning',
   'review',
   'mastered',
-  'leech',
+  'weakSpot',
   'suspended',
   'subscribed',
   'premade',

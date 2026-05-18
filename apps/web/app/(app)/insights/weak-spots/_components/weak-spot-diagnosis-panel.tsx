@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/Button'
 
-interface LeechDiagnosisPanelProps {
+interface WeakSpotDiagnosisPanelProps {
   diagnosis:    string | null
   prescription: string | null
   isLoading:    boolean
@@ -31,7 +31,7 @@ interface LeechDiagnosisPanelProps {
  * "how this was made" disclosure is deferred to a Phase-2 expand affordance
  * to keep the surface calm.
  */
-export function LeechDiagnosisPanel({
+export function WeakSpotDiagnosisPanel({
   diagnosis,
   prescription,
   isLoading,
@@ -39,12 +39,12 @@ export function LeechDiagnosisPanel({
   errorMessage,
   onDiagnose,
   onRetry,
-}: LeechDiagnosisPanelProps): React.JSX.Element {
+}: WeakSpotDiagnosisPanelProps): React.JSX.Element {
   const hasContent = diagnosis !== null && diagnosis.length > 0
 
   return (
     <section
-      aria-labelledby="leech-diagnosis-heading"
+      aria-labelledby="weakSpot-diagnosis-heading"
       className="rounded-[2px] border border-dashed border-inari-vermillion bg-vermillion-wash/40 px-4 py-4 sm:px-5 sm:py-5"
     >
       <header className="mb-3 flex items-baseline gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
@@ -55,7 +55,7 @@ export function LeechDiagnosisPanel({
         >
           助
         </span>
-        <span id="leech-diagnosis-heading">Tomo&rsquo;s read</span>
+        <span id="weakSpot-diagnosis-heading">Tomo&rsquo;s read</span>
       </header>
 
       {hasContent ? (

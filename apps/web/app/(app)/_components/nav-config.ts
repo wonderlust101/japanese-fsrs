@@ -15,7 +15,7 @@
 
 export type NavIconKey =
   | 'reviews'
-  | 'leeches'
+  | 'weakSpots'
   | 'decks'
   | 'cards'
   | 'overview'
@@ -30,12 +30,12 @@ export interface NavItemConfig {
   hasOfflineBadge?: boolean
   hasDueCount?:     boolean
   /**
-   * Sidebar and drawer should attach a small unresolved-leech count chip to
+   * Sidebar and drawer should attach a small unresolved-weakSpot count chip to
    * the row label. The static flag lives here; live data is wired by the
    * rendering shell (`sidebar.tsx` / `mobile-drawer.tsx`), keeping this
    * config serializable across the RSC boundary.
    */
-  hasLeechCount?:   boolean
+  hasWeakSpotCount?:   boolean
   children?:        NavItemConfig[]
 }
 
@@ -53,7 +53,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     kanji: '練',
     items: [
       { href: '/today',            iconKey: 'reviews', label: 'Reviews', hasDueCount: true   },
-      { href: '/insights/weak-spots', iconKey: 'leeches', label: 'Weak spots', hasLeechCount: true },
+      { href: '/insights/weak-spots', iconKey: 'weakSpots', label: 'Weak spots', hasWeakSpotCount: true },
     ],
   },
   {

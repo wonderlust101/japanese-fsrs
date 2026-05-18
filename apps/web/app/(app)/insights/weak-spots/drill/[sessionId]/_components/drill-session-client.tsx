@@ -11,7 +11,7 @@ import {
   useFinishDrillSessionMutation,
   useAbortDrillSessionMutation,
   useRecordDrillAttemptMutation,
-} from '@/lib/api/leeches'
+} from '@/lib/api/weak-spots'
 import {
   useDrillActions,
   useDrillCurrentCard,
@@ -20,8 +20,8 @@ import {
   useDrillQueue,
   useDrillSessionId,
   useDrillShowAnswer,
-} from '@/stores/useLeechDrillSessionStore'
-import type { ApiLeechDrillAttemptResult } from '@fsrs-japanese/shared-types'
+} from '@/stores/useWeakSpotDrillSessionStore'
+import type { ApiWeakSpotDrillAttemptResult } from '@fsrs-japanese/shared-types'
 
 import { DrillCardDisplay } from '../../_components/drill-card-display'
 import { DrillRatingBar } from '../../_components/drill-rating-bar'
@@ -32,7 +32,7 @@ interface DrillSessionClientProps {
 
 /**
  * Active drill session. Mirrors the review-session orchestration but
- * isolates state in `useLeechDrillSessionStore`:
+ * isolates state in `useWeakSpotDrillSessionStore`:
  *
  *   - Loads the session detail via TanStack Query on mount; primes the
  *     local Zustand store when the data resolves (or when the local store
@@ -102,7 +102,7 @@ export function DrillSessionClient({
 
   // ── Keyboard handlers ─────────────────────────────────────────────────────
   const handleRate = useCallback(
-    (result: ApiLeechDrillAttemptResult) => {
+    (result: ApiWeakSpotDrillAttemptResult) => {
       if (!isActive || !showAnswer) return
       const record = actions.recordAttempt(result, false)
       if (record === null) return

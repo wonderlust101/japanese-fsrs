@@ -46,9 +46,9 @@ const apiLog = componentLogger('api')
  *   404 Not Found
  *     CARD_NOT_FOUND                       Card row missing / wrong owner / parent missing
  *     DECK_NOT_FOUND                       Deck row missing / wrong owner
- *     LEECH_DRILL_SESSION_CARD_NOT_FOUND   Session card row missing / wrong session / wrong owner
- *     LEECH_DRILL_SESSION_NOT_FOUND        Drill session missing / wrong owner
- *     LEECH_NOT_FOUND                      Leech row missing / wrong owner
+ *     WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND   Session card row missing / wrong session / wrong owner
+ *     WEAK_SPOT_DRILL_SESSION_NOT_FOUND        Drill session missing / wrong owner
+ *     WEAK_SPOT_NOT_FOUND                      WeakSpot row missing / wrong owner
  *     PREMADE_DECK_NOT_FOUND               Premade deck missing or inactive
  *     PROFILE_NOT_FOUND                    Profile row missing (signup-trigger bypassed)
  *     REVIEW_LOG_NOT_FOUND                 Rollback target missing
@@ -59,8 +59,8 @@ const apiLog = componentLogger('api')
  *     DB_FK_VIOLATION                      Foreign-key violation (SQLSTATE 23503)
  *     DB_UNIQUE_VIOLATION                  Unique-constraint violation (SQLSTATE 23505)
  *     IDEMPOTENCY_IN_FLIGHT                Same key + same body, prior call still running
- *     LEECH_ALREADY_OPEN                   Reopen blocked: another unresolved leech already exists for this card
- *     LEECH_DRILL_SESSION_STATE_CONFLICT   Drill session cannot transition from its current state to the target
+ *     WEAK_SPOT_ALREADY_OPEN                   Reopen blocked: another unresolved weakSpot already exists for this card
+ *     WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT   Drill session cannot transition from its current state to the target
  *     RESCHEDULE_NO_HISTORY                Reschedule with no eligible review logs
  *     RESCHEDULE_NO_RESULT                 ts-fsrs reschedule() returned no item
  *     ROLLBACK_NOT_AVAILABLE               Pre-migration log lacks before-snapshot
@@ -72,7 +72,7 @@ const apiLog = componentLogger('api')
  *     CARD_FIELDS_INSUFFICIENT             AI-generation target card lacks `word`
  *     DB_CHECK_VIOLATION                   Database CHECK constraint failed (SQLSTATE 23514)
  *     IDEMPOTENCY_KEY_CONFLICT             Same key + different body
- *     LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH  Body cardId/leechId disagrees with the session card
+ *     WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH  Body cardId/weakSpotId disagrees with the session card
  *
  *   428 Precondition Required
  *     IF_MATCH_REQUIRED               PATCH endpoint missing If-Match header

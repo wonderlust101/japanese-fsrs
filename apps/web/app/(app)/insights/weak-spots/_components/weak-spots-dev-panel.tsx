@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 
 import { FixtureOption, FixtureOptionList, FixturePanel } from '@/components/dev/FixturePanel'
-import type { ApiLeechListResponse } from '@fsrs-japanese/shared-types'
+import type { ApiWeakSpotListResponse } from '@fsrs-japanese/shared-types'
 
 import {
   buildCleanFixture,
@@ -11,7 +11,7 @@ import {
   buildManyFixture,
   buildOrphanFixture,
   buildResolvedFixture,
-} from './leechesFixtures'
+} from './weakSpotsFixtures'
 
 export type LeechesFixtureKey =
   | 'off'
@@ -24,7 +24,7 @@ export type LeechesFixtureKey =
   | 'error'
 
 export interface LeechesDevState {
-  fixtureData: ApiLeechListResponse | null
+  fixtureData: ApiWeakSpotListResponse | null
   forcedState: 'loading' | 'error' | null
   panel:       React.ReactNode
 }
@@ -34,10 +34,10 @@ const FIXTURES: ReadonlyArray<{
   label:       string
   description: string
 }> = [
-  { key: 'off',      label: 'Off',         description: 'Live data — render the real leech list.' },
-  { key: 'clean',    label: 'Clean',       description: 'No leeches in the current window; empty state.' },
-  { key: 'few',      label: 'A few',       description: 'Three leeches across two decks.' },
-  { key: 'many',     label: 'Many',        description: 'Seven leeches with a mix of modalities and diagnoses.' },
+  { key: 'off',      label: 'Off',         description: 'Live data — render the real weak-spot list.' },
+  { key: 'clean',    label: 'Clean',       description: 'No weak spots in the current window; empty state.' },
+  { key: 'few',      label: 'A few',       description: 'Three weak spots across two decks.' },
+  { key: 'many',     label: 'Many',        description: 'Seven weak spots with a mix of modalities and diagnoses.' },
   { key: 'resolved', label: 'Resolved',    description: 'Resolved-status fixture — Reopen affordance visible.' },
   { key: 'orphan',   label: 'Orphan',      description: 'Cards deleted post-detection; minimal row anatomy.' },
   { key: 'loading',  label: 'Loading',     description: 'Show the skeleton list.' },
@@ -45,15 +45,15 @@ const FIXTURES: ReadonlyArray<{
 ]
 
 /**
- * Dev-only state controller for the leeches page. In production this returns
+ * Dev-only state controller for the weakSpots page. In production this returns
  * `{ fixtureData: null, forcedState: null, panel: null }` and the page reads
- * from `useLeechesQuery` exclusively. Pattern mirrors `useMistakesDevState`.
+ * from `useWeakSpotsQuery` exclusively. Pattern mirrors `useMistakesDevState`.
  */
 export function useLeechesDevState(): LeechesDevState {
   const [fixture, setFixture] = useState<LeechesFixtureKey>('off')
   const isDev = process.env.NODE_ENV === 'development'
 
-  const fixtureData = useMemo<ApiLeechListResponse | null>(() => {
+  const fixtureData = useMemo<ApiWeakSpotListResponse | null>(() => {
     if (!isDev) return null
     if (fixture === 'clean')    return buildCleanFixture()
     if (fixture === 'few')      return buildFewFixture()
@@ -86,15 +86,15 @@ function DevPanel({ fixture, onChange }: DevPanelProps): React.JSX.Element {
 
   return (
     <FixturePanel
-      title="Dev · Leeches state"
+      title="Dev · Weak spots state"
       summary={active.label}
-      ariaLabel="Leeches page dev state panel"
+      ariaLabel="WeakSpots page dev state panel"
     >
-      <FixtureOptionList ariaLabel="Leech fixtures">
+      <FixtureOptionList ariaLabel="WeakSpot fixtures">
         {FIXTURES.map((f) => (
           <FixtureOption
             key={f.key}
-            name="leeches-fixture"
+            name="weakSpots-fixture"
             value={f.key}
             checked={f.key === fixture}
             onChange={() => onChange(f.key)}

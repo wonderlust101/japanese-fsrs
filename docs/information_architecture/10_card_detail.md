@@ -133,7 +133,7 @@ Suggestions should be practical and actionable.
 ## Interaction Notes
 
 - Edit opens editable fields or an edit mode.
-- Repair opens the Problem Card Repair flow focused on this card.
+- Repair opens the Weak spot repair flow focused on this card.
 - Open in Cards returns to the current filter/search context if available.
 - Change deck should preserve review history unless the system behavior differs, in which case explain it.
 - Suspend should require confirmation only if the impact is significant.
@@ -143,9 +143,9 @@ Suggestions should be practical and actionable.
 
 The Cards page is for search and bulk management. Card Detail is for deep understanding and editing one item. The transition between them should preserve context, especially active filters and search terms.
 
-## Relationship to Problem Card Repair
+## Relationship to Weak spot repair
 
-Problem Card Repair can be launched from Card Detail. Card Detail should show enough diagnostic information to explain why repair is recommended.
+Weak spot repair can be launched from Card Detail. Card Detail should show enough diagnostic information to explain why repair is recommended.
 
 ## States
 

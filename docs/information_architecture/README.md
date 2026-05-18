@@ -8,7 +8,7 @@ This folder contains one Markdown file per page plus [`00_sitemap.md`](00_sitema
 - [`02_review_setup.md`](02_review_setup.md) — Review Setup
 - [`03_review_session.md`](03_review_session.md) — Review Session
 - [`04_review_summary.md`](04_review_summary.md) — Review Summary
-- [`05_problem_card_repair.md`](05_problem_card_repair.md) — Problem Card Repair
+- [`05_weak_spot_repair.md`](05_weak_spot_repair.md) — Weak spot repair
 - [`06_add_japanese.md`](06_add_japanese.md) — Add Japanese
 - [`07_generated_card_review.md`](07_generated_card_review.md) — Generated Card Review
 - [`08_decks.md`](08_decks.md) — Decks

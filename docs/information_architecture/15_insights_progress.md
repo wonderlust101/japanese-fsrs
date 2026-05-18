@@ -95,7 +95,7 @@ Explain possible causes and offer practical next steps.
 
 ### Declining Retention
 
-Recommend reviewing problem cards or adjusting new-card load.
+Recommend reviewing weak spots or adjusting new-card load.
 
 ### Limited Data
 

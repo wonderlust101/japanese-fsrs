@@ -13,7 +13,7 @@ import type {
   ApiBatchResult,
   ApiList,
   SessionSummary,
-  SessionLeech,
+  SessionWeakSpot,
   SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
@@ -39,7 +39,7 @@ function toNumber(value: string | number | undefined): number {
 /**
  * Session-summary RPC envelope. `card_id: z.string()` (non-null) is correct
  * only because `get_session_summary` filters `WHERE l.card_id IS NOT NULL` in
- * the leeches CTE (added in migration 20260519000000). If that filter ever
+ * the weakSpots CTE (added in migration 20260519000000). If that filter ever
  * changes, this schema must be updated to mark `card_id: z.string().nullable()`.
  */
 const SessionSummaryEnvelopeSchema = z.object({
@@ -52,7 +52,7 @@ const SessionSummaryEnvelopeSchema = z.object({
   }),
   total_time_ms: z.number(),
   next_due_at:   z.string().nullable(),
-  leeches: z.array(z.object({
+  weakSpots: z.array(z.object({
     leech_id:     z.string(),
     card_id:      z.string(),
     deck_id:      z.string().nullable(),
@@ -176,9 +176,9 @@ export async function submitBatch(
  * Returns aggregate stats for all reviews that share the given session_id.
  *
  * Backed by the `get_session_summary` RPC, which collapses logs aggregation,
- * leech lookup, and card-detail enrichment into one round-trip and one
- * SQL transaction. Leeches are matched on `session_id` directly (added in
- * migration 20260509000001); pre-L2 leeches with NULL session_id are
+ * weakSpot lookup, and card-detail enrichment into one round-trip and one
+ * SQL transaction. WeakSpots are matched on `session_id` directly (added in
+ * migration 20260509000001); pre-L2 weakSpots with NULL session_id are
  * excluded.
  */
 export async function getSessionSummary(
@@ -210,8 +210,8 @@ export async function getSessionSummary(
     ? 0
     : Math.round(((env.breakdown.good + env.breakdown.easy) / env.total) * 1000) / 10
 
-  const leeches: SessionLeech[] = env.leeches.map((l) => ({
-    leechId:      l.leech_id,
+  const weakSpots: SessionWeakSpot[] = env.weakSpots.map((l) => ({
+    weakSpotId:      l.leech_id,
     cardId:       l.card_id,
     deckId:       l.deck_id   ?? '',
     word:         l.word      ?? '',
@@ -229,6 +229,6 @@ export async function getSessionSummary(
     accuracyPct,
     nextDueAt:       env.next_due_at,
     ratingBreakdown: env.breakdown,
-    leeches,
+    weakSpots,
   }
 }

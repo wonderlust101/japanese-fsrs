@@ -22,7 +22,7 @@ interface IconProps {
 
 /**
  * Drill: precision target. Bullseye reads as "focused practice on the
- * exact cards giving you trouble," matching the leech-drill semantics.
+ * exact cards giving you trouble," matching the weakSpot-drill semantics.
  * Two concentric rings + center dot; geometry rounded to 0.5px.
  */
 export function DrillMark({ className = '' }: IconProps): React.JSX.Element {

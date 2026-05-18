@@ -11,7 +11,7 @@ export type SessionPattern =
   | 'strong'
   | 'mixed'
   | 'difficult'
-  | 'leech'
+  | 'weakSpot'
   | 'ended-early'
   | 'no-pattern'
 
@@ -37,7 +37,7 @@ export function inputsFromSummary(
     hard:        summary.ratingBreakdown.hard,
     good:        summary.ratingBreakdown.good,
     easy:        summary.ratingBreakdown.easy,
-    leechCount:  summary.leeches.length,
+    leechCount:  summary.weakSpots.length,
     endedEarly,
   }
 }
@@ -46,7 +46,7 @@ export function inputsFromSummary(
 export function classifySession(i: PatternInputs): SessionPattern {
   if (i.totalCards < 5)             return 'no-pattern'
   if (i.endedEarly)                 return 'ended-early'
-  if (i.leechCount >= 3)            return 'leech'
+  if (i.leechCount >= 3)            return 'weakSpot'
   if (i.accuracyPct < 65)           return 'difficult'
   if (i.again / i.totalCards > 0.25) return 'difficult'
   if (
@@ -96,8 +96,8 @@ export function buildSummaryContent(
 ): SummaryContent {
   const inputs  = inputsFromSummary(summary, endedEarly)
   const pattern = classifySession(inputs)
-  const leechIds    = summary.leeches.map((l) => l.cardId)
-  const leechTokens = summary.leeches.slice(0, 3).map((l) => l.word)
+  const leechIds    = summary.weakSpots.map((l) => l.cardId)
+  const leechTokens = summary.weakSpots.slice(0, 3).map((l) => l.word)
   return mapPattern({ inputs, pattern, leechIds, leechTokens })
 }
 
@@ -107,7 +107,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     showTomorrowGlance:  true,
   }
 
-  // Inline-Japanese specifics line. Stays null when there are no leeches.
+  // Inline-Japanese specifics line. Stays null when there are no weakSpots.
   const specifics = leechTokens.length > 0
     ? `${formatTokens(leechTokens)} showed up in repeated misses.`
     : null
@@ -138,7 +138,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
         rationale:      'Most of the session held together. The few rough spots can wait until tomorrow.',
         primary:        { label: 'Leave for today', route: { kind: 'today' } },
         secondary:      inputs.leechCount > 0
-          ? { label: 'Improve problem cards', route: { kind: 'repair' } }
+          ? { label: 'Improve weak spots', route: { kind: 'repair' } }
           : undefined,
         ...baseShow,
       }
@@ -152,21 +152,21 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
         diagnosisAside: specifics,
         rationale:      'A short drill on the cards below settles the rough spots without restarting the day.',
         primary:        leechIds.length > 0
-          ? { label: 'Review problem cards', route: { kind: 'review-problem', cardIds: leechIds } }
+          ? { label: 'Review weak spots', route: { kind: 'review-problem', cardIds: leechIds } }
           : { label: 'Open Insights', route: { kind: 'insights' } },
         secondary:      { label: 'Leave for today', route: { kind: 'today' } },
         ...baseShow,
       }
 
-    case 'leech':
+    case 'weakSpot':
       return {
         pattern,
         kicker:         { kanji: '終', label: 'Session closed' },
         heroHeadline:   'Session closed.',
-        diagnosisLead:  'A handful of cards keep slipping. They look like leeches.',
+        diagnosisLead:  'A handful of cards keep slipping. They look like weakSpots.',
         diagnosisAside: specifics,
         rationale:      'Repairing the cards below once is usually enough to break the loop.',
-        primary:        { label: 'Improve problem cards', route: { kind: 'repair' } },
+        primary:        { label: 'Improve weak spots', route: { kind: 'repair' } },
         secondary:      { label: 'Leave for today', route: { kind: 'today' } },
         ...baseShow,
       }
@@ -184,7 +184,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
         rationale:      'Stopping at a reasonable point is part of the practice. The remaining cards are still scheduled.',
         primary:        { label: 'Leave for today', route: { kind: 'today' } },
         secondary:      inputs.leechCount > 0
-          ? { label: 'Improve problem cards', route: { kind: 'repair' } }
+          ? { label: 'Improve weak spots', route: { kind: 'repair' } }
           : undefined,
         ...baseShow,
       }

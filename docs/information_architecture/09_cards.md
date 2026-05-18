@@ -14,7 +14,7 @@ This page is for search, filtering, mass tagging, bulk operations, repair workfl
 - Add or remove tags in bulk.
 - Move cards between decks.
 - Suspend, unsuspend, or mark cards for repair.
-- Find problem cards, leeches, or low-retention cards.
+- Find weak spots, weak spots, or low-retention cards.
 - Open Card Detail for deep editing.
 
 ## Content Hierarchy
@@ -90,8 +90,8 @@ Saved views make advanced search discoverable. They should be visible near the t
 
 Recommended default views:
 
-- Problem cards.
-- Leeches.
+- Weak spots.
+- Weak spots.
 - Missing images.
 - Missing audio.
 - Missing mnemonic.

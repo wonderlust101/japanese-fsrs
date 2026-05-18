@@ -4,40 +4,40 @@ import { jlptLevelEnum } from '@fsrs-japanese/shared-types'
 
 // ─── Filters / sort ───────────────────────────────────────────────────────────
 
-export const leechStatusEnum = z.enum(['unresolved', 'resolved'])
-export type LeechStatusFilter = z.infer<typeof leechStatusEnum>
+export const weakSpotStatusEnum = z.enum(['unresolved', 'resolved'])
+export type WeakSpotStatusFilter = z.infer<typeof weakSpotStatusEnum>
 
-/** MVP sort options for the leeches list. `mostRecent` is the default and uses
+/** MVP sort options for the weakSpots list. `mostRecent` is the default and uses
  *  the (created_at DESC, id DESC) tuple cursor — both columns are immutable on
- *  `leeches`, so the cursor is stable across concurrent UPDATEs (resolve flips
+ *  `weakSpots`, so the cursor is stable across concurrent UPDATEs (resolve flips
  *  do not move a row in the index). `mostLapses` and `deckOrder` use head sort
  *  keys on the joined `cards` row (`cards.lapses`, `cards.deck_id`), so cursor
  *  pagination over those sorts is intentionally disabled in the service layer
  *  until an RPC can express the tuple comparison atomically. */
-export const leechSortEnum = z.enum([
+export const weakSpotSortEnum = z.enum([
   'mostRecent',
   'oldestUnresolved',
   'mostLapses',
   'deckOrder',
 ])
-export type LeechSortOrder = z.infer<typeof leechSortEnum>
+export type WeakSpotSortOrder = z.infer<typeof weakSpotSortEnum>
 
-/** Diagnosis filter dimension for the leeches list. The spec's third arm,
+/** Diagnosis filter dimension for the weakSpots list. The spec's third arm,
  *  "not included in plan," was an entitlement-tier signal — Stage 7 removed
  *  the tier model (all features are free for the MVP), so this enum stays at
  *  the two column-based arms. The arm can be reintroduced if monetization
  *  ever returns. */
-export const leechDiagnosisFilterEnum = z.enum(['available', 'missing'])
-export type LeechDiagnosisFilter = z.infer<typeof leechDiagnosisFilterEnum>
+export const weakSpotDiagnosisFilterEnum = z.enum(['available', 'missing'])
+export type WeakSpotDiagnosisFilter = z.infer<typeof weakSpotDiagnosisFilterEnum>
 
 // ─── Query / param schemas ────────────────────────────────────────────────────
 
-export const listLeechesQuerySchema = z.object({
-  status:     leechStatusEnum.default('unresolved'),
+export const listWeakSpotsQuerySchema = z.object({
+  status:     weakSpotStatusEnum.default('unresolved'),
   deckId:     z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:  jlptLevelEnum.optional(),
-  diagnosis:  leechDiagnosisFilterEnum.optional(),
-  sort:       leechSortEnum.default('mostRecent'),
+  diagnosis:  weakSpotDiagnosisFilterEnum.optional(),
+  sort:       weakSpotSortEnum.default('mostRecent'),
   limit:      z.coerce.number().int().min(1).max(100).default(50),
   // Opaque base64url-encoded cursor. Same length budget as the cards/decks
   // list endpoints; precise shape validation happens at decode time and a
@@ -45,38 +45,38 @@ export const listLeechesQuerySchema = z.object({
   cursor:     z.string().min(1).max(512).optional(),
 }).strict()
 
-export type ListLeechesQuery = z.infer<typeof listLeechesQuerySchema>
+export type ListWeakSpotsQuery = z.infer<typeof listWeakSpotsQuerySchema>
 
-export const leechIdParamSchema = z.object({
-  id: z.string().uuid('Invalid leech ID'),
+export const weakSpotIdParamSchema = z.object({
+  id: z.string().uuid('Invalid weakSpot ID'),
 }).strict()
 
-/** URL param schema for `GET /api/v1/leeches/drill-sessions/:sessionId`. */
+/** URL param schema for `GET /api/v1/weak-spots/drill-sessions/:sessionId`. */
 export const drillSessionIdParamSchema = z.object({
   sessionId: z.string().uuid('Invalid drill session ID'),
 }).strict()
 
 // ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
 
-export const leechDrillAttemptResultEnum = z.enum(['missed', 'hesitated', 'remembered'])
-export type LeechDrillAttemptResult = z.infer<typeof leechDrillAttemptResultEnum>
+export const weakSpotDrillAttemptResultEnum = z.enum(['missed', 'hesitated', 'remembered'])
+export type WeakSpotDrillAttemptResult = z.infer<typeof weakSpotDrillAttemptResultEnum>
 
-/** Body schema for `POST /api/v1/leeches/drill-sessions/:sessionId/attempts`.
+/** Body schema for `POST /api/v1/weak-spots/drill-sessions/:sessionId/attempts`.
  *
  *  - `eventId` is the client-generated domain idempotency key. The DB's
  *    `UNIQUE (user_id, event_id)` enforces exactly-once delivery: retrying
  *    with the same eventId returns the original attempt's row.
- *  - `cardId` and `leechId` are OPTIONAL consistency assertions. If present,
+ *  - `cardId` and `weakSpotId` are OPTIONAL consistency assertions. If present,
  *    they must match the canonical values on the session-card row, or the
- *    RPC rejects the attempt with 422 LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH.
+ *    RPC rejects the attempt with 422 WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH.
  *    The wire INSERT always uses the canonical values, never the body's.
  */
 export const recordDrillAttemptSchema = z.object({
   eventId:        z.string().uuid('Invalid event ID'),
   sessionCardId:  z.string().uuid('Invalid session card ID'),
-  leechId:        z.string().uuid('Invalid leech ID').optional(),
+  weakSpotId:        z.string().uuid('Invalid weakSpot ID').optional(),
   cardId:         z.string().uuid('Invalid card ID').optional(),
-  result:         leechDrillAttemptResultEnum,
+  result:         weakSpotDrillAttemptResultEnum,
   localSequence:  z.number().int().nonnegative().optional(),
   responseTimeMs: z.number().int().nonnegative().optional(),
   shownAt:        z.string().datetime().optional(),
@@ -90,18 +90,18 @@ export type RecordDrillAttemptInput = z.infer<typeof recordDrillAttemptSchema>
 // One schema per sort mode. The encoded cursor carries both keys of the sort
 // tuple so the SQL can keyset-paginate without re-scanning skipped rows.
 
-export const leechCreatedAtCursorSchema = z.object({
+export const weakSpotCreatedAtCursorSchema = z.object({
   createdAt: z.string().datetime(),
   id:        z.string().uuid(),
 })
-export type LeechCreatedAtCursor = z.infer<typeof leechCreatedAtCursorSchema>
+export type WeakSpotCreatedAtCursor = z.infer<typeof weakSpotCreatedAtCursorSchema>
 
-export const leechLapsesCursorSchema = z.object({
+export const weakSpotLapsesCursorSchema = z.object({
   lapses:    z.number().int().nonnegative().nullable(),
   createdAt: z.string().datetime(),
   id:        z.string().uuid(),
 })
-export type LeechLapsesCursor = z.infer<typeof leechLapsesCursorSchema>
+export type WeakSpotLapsesCursor = z.infer<typeof weakSpotLapsesCursorSchema>
 
 // ─── Drill session creation (Stage 3) ─────────────────────────────────────────
 //
@@ -114,22 +114,22 @@ export type LeechLapsesCursor = z.infer<typeof leechLapsesCursorSchema>
 // All five spec source values are now wired through (Stage 6). The DB CHECK
 // admits the same five; the service-layer mapper translates camelCase here
 // to snake_case for the RPC.
-export const leechDrillSourceEnum = z.enum([
+export const weakSpotDrillSourceEnum = z.enum([
   'unresolvedLeeches',
   'deckScoped',
   'highLapseCandidates',
   'manualSelection',
   'currentCard',
 ])
-export const leechDrillModeEnum         = z.enum(['practice', 'timed'])
-export const leechDrillRepeatPolicyEnum = z.enum(['none', 'missedAfterLag'])
+export const weakSpotDrillModeEnum         = z.enum(['practice', 'timed'])
+export const weakSpotDrillRepeatPolicyEnum = z.enum(['none', 'missedAfterLag'])
 
-export type LeechDrillSource       = z.infer<typeof leechDrillSourceEnum>
-export type LeechDrillMode         = z.infer<typeof leechDrillModeEnum>
-export type LeechDrillRepeatPolicy = z.infer<typeof leechDrillRepeatPolicyEnum>
+export type WeakSpotDrillSource       = z.infer<typeof weakSpotDrillSourceEnum>
+export type WeakSpotDrillMode         = z.infer<typeof weakSpotDrillModeEnum>
+export type WeakSpotDrillRepeatPolicy = z.infer<typeof weakSpotDrillRepeatPolicyEnum>
 
 export const createDrillSessionSchema = z.object({
-  source:       leechDrillSourceEnum.default('unresolvedLeeches'),
+  source:       weakSpotDrillSourceEnum.default('unresolvedLeeches'),
   deckId:       z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:    jlptLevelEnum.optional(),
   // manualSelection-only: explicit list of card IDs to drill. Bounded 1-50
@@ -137,17 +137,17 @@ export const createDrillSessionSchema = z.object({
   cardIds:      z.array(z.string().uuid('Invalid card ID')).min(1).max(50).optional(),
   // currentCard-only: single card ID.
   cardId:       z.string().uuid('Invalid card ID').optional(),
-  // highLapseCandidates-only: lapse threshold for "near-leech" candidates.
+  // highLapseCandidates-only: lapse threshold for "near-weakSpot" candidates.
   // Default 3 is applied server-side in the RPC if omitted; bounded here so
   // callers can't request 0 (every card matches) or absurdly large values.
   minLapses:    z.number().int().min(1).max(20).optional(),
   // Reuse the list endpoint's sort enum so frontends only learn one vocabulary.
-  order:        leechSortEnum.default('mostLapses'),
+  order:        weakSpotSortEnum.default('mostLapses'),
   // Drill caps tighter than the list endpoint (max 100) — a focused session
   // is meaningfully different from a management list view.
   limit:        z.number().int().min(1).max(50).default(20),
-  mode:         leechDrillModeEnum.default('practice'),
-  repeatPolicy: leechDrillRepeatPolicyEnum.default('missedAfterLag'),
+  mode:         weakSpotDrillModeEnum.default('practice'),
+  repeatPolicy: weakSpotDrillRepeatPolicyEnum.default('missedAfterLag'),
   // Reserved for Stage 4+ (timed-mode stop conditions). Accepted as an opaque
   // object today; the DB CHECK guarantees `jsonb_typeof(stop_rule) = 'object'`.
   stopRule:     z.record(z.string(), z.unknown()).default({}),

@@ -15,9 +15,9 @@ Scoped tracking for information-architecture work only — per-page design adopt
 - [ ] **Reconcile IA card types with `card_type` schema**
 	  - Canonical enum is `comprehension | production | listening` ([`packages/shared-types/src/fsrs.types.ts`](../packages/shared-types/src/fsrs.types.ts), [DATABASE.md](DATABASE.md), [TDD.md](TDD.md)). IA describes *Vocabulary Recognition* + *Sentence Understanding* + *Production* and omits Listening entirely (`03_review_session.md`, `07_generated_card_review.md`, `10_card_detail.md`, `00_sitemap.md`).
 	  - Decide: ship Listening for MVP (add wireframes for audio-front cards) **or** defer Listening explicitly in IA + canonical docs. Clarify that "Vocabulary Recognition" and "Sentence Understanding" are `layout_type` variants of `comprehension`, not peer `card_type` values.
-- [ ] **Resolve "Problem Card" vs "Leech" vocabulary**
-	  - Backend, status docs, and PRODUCT.md all say "leech" (`/api/v1/leeches`, leech-drill, AI leech diagnosis). New IA renames the surface to **Problem Card Repair** with `/review/repair` and `/review/repair/[cardId]` (`05_problem_card_repair.md`, `14_insights_mistakes.md`).
-	  - Either bless "Problem Card" as the canonical user-facing label (requires explicit PRODUCT.md edit) or rewrite the IA pair to use "Leech". Pick one before the leeches frontend lands.
+- [ ] **Resolve "Problem Card" vs "Weak spot" vocabulary**
+	  - Backend, status docs, and PRODUCT.md all say "weak spot" (`/api/v1/weak-spots`, weak spot-drill, AI weak-spot diagnosis). New IA renames the surface to **Weak spot repair** with `/review/repair` and `/review/repair/[cardId]` (`05_weak_spot_repair.md`, `14_insights_mistakes.md`).
+	  - Either bless "Problem Card" as the canonical user-facing label (requires explicit PRODUCT.md edit) or rewrite the IA pair to use "Weak spot". Pick one before the weak spots frontend lands.
 - [ ] **Settings IA: missing sections**
 	  - IA `18_settings.md` proposes top-level Account / Learning / Review behavior / Display / Data and sync / Security. Current app ships `/settings`, `/settings/learning`, `/settings/profile`, `/settings/security` only.
 	  - Add wireframes (or explicit deferral notes in IA) for Display, Data & sync, and Review-behavior sections.

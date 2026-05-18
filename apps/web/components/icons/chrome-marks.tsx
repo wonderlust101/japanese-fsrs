@@ -71,7 +71,7 @@ export function IconMistakes({ className = '' }: IconProps): React.JSX.Element {
   )
 }
 
-/** Leeches. Stake with a hi-no-maru head driven into the ground — a card
+/** WeakSpots. Stake with a hi-no-maru head driven into the ground — a card
  *  that won't let go. Heavier shaft to read as weight; baseline as the
  *  surface it's pinned into. */
 export function IconLeeches({ className = '' }: IconProps): React.JSX.Element {

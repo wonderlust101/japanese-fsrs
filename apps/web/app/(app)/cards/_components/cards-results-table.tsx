@@ -24,7 +24,7 @@ export interface CardsResultRow {
   tags:      readonly string[]
   state:     State
   isSuspended: boolean
-  /** Lifetime count of failed reviews. ≥ 8 highlights as a leech. */
+  /** Lifetime count of failed reviews. ≥ 8 highlights as a weakSpot. */
   lapses:    number
   /** ISO date the card is next due. */
   due:       string | null
@@ -32,13 +32,13 @@ export interface CardsResultRow {
 
 /**
  * Lapse-tier row tints. The row's background colour signals card health
- * at a glance: amber for "starting to drag," red for "leech." The brand's
+ * at a glance: amber for "starting to drag," red for "weakSpot." The brand's
  * `vermillion-wash` is reserved for the selection state, so we lean on
  * Tailwind's amber / red palettes for the lapse signals — distinct from
  * selected-row red, distinct from each other.
  */
 const LAPSE_WARNING_THRESHOLD = 4
-const LAPSE_LEECH_THRESHOLD   = 8
+const LAPSE_WEAK_SPOT_THRESHOLD   = 8
 
 /**
  * Shared grid template applied to both the header and each row so columns
@@ -276,10 +276,10 @@ function ResultRow({
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
-type LapseTier = 'ok' | 'warning' | 'leech'
+type LapseTier = 'ok' | 'warning' | 'weakSpot'
 
 function lapseTierFor(lapses: number): LapseTier {
-  if (lapses >= LAPSE_LEECH_THRESHOLD)   return 'leech'
+  if (lapses >= LAPSE_WEAK_SPOT_THRESHOLD)   return 'weakSpot'
   if (lapses >= LAPSE_WARNING_THRESHOLD) return 'warning'
   return 'ok'
 }
@@ -307,13 +307,13 @@ function wordToneClass(_tier: LapseTier): string {
  * Text-label companion to the colour signal. Pairs with the row/word
  * tint so card health is communicated by **both** colour and text —
  * satisfying the "don't rely on colour alone" accessibility rule.
- * Renders nothing on healthy rows; on warning/leech rows, emits a
+ * Renders nothing on healthy rows; on warning/weakSpot rows, emits a
  * compact mono-uppercase chip with a tier-matched border and ARIA
  * label naming the health state.
  */
 function HealthBadge({ tier }: { tier: LapseTier }): React.JSX.Element | null {
   if (tier === 'ok') return null
-  const isLeech = tier === 'leech'
+  const isLeech = tier === 'weakSpot'
   const label = isLeech ? 'Weak spot' : 'Drifting'
   const toneClass = isLeech ? 'text-inari-vermillion-deep' : 'text-amber-900'
   return (

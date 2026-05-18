@@ -241,7 +241,7 @@ export function ReviewStagingClient({
   const liveTomoNote: TomoNote | null = tomoNoteQuery.data !== undefined && tomoNoteQuery.data !== null
     ? { body: tomoNoteQuery.data.body, date: tomoNoteQuery.data.dateKey }
     : null
-  // Leech-count API doesn't exist yet (brief open question #4). Live value
+  // WeakSpot-count API doesn't exist yet (brief open question #4). Live value
   // stays null; preview can synthesize it.
   const liveLeechCount: number | null   = null
 

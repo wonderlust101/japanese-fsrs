@@ -8,7 +8,7 @@ import { Card }                                                from '@/component
 import { Logo }                                                from '@/components/ui/Logo'
 import { SectionCard }                                         from '@/components/ui/SectionCard'
 import { RatingDistributionBar, buildDistributionTakeaway }    from '@/components/review/summary/RatingDistributionBar'
-import { ProblemCardRow }                                      from '@/components/review/summary/ProblemCardRow'
+import { WeakSpotRow }                                      from '@/components/review/summary/WeakSpotRow'
 import { WeekRhythmStrip, type WeekRhythmState }               from '@/app/(app)/today/_components/week-rhythm-strip'
 import { buildDashboardCalendarContext }                       from '@/app/(app)/today/_components/today-calendar'
 import { useReviewForecast, useSessionSummary }                from '@/lib/api/reviews'
@@ -32,7 +32,7 @@ import {
 } from './_components/summary-fixtures'
 import { SummaryDevSwitcher } from './_components/summary-dev-switcher'
 
-import type { SessionLeech, SessionSummary } from '@fsrs-japanese/shared-types'
+import type { SessionWeakSpot, SessionSummary } from '@fsrs-japanese/shared-types'
 
 const FIXTURE_KEY_SET = new Set<SessionPattern>(SUMMARY_FIXTURE_KEYS)
 
@@ -114,7 +114,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     accuracyPct:     0,
     nextDueAt:       null,
     ratingBreakdown: { again: 0, hard: 0, good: 0, easy: 0 },
-    leeches:         [],
+    weakSpots:         [],
   }), [rawId])
 
   const summary: SessionSummary | undefined = usingFixture
@@ -156,7 +156,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
   const content   = buildSummaryContent(resolved, endedEarly || resolved.totalCards === 0)
   const takeaway  = buildDistributionTakeaway(resolved.ratingBreakdown, resolved.totalCards)
 
-  const showProblemCards = content.showProblemCards && resolved.leeches.length > 0
+  const showProblemCards = content.showProblemCards && resolved.weakSpots.length > 0
 
   function handlePrimary(): void {
     runAction(content.primary.route)
@@ -218,9 +218,9 @@ export default function ReviewSummaryPage(): React.JSX.Element {
         />
         {showProblemCards ? (
           <ProblemCardsCard
-            leeches={resolved.leeches}
+            weakSpots={resolved.weakSpots}
             usingFixture={usingFixture}
-            onRepair={(leech) => runAction({ kind: 'review-problem', cardIds: [leech.cardId] })}
+            onRepair={(weakSpot) => runAction({ kind: 'review-problem', cardIds: [weakSpot.cardId] })}
           />
         ) : (
           weekStrip
@@ -387,32 +387,32 @@ function SessionDetailsCard({
   )
 }
 
-// ── Problem cards card ──────────────────────────────────────────────────────
-// SectionCard with the leech list inside. Divide-y between rows; no
+// ── Weak spots card ──────────────────────────────────────────────────────
+// SectionCard with the weakSpot list inside. Divide-y between rows; no
 // top/bottom borders since the card chrome already contains the list.
 
 function ProblemCardsCard({
-  leeches,
+  weakSpots,
   usingFixture,
   onRepair,
 }: {
-  leeches:      SessionLeech[]
+  weakSpots:      SessionWeakSpot[]
   usingFixture: boolean
-  onRepair:     (leech: SessionLeech) => void
+  onRepair:     (weakSpot: SessionWeakSpot) => void
 }): React.JSX.Element {
   return (
     <SectionCard
       id="summary-problem-cards"
       kanji="困"
-      label="Problem cards"
-      count={leeches.length}
+      label="Weak spots"
+      count={weakSpots.length}
     >
       <ul className="divide-y divide-soft-hairline">
-        {leeches.map((leech) => (
-          <li key={leech.leechId}>
-            <ProblemCardRow
-              leech={leech}
-              meaning={usingFixture ? FIXTURE_MEANINGS[leech.cardId] : undefined}
+        {weakSpots.map((weakSpot) => (
+          <li key={weakSpot.weakSpotId}>
+            <WeakSpotRow
+              weakSpot={weakSpot}
+              meaning={usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
               onRepair={onRepair}
             />
           </li>

@@ -75,9 +75,9 @@ function toProblemCard(raw: ProblemCardDbRow): ApiProblemCard {
  * that pagination would be overkill (a user with 200+ lapse-2 cards is
  * an outlier; the front-end can virtualize the list if needed).
  *
- * The `[8plus]` bucket cardinality equals the unresolved-leech count for
- * the same user — process_review inserts a leech at `lapses >=
- * LEECH_THRESHOLD` (default 8) and the partial unique index prevents
+ * The `[8plus]` bucket cardinality equals the unresolved-weakSpot count for
+ * the same user — process_review inserts a weakSpot at `lapses >=
+ * WEAK_SPOT_THRESHOLD` (default 8) and the partial unique index prevents
  * duplicates. The integration test pins this invariant.
  */
 export async function listProblemCards(
@@ -98,7 +98,7 @@ export async function listProblemCards(
     if (error.code === '22023' && error.message.includes('invalid_problem_card_bucket')) {
       throw new AppError(400, 'Unknown problem-card bucket', { code: 'PROBLEM_CARD_BUCKET_INVALID' })
     }
-    throw dbError('list problem cards', error)
+    throw dbError('list weak spots', error)
   }
 
   const rows  = z.array(ProblemCardRpcRowSchema).parse(data ?? [])

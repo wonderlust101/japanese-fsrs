@@ -1,15 +1,15 @@
 import type {
-  ApiLeechListItem,
-  ApiLeechListResponse,
+  ApiWeakSpotListItem,
+  ApiWeakSpotListResponse,
 } from '@fsrs-japanese/shared-types'
 
 /**
- * Dev fixtures for the leeches page. Each builder returns a list-shaped
+ * Dev fixtures for the weakSpots page. Each builder returns a list-shaped
  * envelope so the view's consumer code is identical whether it's reading
  * from the network or from a fixture. Mirrors the Mistakes fixture pattern.
  *
  * These are wired only when `process.env.NODE_ENV === 'development'`. The
- * production bundle never executes the fixture branch in `leeches-view.tsx`.
+ * production bundle never executes the fixture branch in `weakSpots-view.tsx`.
  */
 
 const NOW = '2026-05-17T12:00:00.000Z'
@@ -20,10 +20,10 @@ function days(daysAgo: number): string {
   return date.toISOString()
 }
 
-function leech(
+function weakSpot(
   id: string,
-  overrides: Partial<ApiLeechListItem> = {},
-): ApiLeechListItem {
+  overrides: Partial<ApiWeakSpotListItem> = {},
+): ApiWeakSpotListItem {
   return {
     id,
     cardId:       'c-' + id,
@@ -47,56 +47,56 @@ function leech(
   }
 }
 
-function envelope(items: ApiLeechListItem[]): ApiLeechListResponse {
+function envelope(items: ApiWeakSpotListItem[]): ApiWeakSpotListResponse {
   return { items, nextCursor: null, hasMore: false }
 }
 
-export function buildCleanFixture(): ApiLeechListResponse {
+export function buildCleanFixture(): ApiWeakSpotListResponse {
   return envelope([])
 }
 
-export function buildFewFixture(): ApiLeechListResponse {
+export function buildFewFixture(): ApiWeakSpotListResponse {
   return envelope([
-    leech('l1', { word: '見送る', reading: 'みおくる', meaning: 'to see off',  lapses: 8 }),
-    leech('l2', {
+    weakSpot('l1', { word: '見送る', reading: 'みおくる', meaning: 'to see off',  lapses: 8 }),
+    weakSpot('l2', {
       word: '預ける', reading: 'あずける', meaning: 'to entrust; to deposit',
       lapses: 6, jlptLevel: 'N3', deckName: 'JLPT N3 vocab',
       deckId: 'd-n3',
     }),
-    leech('l3', {
+    weakSpot('l3', {
       word: '果たして', reading: 'はたして', meaning: 'really; sure enough',
       lapses: 5, jlptLevel: 'N2', deckName: 'Reading practice', deckId: 'd-reading',
     }),
   ])
 }
 
-export function buildManyFixture(): ApiLeechListResponse {
+export function buildManyFixture(): ApiWeakSpotListResponse {
   return envelope([
-    leech('l1', { word: '見送る',     reading: 'みおくる',   meaning: 'to see off',                lapses: 12 }),
-    leech('l2', { word: '預ける',     reading: 'あずける',   meaning: 'to entrust',                lapses: 9,
+    weakSpot('l1', { word: '見送る',     reading: 'みおくる',   meaning: 'to see off',                lapses: 12 }),
+    weakSpot('l2', { word: '預ける',     reading: 'あずける',   meaning: 'to entrust',                lapses: 9,
                   jlptLevel: 'N3', deckName: 'JLPT N3 vocab', deckId: 'd-n3' }),
-    leech('l3', { word: '果たして',   reading: 'はたして',   meaning: 'really; sure enough',       lapses: 7,
+    weakSpot('l3', { word: '果たして',   reading: 'はたして',   meaning: 'really; sure enough',       lapses: 7,
                   jlptLevel: 'N2', deckName: 'Reading practice', deckId: 'd-reading' }),
-    leech('l4', { word: '相次ぐ',     reading: 'あいつぐ',   meaning: 'to happen in succession',   lapses: 6,
+    weakSpot('l4', { word: '相次ぐ',     reading: 'あいつぐ',   meaning: 'to happen in succession',   lapses: 6,
                   jlptLevel: 'N2', deckName: 'News vocab', deckId: 'd-news',
                   diagnosis:    'Reading conflict with 相継ぐ; the visual stem 「相」 trips comprehension.',
                   prescription: 'Add a contrast card pairing 相次ぐ with 相継ぐ and a sentence anchor.' }),
-    leech('l5', { word: 'まちまち',   reading: 'まちまち',   meaning: 'varied; mixed',             lapses: 5,
+    weakSpot('l5', { word: 'まちまち',   reading: 'まちまち',   meaning: 'varied; mixed',             lapses: 5,
                   jlptLevel: 'N2', deckName: 'Casual', deckId: 'd-casual' }),
-    leech('l6', { word: '振る舞う',   reading: 'ふるまう',   meaning: 'to behave; to treat (food)', lapses: 6,
+    weakSpot('l6', { word: '振る舞う',   reading: 'ふるまう',   meaning: 'to behave; to treat (food)', lapses: 6,
                   jlptLevel: 'N2' }),
-    leech('l7', { word: '取り立てて', reading: 'とりたてて', meaning: 'particularly; especially',  lapses: 8,
+    weakSpot('l7', { word: '取り立てて', reading: 'とりたてて', meaning: 'particularly; especially',  lapses: 8,
                   jlptLevel: 'N1' }),
   ])
 }
 
-export function buildResolvedFixture(): ApiLeechListResponse {
+export function buildResolvedFixture(): ApiWeakSpotListResponse {
   return envelope([
-    leech('lr1', {
+    weakSpot('lr1', {
       word: '案内',  reading: 'あんない', meaning: 'guidance; information',
       lapses: 4, resolved: true, resolvedAt: days(2),
     }),
-    leech('lr2', {
+    weakSpot('lr2', {
       word: '取り組む', reading: 'とりくむ', meaning: 'to tackle (a problem)',
       lapses: 5, resolved: true, resolvedAt: days(7),
       jlptLevel: 'N3', deckName: 'JLPT N3 vocab', deckId: 'd-n3',
@@ -104,14 +104,14 @@ export function buildResolvedFixture(): ApiLeechListResponse {
   ])
 }
 
-export function buildOrphanFixture(): ApiLeechListResponse {
+export function buildOrphanFixture(): ApiWeakSpotListResponse {
   return envelope([
-    leech('lo1', {
+    weakSpot('lo1', {
       cardId: null, deckId: null, deckName: null,
       word: null, reading: null, meaning: null,
       layoutType: null, jlptLevel: null,
       lapses: null, reps: null, due: null, lastReview: null,
     }),
-    leech('lo2'),
+    weakSpot('lo2'),
   ])
 }

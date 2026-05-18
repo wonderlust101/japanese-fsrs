@@ -11,9 +11,9 @@ import { SectionCard } from '@/components/ui/SectionCard'
 import { useDecks } from '@/lib/api/decks'
 import {
   useCreateDrillSessionMutation,
-  useLeechesQuery,
-} from '@/lib/api/leeches'
-import type { CreateDrillSessionInput } from '@/lib/actions/leeches.actions'
+  useWeakSpotsQuery,
+} from '@/lib/api/weak-spots'
+import type { CreateDrillSessionInput } from '@/lib/actions/weak-spots.actions'
 
 // ── Source picker shapes ──────────────────────────────────────────────────────
 
@@ -31,14 +31,14 @@ const LIMIT_OPTIONS: ReadonlyArray<LimitOption> = [5, 10, 20]
 
 /**
  * Drill setup screen. Three jobs:
- *   1. Pick the source (unresolved leeches / deck-scoped / high-lapse / one
+ *   1. Pick the source (unresolved weakSpots / deck-scoped / high-lapse / one
  *      specific card from a deeplink).
  *   2. Pick the limit (5 / 10 / 20).
- *   3. Press Start. POSTs to /api/v1/leeches/drill-sessions, then routes to
+ *   3. Press Start. POSTs to /api/v1/weak-spots/drill-sessions, then routes to
  *      /insights/weak-spots/drill/[sessionId].
  *
  * `?cardId=` deeplinks the current-card flow so the Drill button on a
- * leech row routes straight to a one-card session entry point. The picker
+ * weakSpot row routes straight to a one-card session entry point. The picker
  * pre-selects the matching source; the learner can still change it.
  *
  * Copy register honors the doc's voice rules:
@@ -60,15 +60,15 @@ export function DrillSetupClient(): React.JSX.Element {
   const decksQuery = useDecks(50)
   const decks      = decksQuery.data?.items ?? []
 
-  const leechesQuery = useLeechesQuery({ status: 'unresolved', limit: 50 })
+  const leechesQuery = useWeakSpotsQuery({ status: 'unresolved', limit: 50 })
   const unresolvedCount = leechesQuery.data?.items.length ?? 0
   const unresolvedHasMore = leechesQuery.data?.hasMore ?? false
   const unresolvedLabel =
     unresolvedHasMore
-      ? `${unresolvedCount}+ unresolved leeches in your pile`
+      ? `${unresolvedCount}+ unresolved weak spots in your pile`
       : unresolvedCount === 0
-        ? 'No unresolved leeches right now'
-        : `${unresolvedCount} unresolved ${unresolvedCount === 1 ? 'leech' : 'leeches'} in your pile`
+        ? 'No unresolved weak spots right now'
+        : `${unresolvedCount} unresolved ${unresolvedCount === 1 ? 'weak spot' : 'weak spots'} in your pile`
 
   const createMutation = useCreateDrillSessionMutation()
 
@@ -111,7 +111,7 @@ export function DrillSetupClient(): React.JSX.Element {
               <SourceOption
                 checked={source.kind === 'unresolvedLeeches'}
                 onSelect={() => setSource({ kind: 'unresolvedLeeches' })}
-                label="Unresolved leeches"
+                label="Unresolved weak spots"
                 description={unresolvedLabel}
               />
               <SourceOption
@@ -124,7 +124,7 @@ export function DrillSetupClient(): React.JSX.Element {
                   )
                 }
                 label="Deck-scoped"
-                description="Only leeches in a deck you pick"
+                description="Only weakSpots in a deck you pick"
               >
                 {source.kind === 'deckScoped' && (
                   <select
@@ -152,7 +152,7 @@ export function DrillSetupClient(): React.JSX.Element {
                   )
                 }
                 label="High-lapse candidates"
-                description="Cards near the leech threshold, even if not flagged yet"
+                description="Cards near the weakSpot threshold, even if not flagged yet"
               >
                 {source.kind === 'highLapseCandidates' && (
                   <div className="mt-3 flex items-center gap-3 font-mono text-[0.75rem] uppercase tracking-[0.14em] text-faded-sumi">

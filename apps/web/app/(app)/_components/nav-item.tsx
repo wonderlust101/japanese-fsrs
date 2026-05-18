@@ -14,7 +14,7 @@ import {
   IconReviews,
   IconStatistics,
 }                                           from '@/components/icons/chrome-marks'
-import { useUnresolvedLeechCount }          from '@/lib/api/leeches'
+import { useUnresolvedWeakSpotCount }          from '@/lib/api/weak-spots'
 import { OfflineQueueBadge }                from './offline-queue-badge'
 import type { NavIconKey, NavItemConfig }   from './nav-config'
 
@@ -29,7 +29,7 @@ import type { NavIconKey, NavItemConfig }   from './nav-config'
  */
 const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
   reviews:    IconReviews,
-  leeches:    IconLeeches,
+  weakSpots:    IconLeeches,
   decks:      IconDecks,
   cards:      IconCards,
   overview:   IconOverview,
@@ -61,12 +61,12 @@ interface NavItemProps {
    *  the longest matching child renders as active. */
   forceActive?: boolean
   /**
-   * Trailing count chip rendered after the label for the Insights → Leeches
+   * Trailing count chip rendered after the label for the Insights → WeakSpots
    * row. When `count === 0`, no chip renders; when `count > 0`, the chip
    * displays the integer (or `50+` when `hasMore` is true). Always hidden
    * in the collapsed rail since the rail shows icons only.
    */
-  leechBadge?: { count: number; hasMore: boolean }
+  weakSpotBadge?: { count: number; hasMore: boolean }
 }
 
 function isMatch(pathname: string, href: string): boolean {
@@ -121,7 +121,7 @@ export function NavItem({
   collapsed  = false,
   subLabel,
   forceActive,
-  leechBadge,
+  weakSpotBadge,
 }: NavItemProps): React.JSX.Element {
   const pathname     = usePathname()
   const searchParams = useSearchParams()
@@ -305,7 +305,7 @@ export function NavItem({
         >
           <ul className="overflow-hidden min-h-0 pt-1.5 space-y-0.5">
             {children.map((child) => {
-              const Renderer = child.hasLeechCount === true ? LeechCountNavItem : NavItem
+              const Renderer = child.hasWeakSpotCount === true ? WeakSpotCountNavItem : NavItem
               return (
                 <Renderer
                   key={child.href}
@@ -322,20 +322,20 @@ export function NavItem({
     )
   }
 
-  // Trailing count chip (Insights → Leeches). Rendered only on leaf rows in
+  // Trailing count chip (Insights → WeakSpots). Rendered only on leaf rows in
   // expanded chrome; the rail variant short-circuits earlier. Always derive
   // the display string from the live count, capping at the request limit
   // with a `+` overflow when the server signals more pages.
-  const leechBadgeDisplay =
-    leechBadge !== undefined && leechBadge.count > 0
-      ? (leechBadge.hasMore ? `${leechBadge.count}+` : String(leechBadge.count))
+  const weakSpotBadgeDisplay =
+    weakSpotBadge !== undefined && weakSpotBadge.count > 0
+      ? (weakSpotBadge.hasMore ? `${weakSpotBadge.count}+` : String(weakSpotBadge.count))
       : null
 
   // Augment the row's accessible name so screen readers announce the count
   // as part of the row label, not as a separately-focused element.
   const rowAriaLabel =
-    leechBadgeDisplay !== null
-      ? `${item.label}, ${leechBadge?.count ?? 0} unresolved`
+    weakSpotBadgeDisplay !== null
+      ? `${item.label}, ${weakSpotBadge?.count ?? 0} unresolved`
       : undefined
 
   return (
@@ -392,7 +392,7 @@ export function NavItem({
           </span>
         )}
 
-        {leechBadgeDisplay !== null && (
+        {weakSpotBadgeDisplay !== null && (
           <span
             aria-hidden="true"
             className={[
@@ -406,7 +406,7 @@ export function NavItem({
               // pops cleanly against it without a tone swap.
             ].join(' ')}
           >
-            {leechBadgeDisplay}
+            {weakSpotBadgeDisplay}
           </span>
         )}
 
@@ -417,15 +417,15 @@ export function NavItem({
 }
 
 /**
- * Wrapper that subscribes to the unresolved-leech count and forwards the
+ * Wrapper that subscribes to the unresolved-weakSpot count and forwards the
  * resolved badge data into `NavItem`. Used only when an item config has
- * `hasLeechCount: true`, so the TanStack Query subscription is local to
- * the leech row and never fires for nav rows that don't need it.
+ * `hasWeakSpotCount: true`, so the TanStack Query subscription is local to
+ * the weakSpot row and never fires for nav rows that don't need it.
  *
  * Lives in this file so the recursive child render can dispatch to it
  * inline without a cross-file lookup.
  */
-function LeechCountNavItem(props: NavItemProps): React.JSX.Element {
-  const { count, hasMore } = useUnresolvedLeechCount()
-  return <NavItem {...props} leechBadge={{ count, hasMore }} />
+function WeakSpotCountNavItem(props: NavItemProps): React.JSX.Element {
+  const { count, hasMore } = useUnresolvedWeakSpotCount()
+  return <NavItem {...props} weakSpotBadge={{ count, hasMore }} />
 }

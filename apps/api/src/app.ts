@@ -14,7 +14,7 @@ import cardsRouter   from './routes/cards.ts'
 import reviewsRouter   from './routes/reviews.ts'
 import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
-import leechesRouter   from './routes/leeches.ts'
+import weakSpotsRouter   from './routes/weak-spots.ts'
 import tomoRouter      from './routes/tomo.ts'
 import insightsRouter  from './routes/insights.ts'
 
@@ -84,7 +84,7 @@ app.use('/api/v1/reviews',             reviewsRouter)
 app.use('/api/v1/decks/:deckId/cards', cardsRouter)
 app.use('/api/v1/cards',               cardsRouter)
 app.use('/api/v1/analytics',           analyticsRouter)
-app.use('/api/v1/leeches',             leechesRouter)
+app.use('/api/v1/weak-spots',             weakSpotsRouter)
 app.use('/api/v1/tomo',                tomoRouter)
 app.use('/api/v1/insights',            insightsRouter)
 

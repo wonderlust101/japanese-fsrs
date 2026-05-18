@@ -8,18 +8,18 @@ import {
   type FieldsData,
 } from '@fsrs-japanese/shared-types'
 import type {
-  ApiLeechDrillSessionDetailCard,
+  ApiWeakSpotDrillSessionDetailCard,
   LayoutType,
 } from '@fsrs-japanese/shared-types'
 
 interface DrillCardDisplayProps {
-  card:       ApiLeechDrillSessionDetailCard
+  card:       ApiWeakSpotDrillSessionDetailCard
   showAnswer: boolean
 }
 
 /**
  * Self-contained card display for the drill flow. Reads from
- * `ApiLeechDrillSessionDetailCard` directly rather than reusing the review-
+ * `ApiWeakSpotDrillSessionDetailCard` directly rather than reusing the review-
  * session `ReviewCard` (which depends on `ApiDueCard`'s richer shape +
  * learner preferences + deck-context queries that the drill doesn't need).
  *

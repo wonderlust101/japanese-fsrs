@@ -1,11 +1,11 @@
 'use client'
 
-import type { ApiLeechDrillAttemptResult } from '@fsrs-japanese/shared-types'
+import type { ApiWeakSpotDrillAttemptResult } from '@fsrs-japanese/shared-types'
 
 import { cn } from '@/lib/utils'
 
 interface DrillRatingBarProps {
-  onRate: (result: ApiLeechDrillAttemptResult) => void
+  onRate: (result: ApiWeakSpotDrillAttemptResult) => void
 }
 
 // Three-channel drill rating bar. Per the doc's voice rules: labels are
@@ -17,7 +17,7 @@ interface DrillRatingBarProps {
 // change your schedule.
 
 interface Spec {
-  value: ApiLeechDrillAttemptResult
+  value: ApiWeakSpotDrillAttemptResult
   label: string
   key:   string
   fill:  string

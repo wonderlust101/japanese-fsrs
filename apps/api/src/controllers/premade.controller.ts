@@ -5,7 +5,7 @@ import {
   listPremadeDecksQuerySchema,
   premadeDeckIdParamSchema,
 } from '../schemas/premade.schema.ts'
-import { emptyBodySchema } from '../schemas/leech.schema.ts'
+import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
 import * as premadeService from '../services/premade.service.ts'
 import { cacheControl } from '../lib/http.ts'
 import { withIdempotency } from '../lib/idempotency.ts'

@@ -219,10 +219,10 @@ const TAG_POOL: readonly string[] = [
   'food',
   'travel',
   'work',
-  'leech',
+  'weakSpot',
 ]
 
-/** Lapse buckets for a realistic spread. ≥ 8 is "leech" territory. */
+/** Lapse buckets for a realistic spread. ≥ 8 is "weakSpot" territory. */
 const LAPSE_BUCKETS: readonly { lapses: number; weight: number }[] = [
   { lapses: 0,  weight: 8 },
   { lapses: 1,  weight: 5 },
@@ -284,7 +284,7 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
       : new Date(Date.now() + Math.floor(rng() * 60) * 24 * 60 * 60 * 1000).toISOString()
 
     // Tags: 0–3 randomly picked from the pool. Cards with ≥ 8 lapses
-    // also get the 'leech' tag automatically (matches what the leech
+    // also get the 'weakSpot' tag automatically (matches what the weakSpot
     // service would do in production).
     const lapses = pickWeighted(
       rng,
@@ -293,13 +293,13 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
     )
     const tagCount = Math.floor(rng() * 3) + (rng() < 0.5 ? 1 : 0) // 0–3
     const drawnTags: string[] = []
-    const drawableTags = TAG_POOL.filter((t) => t !== 'leech')
+    const drawableTags = TAG_POOL.filter((t) => t !== 'weakSpot')
     for (let t = 0; t < tagCount; t++) {
       const idx = Math.floor(rng() * drawableTags.length)
       const tag = drawableTags[idx]
       if (tag !== undefined && !drawnTags.includes(tag)) drawnTags.push(tag)
     }
-    if (lapses >= 8) drawnTags.push('leech')
+    if (lapses >= 8) drawnTags.push('weakSpot')
 
     rows.push({
       id:           `fixture-${seed}-${i}`,

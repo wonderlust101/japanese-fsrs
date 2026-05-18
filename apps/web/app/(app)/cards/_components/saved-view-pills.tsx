@@ -1,14 +1,12 @@
 'use client'
 
 export type SavedViewKey =
-  | 'problem'
-  | 'leeches'
+  | 'weakSpots'
   | 'missing-image'
   | 'missing-audio'
   | 'missing-mnemonic'
   | 'recent'
   | 'suspended'
-  | 'production'
   | 'due-today'
   | 'n4-verbs'
 
@@ -19,16 +17,14 @@ export interface SavedView {
 }
 
 export const SAVED_VIEWS: readonly SavedView[] = [
-  { key: 'problem',          label: 'Problem cards',   description: 'Cards with repeated lapses or low retention.' },
-  { key: 'leeches',          label: 'Weak spots',      description: 'Cards that keep coming back for another look.' },
-  { key: 'missing-image',    label: 'Missing images',  description: 'Cards without a picture field.' },
-  { key: 'missing-audio',    label: 'Missing audio',   description: 'Cards without expression audio.' },
+  { key: 'weakSpots',        label: 'Weak spots',       description: 'Cards with repeated lapses or low retention.' },
+  { key: 'missing-image',    label: 'Missing images',   description: 'Cards without a picture field.' },
+  { key: 'missing-audio',    label: 'Missing audio',    description: 'Cards without expression audio.' },
   { key: 'missing-mnemonic', label: 'Missing mnemonic', description: 'Cards without a memory hook.' },
-  { key: 'recent',           label: 'Recently added',  description: 'Newest cards across all decks.' },
-  { key: 'suspended',        label: 'Suspended',       description: 'Cards paused from the review queue.' },
-  { key: 'production',       label: 'Production',      description: 'Cards of the production card type.' },
-  { key: 'due-today',        label: 'Due today',       description: 'Cards scheduled for review today.' },
-  { key: 'n4-verbs',         label: 'N4 verbs',        description: 'JLPT N4 cards with verb part of speech.' },
+  { key: 'recent',           label: 'Recently added',   description: 'Newest cards across all decks.' },
+  { key: 'suspended',        label: 'Suspended',        description: 'Cards paused from the review queue.' },
+  { key: 'due-today',        label: 'Due today',        description: 'Cards scheduled for review today.' },
+  { key: 'n4-verbs',         label: 'N4 verbs',         description: 'JLPT N4 cards with verb part of speech.' },
 ]
 
 interface Props {

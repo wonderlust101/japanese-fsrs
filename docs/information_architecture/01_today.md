@@ -36,7 +36,7 @@ Today should not behave like a generic dashboard. It should behave like a practi
 
 ### Content to Avoid on Today
 
-- Full leech lists.
+- Full weak spot lists.
 - Dense analytics.
 - Multiple graphs.
 - Full deck library.
@@ -69,7 +69,7 @@ Suggested copy direction: “42 reviews waiting. About 12 minutes.”
 
 ### No Reviews Due
 
-The learner should feel complete. Offer optional actions such as Add Japanese or Practice problem cards, but they should not feel like obligations.
+The learner should feel complete. Offer optional actions such as Add Japanese or Practice weak spots, but they should not feel like obligations.
 
 Suggested copy direction: “You’re clear for today.”
 

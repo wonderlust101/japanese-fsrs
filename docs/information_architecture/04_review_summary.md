@@ -4,14 +4,14 @@
 
 Review Summary closes the practice loop. It should tell the learner what happened, what went well, what needs attention, and what the most useful next action is.
 
-This page is a teaching moment, but it should not turn completion into homework. The learner should be allowed to leave feeling done. If there are problem cards, the page should offer a focused improvement path.
+This page is a teaching moment, but it should not turn completion into homework. The learner should be allowed to leave feeling done. If there are weak spots, the page should offer a focused improvement path.
 
 ## Primary User Jobs
 
 - Understand whether the session went well.
 - See completion, time, and card count.
 - Understand the most important mistake pattern.
-- Identify problem cards worth repairing or reviewing.
+- Identify weak spots worth repairing or reviewing.
 - Choose one next action.
 - Leave without guilt.
 
@@ -29,8 +29,8 @@ This page is a teaching moment, but it should not turn completion into homework.
 
 - Problem card list.
 - Links to Insights.
-- Option to review problem cards.
-- Option to improve problem cards.
+- Option to review weak spots.
+- Option to improve weak spots.
 - Tomorrow or next-session preview.
 
 ### Content to Avoid
@@ -49,7 +49,7 @@ The Summary should answer three questions:
 2. What needs attention?
 3. What should I do now?
 
-Do not make Open Insights the default primary action. Insights is broad. The Summary should offer a focused action based on the session result, such as Improve problem cards, Review problem cards, or Leave for today.
+Do not make Open Insights the default primary action. Insights is broad. The Summary should offer a focused action based on the session result, such as Improve weak spots, Review weak spots, or Leave for today.
 
 ## Primary Action Logic
 
@@ -57,9 +57,9 @@ Do not make Open Insights the default primary action. Insights is broad. The Sum
 |---|---|
 | Strong session with few mistakes | Leave for today |
 | Normal session with small issues | Leave for today, with optional Insights |
-| Repeated mistakes | Improve problem cards |
-| Many difficult cards | Review problem cards |
-| Leech-like behavior | Repair problem cards |
+| Repeated mistakes | Improve weak spots |
+| Many difficult cards | Review weak spots |
+| Weak-spot-like behavior | Repair weak spots |
 | Overdue catch-up | Stop at a good point or continue small catch-up |
 
 ## UI Notes
@@ -68,7 +68,7 @@ Do not make Open Insights the default primary action. Insights is broad. The Sum
 - Use one primary action. Secondary actions should not compete.
 - Use a small number of meaningful metrics rather than a dense report.
 - Mistake diagnosis should be specific and concise.
-- Problem cards should be scannable and actionable.
+- Weak spots should be scannable and actionable.
 - If charts appear, they should support a point rather than decorate the page.
 
 ## Mistake Diagnosis Guidance
@@ -81,11 +81,11 @@ The diagnosis should identify a pattern when one exists. If no meaningful patter
 
 ## Interaction Notes
 
-- Improve problem cards opens the repair queue.
-- Review problem cards starts a focused drill or filtered mini-session.
+- Improve weak spots opens the repair queue.
+- Review weak spots starts a focused drill or filtered mini-session.
 - Open Insights goes to the relevant tab, not a generic landing, when possible.
 - Leave for today returns to Today or a calm completed state.
-- Individual problem cards should be clickable to Card Detail.
+- Individual weak spots should be clickable to Card Detail.
 
 ## States
 

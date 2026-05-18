@@ -7,14 +7,14 @@ import { Dialog } from '@/components/ui/Dialog'
 import { FuriganaText } from '@/components/ui/FuriganaText'
 import { Pill, type JlptPillLevel } from '@/components/ui/Pill'
 import { Skeleton } from '@/components/ui/Skeleton'
-import type { ApiLeechListItem } from '@fsrs-japanese/shared-types'
+import type { ApiWeakSpotListItem } from '@fsrs-japanese/shared-types'
 
-import { LeechDiagnosisPanel } from './leech-diagnosis-panel'
+import { WeakSpotDiagnosisPanel } from './weak-spot-diagnosis-panel'
 
-interface LeechDetailsDialogProps {
+interface WeakSpotDetailsDialogProps {
   open:          boolean
   onClose:       () => void
-  leech:         ApiLeechListItem | undefined
+  weakSpot:         ApiWeakSpotListItem | undefined
   isLoading:     boolean
   isError:       boolean
   errorMessage?: string
@@ -28,20 +28,20 @@ interface LeechDetailsDialogProps {
 }
 
 /**
- * Leech detail surface. Uses the `Dialog` primitive — already brand-aligned
+ * WeakSpot detail surface. Uses the `Dialog` primitive — already brand-aligned
  * with eyebrow + kanji + 2px vermillion top stripe — at the `xl` tier so
  * the card content + FSRS state strip + diagnosis panel all fit without
  * scrolling on a typical viewport.
  *
- * The Dialog stays mounted (open false) when no leech is selected, but the
- * caller passes `leech: undefined` and `isLoading: false` in that case so
+ * The Dialog stays mounted (open false) when no weakSpot is selected, but the
+ * caller passes `weakSpot: undefined` and `isLoading: false` in that case so
  * the body short-circuits to null without firing any query. The detail
- * query in `useLeechDetailQuery` is also `enabled`-gated on the id.
+ * query in `useWeakSpotDetailQuery` is also `enabled`-gated on the id.
  */
-export function LeechDetailsDialog({
+export function WeakSpotDetailsDialog({
   open,
   onClose,
-  leech,
+  weakSpot,
   isLoading,
   isError,
   errorMessage,
@@ -52,18 +52,18 @@ export function LeechDetailsDialog({
   isReopening,
   isDiagnosing,
   diagnoseError,
-}: LeechDetailsDialogProps): React.JSX.Element {
+}: WeakSpotDetailsDialogProps): React.JSX.Element {
   const router = useRouter()
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title={leech?.word ?? 'Weak spot'}
+      title={weakSpot?.word ?? 'Weak spot'}
       eyebrow={{ kanji: '弱', label: 'Weak spot' }}
       size="xl"
     >
-      {isLoading || leech === undefined ? (
+      {isLoading || weakSpot === undefined ? (
         <DetailSkeleton />
       ) : isError ? (
         <div
@@ -84,20 +84,20 @@ export function LeechDetailsDialog({
           >
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
               <span className="font-display text-2xl text-sumi-ink sm:text-[1.625rem]">
-                {leech.word !== null && leech.reading !== null ? (
-                  <FuriganaText text={leech.word} reading={leech.reading} />
+                {weakSpot.word !== null && weakSpot.reading !== null ? (
+                  <FuriganaText text={weakSpot.word} reading={weakSpot.reading} />
                 ) : (
                   <span className="italic text-faded-sumi">Card no longer exists</span>
                 )}
               </span>
-              {leech.jlptLevel !== null && (
-                <Pill variant="level" tone={jlptPillTone(leech.jlptLevel)} size="sm">
-                  {leech.jlptLevel === 'beyond_jlpt' ? 'Beyond' : leech.jlptLevel}
+              {weakSpot.jlptLevel !== null && (
+                <Pill variant="level" tone={jlptPillTone(weakSpot.jlptLevel)} size="sm">
+                  {weakSpot.jlptLevel === 'beyond_jlpt' ? 'Beyond' : weakSpot.jlptLevel}
                 </Pill>
               )}
             </div>
-            {leech.meaning !== null && (
-              <p className="mt-2 text-base text-sumi-ink/85">{leech.meaning}</p>
+            {weakSpot.meaning !== null && (
+              <p className="mt-2 text-base text-sumi-ink/85">{weakSpot.meaning}</p>
             )}
           </section>
 
@@ -106,65 +106,65 @@ export function LeechDetailsDialog({
             aria-label="Card state"
             className="grid grid-cols-2 gap-y-3 gap-x-4 border-y border-soft-hairline py-4 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi sm:grid-cols-4"
           >
-            <StateCell label="Lapses" value={leech.lapses === null ? '—' : String(leech.lapses)} />
-            <StateCell label="Reps"   value={leech.reps   === null ? '—' : String(leech.reps)}   />
-            <StateCell label="Last review" value={formatDate(leech.lastReview)} />
-            <StateCell label="Due"   value={formatDate(leech.due)} />
-            <StateCell label="Deck"  value={leech.deckName ?? '—'} normalCase />
-            <StateCell label="Flagged" value={formatDate(leech.createdAt)} />
+            <StateCell label="Lapses" value={weakSpot.lapses === null ? '—' : String(weakSpot.lapses)} />
+            <StateCell label="Reps"   value={weakSpot.reps   === null ? '—' : String(weakSpot.reps)}   />
+            <StateCell label="Last review" value={formatDate(weakSpot.lastReview)} />
+            <StateCell label="Due"   value={formatDate(weakSpot.due)} />
+            <StateCell label="Deck"  value={weakSpot.deckName ?? '—'} normalCase />
+            <StateCell label="Flagged" value={formatDate(weakSpot.createdAt)} />
             <StateCell
               label="Status"
-              value={leech.resolved ? 'Resolved' : 'Unresolved'}
-              tone={leech.resolved ? 'aizome' : 'sumi'}
+              value={weakSpot.resolved ? 'Resolved' : 'Unresolved'}
+              tone={weakSpot.resolved ? 'aizome' : 'sumi'}
             />
           </section>
 
           {/* Diagnosis */}
-          <LeechDiagnosisPanel
-            diagnosis={leech.diagnosis}
-            prescription={leech.prescription}
+          <WeakSpotDiagnosisPanel
+            diagnosis={weakSpot.diagnosis}
+            prescription={weakSpot.prescription}
             isLoading={isDiagnosing}
             isError={diagnoseError !== undefined}
             {...(diagnoseError !== undefined ? { errorMessage: diagnoseError } : {})}
-            onDiagnose={() => onDiagnose(leech.id)}
-            onRetry={() => onDiagnose(leech.id)}
+            onDiagnose={() => onDiagnose(weakSpot.id)}
+            onRetry={() => onDiagnose(weakSpot.id)}
           />
 
           {/* Footer actions */}
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-soft-hairline pt-5">
             <div className="flex flex-wrap items-center gap-2">
-              {!leech.resolved && leech.cardId !== null && (
+              {!weakSpot.resolved && weakSpot.cardId !== null && (
                 <Button
                   type="button"
                   variant="primary"
                   size="sm"
                   onClick={() =>
-                    router.push(`/insights/weak-spots/drill/setup?cardId=${leech.cardId}`)
+                    router.push(`/insights/weak-spots/drill/setup?cardId=${weakSpot.cardId}`)
                   }
                 >
                   Drill this card
                 </Button>
               )}
-              {leech.cardId !== null && (
+              {weakSpot.cardId !== null && (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => router.push(`/cards/${leech.cardId}`)}
+                  onClick={() => router.push(`/cards/${weakSpot.cardId}`)}
                 >
                   Open card
                 </Button>
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {!leech.resolved ? (
+              {!weakSpot.resolved ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => onResolve(leech.id)}
+                  onClick={() => onResolve(weakSpot.id)}
                   loading={isResolving}
-                  disabled={leech.cardId === null}
+                  disabled={weakSpot.cardId === null}
                 >
                   Mark resolved
                 </Button>
@@ -173,7 +173,7 @@ export function LeechDetailsDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => onReopen(leech.id)}
+                  onClick={() => onReopen(weakSpot.id)}
                   loading={isReopening}
                 >
                   Reopen
@@ -220,7 +220,7 @@ function StateCell({
 
 function DetailSkeleton(): React.JSX.Element {
   return (
-    <div aria-busy="true" aria-label="Loading leech" className="flex flex-col gap-y-6">
+    <div aria-busy="true" aria-label="Loading weak spot" className="flex flex-col gap-y-6">
       <Skeleton className="h-24 w-full" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 8 }, (_, i) => (

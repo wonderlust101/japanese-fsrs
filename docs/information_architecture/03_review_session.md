@@ -61,7 +61,7 @@ Intervals may be shown as an advanced display preference. Default mode can hide 
 
 The session is not the place for teaching long explanations. It is the place for practice. Teaching belongs mainly in the answer reveal, review summary, problem card repair, and insights.
 
-AI-generated explanations should not appear automatically after every mistake. That would break the review rhythm. If the user repeatedly fails a card, mark it for Summary or Problem Card Repair.
+AI-generated explanations should not appear automatically after every mistake. That would break the review rhythm. If the user repeatedly fails a card, mark it for Summary or Weak spot repair.
 
 ## UI Notes
 

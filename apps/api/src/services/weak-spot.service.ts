@@ -5,42 +5,42 @@ import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { generateLeechDiagnosis } from './ai.service.ts'
+import { generateWeakSpotDiagnosis } from './ai.service.ts'
 import {
-  leechCreatedAtCursorSchema,
+  weakSpotCreatedAtCursorSchema,
   type CreateDrillSessionInput,
-  type ListLeechesQuery,
+  type ListWeakSpotsQuery,
   type RecordDrillAttemptInput,
-} from '../schemas/leech.schema.ts'
+} from '../schemas/weak-spot.schema.ts'
 import {
   FieldsDataSchema,
   getWordFields,
-  type ApiLeechListItem,
-  type ApiLeechListResponse,
-  type ApiLeechDrillSession,
-  type ApiLeechDrillSessionDetail,
-  type ApiLeechDrillAttempt,
+  type ApiWeakSpotListItem,
+  type ApiWeakSpotListResponse,
+  type ApiWeakSpotDrillSession,
+  type ApiWeakSpotDrillSessionDetail,
+  type ApiWeakSpotDrillAttempt,
   type FieldsData,
   type LayoutType,
   type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
-const log = componentLogger('leech.service')
+const log = componentLogger('weakSpot.service')
 
 // ─── Column projections ───────────────────────────────────────────────────────
 //
 // PostgREST embedded-select syntax. The relationships are inferred from the
-// foreign keys: `leeches.card_id → cards.id` and `cards.deck_id → decks.id`,
+// foreign keys: `weakSpots.card_id → cards.id` and `cards.deck_id → decks.id`,
 // so the embed names are `cards` and `decks`. Never use `select('*')` — it
 // keeps PII out of accidental log dumps and lets the schema evolve.
 //
-// The embed defaults to a LEFT JOIN so leeches with `card_id IS NULL`
+// The embed defaults to a LEFT JOIN so weakSpots with `card_id IS NULL`
 // (preserved-after-card-deletion, per migration 20260425000001) still appear
 // in the list view. When a card-side filter is applied we swap to
 // `cards!inner` so non-matching cards drop the parent row instead of
-// surfacing as a leech with `card: null`.
+// surfacing as a weakSpot with `card: null`.
 
-function leechSelect(innerJoin: boolean): string {
+function weakSpotSelect(innerJoin: boolean): string {
   const cardEmbed = innerJoin ? 'cards!inner' : 'cards'
   return `
     id,
@@ -65,8 +65,8 @@ function leechSelect(innerJoin: boolean): string {
   `
 }
 
-const LEECH_SELECT_LEFT  = leechSelect(false)
-const LEECH_SELECT_INNER = leechSelect(true)
+const WEAK_SPOT_SELECT_LEFT  = weakSpotSelect(false)
+const WEAK_SPOT_SELECT_INNER = weakSpotSelect(true)
 
 // ─── Row schemas ──────────────────────────────────────────────────────────────
 //
@@ -74,11 +74,11 @@ const LEECH_SELECT_INNER = leechSelect(true)
 // surfaces as a clean ZodError instead of an `undefined` at the wire boundary.
 // Mirrors the precedent set in analytics.service.ts / deck.service.ts.
 
-const LeechDeckRowSchema = z.object({
+const WeakSpotDeckRowSchema = z.object({
   name: z.string(),
 }).nullable()
 
-const LeechCardRowSchema = z.object({
+const WeakSpotCardRowSchema = z.object({
   deck_id:      z.string().uuid(),
   fields_data:  z.record(z.string(), z.unknown()),
   layout_type:  z.enum(['vocabulary', 'grammar', 'sentence']),
@@ -88,10 +88,10 @@ const LeechCardRowSchema = z.object({
   due:          z.string(),
   last_review:  z.string().nullable(),
   is_suspended: z.boolean(),
-  deck:         LeechDeckRowSchema,
+  deck:         WeakSpotDeckRowSchema,
 }).nullable()
 
-const LeechRowSchema = z.object({
+const WeakSpotRowSchema = z.object({
   id:           z.string().uuid(),
   card_id:      z.string().uuid().nullable(),
   diagnosis:    z.string().nullable(),
@@ -99,21 +99,21 @@ const LeechRowSchema = z.object({
   resolved:     z.boolean(),
   resolved_at:  z.string().nullable(),
   created_at:   z.string(),
-  card:         LeechCardRowSchema,
+  card:         WeakSpotCardRowSchema,
 })
 
 /** Internal row type. Exported solely so the unit test can type its fixtures
  *  without redeclaring the joined-row shape. Not part of the public API. */
-export type LeechRow = z.infer<typeof LeechRowSchema>
+export type WeakSpotRow = z.infer<typeof WeakSpotRowSchema>
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
 /**
  * Snake_case DB row → camelCase wire shape. Card-derived fields fall back to
- * null when the joined card row is absent (orphaned leech: card was deleted
- * but the leech is kept as historical learning data, per [[DATABASE]]).
+ * null when the joined card row is absent (orphaned weakSpot: card was deleted
+ * but the weakSpot is kept as historical learning data, per [[DATABASE]]).
  */
-export function toListItem(raw: LeechRow): ApiLeechListItem {
+export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
   const card = raw.card
 
   let word: string | null = null
@@ -159,7 +159,7 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns a cursor-paginated list of the authenticated user's leeches.
+ * Returns a cursor-paginated list of the authenticated user's weakSpots.
  *
  * Sort modes:
  *   - 'mostRecent'       (default) — ORDER BY created_at DESC, id DESC
@@ -170,7 +170,7 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
  *                                             created_at DESC, id DESC
  *
  * Cursor pagination is supported for the two time-keyed sorts; both keys are
- * immutable on `leeches`, so the cursor is stable across concurrent UPDATEs
+ * immutable on `weakSpots`, so the cursor is stable across concurrent UPDATEs
  * (a resolve flip does not move a row in the index).
  *
  * `mostLapses` and `deckOrder` are currently top-N only: their head sort keys
@@ -180,30 +180,30 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
  *
  * Filter dimensions (`status`, `deckId`, `jlptLevel`) all apply at the SQL
  * `WHERE` clause boundary. The `diagnosis` filter is in the same shape but
- * lives on `leeches` itself, not on the joined card row, so it does not
+ * lives on `weakSpots` itself, not on the joined card row, so it does not
  * trigger the LEFT→INNER join switch that the card-side filters do.
  */
-export async function listLeeches(
+export async function listWeakSpots(
   userId: string,
-  params: ListLeechesQuery,
-): Promise<ApiLeechListResponse> {
+  params: ListWeakSpotsQuery,
+): Promise<ApiWeakSpotListResponse> {
   const { status, deckId, jlptLevel, diagnosis, sort, limit, cursor } = params
 
   // Card-side filters force an inner join so non-matching cards drop the
-  // parent leech rather than surface with `card: null`. Orphans (card_id IS
+  // parent weakSpot rather than surface with `card: null`. Orphans (card_id IS
   // NULL) are dropped naturally when any card filter is applied — that's the
-  // desired behavior since the user is asking "which leeches match this
+  // desired behavior since the user is asking "which weakSpots match this
   // deck/JLPT/etc."
   //
   // The `diagnosis` filter is intentionally NOT part of hasCardFilter — it
-  // lives on `leeches`, not on `cards`. Forcing inner-join because of it
-  // would incorrectly drop orphan leeches (card_id NULL) where a diagnosis
+  // lives on `weakSpots`, not on `cards`. Forcing inner-join because of it
+  // would incorrectly drop orphan weakSpots (card_id NULL) where a diagnosis
   // was recorded before the card was deleted.
   const hasCardFilter = deckId !== undefined || jlptLevel !== undefined
-  const selectStr = hasCardFilter ? LEECH_SELECT_INNER : LEECH_SELECT_LEFT
+  const selectStr = hasCardFilter ? WEAK_SPOT_SELECT_INNER : WEAK_SPOT_SELECT_LEFT
 
   let q = supabaseAdmin
-    .from('leeches')
+    .from('weak_spots')
     .select(selectStr)
     .eq('user_id', userId)
     .eq('resolved', status === 'resolved')
@@ -230,13 +230,13 @@ export async function listLeeches(
       .order('id',         { ascending: true })
   } else if (sort === 'mostLapses') {
     // `foreignTable` orders by the joined cards row; nullsFirst:false keeps
-    // orphan leeches (card row absent) at the end of the list.
+    // orphan weakSpots (card row absent) at the end of the list.
     q = q
       .order('lapses',     { ascending: false, nullsFirst: false, foreignTable: 'cards' })
       .order('created_at', { ascending: false })
       .order('id',         { ascending: false })
   } else {
-    // deckOrder. Groups adjacent leeches by deck. Across decks the order is
+    // deckOrder. Groups adjacent weakSpots by deck. Across decks the order is
     // by deck UUID (deterministic but not alphabetical) — that's an acceptable
     // trade for avoiding an extra join just to sort on deck.name. In practice
     // this sort is most useful paired with a deckId filter, where intra-deck
@@ -256,7 +256,7 @@ export async function listLeeches(
       // same page on every "next" click.
       throw new AppError(400, 'Cursor pagination is not supported for this sort order', { code: 'CURSOR_INVALID' })
     }
-    const { createdAt, id } = decodeCursor(cursor, leechCreatedAtCursorSchema)
+    const { createdAt, id } = decodeCursor(cursor, weakSpotCreatedAtCursorSchema)
     // Keyset pagination over the tuple (created_at, id). For DESC order:
     //   WHERE created_at < cursor.createdAt
     //      OR (created_at = cursor.createdAt AND id < cursor.id)
@@ -273,10 +273,10 @@ export async function listLeeches(
   const { data, error } = await q
 
   if (error !== null) {
-    throw dbError('list leeches', error)
+    throw dbError('list weakSpots', error)
   }
 
-  const rows    = z.array(LeechRowSchema).parse(data ?? [])
+  const rows    = z.array(WeakSpotRowSchema).parse(data ?? [])
   const hasMore = rows.length > limit
   const visible = rows.slice(0, limit)
   const items   = visible.map(toListItem)
@@ -293,89 +293,89 @@ export async function listLeeches(
 }
 
 /**
- * Returns a single leech with full joined context, or throws 404 if the row
+ * Returns a single weakSpot with full joined context, or throws 404 if the row
  * does not exist for the authenticated user. The query filters by user_id in
  * SQL — RLS would also block cross-user reads, but we use the service-role
  * client so explicit filtering is the only safety belt.
  */
-export async function getLeechById(userId: string, id: string): Promise<ApiLeechListItem> {
+export async function getWeakSpotById(userId: string, id: string): Promise<ApiWeakSpotListItem> {
   const { data, error } = await supabaseAdmin
-    .from('leeches')
-    .select(LEECH_SELECT_LEFT)
+    .from('weak_spots')
+    .select(WEAK_SPOT_SELECT_LEFT)
     .eq('id',      id)
     .eq('user_id', userId)
     .maybeSingle()
 
   if (error !== null) {
-    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'getLeechById query failed')
-    throw dbError('fetch leech', error)
+    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'getWeakSpotById query failed')
+    throw dbError('fetch weakSpot', error)
   }
   if (data === null) {
-    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
   }
 
-  return toListItem(LeechRowSchema.parse(data))
+  return toListItem(WeakSpotRowSchema.parse(data))
 }
 
 // ─── Write path (Stage 2) ─────────────────────────────────────────────────────
 //
-// Slim projection used by the pre-fetch step of resolveLeech / reopenLeech.
+// Slim projection used by the pre-fetch step of resolveWeakSpot / reopenWeakSpot.
 // We only need to know the row's current state to decide between:
 //   - 404 (row missing or wrong owner)
 //   - idempotent return (already in target state)
 //   - real UPDATE (state needs flipping)
 // Keeping the projection minimal here avoids paying for the full joined
 // payload on the idempotent path; the post-update select brings back the
-// LEECH_SELECT_LEFT shape so callers always get the same response as
-// getLeechById.
+// WEAK_SPOT_SELECT_LEFT shape so callers always get the same response as
+// getWeakSpotById.
 
-const LeechStateRowSchema = z.object({
+const WeakSpotStateRowSchema = z.object({
   id:          z.string().uuid(),
   resolved:    z.boolean(),
   resolved_at: z.string().nullable(),
 })
 
-async function fetchLeechState(userId: string, id: string): Promise<z.infer<typeof LeechStateRowSchema>> {
+async function fetchWeakSpotState(userId: string, id: string): Promise<z.infer<typeof WeakSpotStateRowSchema>> {
   const { data, error } = await supabaseAdmin
-    .from('leeches')
+    .from('weak_spots')
     .select('id, resolved, resolved_at')
     .eq('id',      id)
     .eq('user_id', userId)
     .maybeSingle()
 
   if (error !== null) {
-    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'fetchLeechState query failed')
-    throw dbError('fetch leech', error)
+    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'fetchWeakSpotState query failed')
+    throw dbError('fetch weakSpot', error)
   }
   if (data === null) {
-    // Same 404 shape as getLeechById for cross-user attempts — does not leak
+    // Same 404 shape as getWeakSpotById for cross-user attempts — does not leak
     // existence to other users.
-    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
   }
-  return LeechStateRowSchema.parse(data)
+  return WeakSpotStateRowSchema.parse(data)
 }
 
-async function fetchLeechJoined(userId: string, id: string): Promise<ApiLeechListItem> {
+async function fetchWeakSpotJoined(userId: string, id: string): Promise<ApiWeakSpotListItem> {
   // Reads the row we just mutated. .single() is the right terminal here:
   // the row provably exists (we just confirmed it in the pre-fetch and the
   // UPDATE returned without 404 conditions), so a null result would be a
   // genuine 500-class anomaly worth surfacing as such.
   const { data, error } = await supabaseAdmin
-    .from('leeches')
-    .select(LEECH_SELECT_LEFT)
+    .from('weak_spots')
+    .select(WEAK_SPOT_SELECT_LEFT)
     .eq('id',      id)
     .eq('user_id', userId)
     .single()
 
   if (error !== null) {
-    log.error({ leechId: id, err: { message: error.message, code: error.code } }, 'fetchLeechJoined query failed')
-    throw dbError('refetch leech', error)
+    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'fetchWeakSpotJoined query failed')
+    throw dbError('refetch weakSpot', error)
   }
-  return toListItem(LeechRowSchema.parse(data))
+  return toListItem(WeakSpotRowSchema.parse(data))
 }
 
 /**
- * Marks a leech as resolved. Idempotent: resolving an already-resolved leech
+ * Marks a weakSpot as resolved. Idempotent: resolving an already-resolved weakSpot
  * returns the row unchanged so the original `resolved_at` (the moment the
  * learner actually closed the loop) is preserved across accidental retries.
  *
@@ -383,51 +383,51 @@ async function fetchLeechJoined(userId: string, id: string): Promise<ApiLeechLis
  *   1) State pre-fetch — 404 cleanly when missing or cross-user; short-circuit
  *      to a joined fetch when already in the target state.
  *   2) UPDATE — flips resolved + stamps resolved_at, then the joined refetch
- *      returns the same shape as getLeechById so callers can drop the
+ *      returns the same shape as getWeakSpotById so callers can drop the
  *      response directly into their cache.
  */
-export async function resolveLeech(userId: string, id: string): Promise<ApiLeechListItem> {
-  const current = await fetchLeechState(userId, id)
+export async function resolveWeakSpot(userId: string, id: string): Promise<ApiWeakSpotListItem> {
+  const current = await fetchWeakSpotState(userId, id)
 
   if (current.resolved) {
     // Already resolved — return the existing joined payload without writing.
-    return fetchLeechJoined(userId, id)
+    return fetchWeakSpotJoined(userId, id)
   }
 
   const { error } = await supabaseAdmin
-    .from('leeches')
+    .from('weak_spots')
     .update({ resolved: true, resolved_at: new Date().toISOString() })
     .eq('id',      id)
     .eq('user_id', userId)
 
   if (error !== null) {
-    throw dbError('resolve leech', error)
+    throw dbError('resolve weakSpot', error)
   }
 
-  return fetchLeechJoined(userId, id)
+  return fetchWeakSpotJoined(userId, id)
 }
 
 /**
- * Reopens a previously-resolved leech.
+ * Reopens a previously-resolved weakSpot.
  *
- * Idempotent on the happy path; throws 409 LEECH_ALREADY_OPEN when another
- * unresolved leech for the same (card_id, user_id) already exists. That
+ * Idempotent on the happy path; throws 409 WEAK_SPOT_ALREADY_OPEN when another
+ * unresolved weakSpot for the same (card_id, user_id) already exists. That
  * conflict is enforced at the DB layer by the partial unique index
  * `leeches_card_user_unresolved_idx` (migration 20260425000001) — we catch
  * SQLSTATE 23505 from the UPDATE and translate it before it falls through to
  * the generic `dbError` mapper. A pre-check would race; the only correct
  * pattern is "UPDATE optimistically, catch 23505, translate to 409".
  */
-export async function reopenLeech(userId: string, id: string): Promise<ApiLeechListItem> {
-  const current = await fetchLeechState(userId, id)
+export async function reopenWeakSpot(userId: string, id: string): Promise<ApiWeakSpotListItem> {
+  const current = await fetchWeakSpotState(userId, id)
 
   if (!current.resolved) {
     // Already open — return the existing joined payload without writing.
-    return fetchLeechJoined(userId, id)
+    return fetchWeakSpotJoined(userId, id)
   }
 
   const { error } = await supabaseAdmin
-    .from('leeches')
+    .from('weak_spots')
     .update({ resolved: false, resolved_at: null })
     .eq('id',      id)
     .eq('user_id', userId)
@@ -436,26 +436,26 @@ export async function reopenLeech(userId: string, id: string): Promise<ApiLeechL
     if (typeof error === 'object' && 'code' in error && error.code === '23505') {
       throw new AppError(
         409,
-        'Another unresolved leech exists for this card; resolve it first',
-        { cause: error, code: 'LEECH_ALREADY_OPEN' },
+        'Another unresolved weakSpot exists for this card; resolve it first',
+        { cause: error, code: 'WEAK_SPOT_ALREADY_OPEN' },
       )
     }
-    throw dbError('reopen leech', error)
+    throw dbError('reopen weakSpot', error)
   }
 
-  return fetchLeechJoined(userId, id)
+  return fetchWeakSpotJoined(userId, id)
 }
 
 // ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
 //
-// The RPC `create_leech_drill_session` (migration 20260531000000) runs the
+// The RPC `create_weak_spot_drill_session` (migration 20260531000000) runs the
 // candidate selection, session INSERT, and N snapshot INSERTs inside one
 // transaction. The service does not call the FSRS layer and never writes to
 // `cards` or `review_logs` — drill is a parallel namespace by design.
 
 const DrillSessionCardRowSchema = z.object({
   sessionCardId: z.string().uuid(),
-  leechId:       z.string().uuid(),
+  weakSpotId:       z.string().uuid(),
   cardId:        z.string().uuid(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']),
@@ -509,8 +509,8 @@ function repeatPolicyToDb(policy: CreateDrillSessionInput['repeatPolicy']): stri
 export async function createDrillSession(
   userId: string,
   input:  CreateDrillSessionInput,
-): Promise<ApiLeechDrillSession> {
-  const { data, error } = await supabaseAdmin.rpc('create_leech_drill_session', asPayload({
+): Promise<ApiWeakSpotDrillSession> {
+  const { data, error } = await supabaseAdmin.rpc('create_weak_spot_drill_session', asPayload({
     p_user_id:       userId,
     p_source:        sourceToDb(input.source),
     p_deck_id:       input.deckId    ?? null,
@@ -551,7 +551,7 @@ export async function createDrillSession(
 
 // ─── Drill session resume (Stage 4) ───────────────────────────────────────────
 //
-// `GET /api/v1/leeches/drill-sessions/:sessionId` returns the persisted queue
+// `GET /api/v1/weak-spots/drill-sessions/:sessionId` returns the persisted queue
 // plus an advisory staleness signal — true when the canonical FSRS state of
 // at least one queued card has changed since the session was created. The
 // staleness check is non-blocking: drilling itself stays safe even when
@@ -560,7 +560,7 @@ export async function createDrillSession(
 
 const DrillSessionDetailCardRowSchema = z.object({
   sessionCardId: z.string().uuid(),
-  leechId:       z.string().uuid().nullable(),
+  weakSpotId:       z.string().uuid().nullable(),
   cardId:        z.string().uuid().nullable(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']).nullable(),
@@ -586,12 +586,12 @@ const DrillSessionDetailResponseSchema = z.object({
  * boolean, and the `staleCards` array of card UUIDs whose stored fingerprint
  * no longer matches the current `cards` state.
  *
- * Throws 404 LEECH_DRILL_SESSION_NOT_FOUND when the session doesn't exist or
+ * Throws 404 WEAK_SPOT_DRILL_SESSION_NOT_FOUND when the session doesn't exist or
  * doesn't belong to the authenticated user — the cross-user case is
  * intentionally indistinguishable from "doesn't exist" to avoid leaking
  * existence to other users.
  *
- * The RPC `get_leech_drill_session` (migration 20260601000000) does all the
+ * The RPC `get_weak_spot_drill_session` (migration 20260601000000) does all the
  * work in one transaction-friendly read: one LEFT JOIN scan against the
  * session's snapshot rows, fingerprint recomputation via the IMMUTABLE helper
  * `compute_card_state_fingerprint_v1`, and JSONB aggregation. The service is
@@ -600,18 +600,18 @@ const DrillSessionDetailResponseSchema = z.object({
 export async function getDrillSession(
   userId:    string,
   sessionId: string,
-): Promise<ApiLeechDrillSessionDetail> {
-  const { data, error } = await supabaseAdmin.rpc('get_leech_drill_session', asPayload({
+): Promise<ApiWeakSpotDrillSessionDetail> {
+  const { data, error } = await supabaseAdmin.rpc('get_weak_spot_drill_session', asPayload({
     p_user_id:    userId,
     p_session_id: sessionId,
   }))
 
   if (error !== null) {
-    // RPC raises `leech_drill_session_not_found` with SQLSTATE 02000 when the
+    // RPC raises `weak_spot_drill_session_not_found` with SQLSTATE 02000 when the
     // session row doesn't exist for this user. Same precedent as deck.service's
     // DECK_NOT_FOUND translation (see deck.service.ts:225-227).
-    if (error.code === '02000' && error.message.includes('leech_drill_session_not_found')) {
-      throw new AppError(404, 'Drill session not found', { code: 'LEECH_DRILL_SESSION_NOT_FOUND' })
+    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_not_found')) {
+      throw new AppError(404, 'Drill session not found', { code: 'WEAK_SPOT_DRILL_SESSION_NOT_FOUND' })
     }
     log.error({ sessionId, err: { message: error.message, code: error.code } }, 'getDrillSession RPC failed')
     throw dbError('fetch drill session', error)
@@ -622,24 +622,24 @@ export async function getDrillSession(
 
 // ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
 //
-// `POST /api/v1/leeches/drill-sessions/:sessionId/attempts` records an
+// `POST /api/v1/weak-spots/drill-sessions/:sessionId/attempts` records an
 // immutable per-answer event. The DB's `UNIQUE (user_id, event_id)` on
-// `leech_drill_attempts` makes eventId the structural idempotency identifier;
+// `weak_spot_drill_attempts` makes eventId the structural idempotency identifier;
 // the RPC uses `INSERT ... ON CONFLICT DO NOTHING` + replay-fetch so retrying
 // with the same eventId returns the original row instead of creating a
 // duplicate.
 //
-// The wire's `cardId`/`leechId` (when present) are downgraded to consistency
+// The wire's `cardId`/`weakSpotId` (when present) are downgraded to consistency
 // assertions against the canonical session-card row — mismatches RAISE 22000
 // with one of two specific message fragments, which the service translates
-// to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
+// to HTTP 422 `WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
 
 const DrillAttemptResponseSchema = z.object({
   attemptId:      z.string().uuid(),
   eventId:        z.string().uuid(),
   sessionId:      z.string().uuid(),
   sessionCardId:  z.string().uuid(),
-  leechId:        z.string().uuid().nullable(),
+  weakSpotId:        z.string().uuid().nullable(),
   cardId:         z.string().uuid().nullable(),
   result:         z.enum(['missed', 'hesitated', 'remembered']),
   localSequence:  z.number().int().nonnegative().nullable(),
@@ -652,14 +652,14 @@ const DrillAttemptResponseSchema = z.object({
 /**
  * Records a drill attempt against the named session-card. Idempotent by
  * `eventId`: a retry with the same `(userId, eventId)` returns the original
- * row rather than minting a new one. The wire-side `cardId`/`leechId`, when
+ * row rather than minting a new one. The wire-side `cardId`/`weakSpotId`, when
  * supplied, are validated against the canonical session-card values and a
- * mismatch raises 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
+ * mismatch raises 422 `WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
  *
  * Throws:
- *   • 404 LEECH_DRILL_SESSION_CARD_NOT_FOUND — session-card row missing or
+ *   • 404 WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND — session-card row missing or
  *     not owned by the caller / not part of the requested session.
- *   • 422 LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH — body cardId or leechId
+ *   • 422 WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH — body cardId or weakSpotId
  *     disagrees with the canonical session-card values.
  *   • Other DB errors fall through to `dbError` (typically 500, or 409 for
  *     a 23503 FK violation on the rare card-deletion race).
@@ -673,14 +673,14 @@ export async function recordDrillAttempt(
   userId:    string,
   sessionId: string,
   input:     RecordDrillAttemptInput,
-): Promise<ApiLeechDrillAttempt> {
-  const { data, error } = await supabaseAdmin.rpc('record_leech_drill_attempt', asPayload({
+): Promise<ApiWeakSpotDrillAttempt> {
+  const { data, error } = await supabaseAdmin.rpc('record_weak_spot_drill_attempt', asPayload({
     p_user_id:           userId,
     p_session_id:        sessionId,
     p_event_id:          input.eventId,
     p_session_card_id:   input.sessionCardId,
     p_asserted_card_id:  input.cardId         ?? null,
-    p_asserted_leech_id: input.leechId        ?? null,
+    p_asserted_weak_spot_id: input.weakSpotId        ?? null,
     p_result:            input.result,
     p_local_sequence:    input.localSequence  ?? null,
     p_response_time_ms:  input.responseTimeMs ?? null,
@@ -690,20 +690,20 @@ export async function recordDrillAttempt(
 
   if (error !== null) {
     // 404: sessionCardId/sessionId/user triple mismatch.
-    if (error.code === '02000' && error.message.includes('leech_drill_session_card_not_found')) {
+    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_card_not_found')) {
       throw new AppError(404, 'Drill session card not found', {
-        code: 'LEECH_DRILL_SESSION_CARD_NOT_FOUND',
+        code: 'WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND',
       })
     }
-    // 422: body cardId/leechId disagrees with canonical session-card values.
+    // 422: body cardId/weakSpotId disagrees with canonical session-card values.
     // Two distinct RAISE message fragments share the same wire code because
     // the client only needs one bit of information: "your assertion was wrong."
     if (error.code === '22000' && (
-      error.message.includes('leech_drill_attempt_card_mismatch') ||
-      error.message.includes('leech_drill_attempt_leech_mismatch')
+      error.message.includes('weak_spot_drill_attempt_card_mismatch') ||
+      error.message.includes('weak_spot_drill_attempt_weak_spot_mismatch')
     )) {
-      throw new AppError(422, 'Drill attempt body cardId/leechId does not match the session card', {
-        code: 'LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH',
+      throw new AppError(422, 'Drill attempt body cardId/weakSpotId does not match the session card', {
+        code: 'WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH',
       })
     }
     log.error({ sessionId, eventId: input.eventId, err: { message: error.message, code: error.code } },
@@ -716,14 +716,14 @@ export async function recordDrillAttempt(
 
 // ─── Drill session lifecycle transitions (Stage 6) ────────────────────────────
 //
-// `POST /api/v1/leeches/drill-sessions/:sessionId/finish` and `/abort` flip
+// `POST /api/v1/weak-spots/drill-sessions/:sessionId/finish` and `/abort` flip
 // the session's `status` column from `'active'` to the requested terminal
 // state. Idempotent on no-op retries (re-finishing a finished session is a
 // no-op). Rejects illegal transitions (e.g. finished → aborted) with 409
-// LEECH_DRILL_SESSION_STATE_CONFLICT.
+// WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT.
 //
 // Two RPC round-trips per call: the transition RPC returns void; the service
-// then calls `get_leech_drill_session` for the post-state envelope so the wire
+// then calls `get_weak_spot_drill_session` for the post-state envelope so the wire
 // shape stays identical to the Stage 4 resume response. Frontends can drop
 // the response into TanStack Query's session-detail cache directly.
 
@@ -734,37 +734,37 @@ export type DrillSessionTransitionTarget = 'finished' | 'aborted'
  * terminal state (`'finished'` or `'aborted'`). Idempotent: re-finishing a
  * finished session or re-aborting an aborted one is a no-op and returns the
  * current envelope unchanged. Rejects illegal transitions (terminal states
- * are one-way) with 409 `LEECH_DRILL_SESSION_STATE_CONFLICT`.
+ * are one-way) with 409 `WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT`.
  *
  * Throws:
- *   • 404 LEECH_DRILL_SESSION_NOT_FOUND — session row missing or wrong owner.
- *   • 409 LEECH_DRILL_SESSION_STATE_CONFLICT — current status is not
+ *   • 404 WEAK_SPOT_DRILL_SESSION_NOT_FOUND — session row missing or wrong owner.
+ *   • 409 WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT — current status is not
  *     `'active'` and the requested target differs, OR target is unknown.
  *   • 500 — RPC fallthrough via `dbError`.
  *
  * Scheduler invariance: the transition RPC writes only
- * `leech_drill_sessions.status`, `finished_at`, and `updated_at`. It does
+ * `weak_spot_drill_sessions.status`, `finished_at`, and `updated_at`. It does
  * not read or write `cards` or `review_logs`. The follow-up
- * `get_leech_drill_session` call also only reads `cards` (never writes).
+ * `get_weak_spot_drill_session` call also only reads `cards` (never writes).
  */
 export async function transitionDrillSession(
   userId:    string,
   sessionId: string,
   target:    DrillSessionTransitionTarget,
-): Promise<ApiLeechDrillSessionDetail> {
-  const { error } = await supabaseAdmin.rpc('transition_leech_drill_session', asPayload({
+): Promise<ApiWeakSpotDrillSessionDetail> {
+  const { error } = await supabaseAdmin.rpc('transition_weak_spot_drill_session', asPayload({
     p_user_id:       userId,
     p_session_id:    sessionId,
     p_target_status: target,
   }))
 
   if (error !== null) {
-    if (error.code === '02000' && error.message.includes('leech_drill_session_not_found')) {
-      throw new AppError(404, 'Drill session not found', { code: 'LEECH_DRILL_SESSION_NOT_FOUND' })
+    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_not_found')) {
+      throw new AppError(404, 'Drill session not found', { code: 'WEAK_SPOT_DRILL_SESSION_NOT_FOUND' })
     }
-    if (error.code === '22000' && error.message.includes('leech_drill_session_state_conflict')) {
+    if (error.code === '22000' && error.message.includes('weak_spot_drill_session_state_conflict')) {
       throw new AppError(409, 'Drill session cannot be transitioned from its current state', {
-        code: 'LEECH_DRILL_SESSION_STATE_CONFLICT',
+        code: 'WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT',
       })
     }
     log.error({ sessionId, target, err: { message: error.message, code: error.code } },
@@ -779,17 +779,17 @@ export async function transitionDrillSession(
   return getDrillSession(userId, sessionId)
 }
 
-// ─── Leech diagnosis (Stage 7) ────────────────────────────────────────────────
+// ─── WeakSpot diagnosis (Stage 7) ────────────────────────────────────────────────
 //
-// `POST /api/v1/leeches/:id/diagnose` populates a leech's `diagnosis` and
+// `POST /api/v1/weak-spots/:id/diagnose` populates a weakSpot's `diagnosis` and
 // `prescription` columns with AI-generated text. As of Stage 7 this is a free
 // MVP feature (no entitlement gating). Replay-on-existing semantics keep
-// OpenAI cost bounded: a leech that already has diagnosis returns the stored
+// OpenAI cost bounded: a weakSpot that already has diagnosis returns the stored
 // values without re-calling the model. To regenerate, the client first
-// resolves+reopens the leech (which clears the row).
+// resolves+reopens the weakSpot (which clears the row).
 
 /** Slim card projection used by diagnosis prompt construction. */
-const LeechDiagnosisCardRowSchema = z.object({
+const WeakSpotDiagnosisCardRowSchema = z.object({
   fields_data: z.record(z.string(), z.unknown()),
   layout_type: z.enum(['vocabulary', 'grammar', 'sentence']),
   lapses:      z.number().int().nonnegative(),
@@ -807,30 +807,30 @@ const ReviewLogRatingRowSchema = z.object({
 })
 
 /**
- * Generates and persists a diagnosis + prescription for a leech, then returns
+ * Generates and persists a diagnosis + prescription for a weakSpot, then returns
  * the full joined detail (matching the `GET /:id` shape). Replay-on-existing:
- * if the leech already has diagnosis text, no AI call is made and the stored
+ * if the weakSpot already has diagnosis text, no AI call is made and the stored
  * values are returned.
  *
  * Throws:
- *   • 404 LEECH_NOT_FOUND — leech missing or wrong owner.
- *   • 422 CARD_FIELDS_INSUFFICIENT — orphan leech (card deleted) or
+ *   • 404 WEAK_SPOT_NOT_FOUND — weakSpot missing or wrong owner.
+ *   • 422 CARD_FIELDS_INSUFFICIENT — orphan weakSpot (card deleted) or
  *     card's fields_data lacks the word/meaning fields the prompt needs.
- *   • Anything else from `generateLeechDiagnosis` (OPENAI_KEY_MISSING,
+ *   • Anything else from `generateWeakSpotDiagnosis` (OPENAI_KEY_MISSING,
  *     OPENAI_EMPTY_RESPONSE, 503 from the chat breaker).
  *
  * Scheduler invariance: this function reads `cards`, `review_logs`, and
- * `leeches`. It writes only to `leeches` (the diagnosis + prescription text
+ * `weakSpots`. It writes only to `weakSpots` (the diagnosis + prescription text
  * columns). It does NOT mutate `cards.state` or any FSRS field, and it does
  * NOT insert into `review_logs`. The property-based suite covers the read-
- * only side; the write-only-to-leeches side is verified by the per-test
- * assertion that the only UPDATE is against `from('leeches')`.
+ * only side; the write-only-to-weakSpots side is verified by the per-test
+ * assertion that the only UPDATE is against `from('weakSpots')`.
  */
-export async function diagnoseLeech(userId: string, leechId: string): Promise<ApiLeechListItem> {
-  // 1. Fetch the leech + its card (slim projection for prompt inputs).
+export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Promise<ApiWeakSpotListItem> {
+  // 1. Fetch the weakSpot + its card (slim projection for prompt inputs).
   //    Filter by user_id to give 404 on cross-user attempts.
-  const { data: leechRow, error: fetchError } = await supabaseAdmin
-    .from('leeches')
+  const { data: weakSpotRow, error: fetchError } = await supabaseAdmin
+    .from('weak_spots')
     .select(`
       id,
       card_id,
@@ -843,41 +843,41 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
         lapses
       )
     `)
-    .eq('id', leechId)
+    .eq('id', weakSpotId)
     .eq('user_id', userId)
     .maybeSingle()
 
   if (fetchError !== null) {
-    log.error({ leechId, err: { message: fetchError.message, code: fetchError.code } },
-              'diagnoseLeech leech fetch failed')
-    throw dbError('fetch leech for diagnosis', fetchError)
+    log.error({ weakSpotId, err: { message: fetchError.message, code: fetchError.code } },
+              'diagnoseWeakSpot weakSpot fetch failed')
+    throw dbError('fetch weakSpot for diagnosis', fetchError)
   }
-  if (leechRow === null) {
-    throw new AppError(404, 'Leech not found', { code: 'LEECH_NOT_FOUND' })
+  if (weakSpotRow === null) {
+    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
   }
 
-  // 2. Replay-on-existing: if the leech already has diagnosis text, return
+  // 2. Replay-on-existing: if the weakSpot already has diagnosis text, return
   //    the full envelope without calling OpenAI. Idempotent and cost-bounded.
-  if (leechRow.diagnosis !== null && leechRow.prescription !== null) {
-    return getLeechById(userId, leechId)
+  if (weakSpotRow.diagnosis !== null && weakSpotRow.prescription !== null) {
+    return getWeakSpotById(userId, weakSpotId)
   }
 
-  // 3. Orphan leech (card_id NULL after card deletion) or insufficient card
+  // 3. Orphan weakSpot (card_id NULL after card deletion) or insufficient card
   //    fields → 422. The prompt needs at least word/meaning to be useful.
-  if (leechRow.card_id === null || leechRow.card === null) {
-    throw new AppError(422, 'Cannot diagnose an orphan leech (card has been deleted)', {
+  if (weakSpotRow.card_id === null || weakSpotRow.card === null) {
+    throw new AppError(422, 'Cannot diagnose an orphan weakSpot (card has been deleted)', {
       code: 'CARD_FIELDS_INSUFFICIENT',
     })
   }
 
-  const card = LeechDiagnosisCardRowSchema.parse(leechRow.card)
+  const card = WeakSpotDiagnosisCardRowSchema.parse(weakSpotRow.card)
 
   // Extract word/reading/meaning from fields_data via the shared helper so
   // vocabulary and grammar cards both work; sentence-layout cards return
   // null fields and fail with the same 422.
   //
   // The `as LayoutType` / `as FieldsData` casts are narrowing-after-validation:
-  // `LeechDiagnosisCardRowSchema` above already constrained `layout_type` to
+  // `WeakSpotDiagnosisCardRowSchema` above already constrained `layout_type` to
   // one of 'vocabulary' | 'grammar' | 'sentence' and `fields_data` to a
   // non-null record. The casts shift those Zod-inferred types to the
   // shared-types brands without runtime work. Same pattern toListItem() uses
@@ -922,7 +922,7 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
     supabaseAdmin
       .from('review_logs')
       .select('rating')
-      .eq('card_id', leechRow.card_id)
+      .eq('card_id', weakSpotRow.card_id)
       .eq('user_id', userId)
       .order('reviewed_at', { ascending: false })
       .limit(10),
@@ -930,15 +930,15 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
 
   if (profileError !== null) {
     log.warn({ userId, err: { message: profileError.message, code: profileError.code } },
-             'diagnoseLeech profile fetch failed; falling back to defaults')
+             'diagnoseWeakSpot profile fetch failed; falling back to defaults')
   }
   const profile = profileRow !== null
     ? ProfileForDiagnosisSchema.parse(profileRow)
     : { jlpt_target: null, native_language: 'en' }
 
   if (ratingError !== null) {
-    log.warn({ leechId, err: { message: ratingError.message, code: ratingError.code } },
-             'diagnoseLeech review_logs fetch failed; proceeding with empty pattern')
+    log.warn({ weakSpotId, err: { message: ratingError.message, code: ratingError.code } },
+             'diagnoseWeakSpot review_logs fetch failed; proceeding with empty pattern')
   }
   const recentRatings = (ratingRows ?? [])
     .map((r) => ReviewLogRatingRowSchema.parse(r).rating)
@@ -946,7 +946,7 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
 
   // 6. Call OpenAI via the AI service. The semaphore + breaker + cache live
   //    there; this service just provides the inputs and writes the output.
-  const generated = await generateLeechDiagnosis(
+  const generated = await generateWeakSpotDiagnosis(
     fields.word,
     fields.reading,
     fields.meaning,
@@ -956,24 +956,24 @@ export async function diagnoseLeech(userId: string, leechId: string): Promise<Ap
     profile.native_language,
   )
 
-  // 7. Persist the diagnosis + prescription onto the leech row. Only updates
+  // 7. Persist the diagnosis + prescription onto the weakSpot row. Only updates
   //    the two text columns; FSRS state and resolution status are untouched.
   const { error: updateError } = await supabaseAdmin
-    .from('leeches')
+    .from('weak_spots')
     .update({
       diagnosis:    generated.diagnosis,
       prescription: generated.prescription,
     })
-    .eq('id',      leechId)
+    .eq('id',      weakSpotId)
     .eq('user_id', userId)
 
   if (updateError !== null) {
-    log.error({ leechId, err: { message: updateError.message, code: updateError.code } },
-              'diagnoseLeech update failed')
-    throw dbError('persist leech diagnosis', updateError)
+    log.error({ weakSpotId, err: { message: updateError.message, code: updateError.code } },
+              'diagnoseWeakSpot update failed')
+    throw dbError('persist weakSpot diagnosis', updateError)
   }
 
   // 8. Return the full joined detail so the client can drop the response into
   //    its TanStack Query cache directly. Same shape as GET /:id.
-  return getLeechById(userId, leechId)
+  return getWeakSpotById(userId, weakSpotId)
 }

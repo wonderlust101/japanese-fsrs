@@ -20,10 +20,10 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`decks`](#table-decks)
   - [`cards`](#table-cards)
   - [`review_logs`](#table-review_logs)
-  - [`leeches`](#table-leeches)
-  - [`leech_drill_sessions`](#table-leech_drill_sessions)
-  - [`leech_drill_session_cards`](#table-leech_drill_session_cards)
-  - [`leech_drill_attempts`](#table-leech_drill_attempts)
+  - [`weak spots`](#table-weak spots)
+  - [`weak_spot_drill_sessions`](#table-weak_spot_drill_sessions)
+  - [`weak_spot_drill_session_cards`](#table-weak_spot_drill_session_cards)
+  - [`weak_spot_drill_attempts`](#table-weak_spot_drill_attempts)
   - [`idempotency_keys`](#table-idempotency_keys)
 - [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
 - [Triggers](#triggers)
@@ -90,10 +90,10 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `decks` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `cards` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `review_logs` | ALL | SELECT, INSERT | — |
-| `leeches` | ALL | SELECT, INSERT, UPDATE | — |
-| `leech_drill_sessions` | ALL | SELECT, INSERT, UPDATE | — |
-| `leech_drill_session_cards` | ALL | SELECT, INSERT | — |
-| `leech_drill_attempts` | ALL | SELECT, INSERT | — |
+| `weak spots` | ALL | SELECT, INSERT, UPDATE | — |
+| `weak_spot_drill_sessions` | ALL | SELECT, INSERT, UPDATE | — |
+| `weak_spot_drill_session_cards` | ALL | SELECT, INSERT | — |
+| `weak_spot_drill_attempts` | ALL | SELECT, INSERT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
 
@@ -271,7 +271,7 @@ These fields are the live FSRS state and **must only be written via `fsrs.servic
 | `scheduled_days` | `INT` | NO | `0` | The interval (in days) that was scheduled at the previous review. CHECK ≥ 0. |
 | `learning_steps` | `INT` | NO | `0` | Progress through the ts-fsrs v5 learning/relearning step sequence. **Must be persisted** — losing it resets a card in the learning phase back to step 0. CHECK ≥ 0. |
 | `reps` | `INT` | NO | `0` | Total number of times this card has been reviewed (all ratings). CHECK ≥ 0. |
-| `lapses` | `INT` | NO | `0` | Number of times the card transitioned from Review → Relearning (i.e. "Again" after graduating). Drives leech detection. CHECK ≥ 0 AND `lapses <= reps`. |
+| `lapses` | `INT` | NO | `0` | Number of times the card transitioned from Review → Relearning (i.e. "Again" after graduating). Drives weak spot detection. CHECK ≥ 0 AND `lapses <= reps`. |
 | `last_review` | `TIMESTAMPTZ` | YES | `NULL` | Timestamp of the most recent review. `NULL` for cards never reviewed and after `process_forget()`. |
 | `is_suspended` | `BOOLEAN` | NO | `FALSE` | When `TRUE`, the card is excluded from review queues. Orthogonal to `state` — a suspended card retains its FSRS state. |
 
@@ -387,30 +387,30 @@ FSRS state *before* this review was applied. Required for `rollbackReview()` in 
 
 ---
 
-### Table: `leeches`
+### Table: `weak spots`
 
-Tracks cards that have lapsed too many times (≥ `LEECH_THRESHOLD`, default 8 — set via `LEECH_THRESHOLD` env var). A leech record is created atomically inside `process_review()` / `process_review_batch()` when the threshold is crossed. The AI then asynchronously fills `diagnosis` and `prescription`.
+Tracks cards that have lapsed too many times (≥ `WEAK_SPOT_THRESHOLD`, default 8 — set via `WEAK_SPOT_THRESHOLD` env var). A weak spot record is created atomically inside `process_review()` / `process_review_batch()` when the threshold is crossed. The AI then asynchronously fills `diagnosis` and `prescription`.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
 | `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
 | `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion (changed from CASCADE in `20260519000000` to mirror `review_logs` and preserve AI-generated text for analytics). |
 | `user_id` | `UUID` | NO | — | FK to `profiles(id)` — cascades on user deletion. |
-| `diagnosis` | `TEXT` | YES | `NULL` | AI-generated explanation of *why* this card is a leech (e.g. "Confuses okurigana with similar kanji"). Populated asynchronously by `ai.service.ts`. |
-| `prescription` | `TEXT` | YES | `NULL` | AI-generated advice for fixing the leech (e.g. "Use the memory-palace technique for the radical"). Populated alongside `diagnosis`. |
-| `session_id` | `UUID` | YES | `NULL` | The review session in which the leech was first triggered. Written by `process_review()` so `get_session_summary()` can match leeches to sessions exactly rather than using a time-window heuristic. `NULL` for legacy rows. |
-| `resolved` | `BOOLEAN` | NO | `FALSE` | `TRUE` after the user marks the leech as resolved (e.g. after using the prescription). |
+| `diagnosis` | `TEXT` | YES | `NULL` | AI-generated explanation of *why* this card is a weak spot (e.g. "Confuses okurigana with similar kanji"). Populated asynchronously by `ai.service.ts`. |
+| `prescription` | `TEXT` | YES | `NULL` | AI-generated advice for fixing the weak spot (e.g. "Use the memory-palace technique for the radical"). Populated alongside `diagnosis`. |
+| `session_id` | `UUID` | YES | `NULL` | The review session in which the weak spot was first triggered. Written by `process_review()` so `get_session_summary()` can match weak spots to sessions exactly rather than using a time-window heuristic. `NULL` for legacy rows. |
+| `resolved` | `BOOLEAN` | NO | `FALSE` | `TRUE` after the user marks the weak spot as resolved (e.g. after using the prescription). |
 | `resolved_at` | `TIMESTAMPTZ` | YES | `NULL` | When `resolved` was set to `TRUE`. |
-| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the leech was first detected. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the weak spot was first detected. |
 
-**Partial unique index:** `leeches_card_user_unresolved_idx`: `UNIQUE (card_id, user_id) WHERE resolved = FALSE` — prevents duplicate unresolved leech records under race conditions. Note: PG treats `NULL` as distinct in UNIQUE, so multiple orphan rows (where `card_id = NULL` after card deletion) can coexist for the same `(user_id, resolved=FALSE)` combo, which is correct (they don't logically conflict).
+**Partial unique index:** `leeches_card_user_unresolved_idx`: `UNIQUE (card_id, user_id) WHERE resolved = FALSE` — prevents duplicate unresolved weak spot records under race conditions. Note: PG treats `NULL` as distinct in UNIQUE, so multiple orphan rows (where `card_id = NULL` after card deletion) can coexist for the same `(user_id, resolved=FALSE)` combo, which is correct (they don't logically conflict).
 
 **Other indexes:**
 - `leeches_card_id_idx`: `(card_id)` — per-card lookup.
-- `leeches_user_id_unresolved_idx`: `(user_id) WHERE resolved = FALSE` — "list user's open leeches" hot path. The unique partial index can't serve this because it leads with `card_id`.
+- `leeches_user_id_unresolved_idx`: `(user_id) WHERE resolved = FALSE` — "list user's open weak spots" hot path. The unique partial index can't serve this because it leads with `card_id`.
 - `leeches_session_id_idx`: `(session_id) WHERE session_id IS NOT NULL` — session-summary join.
 
-**Application-side guard:** Leech detection runs inside `process_review` (and `process_review_batch`) via the `IF p_lapses >= p_leech_threshold` block. Do **not** add leech checks elsewhere or you'll get duplicates.
+**Application-side guard:** Weak spot detection runs inside `process_review` (and `process_review_batch`) via the `IF p_lapses >= p_leech_threshold` block. Do **not** add weak spot checks elsewhere or you'll get duplicates.
 
 **RLS Policies:**
 
@@ -423,9 +423,9 @@ Tracks cards that have lapsed too many times (≥ `LEECH_THRESHOLD`, default 8 �
 
 ---
 
-### Table: `leech_drill_sessions`
+### Table: `weak_spot_drill_sessions`
 
-Persisted envelope for one focused drill run (Stage 3 of the leech-drill feature, added in migration `20260531000000_leech_drill_sessions.sql`). Created via the `create_leech_drill_session()` RPC. Drilling is a *parallel SRS namespace* — these sessions never write to `cards` or `review_logs`.
+Persisted envelope for one focused drill run (Stage 3 of the weak spot-drill feature, added in migration `20260531000000_weak_spot_drill_sessions.sql`). Created via the `create_weak_spot_drill_session()` RPC. Drilling is a *parallel SRS namespace* — these sessions never write to `cards` or `review_logs`.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
@@ -443,8 +443,8 @@ Persisted envelope for one focused drill run (Stage 3 of the leech-drill feature
 | `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
 
 **Indexes:**
-- `leech_drill_sessions_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user history paging.
-- `leech_drill_sessions_user_active_idx`: `(user_id, updated_at DESC, id DESC) WHERE status = 'active'` — Stage 4 resume hot path; partial keeps the index narrow.
+- `weak_spot_drill_sessions_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user history paging.
+- `weak_spot_drill_sessions_user_active_idx`: `(user_id, updated_at DESC, id DESC) WHERE status = 'active'` — Stage 4 resume hot path; partial keeps the index narrow.
 
 **RLS Policies:**
 
@@ -457,17 +457,17 @@ Persisted envelope for one focused drill run (Stage 3 of the leech-drill feature
 
 ---
 
-### Table: `leech_drill_session_cards`
+### Table: `weak_spot_drill_session_cards`
 
 Per-card snapshot of canonical FSRS state at the moment a drill session is created. Every queued card writes exactly one row. Used by Stage 4 (resume + staleness detection) and Stage 5 (attempts FK target). Snapshots are immutable by design — no UPDATE/DELETE policy.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
 | `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
-| `session_id` | `UUID` | NO | — | FK to `leech_drill_sessions(id)` — cascades. |
+| `session_id` | `UUID` | NO | — | FK to `weak_spot_drill_sessions(id)` — cascades. |
 | `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion so session history stays inspectable. |
-| `leech_id` | `UUID` | YES | — | FK to `leeches(id)` — `SET NULL` on leech deletion. |
-| `user_id` | `UUID` | NO | — | Denormalized FK to `profiles(id)` — cascades. Duplicates the session's owner so user-scoped queries and RLS predicates don't have to join through `leech_drill_sessions`. |
+| `leech_id` | `UUID` | YES | — | FK to `weak spots(id)` — `SET NULL` on weak spot deletion. |
+| `user_id` | `UUID` | NO | — | Denormalized FK to `profiles(id)` — cascades. Duplicates the session's owner so user-scoped queries and RLS predicates don't have to join through `weak_spot_drill_sessions`. |
 | `ordinal` | `INT` | NO | — | Stable position in the session's queue (0-indexed). `CHECK (ordinal >= 0)`. |
 | `source_reason` | `TEXT` | NO | — | Why this card was queued. CHECK admits `unresolved_leech`, `high_lapse_candidate`, `manual_selection`, `current_card`; Stage 3 only writes `unresolved_leech`. |
 | `baseline_state` | `INT` | NO | — | Snapshot of `cards.state` at session start. `CHECK BETWEEN 0 AND 3` (ts-fsrs states). |
@@ -480,17 +480,17 @@ Per-card snapshot of canonical FSRS state at the moment a drill session is creat
 | `baseline_reps` | `INT` | NO | — | Snapshot of `cards.reps`. `CHECK >= 0`. |
 | `baseline_lapses` | `INT` | NO | — | Snapshot of `cards.lapses`. `CHECK >= 0`. |
 | `baseline_last_review` | `TIMESTAMPTZ` | YES | — | Snapshot of `cards.last_review` (nullable). |
-| `canonical_state_fingerprint` | `TEXT` | NO | — | Version-prefixed md5 hash over the ten `baseline_*` fields (current version: `v1:<32-hex>`). Computed by `public.compute_card_state_fingerprint_v1(...)` — the single source of truth shared by `create_leech_drill_session` (snapshot write) and `get_leech_drill_session` (resume-time staleness check). The `v1:` prefix lets future hash-function changes detect older-version values cleanly. |
+| `canonical_state_fingerprint` | `TEXT` | NO | — | Version-prefixed md5 hash over the ten `baseline_*` fields (current version: `v1:<32-hex>`). Computed by `public.compute_card_state_fingerprint_v1(...)` — the single source of truth shared by `create_weak_spot_drill_session` (snapshot write) and `get_weak_spot_drill_session` (resume-time staleness check). The `v1:` prefix lets future hash-function changes detect older-version values cleanly. |
 | `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | — |
 
 **Unique constraints:**
 - `(session_id, ordinal)` — stable queue order.
-- `(id, session_id)` — composite key referenced by Stage 5's `leech_drill_attempts` via FK `(session_card_id, session_id)`, making cross-session attempt forgery structurally impossible.
+- `(id, session_id)` — composite key referenced by Stage 5's `weak_spot_drill_attempts` via FK `(session_card_id, session_id)`, making cross-session attempt forgery structurally impossible.
 
 **Indexes:**
-- `leech_drill_session_cards_user_card_idx`: `(user_id, card_id) WHERE card_id IS NOT NULL` — "did this user drill this card?" lookups.
-- `leech_drill_session_cards_session_card_idx`: `UNIQUE (session_id, card_id) WHERE card_id IS NOT NULL` — prevents the same card appearing twice in one queue. Partial so post-deletion orphans (card_id NULL) can coexist.
-- `leech_drill_session_cards_leech_idx`: `(leech_id) WHERE leech_id IS NOT NULL` — per-leech drill history.
+- `weak_spot_drill_session_cards_user_card_idx`: `(user_id, card_id) WHERE card_id IS NOT NULL` — "did this user drill this card?" lookups.
+- `weak_spot_drill_session_cards_session_card_idx`: `UNIQUE (session_id, card_id) WHERE card_id IS NOT NULL` — prevents the same card appearing twice in one queue. Partial so post-deletion orphans (card_id NULL) can coexist.
+- `weak_spot_drill_session_cards_leech_idx`: `(leech_id) WHERE leech_id IS NOT NULL` — per-weak spot drill history.
 
 **RLS Policies:**
 
@@ -503,17 +503,17 @@ Per-card snapshot of canonical FSRS state at the moment a drill session is creat
 
 ---
 
-### Table: `leech_drill_attempts`
+### Table: `weak_spot_drill_attempts`
 
-Immutable per-answer event log (Stage 5 of the leech-drill feature, added in migration `20260602000000_leech_drill_attempts.sql`). Created via the `record_leech_drill_attempt()` RPC. Drilling never writes to `cards` or `review_logs` — attempts are the *drill namespace*'s audit trail, fully separate from canonical FSRS history.
+Immutable per-answer event log (Stage 5 of the weak spot-drill feature, added in migration `20260602000000_weak_spot_drill_attempts.sql`). Created via the `record_weak_spot_drill_attempt()` RPC. Drilling never writes to `cards` or `review_logs` — attempts are the *drill namespace*'s audit trail, fully separate from canonical FSRS history.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
 | `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
 | `event_id` | `UUID` | NO | — | Client-generated domain event identifier. The `(user_id, event_id)` tuple is the authoritative idempotency key. Retrying the same eventId is a no-op at the DB layer (`ON CONFLICT (user_id, event_id) DO NOTHING` in the RPC). |
-| `session_id` | `UUID` | NO | — | Direct FK to `leech_drill_sessions(id)` — cascades. Redundant with the composite FK below but documents the cascade intent. |
+| `session_id` | `UUID` | NO | — | Direct FK to `weak_spot_drill_sessions(id)` — cascades. Redundant with the composite FK below but documents the cascade intent. |
 | `session_card_id` | `UUID` | NO | — | The session-card row the attempt is recorded against. Combined with `session_id` in the composite FK below. |
-| `leech_id` | `UUID` | YES | — | FK to `leeches(id)` — `SET NULL` on leech deletion. Always sourced from the session-card row server-side, never from the request body. |
+| `leech_id` | `UUID` | YES | — | FK to `weak spots(id)` — `SET NULL` on weak spot deletion. Always sourced from the session-card row server-side, never from the request body. |
 | `card_id` | `UUID` | YES | — | FK to `cards(id)` — `SET NULL` on card deletion. Same server-side sourcing as `leech_id`. |
 | `user_id` | `UUID` | NO | — | Denormalized FK to `profiles(id)` — cascades on account deletion. Duplicated from the session for fast user-scoped queries without joining through sessions. |
 | `result` | `TEXT` | NO | — | One of `missed`, `hesitated`, `remembered`. Enforced by CHECK. |
@@ -527,14 +527,14 @@ Immutable per-answer event log (Stage 5 of the leech-drill feature, added in mig
 - `(user_id, event_id)` — DB-enforced eventId idempotency. One row per (user, domain event).
 
 **Foreign-key constraints:**
-- `(session_card_id, session_id) REFERENCES leech_drill_session_cards (id, session_id) ON DELETE CASCADE` — **★ the anti-fraud composite FK**. Stage 3 reserved `UNIQUE (id, session_id)` on `leech_drill_session_cards` specifically to make this FK declarable. With it, a client cannot submit an attempt whose `session_card_id` belongs to a *different* session than the URL's — the database rejects the row before any application code runs. This is structural anti-fraud; no TypeScript-level check can be bypassed.
-- `session_id REFERENCES leech_drill_sessions(id) ON DELETE CASCADE` — separately declared so attempts cascade cleanly on session delete.
+- `(session_card_id, session_id) REFERENCES weak_spot_drill_session_cards (id, session_id) ON DELETE CASCADE` — **★ the anti-fraud composite FK**. Stage 3 reserved `UNIQUE (id, session_id)` on `weak_spot_drill_session_cards` specifically to make this FK declarable. With it, a client cannot submit an attempt whose `session_card_id` belongs to a *different* session than the URL's — the database rejects the row before any application code runs. This is structural anti-fraud; no TypeScript-level check can be bypassed.
+- `session_id REFERENCES weak_spot_drill_sessions(id) ON DELETE CASCADE` — separately declared so attempts cascade cleanly on session delete.
 
 **Indexes:**
-- `leech_drill_attempts_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user-scoped history paging.
-- `leech_drill_attempts_leech_created_idx`: `(leech_id, created_at DESC) WHERE leech_id IS NOT NULL` — per-leech drill history.
-- `leech_drill_attempts_session_idx`: `(session_id, created_at ASC, id ASC)` — replay queue in submission order.
-- `leech_drill_attempts_session_card_idx`: `(session_card_id, created_at DESC, id DESC)` — per-card-in-session attempt log.
+- `weak_spot_drill_attempts_user_created_idx`: `(user_id, created_at DESC, id DESC)` — user-scoped history paging.
+- `weak_spot_drill_attempts_leech_created_idx`: `(leech_id, created_at DESC) WHERE leech_id IS NOT NULL` — per-weak spot drill history.
+- `weak_spot_drill_attempts_session_idx`: `(session_id, created_at ASC, id ASC)` — replay queue in submission order.
+- `weak_spot_drill_attempts_session_card_idx`: `(session_card_id, created_at DESC, id DESC)` — per-card-in-session attempt log.
 
 The UNIQUE on `(user_id, event_id)` doubles as the index that backs `ON CONFLICT (user_id, event_id) DO NOTHING` — no separate index is needed for the idempotency lookup.
 
@@ -598,7 +598,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 
 | Function | Purpose | Notes |
 |---|---|---|
-| `process_review(p_card_id, p_user_id, p_state, p_due, …, p_session_id)` | Atomic FSRS update + `review_logs` insert + leech detection. | Locks the card row with `SELECT … FOR UPDATE` so concurrent reviews of the same card serialize. Raises `card_not_found`, `cannot_review_source_card`, or `card_ownership_mismatch`. |
+| `process_review(p_card_id, p_user_id, p_state, p_due, …, p_session_id)` | Atomic FSRS update + `review_logs` insert + weak spot detection. | Locks the card row with `SELECT … FOR UPDATE` so concurrent reviews of the same card serialize. Raises `card_not_found`, `cannot_review_source_card`, or `card_ownership_mismatch`. |
 | `process_review_batch(p_user_id, p_reviews JSONB, p_leech_threshold)` | Batches N `process_review` calls into one round-trip. Per-review subtransactions preserve "collect errors, continue" semantics. | Returns `(card_id, success, error_message, due, stability, difficulty, scheduled_days, state)` per row. |
 | `process_forget(p_card_id, p_user_id, …)` | Anki Forget — resets card to `state = 0` and writes a `manual` review log entry. | Same row lock + ownership check as `process_review`. |
 
@@ -628,7 +628,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `list_decks_paginated(p_user_id, p_limit, p_cursor)` | Tuple-cursor pagination over the user's decks, ORDER BY `(updated_at DESC, id DESC)`. | Deck rows. |
 | `list_premade_decks_paginated(p_limit, p_cursor, p_deck_type, p_jlpt_level, p_domain)` | Tuple-cursor pagination over active premade decks, ORDER BY `(jlpt_level ASC NULLS LAST, name ASC, id ASC)`. | Premade deck rows. |
 | `get_dashboard_data(p_user_id, p_timezone DEFAULT 'UTC')` | Bundles `get_heatmap_data`, `get_accuracy_by_layout`, `get_jlpt_gap`, and `get_milestone_forecast` into one JSONB envelope (4 RPCs → 1 round-trip). Heatmap bucketing uses learner-local days. Migration `20260604000000_remove_legacy_streaks.sql` dropped the legacy `streak` key. | JSONB envelope. |
-| `get_session_summary(p_session_id, p_user_id)` | Aggregate stats + leeches-with-card-context for a study session. Filters orphan leeches (`card_id IS NOT NULL`). Internal LIMIT 5000 caps the scan. | JSONB envelope. |
+| `get_session_summary(p_session_id, p_user_id)` | Aggregate stats + weak spots-with-card-context for a study session. Filters orphan weak spots (`card_id IS NOT NULL`). Internal LIMIT 5000 caps the scan. | JSONB envelope. |
 | `get_review_forecast(p_user_id, p_days DEFAULT 14, p_timezone DEFAULT 'UTC', p_daily_review_limit DEFAULT NULL, p_daily_new_cards_limit DEFAULT NULL)` | Learner-local forecast for the next N days. Today's bucket is capped to match `get_due_cards()`: backlog fills first against `remaining_total = daily_review_limit - reviewed_today`, scheduled-today reviews fill the remainder, then new cards fill min(`remaining_new`, what's left of `remaining_total`, inventory). Future days carry actual scheduled `review_count` and a depleting projection of new cards bounded by `daily_new_cards_limit` and remaining inventory. NULL daily limits skip capping (admin/debug only). Migration `20260605000000_review_forecast_daily_caps.sql` reversed the no-projection behaviour introduced by `20260530000000_review_forecast_actual_new_counts.sql`, replacing it with the inventory-bounded projection. | `(date TEXT, count BIGINT, backlog_count BIGINT, review_count BIGINT, new_count BIGINT)` |
 
 ### Analytics RPCs
@@ -648,15 +648,15 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `store_idempotency_response(p_user_id, p_key, p_status, p_body)` | Writes the final status + body for a previously-claimed key. |
 | `delete_idempotency_key(p_user_id, p_key)` | Releases a placeholder so the caller can retry after a non-`AppError` exception. |
 
-### Leech drill RPCs
+### Weak spot drill RPCs
 
 | Function | Purpose | Returns |
 |---|---|---|
-| `compute_card_state_fingerprint_v1(p_state, p_due, p_stability, p_difficulty, p_elapsed_days, p_scheduled_days, p_learning_steps, p_reps, p_lapses, p_last_review)` | `IMMUTABLE LANGUAGE sql` helper. The single source of truth for the `v1:` canonical-state fingerprint. Called by both `create_leech_drill_session` (snapshot write, Stage 3 → replaced in Stage 4 to use the helper) and `get_leech_drill_session` (resume-time staleness check, Stage 4). The Stage 4 migration includes a `DO $$ ... $$` self-test asserting the helper's output against a fixed test vector — any future edit that would invalidate existing stored fingerprints causes the migration to RAISE at apply time. | `text`. Format: `'v1:' || md5(format('%s\|%s\|...', state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, reps, lapses, coalesce(last_review::text, '')))`. |
-| `create_leech_drill_session(p_user_id, p_source, p_deck_id, p_jlpt_level, p_order, p_limit, p_mode, p_repeat_policy, p_stop_rule, p_source_query, p_card_ids, p_card_id, p_min_lapses)` | Stage 3 of the leech-drill feature; Stage 4 replaced the body to call the fingerprint helper instead of an inline expression; **Stage 6 added three new parameters** (`p_card_ids` for `manual_selection`, `p_card_id` for `current_card`, `p_min_lapses` for `high_lapse_candidates`) and expanded the candidate-selection CTE to a four-branch `UNION ALL` so all five spec source values are now wired through. The Stage 4 fingerprint helper is unchanged — same byte-for-byte output, existing sessions' stored hashes stay valid. Inserts one `leech_drill_sessions` row and N `leech_drill_session_cards` rows (snapshots) atomically. Writes nothing to `cards` or `review_logs` — the scheduler-invariance guarantee is structural. | `JSONB` envelope: `{ sessionId, status, cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, fieldsData, lapses }] }`. |
-| `get_leech_drill_session(p_user_id, p_session_id)` | Stage 4 of the leech-drill feature. Returns the persisted queue plus an advisory staleness signal computed by recomputing each card's fingerprint via the helper and comparing against the stored baseline on `leech_drill_session_cards`. Orphan rows (card deleted post-snapshot, `card_id IS NULL`) are surfaced via `cardId: null` + `isOrphaned: true` and are NOT counted as stale — there is nothing to compare to. RAISEs `leech_drill_session_not_found` with SQLSTATE `02000` when the session is missing or owned by another user; service layer translates to HTTP 404 `LEECH_DRILL_SESSION_NOT_FOUND`. Reads `cards` and `leech_drill_session_cards` only — no writes to either, no FSRS touched. | `JSONB` envelope: `{ sessionId, status, isCanonicalStateStale, staleCards: [cardId...], cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, fieldsData, lapses, isOrphaned, isStale }] }`. |
-| `record_leech_drill_attempt(p_user_id, p_session_id, p_event_id, p_session_card_id, p_asserted_card_id, p_asserted_leech_id, p_result, p_local_sequence, p_response_time_ms, p_shown_at, p_answered_at)` | Stage 5 of the leech-drill feature. (1) Reads canonical `card_id` / `leech_id` from `leech_drill_session_cards` keyed on `(session_card_id, session_id)`; verifies the user owns the session-card. RAISEs `leech_drill_session_card_not_found` (SQLSTATE `02000`) on triple mismatch → service maps to HTTP 404 `LEECH_DRILL_SESSION_CARD_NOT_FOUND`. (2) Compares the optional body-side `p_asserted_card_id` / `p_asserted_leech_id` against the canonical values; mismatches RAISE `leech_drill_attempt_card_mismatch` or `leech_drill_attempt_leech_mismatch` (SQLSTATE `22000`) → service maps to HTTP 422 `LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH`. (3) INSERTs with `ON CONFLICT (user_id, event_id) DO NOTHING` for idempotent replay; the row's `leech_id`/`card_id` are always the canonical values, never the body's. (4) Returns the canonical attempt envelope. Reads `leech_drill_session_cards` and `leech_drill_attempts` only — no writes to `cards`, `review_logs`, or any other canonical FSRS table. | `JSONB` envelope: `{ attemptId, eventId, sessionId, sessionCardId, leechId, cardId, result, localSequence, responseTimeMs, shownAt, answeredAt, createdAt }`. |
-| `transition_leech_drill_session(p_user_id, p_session_id, p_target_status)` | Stage 6 of the leech-drill feature. Flips `leech_drill_sessions.status` from `'active'` to the requested terminal state (`'finished'` or `'aborted'`) atomically. `FOR UPDATE` lock on the session row guards against concurrent transitions. Idempotent on no-op retries: re-finishing a finished session (or re-aborting an aborted one) returns successfully without touching `finished_at` (preserves the first-finish timestamp). Rejects illegal transitions with `leech_drill_session_state_conflict` (SQLSTATE `22000`) → service maps to HTTP 409 `LEECH_DRILL_SESSION_STATE_CONFLICT`. Missing session → `leech_drill_session_not_found` (SQLSTATE `02000`) → HTTP 404. Writes only `status`, `finished_at`, `updated_at` on `leech_drill_sessions` — no reads or writes against `cards` or `review_logs`. | `VOID`. The service calls `get_leech_drill_session` afterwards to return the post-state envelope, so the wire shape matches the Stage 4 GET response. |
+| `compute_card_state_fingerprint_v1(p_state, p_due, p_stability, p_difficulty, p_elapsed_days, p_scheduled_days, p_learning_steps, p_reps, p_lapses, p_last_review)` | `IMMUTABLE LANGUAGE sql` helper. The single source of truth for the `v1:` canonical-state fingerprint. Called by both `create_weak_spot_drill_session` (snapshot write, Stage 3 → replaced in Stage 4 to use the helper) and `get_weak_spot_drill_session` (resume-time staleness check, Stage 4). The Stage 4 migration includes a `DO $$ ... $$` self-test asserting the helper's output against a fixed test vector — any future edit that would invalidate existing stored fingerprints causes the migration to RAISE at apply time. | `text`. Format: `'v1:' || md5(format('%s\|%s\|...', state, due, stability, difficulty, elapsed_days, scheduled_days, learning_steps, reps, lapses, coalesce(last_review::text, '')))`. |
+| `create_weak_spot_drill_session(p_user_id, p_source, p_deck_id, p_jlpt_level, p_order, p_limit, p_mode, p_repeat_policy, p_stop_rule, p_source_query, p_card_ids, p_card_id, p_min_lapses)` | Stage 3 of the weak spot-drill feature; Stage 4 replaced the body to call the fingerprint helper instead of an inline expression; **Stage 6 added three new parameters** (`p_card_ids` for `manual_selection`, `p_card_id` for `current_card`, `p_min_lapses` for `high_lapse_candidates`) and expanded the candidate-selection CTE to a four-branch `UNION ALL` so all five spec source values are now wired through. The Stage 4 fingerprint helper is unchanged — same byte-for-byte output, existing sessions' stored hashes stay valid. Inserts one `weak_spot_drill_sessions` row and N `weak_spot_drill_session_cards` rows (snapshots) atomically. Writes nothing to `cards` or `review_logs` — the scheduler-invariance guarantee is structural. | `JSONB` envelope: `{ sessionId, status, cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, fieldsData, lapses }] }`. |
+| `get_weak_spot_drill_session(p_user_id, p_session_id)` | Stage 4 of the weak spot-drill feature. Returns the persisted queue plus an advisory staleness signal computed by recomputing each card's fingerprint via the helper and comparing against the stored baseline on `weak_spot_drill_session_cards`. Orphan rows (card deleted post-snapshot, `card_id IS NULL`) are surfaced via `cardId: null` + `isOrphaned: true` and are NOT counted as stale — there is nothing to compare to. RAISEs `leech_drill_session_not_found` with SQLSTATE `02000` when the session is missing or owned by another user; service layer translates to HTTP 404 `WEAK_SPOT_DRILL_SESSION_NOT_FOUND`. Reads `cards` and `weak_spot_drill_session_cards` only — no writes to either, no FSRS touched. | `JSONB` envelope: `{ sessionId, status, isCanonicalStateStale, staleCards: [cardId...], cards: [{ sessionCardId, leechId, cardId, ordinal, layoutType, fieldsData, lapses, isOrphaned, isStale }] }`. |
+| `record_weak_spot_drill_attempt(p_user_id, p_session_id, p_event_id, p_session_card_id, p_asserted_card_id, p_asserted_leech_id, p_result, p_local_sequence, p_response_time_ms, p_shown_at, p_answered_at)` | Stage 5 of the weak spot-drill feature. (1) Reads canonical `card_id` / `leech_id` from `weak_spot_drill_session_cards` keyed on `(session_card_id, session_id)`; verifies the user owns the session-card. RAISEs `leech_drill_session_card_not_found` (SQLSTATE `02000`) on triple mismatch → service maps to HTTP 404 `LEECH_DRILL_SESSION_CARD_NOT_FOUND`. (2) Compares the optional body-side `p_asserted_card_id` / `p_asserted_leech_id` against the canonical values; mismatches RAISE `leech_drill_attempt_card_mismatch` or `leech_drill_attempt_leech_mismatch` (SQLSTATE `22000`) → service maps to HTTP 422 `WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH`. (3) INSERTs with `ON CONFLICT (user_id, event_id) DO NOTHING` for idempotent replay; the row's `leech_id`/`card_id` are always the canonical values, never the body's. (4) Returns the canonical attempt envelope. Reads `weak_spot_drill_session_cards` and `weak_spot_drill_attempts` only — no writes to `cards`, `review_logs`, or any other canonical FSRS table. | `JSONB` envelope: `{ attemptId, eventId, sessionId, sessionCardId, leechId, cardId, result, localSequence, responseTimeMs, shownAt, answeredAt, createdAt }`. |
+| `transition_weak_spot_drill_session(p_user_id, p_session_id, p_target_status)` | Stage 6 of the weak spot-drill feature. Flips `weak_spot_drill_sessions.status` from `'active'` to the requested terminal state (`'finished'` or `'aborted'`) atomically. `FOR UPDATE` lock on the session row guards against concurrent transitions. Idempotent on no-op retries: re-finishing a finished session (or re-aborting an aborted one) returns successfully without touching `finished_at` (preserves the first-finish timestamp). Rejects illegal transitions with `leech_drill_session_state_conflict` (SQLSTATE `22000`) → service maps to HTTP 409 `LEECH_DRILL_SESSION_STATE_CONFLICT`. Missing session → `leech_drill_session_not_found` (SQLSTATE `02000`) → HTTP 404. Writes only `status`, `finished_at`, `updated_at` on `weak_spot_drill_sessions` — no reads or writes against `cards` or `review_logs`. | `VOID`. The service calls `get_weak_spot_drill_session` afterwards to return the post-state envelope, so the wire shape matches the Stage 4 GET response. |
 
 ---
 
@@ -686,7 +686,7 @@ auth.users
             ├── decks                       (1:N, cascade)
             │       └── cards               (1:N, cascade)  ←── parent_card_id (self-ref, SET NULL)
             ├── review_logs                 (1:N, cascade)        [card_id is SET NULL on card delete]
-            ├── leeches                     (1:N, cascade)        [card_id is SET NULL on card delete]
+            ├── weak spots                     (1:N, cascade)        [card_id is SET NULL on card delete]
             └── idempotency_keys            (1:N, no FK — accessed via RPCs)
 
 premade_decks (system-owned, never hard-deleted in normal ops)
@@ -695,7 +695,7 @@ premade_decks (system-owned, never hard-deleted in normal ops)
 ```
 
 **Notable cascade asymmetries:**
-- `review_logs.card_id` and `leeches.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
+- `review_logs.card_id` and `weak spots.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
 - `decks.source_premade_id`: `SET NULL` so user copies survive a premade hard-delete with attribution severed. The deck and the user's FSRS progress are unaffected because user cards live under `deck_id`, not `premade_deck_id`.
 
 ---

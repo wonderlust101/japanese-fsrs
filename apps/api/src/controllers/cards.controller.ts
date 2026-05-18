@@ -15,7 +15,7 @@ import type {
   GeneratedSentenceCard,
 } from '@fsrs-japanese/shared-types'
 
-import { emptyBodySchema } from '../schemas/leech.schema.ts'
+import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
 import * as cardService    from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'

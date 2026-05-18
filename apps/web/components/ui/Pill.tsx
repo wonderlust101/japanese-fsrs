@@ -13,7 +13,7 @@ export type StatusTone =
   | 'learning'
   | 'review'
   | 'mastered'
-  | 'leech'
+  | 'weakSpot'
   | 'suspended'
   | 'subscribed'
   | 'premade'
@@ -88,7 +88,7 @@ const statusTones: Record<StatusTone, SemanticTone> = {
   learning:   { className: 'border-deck-beyond-mark/25 bg-deck-beyond-wash text-deck-beyond-mark', mark: '◐' },
   review:     { className: 'border-deck-n3-mark/25 bg-deck-n3-wash text-deck-n3-mark', mark: '↻' },
   mastered:   { className: 'border-deck-n5-mark/25 bg-deck-n5-wash text-deck-n5-mark', mark: '✓' },
-  leech:      { className: 'border-error/25 bg-error-tint text-error-deep', mark: '!' },
+  weakSpot:      { className: 'border-error/25 bg-error-tint text-error-deep', mark: '!' },
   suspended:  { className: 'border-soft-hairline bg-cream-inset text-faded-sumi', mark: '×' },
   subscribed: { className: 'border-deck-n5-mark/25 bg-deck-n5-wash text-deck-n5-mark', mark: '✓' },
   premade:    { className: 'border-deck-beyond-mark/25 bg-deck-beyond-wash text-deck-beyond-mark', mark: '•' },
@@ -132,7 +132,7 @@ function defaultStatusLabel(status: StatusTone): string {
     case 'due':        return 'Due'
     case 'review':     return 'Review'
     case 'mastered':   return 'Mastered'
-    case 'leech':      return 'Leech'
+    case 'weakSpot':      return 'Weak spot'
     case 'suspended':  return 'Suspended'
     default:           return labelFromTone(status)
   }

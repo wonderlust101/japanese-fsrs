@@ -1,8 +1,8 @@
-# Page Spec: Problem Card Repair
+# Page Spec: Weak spot repair
 
 ## Page Purpose
 
-Problem Card Repair helps the learner improve cards that repeatedly fail. The goal is not to drill harder by default. The goal is to determine whether the card itself needs repair, then suggest a useful fix.
+Weak spot repair helps the learner improve cards that repeatedly fail. The goal is not to drill harder by default. The goal is to determine whether the card itself needs repair, then suggest a useful fix.
 
 This page is where Tomo should feel like a teacher looking at the learner's material and saying: this card is costing you more effort than it should, here is how to make it better.
 
@@ -29,7 +29,7 @@ Do not start with drilling. Repeated failure may indicate a bad card, not weak m
 
 ### Repair Queue
 
-- Number of problem cards.
+- Number of weak spots.
 - Severity grouping.
 - Likely issue for each card.
 - Recommended next action.
@@ -56,7 +56,7 @@ Diagnose and suggest one focused improvement. Examples: add contrast note, impro
 
 Use deeper repair. Teach the contrast, rewrite the card support, consider changing card type, and allow suspend.
 
-### Leech-Like Behavior
+### Weak-Spot-Like Behavior
 
 Offer repair, simplify, split into multiple cards, or suspend. Do not frame suspension as failure.
 
@@ -89,8 +89,8 @@ The learner should always see the current card content before accepting a fix. T
 
 ## Interaction Notes
 
-- Improve problem cards from Summary should open the repair queue filtered to that session.
-- Problem Cards from Insights should open a broader repair queue.
+- Improve weak spots from Summary should open the repair queue filtered to that session.
+- Weak spots from Insights should open a broader repair queue.
 - Applying a fix should show a short confirmation and move to the next card.
 - After repair, offer “Drill this card now” as secondary, not primary.
 - The user should be able to open full Card Detail at any point.

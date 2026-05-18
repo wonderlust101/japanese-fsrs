@@ -49,7 +49,7 @@ Use [DATABASE.md](DATABASE.md) for exact enums, columns, constraints, indexes, t
 Key implementation rules:
 
 - FSRS state writes go through `apps/api/src/services/fsrs.service.ts` and database RPCs.
-- Review submission persists card state, review log, and leech detection atomically.
+- Review submission persists card state, review log, and weak spot detection atomically.
 - Premade source cards have `user_id = NULL` and must not receive user review state.
 - Users *copy* a premade deck into their library via `copy_premade_deck`, which creates a standalone user-owned deck plus personal card copies in one transaction. There is no ongoing subscription — refreshing content means deleting the deck and copying again, with the FSRS-progress cost surfaced explicitly. Source premade decks are hidden with `is_active = false` rather than hard-deleted, which only affects new copies; existing user copies are unaffected because they are independent rows.
 - A single FSRS scheduler runs at `request_retention = 0.85`. The historic per-modality split (`comprehension` / `production` / `listening`) was removed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.

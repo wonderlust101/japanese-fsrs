@@ -344,7 +344,7 @@ The dashboard is the learner's morning desk, not a stats wall. It opens with a w
 - **Primary review hero:** the due queue remains the first interactive product object after the masthead. It is driven by `GET /api/v1/reviews/due` plus deck metadata and splits the route into new, review, and backlog counts.
 - **Forecast module:** the chart shows backlog, scheduled reviews, and actual new-card inventory as stacked segments. Mobile/tablet shows seven days; desktop shows fourteen. Future days can fade by distance, but labels and segment colors must stay legible.
 - **Active decks:** the shelf uses real deck names and card counts. Due/new/review/mastery/last-reviewed rollups are optional until the backend exposes a dedicated dashboard rollup contract; missing rollups should render as quieter metadata, not fake progress.
-- **Weak spots and recent activity:** recent activity is derived from heatmap data. Weak spots render an unavailable state until the leech-list API exists.
+- **Weak spots and recent activity:** recent activity is derived from heatmap data. Weak spots render an unavailable state until the weak spot-list API exists.
 - **Practice signal:** the current practice-signal card is temporary. Product intent is to restore this area to Tomo daily notes once the note API and content source exist. Until then, keep the module honest with unavailable/empty states and do not make Tomo speak in normal dashboard chrome.
 - **Dev-only preview controls:** dashboard preview controls are available only through the development launcher. They may use sample data to exercise loading, empty, error, unavailable, and high-volume states; no preview affordance ships in production.
 

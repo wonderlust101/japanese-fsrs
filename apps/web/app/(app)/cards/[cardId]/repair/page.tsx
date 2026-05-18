@@ -8,7 +8,7 @@ export default async function ProblemCardRepairPage({ params }: PageProps): Prom
   const { cardId } = await params
   return (
     <StubPage
-      title="Problem Card Repair"
+      title="Weak spot repair"
       links={[
         { href: `/cards/${cardId}`, label: 'Back to card' },
         { href: '/review/setup',    label: 'Review setup' },

@@ -80,7 +80,7 @@ afterAll(async () => {
 })
 
 // Backend Completion Plan Stage 7 acceptance.
-describeIntegration('insights routes — Stage 7 problem cards', () => {
+describeIntegration('insights routes — Stage 7 weak spots', () => {
   it('GET /api/v1/insights/problem-cards?bucket=4-5 returns cards in that lapse range only', async () => {
     const u = await seedUser(); seeded.push(u)
 
@@ -110,13 +110,13 @@ describeIntegration('insights routes — Stage 7 problem cards', () => {
     expect(items[0].lapses).toBe(5)
   })
 
-  it('the 8plus bucket cardinality matches GET /api/v1/leeches (unresolved) for the same user', async () => {
+  it('the 8plus bucket cardinality matches GET /api/v1/weak-spots (unresolved) for the same user', async () => {
     const u = await seedUser(); seeded.push(u)
 
-    // Three cards in the 8+ zone — each will also have an open leech row
-    // because process_review inserts one at lapses >= LEECH_THRESHOLD (8).
+    // Three cards in the 8+ zone — each will also have an open weakSpot row
+    // because process_review inserts one at lapses >= WEAK_SPOT_THRESHOLD (8).
     // We're bypassing the review path with direct INSERTs, so we have to
-    // create the matching leech rows ourselves to mirror what the live
+    // create the matching weakSpot rows ourselves to mirror what the live
     // pipeline would have produced. This is the cleanest way to pin the
     // parity invariant the plan calls out.
     const c1 = await seedCardWithLapses(u, 8, 'leech1')
@@ -127,7 +127,7 @@ describeIntegration('insights routes — Stage 7 problem cards', () => {
       user_id:  u.userId,
       resolved: false,
     }))
-    const leechInsert = await supabaseAdmin.from('leeches').insert(leechRows)
+    const leechInsert = await supabaseAdmin.from('weak_spots').insert(leechRows)
     expect(leechInsert.error).toBeNull()
 
     const problemRes = await request(app)
@@ -136,12 +136,12 @@ describeIntegration('insights routes — Stage 7 problem cards', () => {
     expect(problemRes.status).toBe(200)
 
     const leechRes = await request(app)
-      .get('/api/v1/leeches?status=unresolved')
+      .get('/api/v1/weak-spots?status=unresolved')
       .set('Authorization', `Bearer ${u.jwt}`)
     expect(leechRes.status).toBe(200)
 
     // The acceptance criterion: the 8plus bucket size equals the
-    // unresolved-leech count for the same user. Three of each.
+    // unresolved-weakSpot count for the same user. Three of each.
     expect(problemRes.body.items.length).toBe(3)
     expect(leechRes.body.items.length).toBe(3)
     expect(problemRes.body.items.length).toBe(leechRes.body.items.length)
@@ -190,7 +190,7 @@ describeIntegration('insights routes — Stage 7 problem cards', () => {
     expect(res.status).toBe(401)
   })
 
-  it('isolates results across users (one user\'s problem cards never leak to another)', async () => {
+  it('isolates results across users (one user\'s weak spots never leak to another)', async () => {
     const a = await seedUser(); seeded.push(a)
     const b = await seedUser(); seeded.push(b)
 

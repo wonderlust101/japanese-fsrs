@@ -1,42 +1,42 @@
 'use server'
 
 import {
-  ApiLeechDrillAttemptSchema,
-  ApiLeechDrillSessionDetailSchema,
-  ApiLeechDrillSessionSchema,
-  ApiLeechListItemSchema,
-  ApiLeechListResponseSchema,
-  type ApiLeechDrillAttempt,
-  type ApiLeechDrillAttemptResult,
-  type ApiLeechDrillSession,
-  type ApiLeechDrillSessionDetail,
-  type ApiLeechListItem,
-  type ApiLeechListResponse,
+  ApiWeakSpotDrillAttemptSchema,
+  ApiWeakSpotDrillSessionDetailSchema,
+  ApiWeakSpotDrillSessionSchema,
+  ApiWeakSpotListItemSchema,
+  ApiWeakSpotListResponseSchema,
+  type ApiWeakSpotDrillAttempt,
+  type ApiWeakSpotDrillAttemptResult,
+  type ApiWeakSpotDrillSession,
+  type ApiWeakSpotDrillSessionDetail,
+  type ApiWeakSpotListItem,
+  type ApiWeakSpotListResponse,
 } from '@fsrs-japanese/shared-types'
 
 import { apiCall, apiCallSafe } from '@/lib/api/client'
 
-// ─── Filter / sort vocabularies (mirror apps/api/src/schemas/leech.schema.ts) ─
+// ─── Filter / sort vocabularies (mirror apps/api/src/schemas/weak-spot.schema.ts) ─
 
-export type LeechStatusFilter    = 'unresolved' | 'resolved'
-export type LeechDiagnosisFilter = 'available'  | 'missing'
-export type LeechSortOrder       =
+export type WeakSpotStatusFilter    = 'unresolved' | 'resolved'
+export type WeakSpotDiagnosisFilter = 'available'  | 'missing'
+export type WeakSpotSortOrder       =
   | 'mostRecent'
   | 'oldestUnresolved'
   | 'mostLapses'
   | 'deckOrder'
 
 export interface ListLeechesOptions {
-  status?:    LeechStatusFilter
+  status?:    WeakSpotStatusFilter
   deckId?:    string
   jlptLevel?: string
-  diagnosis?: LeechDiagnosisFilter
-  sort?:      LeechSortOrder
+  diagnosis?: WeakSpotDiagnosisFilter
+  sort?:      WeakSpotSortOrder
   limit?:     number
   cursor?:    string
 }
 
-const EMPTY_LIST: ApiLeechListResponse = {
+const EMPTY_LIST: ApiWeakSpotListResponse = {
   items:      [],
   nextCursor: null,
   hasMore:    false,
@@ -45,14 +45,14 @@ const EMPTY_LIST: ApiLeechListResponse = {
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 /**
- * Fetches the unresolved/resolved leech list with optional filters. Uses the
+ * Fetches the unresolved/resolved weakSpot list with optional filters. Uses the
  * "safe" variant so an unauthenticated session or backend hiccup degrades to
  * an empty list rather than tearing down the page — matches how analytics
  * actions treat their non-critical reads.
  */
-export async function listLeechesAction(
+export async function listWeakSpotsAction(
   opts: ListLeechesOptions = {},
-): Promise<ApiLeechListResponse> {
+): Promise<ApiWeakSpotListResponse> {
   const params = new URLSearchParams()
   params.set('status', opts.status ?? 'unresolved')
   params.set('sort',   opts.sort   ?? 'mostRecent')
@@ -62,9 +62,9 @@ export async function listLeechesAction(
   if (opts.diagnosis !== undefined) params.set('diagnosis', opts.diagnosis)
   if (opts.cursor    !== undefined) params.set('cursor',    opts.cursor)
 
-  return apiCallSafe<ApiLeechListResponse>(
-    `/api/v1/leeches?${params.toString()}`,
-    ApiLeechListResponseSchema,
+  return apiCallSafe<ApiWeakSpotListResponse>(
+    `/api/v1/weak-spots?${params.toString()}`,
+    ApiWeakSpotListResponseSchema,
     {},
     EMPTY_LIST,
   )
@@ -72,51 +72,51 @@ export async function listLeechesAction(
 
 // ─── Detail / lifecycle / diagnosis ───────────────────────────────────────────
 
-export async function getLeechAction(id: string): Promise<ApiLeechListItem> {
-  return apiCall<ApiLeechListItem>(
-    `/api/v1/leeches/${id}`,
-    ApiLeechListItemSchema,
+export async function getWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
+  return apiCall<ApiWeakSpotListItem>(
+    `/api/v1/weak-spots/${id}`,
+    ApiWeakSpotListItemSchema,
     {},
-    'Failed to load leech',
+    'Failed to load weakSpot',
   )
 }
 
-export async function resolveLeechAction(id: string): Promise<ApiLeechListItem> {
-  return apiCall<ApiLeechListItem>(
-    `/api/v1/leeches/${id}/resolve`,
-    ApiLeechListItemSchema,
+export async function resolveWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
+  return apiCall<ApiWeakSpotListItem>(
+    `/api/v1/weak-spots/${id}/resolve`,
+    ApiWeakSpotListItemSchema,
     { method: 'POST' },
-    'Failed to resolve leech',
+    'Failed to resolve weakSpot',
   )
 }
 
-export async function reopenLeechAction(id: string): Promise<ApiLeechListItem> {
-  return apiCall<ApiLeechListItem>(
-    `/api/v1/leeches/${id}/reopen`,
-    ApiLeechListItemSchema,
+export async function reopenWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
+  return apiCall<ApiWeakSpotListItem>(
+    `/api/v1/weak-spots/${id}/reopen`,
+    ApiWeakSpotListItemSchema,
     { method: 'POST' },
-    'Failed to reopen leech',
+    'Failed to reopen weakSpot',
   )
 }
 
 /**
- * Triggers AI diagnosis for a leech. The backend requires an
+ * Triggers AI diagnosis for a weakSpot. The backend requires an
  * `Idempotency-Key` header so OpenAI cost is bounded against retries — we
  * mint a fresh UUID per call. The replay-on-existing semantic on the server
- * means a leech that already has a diagnosis will return the stored values
+ * means a weakSpot that already has a diagnosis will return the stored values
  * without a re-call even on a fresh key.
  */
-export async function diagnoseLeechAction(id: string): Promise<ApiLeechListItem> {
+export async function diagnoseWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
   const idempotencyKey = crypto.randomUUID()
-  return apiCall<ApiLeechListItem>(
-    `/api/v1/leeches/${id}/diagnose`,
-    ApiLeechListItemSchema,
+  return apiCall<ApiWeakSpotListItem>(
+    `/api/v1/weak-spots/${id}/diagnose`,
+    ApiWeakSpotListItemSchema,
     {
       method:  'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
       body:    JSON.stringify({}),
     },
-    'Failed to diagnose this leech',
+    'Failed to diagnose this weakSpot',
   )
 }
 
@@ -168,11 +168,11 @@ export type CreateDrillSessionInput =
  */
 export async function createDrillSessionAction(
   input: CreateDrillSessionInput,
-): Promise<ApiLeechDrillSession> {
+): Promise<ApiWeakSpotDrillSession> {
   const idempotencyKey = crypto.randomUUID()
-  return apiCall<ApiLeechDrillSession>(
-    '/api/v1/leeches/drill-sessions',
-    ApiLeechDrillSessionSchema,
+  return apiCall<ApiWeakSpotDrillSession>(
+    '/api/v1/weak-spots/drill-sessions',
+    ApiWeakSpotDrillSessionSchema,
     {
       method:  'POST',
       headers: { 'Idempotency-Key': idempotencyKey },
@@ -189,10 +189,10 @@ export async function createDrillSessionAction(
  */
 export async function getDrillSessionAction(
   sessionId: string,
-): Promise<ApiLeechDrillSessionDetail> {
-  return apiCall<ApiLeechDrillSessionDetail>(
-    `/api/v1/leeches/drill-sessions/${sessionId}`,
-    ApiLeechDrillSessionDetailSchema,
+): Promise<ApiWeakSpotDrillSessionDetail> {
+  return apiCall<ApiWeakSpotDrillSessionDetail>(
+    `/api/v1/weak-spots/drill-sessions/${sessionId}`,
+    ApiWeakSpotDrillSessionDetailSchema,
     {},
     'Failed to load drill session',
   )
@@ -201,9 +201,9 @@ export async function getDrillSessionAction(
 export interface RecordDrillAttemptInput {
   eventId:          string
   sessionCardId:    string
-  leechId?:         string
+  weakSpotId?:         string
   cardId?:          string
-  result:           ApiLeechDrillAttemptResult
+  result:           ApiWeakSpotDrillAttemptResult
   localSequence?:   number
   responseTimeMs?:  number
   shownAt?:         string
@@ -220,10 +220,10 @@ export interface RecordDrillAttemptInput {
 export async function recordDrillAttemptAction(
   sessionId: string,
   input:     RecordDrillAttemptInput,
-): Promise<ApiLeechDrillAttempt> {
-  return apiCall<ApiLeechDrillAttempt>(
-    `/api/v1/leeches/drill-sessions/${sessionId}/attempts`,
-    ApiLeechDrillAttemptSchema,
+): Promise<ApiWeakSpotDrillAttempt> {
+  return apiCall<ApiWeakSpotDrillAttempt>(
+    `/api/v1/weak-spots/drill-sessions/${sessionId}/attempts`,
+    ApiWeakSpotDrillAttemptSchema,
     {
       method:  'POST',
       headers: { 'Idempotency-Key': input.eventId },
@@ -239,10 +239,10 @@ export async function recordDrillAttemptAction(
  */
 export async function finishDrillSessionAction(
   sessionId: string,
-): Promise<ApiLeechDrillSessionDetail> {
-  return apiCall<ApiLeechDrillSessionDetail>(
-    `/api/v1/leeches/drill-sessions/${sessionId}/finish`,
-    ApiLeechDrillSessionDetailSchema,
+): Promise<ApiWeakSpotDrillSessionDetail> {
+  return apiCall<ApiWeakSpotDrillSessionDetail>(
+    `/api/v1/weak-spots/drill-sessions/${sessionId}/finish`,
+    ApiWeakSpotDrillSessionDetailSchema,
     {
       method:  'POST',
       body:    JSON.stringify({}),
@@ -258,10 +258,10 @@ export async function finishDrillSessionAction(
  */
 export async function abortDrillSessionAction(
   sessionId: string,
-): Promise<ApiLeechDrillSessionDetail> {
-  return apiCall<ApiLeechDrillSessionDetail>(
-    `/api/v1/leeches/drill-sessions/${sessionId}/abort`,
-    ApiLeechDrillSessionDetailSchema,
+): Promise<ApiWeakSpotDrillSessionDetail> {
+  return apiCall<ApiWeakSpotDrillSessionDetail>(
+    `/api/v1/weak-spots/drill-sessions/${sessionId}/abort`,
+    ApiWeakSpotDrillSessionDetailSchema,
     {
       method:  'POST',
       body:    JSON.stringify({}),

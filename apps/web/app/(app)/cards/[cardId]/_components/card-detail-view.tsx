@@ -82,7 +82,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 
   const isPremadeSource = card !== null && card !== undefined && (card as { userId?: string | null }).userId === null
   const isSuspended     = card?.isSuspended === true
-  const isFailingCard   = card !== null && card !== undefined && card.lapses >= 8  // matches LEECH_THRESHOLD default
+  const isFailingCard   = card !== null && card !== undefined && card.lapses >= 8  // matches WEAK_SPOT_THRESHOLD default
 
   // ── Card-delete mutation ──────────────────────────────────────────────
   const deleteMutation = useMutation({

@@ -8,21 +8,21 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Toast, useToast } from '@/components/ui/Toast'
 import {
-  useDiagnoseLeechMutation,
-  useLeechDetailQuery,
-  useLeechesQuery,
-  useReopenLeechMutation,
-  useResolveLeechMutation,
-} from '@/lib/api/leeches'
-import type { ListLeechesOptions } from '@/lib/actions/leeches.actions'
-import type { ApiLeechListItem, ApiLeechListResponse } from '@fsrs-japanese/shared-types'
+  useDiagnoseWeakSpotMutation,
+  useWeakSpotDetailQuery,
+  useWeakSpotsQuery,
+  useReopenWeakSpotMutation,
+  useResolveWeakSpotMutation,
+} from '@/lib/api/weak-spots'
+import type { ListLeechesOptions } from '@/lib/actions/weak-spots.actions'
+import type { ApiWeakSpotListItem, ApiWeakSpotListResponse } from '@fsrs-japanese/shared-types'
 
-import { LeechDetailsDialog } from './leech-details-dialog'
-import { LeechListItem } from './leech-list-item'
-import { LeechesEmpty } from './leeches-empty'
-import { LeechesFilterRow, useLeechFiltersStorage } from './leeches-filter-row'
-import { useLeechesDevState } from './leeches-dev-panel'
-import { INITIAL_LEECH_FILTERS } from './leeches-types'
+import { WeakSpotDetailsDialog } from './weak-spot-details-dialog'
+import { WeakSpotListItem } from './weak-spot-list-item'
+import { WeakSpotsEmpty } from './weak-spots-empty'
+import { WeakSpotsFilterRow, useWeakSpotFiltersStorage } from './weak-spots-filter-row'
+import { useLeechesDevState } from './weak-spots-dev-panel'
+import { INITIAL_WEAK_SPOT_FILTERS } from './weak-spots-types'
 
 const PAGE_SHELL_CLASS     = 'min-h-screen bg-cool-paper-base pb-16'
 const PAGE_CONTAINER_CLASS = 'mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16'
@@ -44,9 +44,9 @@ const HEADER_PADDING_CLASS = 'pt-6 pb-5 sm:pt-8 sm:pb-6 lg:pt-10 lg:pb-8'
  * / 'error') short-circuit the view entirely so the dev panel can preview
  * those branches without a live API. Pattern matches `MistakesView`.
  */
-export function LeechesView(): React.JSX.Element {
+export function WeakSpotsView(): React.JSX.Element {
   const dev = useLeechesDevState()
-  const [filters, setFilters] = useLeechFiltersStorage(INITIAL_LEECH_FILTERS)
+  const [filters, setFilters] = useWeakSpotFiltersStorage(INITIAL_WEAK_SPOT_FILTERS)
 
   // Translate the UI filter shape to the wire shape (drops 'all' sentinels).
   const queryOpts = useMemo<ListLeechesOptions>(() => {
@@ -60,13 +60,13 @@ export function LeechesView(): React.JSX.Element {
     return opts
   }, [filters])
 
-  const liveQuery = useLeechesQuery(queryOpts)
+  const liveQuery = useWeakSpotsQuery(queryOpts)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const detailQuery = useLeechDetailQuery(selectedId)
+  const detailQuery = useWeakSpotDetailQuery(selectedId)
 
-  const resolveMutation  = useResolveLeechMutation()
-  const reopenMutation   = useReopenLeechMutation()
-  const diagnoseMutation = useDiagnoseLeechMutation()
+  const resolveMutation  = useResolveWeakSpotMutation()
+  const reopenMutation   = useReopenWeakSpotMutation()
+  const diagnoseMutation = useDiagnoseWeakSpotMutation()
 
   const { toast, showToast, dismissToast } = useToast()
 
@@ -76,21 +76,21 @@ export function LeechesView(): React.JSX.Element {
 
   function closeDialog(): void {
     setSelectedId(null)
-    // Reset the diagnose mutation's error so reopening a different leech
+    // Reset the diagnose mutation's error so reopening a different weakSpot
     // doesn't inherit the prior error message.
     diagnoseMutation.reset()
   }
 
   function handleResolve(id: string): void {
     resolveMutation.mutate(id, {
-      onSuccess: () => showToast('Leech marked resolved.', 'info'),
+      onSuccess: () => showToast('WeakSpot marked resolved.', 'info'),
       onError:   (err) => showToast(err.message ?? 'Couldn’t resolve this card.', 'error'),
     })
   }
 
   function handleReopen(id: string): void {
     reopenMutation.mutate(id, {
-      onSuccess: () => showToast('Leech reopened.', 'info'),
+      onSuccess: () => showToast('WeakSpot reopened.', 'info'),
       onError:   (err) => showToast(err.message ?? 'Couldn’t reopen this card.', 'error'),
     })
   }
@@ -106,7 +106,7 @@ export function LeechesView(): React.JSX.Element {
     return (
       <PageShell>
         <LeechesHeader status={filters.status} count={null} />
-        <LeechesFilterRow value={filters} onChange={setFilters} />
+        <WeakSpotsFilterRow value={filters} onChange={setFilters} />
         <ErrorAlert />
         {dev.panel}
       </PageShell>
@@ -117,7 +117,7 @@ export function LeechesView(): React.JSX.Element {
     return (
       <PageShell>
         <LeechesHeader status={filters.status} count={null} />
-        <LeechesFilterRow value={filters} onChange={setFilters} />
+        <WeakSpotsFilterRow value={filters} onChange={setFilters} />
         <ListSkeleton />
         {dev.panel}
       </PageShell>
@@ -129,7 +129,7 @@ export function LeechesView(): React.JSX.Element {
     return (
       <PageShell>
         <LeechesHeader status={filters.status} count={null} />
-        <LeechesFilterRow value={filters} onChange={setFilters} />
+        <WeakSpotsFilterRow value={filters} onChange={setFilters} />
         <ErrorAlert />
         {dev.panel}
       </PageShell>
@@ -140,7 +140,7 @@ export function LeechesView(): React.JSX.Element {
     return (
       <PageShell>
         <LeechesHeader status={filters.status} count={null} />
-        <LeechesFilterRow value={filters} onChange={setFilters} />
+        <WeakSpotsFilterRow value={filters} onChange={setFilters} />
         <ListSkeleton />
         {dev.panel}
       </PageShell>
@@ -148,7 +148,7 @@ export function LeechesView(): React.JSX.Element {
   }
 
   // ── Live or fixture data ─────────────────────────────────────────────────
-  const data: ApiLeechListResponse = dev.fixtureData ?? liveQuery.data ?? {
+  const data: ApiWeakSpotListResponse = dev.fixtureData ?? liveQuery.data ?? {
     items:      [],
     nextCursor: null,
     hasMore:    false,
@@ -156,7 +156,7 @@ export function LeechesView(): React.JSX.Element {
   const items = data.items
   const isEmpty = items.length === 0
 
-  const selectedLeech: ApiLeechListItem | undefined = selectedId === null
+  const selectedLeech: ApiWeakSpotListItem | undefined = selectedId === null
     ? undefined
     : detailQuery.data ?? items.find((l) => l.id === selectedId) ?? undefined
 
@@ -172,7 +172,7 @@ export function LeechesView(): React.JSX.Element {
 
         {/* Primary CTA — above the fold. Only surfaces when there's
             actually something to drill: hidden on the resolved tab and
-            when the unresolved list is empty (the LeechesEmpty kitsune
+            when the unresolved list is empty (the WeakSpotsEmpty kitsune
             owns that state). */}
         {filters.status === 'unresolved' && !isEmpty && (
           <div className="-mt-2 mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 sm:mb-4">
@@ -188,24 +188,24 @@ export function LeechesView(): React.JSX.Element {
           </div>
         )}
 
-        <LeechesFilterRow value={filters} onChange={setFilters} />
+        <WeakSpotsFilterRow value={filters} onChange={setFilters} />
 
         {isEmpty ? (
-          <LeechesEmpty variant={filters.status} />
+          <WeakSpotsEmpty variant={filters.status} />
         ) : (
           <div className="mt-6 overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised">
             <span aria-hidden="true" className="block h-[2px] w-full bg-inari-vermillion" />
             <ul role="list" className="flex flex-col">
-              {items.map((leech) => (
-                <LeechListItem
-                  key={leech.id}
-                  leech={leech}
+              {items.map((weakSpot) => (
+                <WeakSpotListItem
+                  key={weakSpot.id}
+                  weakSpot={weakSpot}
                   onOpen={openLeech}
                   onResolve={handleResolve}
                   onReopen={handleReopen}
                   isMutating={
-                    (resolveMutation.isPending && resolveMutation.variables === leech.id) ||
-                    (reopenMutation.isPending  && reopenMutation.variables  === leech.id)
+                    (resolveMutation.isPending && resolveMutation.variables === weakSpot.id) ||
+                    (reopenMutation.isPending  && reopenMutation.variables  === weakSpot.id)
                   }
                 />
               ))}
@@ -216,10 +216,10 @@ export function LeechesView(): React.JSX.Element {
         {dev.panel}
       </PageShell>
 
-      <LeechDetailsDialog
+      <WeakSpotDetailsDialog
         open={selectedId !== null}
         onClose={closeDialog}
-        leech={selectedLeech}
+        weakSpot={selectedLeech}
         isLoading={selectedId !== null && detailQuery.isLoading && selectedLeech === undefined}
         isError={selectedId !== null && detailQuery.isError && selectedLeech === undefined}
         {...(detailQuery.error !== null && { errorMessage: detailQuery.error.message })}
@@ -313,7 +313,7 @@ function ErrorAlert(): React.JSX.Element {
       role="alert"
       className="mt-6 rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
     >
-      <p>Couldn&rsquo;t load your leeches right now.</p>
+      <p>Couldn&rsquo;t load your weak spots right now.</p>
       <p className="mt-1 text-error-deep/80">Refresh the page, or try again in a moment.</p>
     </div>
   )
@@ -323,7 +323,7 @@ function ListSkeleton(): React.JSX.Element {
   return (
     <div
       aria-busy="true"
-      aria-label="Loading leeches"
+      aria-label="Loading weak spots"
       className="mt-6 overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
     >
       <span aria-hidden="true" className="block h-[2px] w-full bg-inari-vermillion/40" />

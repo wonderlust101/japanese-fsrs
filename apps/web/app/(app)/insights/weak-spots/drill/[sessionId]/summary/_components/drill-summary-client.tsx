@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { useDrillSessionQuery } from '@/lib/api/leeches'
+import { useDrillSessionQuery } from '@/lib/api/weak-spots'
 import {
   useDrillActions,
   useDrillAttempts,
@@ -15,7 +15,7 @@ import {
   useDrillIsFinished,
   useDrillQueue,
   type DrillAttemptRecord,
-} from '@/stores/useLeechDrillSessionStore'
+} from '@/stores/useWeakSpotDrillSessionStore'
 
 interface DrillSummaryClientProps {
   sessionId: string
@@ -89,7 +89,7 @@ export function DrillSummaryClient({
       <PageShell>
         <div role="alert" className="rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep">
           <p>Couldn’t load that drill summary.</p>
-          <p className="mt-1 text-error-deep/80">Open the leeches page to start a fresh drill.</p>
+          <p className="mt-1 text-error-deep/80">Open the weak spots page to start a fresh drill.</p>
           <div className="mt-4">
             <Link
               href="/insights/weak-spots"

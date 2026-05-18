@@ -45,7 +45,7 @@ const BatchResultRowSchema = z.object({
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LEECH_THRESHOLD = env.LEECH_THRESHOLD
+const WEAK_SPOT_THRESHOLD = env.WEAK_SPOT_THRESHOLD
 
 // ─── FSRS instance ────────────────────────────────────────────────────────────
 // Single scheduler at request_retention = 0.85 (the profiles.retention_target
@@ -248,7 +248,7 @@ function mapRatingStringToEnum(rating: string): Rating {
  * Processes a single review rating and updates the card's FSRS scheduling state.
  *
  * This is the **only** function that writes FSRS state fields to `cards`.
- * Card update, review log, and leech detection are executed inside a single
+ * Card update, review log, and weakSpot detection are executed inside a single
  * PostgreSQL transaction via the `process_review` RPC.
  */
 export async function processReview(
@@ -288,7 +288,7 @@ export async function processReview(
   const reviewedAt = new Date()
   const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
 
-  // ── 3. Atomically persist FSRS state, review log, and leech detection ─────
+  // ── 3. Atomically persist FSRS state, review log, and weakSpot detection ─────
   // Args cast: nullable RPC params (p_review_time_ms, p_last_review_before,
   // p_session_id) are typed as non-nullable in the generated Database type
   // because the migration declares them without DEFAULT NULL. The DB accepts
@@ -313,7 +313,7 @@ export async function processReview(
     p_difficulty_after:     updated.difficulty,
     p_due_after:            updated.due.toISOString(),
     p_scheduled_days_after: updated.scheduled_days,
-    p_leech_threshold:      LEECH_THRESHOLD,
+    p_leech_threshold:      WEAK_SPOT_THRESHOLD,
     // Before-snapshot — enables rollback via rollbackReview().
     p_state_before:          row.state,
     p_stability_before:      row.stability,
@@ -472,7 +472,7 @@ export async function processReviewBatch(
       asPayload({
         p_user_id:         userId,
         p_reviews:         batch,
-        p_leech_threshold: LEECH_THRESHOLD,
+        p_leech_threshold: WEAK_SPOT_THRESHOLD,
       }),
     )
 
@@ -542,7 +542,7 @@ export async function rollbackReview(
   const log = ReviewLogRowSchema.parse(logData)
   const cardId = log.card_id
   if (cardId === null) {
-    // Orphan log (the card was deleted post-review). Per the leech-orphan
+    // Orphan log (the card was deleted post-review). Per the weakSpot-orphan
     // precedent this is a 404 — the card simply isn't there anymore.
     throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
   }
@@ -803,7 +803,7 @@ export async function rescheduleFromHistory(
     p_difficulty_after:     updated.difficulty,
     p_due_after:            updated.due.toISOString(),
     p_scheduled_days_after: updated.scheduled_days,
-    p_leech_threshold:      LEECH_THRESHOLD,
+    p_leech_threshold:      WEAK_SPOT_THRESHOLD,
     p_state_before:          row.state,
     p_stability_before:      row.stability,
     p_difficulty_before:     row.difficulty,

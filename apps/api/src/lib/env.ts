@@ -19,7 +19,7 @@ const envSchema = z.object({
   OPENAI_API_KEY:             z.string().min(1).optional(),
   OPENAI_CHAT_MODEL:          z.string().default('gpt-5.4-nano'),
   OPENAI_EMBEDDING_MODEL:     z.string().default('text-embedding-3-small'),
-  LEECH_THRESHOLD:            z.coerce.number().int().positive().default(8),
+  WEAK_SPOT_THRESHOLD:            z.coerce.number().int().positive().default(8),
   // Comma-separated list of allowed origins. Tightened so misconfiguration
   // (e.g. `*`, stray commas, non-URL values) fails at startup rather than
   // silently shipping a wrong CORS allow-list. Output is `string[]`; the

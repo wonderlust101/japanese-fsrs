@@ -6,16 +6,16 @@ import {
   createDrillSessionSchema,
   drillSessionIdParamSchema,
   emptyBodySchema,
-  listLeechesQuerySchema,
-  leechIdParamSchema,
+  listWeakSpotsQuerySchema,
+  weakSpotIdParamSchema,
   recordDrillAttemptSchema,
   type RecordDrillAttemptInput,
-} from '../../schemas/leech.schema.ts'
+} from '../../schemas/weak-spot.schema.ts'
 
 // ── Chainable Supabase builder mock ─────────────────────────────────────────
 //
-// The leech service composes a Supabase JS query as
-//   from('leeches').select(...).eq(...).eq(...).limit(...)?.order(...)*?.or(...)?
+// The weakSpot service composes a Supabase JS query as
+//   from('weakSpots').select(...).eq(...).eq(...).limit(...)?.order(...)*?.or(...)?
 // then awaits the builder. The real builder is a Promise-like at await time.
 // We replicate that with a recursive proxy that records every call and resolves
 // to whatever `state.responses[<key>]` says.
@@ -106,7 +106,7 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-// Mock the AI service so diagnoseLeech tests can drive its output without
+// Mock the AI service so diagnoseWeakSpot tests can drive its output without
 // hitting OpenAI. The mock records every call so we can assert that replay
 // paths never invoke it.
 interface AiMockState {
@@ -115,7 +115,7 @@ interface AiMockState {
 }
 const aiMock: AiMockState = { diagnosisResponses: [], diagnosisCalls: [] }
 mock.module('../ai.service.ts', () => ({
-  generateLeechDiagnosis: mock(async (...args: readonly unknown[]) => {
+  generateWeakSpotDiagnosis: mock(async (...args: readonly unknown[]) => {
     aiMock.diagnosisCalls.push(args)
     const next = aiMock.diagnosisResponses.shift()
     if (next === undefined) {
@@ -127,12 +127,12 @@ mock.module('../ai.service.ts', () => ({
 }))
 
 const {
-  listLeeches, getLeechById, toListItem,
-  resolveLeech, reopenLeech,
+  listWeakSpots, getWeakSpotById, toListItem,
+  resolveWeakSpot, reopenWeakSpot,
   createDrillSession, getDrillSession, recordDrillAttempt, transitionDrillSession,
-  diagnoseLeech,
-} = await import('../leech.service.ts')
-import type { LeechRow } from '../leech.service.ts'
+  diagnoseWeakSpot,
+} = await import('../weak-spot.service.ts')
+import type { WeakSpotRow } from '../weak-spot.service.ts'
 
 beforeEach(() => {
   reset()
@@ -140,13 +140,13 @@ beforeEach(() => {
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const LEECH_ID  = 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c'
+const WEAK_SPOT_ID  = 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c'
 const CARD_ID   = 'b2e6c3d4-5e6f-4a7b-8c9d-7e6f5a4b3c2d'
 const DECK_ID   = 'c3f7d4e5-6f7a-4b8c-9d0e-8f7a6b5c4d3e'
 const ORPHAN_ID = 'd4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
 
-const SAMPLE_LEECH_ROW: LeechRow = {
-  id:           LEECH_ID,
+const SAMPLE_WEAK_SPOT_ROW: WeakSpotRow = {
+  id:           WEAK_SPOT_ID,
   card_id:      CARD_ID,
   diagnosis:    null,
   prescription: null,
@@ -167,7 +167,7 @@ const SAMPLE_LEECH_ROW: LeechRow = {
   },
 }
 
-const ORPHAN_LEECH_ROW: LeechRow = {
+const ORPHAN_WEAK_SPOT_ROW: WeakSpotRow = {
   id:           ORPHAN_ID,
   card_id:      null,
   diagnosis:    null,
@@ -178,58 +178,58 @@ const ORPHAN_LEECH_ROW: LeechRow = {
   card:         null,
 }
 
-const baseParams = listLeechesQuerySchema.parse({})
+const baseParams = listWeakSpotsQuerySchema.parse({})
 
 // ── Schema tests ────────────────────────────────────────────────────────────
 
-describe('leech schemas', () => {
-  it('listLeechesQuerySchema applies defaults', () => {
-    const parsed = listLeechesQuerySchema.parse({})
+describe('weakSpot schemas', () => {
+  it('listWeakSpotsQuerySchema applies defaults', () => {
+    const parsed = listWeakSpotsQuerySchema.parse({})
     expect(parsed.status).toBe('unresolved')
     expect(parsed.sort).toBe('mostRecent')
     expect(parsed.limit).toBe(50)
   })
 
-  it('listLeechesQuerySchema rejects unknown keys (.strict)', () => {
-    const result = listLeechesQuerySchema.safeParse({ foo: 'bar' })
+  it('listWeakSpotsQuerySchema rejects unknown keys (.strict)', () => {
+    const result = listWeakSpotsQuerySchema.safeParse({ foo: 'bar' })
     expect(result.success).toBe(false)
   })
 
-  it('listLeechesQuerySchema coerces limit and clamps via max', () => {
-    expect(listLeechesQuerySchema.parse({ limit: '25' }).limit).toBe(25)
-    expect(listLeechesQuerySchema.safeParse({ limit: 200 }).success).toBe(false)
+  it('listWeakSpotsQuerySchema coerces limit and clamps via max', () => {
+    expect(listWeakSpotsQuerySchema.parse({ limit: '25' }).limit).toBe(25)
+    expect(listWeakSpotsQuerySchema.safeParse({ limit: 200 }).success).toBe(false)
   })
 
-  it('leechIdParamSchema rejects non-UUID', () => {
-    expect(leechIdParamSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false)
-    expect(leechIdParamSchema.safeParse({ id: 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c' }).success).toBe(true)
+  it('weakSpotIdParamSchema rejects non-UUID', () => {
+    expect(weakSpotIdParamSchema.safeParse({ id: 'not-a-uuid' }).success).toBe(false)
+    expect(weakSpotIdParamSchema.safeParse({ id: 'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c' }).success).toBe(true)
   })
 
-  it('listLeechesQuerySchema accepts the deckOrder sort', () => {
-    const result = listLeechesQuerySchema.safeParse({ sort: 'deckOrder' })
+  it('listWeakSpotsQuerySchema accepts the deckOrder sort', () => {
+    const result = listWeakSpotsQuerySchema.safeParse({ sort: 'deckOrder' })
     expect(result.success).toBe(true)
   })
 
-  it('listLeechesQuerySchema accepts available/missing diagnosis values', () => {
-    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'available' }).success).toBe(true)
-    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'missing'   }).success).toBe(true)
+  it('listWeakSpotsQuerySchema accepts available/missing diagnosis values', () => {
+    expect(listWeakSpotsQuerySchema.safeParse({ diagnosis: 'available' }).success).toBe(true)
+    expect(listWeakSpotsQuerySchema.safeParse({ diagnosis: 'missing'   }).success).toBe(true)
   })
 
-  it('listLeechesQuerySchema rejects unknown diagnosis values', () => {
+  it('listWeakSpotsQuerySchema rejects unknown diagnosis values', () => {
     // The spec's third arm 'not included in plan' was a tier signal; Stage 7
     // removed the tier model (all features free for the MVP) so the enum
     // stays at the two column-based arms.
-    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'pending'  }).success).toBe(false)
-    expect(listLeechesQuerySchema.safeParse({ diagnosis: 'paid'     }).success).toBe(false)
+    expect(listWeakSpotsQuerySchema.safeParse({ diagnosis: 'pending'  }).success).toBe(false)
+    expect(listWeakSpotsQuerySchema.safeParse({ diagnosis: 'paid'     }).success).toBe(false)
   })
 })
 
 // ── toListItem ──────────────────────────────────────────────────────────────
 
-describe('leech.service — toListItem', () => {
-  it('maps a vocabulary leech row to camelCase', () => {
-    const item = toListItem(SAMPLE_LEECH_ROW)
-    expect(item.id).toBe(LEECH_ID)
+describe('weakSpot.service — toListItem', () => {
+  it('maps a vocabulary weakSpot row to camelCase', () => {
+    const item = toListItem(SAMPLE_WEAK_SPOT_ROW)
+    expect(item.id).toBe(WEAK_SPOT_ID)
     expect(item.cardId).toBe(CARD_ID)
     expect(item.deckId).toBe(DECK_ID)
     expect(item.deckName).toBe('Core 1k')
@@ -244,8 +244,8 @@ describe('leech.service — toListItem', () => {
     expect(item.createdAt).toBe('2026-05-01T12:00:00.000Z')
   })
 
-  it('returns null card-derived fields for an orphan leech', () => {
-    const item = toListItem(ORPHAN_LEECH_ROW)
+  it('returns null card-derived fields for an orphan weakSpot', () => {
+    const item = toListItem(ORPHAN_WEAK_SPOT_ROW)
     expect(item.cardId).toBeNull()
     expect(item.deckId).toBeNull()
     expect(item.deckName).toBeNull()
@@ -260,12 +260,12 @@ describe('leech.service — toListItem', () => {
   })
 })
 
-// ── listLeeches ─────────────────────────────────────────────────────────────
+// ── listWeakSpots ─────────────────────────────────────────────────────────────
 
-describe('leech.service — listLeeches', () => {
+describe('weakSpot.service — listWeakSpots', () => {
   it('filters by user_id and unresolved by default', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
-    const out = await listLeeches('user-1', baseParams)
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    const out = await listWeakSpots('user-1', baseParams)
 
     const eqCalls = state.calls.filter((c) => c.method === 'eq')
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['user_id', 'user-1'] })
@@ -276,8 +276,8 @@ describe('leech.service — listLeeches', () => {
   })
 
   it('passes resolved=true when status=resolved', async () => {
-    state.responses['leeches'] = [{ data: [], error: null }]
-    await listLeeches('user-1', { ...baseParams, status: 'resolved' })
+    state.responses['weakSpots'] = [{ data: [], error: null }]
+    await listWeakSpots('user-1', { ...baseParams, status: 'resolved' })
 
     const eqCalls = state.calls.filter((c) => c.method === 'eq')
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['resolved', true] })
@@ -286,13 +286,13 @@ describe('leech.service — listLeeches', () => {
   it('signals hasMore and emits a cursor when limit + 1 rows return', async () => {
     // Three near-identical rows; service should keep limit=2 and report hasMore.
     const rows = [
-      { ...SAMPLE_LEECH_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', created_at: '2026-05-05T00:00:00.000Z' },
-      { ...SAMPLE_LEECH_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b', created_at: '2026-05-04T00:00:00.000Z' },
-      { ...SAMPLE_LEECH_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c', created_at: '2026-05-03T00:00:00.000Z' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', created_at: '2026-05-05T00:00:00.000Z' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b', created_at: '2026-05-04T00:00:00.000Z' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c', created_at: '2026-05-03T00:00:00.000Z' },
     ]
-    state.responses['leeches'] = [{ data: rows, error: null }]
+    state.responses['weakSpots'] = [{ data: rows, error: null }]
 
-    const out = await listLeeches('user-1', { ...baseParams, limit: 2 })
+    const out = await listWeakSpots('user-1', { ...baseParams, limit: 2 })
     expect(out.items).toHaveLength(2)
     expect(out.hasMore).toBe(true)
     expect(out.nextCursor).not.toBeNull()
@@ -305,16 +305,16 @@ describe('leech.service — listLeeches', () => {
     })
   })
 
-  it('includes an orphan leech row when no card filter is set', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW, ORPHAN_LEECH_ROW], error: null }]
-    const out = await listLeeches('user-1', { ...baseParams, status: 'resolved' })
+  it('includes an orphan weakSpot row when no card filter is set', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW, ORPHAN_WEAK_SPOT_ROW], error: null }]
+    const out = await listWeakSpots('user-1', { ...baseParams, status: 'resolved' })
     expect(out.items).toHaveLength(2)
     expect(out.items[1]?.cardId).toBeNull()
   })
 
   it('applies a card-side filter via dot notation', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
-    await listLeeches('user-1', { ...baseParams, deckId: DECK_ID })
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    await listWeakSpots('user-1', { ...baseParams, deckId: DECK_ID })
 
     const eqCalls = state.calls.filter((c) => c.method === 'eq')
     expect(eqCalls).toContainEqual({
@@ -331,7 +331,7 @@ describe('leech.service — listLeeches', () => {
 
     let caught: unknown
     try {
-      await listLeeches('user-1', { ...baseParams, sort: 'mostLapses', cursor })
+      await listWeakSpots('user-1', { ...baseParams, sort: 'mostLapses', cursor })
     } catch (err) {
       caught = err
     }
@@ -342,11 +342,11 @@ describe('leech.service — listLeeches', () => {
   })
 
   it('translates Supabase errors via dbError (5xx becomes 500)', async () => {
-    state.responses['leeches'] = [{ data: null, error: { message: 'connection refused' } }]
+    state.responses['weakSpots'] = [{ data: null, error: { message: 'connection refused' } }]
 
     let caught: unknown
     try {
-      await listLeeches('user-1', baseParams)
+      await listWeakSpots('user-1', baseParams)
     } catch (err) {
       caught = err
     }
@@ -356,53 +356,53 @@ describe('leech.service — listLeeches', () => {
   })
 })
 
-// ── getLeechById ─────────────────────────────────────────────────────────────
+// ── getWeakSpotById ─────────────────────────────────────────────────────────────
 
-describe('leech.service — getLeechById', () => {
+describe('weakSpot.service — getWeakSpotById', () => {
   it('returns the mapped row on the happy path', async () => {
-    state.responses['leeches'] = [{ data: SAMPLE_LEECH_ROW, error: null }]
-    const out = await getLeechById('user-1', LEECH_ID)
-    expect(out.id).toBe(LEECH_ID)
+    state.responses['weakSpots'] = [{ data: SAMPLE_WEAK_SPOT_ROW, error: null }]
+    const out = await getWeakSpotById('user-1', WEAK_SPOT_ID)
+    expect(out.id).toBe(WEAK_SPOT_ID)
     expect(out.deckName).toBe('Core 1k')
   })
 
-  it('throws LEECH_NOT_FOUND 404 when the row is missing', async () => {
-    state.responses['leeches'] = [{ data: null, error: null }]
+  it('throws WEAK_SPOT_NOT_FOUND 404 when the row is missing', async () => {
+    state.responses['weakSpots'] = [{ data: null, error: null }]
 
     let caught: unknown
     try {
-      await getLeechById('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
+      await getWeakSpotById('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
     } catch (err) {
       caught = err
     }
     expect(caught).toBeInstanceOf(Error)
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_NOT_FOUND')
   })
 })
 
-// ── resolveLeech ─────────────────────────────────────────────────────────────
+// ── resolveWeakSpot ─────────────────────────────────────────────────────────────
 //
-// Each resolveLeech call issues up to three queries against the `leeches`
+// Each resolveWeakSpot call issues up to three queries against the `weakSpots`
 // table: (1) state pre-fetch via .select(slim).maybeSingle(), (2) UPDATE on
-// the flip path, and (3) joined refetch via .select(LEECH_SELECT_LEFT).single().
+// the flip path, and (3) joined refetch via .select(WEAK_SPOT_SELECT_LEFT).single().
 // The chainable mock's response queue is FIFO, so each test pushes the
 // expected sequence in order.
 
-describe('leech.service — resolveLeech', () => {
-  it('flips an unresolved leech to resolved and stamps resolved_at', async () => {
-    state.responses['leeches'] = [
+describe('weakSpot.service — resolveWeakSpot', () => {
+  it('flips an unresolved weakSpot to resolved and stamps resolved_at', async () => {
+    state.responses['weakSpots'] = [
       // 1) pre-fetch: unresolved
-      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
+      { data: { id: WEAK_SPOT_ID, resolved: false, resolved_at: null }, error: null },
       // 2) UPDATE: success (no rows returned, just error: null)
       { data: null, error: null },
       // 3) joined refetch: returns the now-resolved row
-      { data: { ...SAMPLE_LEECH_ROW, resolved: true, resolved_at: '2026-05-14T18:00:00.000Z' }, error: null },
+      { data: { ...SAMPLE_WEAK_SPOT_ROW, resolved: true, resolved_at: '2026-05-14T18:00:00.000Z' }, error: null },
     ]
 
-    const out = await resolveLeech('user-1', LEECH_ID)
-    expect(out.id).toBe(LEECH_ID)
+    const out = await resolveWeakSpot('user-1', WEAK_SPOT_ID)
+    expect(out.id).toBe(WEAK_SPOT_ID)
     expect(out.resolved).toBe(true)
     expect(out.resolvedAt).toBe('2026-05-14T18:00:00.000Z')
 
@@ -414,16 +414,16 @@ describe('leech.service — resolveLeech', () => {
     expect(typeof patch.resolved_at).toBe('string')
   })
 
-  it('is idempotent: already-resolved leech returns the existing row without UPDATE', async () => {
-    const resolvedRow = { ...SAMPLE_LEECH_ROW, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }
-    state.responses['leeches'] = [
+  it('is idempotent: already-resolved weakSpot returns the existing row without UPDATE', async () => {
+    const resolvedRow = { ...SAMPLE_WEAK_SPOT_ROW, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }
+    state.responses['weakSpots'] = [
       // 1) pre-fetch: already resolved
-      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+      { data: { id: WEAK_SPOT_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
       // 2) joined refetch (skips the UPDATE entirely)
       { data: resolvedRow, error: null },
     ]
 
-    const out = await resolveLeech('user-1', LEECH_ID)
+    const out = await resolveWeakSpot('user-1', WEAK_SPOT_ID)
     expect(out.resolved).toBe(true)
     expect(out.resolvedAt).toBe('2026-05-01T12:00:00.000Z')
 
@@ -431,29 +431,29 @@ describe('leech.service — resolveLeech', () => {
     expect(updateCalls).toHaveLength(0)
   })
 
-  it('throws LEECH_NOT_FOUND 404 when the leech does not exist', async () => {
-    state.responses['leeches'] = [{ data: null, error: null }]
+  it('throws WEAK_SPOT_NOT_FOUND 404 when the weakSpot does not exist', async () => {
+    state.responses['weakSpots'] = [{ data: null, error: null }]
 
     let caught: unknown
     try {
-      await resolveLeech('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
+      await resolveWeakSpot('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
     } catch (err) {
       caught = err
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_NOT_FOUND')
   })
 
   it('translates DB errors on UPDATE via dbError (500)', async () => {
-    state.responses['leeches'] = [
-      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
+    state.responses['weakSpots'] = [
+      { data: { id: WEAK_SPOT_ID, resolved: false, resolved_at: null }, error: null },
       { data: null, error: { message: 'connection refused' } },
     ]
 
     let caught: unknown
     try {
-      await resolveLeech('user-1', LEECH_ID)
+      await resolveWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
@@ -462,17 +462,17 @@ describe('leech.service — resolveLeech', () => {
   })
 })
 
-// ── reopenLeech ──────────────────────────────────────────────────────────────
+// ── reopenWeakSpot ──────────────────────────────────────────────────────────────
 
-describe('leech.service — reopenLeech', () => {
-  it('flips a resolved leech back to unresolved and clears resolved_at', async () => {
-    state.responses['leeches'] = [
-      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+describe('weakSpot.service — reopenWeakSpot', () => {
+  it('flips a resolved weakSpot back to unresolved and clears resolved_at', async () => {
+    state.responses['weakSpots'] = [
+      { data: { id: WEAK_SPOT_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
       { data: null, error: null },
-      { data: { ...SAMPLE_LEECH_ROW, resolved: false, resolved_at: null }, error: null },
+      { data: { ...SAMPLE_WEAK_SPOT_ROW, resolved: false, resolved_at: null }, error: null },
     ]
 
-    const out = await reopenLeech('user-1', LEECH_ID)
+    const out = await reopenWeakSpot('user-1', WEAK_SPOT_ID)
     expect(out.resolved).toBe(false)
     expect(out.resolvedAt).toBeNull()
 
@@ -481,59 +481,59 @@ describe('leech.service — reopenLeech', () => {
     expect(updateCalls[0]?.args[0]).toEqual({ resolved: false, resolved_at: null })
   })
 
-  it('is idempotent: already-open leech returns the existing row without UPDATE', async () => {
-    state.responses['leeches'] = [
-      { data: { id: LEECH_ID, resolved: false, resolved_at: null }, error: null },
-      { data: SAMPLE_LEECH_ROW, error: null },
+  it('is idempotent: already-open weakSpot returns the existing row without UPDATE', async () => {
+    state.responses['weakSpots'] = [
+      { data: { id: WEAK_SPOT_ID, resolved: false, resolved_at: null }, error: null },
+      { data: SAMPLE_WEAK_SPOT_ROW, error: null },
     ]
 
-    const out = await reopenLeech('user-1', LEECH_ID)
+    const out = await reopenWeakSpot('user-1', WEAK_SPOT_ID)
     expect(out.resolved).toBe(false)
 
     const updateCalls = state.calls.filter((c) => c.method === 'update')
     expect(updateCalls).toHaveLength(0)
   })
 
-  it('throws LEECH_NOT_FOUND 404 when the leech does not exist', async () => {
-    state.responses['leeches'] = [{ data: null, error: null }]
+  it('throws WEAK_SPOT_NOT_FOUND 404 when the weakSpot does not exist', async () => {
+    state.responses['weakSpots'] = [{ data: null, error: null }]
 
     let caught: unknown
     try {
-      await reopenLeech('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
+      await reopenWeakSpot('user-1', 'b8ec19da-becf-403b-9c5d-de2fb0ab9c8d')
     } catch (err) {
       caught = err
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_NOT_FOUND')
   })
 
-  it('translates SQLSTATE 23505 from the partial unique index to LEECH_ALREADY_OPEN 409', async () => {
-    state.responses['leeches'] = [
-      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+  it('translates SQLSTATE 23505 from the partial unique index to WEAK_SPOT_ALREADY_OPEN 409', async () => {
+    state.responses['weakSpots'] = [
+      { data: { id: WEAK_SPOT_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
       { data: null, error: { message: 'duplicate key value violates unique constraint', code: '23505' } },
     ]
 
     let caught: unknown
     try {
-      await reopenLeech('user-1', LEECH_ID)
+      await reopenWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(409)
-    expect(e.code).toBe('LEECH_ALREADY_OPEN')
+    expect(e.code).toBe('WEAK_SPOT_ALREADY_OPEN')
   })
 
   it('falls through to dbError for non-23505 UPDATE errors (500)', async () => {
-    state.responses['leeches'] = [
-      { data: { id: LEECH_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
+    state.responses['weakSpots'] = [
+      { data: { id: WEAK_SPOT_ID, resolved: true, resolved_at: '2026-05-01T12:00:00.000Z' }, error: null },
       { data: null, error: { message: 'connection refused' } },
     ]
 
     let caught: unknown
     try {
-      await reopenLeech('user-1', LEECH_ID)
+      await reopenWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
@@ -542,12 +542,12 @@ describe('leech.service — reopenLeech', () => {
   })
 })
 
-// ── listLeeches — Stage 2.5: deckOrder sort + diagnosis filter ──────────────
+// ── listWeakSpots — Stage 2.5: deckOrder sort + diagnosis filter ──────────────
 
-describe('leech.service — listLeeches deckOrder sort', () => {
+describe('weakSpot.service — listWeakSpots deckOrder sort', () => {
   it('orders by foreign-table cards.deck_id ascending, then created_at desc, then id desc', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
-    await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder' }))
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder' }))
 
     const orderCalls = state.calls.filter((c) => c.method === 'order')
     // First order call must target deck_id on the joined cards relation.
@@ -568,7 +568,7 @@ describe('leech.service — listLeeches deckOrder sort', () => {
 
     let caught: unknown
     try {
-      await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder', cursor }))
+      await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder', cursor }))
     } catch (err) {
       caught = err
     }
@@ -580,24 +580,24 @@ describe('leech.service — listLeeches deckOrder sort', () => {
   it('never emits a nextCursor for deckOrder, even when hasMore is true', async () => {
     // Three rows, limit 2 → service detects hasMore but must withhold the cursor.
     const rows = [
-      { ...SAMPLE_LEECH_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a' },
-      { ...SAMPLE_LEECH_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b' },
-      { ...SAMPLE_LEECH_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b' },
+      { ...SAMPLE_WEAK_SPOT_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c' },
     ]
-    state.responses['leeches'] = [{ data: rows, error: null }]
+    state.responses['weakSpots'] = [{ data: rows, error: null }]
 
-    const out = await listLeeches('user-1', listLeechesQuerySchema.parse({ sort: 'deckOrder', limit: 2 }))
+    const out = await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder', limit: 2 }))
     expect(out.hasMore).toBe(true)
     expect(out.nextCursor).toBeNull()
   })
 })
 
-describe('leech.service — listLeeches diagnosis filter', () => {
+describe('weakSpot.service — listWeakSpots diagnosis filter', () => {
   it('diagnosis=available adds a NOT IS NULL filter without forcing inner-join', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
-    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'available' }))
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ diagnosis: 'available' }))
 
-    // Filter must be a .not('diagnosis', 'is', null) call against the leeches table.
+    // Filter must be a .not('diagnosis', 'is', null) call against the weakSpots table.
     const notCalls = state.calls.filter((c) => c.method === 'not')
     expect(notCalls).toContainEqual({ method: 'not', args: ['diagnosis', 'is', null] })
 
@@ -610,8 +610,8 @@ describe('leech.service — listLeeches diagnosis filter', () => {
   })
 
   it('diagnosis=missing adds an IS NULL filter without forcing inner-join', async () => {
-    state.responses['leeches'] = [{ data: [], error: null }]
-    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'missing' }))
+    state.responses['weakSpots'] = [{ data: [], error: null }]
+    await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ diagnosis: 'missing' }))
 
     const isCalls = state.calls.filter((c) => c.method === 'is')
     expect(isCalls).toContainEqual({ method: 'is', args: ['diagnosis', null] })
@@ -622,8 +622,8 @@ describe('leech.service — listLeeches diagnosis filter', () => {
   })
 
   it('omitting diagnosis does not call .not or .is on the diagnosis column', async () => {
-    state.responses['leeches'] = [{ data: [SAMPLE_LEECH_ROW], error: null }]
-    await listLeeches('user-1', listLeechesQuerySchema.parse({}))
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({}))
 
     const diagnosisCalls = state.calls.filter((c) =>
       (c.method === 'not' || c.method === 'is') && c.args[0] === 'diagnosis',
@@ -632,8 +632,8 @@ describe('leech.service — listLeeches diagnosis filter', () => {
   })
 
   it('diagnosis combines with a deckId card-filter — uses inner-join and applies both', async () => {
-    state.responses['leeches'] = [{ data: [], error: null }]
-    await listLeeches('user-1', listLeechesQuerySchema.parse({ diagnosis: 'available', deckId: DECK_ID }))
+    state.responses['weakSpots'] = [{ data: [], error: null }]
+    await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ diagnosis: 'available', deckId: DECK_ID }))
 
     // Card-side deck filter forces inner-join — diagnosis filter rides alongside.
     const selectStr = state.calls.find((c) => c.method === 'select')?.args[0]
@@ -658,7 +658,7 @@ const SAMPLE_DRILL_ENVELOPE = {
   cards: [
     {
       sessionCardId: DRILL_SESSION_CARD,
-      leechId:       LEECH_ID,
+      weakSpotId:       WEAK_SPOT_ID,
       cardId:        CARD_ID,
       ordinal:       0,
       layoutType:    'vocabulary',
@@ -667,7 +667,7 @@ const SAMPLE_DRILL_ENVELOPE = {
     },
     {
       sessionCardId: DRILL_SESSION_CARD2,
-      leechId:       'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f',
+      weakSpotId:       'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f',
       cardId:        'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a',
       ordinal:       1,
       layoutType:    'vocabulary',
@@ -713,9 +713,9 @@ describe('createDrillSession schema', () => {
   })
 })
 
-describe('leech.service — createDrillSession', () => {
+describe('weakSpot.service — createDrillSession', () => {
   it('happy path: forwards camelCase→snake_case enums and returns the parsed envelope', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: SAMPLE_DRILL_ENVELOPE, error: null },
     ]
 
@@ -730,7 +730,7 @@ describe('leech.service — createDrillSession', () => {
     // RPC must have been called once with the right name and snake_case mapping.
     expect(state.rpcCalls).toHaveLength(1)
     const call = state.rpcCalls[0]
-    expect(call?.name).toBe('create_leech_drill_session')
+    expect(call?.name).toBe('create_weak_spot_drill_session')
     const payload = call?.payload as Record<string, unknown>
     expect(payload['p_user_id']).toBe('user-1')
     expect(payload['p_source']).toBe('unresolved_leeches')        // ← camelCase→snake_case
@@ -741,7 +741,7 @@ describe('leech.service — createDrillSession', () => {
   })
 
   it('deckScoped source maps to deck_scoped and forwards deckId', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -758,7 +758,7 @@ describe('leech.service — createDrillSession', () => {
   })
 
   it('persists the wire-level filter breadcrumb in p_source_query for analytics', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -787,7 +787,7 @@ describe('leech.service — createDrillSession', () => {
   })
 
   it('returns an empty queue cleanly when the RPC finds no candidates', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { sessionId: DRILL_SESSION_ID, status: 'active', cards: [] }, error: null },
     ]
 
@@ -798,7 +798,7 @@ describe('leech.service — createDrillSession', () => {
   })
 
   it('translates DB errors via dbError (500)', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: null, error: { message: 'connection refused' } },
     ]
 
@@ -815,7 +815,7 @@ describe('leech.service — createDrillSession', () => {
   it('throws when the RPC returns a payload that fails Zod parsing', async () => {
     // Missing required `cards` field — surfaces as a clean ZodError so silent
     // RPC drift doesn't slip past the boundary.
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { sessionId: DRILL_SESSION_ID, status: 'active' }, error: null },
     ]
 
@@ -831,7 +831,7 @@ describe('leech.service — createDrillSession', () => {
   it('never queries the cards or review_logs tables (scheduler invariance via service boundary)', async () => {
     // Pre-condition: the RPC owns the transaction. The service is purely a
     // forwarder. Assert no .from('cards') or .from('review_logs') call slips in.
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: SAMPLE_DRILL_ENVELOPE, error: null },
     ]
 
@@ -861,10 +861,10 @@ describe('drillSessionIdParamSchema', () => {
 })
 
 // Shared fixture builders for the resume tests.
-function freshCard(sessionCardId: string, leechId: string, cardId: string, ordinal: number): Record<string, unknown> {
+function freshCard(sessionCardId: string, weakSpotId: string, cardId: string, ordinal: number): Record<string, unknown> {
   return {
     sessionCardId,
-    leechId,
+    weakSpotId,
     cardId,
     ordinal,
     layoutType: 'vocabulary',
@@ -875,14 +875,14 @@ function freshCard(sessionCardId: string, leechId: string, cardId: string, ordin
   }
 }
 
-function staleCard(sessionCardId: string, leechId: string, cardId: string, ordinal: number): Record<string, unknown> {
-  return { ...freshCard(sessionCardId, leechId, cardId, ordinal), isStale: true }
+function staleCard(sessionCardId: string, weakSpotId: string, cardId: string, ordinal: number): Record<string, unknown> {
+  return { ...freshCard(sessionCardId, weakSpotId, cardId, ordinal), isStale: true }
 }
 
-function orphanCard(sessionCardId: string, leechId: string, ordinal: number): Record<string, unknown> {
+function orphanCard(sessionCardId: string, weakSpotId: string, ordinal: number): Record<string, unknown> {
   return {
     sessionCardId,
-    leechId,
+    weakSpotId,
     cardId:     null,
     ordinal,
     layoutType: null,
@@ -893,16 +893,16 @@ function orphanCard(sessionCardId: string, leechId: string, ordinal: number): Re
   }
 }
 
-describe('leech.service — getDrillSession', () => {
+describe('weakSpot.service — getDrillSession', () => {
   it('returns the parsed envelope when all cards are fresh', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: {
         sessionId:             DRILL_SESSION_ID,
         status:                'active',
         isCanonicalStateStale: false,
         staleCards:            [],
         cards: [
-          freshCard(DRILL_SESSION_CARD,  LEECH_ID, CARD_ID, 0),
+          freshCard(DRILL_SESSION_CARD,  WEAK_SPOT_ID, CARD_ID, 0),
           freshCard(DRILL_SESSION_CARD2, 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f', 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', 1),
         ],
       }, error: null },
@@ -920,20 +920,20 @@ describe('leech.service — getDrillSession', () => {
     // RPC was called once with the right shape.
     expect(state.rpcCalls).toHaveLength(1)
     const call = state.rpcCalls[0]
-    expect(call?.name).toBe('get_leech_drill_session')
+    expect(call?.name).toBe('get_weak_spot_drill_session')
     expect((call?.payload as Record<string, unknown>)['p_user_id']).toBe('user-1')
     expect((call?.payload as Record<string, unknown>)['p_session_id']).toBe(DRILL_SESSION_ID)
   })
 
   it('preserves staleness flags and the staleCards array', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: {
         sessionId:             DRILL_SESSION_ID,
         status:                'active',
         isCanonicalStateStale: true,
         staleCards:            [CARD_ID],
         cards: [
-          staleCard(DRILL_SESSION_CARD,  LEECH_ID, CARD_ID, 0),
+          staleCard(DRILL_SESSION_CARD,  WEAK_SPOT_ID, CARD_ID, 0),
           freshCard(DRILL_SESSION_CARD2, 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f', 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', 1),
         ],
       }, error: null },
@@ -947,14 +947,14 @@ describe('leech.service — getDrillSession', () => {
   })
 
   it('surfaces orphan rows with cardId null and never lists them in staleCards', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: {
         sessionId:             DRILL_SESSION_ID,
         status:                'active',
         isCanonicalStateStale: false,
         staleCards:            [],
         cards: [
-          orphanCard(DRILL_SESSION_CARD, LEECH_ID, 0),
+          orphanCard(DRILL_SESSION_CARD, WEAK_SPOT_ID, 0),
         ],
       }, error: null },
     ]
@@ -969,20 +969,20 @@ describe('leech.service — getDrillSession', () => {
   })
 
   it('segregates stale, orphan, and fresh rows correctly when all three coexist', async () => {
-    const orphanLeechId = 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
+    const orphanWeakSpotId = 'e4a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
     const freshCardId   = 'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a'
-    const freshLeechId  = 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c'
+    const freshWeakSpotId  = 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c'
 
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: {
         sessionId:             DRILL_SESSION_ID,
         status:                'active',
         isCanonicalStateStale: true,
         staleCards:            [CARD_ID],       // only the truly-stale card is here
         cards: [
-          staleCard (DRILL_SESSION_CARD,                                                LEECH_ID,        CARD_ID,     0),
-          orphanCard(DRILL_SESSION_CARD2,                                               orphanLeechId,                1),
-          freshCard ('b8ec19da-becf-4f3b-9c5d-de2fb0ab9c8d',                            freshLeechId,    freshCardId, 2),
+          staleCard (DRILL_SESSION_CARD,                                                WEAK_SPOT_ID,        CARD_ID,     0),
+          orphanCard(DRILL_SESSION_CARD2,                                               orphanWeakSpotId,                1),
+          freshCard ('b8ec19da-becf-4f3b-9c5d-de2fb0ab9c8d',                            freshWeakSpotId,    freshCardId, 2),
         ],
       }, error: null },
     ]
@@ -996,9 +996,9 @@ describe('leech.service — getDrillSession', () => {
     expect(out.staleCards).toEqual([CARD_ID])
   })
 
-  it('translates SQLSTATE 02000 + leech_drill_session_not_found → 404 LEECH_DRILL_SESSION_NOT_FOUND', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
-      { data: null, error: { code: '02000', message: 'leech_drill_session_not_found' } },
+  it('translates SQLSTATE 02000 + weak_spot_drill_session_not_found → 404 WEAK_SPOT_DRILL_SESSION_NOT_FOUND', async () => {
+    state.rpcResponses['get_weak_spot_drill_session'] = [
+      { data: null, error: { code: '02000', message: 'weak_spot_drill_session_not_found' } },
     ]
 
     let caught: unknown
@@ -1009,11 +1009,11 @@ describe('leech.service — getDrillSession', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_DRILL_SESSION_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_SESSION_NOT_FOUND')
   })
 
   it('falls through to dbError for non-404 RPC errors (500)', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: null, error: { message: 'connection refused' } },
     ]
 
@@ -1030,7 +1030,7 @@ describe('leech.service — getDrillSession', () => {
   it('throws when the RPC envelope fails Zod parsing', async () => {
     // Missing required `isCanonicalStateStale` boolean — Zod surfaces a clean
     // error at the service boundary rather than silently coercing.
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: { sessionId: DRILL_SESSION_ID, status: 'active', staleCards: [], cards: [] }, error: null },
     ]
 
@@ -1044,7 +1044,7 @@ describe('leech.service — getDrillSession', () => {
   })
 
   it('never queries the cards or review_logs tables (scheduler invariance)', async () => {
-    state.rpcResponses['get_leech_drill_session'] = [
+    state.rpcResponses['get_weak_spot_drill_session'] = [
       { data: {
         sessionId:             DRILL_SESSION_ID,
         status:                'active',
@@ -1068,14 +1068,14 @@ describe('leech.service — getDrillSession', () => {
 const ATTEMPT_ID         = 'c2f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c'
 const EVENT_ID           = 'd3e6c3d4-5e6f-4a7b-8c9d-7e6f5a4b3c2d'
 const ANOTHER_CARD_ID    = 'e4f7d4e5-6f7a-4b8c-9d0e-8f7a6b5c4d3e'
-const ANOTHER_LEECH_ID   = 'f5a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
+const ANOTHER_WEAK_SPOT_ID   = 'f5a8e5f6-7a8b-4c9d-9e1f-9a8b7c6d5e4f'
 
 const SAMPLE_ATTEMPT_ENVELOPE = {
   attemptId:      ATTEMPT_ID,
   eventId:        EVENT_ID,
   sessionId:      DRILL_SESSION_ID,
   sessionCardId:  DRILL_SESSION_CARD,
-  leechId:        LEECH_ID,
+  weakSpotId:        WEAK_SPOT_ID,
   cardId:         CARD_ID,
   result:         'remembered',
   localSequence:  0,
@@ -1150,9 +1150,9 @@ describe('recordDrillAttemptSchema', () => {
   })
 })
 
-describe('leech.service — recordDrillAttempt', () => {
+describe('weakSpot.service — recordDrillAttempt', () => {
   it('happy path: forwards camelCase→snake_case params and returns the parsed envelope', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
     ]
 
@@ -1173,20 +1173,20 @@ describe('leech.service — recordDrillAttempt', () => {
 
     expect(state.rpcCalls).toHaveLength(1)
     const call = state.rpcCalls[0]
-    expect(call?.name).toBe('record_leech_drill_attempt')
+    expect(call?.name).toBe('record_weak_spot_drill_attempt')
     const payload = call?.payload as Record<string, unknown>
     expect(payload['p_user_id']).toBe('user-1')
     expect(payload['p_session_id']).toBe(DRILL_SESSION_ID)
     expect(payload['p_event_id']).toBe(EVENT_ID)
     expect(payload['p_session_card_id']).toBe(DRILL_SESSION_CARD)
     expect(payload['p_asserted_card_id']).toBeNull()      // body omitted → null
-    expect(payload['p_asserted_leech_id']).toBeNull()
+    expect(payload['p_asserted_weak_spot_id']).toBeNull()
     expect(payload['p_response_time_ms']).toBe(4200)
   })
 
   it('idempotent replay: same eventId returns identical envelope', async () => {
     // First call — fresh insert.
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
     ]
     const first = await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
@@ -1196,7 +1196,7 @@ describe('leech.service — recordDrillAttempt', () => {
     }))
 
     // Second call — RPC's ON CONFLICT DO NOTHING returns the same row.
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
     ]
     const second = await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
@@ -1209,8 +1209,8 @@ describe('leech.service — recordDrillAttempt', () => {
     expect(first.attemptId).toBe(second.attemptId)
   })
 
-  it('forwards body cardId/leechId as assertions when supplied', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
+  it('forwards body cardId/weakSpotId as assertions when supplied', async () => {
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: SAMPLE_ATTEMPT_ENVELOPE, error: null },
     ]
 
@@ -1218,18 +1218,18 @@ describe('leech.service — recordDrillAttempt', () => {
       eventId:       EVENT_ID,
       sessionCardId: DRILL_SESSION_CARD,
       cardId:        CARD_ID,
-      leechId:       LEECH_ID,
+      weakSpotId:       WEAK_SPOT_ID,
       result:        'hesitated',
     }))
 
     const payload = state.rpcCalls[0]?.payload as Record<string, unknown>
     expect(payload['p_asserted_card_id']).toBe(CARD_ID)
-    expect(payload['p_asserted_leech_id']).toBe(LEECH_ID)
+    expect(payload['p_asserted_weak_spot_id']).toBe(WEAK_SPOT_ID)
   })
 
-  it('throws LEECH_DRILL_SESSION_CARD_NOT_FOUND 404 for sessionCard mismatch', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
-      { data: null, error: { code: '02000', message: 'leech_drill_session_card_not_found' } },
+  it('throws WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND 404 for sessionCard mismatch', async () => {
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
+      { data: null, error: { code: '02000', message: 'weak_spot_drill_session_card_not_found' } },
     ]
 
     let caught: unknown
@@ -1244,12 +1244,12 @@ describe('leech.service — recordDrillAttempt', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_DRILL_SESSION_CARD_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND')
   })
 
-  it('throws LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for cardId assertion mismatch', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
-      { data: null, error: { code: '22000', message: 'leech_drill_attempt_card_mismatch' } },
+  it('throws WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for cardId assertion mismatch', async () => {
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
+      { data: null, error: { code: '22000', message: 'weak_spot_drill_attempt_card_mismatch' } },
     ]
 
     let caught: unknown
@@ -1265,12 +1265,12 @@ describe('leech.service — recordDrillAttempt', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(422)
-    expect(e.code).toBe('LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH')
   })
 
-  it('throws LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for leechId assertion mismatch', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
-      { data: null, error: { code: '22000', message: 'leech_drill_attempt_leech_mismatch' } },
+  it('throws WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH 422 for weakSpotId assertion mismatch', async () => {
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
+      { data: null, error: { code: '22000', message: 'weak_spot_drill_attempt_weak_spot_mismatch' } },
     ]
 
     let caught: unknown
@@ -1278,7 +1278,7 @@ describe('leech.service — recordDrillAttempt', () => {
       await recordDrillAttempt('user-1', DRILL_SESSION_ID, recordDrillAttemptSchema.parse({
         eventId:       EVENT_ID,
         sessionCardId: DRILL_SESSION_CARD,
-        leechId:       ANOTHER_LEECH_ID,
+        weakSpotId:       ANOTHER_WEAK_SPOT_ID,
         result:        'missed',
       }))
     } catch (err) {
@@ -1286,11 +1286,11 @@ describe('leech.service — recordDrillAttempt', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(422)
-    expect(e.code).toBe('LEECH_DRILL_ATTEMPT_ASSERTION_MISMATCH')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH')
   })
 
   it('translates SQLSTATE 23503 (FK violation, e.g. card deleted) to dbError 409', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: null, error: { code: '23503', message: 'foreign key violation' } },
     ]
 
@@ -1310,7 +1310,7 @@ describe('leech.service — recordDrillAttempt', () => {
   })
 
   it('falls through to dbError for generic RPC errors (500)', async () => {
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: null, error: { message: 'connection refused' } },
     ]
 
@@ -1330,7 +1330,7 @@ describe('leech.service — recordDrillAttempt', () => {
 
   it('throws when the RPC envelope fails Zod parsing', async () => {
     // Missing required `result` field — Zod surfaces at the boundary.
-    state.rpcResponses['record_leech_drill_attempt'] = [
+    state.rpcResponses['record_weak_spot_drill_attempt'] = [
       { data: { ...SAMPLE_ATTEMPT_ENVELOPE, result: undefined }, error: null },
     ]
 
@@ -1382,7 +1382,7 @@ function makeFakeAttemptEnvelope(): Record<string, unknown> {
     eventId:        randomUUID(),
     sessionId:      randomUUID(),
     sessionCardId:  randomUUID(),
-    leechId:        randomUUID(),
+    weakSpotId:        randomUUID(),
     cardId:         randomUUID(),
     result:         pick(DRILL_RESULTS),
     localSequence:  null,
@@ -1415,7 +1415,7 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
   it('100 randomized recordDrillAttempt invocations issue zero .from() calls', async () => {
     for (let i = 0; i < 100; i++) {
       reset()
-      state.rpcResponses['record_leech_drill_attempt'] = [
+      state.rpcResponses['record_weak_spot_drill_attempt'] = [
         { data: makeFakeAttemptEnvelope(), error: null },
       ]
 
@@ -1424,7 +1424,7 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
         sessionCardId:  randomUUID(),
         result:         pick(DRILL_RESULTS),
         ...(maybeUuid() !== undefined ? { cardId: maybeUuid() } : {}),
-        ...(maybeUuid() !== undefined ? { leechId: maybeUuid() } : {}),
+        ...(maybeUuid() !== undefined ? { weakSpotId: maybeUuid() } : {}),
         ...(maybeNumber(10000) !== undefined ? { responseTimeMs: maybeNumber(10000) } : {}),
         ...(maybeNumber(50)    !== undefined ? { localSequence:  maybeNumber(50) }    : {}),
       }))
@@ -1433,7 +1433,7 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
       expect(state.lastTable).toBeNull()
       // Only the drill-namespace RPC was invoked.
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
-      expect(rpcNames).toEqual(['record_leech_drill_attempt'])
+      expect(rpcNames).toEqual(['record_weak_spot_drill_attempt'])
     }
   })
 
@@ -1443,7 +1443,7 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
 
     for (let i = 0; i < 50; i++) {
       reset()
-      state.rpcResponses['create_leech_drill_session'] = [
+      state.rpcResponses['create_weak_spot_drill_session'] = [
         { data: makeFakeSessionEnvelope(), error: null },
       ]
 
@@ -1457,14 +1457,14 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
 
       expect(state.lastTable).toBeNull()
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
-      expect(rpcNames).toEqual(['create_leech_drill_session'])
+      expect(rpcNames).toEqual(['create_weak_spot_drill_session'])
     }
   })
 
   it('50 randomized getDrillSession invocations issue zero .from() calls', async () => {
     for (let i = 0; i < 50; i++) {
       reset()
-      state.rpcResponses['get_leech_drill_session'] = [
+      state.rpcResponses['get_weak_spot_drill_session'] = [
         { data: makeFakeSessionDetailEnvelope(), error: null },
       ]
 
@@ -1472,7 +1472,7 @@ describe('scheduler invariance — drill code path must never touch FSRS tables'
 
       expect(state.lastTable).toBeNull()
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
-      expect(rpcNames).toEqual(['get_leech_drill_session'])
+      expect(rpcNames).toEqual(['get_weak_spot_drill_session'])
     }
   })
 })
@@ -1530,7 +1530,7 @@ describe('emptyBodySchema', () => {
 
   it('rejects any body fields (.strict)', () => {
     // Covers the diagnose endpoint's protection: a client POSTing
-    // `{ regenerate: true }` to `/leeches/:id/diagnose` must NOT be silently
+    // `{ regenerate: true }` to `/weakSpots/:id/diagnose` must NOT be silently
     // ignored. Forces any future "regenerate" feature to bump the schema
     // explicitly, making the design decision visible.
     expect(emptyBodySchema.safeParse({ status: 'finished' }).success).toBe(false)
@@ -1539,9 +1539,9 @@ describe('emptyBodySchema', () => {
   })
 })
 
-describe('leech.service — createDrillSession source mapping (Stage 6)', () => {
+describe('weakSpot.service — createDrillSession source mapping (Stage 6)', () => {
   it('highLapseCandidates → snake_case + forwards p_min_lapses', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -1559,7 +1559,7 @@ describe('leech.service — createDrillSession source mapping (Stage 6)', () => 
   })
 
   it('manualSelection → snake_case + forwards p_card_ids', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -1577,7 +1577,7 @@ describe('leech.service — createDrillSession source mapping (Stage 6)', () => 
   })
 
   it('currentCard → snake_case + forwards p_card_id', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -1593,7 +1593,7 @@ describe('leech.service — createDrillSession source mapping (Stage 6)', () => 
   })
 
   it('source_query breadcrumb includes the new source-specific fields', async () => {
-    state.rpcResponses['create_leech_drill_session'] = [
+    state.rpcResponses['create_weak_spot_drill_session'] = [
       { data: { ...SAMPLE_DRILL_ENVELOPE, cards: [] }, error: null },
     ]
 
@@ -1612,9 +1612,9 @@ describe('leech.service — createDrillSession source mapping (Stage 6)', () => 
   })
 })
 
-describe('leech.service — transitionDrillSession', () => {
+describe('weakSpot.service — transitionDrillSession', () => {
   // The transition RPC returns void; the service then calls
-  // get_leech_drill_session for the post-state envelope. Tests push two
+  // get_weak_spot_drill_session for the post-state envelope. Tests push two
   // responses per happy-path call: void from transition + envelope from get.
 
   const finishedEnvelope = {
@@ -1631,8 +1631,8 @@ describe('leech.service — transitionDrillSession', () => {
   }
 
   it('finish: calls both RPCs in order and returns the post-state envelope', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
-    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+    state.rpcResponses['transition_weak_spot_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_weak_spot_drill_session']        = [{ data: finishedEnvelope, error: null }]
 
     const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
 
@@ -1640,14 +1640,14 @@ describe('leech.service — transitionDrillSession', () => {
     expect(out.status).toBe('finished')
 
     expect(state.rpcCalls).toHaveLength(2)
-    expect(state.rpcCalls[0]?.name).toBe('transition_leech_drill_session')
+    expect(state.rpcCalls[0]?.name).toBe('transition_weak_spot_drill_session')
     expect((state.rpcCalls[0]?.payload as Record<string, unknown>)['p_target_status']).toBe('finished')
-    expect(state.rpcCalls[1]?.name).toBe('get_leech_drill_session')
+    expect(state.rpcCalls[1]?.name).toBe('get_weak_spot_drill_session')
   })
 
   it('abort: forwards target=aborted and returns the aborted envelope', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
-    state.rpcResponses['get_leech_drill_session']        = [{ data: abortedEnvelope, error: null }]
+    state.rpcResponses['transition_weak_spot_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_weak_spot_drill_session']        = [{ data: abortedEnvelope, error: null }]
 
     const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'aborted')
     expect(out.status).toBe('aborted')
@@ -1660,16 +1660,16 @@ describe('leech.service — transitionDrillSession', () => {
     // RPC returns void successfully (the DB-side IF v_current_status =
     // p_target_status RETURN short-circuit). Service still does the
     // post-state fetch and returns the existing envelope.
-    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
-    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+    state.rpcResponses['transition_weak_spot_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_weak_spot_drill_session']        = [{ data: finishedEnvelope, error: null }]
 
     const out = await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
     expect(out.status).toBe('finished')
   })
 
-  it('translates SQLSTATE 02000 + leech_drill_session_not_found → 404', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [
-      { data: null, error: { code: '02000', message: 'leech_drill_session_not_found' } },
+  it('translates SQLSTATE 02000 + weak_spot_drill_session_not_found → 404', async () => {
+    state.rpcResponses['transition_weak_spot_drill_session'] = [
+      { data: null, error: { code: '02000', message: 'weak_spot_drill_session_not_found' } },
     ]
 
     let caught: unknown
@@ -1680,12 +1680,12 @@ describe('leech.service — transitionDrillSession', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_DRILL_SESSION_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_SESSION_NOT_FOUND')
   })
 
-  it('translates SQLSTATE 22000 + leech_drill_session_state_conflict → 409', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [
-      { data: null, error: { code: '22000', message: 'leech_drill_session_state_conflict' } },
+  it('translates SQLSTATE 22000 + weak_spot_drill_session_state_conflict → 409', async () => {
+    state.rpcResponses['transition_weak_spot_drill_session'] = [
+      { data: null, error: { code: '22000', message: 'weak_spot_drill_session_state_conflict' } },
     ]
 
     let caught: unknown
@@ -1696,11 +1696,11 @@ describe('leech.service — transitionDrillSession', () => {
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(409)
-    expect(e.code).toBe('LEECH_DRILL_SESSION_STATE_CONFLICT')
+    expect(e.code).toBe('WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT')
   })
 
   it('falls through to dbError for unrelated RPC errors (500)', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [
+    state.rpcResponses['transition_weak_spot_drill_session'] = [
       { data: null, error: { message: 'connection refused' } },
     ]
 
@@ -1715,14 +1715,14 @@ describe('leech.service — transitionDrillSession', () => {
   })
 
   it('never queries the cards or review_logs tables (scheduler invariance)', async () => {
-    state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
-    state.rpcResponses['get_leech_drill_session']        = [{ data: finishedEnvelope, error: null }]
+    state.rpcResponses['transition_weak_spot_drill_session'] = [{ data: null, error: null }]
+    state.rpcResponses['get_weak_spot_drill_session']        = [{ data: finishedEnvelope, error: null }]
 
     await transitionDrillSession('user-1', DRILL_SESSION_ID, 'finished')
 
     expect(state.lastTable).toBeNull()
     const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))].sort()
-    expect(rpcNames).toEqual(['get_leech_drill_session', 'transition_leech_drill_session'])
+    expect(rpcNames).toEqual(['get_weak_spot_drill_session', 'transition_weak_spot_drill_session'])
   })
 })
 
@@ -1734,8 +1734,8 @@ describe('scheduler invariance — Stage 6 additions', () => {
 
     for (let i = 0; i < 50; i++) {
       reset()
-      state.rpcResponses['transition_leech_drill_session'] = [{ data: null, error: null }]
-      state.rpcResponses['get_leech_drill_session'] = [{
+      state.rpcResponses['transition_weak_spot_drill_session'] = [{ data: null, error: null }]
+      state.rpcResponses['get_weak_spot_drill_session'] = [{
         data: {
           sessionId:             randomUUID(),
           status:                'finished',
@@ -1749,7 +1749,7 @@ describe('scheduler invariance — Stage 6 additions', () => {
 
       expect(state.lastTable).toBeNull()
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))].sort()
-      expect(rpcNames).toEqual(['get_leech_drill_session', 'transition_leech_drill_session'])
+      expect(rpcNames).toEqual(['get_weak_spot_drill_session', 'transition_weak_spot_drill_session'])
     }
   })
 
@@ -1759,7 +1759,7 @@ describe('scheduler invariance — Stage 6 additions', () => {
 
     for (let i = 0; i < 50; i++) {
       reset()
-      state.rpcResponses['create_leech_drill_session'] = [
+      state.rpcResponses['create_weak_spot_drill_session'] = [
         { data: { sessionId: randomUUID(), status: 'active', cards: [] }, error: null },
       ]
 
@@ -1778,25 +1778,25 @@ describe('scheduler invariance — Stage 6 additions', () => {
 
       expect(state.lastTable).toBeNull()
       const rpcNames = [...new Set(state.rpcCalls.map((c) => c.name))]
-      expect(rpcNames).toEqual(['create_leech_drill_session'])
+      expect(rpcNames).toEqual(['create_weak_spot_drill_session'])
     }
   })
 })
 
-// ── diagnoseLeech — Stage 7 ────────────────────────────────────────────────
+// ── diagnoseWeakSpot — Stage 7 ────────────────────────────────────────────────
 //
-// The fresh-diagnose path issues five queries against `leeches`:
-//   1. fetch leech+card (slim)
+// The fresh-diagnose path issues five queries against `weakSpots`:
+//   1. fetch weakSpot+card (slim)
 //   2. fetch profile (jlpt_target, native_language)
 //   3. fetch review_logs (last 10 ratings)
-//   4. UPDATE leech (set diagnosis + prescription)
-//   5. getLeechById (return full joined detail)
+//   4. UPDATE weakSpot (set diagnosis + prescription)
+//   5. getWeakSpotById (return full joined detail)
 // Tests push the right responses for each table in order. The replay-on-
 // existing path skips queries 2-4 entirely.
 
-describe('leech.service — diagnoseLeech (Stage 7)', () => {
-  const FRESH_LEECH_FETCH = {
-    id:           LEECH_ID,
+describe('weakSpot.service — diagnoseWeakSpot (Stage 7)', () => {
+  const FRESH_WEAK_SPOT_FETCH = {
+    id:           WEAK_SPOT_ID,
     card_id:      CARD_ID,
     diagnosis:    null,
     prescription: null,
@@ -1813,17 +1813,17 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
     native_language: 'en',
   }
 
-  const FULL_LEECH_RESPONSE = {
-    ...SAMPLE_LEECH_ROW,
+  const FULL_WEAK_SPOT_RESPONSE = {
+    ...SAMPLE_WEAK_SPOT_ROW,
     diagnosis:    'Reading 猫 sometimes confused with 描 in compound contexts.',
     prescription: 'Drill a 5-card mini-set distinguishing 猫 from visually-similar kanji.',
   }
 
   it('fresh diagnose: fetches card+profile+ratings, calls AI service once, persists, returns full detail', async () => {
-    state.responses['leeches']     = [
-      { data: FRESH_LEECH_FETCH, error: null },         // step 1: fetch leech+card
+    state.responses['weakSpots']     = [
+      { data: FRESH_WEAK_SPOT_FETCH, error: null },         // step 1: fetch weakSpot+card
       { data: null, error: null },                       // step 4: UPDATE
-      { data: FULL_LEECH_RESPONSE, error: null },        // step 5: getLeechById
+      { data: FULL_WEAK_SPOT_RESPONSE, error: null },        // step 5: getWeakSpotById
     ]
     state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
     state.responses['review_logs'] = [{ data: [{ rating: 'again' }, { rating: 'hard' }], error: null }]
@@ -1832,9 +1832,9 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
       error: null,
     }]
 
-    const out = await diagnoseLeech('user-1', LEECH_ID)
+    const out = await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
 
-    expect(out.id).toBe(LEECH_ID)
+    expect(out.id).toBe(WEAK_SPOT_ID)
     expect(out.diagnosis).not.toBeNull()
     expect(out.prescription).not.toBeNull()
 
@@ -1852,18 +1852,18 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
 
   it('replay path: existing diagnosis returns the stored row without calling AI', async () => {
     const alreadyDiagnosed = {
-      ...FRESH_LEECH_FETCH,
+      ...FRESH_WEAK_SPOT_FETCH,
       diagnosis:    'Existing diagnosis text.',
       prescription: 'Existing prescription text.',
     }
 
-    state.responses['leeches'] = [
+    state.responses['weakSpots'] = [
       { data: alreadyDiagnosed, error: null },          // step 1: fetch sees populated diagnosis
-      { data: FULL_LEECH_RESPONSE, error: null },        // getLeechById (replay returns the full detail)
+      { data: FULL_WEAK_SPOT_RESPONSE, error: null },        // getWeakSpotById (replay returns the full detail)
     ]
 
-    const out = await diagnoseLeech('user-1', LEECH_ID)
-    expect(out.id).toBe(LEECH_ID)
+    const out = await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
+    expect(out.id).toBe(WEAK_SPOT_ID)
 
     // No AI call — the existing diagnosis is reused.
     expect(aiMock.diagnosisCalls).toHaveLength(0)
@@ -1873,34 +1873,34 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
     const tablesQueried = new Set(state.calls
       .filter((c) => c.method === 'select')
       .map(() => state.lastTable))
-    // (state.lastTable is the last table, which was 'leeches' since both
+    // (state.lastTable is the last table, which was 'weakSpots' since both
     // queries went there. Verify no profiles/review_logs queries fired by
     // checking the from() call count via state.calls being limited.)
     void tablesQueried
   })
 
-  it('throws LEECH_NOT_FOUND 404 when the row is missing', async () => {
-    state.responses['leeches'] = [{ data: null, error: null }]
+  it('throws WEAK_SPOT_NOT_FOUND 404 when the row is missing', async () => {
+    state.responses['weakSpots'] = [{ data: null, error: null }]
 
     let caught: unknown
     try {
-      await diagnoseLeech('user-1', LEECH_ID)
+      await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_NOT_FOUND')
   })
 
-  it('throws CARD_FIELDS_INSUFFICIENT 422 when the leech is orphan (card_id null)', async () => {
-    state.responses['leeches'] = [
-      { data: { ...FRESH_LEECH_FETCH, card_id: null, card: null }, error: null },
+  it('throws CARD_FIELDS_INSUFFICIENT 422 when the weakSpot is orphan (card_id null)', async () => {
+    state.responses['weakSpots'] = [
+      { data: { ...FRESH_WEAK_SPOT_FETCH, card_id: null, card: null }, error: null },
     ]
 
     let caught: unknown
     try {
-      await diagnoseLeech('user-1', LEECH_ID)
+      await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
@@ -1910,12 +1910,12 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
   })
 
   it('throws CARD_FIELDS_INSUFFICIENT 422 for sentence-layout cards (no word/reading/meaning)', async () => {
-    state.responses['leeches'] = [{
+    state.responses['weakSpots'] = [{
       data: {
-        ...FRESH_LEECH_FETCH,
+        ...FRESH_WEAK_SPOT_FETCH,
         card: {
           // Stage 12 sentence-layout shape: ja/en/furigana required.
-          // The diagnoseLeech path reads word/reading/meaning (vocabulary
+          // The diagnoseWeakSpot path reads word/reading/meaning (vocabulary
           // fields), so any sentence-layout shape — old or new — yields
           // CARD_FIELDS_INSUFFICIENT because those vocabulary keys are
           // absent. Updated to the canonical shape for consistency.
@@ -1933,7 +1933,7 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
 
     let caught: unknown
     try {
-      await diagnoseLeech('user-1', LEECH_ID)
+      await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
@@ -1943,10 +1943,10 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
   })
 
   it('falls back to safe profile defaults when profile fetch errors', async () => {
-    state.responses['leeches']     = [
-      { data: FRESH_LEECH_FETCH, error: null },
+    state.responses['weakSpots']     = [
+      { data: FRESH_WEAK_SPOT_FETCH, error: null },
       { data: null, error: null },                       // UPDATE
-      { data: FULL_LEECH_RESPONSE, error: null },        // getLeechById
+      { data: FULL_WEAK_SPOT_RESPONSE, error: null },        // getWeakSpotById
     ]
     state.responses['profiles']    = [{ data: null, error: { message: 'profile unavailable' } }]
     state.responses['review_logs'] = [{ data: [], error: null }]
@@ -1956,7 +1956,7 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
     }]
 
     // Should NOT throw — falls back to 'N5' / 'en' defaults.
-    await diagnoseLeech('user-1', LEECH_ID)
+    await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
 
     expect(aiMock.diagnosisCalls).toHaveLength(1)
     const args = aiMock.diagnosisCalls[0] ?? []
@@ -1967,10 +1967,10 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
   it('passes review-log ratings to the AI service in oldest→newest order', async () => {
     // Supabase returns DESC (newest first) due to .order('reviewed_at', { ascending: false });
     // service reverses to oldest→newest. Three ratings, expected order back.
-    state.responses['leeches']     = [
-      { data: FRESH_LEECH_FETCH, error: null },
+    state.responses['weakSpots']     = [
+      { data: FRESH_WEAK_SPOT_FETCH, error: null },
       { data: null, error: null },
-      { data: FULL_LEECH_RESPONSE, error: null },
+      { data: FULL_WEAK_SPOT_RESPONSE, error: null },
     ]
     state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
     state.responses['review_logs'] = [{
@@ -1982,14 +1982,14 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
       error: null,
     }]
 
-    await diagnoseLeech('user-1', LEECH_ID)
+    await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
 
     const ratings = (aiMock.diagnosisCalls[0] ?? [])[4]
     expect(ratings).toEqual(['again', 'hard', 'good'])
   })
 
   it('propagates AI service errors (e.g. OPENAI_KEY_MISSING) without persisting partial state', async () => {
-    state.responses['leeches']     = [{ data: FRESH_LEECH_FETCH, error: null }]
+    state.responses['weakSpots']     = [{ data: FRESH_WEAK_SPOT_FETCH, error: null }]
     state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
     state.responses['review_logs'] = [{ data: [], error: null }]
 
@@ -2003,24 +2003,24 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
 
     let caught: unknown
     try {
-      await diagnoseLeech('user-1', LEECH_ID)
+      await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
     expect(caught).toBeInstanceOf(Error)
     expect((caught as { code?: string }).code).toBe('OPENAI_KEY_MISSING')
 
-    // The UPDATE query against `leeches` never ran — only the initial fetch
+    // The UPDATE query against `weakSpots` never ran — only the initial fetch
     // and the profile/review_logs fetches did. Assert no `.update` call fired.
     const updateCalls = state.calls.filter((c) => c.method === 'update')
     expect(updateCalls).toHaveLength(0)
   })
 
   it('UPDATE writes only diagnosis and prescription (no FSRS state, no review_logs)', async () => {
-    state.responses['leeches']     = [
-      { data: FRESH_LEECH_FETCH, error: null },
+    state.responses['weakSpots']     = [
+      { data: FRESH_WEAK_SPOT_FETCH, error: null },
       { data: null, error: null },
-      { data: FULL_LEECH_RESPONSE, error: null },
+      { data: FULL_WEAK_SPOT_RESPONSE, error: null },
     ]
     state.responses['profiles']    = [{ data: PROFILE_FETCH, error: null }]
     state.responses['review_logs'] = [{ data: [], error: null }]
@@ -2029,9 +2029,9 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
       error: null,
     }]
 
-    await diagnoseLeech('user-1', LEECH_ID)
+    await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
 
-    // The single .update() call must be against `leeches` (not `cards` or
+    // The single .update() call must be against `weakSpots` (not `cards` or
     // `review_logs`) and must only set the two diagnosis text columns.
     const updateCalls = state.calls.filter((c) => c.method === 'update')
     expect(updateCalls).toHaveLength(1)
@@ -2042,29 +2042,29 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
   })
 })
 
-// ── diagnoseLeech — Stage 7.1 compliance tests ────────────────────────────
+// ── diagnoseWeakSpot — Stage 7.1 compliance tests ────────────────────────────
 //
 // These tests close the gaps surfaced by the post-Stage-7 standards review:
 //   • Explicit IDOR coverage (cross-user request returns 404, NO AI call).
 //   • Parallel fetch coverage (both profile + review_logs queues consumed,
 //     proving Promise.all is in play).
 
-describe('leech.service — diagnoseLeech compliance (Stage 7.1)', () => {
+describe('weakSpot.service — diagnoseWeakSpot compliance (Stage 7.1)', () => {
   it('IDOR: cross-user request returns 404 with NO AI call and the right user_id in SQL', async () => {
     // The mock returns null when the (id, user_id) pair doesn't match a row.
     // Same opacity pattern as DECK_NOT_FOUND — does not leak existence to
     // other users.
-    state.responses['leeches'] = [{ data: null, error: null }]
+    state.responses['weakSpots'] = [{ data: null, error: null }]
 
     let caught: unknown
     try {
-      await diagnoseLeech('user-B', LEECH_ID)
+      await diagnoseWeakSpot('user-B', WEAK_SPOT_ID)
     } catch (err) {
       caught = err
     }
     const e = caught as { statusCode?: number; code?: string }
     expect(e.statusCode).toBe(404)
-    expect(e.code).toBe('LEECH_NOT_FOUND')
+    expect(e.code).toBe('WEAK_SPOT_NOT_FOUND')
 
     // Critical: no AI call fired. Cross-user attempts must not be expensive —
     // otherwise enumeration becomes an OpenAI-cost DoS vector.
@@ -2078,11 +2078,11 @@ describe('leech.service — diagnoseLeech compliance (Stage 7.1)', () => {
   })
 
   it('parallelization: both profile + review_logs queues are consumed on fresh diagnose', async () => {
-    // Sample data shapes copied from the leeches-suite fixtures. Both side
+    // Sample data shapes copied from the weakSpots-suite fixtures. Both side
     // queues hold exactly one entry each; after Promise.all drains them
     // (regardless of resolution order), both arrays should be empty.
     const FRESH_LEECH = {
-      id:           LEECH_ID,
+      id:           WEAK_SPOT_ID,
       card_id:      CARD_ID,
       diagnosis:    null,
       prescription: null,
@@ -2094,10 +2094,10 @@ describe('leech.service — diagnoseLeech compliance (Stage 7.1)', () => {
       },
     }
 
-    state.responses['leeches']     = [
+    state.responses['weakSpots']     = [
       { data: FRESH_LEECH, error: null },
       { data: null, error: null },                    // UPDATE
-      { data: SAMPLE_LEECH_ROW, error: null },        // getLeechById
+      { data: SAMPLE_WEAK_SPOT_ROW, error: null },        // getWeakSpotById
     ]
     state.responses['profiles']    = [{ data: { jlpt_target: 'N3', native_language: 'en' }, error: null }]
     state.responses['review_logs'] = [{ data: [{ rating: 'good' }, { rating: 'hard' }], error: null }]
@@ -2106,7 +2106,7 @@ describe('leech.service — diagnoseLeech compliance (Stage 7.1)', () => {
       error: null,
     }]
 
-    await diagnoseLeech('user-1', LEECH_ID)
+    await diagnoseWeakSpot('user-1', WEAK_SPOT_ID)
 
     // Both side queues drained → both fetches actually fired. With the prior
     // serial implementation, this assertion would still pass (both queues

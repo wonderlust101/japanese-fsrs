@@ -1,21 +1,21 @@
 import { Logo } from '@/components/ui/Logo'
 import { QuietLink } from '@/components/ui/QuietLink'
 
-interface LeechesEmptyProps {
+interface WeakSpotsEmptyProps {
   variant: 'unresolved' | 'resolved'
 }
 
 /**
- * Empty state for the leeches page. Two variants matching the doc's
+ * Empty state for the weakSpots page. Two variants matching the doc's
  * empty-state copy contract:
  *
  *   - unresolved: nothing to triage right now. Calm reassurance.
- *   - resolved:   no resolved-leech history yet. Inert mode.
+ *   - resolved:   no resolved-weakSpot history yet. Inert mode.
  *
  * Mirrors `MistakesEmpty` visual register so the two surfaces feel like
  * the same product family.
  */
-export function LeechesEmpty({ variant }: LeechesEmptyProps): React.JSX.Element {
+export function WeakSpotsEmpty({ variant }: WeakSpotsEmptyProps): React.JSX.Element {
   const headline = variant === 'unresolved'
     ? 'No weak spots right now.'
     : 'No resolved weak spots yet.'
@@ -29,7 +29,7 @@ export function LeechesEmpty({ variant }: LeechesEmptyProps): React.JSX.Element 
 
   return (
     <section
-      aria-label={variant === 'unresolved' ? 'No unresolved leeches' : 'No resolved leeches'}
+      aria-label={variant === 'unresolved' ? 'No unresolved weak spots' : 'No resolved weak spots'}
       className="mx-auto mt-12 flex flex-col items-center gap-y-7 py-6 text-center lg:mt-20"
     >
       <Logo size={112} showWordmark={false} priority />

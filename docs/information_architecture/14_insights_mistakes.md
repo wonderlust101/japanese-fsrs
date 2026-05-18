@@ -2,26 +2,26 @@
 
 ## Page Purpose
 
-Insights Mistakes helps learners understand what they are getting wrong and why. It should identify patterns, leeches, confusable words, card-quality issues, and weak card types.
+Insights Mistakes helps learners understand what they are getting wrong and why. It should identify patterns, weak spots, confusable words, card-quality issues, and weak card types.
 
 This page should turn mistakes into useful study decisions, not shame or noise.
 
 ## Primary User Jobs
 
 - See repeated mistake patterns.
-- Find leech cards.
+- Find weak-spot cards.
 - Identify confusable words.
 - Understand whether errors come from memory, ambiguity, or card quality.
 - Start repair or focused review.
-- Open problem cards in Cards or Card Detail.
+- Open weak spots in Cards or Card Detail.
 
 ## Content Hierarchy
 
 ### Primary Content
 
 1. Top mistake pattern.
-2. Problem cards.
-3. Leeches.
+2. Weak spots.
+3. Weak spots.
 4. Confusable pairs or groups.
 5. Repair or focused review actions.
 
@@ -67,11 +67,11 @@ Examples of useful categories:
 
 Plain-language diagnosis of the biggest current issue.
 
-### Problem Cards
+### Weak spots
 
 Cards that repeatedly failed or show concerning behavior.
 
-### Leeches
+### Weak spots
 
 Cards with repeated lapses that may need repair, simplification, or suspension.
 
@@ -85,7 +85,7 @@ Cards missing fields or support that may explain poor retention.
 
 ## Interaction Notes
 
-- Repair selected cards opens Problem Card Repair.
+- Repair selected cards opens Weak spot repair.
 - Review selected cards starts a focused mini-session.
 - Open in Cards applies the relevant filter.
 - Open Card Detail goes to a single card.
@@ -101,7 +101,7 @@ Say so clearly and avoid inventing work. Offer optional deeper view.
 
 Prioritize the top pattern and avoid overwhelming the user.
 
-### Leech Heavy
+### Weak spot Heavy
 
 Recommend repair or suspension. Explain that suspension can be a healthy choice.
 

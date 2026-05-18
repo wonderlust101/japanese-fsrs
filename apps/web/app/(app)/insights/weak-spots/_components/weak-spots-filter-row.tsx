@@ -4,26 +4,26 @@ import { useEffect, useId, useState } from 'react'
 
 import { useDecks } from '@/lib/api/decks'
 import type {
-  LeechDiagnosisFilter,
-  LeechSortOrder,
-  LeechStatusFilter,
-} from '@/lib/actions/leeches.actions'
+  WeakSpotDiagnosisFilter,
+  WeakSpotSortOrder,
+  WeakSpotStatusFilter,
+} from '@/lib/actions/weak-spots.actions'
 
-import type { LeechFilters } from './leeches-types'
+import type { WeakSpotFilters } from './weak-spots-types'
 
-interface LeechesFilterRowProps {
-  value:    LeechFilters
-  onChange: (next: LeechFilters) => void
+interface WeakSpotsFilterRowProps {
+  value:    WeakSpotFilters
+  onChange: (next: WeakSpotFilters) => void
 }
 
-const STORAGE_KEY = 'leeches:filters'
+const STORAGE_KEY = 'weak-spots:filters'
 
-const STATUS_OPTIONS: ReadonlyArray<{ key: LeechStatusFilter; label: string }> = [
+const STATUS_OPTIONS: ReadonlyArray<{ key: WeakSpotStatusFilter; label: string }> = [
   { key: 'unresolved', label: 'Unresolved' },
   { key: 'resolved',   label: 'Resolved'   },
 ]
 
-const SORT_OPTIONS: ReadonlyArray<{ key: LeechSortOrder; label: string }> = [
+const SORT_OPTIONS: ReadonlyArray<{ key: WeakSpotSortOrder; label: string }> = [
   { key: 'mostRecent',       label: 'Most recent'       },
   { key: 'oldestUnresolved', label: 'Oldest unresolved' },
   { key: 'mostLapses',       label: 'Most lapses'       },
@@ -40,14 +40,14 @@ const JLPT_LABEL: Record<string, string> = {
   beyond_jlpt:  'Beyond',
 }
 
-const DIAGNOSIS_OPTIONS: ReadonlyArray<{ key: LeechDiagnosisFilter | 'all'; label: string }> = [
+const DIAGNOSIS_OPTIONS: ReadonlyArray<{ key: WeakSpotDiagnosisFilter | 'all'; label: string }> = [
   { key: 'all',       label: 'Any'        },
   { key: 'available', label: 'Diagnosed'  },
   { key: 'missing',   label: 'Undiagnosed'},
 ]
 
 /**
- * LocalStorage hook for leech filters. Hydrates on mount (client only) so
+ * LocalStorage hook for weakSpot filters. Hydrates on mount (client only) so
  * SSR rendering matches the server's initial state; subsequent updates
  * persist on every onChange. Mirrors `useMistakesFiltersStorage`.
  *
@@ -55,18 +55,18 @@ const DIAGNOSIS_OPTIONS: ReadonlyArray<{ key: LeechDiagnosisFilter | 'all'; labe
  * because a hand-edited or corrupted localStorage value could otherwise
  * crash the filter row mid-render.
  */
-export function useLeechFiltersStorage(initial: LeechFilters): [
-  LeechFilters,
-  (next: LeechFilters) => void,
+export function useWeakSpotFiltersStorage(initial: WeakSpotFilters): [
+  WeakSpotFilters,
+  (next: WeakSpotFilters) => void,
 ] {
-  const [filters, setFilters] = useState<LeechFilters>(initial)
+  const [filters, setFilters] = useState<WeakSpotFilters>(initial)
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY)
       if (raw === null) return
-      const parsed = JSON.parse(raw) as Partial<LeechFilters>
-      const hydrated: LeechFilters = {
+      const parsed = JSON.parse(raw) as Partial<WeakSpotFilters>
+      const hydrated: WeakSpotFilters = {
         status:    parsed.status    === 'resolved' || parsed.status === 'unresolved'
           ? parsed.status
           : initial.status,
@@ -76,7 +76,7 @@ export function useLeechFiltersStorage(initial: LeechFilters): [
           ? parsed.diagnosis
           : initial.diagnosis,
         sort:      SORT_OPTIONS.some((o) => o.key === parsed.sort)
-          ? (parsed.sort as LeechSortOrder)
+          ? (parsed.sort as WeakSpotSortOrder)
           : initial.sort,
       }
       setFilters(hydrated)
@@ -88,7 +88,7 @@ export function useLeechFiltersStorage(initial: LeechFilters): [
     // once and never reads `initial` again.
   }, [])
 
-  const update = (next: LeechFilters): void => {
+  const update = (next: WeakSpotFilters): void => {
     setFilters(next)
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -101,7 +101,7 @@ export function useLeechFiltersStorage(initial: LeechFilters): [
 }
 
 /**
- * Filter row for the leeches page. Six dimensions arranged as a horizontal
+ * Filter row for the weakSpots page. Six dimensions arranged as a horizontal
  * cluster that wraps below sm; the Status pills sit on the left and act as
  * the primary signal (most users only ever care about unresolved), the
  * column-style selects (Deck, JLPT, Card type, Diagnosis) live in the
@@ -111,10 +111,10 @@ export function useLeechFiltersStorage(initial: LeechFilters): [
  * All dropdowns share the same chrome as the Mistakes filter row so the
  * two insights surfaces feel like the same family.
  */
-export function LeechesFilterRow({
+export function WeakSpotsFilterRow({
   value,
   onChange,
-}: LeechesFilterRowProps): React.JSX.Element {
+}: WeakSpotsFilterRowProps): React.JSX.Element {
   const decksQuery = useDecks(50)
   const decks      = decksQuery.data?.items ?? []
   const deckId     = useId()
@@ -127,7 +127,7 @@ export function LeechesFilterRow({
       {/* Status pills */}
       <div
         role="tablist"
-        aria-label="Leech status"
+        aria-label="Weak spot status"
         className="flex items-center gap-0.5 rounded-[2px] border border-soft-hairline bg-cream-inset/40 p-0.5"
       >
         {STATUS_OPTIONS.map((opt) => {

@@ -157,7 +157,7 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
   cardCount: z.number(),
 })
 
-// ─── Insights — problem cards (Stage 7) ──────────────────────────────────────
+// ─── Insights — weak spots (Stage 7) ──────────────────────────────────────
 //
 // Backend Completion Plan Stage 7. `GET /api/v1/insights/problem-cards?bucket=…`
 // returns the user's cards bucketed by lapse count — the data path that
@@ -166,9 +166,9 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
 // saved view, an analytics chart) can pick it up without a contract change.
 //
 // Bucket boundaries match IA `14_insights_mistakes.md` and the SQL RPC.
-// The 8plus bucket cardinality equals the unresolved-leech count for the
-// same user/scope (process_review inserts a leech at lapses >=
-// LEECH_THRESHOLD = 8 by default).
+// The 8plus bucket cardinality equals the unresolved-weakSpot count for the
+// same user/scope (process_review inserts a weakSpot at lapses >=
+// WEAK_SPOT_THRESHOLD = 8 by default).
 
 export const ApiProblemCardBucketSchema = z.enum(['2-3', '4-5', '6-7', '8plus'])
 
@@ -435,10 +435,10 @@ export const ApiSignUpResultSchema = z.object({
   cancellationToken: z.string().nullable(),
 })
 
-// ─── Sessions / leeches (live in review.types.ts; cross the wire) ─────────────
+// ─── Sessions / weakSpots (live in review.types.ts; cross the wire) ─────────────
 
-export const SessionLeechSchema = z.object({
-  leechId:      z.string(),
+export const SessionWeakSpotSchema = z.object({
+  weakSpotId:      z.string(),
   cardId:       z.string(),
   deckId:       z.string(),
   word:         z.string(),
@@ -461,23 +461,23 @@ export const SessionSummarySchema = z.object({
     good:  z.number(),
     easy:  z.number(),
   }),
-  leeches: z.array(SessionLeechSchema),
+  weakSpots: z.array(SessionWeakSpotSchema),
 })
 
-// ─── Leeches list (read-only feature surface) ─────────────────────────────────
+// ─── WeakSpots list (read-only feature surface) ─────────────────────────────────
 //
-// Distinct from SessionLeechSchema above: that schema lives in the post-review
+// Distinct from SessionWeakSpotSchema above: that schema lives in the post-review
 // summary payload and intentionally carries only what the session UI shows.
-// The dedicated /api/v1/leeches read path needs richer joined context (deck
+// The dedicated /api/v1/weak-spots read path needs richer joined context (deck
 // name, FSRS counters, due/last-review timestamps, resolved metadata), so the
 // list shape is its own schema rather than overloading the session shape.
 //
-// Every joined field is nullable because `leeches.card_id` may be NULL after
+// Every joined field is nullable because `weakSpots.card_id` may be NULL after
 // the underlying card row is deleted — the partial unique index on
 // (card_id, user_id) WHERE resolved=FALSE permits this orphan state by
 // design (migration 20260425000001).
 
-export const ApiLeechListItemSchema = z.object({
+export const ApiWeakSpotListItemSchema = z.object({
   id:           z.string().uuid(),
   cardId:       z.string().uuid().nullable(),
   deckId:       z.string().uuid().nullable(),
@@ -498,27 +498,27 @@ export const ApiLeechListItemSchema = z.object({
   createdAt:    z.string(),
 })
 
-export const ApiLeechListResponseSchema = z.object({
-  items:      z.array(ApiLeechListItemSchema),
+export const ApiWeakSpotListResponseSchema = z.object({
+  items:      z.array(ApiWeakSpotListItemSchema),
   nextCursor: z.string().nullable(),
   hasMore:    z.boolean(),
 })
 
 // ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
 //
-// `POST /api/v1/leeches/drill-sessions` returns the session envelope plus the
+// `POST /api/v1/weak-spots/drill-sessions` returns the session envelope plus the
 // ordered queue. Each card carries its own `sessionCardId` — Stage 5's attempt
-// endpoint will reference this ID (not the leech or card IDs directly) so the
-// composite FK against (id, session_id) on leech_drill_session_cards makes
+// endpoint will reference this ID (not the weakSpot or card IDs directly) so the
+// composite FK against (id, session_id) on weak_spot_drill_session_cards makes
 // cross-session attempt forgery structurally impossible.
 //
 // Card-derived fields are non-nullable on this shape — the RPC's WHERE clause
-// already excluded orphan leeches (card_id NULL) and suspended cards before
+// already excluded orphan weakSpots (card_id NULL) and suspended cards before
 // the snapshot was written.
 
-export const ApiLeechDrillCardSchema = z.object({
+export const ApiWeakSpotDrillCardSchema = z.object({
   sessionCardId: z.string().uuid(),
-  leechId:       z.string().uuid(),
+  weakSpotId:       z.string().uuid(),
   cardId:        z.string().uuid(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    layoutTypeSchema,
@@ -526,17 +526,17 @@ export const ApiLeechDrillCardSchema = z.object({
   lapses:        z.number().int().nonnegative(),
 })
 
-export const ApiLeechDrillSessionStatusSchema = z.enum(['active', 'finished', 'aborted'])
+export const ApiWeakSpotDrillSessionStatusSchema = z.enum(['active', 'finished', 'aborted'])
 
-export const ApiLeechDrillSessionSchema = z.object({
+export const ApiWeakSpotDrillSessionSchema = z.object({
   sessionId: z.string().uuid(),
-  status:    ApiLeechDrillSessionStatusSchema,
-  cards:     z.array(ApiLeechDrillCardSchema),
+  status:    ApiWeakSpotDrillSessionStatusSchema,
+  cards:     z.array(ApiWeakSpotDrillCardSchema),
 })
 
 // ─── Drill session resume (Stage 4) ───────────────────────────────────────────
 //
-// Distinct from ApiLeechDrillCardSchema/ApiLeechDrillSessionSchema (the
+// Distinct from ApiWeakSpotDrillCardSchema/ApiWeakSpotDrillSessionSchema (the
 // create-time response) because resume carries:
 //   • orphan rows where the underlying card was deleted post-snapshot
 //     (cardId IS NULL on the wire, layoutType/fieldsData/lapses null too
@@ -549,9 +549,9 @@ export const ApiLeechDrillSessionSchema = z.object({
 // staleness is meaningless for them. The frontend distinguishes orphan
 // (card-deleted) from stale (card-reviewed-elsewhere) via the per-row flags.
 
-export const ApiLeechDrillSessionDetailCardSchema = z.object({
+export const ApiWeakSpotDrillSessionDetailCardSchema = z.object({
   sessionCardId: z.string().uuid(),
-  leechId:       z.string().uuid().nullable(),
+  weakSpotId:       z.string().uuid().nullable(),
   cardId:        z.string().uuid().nullable(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    layoutTypeSchema.nullable(),
@@ -561,12 +561,12 @@ export const ApiLeechDrillSessionDetailCardSchema = z.object({
   isStale:       z.boolean(),
 })
 
-export const ApiLeechDrillSessionDetailSchema = z.object({
+export const ApiWeakSpotDrillSessionDetailSchema = z.object({
   sessionId:             z.string().uuid(),
-  status:                ApiLeechDrillSessionStatusSchema,
+  status:                ApiWeakSpotDrillSessionStatusSchema,
   isCanonicalStateStale: z.boolean(),
   staleCards:            z.array(z.string().uuid()),
-  cards:                 z.array(ApiLeechDrillSessionDetailCardSchema),
+  cards:                 z.array(ApiWeakSpotDrillSessionDetailCardSchema),
 })
 
 // ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
@@ -575,21 +575,21 @@ export const ApiLeechDrillSessionDetailSchema = z.object({
 // `eventId` the structural idempotency identifier — a retry with the same
 // eventId returns the original attempt's row, never duplicates.
 //
-// `leechId`/`cardId` are nullable on the wire to mirror the orphan semantics
-// of `leech_drill_session_cards`: if the underlying leech or card is deleted
+// `weakSpotId`/`cardId` are nullable on the wire to mirror the orphan semantics
+// of `weak_spot_drill_session_cards`: if the underlying weakSpot or card is deleted
 // after an attempt is recorded, those references go NULL but the attempt
 // itself stays inspectable as historical learning data.
 
-export const ApiLeechDrillAttemptResultSchema = z.enum(['missed', 'hesitated', 'remembered'])
+export const ApiWeakSpotDrillAttemptResultSchema = z.enum(['missed', 'hesitated', 'remembered'])
 
-export const ApiLeechDrillAttemptSchema = z.object({
+export const ApiWeakSpotDrillAttemptSchema = z.object({
   attemptId:      z.string().uuid(),
   eventId:        z.string().uuid(),
   sessionId:      z.string().uuid(),
   sessionCardId:  z.string().uuid(),
-  leechId:        z.string().uuid().nullable(),
+  weakSpotId:        z.string().uuid().nullable(),
   cardId:         z.string().uuid().nullable(),
-  result:         ApiLeechDrillAttemptResultSchema,
+  result:         ApiWeakSpotDrillAttemptResultSchema,
   localSequence:  z.number().int().nonnegative().nullable(),
   responseTimeMs: z.number().int().nonnegative().nullable(),
   shownAt:        z.string().nullable(),

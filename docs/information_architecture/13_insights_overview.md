@@ -71,7 +71,7 @@ Links or tabs to Mistakes, Progress, Forecast, and Statistics.
 
 ## Interaction Notes
 
-- Improve problem cards should route to the relevant repair queue.
+- Improve weak spots should route to the relevant repair queue.
 - View mistakes should open Insights Mistakes.
 - View forecast should open Insights Forecast.
 - View statistics should open Statistics tab.

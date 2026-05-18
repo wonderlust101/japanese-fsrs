@@ -4,8 +4,8 @@ import { devtools } from 'zustand/middleware'
 import { randomUUID } from '@/lib/random-uuid'
 
 import type {
-  ApiLeechDrillAttemptResult,
-  ApiLeechDrillSessionDetailCard,
+  ApiWeakSpotDrillAttemptResult,
+  ApiWeakSpotDrillSessionDetailCard,
 } from '@fsrs-japanese/shared-types'
 
 // ── State (discriminated by phase) ────────────────────────────────────────────
@@ -28,9 +28,9 @@ import type {
 export interface DrillAttemptRecord {
   eventId:        string
   sessionCardId:  string
-  leechId:        string | null
+  weakSpotId:        string | null
   cardId:         string | null
-  result:         ApiLeechDrillAttemptResult
+  result:         ApiWeakSpotDrillAttemptResult
   shownAt:        string
   answeredAt:     string
   responseTimeMs: number
@@ -44,7 +44,7 @@ interface IdleState {
 interface ActiveState {
   phase:         'active'
   sessionId:     string
-  queue:         ApiLeechDrillSessionDetailCard[]
+  queue:         ApiWeakSpotDrillSessionDetailCard[]
   currentIndex:  number
   showAnswer:    boolean
   attempts:      DrillAttemptRecord[]
@@ -56,20 +56,20 @@ interface ActiveState {
 interface FinishedState {
   phase:        'finished'
   sessionId:    string
-  queue:        ApiLeechDrillSessionDetailCard[]
+  queue:        ApiWeakSpotDrillSessionDetailCard[]
   attempts:     DrillAttemptRecord[]
   exitedEarly:  boolean
 }
 
-export type LeechDrillSessionState = IdleState | ActiveState | FinishedState
+export type WeakSpotDrillSessionState = IdleState | ActiveState | FinishedState
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
-interface LeechDrillSessionActions {
+interface WeakSpotDrillSessionActions {
   /** Initialize a drill from a fetched session detail. */
-  startSession:       (sessionId: string, queue: ApiLeechDrillSessionDetailCard[]) => void
+  startSession:       (sessionId: string, queue: ApiWeakSpotDrillSessionDetailCard[]) => void
   flipCard:           () => void
-  recordAttempt:      (result: ApiLeechDrillAttemptResult, countedAsReview: boolean) => DrillAttemptRecord | null
+  recordAttempt:      (result: ApiWeakSpotDrillAttemptResult, countedAsReview: boolean) => DrillAttemptRecord | null
   undoLastAttempt:    () => void
   /** Reset the shown timestamp — used after `recordAttempt` advances. */
   markCardShown:      () => void
@@ -77,11 +77,11 @@ interface LeechDrillSessionActions {
   reset:              () => void
 }
 
-type LeechDrillSessionStore = LeechDrillSessionState & { actions: LeechDrillSessionActions }
+type WeakSpotDrillSessionStore = WeakSpotDrillSessionState & { actions: WeakSpotDrillSessionActions }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
-export const useLeechDrillSessionStore = create<LeechDrillSessionStore>()(
+export const useWeakSpotDrillSessionStore = create<WeakSpotDrillSessionStore>()(
   devtools(
     (set, get) => ({
       phase: 'idle',
@@ -118,7 +118,7 @@ export const useLeechDrillSessionStore = create<LeechDrillSessionStore>()(
           const record: DrillAttemptRecord = {
             eventId:         randomUUID(),
             sessionCardId:   card.sessionCardId,
-            leechId:         card.leechId,
+            weakSpotId:         card.weakSpotId,
             cardId:          card.cardId,
             result,
             shownAt:         new Date(s.cardShownAt).toISOString(),
@@ -175,49 +175,49 @@ export const useLeechDrillSessionStore = create<LeechDrillSessionStore>()(
         reset: () => set({ phase: 'idle', actions: get().actions }, true),
       },
     }),
-    { name: 'LeechDrillSessionStore' },
+    { name: 'WeakSpotDrillSessionStore' },
   ),
 )
 
 // ── Selector hooks ────────────────────────────────────────────────────────────
 
-const EMPTY_QUEUE:    readonly ApiLeechDrillSessionDetailCard[] = []
+const EMPTY_QUEUE:    readonly ApiWeakSpotDrillSessionDetailCard[] = []
 const EMPTY_ATTEMPTS: readonly DrillAttemptRecord[]             = []
 
 export const useDrillSessionId = (): string | null =>
-  useLeechDrillSessionStore((s) =>
+  useWeakSpotDrillSessionStore((s) =>
     s.phase === 'active' || s.phase === 'finished' ? s.sessionId : null,
   )
 
-export const useDrillQueue = (): readonly ApiLeechDrillSessionDetailCard[] =>
-  useLeechDrillSessionStore((s) =>
+export const useDrillQueue = (): readonly ApiWeakSpotDrillSessionDetailCard[] =>
+  useWeakSpotDrillSessionStore((s) =>
     s.phase === 'active' || s.phase === 'finished' ? s.queue : EMPTY_QUEUE,
   )
 
-export const useDrillCurrentCard = (): ApiLeechDrillSessionDetailCard | undefined =>
-  useLeechDrillSessionStore((s) =>
+export const useDrillCurrentCard = (): ApiWeakSpotDrillSessionDetailCard | undefined =>
+  useWeakSpotDrillSessionStore((s) =>
     s.phase === 'active' ? s.queue[s.currentIndex] : undefined,
   )
 
 export const useDrillCurrentIndex = (): number =>
-  useLeechDrillSessionStore((s) => (s.phase === 'active' ? s.currentIndex : 0))
+  useWeakSpotDrillSessionStore((s) => (s.phase === 'active' ? s.currentIndex : 0))
 
 export const useDrillShowAnswer = (): boolean =>
-  useLeechDrillSessionStore((s) => (s.phase === 'active' ? s.showAnswer : false))
+  useWeakSpotDrillSessionStore((s) => (s.phase === 'active' ? s.showAnswer : false))
 
 export const useDrillAttempts = (): readonly DrillAttemptRecord[] =>
-  useLeechDrillSessionStore((s) =>
+  useWeakSpotDrillSessionStore((s) =>
     s.phase === 'active' || s.phase === 'finished' ? s.attempts : EMPTY_ATTEMPTS,
   )
 
 export const useDrillIsActive = (): boolean =>
-  useLeechDrillSessionStore((s) => s.phase === 'active')
+  useWeakSpotDrillSessionStore((s) => s.phase === 'active')
 
 export const useDrillIsFinished = (): boolean =>
-  useLeechDrillSessionStore((s) => s.phase === 'finished')
+  useWeakSpotDrillSessionStore((s) => s.phase === 'finished')
 
 export const useDrillExitedEarly = (): boolean =>
-  useLeechDrillSessionStore((s) => (s.phase === 'finished' ? s.exitedEarly : false))
+  useWeakSpotDrillSessionStore((s) => (s.phase === 'finished' ? s.exitedEarly : false))
 
-export const useDrillActions = (): LeechDrillSessionActions =>
-  useLeechDrillSessionStore((s) => s.actions)
+export const useDrillActions = (): WeakSpotDrillSessionActions =>
+  useWeakSpotDrillSessionStore((s) => s.actions)

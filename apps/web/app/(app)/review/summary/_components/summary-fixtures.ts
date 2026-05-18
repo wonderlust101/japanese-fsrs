@@ -1,4 +1,4 @@
-import type { SessionSummary, SessionLeech } from '@fsrs-japanese/shared-types'
+import type { SessionSummary, SessionWeakSpot } from '@fsrs-japanese/shared-types'
 
 import type { SessionPattern } from '@/lib/review/summary-pattern'
 
@@ -7,9 +7,9 @@ import type { SessionPattern } from '@/lib/review/summary-pattern'
 // satisfies SessionSummarySchema; values are picked to land squarely inside
 // each pattern's classifier branch.
 
-const SAMPLE_LEECHES: SessionLeech[] = [
+const SAMPLE_LEECHES: SessionWeakSpot[] = [
   {
-    leechId:      'leech-1',
+    weakSpotId:      'weakSpot-1',
     cardId:       'card-hiraku',
     deckId:       'deck-jlpt-n4',
     word:         '開く',
@@ -20,7 +20,7 @@ const SAMPLE_LEECHES: SessionLeech[] = [
     createdAt:    new Date().toISOString(),
   },
   {
-    leechId:      'leech-2',
+    weakSpotId:      'weakSpot-2',
     cardId:       'card-akeru',
     deckId:       'deck-jlpt-n4',
     word:         '開ける',
@@ -31,7 +31,7 @@ const SAMPLE_LEECHES: SessionLeech[] = [
     createdAt:    new Date().toISOString(),
   },
   {
-    leechId:      'leech-3',
+    weakSpotId:      'weakSpot-3',
     cardId:       'card-shimaru',
     deckId:       'deck-jlpt-n4',
     word:         '閉まる',
@@ -42,7 +42,7 @@ const SAMPLE_LEECHES: SessionLeech[] = [
     createdAt:    new Date().toISOString(),
   },
   {
-    leechId:      'leech-4',
+    weakSpotId:      'weakSpot-4',
     cardId:       'card-shimeru',
     deckId:       'deck-jlpt-n4',
     word:         '閉める',
@@ -68,7 +68,7 @@ export const SUMMARY_FIXTURES: Record<SessionPattern, SessionSummary> = {
     totalTimeMs: 9 * 60 * 1000,
     accuracyPct: 95,
     ratingBreakdown: { again: 0, hard: 2, good: 28, easy: 8 },
-    leeches:     [],
+    weakSpots:     [],
   },
   mixed: {
     ...base('fixture-mixed'),
@@ -76,7 +76,7 @@ export const SUMMARY_FIXTURES: Record<SessionPattern, SessionSummary> = {
     totalTimeMs: 11 * 60 * 1000 + 20 * 1000,
     accuracyPct: 81,
     ratingBreakdown: { again: 4, hard: 5, good: 24, easy: 9 },
-    leeches:     SAMPLE_LEECHES.slice(0, 2),
+    weakSpots:     SAMPLE_LEECHES.slice(0, 2),
   },
   difficult: {
     ...base('fixture-difficult'),
@@ -84,15 +84,15 @@ export const SUMMARY_FIXTURES: Record<SessionPattern, SessionSummary> = {
     totalTimeMs: 14 * 60 * 1000,
     accuracyPct: 58,
     ratingBreakdown: { again: 12, hard: 8, good: 12, easy: 3 },
-    leeches:     SAMPLE_LEECHES.slice(0, 2),
+    weakSpots:     SAMPLE_LEECHES.slice(0, 2),
   },
-  leech: {
-    ...base('fixture-leech'),
+  weakSpot: {
+    ...base('fixture-weakSpot'),
     totalCards:  44,
     totalTimeMs: 13 * 60 * 1000,
     accuracyPct: 72,
     ratingBreakdown: { again: 6, hard: 6, good: 26, easy: 6 },
-    leeches:     SAMPLE_LEECHES.slice(0, 4),
+    weakSpots:     SAMPLE_LEECHES.slice(0, 4),
   },
   'ended-early': {
     ...base('fixture-ended-early'),
@@ -100,7 +100,7 @@ export const SUMMARY_FIXTURES: Record<SessionPattern, SessionSummary> = {
     totalTimeMs: 4 * 60 * 1000,
     accuracyPct: 79,
     ratingBreakdown: { again: 2, hard: 2, good: 8, easy: 2 },
-    leeches:     SAMPLE_LEECHES.slice(0, 1),
+    weakSpots:     SAMPLE_LEECHES.slice(0, 1),
   },
   'no-pattern': {
     ...base('fixture-no-pattern'),
@@ -108,7 +108,7 @@ export const SUMMARY_FIXTURES: Record<SessionPattern, SessionSummary> = {
     totalTimeMs: 90 * 1000,
     accuracyPct: 100,
     ratingBreakdown: { again: 0, hard: 0, good: 2, easy: 1 },
-    leeches:     [],
+    weakSpots:     [],
   },
 }
 
@@ -116,7 +116,7 @@ export const SUMMARY_FIXTURE_KEYS: SessionPattern[] = [
   'strong',
   'mixed',
   'difficult',
-  'leech',
+  'weakSpot',
   'ended-early',
   'no-pattern',
 ]
@@ -126,13 +126,13 @@ export function summaryFixtureLabel(pattern: SessionPattern): string {
     case 'strong':      return 'Strong session'
     case 'mixed':       return 'Mixed session'
     case 'difficult':   return 'Difficult session'
-    case 'leech':       return 'Leech-like'
+    case 'weakSpot':       return 'WeakSpot-like'
     case 'ended-early': return 'Ended early'
     case 'no-pattern':  return 'No pattern'
   }
 }
 
-// Mock meanings keyed by cardId, used by ProblemCardRow when the fixture
+// Mock meanings keyed by cardId, used by WeakSpotRow when the fixture
 // renders. Production rows source meaning from card detail, not from the
 // summary payload — but the fixtures should look fleshed out.
 export const FIXTURE_MEANINGS: Record<string, string> = {

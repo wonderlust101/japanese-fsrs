@@ -3,14 +3,14 @@ import Link from 'next/link'
 import { Button }       from '@/components/ui/Button'
 import { FuriganaText } from '@/components/ui/FuriganaText'
 
-import type { SessionLeech } from '@fsrs-japanese/shared-types'
+import type { SessionWeakSpot } from '@fsrs-japanese/shared-types'
 
 interface Props {
-  leech:     SessionLeech
+  weakSpot:     SessionWeakSpot
   meaning?:  string | undefined
   /** Optional miss-context tag rendered to the right (e.g. "Hard×2"). */
   missTag?:  string | undefined
-  onRepair?: ((leech: SessionLeech) => void) | undefined
+  onRepair?: ((weakSpot: SessionWeakSpot) => void) | undefined
 }
 
 /**
@@ -23,8 +23,8 @@ interface Props {
  * own focusable element so the row still feels like one click for the
  * common "see the card" case while keeping Repair as an explicit choice.
  */
-export function ProblemCardRow({ leech, meaning, missTag, onRepair }: Props): React.JSX.Element {
-  const cardHref = `/decks/${leech.deckId}/cards/${leech.cardId}`
+export function WeakSpotRow({ weakSpot, meaning, missTag, onRepair }: Props): React.JSX.Element {
+  const cardHref = `/decks/${weakSpot.deckId}/cards/${weakSpot.cardId}`
 
   return (
     <div className="group flex items-center gap-4 py-3.5">
@@ -33,10 +33,10 @@ export function ProblemCardRow({ leech, meaning, missTag, onRepair }: Props): Re
         className="flex-1 min-w-0 flex items-baseline gap-3 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px]"
       >
         <span className="shrink-0 text-xl md:text-2xl font-medium text-sumi-ink group-hover:text-inari-vermillion transition-colors">
-          {leech.reading !== null ? (
-            <FuriganaText text={leech.word} reading={leech.reading} className="font-japanese" />
+          {weakSpot.reading !== null ? (
+            <FuriganaText text={weakSpot.word} reading={weakSpot.reading} className="font-japanese" />
           ) : (
-            <span lang="ja" className="font-japanese">{leech.word}</span>
+            <span lang="ja" className="font-japanese">{weakSpot.word}</span>
           )}
         </span>
 
@@ -57,7 +57,7 @@ export function ProblemCardRow({ leech, meaning, missTag, onRepair }: Props): Re
         <Button
           variant="editorial"
           size="sm"
-          onClick={() => onRepair?.(leech)}
+          onClick={() => onRepair?.(weakSpot)}
         >
           Repair
         </Button>
@@ -71,8 +71,8 @@ export function ProblemCardRow({ leech, meaning, missTag, onRepair }: Props): Re
           variant="editorial"
           size="sm"
           iconOnly
-          aria-label={`Repair ${leech.word}`}
-          onClick={() => onRepair?.(leech)}
+          aria-label={`Repair ${weakSpot.word}`}
+          onClick={() => onRepair?.(weakSpot)}
         >
           →
         </Button>

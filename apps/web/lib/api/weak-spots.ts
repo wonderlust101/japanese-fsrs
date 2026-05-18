@@ -8,28 +8,28 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query'
 import type {
-  ApiLeechDrillAttempt,
-  ApiLeechDrillSession,
-  ApiLeechDrillSessionDetail,
-  ApiLeechListItem,
-  ApiLeechListResponse,
+  ApiWeakSpotDrillAttempt,
+  ApiWeakSpotDrillSession,
+  ApiWeakSpotDrillSessionDetail,
+  ApiWeakSpotListItem,
+  ApiWeakSpotListResponse,
 } from '@fsrs-japanese/shared-types'
 
 import {
   abortDrillSessionAction,
   createDrillSessionAction,
-  diagnoseLeechAction,
+  diagnoseWeakSpotAction,
   finishDrillSessionAction,
   getDrillSessionAction,
-  getLeechAction,
-  listLeechesAction,
+  getWeakSpotAction,
+  listWeakSpotsAction,
   recordDrillAttemptAction,
-  reopenLeechAction,
-  resolveLeechAction,
+  reopenWeakSpotAction,
+  resolveWeakSpotAction,
   type CreateDrillSessionInput,
   type ListLeechesOptions,
   type RecordDrillAttemptInput,
-} from '../actions/leeches.actions'
+} from '../actions/weak-spots.actions'
 
 import { staleTimes } from './config'
 import { queryKeys }  from './queryKeys'
@@ -37,35 +37,35 @@ import { queryKeys }  from './queryKeys'
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 /**
- * Paginated leech list. The filter object is included in the cache key so
+ * Paginated weakSpot list. The filter object is included in the cache key so
  * different filter combinations are fetched and cached independently. Stale
  * time matches analytics — the list is mutated by reviews (server side) and
  * resolve/reopen/diagnose (client side); all three invalidate via the
  * mutations below.
  */
-export function useLeechesQuery(
+export function useWeakSpotsQuery(
   opts: ListLeechesOptions = {},
-): UseQueryResult<ApiLeechListResponse, Error> {
+): UseQueryResult<ApiWeakSpotListResponse, Error> {
   return useQuery({
-    queryKey:  queryKeys.leeches.list(opts),
-    queryFn:   () => listLeechesAction(opts),
+    queryKey:  queryKeys.weakSpots.list(opts),
+    queryFn:   () => listWeakSpotsAction(opts),
     staleTime: staleTimes.analytics,
   })
 }
 
 /**
- * Single-leech detail query. `enabled` is gated on `id` so the dialog can
+ * Single-weakSpot detail query. `enabled` is gated on `id` so the dialog can
  * keep this hook mounted (one place to read from) while the user is not
- * inspecting any leech — the request only fires when an id is supplied.
+ * inspecting any weakSpot — the request only fires when an id is supplied.
  */
-export function useLeechDetailQuery(
+export function useWeakSpotDetailQuery(
   id: string | null,
-): UseQueryResult<ApiLeechListItem, Error> {
+): UseQueryResult<ApiWeakSpotListItem, Error> {
   return useQuery({
-    queryKey: queryKeys.leeches.detail(id ?? '__none__'),
+    queryKey: queryKeys.weakSpots.detail(id ?? '__none__'),
     queryFn:  () => {
-      if (id === null) throw new Error('Leech id is required')
-      return getLeechAction(id)
+      if (id === null) throw new Error('WeakSpot id is required')
+      return getWeakSpotAction(id)
     },
     enabled:  id !== null,
   })
@@ -74,12 +74,12 @@ export function useLeechDetailQuery(
 // ─── Derived signals ──────────────────────────────────────────────────────────
 
 /**
- * Sidebar-friendly projection of the unresolved leech count. Wraps
- * `useLeechesQuery` with a fixed limit so the sidebar shares cache with any
+ * Sidebar-friendly projection of the unresolved weakSpot count. Wraps
+ * `useWeakSpotsQuery` with a fixed limit so the sidebar shares cache with any
  * other `status=unresolved` list view of the same shape.
  *
  * Returned shape:
- *   - `count`     : number of unresolved leeches the server returned (≤ 50).
+ *   - `count`     : number of unresolved weakSpots the server returned (≤ 50).
  *   - `hasMore`   : true if the server signalled more pages exist; the sidebar
  *                   uses this to render a `50+` overflow chip rather than the
  *                   raw `count` (which would visually undercount).
@@ -89,12 +89,12 @@ export function useLeechDetailQuery(
  *
  * Caps follow the spec: the count chip caps at 50 with a `+` overflow.
  */
-export function useUnresolvedLeechCount(): {
+export function useUnresolvedWeakSpotCount(): {
   count:     number
   hasMore:   boolean
   isLoading: boolean
 } {
-  const query = useLeechesQuery({
+  const query = useWeakSpotsQuery({
     status: 'unresolved',
     limit:  50,
     sort:   'mostRecent',
@@ -110,56 +110,56 @@ export function useUnresolvedLeechCount(): {
 
 /**
  * After every mutation, the cache invalidation set is intentionally narrow:
- * only the leeches namespace is touched. Analytics, decks, and review state
+ * only the weakSpots namespace is touched. Analytics, decks, and review state
  * are unaffected by resolve/reopen/diagnose — the doc's "drill-only
- * mutations invalidate only the affected leech list/detail/session query
+ * mutations invalidate only the affected weakSpot list/detail/session query
  * keys, not all review or analytics data" rule applies equally to these
  * lifecycle mutations.
  */
 function invalidateLeeches(queryClient: ReturnType<typeof useQueryClient>): void {
-  queryClient.invalidateQueries({ queryKey: queryKeys.leeches.all() })
+  queryClient.invalidateQueries({ queryKey: queryKeys.weakSpots.all() })
 }
 
-export function useResolveLeechMutation(): UseMutationResult<
-  ApiLeechListItem,
+export function useResolveWeakSpotMutation(): UseMutationResult<
+  ApiWeakSpotListItem,
   Error,
   string
 > {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: resolveLeechAction,
-    onSuccess:  (leech) => {
-      queryClient.setQueryData(queryKeys.leeches.detail(leech.id), leech)
+    mutationFn: resolveWeakSpotAction,
+    onSuccess:  (weakSpot) => {
+      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
       invalidateLeeches(queryClient)
     },
   })
 }
 
-export function useReopenLeechMutation(): UseMutationResult<
-  ApiLeechListItem,
+export function useReopenWeakSpotMutation(): UseMutationResult<
+  ApiWeakSpotListItem,
   Error,
   string
 > {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: reopenLeechAction,
-    onSuccess:  (leech) => {
-      queryClient.setQueryData(queryKeys.leeches.detail(leech.id), leech)
+    mutationFn: reopenWeakSpotAction,
+    onSuccess:  (weakSpot) => {
+      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
       invalidateLeeches(queryClient)
     },
   })
 }
 
-export function useDiagnoseLeechMutation(): UseMutationResult<
-  ApiLeechListItem,
+export function useDiagnoseWeakSpotMutation(): UseMutationResult<
+  ApiWeakSpotListItem,
   Error,
   string
 > {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: diagnoseLeechAction,
-    onSuccess:  (leech) => {
-      queryClient.setQueryData(queryKeys.leeches.detail(leech.id), leech)
+    mutationFn: diagnoseWeakSpotAction,
+    onSuccess:  (weakSpot) => {
+      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
       invalidateLeeches(queryClient)
     },
   })
@@ -168,13 +168,13 @@ export function useDiagnoseLeechMutation(): UseMutationResult<
 // ─── Drill (Phase 2) ──────────────────────────────────────────────────────────
 
 /**
- * Start a drill session. The mutation does NOT invalidate the leech list
+ * Start a drill session. The mutation does NOT invalidate the weakSpot list
  * because creating a session has no effect on canonical FSRS state — the
  * doc's scheduler-invariance contract guarantees this. We invalidate only
  * the drill-session detail cache, which is empty pre-creation anyway.
  */
 export function useCreateDrillSessionMutation(): UseMutationResult<
-  ApiLeechDrillSession,
+  ApiWeakSpotDrillSession,
   Error,
   CreateDrillSessionInput
 > {
@@ -183,7 +183,7 @@ export function useCreateDrillSessionMutation(): UseMutationResult<
     mutationFn: createDrillSessionAction,
     onSuccess:  (session) => {
       queryClient.setQueryData(
-        queryKeys.leeches.drillSession(session.sessionId),
+        queryKeys.weakSpots.drillSession(session.sessionId),
         session,
       )
     },
@@ -197,9 +197,9 @@ export function useCreateDrillSessionMutation(): UseMutationResult<
  */
 export function useDrillSessionQuery(
   sessionId: string | null,
-): UseQueryResult<ApiLeechDrillSessionDetail, Error> {
+): UseQueryResult<ApiWeakSpotDrillSessionDetail, Error> {
   return useQuery({
-    queryKey: queryKeys.leeches.drillSession(sessionId ?? '__none__'),
+    queryKey: queryKeys.weakSpots.drillSession(sessionId ?? '__none__'),
     queryFn:  () => {
       if (sessionId === null) throw new Error('Session id is required')
       return getDrillSessionAction(sessionId)
@@ -221,7 +221,7 @@ interface RecordAttemptVariables {
  * progress tracking.
  */
 export function useRecordDrillAttemptMutation(): UseMutationResult<
-  ApiLeechDrillAttempt,
+  ApiWeakSpotDrillAttempt,
   Error,
   RecordAttemptVariables
 > {
@@ -231,7 +231,7 @@ export function useRecordDrillAttemptMutation(): UseMutationResult<
 }
 
 export function useFinishDrillSessionMutation(): UseMutationResult<
-  ApiLeechDrillSessionDetail,
+  ApiWeakSpotDrillSessionDetail,
   Error,
   string
 > {
@@ -239,13 +239,13 @@ export function useFinishDrillSessionMutation(): UseMutationResult<
   return useMutation({
     mutationFn: finishDrillSessionAction,
     onSuccess:  (detail) => {
-      queryClient.setQueryData(queryKeys.leeches.drillSession(detail.sessionId), detail)
+      queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail)
     },
   })
 }
 
 export function useAbortDrillSessionMutation(): UseMutationResult<
-  ApiLeechDrillSessionDetail,
+  ApiWeakSpotDrillSessionDetail,
   Error,
   string
 > {
@@ -253,7 +253,7 @@ export function useAbortDrillSessionMutation(): UseMutationResult<
   return useMutation({
     mutationFn: abortDrillSessionAction,
     onSuccess:  (detail) => {
-      queryClient.setQueryData(queryKeys.leeches.drillSession(detail.sessionId), detail)
+      queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail)
     },
   })
 }
