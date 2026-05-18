@@ -33,6 +33,7 @@ import {
     type CardType,
     type FieldsData,
     type GeneratedCardData,
+    type GeneratedSentenceCard,
     type JLPTLevel,
     type LayoutType,
     type UpdateCardInput,
@@ -135,10 +136,6 @@ export function toCardRow(raw: CardDbRow): ApiCard {
     deckId:        raw.deck_id,
     premadeDeckId: raw.premade_deck_id,
     layoutType:    raw.layout_type,
-    // The DB enforces fields_data shape via cards_fields_data_shape CHECK
-    // (migration 20260504000007 M3): vocabulary/grammar layouts have
-    // {word, reading, meaning}; sentence is unconstrained. The cast moves the
-    // discriminated-union narrowing to the consumer.
     fieldsData:    raw.fields_data as FieldsData,
     cardType:      raw.card_type,
     parentCardId:  raw.parent_card_id,
@@ -450,12 +447,15 @@ export async function getCard(
 export async function createCard(
   deckId:     string,
   userId:     string,
-  // Accepts either the validated wire-format FieldsData (manual creation
-  // path) or the raw GeneratedCardData from the AI generator. Both are
-  // JSONB-compatible; the DB-side `cards_fields_data_shape` CHECK constraint
-  // enforces the minimum keys required per `layout_type`. The asPayload()
-  // call below bridges to Supabase's Json type.
-  fieldsData: FieldsData | GeneratedCardData,
+  // Accepts one of three shapes:
+  //   - validated wire-format FieldsData (manual creation path)
+  //   - GeneratedCardData from the vocabulary / grammar AI generator
+  //   - GeneratedSentenceCard from the sentence AI generator (Stage 13)
+  // All are JSONB-compatible; the DB-side `cards_fields_data_shape` CHECK
+  // constraint enforces the minimum keys required per `layout_type` (Stage 12
+  // tightened the sentence-layout arm). The asPayload() call below bridges
+  // to Supabase's Json type.
+  fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard,
   meta:       CreateCardMeta,
 ): Promise<ApiCard> {
   await assertDeckOwnership(deckId, userId)

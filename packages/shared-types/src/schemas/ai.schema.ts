@@ -99,6 +99,30 @@ export const GeneratedTomoNoteSchema = z.object({
   body: safeStr,
 })
 
+/**
+ * Structured-output shape for the sentence-layout AI generator (Backend
+ * Completion Plan Stage 13). Mirrors `SentenceFieldsDataSchema` admitted
+ * by Stage 12 — the model returns ja/en/furigana plus optional breakdown
+ * and nuance. The `audio` field stays unmapped at the prompt layer for the
+ * same asset-hosting reason that keeps `picture` / `expressionAudio` out
+ * of the vocabulary prompt — asking the model for a URL it cannot host
+ * yields hallucinated 404s.
+ */
+export const GeneratedSentenceCardSchema = z.object({
+  ja:        safeStr,
+  en:        safeStr,
+  furigana:  safeStr,
+  breakdown: z.array(z.object({
+    token:   safeStr,
+    reading: safeStr.optional(),
+    meaning: safeStr.optional(),
+  })).optional(),
+  nuance:    safeStr.optional(),
+  // Schema admits `audio` for forward compatibility with a future
+  // sentence-audio asset story; the current prompt does not request it.
+  audio:     safeStr.optional(),
+})
+
 export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>
 export type GeneratedCardData        = z.infer<typeof GeneratedCardDataSchema>
 export type GenerateSentencesInput   = z.infer<typeof generateSentencesInputSchema>
@@ -107,3 +131,4 @@ export type GenerateMnemonicInput    = z.infer<typeof generateMnemonicInputSchem
 export type GeneratedMnemonic        = z.infer<typeof GeneratedMnemonicSchema>
 export type GeneratedLeechDiagnosis  = z.infer<typeof GeneratedLeechDiagnosisSchema>
 export type GeneratedTomoNote        = z.infer<typeof GeneratedTomoNoteSchema>
+export type GeneratedSentenceCard    = z.infer<typeof GeneratedSentenceCardSchema>

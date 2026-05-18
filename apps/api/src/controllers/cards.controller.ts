@@ -12,6 +12,7 @@ import type {
   ApiCard,
   FieldsData,
   GeneratedCardData,
+  GeneratedSentenceCard,
 } from '@fsrs-japanese/shared-types'
 
 import { emptyBodySchema } from '../schemas/leech.schema.ts'
@@ -65,17 +66,32 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
       // discriminator so the chosen branch's fields are typed correctly and
       // a future schema change can't silently mis-route requests. The
       // createCard service accepts either validated FieldsData (manual path)
-      // or raw GeneratedCardData (AI path) — see services/card.service.ts.
-      let fieldsData: FieldsData | GeneratedCardData
+      // or raw GeneratedCardData / GeneratedSentenceCard (AI paths) — see
+      // services/card.service.ts.
+      let fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard
 
       if (input.mode === 'ai') {
         const profile = await profileService.getProfile(req.user.id)
-        fieldsData = await aiService.generateCard(
-          input.word,
-          profile.jlptTarget ?? 'N5',
-          profile.interests,
-          { signal: req.signal },
-        )
+        // Backend Completion Plan Stage 13 — dispatch the AI generator on
+        // layoutType. Sentence-layout cards need ja/en/furigana (per the
+        // Stage 12 schema + DB CHECK); vocabulary/grammar cards need
+        // word/reading/meaning. A single `generateCard` for both would
+        // tangle two diverging prompts.
+        if (input.layoutType === 'sentence') {
+          fieldsData = await aiService.generateSentenceCard(
+            input.word,
+            profile.jlptTarget ?? 'N5',
+            profile.interests,
+            { signal: req.signal },
+          )
+        } else {
+          fieldsData = await aiService.generateCard(
+            input.word,
+            profile.jlptTarget ?? 'N5',
+            profile.interests,
+            { signal: req.signal },
+          )
+        }
       } else {
         // The wire-level `fieldsDataSchema` validates inputs as a permissive
         // `Record<string, unknown>` (cards.schema.ts:22) because the AI and

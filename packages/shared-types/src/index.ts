@@ -123,11 +123,13 @@ export type {
 export {
   GeneratedCardDataSchema, GeneratedSentencesSchema, GeneratedMnemonicSchema,
   GeneratedLeechDiagnosisSchema, GeneratedTomoNoteSchema,
+  GeneratedSentenceCardSchema,
   generateCardInputSchema, generateSentencesInputSchema, generateMnemonicInputSchema,
 } from './schemas/ai.schema.ts'
 export type {
   GeneratedCardData, GeneratedSentences, GeneratedMnemonic, GeneratedLeechDiagnosis,
   GeneratedTomoNote,
+  GeneratedSentenceCard,
 } from './schemas/ai.schema.ts'
 
 export { updateProfileSchema } from './schemas/profile.schema.ts'

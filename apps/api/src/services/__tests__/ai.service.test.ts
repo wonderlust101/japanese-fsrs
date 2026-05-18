@@ -43,6 +43,7 @@ const {
   generateSentences,
   generateMnemonic,
   generateTomoNote,
+  generateSentenceCard,
 } = await import('../ai.service.ts')
 
 beforeEach(() => {
@@ -288,5 +289,113 @@ describe('ai.service — corrupt cached payload is treated as miss', () => {
     if (result instanceof Error) {
       expect(result.name).not.toBe('ZodError')
     }
+  })
+})
+
+// ─── Backend Completion Plan Stage 13 — sentence-card generator ──────────────
+// Mirrors the Stage 2 pattern: version-keyed cache, separate namespace from
+// the vocabulary generator. The schema enforces the Stage 12 shape.
+describe('ai.service — generateSentenceCard cache', () => {
+  it('returns the cached payload when present at the v1 sentence-card key shape', async () => {
+    const topic    = 'ordering coffee'
+    const level    = 'N3'
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+    const cached = JSON.stringify({
+      ja:       'コーヒーをください。',
+      en:       'Coffee, please.',
+      furigana: 'コーヒーをください。',
+      nuance:   'Polite enough for a café — neutral register.',
+    })
+    const key = `sentence-card:v1:${topic}:${level}:${hash}`
+    state.redisStore.set(key, cached)
+
+    const result = await generateSentenceCard(topic, level, [])
+    expect(result.ja).toBe('コーヒーをください。')
+    expect(result.en).toBe('Coffee, please.')
+    expect(result.furigana).toBe('コーヒーをください。')
+    expect(result.nuance).toBe('Polite enough for a café — neutral register.')
+  })
+
+  it('does not read entries under the vocabulary card namespace (separate caches)', async () => {
+    const topic = 'ordering tea'
+    const level = 'N3'
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+
+    // Seed an entry under the vocabulary card key shape — wrong namespace
+    // for the sentence generator; it must not be served.
+    const wrongNamespaceKey = `card:v2:${topic}:${level}:${hash}`
+    state.redisStore.set(wrongNamespaceKey, JSON.stringify({
+      word:    'お茶',
+      reading: 'おちゃ',
+      meaning: 'tea',
+    }))
+
+    // OpenAI is unmocked here — call resolves with a fresh payload or rejects.
+    // The contract: the wrong-namespace entry is never used.
+    const result = await generateSentenceCard(topic, level, []).catch((err) => err)
+
+    if (!(result instanceof Error)) {
+      // If the call somehow succeeded, the result must be a sentence shape,
+      // not the vocabulary one we seeded.
+      expect(result.word).toBeUndefined()
+      expect('ja' in result).toBe(true)
+    }
+    // The vocabulary entry stays in place — different generator's namespace,
+    // nothing reads it from this code path.
+    expect(state.redisStore.get(wrongNamespaceKey)).toBe(JSON.stringify({
+      word:    'お茶',
+      reading: 'おちゃ',
+      meaning: 'tea',
+    }))
+  })
+
+  it('GeneratedSentenceCardSchema rejects a card missing `ja`', async () => {
+    const { GeneratedSentenceCardSchema } = await import('@fsrs-japanese/shared-types')
+    const result = GeneratedSentenceCardSchema.safeParse({
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('GeneratedSentenceCardSchema rejects a card missing `en`', async () => {
+    const { GeneratedSentenceCardSchema } = await import('@fsrs-japanese/shared-types')
+    const result = GeneratedSentenceCardSchema.safeParse({
+      ja:       '猫が好きです。',
+      furigana: 'ねこがすきです。',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('GeneratedSentenceCardSchema rejects a card missing `furigana`', async () => {
+    const { GeneratedSentenceCardSchema } = await import('@fsrs-japanese/shared-types')
+    const result = GeneratedSentenceCardSchema.safeParse({
+      ja: '猫が好きです。',
+      en: 'I like cats.',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('GeneratedSentenceCardSchema admits a full payload with breakdown + nuance round-trip', async () => {
+    const { GeneratedSentenceCardSchema } = await import('@fsrs-japanese/shared-types')
+    const input = {
+      ja:       '猫が好きです。',
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+      breakdown: [
+        { token: '猫', reading: 'ねこ', meaning: 'cat' },
+        { token: 'が' },
+        { token: '好き', reading: 'すき', meaning: 'liked' },
+        { token: 'です' },
+        { token: '。' },
+      ],
+      nuance: 'Polite but warm register.',
+    }
+    const parsed = GeneratedSentenceCardSchema.parse(input)
+    expect(parsed.ja).toBe('猫が好きです。')
+    expect(parsed.breakdown).toHaveLength(5)
+    expect(parsed.breakdown?.[0]?.reading).toBe('ねこ')
   })
 })
