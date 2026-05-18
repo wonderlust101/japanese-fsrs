@@ -170,6 +170,25 @@ export function LeechesView(): React.JSX.Element {
     <>
       <PageShell>
         <LeechesHeader status={filters.status} count={items.length} />
+
+        {/* Primary CTA — above the fold. Only surfaces when there's
+            actually something to drill: hidden on the resolved tab and
+            when the unresolved list is empty (the LeechesEmpty kitsune
+            owns that state). */}
+        {filters.status === 'unresolved' && !isEmpty && (
+          <div className="-mt-2 mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 sm:mb-4">
+            <Link
+              href="/insights/weak-spots/drill/setup"
+              className="inline-flex h-11 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-5 text-sm font-semibold text-warm-paper-raised transition-colors hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            >
+              Drill these →
+            </Link>
+            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+              Practice only · review schedule unchanged
+            </p>
+          </div>
+        )}
+
         <LeechesFilterRow value={filters} onChange={setFilters} />
 
         {isEmpty ? (
