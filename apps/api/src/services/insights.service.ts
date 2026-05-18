@@ -12,8 +12,12 @@ import {
   type ApiProblemCard,
   type ApiProblemCardBucketSchema,
   type ApiCardQualityIssue,
+  type ApiMaturitySnapshot,
+  type ApiMaturityHistoryDaysSchema,
   type FieldsData,
 } from '@fsrs-japanese/shared-types'
+
+type MaturityHistoryDays = z.infer<typeof ApiMaturityHistoryDaysSchema>
 
 type ProblemCardBucket = z.infer<typeof ApiProblemCardBucketSchema>
 
@@ -146,6 +150,68 @@ export async function listCardQualityIssues(
   const items: ApiCardQualityIssue[] = rows.map((r) => ({
     issueType: r.issue_type,
     count:     r.count,
+  }))
+
+  return { items, nextCursor: null, hasMore: false }
+}
+
+// ─── Stage 9 — maturity-pipeline history ─────────────────────────────────────
+
+const MaturitySnapshotRpcRowSchema = z.object({
+  // Postgres returns DATE as an ISO YYYY-MM-DD string over the supabase-js
+  // wire. The RPC's "today" row is computed in the learner's timezone.
+  snapshot_date:    z.string(),
+  new_count:        z.number().int().nonnegative(),
+  learning_count:   z.number().int().nonnegative(),
+  review_count:     z.number().int().nonnegative(),
+  relearning_count: z.number().int().nonnegative(),
+  mature_count:     z.number().int().nonnegative(),
+})
+
+/**
+ * Backend Completion Plan Stage 9. Returns up to `days` rows of per-state
+ * card counts, one per learner-local day. Historical rows come from the
+ * `card_state_snapshots` table; today's row is always computed live from
+ * `cards` so the chart reflects the current moment between cron runs.
+ *
+ * The `days` enum is the shared wire-format enum ('90' | '180' | '365');
+ * the RPC takes an int, so we parse here. The Zod layer at the controller
+ * rejects unknown enum values first; the RPC's SQLSTATE 22023 guard is
+ * defence in depth for direct-SQL callers.
+ *
+ * A user with no reviews and no cards still gets a non-empty response —
+ * the live `today` row is always emitted, with zeros across every count.
+ * Historical rows may be sparse until the daily cron has run for several
+ * days; that's expected per the plan ("a user with no reviews still gets
+ * a sparse history").
+ */
+export async function listMaturityHistory(
+  userId: string,
+  days:   MaturityHistoryDays,
+): Promise<ApiList<ApiMaturitySnapshot>> {
+  const daysInt = Number.parseInt(days, 10)
+  const { data, error } = await supabaseAdmin.rpc('get_maturity_pipeline_history', asPayload({
+    p_user_id: userId,
+    p_days:    daysInt,
+  }))
+
+  if (error !== null) {
+    if (error.code === '22023' && error.message.includes('invalid_days_parameter')) {
+      throw new AppError(400, 'Unknown maturity-history window', {
+        code: 'MATURITY_HISTORY_DAYS_INVALID',
+      })
+    }
+    throw dbError('list maturity-pipeline history', error)
+  }
+
+  const rows  = z.array(MaturitySnapshotRpcRowSchema).parse(data ?? [])
+  const items: ApiMaturitySnapshot[] = rows.map((r) => ({
+    date:            r.snapshot_date,
+    newCount:        r.new_count,
+    learningCount:   r.learning_count,
+    reviewCount:     r.review_count,
+    relearningCount: r.relearning_count,
+    matureCount:     r.mature_count,
   }))
 
   return { items, nextCursor: null, hasMore: false }

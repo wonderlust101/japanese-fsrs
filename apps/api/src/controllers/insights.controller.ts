@@ -1,6 +1,9 @@
 import type { RequestHandler } from 'express'
 
-import { listProblemCardsQuerySchema } from '../schemas/insights.schema.ts'
+import {
+  listProblemCardsQuerySchema,
+  maturityHistoryQuerySchema,
+} from '../schemas/insights.schema.ts'
 import * as insightsService from '../services/insights.service.ts'
 
 /**
@@ -33,5 +36,20 @@ export const problemCards: RequestHandler = async (req, res): Promise<void> => {
  */
 export const cardQuality: RequestHandler = async (req, res): Promise<void> => {
   const data = await insightsService.listCardQualityIssues(req.user.id)
+  res.json(data)
+}
+
+/**
+ * GET /api/v1/insights/maturity-history?days=…
+ *
+ * Backend Completion Plan Stage 9 — maturity-pipeline history. The `days`
+ * window is one of `90 | 180 | 365`; Zod rejects everything else with 400.
+ *
+ * Historical rows come from the daily snapshot table; today's row is
+ * always computed live so the chart reflects the user's current moment.
+ */
+export const maturityHistory: RequestHandler = async (req, res): Promise<void> => {
+  const { days } = maturityHistoryQuerySchema.parse(req.query)
+  const data     = await insightsService.listMaturityHistory(req.user.id, days)
   res.json(data)
 }

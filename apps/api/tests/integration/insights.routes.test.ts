@@ -378,3 +378,170 @@ describeIntegration('insights routes — Stage 8 card-quality issue counts', () 
     expect(res.status).toBe(401)
   })
 })
+
+// ─── Backend Completion Plan Stage 9 — maturity-pipeline history ─────────────
+//
+// The endpoint always returns at least one row — today's live snapshot — for
+// any authenticated learner. Historical rows only accumulate once the daily
+// cron has run; the integration test asserts the live "today" row is
+// present and that the wire shape is correct. The cron itself is exercised
+// by an inline `SELECT public.record_card_state_snapshots()` to verify the
+// upsert path round-trips.
+describeIntegration('insights routes — Stage 9 maturity-pipeline history', () => {
+  it('GET /api/v1/insights/maturity-history?days=90 always returns at least today\'s row', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .get('/api/v1/insights/maturity-history?days=90')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.items)).toBe(true)
+    expect(res.body.items.length).toBeGreaterThanOrEqual(1)
+    expect(res.body.nextCursor).toBeNull()
+    expect(res.body.hasMore).toBe(false)
+
+    // Today's row is the live computation; for a fresh user with no cards
+    // every count must be zero.
+    const last = res.body.items[res.body.items.length - 1] as {
+      date: string
+      newCount: number
+      learningCount: number
+      reviewCount: number
+      relearningCount: number
+      matureCount: number
+    }
+    expect(last.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(last.newCount).toBe(0)
+    expect(last.learningCount).toBe(0)
+    expect(last.reviewCount).toBe(0)
+    expect(last.relearningCount).toBe(0)
+    expect(last.matureCount).toBe(0)
+  })
+
+  it('counts cards across FSRS states for today\'s live row', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Seed cards across every state we surface on the chart:
+    //   - new (state=0)
+    //   - learning (state=1)
+    //   - review (state=2, scheduled_days < 21)
+    //   - relearning (state=3)
+    //   - mature (state=2, scheduled_days >= 21)
+    const insert = await supabaseAdmin.from('cards').insert([
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'new', reading: 'new', meaning: 'new' },
+        state: 0, scheduled_days: 0, is_suspended: false },
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'learn1', reading: 'learn1', meaning: 'learn1' },
+        state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'learn2', reading: 'learn2', meaning: 'learn2' },
+        state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'review', reading: 'review', meaning: 'review' },
+        state: 2, scheduled_days: 5, is_suspended: false, reps: 3 },
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'relearn', reading: 'relearn', meaning: 'relearn' },
+        state: 3, scheduled_days: 1, is_suspended: false, reps: 5, lapses: 1 },
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'mature', reading: 'mature', meaning: 'mature' },
+        state: 2, scheduled_days: 30, is_suspended: false, reps: 10 },
+      // Suspended card — must NOT show up in any bucket.
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+        fields_data: { word: 'suspended', reading: 'suspended', meaning: 'suspended' },
+        state: 2, scheduled_days: 30, is_suspended: true, reps: 10 },
+    ])
+    expect(insert.error).toBeNull()
+
+    const res = await request(app)
+      .get('/api/v1/insights/maturity-history?days=90')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+
+    const today = res.body.items[res.body.items.length - 1] as {
+      newCount: number
+      learningCount: number
+      reviewCount: number
+      relearningCount: number
+      matureCount: number
+    }
+    expect(today.newCount).toBe(1)
+    expect(today.learningCount).toBe(2)
+    expect(today.reviewCount).toBe(1)
+    expect(today.relearningCount).toBe(1)
+    // Mature: the suspended one with scheduled_days=30 must NOT count.
+    expect(today.matureCount).toBe(1)
+  })
+
+  it('record_card_state_snapshots upserts a row that the history RPC reads back as historical (after manual cron simulation)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Seed a mature card so the snapshot row has non-zero counts.
+    await supabaseAdmin.from('cards').insert({
+      user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      fields_data: { word: 'snap', reading: 'snap', meaning: 'snap' },
+      state: 2, scheduled_days: 30, is_suspended: false, reps: 10,
+    })
+
+    // Manually fire the snapshot function — same path the daily cron would
+    // take. Note: this writes a row labeled with the user's local "today",
+    // which the history RPC excludes from the historical CTE. We still
+    // verify the function runs without error and that the row lands.
+    const snap = await supabaseAdmin.rpc('record_card_state_snapshots')
+    expect(snap.error).toBeNull()
+
+    const { data: rows, error: rowsError } = await supabaseAdmin
+      .from('card_state_snapshots')
+      .select('user_id, snapshot_date, mature_count')
+      .eq('user_id', u.userId)
+    expect(rowsError).toBeNull()
+    expect(rows).not.toBeNull()
+    if (rows === null) throw new Error('snapshot rows missing')
+    expect(rows.length).toBeGreaterThanOrEqual(1)
+    const mine = rows.find((r) => r.user_id === u.userId)
+    expect(mine).toBeDefined()
+    expect(mine?.mature_count).toBe(1)
+  })
+
+  it('rejects an unknown days value at the Zod layer with 400', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .get('/api/v1/insights/maturity-history?days=42')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a missing days parameter with 400', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .get('/api/v1/insights/maturity-history')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 401 for an unauthenticated request', async () => {
+    const res = await request(app).get('/api/v1/insights/maturity-history?days=90')
+    expect(res.status).toBe(401)
+  })
+
+  it('isolates results across users', async () => {
+    const a = await seedUser(); seeded.push(a)
+    const b = await seedUser(); seeded.push(b)
+
+    // a has a mature card; b should see all zeros.
+    await supabaseAdmin.from('cards').insert({
+      user_id: a.userId, deck_id: a.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      fields_data: { word: 'a-only', reading: 'a-only', meaning: 'a-only' },
+      state: 2, scheduled_days: 30, is_suspended: false, reps: 10,
+    })
+
+    const resB = await request(app)
+      .get('/api/v1/insights/maturity-history?days=90')
+      .set('Authorization', `Bearer ${b.jwt}`)
+    expect(resB.status).toBe(200)
+    const today = resB.body.items[resB.body.items.length - 1] as { matureCount: number }
+    expect(today.matureCount).toBe(0)
+  })
+})

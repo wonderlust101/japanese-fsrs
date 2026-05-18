@@ -197,6 +197,30 @@ export const ApiProblemCardSchema = z.object({
   lastReview: z.string().nullable(),
 })
 
+// ─── Insights — maturity-pipeline history (Stage 9) ──────────────────────────
+//
+// Backend Completion Plan Stage 9. `GET /api/v1/insights/maturity-history?days=…`
+// returns up to N days of `(date, new_count, learning_count, review_count,
+// relearning_count, mature_count)`. Powers the Progress page's stacked-area
+// maturity-pipeline chart.
+//
+// Historical rows are populated by a daily cron writing into the
+// `card_state_snapshots` table; today's row is always computed live from
+// the cards table so the chart reflects the current moment between cron
+// runs. See `supabase/migrations/20260610000000_card_state_snapshots.sql`.
+
+export const ApiMaturityHistoryDaysSchema = z.enum(['90', '180', '365'])
+
+export const ApiMaturitySnapshotSchema = z.object({
+  /** ISO YYYY-MM-DD in the learner's local timezone. */
+  date:            z.string(),
+  newCount:        z.number().int().nonnegative(),
+  learningCount:   z.number().int().nonnegative(),
+  reviewCount:     z.number().int().nonnegative(),
+  relearningCount: z.number().int().nonnegative(),
+  matureCount:     z.number().int().nonnegative(),
+})
+
 // ─── Insights — card-quality issue counts (Stage 8) ──────────────────────────
 //
 // Backend Completion Plan Stage 8. `GET /api/v1/insights/card-quality`

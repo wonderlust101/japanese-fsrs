@@ -24,7 +24,7 @@ interface RpcRow {
 // `rpcResult` to `unknown[]` which would lose the inferred type on the
 // problem-card tests.
 interface MockState {
-  rpcResult: RpcRow[] | CardQualityRpcRow[] | null
+  rpcResult: RpcRow[] | CardQualityRpcRow[] | MaturitySnapshotRpcRow[] | null
   rpcError:  { message: string; code?: string } | null
   rpcCalls:  Array<{ fn: string; params: unknown }>
 }
@@ -32,6 +32,15 @@ interface MockState {
 interface CardQualityRpcRow {
   issue_type: string
   count:      number
+}
+
+interface MaturitySnapshotRpcRow {
+  snapshot_date:    string
+  new_count:        number
+  learning_count:   number
+  review_count:     number
+  relearning_count: number
+  mature_count:     number
 }
 
 const state: MockState = {
@@ -49,7 +58,8 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { listProblemCards, listCardQualityIssues } = await import('../insights.service.ts')
+const { listProblemCards, listCardQualityIssues, listMaturityHistory } =
+  await import('../insights.service.ts')
 
 beforeEach(() => {
   state.rpcResult = null
@@ -246,6 +256,102 @@ describe('insights.service — listCardQualityIssues', () => {
       { issue_type: 'missing_nuance',   count: 1 },
     ]
     const result = await listCardQualityIssues('user-1')
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+  })
+})
+
+// ─── Backend Completion Plan Stage 9 — maturity-pipeline history ─────────────
+describe('insights.service — listMaturityHistory', () => {
+  it('projects snapshot rows to camelCase ApiMaturitySnapshot', async () => {
+    state.rpcResult = [
+      {
+        snapshot_date:    '2026-05-15',
+        new_count:        100,
+        learning_count:   20,
+        review_count:     200,
+        relearning_count: 5,
+        mature_count:     500,
+      },
+      {
+        snapshot_date:    '2026-05-16',
+        new_count:        95,
+        learning_count:   25,
+        review_count:     210,
+        relearning_count: 5,
+        mature_count:     510,
+      },
+    ]
+
+    const result = await listMaturityHistory('user-1', '90')
+
+    expect(result.items).toHaveLength(2)
+    const first = result.items[0]
+    if (first === undefined) throw new Error('expected first row')
+    expect(first.date).toBe('2026-05-15')
+    expect(first.newCount).toBe(100)
+    expect(first.learningCount).toBe(20)
+    expect(first.reviewCount).toBe(200)
+    expect(first.relearningCount).toBe(5)
+    expect(first.matureCount).toBe(500)
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('parses the string days enum to an int when calling the RPC', async () => {
+    state.rpcResult = []
+    await listMaturityHistory('user-1', '180')
+
+    const call = state.rpcCalls[0]
+    if (call === undefined) throw new Error('expected one RPC call')
+    expect(call.fn).toBe('get_maturity_pipeline_history')
+    expect(call.params).toEqual({ p_user_id: 'user-1', p_days: 180 })
+  })
+
+  it('passes 365 through cleanly (longest window)', async () => {
+    state.rpcResult = []
+    await listMaturityHistory('user-1', '365')
+
+    const call = state.rpcCalls[0]
+    if (call === undefined) throw new Error('expected one RPC call')
+    expect(call.params).toEqual({ p_user_id: 'user-1', p_days: 365 })
+  })
+
+  it('maps the RPC unknown-days SQLSTATE (22023) to HTTP 400 MATURITY_HISTORY_DAYS_INVALID', async () => {
+    // Defence-in-depth path — the Zod controller layer rejects unknown
+    // values first. We cast through `as never` to simulate the direct-SQL
+    // caller scenario.
+    state.rpcError = { message: 'invalid_days_parameter', code: '22023' }
+
+    let captured: { statusCode: number; code?: string } | null = null
+    try {
+      await listMaturityHistory('user-1', 'nonsense' as never)
+    } catch (err) {
+      captured = err as { statusCode: number; code?: string }
+    }
+    expect(captured?.statusCode).toBe(400)
+    expect(captured?.code).toBe('MATURITY_HISTORY_DAYS_INVALID')
+  })
+
+  it('surfaces a generic 5xx via dbError on any other RPC failure', async () => {
+    state.rpcError = { message: 'connection refused', code: '08006' }
+
+    let captured: { statusCode: number } | null = null
+    try {
+      await listMaturityHistory('user-1', '90')
+    } catch (err) {
+      captured = err as { statusCode: number }
+    }
+    expect(captured?.statusCode).toBeGreaterThanOrEqual(500)
+  })
+
+  it('returns an empty list when the RPC returns no rows (rare — today is always emitted live)', async () => {
+    // The RPC always emits at least the live "today" row, so this scenario
+    // only happens if the mock layer is exercised directly (no RPC call).
+    // Useful to pin the envelope shape against a defensive null payload.
+    state.rpcResult = []
+    const result = await listMaturityHistory('user-1', '90')
+    expect(result.items).toEqual([])
     expect(result.nextCursor).toBeNull()
     expect(result.hasMore).toBe(false)
   })

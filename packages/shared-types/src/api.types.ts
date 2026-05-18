@@ -19,6 +19,7 @@ import type {
   ApiTomoNoteSchema,
   ApiProblemCardSchema,
   ApiCardQualityIssueSchema,
+  ApiMaturitySnapshotSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -73,6 +74,12 @@ export type ApiProblemCard            = z.infer<typeof ApiProblemCardSchema>
  * (one per known issue type) so consumers can iterate a stable shape.
  */
 export type ApiCardQualityIssue       = z.infer<typeof ApiCardQualityIssueSchema>
+
+/**
+ * Backend Completion Plan Stage 9. One day's slice of the maturity
+ * pipeline. Returned by `GET /api/v1/insights/maturity-history?days=…`.
+ */
+export type ApiMaturitySnapshot       = z.infer<typeof ApiMaturitySnapshotSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
-import { ApiProblemCardBucketSchema } from '@fsrs-japanese/shared-types'
+import {
+  ApiProblemCardBucketSchema,
+  ApiMaturityHistoryDaysSchema,
+} from '@fsrs-japanese/shared-types'
 
 /**
  * Backend Completion Plan Stage 7 — query schema for
@@ -14,3 +17,16 @@ export const listProblemCardsQuerySchema = z.object({
 }).strict()
 
 export type ListProblemCardsQuery = z.infer<typeof listProblemCardsQuerySchema>
+
+/**
+ * Backend Completion Plan Stage 9 — query schema for
+ * `GET /api/v1/insights/maturity-history?days=…`. The shared
+ * `ApiMaturityHistoryDaysSchema` is a string enum because URL query
+ * params arrive as strings; the service coerces to int when calling
+ * the RPC.
+ */
+export const maturityHistoryQuerySchema = z.object({
+  days: ApiMaturityHistoryDaysSchema,
+}).strict()
+
+export type MaturityHistoryQuery = z.infer<typeof maturityHistoryQuerySchema>

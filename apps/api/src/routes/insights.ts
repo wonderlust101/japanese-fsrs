@@ -8,7 +8,8 @@ const router = Router()
 
 router.use(authMiddleware, defaultUserRateLimitMiddleware)
 
-router.get('/problem-cards', insightsController.problemCards)
-router.get('/card-quality',  insightsController.cardQuality)
+router.get('/problem-cards',     insightsController.problemCards)
+router.get('/card-quality',      insightsController.cardQuality)
+router.get('/maturity-history',  insightsController.maturityHistory)
 
 export default router

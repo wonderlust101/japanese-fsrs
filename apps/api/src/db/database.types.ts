@@ -130,6 +130,47 @@ export type Database = {
           },
         ]
       }
+      card_state_snapshots: {
+        Row: {
+          user_id:          string
+          snapshot_date:    string
+          new_count:        number
+          learning_count:   number
+          review_count:     number
+          relearning_count: number
+          mature_count:     number
+          recorded_at:      string
+        }
+        Insert: {
+          user_id:           string
+          snapshot_date:     string
+          new_count?:        number
+          learning_count?:   number
+          review_count?:     number
+          relearning_count?: number
+          mature_count?:     number
+          recorded_at?:      string
+        }
+        Update: {
+          user_id?:          string
+          snapshot_date?:    string
+          new_count?:        number
+          learning_count?:   number
+          review_count?:     number
+          relearning_count?: number
+          mature_count?:     number
+          recorded_at?:      string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_state_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decks: {
         Row: {
           card_count: number
@@ -819,6 +860,21 @@ export type Database = {
           issue_type: string
           count:      number
         }[]
+      }
+      get_maturity_pipeline_history: {
+        Args: { p_days: number; p_user_id: string }
+        Returns: {
+          snapshot_date:    string
+          new_count:        number
+          learning_count:   number
+          review_count:     number
+          relearning_count: number
+          mature_count:     number
+        }[]
+      }
+      record_card_state_snapshots: {
+        Args: Record<string, never>
+        Returns: undefined
       }
       get_jlpt_gap: {
         Args: { p_user_id: string }
