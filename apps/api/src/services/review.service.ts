@@ -52,7 +52,11 @@ const SessionSummaryEnvelopeSchema = z.object({
   }),
   total_time_ms: z.number(),
   next_due_at:   z.string().nullable(),
-  weakSpots: z.array(z.object({
+  // The RPC emits this key as `weak_spots` (snake_case, matching every
+  // other envelope field). The leech→weak-spot rename in migration
+  // 20260615000000 carried the SQL key over snake-cased; this schema
+  // must match the wire literally.
+  weak_spots: z.array(z.object({
     leech_id:     z.string(),
     card_id:      z.string(),
     deck_id:      z.string().nullable(),
@@ -210,7 +214,7 @@ export async function getSessionSummary(
     ? 0
     : Math.round(((env.breakdown.good + env.breakdown.easy) / env.total) * 1000) / 10
 
-  const weakSpots: SessionWeakSpot[] = env.weakSpots.map((l) => ({
+  const weakSpots: SessionWeakSpot[] = env.weak_spots.map((l) => ({
     weakSpotId:      l.leech_id,
     cardId:       l.card_id,
     deckId:       l.deck_id   ?? '',
