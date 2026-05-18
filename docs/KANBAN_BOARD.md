@@ -36,12 +36,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## In Progress
 
-- [ ] **Resolve design implementation drift** — fix drift on touch; reserve broad cleanup for a focused pass.
-- [ ] **Home / decks / masthead polish** — deck-list styles, My Decks layout, masthead background, analytics nav icon.
-- [ ] **Settings V3 + Profile redesign** — kanji-led sticky rail (人 学 帳 鍵), hybrid auto-save, custom `TomoSlider`/`TomoSelect`, inline delete-account re-auth.
-- [ ] **Remove visible AI wording** — outcome copy (create / suggest / draft) replaces `Generate with AI` labels; internal terms stay.
-- [ ] **Premade decks onboarding polish** — backend exists; onboarding still uses placeholder recommendations.
-- [ ] **Japanese metadata surfaces** — schemas support pitch accent / frequency / collocations / kanji breakdown; fill missing UI workflows.
+- [ ] **Frontend polish pass (very fine finishes)** — single rolling item for the remaining UI refinement work; tackle in any order, mark sub-items as they land.
+  - **Design drift fixes on touch** — no broad sweep; fix whatever's visibly wrong on the surface you happen to be in.
+  - **Home / decks / masthead** — deck-list row styles, My Decks layout, masthead background, analytics nav icon.
+  - **Settings V3 + Profile redesign** — kanji-led sticky rail (人 学 帳 鍵), hybrid auto-save, custom `TomoSlider`/`TomoSelect`, inline delete-account re-auth.
+  - **Remove visible AI wording** — outcome copy (create / suggest / draft) replaces `Generate with AI` labels; internal code/docs terms stay.
+  - **Premade onboarding** — replace placeholder recommendations with client-side scoring over the live catalogue (`profile.{jlpt_target, interests}` vs `premade_decks.{jlpt_level, domain}`).
+  - **Japanese metadata surfaces** — wire pitch accent / frequency / collocations / kanji breakdown into the existing card-detail / review-back chrome (schemas already carry the fields).
 
 ## Review
 
