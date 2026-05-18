@@ -30,3 +30,15 @@ export const maturityHistoryQuerySchema = z.object({
 }).strict()
 
 export type MaturityHistoryQuery = z.infer<typeof maturityHistoryQuerySchema>
+
+/**
+ * Backend Completion Plan Stage 10 — query schema for
+ * `GET /api/v1/insights/confusable-pairs`. `limit` arrives as a string;
+ * `z.coerce.number()` converts. Bounded [1, 100] — matching the RPC's
+ * server-side cap.
+ */
+export const listConfusablePairsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+}).strict()
+
+export type ListConfusablePairsQuery = z.infer<typeof listConfusablePairsQuerySchema>

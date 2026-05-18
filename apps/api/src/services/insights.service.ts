@@ -14,6 +14,7 @@ import {
   type ApiCardQualityIssue,
   type ApiMaturitySnapshot,
   type ApiMaturityHistoryDaysSchema,
+  type ApiConfusablePair,
   type FieldsData,
 } from '@fsrs-japanese/shared-types'
 
@@ -212,6 +213,69 @@ export async function listMaturityHistory(
     reviewCount:     r.review_count,
     relearningCount: r.relearning_count,
     matureCount:     r.mature_count,
+  }))
+
+  return { items, nextCursor: null, hasMore: false }
+}
+
+// ─── Stage 10 — confusable-pair list ─────────────────────────────────────────
+
+const ConfusablePairRpcRowSchema = z.object({
+  card_a_id:        z.string().uuid(),
+  card_b_id:        z.string().uuid(),
+  card_a_word:      z.string().nullable(),
+  card_a_reading:   z.string().nullable(),
+  card_a_meaning:   z.string().nullable(),
+  card_b_word:      z.string().nullable(),
+  card_b_reading:   z.string().nullable(),
+  card_b_meaning:   z.string().nullable(),
+  miss_count:       z.number().int().nonnegative(),
+  similarity_score: z.number(),
+  last_observed:    z.string(),
+})
+
+/**
+ * Backend Completion Plan Stage 10. Returns the user's top confusable
+ * pairs — card pairs they've mis-rated in the same session AND that are
+ * semantically similar (cosine ≥ 0.70). Ordered by miss_count DESC,
+ * similarity_score DESC.
+ *
+ * Detection runs daily via pg_cron and populates the `confusable_pairs`
+ * table; this reader is a simple JOIN-to-card-display-fields projection.
+ * A user with no detected pairs gets an empty list, not an error — that's
+ * the expected state for fresh accounts or users without similar cards
+ * in their library.
+ */
+export async function listConfusablePairs(
+  userId: string,
+  limit:  number,
+): Promise<ApiList<ApiConfusablePair>> {
+  const { data, error } = await supabaseAdmin.rpc('get_confusable_pairs', asPayload({
+    p_user_id: userId,
+    p_limit:   limit,
+  }))
+
+  if (error !== null) {
+    throw dbError('list confusable pairs', error)
+  }
+
+  const rows  = z.array(ConfusablePairRpcRowSchema).parse(data ?? [])
+  const items: ApiConfusablePair[] = rows.map((r) => ({
+    cardA: {
+      id:      r.card_a_id,
+      word:    r.card_a_word,
+      reading: r.card_a_reading,
+      meaning: r.card_a_meaning,
+    },
+    cardB: {
+      id:      r.card_b_id,
+      word:    r.card_b_word,
+      reading: r.card_b_reading,
+      meaning: r.card_b_meaning,
+    },
+    missCount:       r.miss_count,
+    similarityScore: r.similarity_score,
+    lastObserved:    r.last_observed,
   }))
 
   return { items, nextCursor: null, hasMore: false }

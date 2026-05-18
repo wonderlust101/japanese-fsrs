@@ -171,6 +171,58 @@ export type Database = {
           },
         ]
       }
+      confusable_pairs: {
+        Row: {
+          user_id:          string
+          card_a:           string
+          card_b:           string
+          miss_count:       number
+          similarity_score: number
+          last_observed:    string
+          recorded_at:      string
+        }
+        Insert: {
+          user_id:           string
+          card_a:            string
+          card_b:            string
+          miss_count?:       number
+          similarity_score:  number
+          last_observed:     string
+          recorded_at?:      string
+        }
+        Update: {
+          user_id?:          string
+          card_a?:           string
+          card_b?:           string
+          miss_count?:       number
+          similarity_score?: number
+          last_observed?:    string
+          recorded_at?:      string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confusable_pairs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confusable_pairs_card_a_fkey"
+            columns: ["card_a"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confusable_pairs_card_b_fkey"
+            columns: ["card_b"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decks: {
         Row: {
           card_count: number
@@ -860,6 +912,26 @@ export type Database = {
           issue_type: string
           count:      number
         }[]
+      }
+      get_confusable_pairs: {
+        Args: { p_user_id: string; p_limit: number }
+        Returns: {
+          card_a_id:        string
+          card_b_id:        string
+          card_a_word:      string | null
+          card_a_reading:   string | null
+          card_a_meaning:   string | null
+          card_b_word:      string | null
+          card_b_reading:   string | null
+          card_b_meaning:   string | null
+          miss_count:       number
+          similarity_score: number
+          last_observed:    string
+        }[]
+      }
+      record_confusable_pairs: {
+        Args: Record<string, never>
+        Returns: undefined
       }
       get_maturity_pipeline_history: {
         Args: { p_days: number; p_user_id: string }

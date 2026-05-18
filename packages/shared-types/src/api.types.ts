@@ -20,6 +20,7 @@ import type {
   ApiProblemCardSchema,
   ApiCardQualityIssueSchema,
   ApiMaturitySnapshotSchema,
+  ApiConfusablePairSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -80,6 +81,12 @@ export type ApiCardQualityIssue       = z.infer<typeof ApiCardQualityIssueSchema
  * pipeline. Returned by `GET /api/v1/insights/maturity-history?days=…`.
  */
 export type ApiMaturitySnapshot       = z.infer<typeof ApiMaturitySnapshotSchema>
+
+/**
+ * Backend Completion Plan Stage 10. One confusable card pair returned by
+ * `GET /api/v1/insights/confusable-pairs`.
+ */
+export type ApiConfusablePair         = z.infer<typeof ApiConfusablePairSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

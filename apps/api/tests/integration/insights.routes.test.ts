@@ -545,3 +545,229 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     expect(today.matureCount).toBe(0)
   })
 })
+
+// ─── Backend Completion Plan Stage 10 — confusable-pair detection ────────────
+//
+// Direct-INSERT fixture helpers. The detection algorithm scans review_logs
+// for `again`/`hard` ratings co-occurring within the same session, then
+// filters by cosine similarity. Triggering this end-to-end through the
+// API would require submitting real reviews (which run FSRS scheduling),
+// then waiting for the embedding backfill, then running detection. Direct
+// INSERTs let us pin the algorithm without that ceremony.
+
+async function seedCardWithEmbedding(
+  u:    { userId: string; deckId: string },
+  word: string,
+  embedding: number[],
+): Promise<string> {
+  const id = randomUUID()
+  // pgvector accepts the SQL literal-array form as TEXT and casts at the
+  // column boundary; supabase-js doesn't expose the vector type natively.
+  const vectorLiteral = `[${embedding.join(',')}]`
+  const { error } = await supabaseAdmin.from('cards').insert({
+    id,
+    user_id:        u.userId,
+    deck_id:        u.deckId,
+    layout_type:    'vocabulary',
+    fields_data:    { word, reading: word, meaning: `mock ${word}` },
+    card_type:      'comprehension',
+    jlpt_level:     'N3',
+    state:          2,
+    is_suspended:   false,
+    embedding:      vectorLiteral as unknown as string,
+  })
+  if (error !== null) throw new Error(`seed card ${word} failed: ${error.message}`)
+  return id
+}
+
+async function seedReviewLog(
+  u:         { userId: string },
+  cardId:    string,
+  sessionId: string,
+  rating:    'again' | 'hard' | 'good' | 'easy',
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('review_logs').insert({
+    user_id:              u.userId,
+    card_id:              cardId,
+    session_id:           sessionId,
+    rating,
+    stability_after:      1.0,
+    difficulty_after:     5.0,
+    due_after:            new Date(Date.now() + 86400000).toISOString(),
+    scheduled_days_after: 1,
+  })
+  if (error !== null) throw new Error(`seed review_log failed: ${error.message}`)
+}
+
+// 1536-dim embedding builder. Two embeddings with the same `seed` are
+// identical (cosine similarity = 1.0); different seeds yield orthogonal-ish
+// vectors (similarity ≈ 0.0). A small perturbation gives partial similarity.
+function makeEmbedding(seed: number, perturbation = 0): number[] {
+  const vec = new Array(1536).fill(0).map((_, i) => {
+    // Plant the seed value in a few positions; perturb the rest.
+    if (i % 100 === seed % 100) return 1.0
+    return perturbation * Math.sin(i + seed)
+  })
+  // Normalize to unit length so cosine similarity is well-defined.
+  const norm = Math.sqrt(vec.reduce((acc, x) => acc + x * x, 0))
+  return vec.map((x) => x / (norm || 1))
+}
+
+describeIntegration('insights routes — Stage 10 confusable-pair detection', () => {
+  it('detects a similar-card pair that the user mis-rated in ≥2 sessions', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Two cards with near-identical embeddings (cosine similarity > 0.95)
+    // — well above the 0.70 detection threshold.
+    const cardA = await seedCardWithEmbedding(u, '来る', makeEmbedding(42))
+    const cardB = await seedCardWithEmbedding(u, '入る', makeEmbedding(42, 0.001))
+
+    // Two distinct sessions, each with both cards mis-rated.
+    const s1 = randomUUID()
+    await seedReviewLog(u, cardA, s1, 'again')
+    await seedReviewLog(u, cardB, s1, 'again')
+    const s2 = randomUUID()
+    await seedReviewLog(u, cardA, s2, 'hard')
+    await seedReviewLog(u, cardB, s2, 'again')
+
+    // Manually fire detection — same path the daily cron would take.
+    const det = await supabaseAdmin.rpc('record_confusable_pairs')
+    expect(det.error).toBeNull()
+
+    const res = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=10')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+
+    const items = res.body.items as Array<{
+      cardA: { id: string }
+      cardB: { id: string }
+      missCount: number
+      similarityScore: number
+    }>
+    expect(items).toHaveLength(1)
+    const pair = items[0]
+    if (pair === undefined) throw new Error('expected one pair')
+    // The pair is stored with card_a < card_b canonical ordering.
+    const ids = [pair.cardA.id, pair.cardB.id].sort()
+    expect(ids).toEqual([cardA, cardB].sort())
+    expect(pair.missCount).toBe(2)
+    expect(pair.similarityScore).toBeGreaterThanOrEqual(0.70)
+  })
+
+  it('does not detect a pair when only one mis-rate session has occurred', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const cardA = await seedCardWithEmbedding(u, 'A', makeEmbedding(50))
+    const cardB = await seedCardWithEmbedding(u, 'B', makeEmbedding(50, 0.001))
+
+    const s1 = randomUUID()
+    await seedReviewLog(u, cardA, s1, 'again')
+    await seedReviewLog(u, cardB, s1, 'again')
+
+    await supabaseAdmin.rpc('record_confusable_pairs')
+
+    const res = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=10')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+    expect(res.body.items).toEqual([])
+  })
+
+  it('does not detect a pair when cards are dissimilar even if co-mis-rated', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Two cards with orthogonal embeddings (cosine similarity ≈ 0).
+    const cardA = await seedCardWithEmbedding(u, 'X', makeEmbedding(10))
+    const cardB = await seedCardWithEmbedding(u, 'Y', makeEmbedding(80))
+
+    const s1 = randomUUID(); const s2 = randomUUID()
+    await seedReviewLog(u, cardA, s1, 'again')
+    await seedReviewLog(u, cardB, s1, 'again')
+    await seedReviewLog(u, cardA, s2, 'again')
+    await seedReviewLog(u, cardB, s2, 'again')
+
+    await supabaseAdmin.rpc('record_confusable_pairs')
+
+    const res = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=10')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+    // Similar enough across sessions but the embeddings are orthogonal —
+    // the similarity filter should reject this pair.
+    expect(res.body.items).toEqual([])
+  })
+
+  it('is idempotent — running detection twice does not produce duplicate pairs', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const cardA = await seedCardWithEmbedding(u, 'P', makeEmbedding(60))
+    const cardB = await seedCardWithEmbedding(u, 'Q', makeEmbedding(60, 0.001))
+
+    const s1 = randomUUID(); const s2 = randomUUID()
+    await seedReviewLog(u, cardA, s1, 'again')
+    await seedReviewLog(u, cardB, s1, 'again')
+    await seedReviewLog(u, cardA, s2, 'again')
+    await seedReviewLog(u, cardB, s2, 'again')
+
+    // First detection run.
+    await supabaseAdmin.rpc('record_confusable_pairs')
+    // Second detection run — the ON CONFLICT DO UPDATE path must yield
+    // exactly the same row count, not duplicates.
+    await supabaseAdmin.rpc('record_confusable_pairs')
+
+    const { data: rows } = await supabaseAdmin
+      .from('confusable_pairs')
+      .select('user_id, card_a, card_b, miss_count')
+      .eq('user_id', u.userId)
+    expect(rows).not.toBeNull()
+    expect(rows).toHaveLength(1)
+  })
+
+  it('isolates results across users', async () => {
+    const a = await seedUser(); seeded.push(a)
+    const b = await seedUser(); seeded.push(b)
+
+    // User a has a detected pair.
+    const cardA1 = await seedCardWithEmbedding(a, 'A1', makeEmbedding(70))
+    const cardA2 = await seedCardWithEmbedding(a, 'A2', makeEmbedding(70, 0.001))
+    const s1 = randomUUID(); const s2 = randomUUID()
+    await seedReviewLog(a, cardA1, s1, 'again')
+    await seedReviewLog(a, cardA2, s1, 'again')
+    await seedReviewLog(a, cardA1, s2, 'again')
+    await seedReviewLog(a, cardA2, s2, 'again')
+    await supabaseAdmin.rpc('record_confusable_pairs')
+
+    const resB = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=10')
+      .set('Authorization', `Bearer ${b.jwt}`)
+    expect(resB.status).toBe(200)
+    expect(resB.body.items).toEqual([])
+  })
+
+  it('caps limit at 100 server-side', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    // Don't seed actual pairs — we just want to confirm the route accepts
+    // a high limit without erroring. The RPC's LEAST(p_limit, 100) clamps.
+    const res = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=100')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(200)
+    expect(Array.isArray(res.body.items)).toBe(true)
+  })
+
+  it('rejects an out-of-range limit at the Zod layer with 400', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .get('/api/v1/insights/confusable-pairs?limit=200')
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 401 for an unauthenticated request', async () => {
+    const res = await request(app).get('/api/v1/insights/confusable-pairs')
+    expect(res.status).toBe(401)
+  })
+})

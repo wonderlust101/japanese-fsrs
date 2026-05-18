@@ -197,6 +197,39 @@ export const ApiProblemCardSchema = z.object({
   lastReview: z.string().nullable(),
 })
 
+// ─── Insights — confusable pairs (Stage 10) ──────────────────────────────────
+//
+// Backend Completion Plan Stage 10. `GET /api/v1/insights/confusable-pairs`
+// returns the user's top mis-rated card pairs that are also semantically
+// similar. Detection runs daily via pg_cron; thresholds are 2 co-mis-rates
+// per session-pair and cosine similarity ≥ 0.70.
+//
+// Each row carries display fields for both sides of the pair (word /
+// reading / meaning), the miss_count and similarity_score that placed the
+// pair on the list, and the last_observed timestamp for "freshness."
+// Consumers can render the pair without a second batch fetch.
+
+export const ApiConfusablePairSchema = z.object({
+  cardA:           z.object({
+    id:      z.string().uuid(),
+    word:    z.string().nullable(),
+    reading: z.string().nullable(),
+    meaning: z.string().nullable(),
+  }),
+  cardB:           z.object({
+    id:      z.string().uuid(),
+    word:    z.string().nullable(),
+    reading: z.string().nullable(),
+    meaning: z.string().nullable(),
+  }),
+  /** Number of distinct review sessions where both cards were mis-rated. */
+  missCount:       z.number().int().nonnegative(),
+  /** Cosine similarity of the two card embeddings; ≥ 0.70 by design. */
+  similarityScore: z.number(),
+  /** ISO 8601 timestamp of the most recent observed co-mis-rate. */
+  lastObserved:    z.string(),
+})
+
 // ─── Insights — maturity-pipeline history (Stage 9) ──────────────────────────
 //
 // Backend Completion Plan Stage 9. `GET /api/v1/insights/maturity-history?days=…`

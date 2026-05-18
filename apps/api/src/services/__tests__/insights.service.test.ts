@@ -24,7 +24,7 @@ interface RpcRow {
 // `rpcResult` to `unknown[]` which would lose the inferred type on the
 // problem-card tests.
 interface MockState {
-  rpcResult: RpcRow[] | CardQualityRpcRow[] | MaturitySnapshotRpcRow[] | null
+  rpcResult: RpcRow[] | CardQualityRpcRow[] | MaturitySnapshotRpcRow[] | ConfusablePairRpcRow[] | null
   rpcError:  { message: string; code?: string } | null
   rpcCalls:  Array<{ fn: string; params: unknown }>
 }
@@ -43,6 +43,20 @@ interface MaturitySnapshotRpcRow {
   mature_count:     number
 }
 
+interface ConfusablePairRpcRow {
+  card_a_id:        string
+  card_b_id:        string
+  card_a_word:      string | null
+  card_a_reading:   string | null
+  card_a_meaning:   string | null
+  card_b_word:      string | null
+  card_b_reading:   string | null
+  card_b_meaning:   string | null
+  miss_count:       number
+  similarity_score: number
+  last_observed:    string
+}
+
 const state: MockState = {
   rpcResult: null,
   rpcError:  null,
@@ -58,8 +72,12 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { listProblemCards, listCardQualityIssues, listMaturityHistory } =
-  await import('../insights.service.ts')
+const {
+  listProblemCards,
+  listCardQualityIssues,
+  listMaturityHistory,
+  listConfusablePairs,
+} = await import('../insights.service.ts')
 
 beforeEach(() => {
   state.rpcResult = null
@@ -354,5 +372,103 @@ describe('insights.service — listMaturityHistory', () => {
     expect(result.items).toEqual([])
     expect(result.nextCursor).toBeNull()
     expect(result.hasMore).toBe(false)
+  })
+})
+
+// ─── Backend Completion Plan Stage 10 — confusable pairs ─────────────────────
+describe('insights.service — listConfusablePairs', () => {
+  it('projects flat RPC rows into nested cardA / cardB display shape', async () => {
+    state.rpcResult = [
+      {
+        card_a_id:        '00000000-0000-4000-8000-000000000001',
+        card_b_id:        '00000000-0000-4000-8000-000000000002',
+        card_a_word:      '来る',
+        card_a_reading:   'くる',
+        card_a_meaning:   'to come',
+        card_b_word:      '入る',
+        card_b_reading:   'はいる',
+        card_b_meaning:   'to enter',
+        miss_count:       5,
+        similarity_score: 0.84,
+        last_observed:    '2026-05-16T22:00:00.000Z',
+      },
+    ]
+
+    const result = await listConfusablePairs('user-1', 20)
+
+    expect(result.items).toHaveLength(1)
+    const pair = result.items[0]
+    if (pair === undefined) throw new Error('expected one pair')
+    expect(pair.cardA.id).toBe('00000000-0000-4000-8000-000000000001')
+    expect(pair.cardA.word).toBe('来る')
+    expect(pair.cardA.reading).toBe('くる')
+    expect(pair.cardA.meaning).toBe('to come')
+    expect(pair.cardB.id).toBe('00000000-0000-4000-8000-000000000002')
+    expect(pair.cardB.word).toBe('入る')
+    expect(pair.missCount).toBe(5)
+    expect(pair.similarityScore).toBe(0.84)
+    expect(pair.lastObserved).toBe('2026-05-16T22:00:00.000Z')
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('passes user_id and limit to the RPC verbatim', async () => {
+    state.rpcResult = []
+    await listConfusablePairs('user-1', 42)
+
+    const call = state.rpcCalls[0]
+    if (call === undefined) throw new Error('expected one RPC call')
+    expect(call.fn).toBe('get_confusable_pairs')
+    expect(call.params).toEqual({ p_user_id: 'user-1', p_limit: 42 })
+  })
+
+  it('surfaces a generic 5xx via dbError on RPC failure', async () => {
+    state.rpcError = { message: 'connection refused', code: '08006' }
+
+    let captured: { statusCode: number } | null = null
+    try {
+      await listConfusablePairs('user-1', 20)
+    } catch (err) {
+      captured = err as { statusCode: number }
+    }
+    expect(captured?.statusCode).toBeGreaterThanOrEqual(500)
+  })
+
+  it('returns an empty list when the user has no detected pairs', async () => {
+    state.rpcResult = []
+    const result = await listConfusablePairs('user-with-no-confusables', 20)
+    expect(result.items).toEqual([])
+    expect(result.nextCursor).toBeNull()
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('preserves null display fields when a card has no word/reading/meaning yet', async () => {
+    // Sentence-layout cards (or freshly-created cards still being filled in)
+    // may not carry word/reading/meaning. The RPC returns NULLs in that case;
+    // the service must pass them through cleanly without coercing to '' so
+    // the consumer can render a placeholder.
+    state.rpcResult = [
+      {
+        card_a_id:        '00000000-0000-4000-8000-000000000003',
+        card_b_id:        '00000000-0000-4000-8000-000000000004',
+        card_a_word:      null,
+        card_a_reading:   null,
+        card_a_meaning:   null,
+        card_b_word:      '完璧',
+        card_b_reading:   'かんぺき',
+        card_b_meaning:   'perfect',
+        miss_count:       2,
+        similarity_score: 0.71,
+        last_observed:    '2026-05-10T10:00:00.000Z',
+      },
+    ]
+    const result = await listConfusablePairs('user-1', 20)
+    expect(result.items).toHaveLength(1)
+    const pair = result.items[0]
+    if (pair === undefined) throw new Error('expected one pair')
+    expect(pair.cardA.word).toBeNull()
+    expect(pair.cardA.reading).toBeNull()
+    expect(pair.cardA.meaning).toBeNull()
+    expect(pair.cardB.word).toBe('完璧')
   })
 })
