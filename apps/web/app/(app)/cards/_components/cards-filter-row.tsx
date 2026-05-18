@@ -1,6 +1,7 @@
 'use client'
 
 import { Pill, PillGroup } from '@/components/ui/Pill'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 import { IconFilter, IconSort } from '@/components/icons/chrome-marks'
 import { DecksMenu, MenuItem } from '@/app/(app)/decks/_components/decks-menu'
 
@@ -90,19 +91,13 @@ export function CardsFilterRow({ filters, decks, onChange, onMoreClick }: Props)
         ))}
       </PillGroup>
 
-      <button
-        type="button"
+      <ToolbarChip
         onClick={onMoreClick}
-        className={[
-          'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-3 text-sm text-sumi-ink',
-          'hover:border-faded-sumi hover:bg-cream-inset',
-          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          'sm:ml-auto',
-        ].join(' ')}
+        leadingNode={<IconFilter className="h-3.5 w-3.5 text-faded-sumi" />}
+        className="sm:ml-auto"
       >
-        <IconFilter className="h-3.5 w-3.5 text-faded-sumi" />
-        <span>More filters</span>
-      </button>
+        More filters
+      </ToolbarChip>
     </section>
   )
 }
@@ -124,23 +119,18 @@ function DeckPicker({
       align="start"
       menuClassName="min-w-[14rem]"
       renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-        <button
+        <ToolbarChip
           ref={triggerRef}
-          type="button"
           onClick={onClick}
           onKeyDown={onKeyDown}
           aria-haspopup="menu"
           aria-expanded={ariaExpanded}
-          className={[
-            'ui-motion-colors inline-flex h-9 max-w-[14rem] items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
+          className="max-w-[14rem]"
+          trailingNode={<Chevron />}
         >
-          <span className="text-faded-sumi">Deck</span>
-          <span className="min-w-0 truncate text-sumi-ink">{currentName}</span>
-          <Chevron />
-        </button>
+          <span className="text-faded-sumi">Deck </span>
+          <span className="text-sumi-ink">{currentName}</span>
+        </ToolbarChip>
       )}
       renderItems={({ close }) => (
         <>
@@ -177,24 +167,18 @@ function DropdownButton({
       align="start"
       menuClassName="min-w-[10rem]"
       renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-        <button
+        <ToolbarChip
           ref={triggerRef}
-          type="button"
           onClick={onClick}
           onKeyDown={onKeyDown}
           aria-haspopup="menu"
           aria-expanded={ariaExpanded}
-          className={[
-            'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
+          leadingNode={icon}
+          trailingNode={<Chevron />}
         >
-          {icon}
-          <span className="text-faded-sumi">{labelPrefix}</span>
+          <span className="text-faded-sumi">{labelPrefix} </span>
           <span className="text-sumi-ink">{label}</span>
-          <Chevron />
-        </button>
+        </ToolbarChip>
       )}
       renderItems={({ close }) => (
         <>

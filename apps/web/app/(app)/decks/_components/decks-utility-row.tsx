@@ -8,6 +8,8 @@ import {
   IconSearch,
   IconSort,
 } from '@/components/icons/chrome-marks'
+import { KbdChip } from '@/components/ui/KbdChip'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 
 import { DecksMenu, MenuItem } from './decks-menu'
 import type { DecksSortKey, DecksTypeFilter } from './use-deck-prefs'
@@ -117,24 +119,18 @@ function SortDropdown({
       align="start"
       menuClassName="min-w-[12rem]"
       renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-        <button
+        <ToolbarChip
           ref={triggerRef}
-          type="button"
           onClick={onClick}
           onKeyDown={onKeyDown}
           aria-haspopup="menu"
           aria-expanded={ariaExpanded}
-          className={[
-            'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
+          leadingNode={<IconSort className="h-3.5 w-3.5 text-faded-sumi" />}
+          trailingNode={<Chevron />}
         >
-          <IconSort className="h-3.5 w-3.5 text-faded-sumi" />
-          <span className="hidden text-faded-sumi sm:inline">Sort</span>
+          <span className="hidden text-faded-sumi sm:inline">Sort </span>
           <span className="text-sumi-ink">{SORT_LABEL[current]}</span>
-          <Chevron />
-        </button>
+        </ToolbarChip>
       )}
       renderItems={({ close }) => (
         <>
@@ -167,23 +163,17 @@ function TypeDropdown({
       align="start"
       menuClassName="min-w-[10rem]"
       renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-        <button
+        <ToolbarChip
           ref={triggerRef}
-          type="button"
           onClick={onClick}
           onKeyDown={onKeyDown}
           aria-haspopup="menu"
           aria-expanded={ariaExpanded}
-          className={[
-            'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
+          leadingNode={<IconFilter className="h-3.5 w-3.5 text-faded-sumi" />}
+          trailingNode={<Chevron />}
         >
-          <IconFilter className="h-3.5 w-3.5 text-faded-sumi" />
-          <span className="text-sumi-ink">{TYPE_LABEL[current]}</span>
-          <Chevron />
-        </button>
+          {TYPE_LABEL[current]}
+        </ToolbarChip>
       )}
       renderItems={({ close }) => (
         <>
@@ -234,12 +224,13 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             '[&::-webkit-search-decoration]:appearance-none',
           ].join(' ')}
         />
-        <kbd
-          aria-hidden="true"
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden h-5 items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 font-mono text-[0.625rem] tracking-tight text-faded-sumi sm:inline-flex"
+        <KbdChip
+          size="xs"
+          placement="floating"
+          className="absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex"
         >
           ⌘K
-        </kbd>
+        </KbdChip>
       </div>
     )
   },

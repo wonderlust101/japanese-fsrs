@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { IconSearch } from '@/components/icons/chrome-marks'
+import { KbdChip } from '@/components/ui/KbdChip'
 
 interface Props {
   /** Submitted search string (post-debounce). */
@@ -76,12 +77,13 @@ export function CardsSearchBar({ value, onChange, placeholder }: Props): React.J
           '[&::-webkit-search-decoration]:appearance-none',
         ].join(' ')}
       />
-      <kbd
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 hidden h-6 -translate-y-1/2 items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 font-mono text-[0.625rem] tracking-tight text-faded-sumi sm:inline-flex"
+      <KbdChip
+        placement="floating"
+        className="absolute right-3 top-1/2 hidden -translate-y-1/2 sm:inline-flex"
+        ariaLabel="Press Cmd K to focus search"
       >
         ⌘K
-      </kbd>
+      </KbdChip>
     </div>
   )
 }

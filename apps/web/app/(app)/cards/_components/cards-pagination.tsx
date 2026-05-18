@@ -1,6 +1,7 @@
 'use client'
 
 import { TomoSelect } from '@/components/ui/TomoSelect'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 export type CardsPageSize = (typeof PAGE_SIZE_OPTIONS)[number]
@@ -50,7 +51,7 @@ export function CardsPagination({
             value={String(pageSize)}
             onValueChange={(v) => onPageSizeChange(Number(v) as CardsPageSize)}
             options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
-            ariaLabel="Cards per page"
+            aria-label="Cards per page"
             className="min-w-[4.5rem]"
           />
         </div>
@@ -70,44 +71,26 @@ export function CardsPagination({
       </div>
 
       <div className="flex items-center gap-1">
-        <PaginationButton disabled={!hasPrev} onClick={onPrev}>
-          <span aria-hidden="true">←</span>
-          <span>Prev</span>
-        </PaginationButton>
+        <ToolbarChip
+          size="sm"
+          disabled={!hasPrev}
+          onClick={onPrev}
+          leadingNode={<span>←</span>}
+          aria-label="Previous page"
+        >
+          Prev
+        </ToolbarChip>
         <span aria-hidden="true" className="px-1.5 text-faded-sumi/55">·</span>
-        <PaginationButton disabled={!hasNext} onClick={onNext}>
-          <span>Next</span>
-          <span aria-hidden="true">→</span>
-        </PaginationButton>
+        <ToolbarChip
+          size="sm"
+          disabled={!hasNext}
+          onClick={onNext}
+          trailingNode={<span>→</span>}
+          aria-label="Next page"
+        >
+          Next
+        </ToolbarChip>
       </div>
     </nav>
-  )
-}
-
-function PaginationButton({
-  disabled,
-  onClick,
-  children,
-}: {
-  disabled: boolean
-  onClick:  () => void
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        'ui-motion-colors inline-flex h-8 items-center gap-1.5 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 text-sm',
-        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-        'disabled:cursor-not-allowed disabled:opacity-45',
-        disabled
-          ? 'text-faded-sumi'
-          : 'text-sumi-ink hover:border-faded-sumi hover:bg-cream-inset',
-      ].join(' ')}
-    >
-      {children}
-    </button>
   )
 }
