@@ -118,6 +118,23 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     weakSpots:         [],
   }), [rawId])
 
+  // Rollback wiring — only active for the just-finished session so the
+  // affordance disappears on cold deep-links (where we don't have the
+  // per-card review log id from the session store). Hooks declared up
+  // here (above the early-return branches below) so the hook order is
+  // stable across every render path.
+  const rollbackMutation = useRollbackReviewMutation()
+  const { toast, showToast, dismissToast } = useToast()
+  const reviewLogByCardId = useMemo(() => {
+    if (rawId === null || rawId !== localSessionId) return new Map<string, string>()
+    const map = new Map<string, string>()
+    for (const entry of localSessionHistory) {
+      if (entry.reviewLogId != null) map.set(entry.card.id, entry.reviewLogId)
+    }
+    return map
+  }, [rawId, localSessionId, localSessionHistory])
+  const [rolledBackIds, setRolledBackIds] = useState<ReadonlySet<string>>(() => new Set())
+
   const summary: SessionSummary | undefined = usingFixture
     ? fixtureSummary
     : skipApi
@@ -190,21 +207,6 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       }
     }
   }
-
-  // Rollback wiring — only active for the just-finished session so the
-  // affordance disappears on cold deep-links (where we don't have the
-  // per-card review log id from the session store).
-  const rollbackMutation = useRollbackReviewMutation()
-  const { toast, showToast, dismissToast } = useToast()
-  const reviewLogByCardId = useMemo(() => {
-    if (rawId === null || rawId !== localSessionId) return new Map<string, string>()
-    const map = new Map<string, string>()
-    for (const entry of localSessionHistory) {
-      if (entry.reviewLogId != null) map.set(entry.card.id, entry.reviewLogId)
-    }
-    return map
-  }, [rawId, localSessionId, localSessionHistory])
-  const [rolledBackIds, setRolledBackIds] = useState<ReadonlySet<string>>(() => new Set())
 
   function handleRollback(weakSpot: SessionWeakSpot): void {
     const logId = reviewLogByCardId.get(weakSpot.cardId)
