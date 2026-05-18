@@ -85,6 +85,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     {
       variant      = 'primary',
       size         = 'md',
+      type         = 'button',
       iconOnly     = false,
       leadingIcon,
       trailingIcon,
@@ -115,6 +116,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        type={type}
         disabled={disabled || loading}
         aria-busy={loading ? true : undefined}
         className={[
