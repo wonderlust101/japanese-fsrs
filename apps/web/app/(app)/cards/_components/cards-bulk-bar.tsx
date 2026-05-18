@@ -1,6 +1,8 @@
 'use client'
 
 import { IconCopy, IconDelete, IconEdit, IconHide } from '@/components/icons/chrome-marks'
+import { StickyActionBar } from '@/components/ui/StickyActionBar'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 
 interface Props {
   selectedCount: number
@@ -26,28 +28,9 @@ export function CardsBulkBar({
   onClear,
 }: Props): React.JSX.Element {
   return (
-    <div
-      role="region"
-      aria-label="Bulk card actions"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-soft-hairline bg-warm-paper-raised"
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
-      />
-
+    <StickyActionBar ariaLabel="Bulk card actions" brandStripe>
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-12 xl:px-16">
-        <button
-          type="button"
-          onClick={onClear}
-          className={[
-            'ui-motion-colors inline-flex h-9 items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 text-sm font-medium text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
-        >
-          Done
-        </button>
+        <ToolbarChip onClick={onClear}>Done</ToolbarChip>
 
         <span className="font-mono text-xs tabular-nums text-faded-sumi">
           <span className="text-sumi-ink">{selectedCount}</span>
@@ -59,10 +42,11 @@ export function CardsBulkBar({
           <BarAction icon={<IconEdit  className="h-3.5 w-3.5" />} label="Add tag"   onClick={onAddTag} />
           <BarAction icon={<IconCopy  className="h-3.5 w-3.5" />} label="Move"      onClick={onMove}   />
           <BarAction icon={<IconHide  className="h-3.5 w-3.5" />} label="Suspend"   onClick={onSuspend} />
+          {/* When wiring this bar into a parent, the parent must gate onDelete behind a confirmation dialog — see BulkDeleteDecksDialog for the pattern. */}
           <BarAction icon={<IconDelete className="h-3.5 w-3.5" />} label="Delete"    onClick={onDelete} danger />
         </div>
       </div>
-    </div>
+    </StickyActionBar>
   )
 }
 

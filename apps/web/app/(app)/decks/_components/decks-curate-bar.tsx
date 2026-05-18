@@ -6,6 +6,8 @@ import {
   IconFlag,
   IconHide,
 } from '@/components/icons/chrome-marks'
+import { StickyActionBar } from '@/components/ui/StickyActionBar'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 
 interface DecksCurateBarProps {
   selectedCount:  number
@@ -39,31 +41,9 @@ export function DecksCurateBar({
   const noSelection = selectedCount === 0
 
   return (
-    <div
-      role="region"
-      aria-label="Bulk deck actions"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-soft-hairline bg-warm-paper-raised"
-    >
-      {/* 2px vermillion top rule — the same identity device that sits on
-          every SectionCard and DeckCard. Renders above the band's top border
-          so the band reads as 'a Tomo surface', not a floating widget. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
-      />
-
+    <StickyActionBar ariaLabel="Bulk deck actions" brandStripe>
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-12 xl:px-16">
-        <button
-          type="button"
-          onClick={onDone}
-          className={[
-            'ui-motion-colors inline-flex h-9 items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 text-sm font-medium text-sumi-ink',
-            'hover:border-faded-sumi hover:bg-cream-inset',
-            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          ].join(' ')}
-        >
-          Done
-        </button>
+        <ToolbarChip onClick={onDone}>Done</ToolbarChip>
 
         {/* Selection count — same mono small-caps treatment as the
             decks-tabs / decks-utility-row eyebrows. */}
@@ -110,7 +90,7 @@ export function DecksCurateBar({
           />
         </div>
       </div>
-    </div>
+    </StickyActionBar>
   )
 }
 
