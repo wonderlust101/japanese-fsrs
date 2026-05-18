@@ -20,7 +20,7 @@ import { Toast, useToast } from '@/components/ui/Toast'
 import { IconMore, IconEdit, IconHide, IconReveal, IconDelete } from '@/components/icons/chrome-marks'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
-import { listCardsAction, deleteCardAction, moveCardAction, copyCardAction } from '@/lib/actions/cards.actions'
+import { listCardsCrossDeckAction, deleteCardAction, moveCardAction, copyCardAction } from '@/lib/actions/cards.actions'
 import {
   DecksMenu,
   MenuItem,
@@ -87,8 +87,12 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     queryFn:  () => getDeckWithStatsAction(deckId),
   })
 
-  // Card list — cursor-paginated; resets when the status tab or page size
-  // changes (both are part of the query key).
+  // Card list — cursor-paginated against the cross-deck endpoint with
+  // `deckId` as the scope filter so the toolbar's search input becomes a
+  // real backend search instead of a client-side filter over already-
+  // loaded pages. Resets when status / page size / search changes (all
+  // part of the query key).
+  const trimmedSearch = searchValue.trim()
   const {
     data,
     fetchNextPage,
@@ -97,11 +101,13 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
     isLoading: cardsLoading,
     isError:   cardsError,
   } = useInfiniteQuery({
-    queryKey: [...queryKeys.cards.byDeck(deckId), status, pageSize],
-    queryFn:  ({ pageParam }) => listCardsAction(deckId, {
+    queryKey: [...queryKeys.cards.byDeck(deckId), status, pageSize, trimmedSearch],
+    queryFn:  ({ pageParam }) => listCardsCrossDeckAction({
+      deckId,
       limit:  pageSize,
-      ...(pageParam !== undefined ? { cursor: pageParam } : {}),
-      status,
+      ...(pageParam      !== undefined ? { cursor: pageParam }      : {}),
+      ...(status         !== 'all'     ? { status }                 : {}),
+      ...(trimmedSearch.length > 0     ? { search: trimmedSearch }  : {}),
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -109,40 +115,15 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 
   const allLoadedCards = data?.pages.flatMap((p) => p.items) ?? []
 
-  // Client-side filter over loaded pages. The list API has no `q` parameter
-  // yet, so search applies to whatever the user has paginated through.
-  const matchedCards = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    if (q.length === 0) return allLoadedCards
-    return allLoadedCards.filter((card) => {
-      const w = getWordFields(card)
-      const s = getSentenceFrontBack(card)
-      const hay = [
-        w?.word ?? '',
-        w?.reading ?? '',
-        w?.meaning ?? '',
-        s?.front ?? '',
-        s?.back ?? '',
-      ].join(' ').toLowerCase()
-      return hay.includes(q)
-    })
-  }, [allLoadedCards, searchValue])
-
-  const searchActive = searchValue.trim().length > 0
-
-  // When search is active, show every loaded match without paginating (the
-  // user is looking for a needle, not browsing). Otherwise, slice the fetched
-  // pages by the current pageIndex × pageSize.
   const visibleCards = useMemo(() => {
-    if (searchActive) return matchedCards
     const start = pageIndex * pageSize
     return allLoadedCards.slice(start, start + pageSize)
-  }, [searchActive, matchedCards, allLoadedCards, pageIndex, pageSize])
+  }, [allLoadedCards, pageIndex, pageSize])
 
   // Pagination affordance state.
-  const hasPrev      = !searchActive && pageIndex > 0
+  const hasPrev          = pageIndex > 0
   const canGoNextLocally = (pageIndex + 1) * pageSize < allLoadedCards.length
-  const hasNext      = !searchActive && (canGoNextLocally || hasNextPage)
+  const hasNext          = canGoNextLocally || hasNextPage
 
   const cardCount        = deck?.cardCount ?? 0
   const dueCount         = deck?.dueCount  ?? 0
@@ -393,9 +374,10 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                 )}
               </div>
 
-              {/* Pagination footer — only when not in search mode, the deck
-                  has at least one card, and the list isn't loading. */}
-              {!cardsLoading && !cardsError && !searchActive && cardCount > 0 && (
+              {/* Pagination footer — visible whenever there's at least one
+                  card to paginate (search runs through the same endpoint
+                  now, so paging works the same way with or without it). */}
+              {!cardsLoading && !cardsError && cardCount > 0 && (
                 <CardListPagination
                   pageIndex={pageIndex}
                   pageSize={pageSize}
@@ -408,15 +390,6 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                   onNext={handleNextPage}
                   onPageSizeChange={handlePageSizeChange}
                 />
-              )}
-
-              {/* Search mode: surface a tiny match summary so the user knows
-                  pagination is suspended while filtering. */}
-              {searchActive && !cardsLoading && !cardsError && cardCount > 0 && (
-                <p className="mt-4 border-t border-soft-hairline pt-3 text-xs text-faded-sumi">
-                  Showing <span className="text-sumi-ink">{matchedCards.length}</span>{' '}
-                  {matchedCards.length === 1 ? 'match' : 'matches'} from loaded cards. Pagination resumes when you clear the search.
-                </p>
               )}
             </main>
 
@@ -634,7 +607,7 @@ function NoMatchState({
       <p className="text-sm text-faded-sumi">
         {searchValue.length > 0 ? (
           <>
-            No loaded cards match <span className="text-sumi-ink/85">'{searchValue}'</span>.{' '}
+            No cards match <span className="text-sumi-ink/85">'{searchValue}'</span>.{' '}
             <button
               type="button"
               onClick={onClearSearch}
@@ -642,7 +615,7 @@ function NoMatchState({
             >
               Clear search
             </button>
-            , or load more cards below.
+            .
           </>
         ) : (
           <>No {selectedStatusLabel.toLowerCase()} cards in this deck.</>

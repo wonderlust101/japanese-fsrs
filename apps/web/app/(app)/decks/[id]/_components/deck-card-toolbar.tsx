@@ -75,8 +75,8 @@ export function DeckCardToolbar({
           type="search"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filter loaded cards"
-          aria-label="Filter loaded cards by word, reading, or meaning"
+          placeholder="Search this deck"
+          aria-label="Search this deck by word, reading, or meaning"
           className={[
             'ui-motion-colors w-full h-9 rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
             'hover:border-faded-sumi',

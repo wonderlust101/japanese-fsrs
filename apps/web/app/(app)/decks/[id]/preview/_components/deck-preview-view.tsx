@@ -17,7 +17,7 @@ import { IconSearch } from '@/components/icons/chrome-marks'
 import { CardsResultsTable, type CardsResultRow } from '@/app/(app)/cards/_components/cards-results-table'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction } from '@/lib/actions/decks.actions'
-import { listCardsAction } from '@/lib/actions/cards.actions'
+import { listCardsCrossDeckAction } from '@/lib/actions/cards.actions'
 
 import {
   CardListPagination,
@@ -54,10 +54,13 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
     queryFn:  () => getDeckWithStatsAction(deckId),
   })
 
-  // Card list — same RPC as deck-detail, no status filter (read-only mode
-  // doesn't surface the FSRS status pill, so a filter on it would be
-  // confusing). Key intentionally distinct from the deck-detail page's so
-  // a status-filtered cache there doesn't accidentally satisfy this query.
+  // Card list — pulls from the cross-deck endpoint with `deckId` as the
+  // scope filter so the search input becomes a real backend search.
+  // Status filter intentionally omitted — read-only mode doesn't expose
+  // the FSRS status pill, so a filter on it would be confusing. Key
+  // intentionally distinct from the deck-detail page's so a search-
+  // filtered cache there doesn't accidentally satisfy this query.
+  const trimmedSearch = searchValue.trim()
   const {
     data,
     fetchNextPage,
@@ -66,10 +69,12 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
     isLoading: cardsLoading,
     isError:   cardsError,
   } = useInfiniteQuery({
-    queryKey: [...queryKeys.cards.byDeck(deckId), 'preview', pageSize],
-    queryFn:  ({ pageParam }) => listCardsAction(deckId, {
+    queryKey: [...queryKeys.cards.byDeck(deckId), 'preview', pageSize, trimmedSearch],
+    queryFn:  ({ pageParam }) => listCardsCrossDeckAction({
+      deckId,
       limit:  pageSize,
-      ...(pageParam !== undefined ? { cursor: pageParam } : {}),
+      ...(pageParam      !== undefined ? { cursor: pageParam }     : {}),
+      ...(trimmedSearch.length > 0     ? { search: trimmedSearch } : {}),
     }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -77,33 +82,15 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
 
   const allLoadedCards = data?.pages.flatMap((p) => p.items) ?? []
 
-  const matchedCards = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    if (q.length === 0) return allLoadedCards
-    return allLoadedCards.filter((card) => {
-      const w = getWordFields(card)
-      const s = getSentenceFrontBack(card)
-      const hay = [
-        w?.word ?? '',
-        w?.reading ?? '',
-        w?.meaning ?? '',
-        s?.front ?? '',
-        s?.back ?? '',
-      ].join(' ').toLowerCase()
-      return hay.includes(q)
-    })
-  }, [allLoadedCards, searchValue])
-
-  const searchActive = searchValue.trim().length > 0
+  const searchActive = trimmedSearch.length > 0
   const visibleCards = useMemo(() => {
-    if (searchActive) return matchedCards
     const start = pageIndex * pageSize
     return allLoadedCards.slice(start, start + pageSize)
-  }, [searchActive, matchedCards, allLoadedCards, pageIndex, pageSize])
+  }, [allLoadedCards, pageIndex, pageSize])
 
-  const hasPrev          = !searchActive && pageIndex > 0
+  const hasPrev          = pageIndex > 0
   const canGoNextLocally = (pageIndex + 1) * pageSize < allLoadedCards.length
-  const hasNext          = !searchActive && (canGoNextLocally || hasNextPage)
+  const hasNext          = canGoNextLocally || hasNextPage
   const cardCount        = deck?.cardCount ?? 0
   const isCardListEmpty  = !cardsLoading && cardCount === 0
   const filteredEmpty    = !cardsLoading && cardCount > 0 && visibleCards.length === 0
@@ -191,7 +178,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                 ) : filteredEmpty ? (
                   <PreviewMessage
                     title={searchActive
-                      ? `No loaded cards match '${searchValue}'.`
+                      ? `No cards match '${searchValue}'.`
                       : 'No cards to show.'}
                     body={searchActive
                       ? 'Try a different search term, or clear the search.'
@@ -212,7 +199,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                 )}
               </div>
 
-              {!cardsLoading && !cardsError && !searchActive && cardCount > 0 && (
+              {!cardsLoading && !cardsError && cardCount > 0 && (
                 <CardListPagination
                   pageIndex={pageIndex}
                   pageSize={pageSize}
@@ -228,13 +215,6 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                     setPageIndex(0)
                   }}
                 />
-              )}
-
-              {searchActive && !cardsLoading && !cardsError && cardCount > 0 && (
-                <p className="mt-4 border-t border-soft-hairline pt-3 text-xs text-faded-sumi">
-                  Showing <span className="text-sumi-ink">{matchedCards.length}</span>{' '}
-                  {matchedCards.length === 1 ? 'match' : 'matches'} from loaded cards. Pagination resumes when you clear the search.
-                </p>
               )}
             </main>
           </div>
@@ -312,8 +292,8 @@ function SearchOnlyToolbar({
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Filter loaded cards"
-          aria-label="Filter loaded cards by word, reading, or meaning"
+          placeholder="Search this deck"
+          aria-label="Search this deck by word, reading, or meaning"
           className={[
             'ui-motion-colors h-9 w-full rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
             'hover:border-faded-sumi',
