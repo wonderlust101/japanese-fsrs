@@ -7,11 +7,13 @@ import type { ApiDeck, ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { Button } from '@/components/ui/Button'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { IconPlus } from '@/components/icons/chrome-marks'
 import { deleteDeckAction, getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { inferDeckLevel } from '@/lib/deck-level'
 
+import { BulkDeleteDecksDialog } from './bulk-delete-decks-dialog'
 import { CreateDeckDialog } from './create-deck-dialog'
 import { DeckCard } from './deck-card'
 import { DeckCardSkeleton } from './deck-skeleton'
@@ -36,13 +38,13 @@ import {
 const PAGE_SIZE = 12
 const PREMADE_THRESHOLD = 2  // Premade rail appears when active deck count ≤ this.
 
-type Toast = { kind: 'info' | 'error'; message: string; key: number }
 type ActiveDialog =
   | { kind: 'none' }
   | { kind: 'rename'; deck: ApiDeck }
   | { kind: 'delete'; deck: ApiDeck }
   | { kind: 'edit';   deck: ApiDeck }
   | { kind: 'create' }
+  | { kind: 'bulk-delete' }
 
 interface DragState {
   draggedId:    string
@@ -120,7 +122,7 @@ export function DeckListView(): React.JSX.Element {
   const [selectedIds,      setSelectedIds]      = useState<ReadonlySet<string>>(new Set())
   const [dragState,        setDragState]        = useState<DragState | null>(null)
   const [activeDialog,     setActiveDialog]     = useState<ActiveDialog>({ kind: 'none' })
-  const [toast,            setToast]            = useState<Toast | null>(null)
+  const { toast, showToast, dismissToast } = useToast()
 
   const utilityRowRef = useRef<HTMLElement | null>(null)
 
@@ -130,16 +132,6 @@ export function DeckListView(): React.JSX.Element {
   }, [searchInputValue])
 
   useEffect(() => { setPage(1) }, [prefs.sort, prefs.typeFilter, prefs.view, searchQuery])
-
-  useEffect(() => {
-    if (toast === null) return
-    const id = window.setTimeout(() => setToast(null), 3200)
-    return () => window.clearTimeout(id)
-  }, [toast])
-
-  function showToast(message: string, kind: Toast['kind'] = 'info'): void {
-    setToast({ message, kind, key: Date.now() })
-  }
 
   // ── Derived data ──────────────────────────────────────────────────────
 
@@ -548,13 +540,20 @@ export function DeckListView(): React.JSX.Element {
           onMoveToTop={handleBulkMoveToTop}
           onArchive={handleBulkArchive}
           onCopy={handleBulkCopy}
-          onDelete={() => handleBulkDelete()}
+          onDelete={() => setActiveDialog({ kind: 'bulk-delete' })}
         />
       )}
 
       <CreateDeckDialog
         open={activeDialog.kind === 'create'}
         onClose={() => setActiveDialog({ kind: 'none' })}
+      />
+
+      <BulkDeleteDecksDialog
+        open={activeDialog.kind === 'bulk-delete'}
+        selectedCount={selectedIds.size}
+        onClose={() => setActiveDialog({ kind: 'none' })}
+        onConfirm={() => handleBulkDelete()}
       />
 
       <RenameDeckDialog
@@ -595,7 +594,12 @@ export function DeckListView(): React.JSX.Element {
       />
 
       {toast !== null && (
-        <ToastView key={toast.key} toast={toast} onDismiss={() => setToast(null)} />
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+        />
       )}
     </>
   )
@@ -699,31 +703,6 @@ function ErrorState(): React.JSX.Element {
           Try again
         </Button>
       </div>
-    </div>
-  )
-}
-
-function ToastView({
-  toast,
-  onDismiss,
-}: {
-  toast:     Toast
-  onDismiss: () => void
-}): React.JSX.Element {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      onClick={onDismiss}
-      className={[
-        'fixed bottom-4 right-4 z-30 max-w-[28rem] rounded-[2px] border bg-warm-paper-raised px-3.5 py-2.5 text-sm shadow-[var(--shadow-card)]',
-        'animate-page-enter cursor-pointer',
-        toast.kind === 'error'
-          ? 'border-inari-vermillion/40 text-inari-vermillion-deep'
-          : 'border-soft-hairline text-sumi-ink',
-      ].join(' ')}
-    >
-      {toast.message}
     </div>
   )
 }
