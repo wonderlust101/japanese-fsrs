@@ -53,10 +53,13 @@ const ROUTE_BY_KIND: Record<CardQualityIssueKind, string> = {
  * surface is self-contained (no `MistakesData` dependency); the type
  * defs and label map were inlined so the file can stand on its own.
  *
- * Production data source isn't wired yet — when the backend ships
- * per-issue counts, pass them in via `issues`. Empty state reads as
- * a positive when nothing is flagged ("Every card has its support
- * fields filled in.").
+ * Consumer: `cards-browser-view.tsx` drives `issues` from
+ * `useCardQualityIssuesQuery()` (against `GET /api/v1/insights/
+ * card-quality`, Stage-8 `get_card_quality_issues` RPC). The
+ * backend always emits six rows (zero-filled when a category has
+ * no flagged cards) so a real empty list means the learner truly
+ * has nothing to fix — the "Every card has its support fields filled
+ * in." copy reads correctly in that case.
  */
 export function CardsQualityBars({
   issues,
