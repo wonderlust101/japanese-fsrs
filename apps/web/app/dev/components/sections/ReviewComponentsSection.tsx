@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { RatingBreakdown }            from '@/components/review/RatingBreakdown'
-import { RatingButtons }              from '@/components/review/RatingButtons'
 import { ShowcaseGrid, ShowcaseItem } from '../_components/ShowcaseItem'
 import { ShowcaseSection }            from '../_components/ShowcaseSection'
 
@@ -11,18 +10,8 @@ export function ReviewComponentsSection(): React.JSX.Element {
     <ShowcaseSection
       id="review"
       title="Review components"
-      description="Composed views from the review flow. RatingButtons and RatingBreakdown stand alone; ReviewCard depends on the live session store and is documented as a placeholder."
+      description="Composed views from the review flow. RatingBreakdown stands alone; ReviewCard depends on the live session store and is documented as a placeholder. The production rating row lives in RatingBar — preview it in context at /review/session."
     >
-      <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">RatingButtons</h3>
-        <ShowcaseGrid minColumnWidth={420}>
-          <ShowcaseItem label="RatingButtons" caption="onRate=(rating)=>..." fill>
-            {/* No-op handler so the showcase doesn't accidentally submit. */}
-            <RatingButtons onRate={() => {}} />
-          </ShowcaseItem>
-        </ShowcaseGrid>
-      </div>
-
       <div>
         <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">RatingBreakdown</h3>
         <ShowcaseGrid minColumnWidth={320}>

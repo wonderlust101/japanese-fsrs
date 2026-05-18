@@ -115,12 +115,13 @@ export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.
               aria-keyshortcuts={spec.key}
               style={{ backgroundColor: spec.fill, borderColor: spec.fill }}
               className={cn(
-                // Single horizontal row: icon (where it fits) + label.
-                // The keyboard shortcut is announced via aria-keyshortcuts
-                // and lives in the per-card help (1=Again … 4=Easy), so
-                // the substrate stays clean.
-                'group relative inline-flex items-center justify-center gap-2',
-                'h-12 md:h-14 rounded-md border px-3',
+                // Three-row column per DESIGN.md §Rating Buttons:
+                // glyph (top), label (middle), key hint (bottom at 70%).
+                // The visible key is the fourth channel of the Four-Channel
+                // Rating Rule — color-blind / glyph-blind users still know
+                // which button is which. aria-keyshortcuts handles SR.
+                'group relative flex flex-col items-center justify-center gap-0.5',
+                'h-16 rounded-md border px-3',
                 'text-warm-paper-raised',
                 'transition-[filter,transform] duration-200 ease-out',
                 'cursor-pointer hover:brightness-95 active:translate-y-[1px]',
@@ -140,12 +141,19 @@ export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.
                 </span>
               )}
 
-              <span className="text-warm-paper-raised/95 leading-none hidden md:inline-flex">
+              <span className="text-warm-paper-raised/95 leading-none inline-flex">
                 {spec.icon}
               </span>
 
-              <span className="font-display text-sm md:text-[0.9375rem] leading-none tracking-tight">
+              <span className="font-medium text-sm md:text-[0.9375rem] leading-none tracking-tight">
                 {spec.label}
+              </span>
+
+              <span
+                aria-hidden="true"
+                className="font-mono text-[0.625rem] tabular-nums leading-none text-warm-paper-raised/70"
+              >
+                {spec.key}
               </span>
             </button>
           )
