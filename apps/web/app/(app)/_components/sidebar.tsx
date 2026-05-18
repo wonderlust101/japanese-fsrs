@@ -7,6 +7,7 @@ import { Logo }                  from '@/components/ui/Logo'
 import { useDueCards }           from '@/lib/api/reviews'
 import { useLocalStorageBoolean } from '@/lib/hooks/useLocalStorageBoolean'
 
+import { AddCardCta }                             from './add-card-cta'
 import { HelpRow }                                from './help-row'
 import { NAV_SECTIONS, type NavItemConfig }       from './nav-config'
 import { NavItem }                                from './nav-item'
@@ -175,6 +176,12 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 
         {/* Today strip */}
         {renderCollapsed ? <TodayStripCollapsed /> : <TodayStripExpanded />}
+
+        {/* Primary CTA — sits between daily context and section nav so the
+            create-card action lives next to today's practice signal. */}
+        <div className="shrink-0 border-b border-soft-hairline">
+          <AddCardCta collapsed={renderCollapsed} />
+        </div>
 
         {/* Nav body */}
         <nav

@@ -9,6 +9,7 @@ import { Logo }              from '@/components/ui/Logo'
 import { useDueCards }       from '@/lib/api/reviews'
 import { useMobileNavStore } from '@/stores/useMobileNavStore'
 
+import { AddCardCta }           from './add-card-cta'
 import { HelpRow }              from './help-row'
 import { NAV_SECTIONS }         from './nav-config'
 import { NavItem }              from './nav-item'
@@ -140,6 +141,11 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 
         {/* Today strip */}
         <TodayStripExpanded />
+
+        {/* Primary CTA — sits between daily context and section nav. */}
+        <div className="shrink-0 border-b border-soft-hairline">
+          <AddCardCta onNavigate={close} />
+        </div>
 
         {/* Nav body */}
         <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-2">
