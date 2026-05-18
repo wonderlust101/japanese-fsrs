@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { State, type ApiCard } from '@fsrs-japanese/shared-types'
 
+import { FixtureOption, FixtureOptionList, FixturePanel } from '@/components/dev/FixturePanel'
+
 export type CardDevFixtureKey =
   | 'off'
   | 'full'
@@ -68,63 +70,29 @@ function DevStatePanel({
   fixture:  CardDevFixtureKey
   onChange: (next: CardDevFixtureKey) => void
 }): React.JSX.Element {
-  const [open, setOpen] = useState(true)
   const active = FIXTURES.find((f) => f.key === fixture) ?? FIXTURES[0] ?? { label: 'Live data' }
 
   return (
-    <div
-      role="region"
-      aria-label="Card detail dev state panel"
-      className="fixed bottom-4 left-4 z-40 max-w-[20rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-[var(--shadow-card)]"
+    <FixturePanel
+      title="Dev · Card state"
+      summary={active.label}
+      ariaLabel="Card detail dev state panel"
+      widthClass="max-w-[20rem]"
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="ui-motion-colors flex w-full items-center justify-between gap-2 border-b border-soft-hairline px-3 py-2 text-left focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
-          Dev · Card state
-        </span>
-        <span className="font-mono text-[0.6875rem] text-sumi-ink">
-          {active.label}
-        </span>
-      </button>
-
-      {open && (
-        <div className="p-2.5">
-          <fieldset className="space-y-1" aria-label="Card fixtures">
-            {FIXTURES.map((f) => {
-              const checked = f.key === fixture
-              return (
-                <label
-                  key={f.key}
-                  className={[
-                    'ui-motion-colors flex cursor-pointer items-start gap-2 rounded-[2px] border px-2.5 py-1.5 text-xs',
-                    checked
-                      ? 'border-inari-vermillion bg-inari-vermillion/5'
-                      : 'border-transparent hover:border-soft-hairline hover:bg-cream-inset/45',
-                  ].join(' ')}
-                >
-                  <input
-                    type="radio"
-                    name="card-fixture"
-                    value={f.key}
-                    checked={checked}
-                    onChange={() => onChange(f.key)}
-                    className="mt-0.5 h-3 w-3 accent-inari-vermillion"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sumi-ink">{f.label}</div>
-                    <div className="mt-0.5 leading-snug text-faded-sumi">{f.description}</div>
-                  </div>
-                </label>
-              )
-            })}
-          </fieldset>
-        </div>
-      )}
-    </div>
+      <FixtureOptionList ariaLabel="Card fixtures">
+        {FIXTURES.map((f) => (
+          <FixtureOption
+            key={f.key}
+            name="card-fixture"
+            value={f.key}
+            checked={f.key === fixture}
+            onChange={() => onChange(f.key)}
+            label={f.label}
+            description={f.description}
+          />
+        ))}
+      </FixtureOptionList>
+    </FixturePanel>
   )
 }
 

@@ -9,6 +9,8 @@ import type {
   ApiLayoutAccuracy,
 } from '@fsrs-japanese/shared-types'
 
+import { FixtureOption, FixtureOptionList, FixturePanel } from '@/components/dev/FixturePanel'
+
 import type { WeeklyReportInputs } from './weekly-report'
 
 // ── Public hook ──────────────────────────────────────────────────────────────
@@ -92,66 +94,33 @@ export function InsightsDevPanel({
   fixture,
   onChange,
 }: InsightsDevPanelProps): React.JSX.Element {
-  const [open, setOpen] = useState(true)
   const active = FIXTURES.find((f) => f.key === fixture) ?? FIXTURES[0] ?? { label: 'Off' }
 
   return (
-    <div
-      role="region"
-      aria-label="Insights page dev state panel"
-      className="fixed bottom-4 left-4 z-40 w-[18.5rem] max-w-[calc(100vw-2rem)] rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-[var(--shadow-card)]"
+    <FixturePanel
+      title="Dev · Insights state"
+      summary={active.label}
+      ariaLabel="Insights page dev state panel"
+      footer={
+        <p className="px-1 font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-faded-sumi/80">
+          Fixture today · {FIXTURE_TODAY}
+        </p>
+      }
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 border-b border-soft-hairline px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
-          Dev · Insights state
-        </span>
-        <span className="font-mono text-[0.6875rem] text-sumi-ink">
-          {active.label}
-        </span>
-      </button>
-
-      {open && (
-        <div className="p-2.5">
-          <fieldset className="space-y-1" aria-label="Insights fixtures">
-            {FIXTURES.map((f) => {
-              const checked = f.key === fixture
-              return (
-                <label
-                  key={f.key}
-                  className={[
-                    'flex cursor-pointer items-start gap-2 rounded-[2px] border px-2.5 py-1.5 text-xs transition-colors',
-                    checked
-                      ? 'border-inari-vermillion bg-inari-vermillion/5'
-                      : 'border-transparent hover:border-soft-hairline hover:bg-cream-inset/45',
-                  ].join(' ')}
-                >
-                  <input
-                    type="radio"
-                    name="insights-fixture"
-                    value={f.key}
-                    checked={checked}
-                    onChange={() => onChange(f.key)}
-                    className="mt-0.5 h-3 w-3 accent-inari-vermillion"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sumi-ink">{f.label}</div>
-                    <div className="mt-0.5 leading-snug text-faded-sumi">{f.description}</div>
-                  </div>
-                </label>
-              )
-            })}
-          </fieldset>
-          <p className="mt-2 px-1 font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-faded-sumi/80">
-            Fixture today · {FIXTURE_TODAY}
-          </p>
-        </div>
-      )}
-    </div>
+      <FixtureOptionList ariaLabel="Insights fixtures">
+        {FIXTURES.map((f) => (
+          <FixtureOption
+            key={f.key}
+            name="insights-fixture"
+            value={f.key}
+            checked={f.key === fixture}
+            onChange={() => onChange(f.key)}
+            label={f.label}
+            description={f.description}
+          />
+        ))}
+      </FixtureOptionList>
+    </FixturePanel>
   )
 }
 
