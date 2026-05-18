@@ -20,7 +20,7 @@ import { Toast, useToast } from '@/components/ui/Toast'
 import { IconMore, IconEdit, IconHide, IconReveal, IconDelete } from '@/components/icons/chrome-marks'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
-import { listCardsAction, deleteCardAction, moveCardAction } from '@/lib/actions/cards.actions'
+import { listCardsAction, deleteCardAction, moveCardAction, copyCardAction } from '@/lib/actions/cards.actions'
 import {
   DecksMenu,
   MenuItem,
@@ -161,8 +161,6 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
   })
 
   // ── Card-move mutation ────────────────────────────────────────────────
-  // Backend endpoint POST /api/v1/cards/:id/move is pending. Frontend is
-  // wired and will surface server errors gracefully until the endpoint ships.
   const moveCardMutation = useMutation({
     mutationFn: ({ cardId, targetDeckId }: { cardId: string; targetDeckId: string }) =>
       moveCardAction(cardId, targetDeckId),
@@ -172,6 +170,22 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(targetDeckId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+    },
+  })
+
+  // ── Card-copy mutation ────────────────────────────────────────────────
+  // Cloning leaves the source card untouched, so this mutation only refreshes
+  // the target deck's caches plus the shared decks list and review queue (the
+  // copy lands in state=0 and is due immediately).
+  const copyCardMutation = useMutation({
+    mutationFn: ({ cardId, targetDeckId }: { cardId: string; targetDeckId: string }) =>
+      copyCardAction(cardId, targetDeckId),
+    onSuccess: (_data, { targetDeckId }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(targetDeckId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(targetDeckId) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
     },
   })
 
@@ -496,21 +510,26 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         }}
       />
 
-      {/* "Add a copy" variant — the backend endpoint isn't wired yet, so the
-          confirm handler is a deliberate no-op: it closes the dialog and
-          surfaces a toast indicating the feature is pending. When the backend
-          ships, swap onConfirm for a real mutation that POSTs to the copy
-          endpoint, and treat this dialog identically to the move one. */}
       <MoveCardDialog
         card={activeDialog.kind === 'add-card' ? activeDialog.card : null}
         currentDeckId={deckId}
         variant="add"
-        isSubmitting={false}
-        errorMessage={null}
-        onCancel={() => setActiveDialog({ kind: 'none' })}
-        onConfirm={() => {
+        isSubmitting={copyCardMutation.isPending}
+        errorMessage={copyCardMutation.isError ? (copyCardMutation.error?.message ?? 'Unknown error') : null}
+        onCancel={() => {
           setActiveDialog({ kind: 'none' })
-          showToast('Adding a copy to another deck is coming. The endpoint is pending.')
+          copyCardMutation.reset()
+        }}
+        onConfirm={(target, targetDeckId) => {
+          copyCardMutation.mutate(
+            { cardId: target.id, targetDeckId },
+            {
+              onSuccess: () => {
+                setActiveDialog({ kind: 'none' })
+                showToast('Copy added to deck.')
+              },
+            },
+          )
         }}
       />
 

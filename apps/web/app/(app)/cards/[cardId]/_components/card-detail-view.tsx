@@ -16,6 +16,11 @@ import {
   getCardByIdAction,
   deleteCardAction,
 } from '@/lib/actions/cards.actions'
+import {
+  useMoveCardMutation,
+  useSuspendCardMutation,
+  useUnsuspendCardMutation,
+} from '@/lib/api/cards'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { MoveCardDialog } from '@/app/(app)/decks/[id]/_components/move-card-dialog'
 import {
@@ -94,6 +99,18 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
       router.push(`/decks/${deckId}`)
     },
   })
+
+  // ── Suspend / unsuspend / move mutations ──────────────────────────────
+  // The hooks invalidate cards.all() + decks.all() so the liveCard query
+  // re-reads after suspend/unsuspend (driving the `isSuspended` chrome) and
+  // every list view that includes this card refreshes after a move.
+  const suspendMutation   = useSuspendCardMutation()
+  const unsuspendMutation = useUnsuspendCardMutation()
+  const moveMutation      = useMoveCardMutation()
+  const suspendPending    = isSuspended ? unsuspendMutation.isPending : suspendMutation.isPending
+  const suspendError      = isSuspended
+    ? (unsuspendMutation.isError ? (unsuspendMutation.error?.message ?? 'Unknown error') : null)
+    : (suspendMutation.isError   ? (suspendMutation.error?.message   ?? 'Unknown error') : null)
 
   const editHref = `/cards/${cardId}/edit`
 
@@ -253,7 +270,12 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 
       <Dialog
         open={activeDialog.kind === 'suspend'}
-        onClose={() => setActiveDialog({ kind: 'none' })}
+        onClose={() => {
+          if (suspendPending) return
+          setActiveDialog({ kind: 'none' })
+          suspendMutation.reset()
+          unsuspendMutation.reset()
+        }}
         title={isSuspended ? 'Unsuspend card' : 'Suspend card'}
       >
         <p className="mb-5 text-sm text-faded-sumi">
@@ -262,19 +284,36 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
             : <>Pause <span lang="ja" className="font-semibold text-sumi-ink">{word}</span> from appearing in reviews until you unsuspend it?</>
           }
         </p>
+        {suspendError !== null && (
+          <p role="alert" className="mb-3 text-sm text-inari-vermillion-deep">
+            {suspendError}
+          </p>
+        )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => setActiveDialog({ kind: 'none' })}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setActiveDialog({ kind: 'none' })
+              suspendMutation.reset()
+              unsuspendMutation.reset()
+            }}
+            disabled={suspendPending}
+          >
             Cancel
           </Button>
           <Button
             type="button"
             variant="primary"
+            loading={suspendPending}
             onClick={() => {
-              setActiveDialog({ kind: 'none' })
-              showToast(isSuspended
-                ? 'Unsuspend is coming. The endpoint is pending.'
-                : 'Suspend is coming. The endpoint is pending.',
-              )
+              const mutation = isSuspended ? unsuspendMutation : suspendMutation
+              mutation.mutate(cardId, {
+                onSuccess: () => {
+                  setActiveDialog({ kind: 'none' })
+                  showToast(isSuspended ? 'Card unsuspended.' : 'Card suspended.')
+                },
+              })
             }}
           >
             {isSuspended ? 'Unsuspend' : 'Suspend'}
@@ -286,12 +325,26 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
         card={activeDialog.kind === 'move' && card !== null && card !== undefined ? (card as unknown as ApiCardListItem) : null}
         currentDeckId={deckId}
         variant="move"
-        isSubmitting={false}
-        errorMessage={null}
-        onCancel={() => setActiveDialog({ kind: 'none' })}
-        onConfirm={() => {
+        isSubmitting={moveMutation.isPending}
+        errorMessage={moveMutation.isError ? (moveMutation.error?.message ?? 'Unknown error') : null}
+        onCancel={() => {
           setActiveDialog({ kind: 'none' })
-          showToast('Card move is coming. The endpoint is pending.')
+          moveMutation.reset()
+        }}
+        onConfirm={(target, targetDeckId) => {
+          moveMutation.mutate(
+            { cardId: target.id, targetDeckId },
+            {
+              onSuccess: () => {
+                setActiveDialog({ kind: 'none' })
+                showToast('Card moved.')
+                // The breadcrumb (`deckId`, `deckName`) is sourced from this
+                // route's server component; refresh re-runs that fetch so the
+                // top-bar updates to the new deck without a full reload.
+                router.refresh()
+              },
+            },
+          )
         }}
       />
 
