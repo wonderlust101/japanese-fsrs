@@ -82,7 +82,7 @@ export function DrillSessionClient({
     if (sessionQuery.data.status !== 'active') {
       // Session is finished/aborted — route to summary; the summary page
       // can read either local store state or refetch via the same query.
-      router.replace(`/insights/leeches/drill/${sessionId}/summary`)
+      router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
       return
     }
     actions.startSession(sessionQuery.data.sessionId, [...sessionQuery.data.cards])
@@ -95,7 +95,7 @@ export function DrillSessionClient({
     finishMutation.mutate(sessionId, {
       onSettled: () => {
         actions.endSession(false)
-        router.replace(`/insights/leeches/drill/${sessionId}/summary`)
+        router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
       },
     })
   }, [isActive, reachedEnd, sessionId, finishMutation, actions, router])
@@ -156,13 +156,13 @@ export function DrillSessionClient({
   // ── End-drill exit ────────────────────────────────────────────────────────
   function handleExit(): void {
     if (!isActive) {
-      router.replace('/insights/leeches')
+      router.replace('/insights/weak-spots')
       return
     }
     abortMutation.mutate(sessionId, {
       onSettled: () => {
         actions.endSession(true)
-        router.replace(`/insights/leeches/drill/${sessionId}/summary`)
+        router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
       },
     })
   }
@@ -184,10 +184,10 @@ export function DrillSessionClient({
         <p className="mt-1 text-error-deep/80">{sessionQuery.error.message}</p>
         <div className="mt-4">
           <Link
-            href="/insights/leeches"
+            href="/insights/weak-spots"
             className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep underline-offset-2 hover:underline"
           >
-            Back to Leeches →
+            Back to Weak spots →
           </Link>
         </div>
       </div>
@@ -203,10 +203,10 @@ export function DrillSessionClient({
         </p>
         <div className="mt-6">
           <Link
-            href="/insights/leeches"
+            href="/insights/weak-spots"
             className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep underline-offset-2 hover:underline"
           >
-            Back to Leeches →
+            Back to Weak spots →
           </Link>
         </div>
       </div>
@@ -283,7 +283,7 @@ function TopBar({ percentage, onExit }: TopBarProps): React.JSX.Element {
             aria-hidden="true"
             className="font-display text-xl leading-none text-inari-vermillion translate-y-[0.05em]"
           >
-            蛭
+            弱
           </span>
           <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
             Drill · Practice only

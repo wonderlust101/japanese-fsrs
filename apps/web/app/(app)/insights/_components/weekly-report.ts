@@ -314,7 +314,7 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
     kind:     'mistakes',
     kanji:    '弱',
     label:    "Where you're slipping",
-    deepLink: { label: 'Open weak spots', href: '/insights/leeches' },
+    deepLink: { label: 'Open weak spots', href: '/insights/weak-spots' },
     figure:   'mistakes',
   }
 
@@ -416,7 +416,7 @@ function buildRecommendation(lead: ReportNote, s: DerivedSignals): ReportRecomme
       kanji:    '要',
       headline: 'Spend ten quiet minutes on your slipping cards.',
       body:     'A focused repair pass on what you\'re missing now lifts the whole average.',
-      action:   { label: 'Drill weak spots', href: '/insights/leeches' },
+      action:   { label: 'Drill weak spots', href: '/insights/weak-spots' },
     }
   }
   if (lead.kind === 'progress' && lead.tone === 'attention') {
@@ -537,7 +537,7 @@ export function buildWeeklyReport(
       severity: 0,
       figure:   null,
       body:     'Mistake patterns surface once you have a handful of reviews behind you.',
-      deepLink: { label: 'Open weak spots', href: '/insights/leeches' },
+      deepLink: { label: 'Open weak spots', href: '/insights/weak-spots' },
     }
     const placeholderPlanning: ReportNote = {
       kind:     'planning',

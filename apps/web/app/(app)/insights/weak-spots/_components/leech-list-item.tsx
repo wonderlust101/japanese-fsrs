@@ -136,8 +136,8 @@ export function LeechListItem({
         {!isOrphan && !leech.resolved && (
           <RowAction
             tone="primary"
-            onClick={() => router.push(`/insights/leeches/drill/setup?cardId=${leech.cardId}`)}
-            ariaLabel={`Drill ${leech.word ?? 'this leech'}`}
+            onClick={() => router.push(`/insights/weak-spots/drill/setup?cardId=${leech.cardId}`)}
+            ariaLabel={`Drill ${leech.word ?? 'this card'}`}
           >
             Drill
           </RowAction>
@@ -153,7 +153,7 @@ export function LeechListItem({
           <RowAction
             tone="quiet"
             onClick={() => onResolve(leech.id)}
-            ariaLabel={`Mark ${leech.word ?? 'this leech'} resolved`}
+            ariaLabel={`Mark ${leech.word ?? 'this card'} resolved`}
             disabled={isMutating}
           >
             Mark resolved
@@ -163,7 +163,7 @@ export function LeechListItem({
           <RowAction
             tone="quiet"
             onClick={() => onReopen(leech.id)}
-            ariaLabel="Reopen this leech"
+            ariaLabel="Reopen this card"
             disabled={isMutating}
           >
             Reopen

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Leech drill' }
+export const metadata: Metadata = { title: 'Weak spot drill' }
 
 /**
  * Fixed-overlay layout for the entire drill flow (setup → session → summary).

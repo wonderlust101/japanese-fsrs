@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 import { DrillSummaryClient } from './_components/drill-summary-client'
 
-export const metadata: Metadata = { title: 'Leech drill summary' }
+export const metadata: Metadata = { title: 'Weak spot drill summary' }
 export const dynamic = 'force-dynamic'
 
 interface PageProps {

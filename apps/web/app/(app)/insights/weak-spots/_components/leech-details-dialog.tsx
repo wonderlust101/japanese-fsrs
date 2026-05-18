@@ -59,8 +59,8 @@ export function LeechDetailsDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={leech?.word ?? 'Leech detail'}
-      eyebrow={{ kanji: '蛭', label: 'Leech detail' }}
+      title={leech?.word ?? 'Weak spot'}
+      eyebrow={{ kanji: '弱', label: 'Weak spot' }}
       size="xl"
     >
       {isLoading || leech === undefined ? (
@@ -70,7 +70,7 @@ export function LeechDetailsDialog({
           role="alert"
           className="rounded-[2px] border border-error/30 bg-error-tint/40 px-4 py-4 text-sm text-error-deep"
         >
-          <p>Couldn&rsquo;t load this leech right now.</p>
+          <p>Couldn&rsquo;t load this card right now.</p>
           {errorMessage !== undefined && (
             <p className="mt-1 text-error-deep/80">{errorMessage}</p>
           )}
@@ -140,10 +140,10 @@ export function LeechDetailsDialog({
                   variant="primary"
                   size="sm"
                   onClick={() =>
-                    router.push(`/insights/leeches/drill/setup?cardId=${leech.cardId}`)
+                    router.push(`/insights/weak-spots/drill/setup?cardId=${leech.cardId}`)
                   }
                 >
-                  Drill this leech
+                  Drill this card
                 </Button>
               )}
               {leech.cardId !== null && (

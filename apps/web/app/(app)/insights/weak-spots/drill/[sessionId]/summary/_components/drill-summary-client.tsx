@@ -92,10 +92,10 @@ export function DrillSummaryClient({
           <p className="mt-1 text-error-deep/80">Open the leeches page to start a fresh drill.</p>
           <div className="mt-4">
             <Link
-              href="/insights/leeches"
+              href="/insights/weak-spots"
               className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep underline-offset-2 hover:underline"
             >
-              Back to Leeches →
+              Back to Weak spots →
             </Link>
           </div>
         </div>
@@ -119,13 +119,13 @@ export function DrillSummaryClient({
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link
-              href="/insights/leeches/drill/setup"
+              href="/insights/weak-spots/drill/setup"
               className="inline-flex h-10 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-4 text-sm font-semibold text-warm-paper-raised transition-colors hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
             >
               Start a new drill
             </Link>
-            <QuietLink href="/insights/leeches" tone="sumi" size="sm">
-              Back to Leeches
+            <QuietLink href="/insights/weak-spots" tone="sumi" size="sm">
+              Back to Weak spots
             </QuietLink>
           </div>
         </SectionCard>
@@ -253,7 +253,7 @@ export function DrillSummaryClient({
         {/* Actions */}
         <footer className="flex flex-wrap items-center gap-3 border-t border-soft-hairline pt-6">
           <Link
-            href="/insights/leeches/drill/setup"
+            href="/insights/weak-spots/drill/setup"
             className="inline-flex h-10 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-4 text-sm font-semibold text-warm-paper-raised transition-colors hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             Start another drill
@@ -263,10 +263,10 @@ export function DrillSummaryClient({
             variant="secondary"
             size="md"
             onClick={() => {
-              window.location.href = '/insights/leeches'
+              window.location.href = '/insights/weak-spots'
             }}
           >
-            Back to Leeches
+            Back to Weak spots
           </Button>
           <QuietLink href="/today" tone="sumi" size="sm" trailingArrow>
             Open today
@@ -285,11 +285,11 @@ function PageShell({ children }: { children: React.ReactNode }): React.JSX.Eleme
       <header className="border-b border-soft-hairline bg-warm-paper-raised">
         <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
           <Link
-            href="/insights/leeches"
+            href="/insights/weak-spots"
             className="flex items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             <span aria-hidden="true">←</span>
-            <span>Back to Leeches</span>
+            <span>Back to Weak spots</span>
           </Link>
           <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
             Drill summary
@@ -299,7 +299,7 @@ function PageShell({ children }: { children: React.ReactNode }): React.JSX.Eleme
 
       <div className="mx-auto w-full max-w-[960px] flex-1 px-4 py-8 sm:px-6 lg:py-12">
         <PageHeader
-          kanji="蛭"
+          kanji="弱"
           label="Drill summary"
           title="A drill-only read."
           subtitle="Practice confidence, not retention. Your review timing stayed exactly as it was."

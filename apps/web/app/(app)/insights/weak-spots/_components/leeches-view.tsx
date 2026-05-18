@@ -32,7 +32,7 @@ const HEADER_PADDING_CLASS = 'pt-6 pb-5 sm:pt-8 sm:pb-6 lg:pt-10 lg:pb-8'
 // ─── View ────────────────────────────────────────────────────────────────────
 
 /**
- * Container for /insights/leeches. Built on the Mistakes view's editorial
+ * Container for /insights/weak-spots. Built on the Mistakes view's editorial
  * scaffolding so the two surfaces feel like the same family:
  *   - TopBar with a "← Insights" anchor for tabular navigation.
  *   - PageHeader with the 蛭 kanji ornament.
@@ -86,20 +86,20 @@ export function LeechesView(): React.JSX.Element {
   function handleResolve(id: string): void {
     resolveMutation.mutate(id, {
       onSuccess: () => showToast('Leech marked resolved.', 'info'),
-      onError:   (err) => showToast(err.message ?? 'Couldn’t resolve this leech.', 'error'),
+      onError:   (err) => showToast(err.message ?? 'Couldn’t resolve this card.', 'error'),
     })
   }
 
   function handleReopen(id: string): void {
     reopenMutation.mutate(id, {
       onSuccess: () => showToast('Leech reopened.', 'info'),
-      onError:   (err) => showToast(err.message ?? 'Couldn’t reopen this leech.', 'error'),
+      onError:   (err) => showToast(err.message ?? 'Couldn’t reopen this card.', 'error'),
     })
   }
 
   function handleDiagnose(id: string): void {
     diagnoseMutation.mutate(id, {
-      onError: (err) => showToast(err.message ?? 'Couldn’t diagnose this leech.', 'error'),
+      onError: (err) => showToast(err.message ?? 'Couldn’t diagnose this card.', 'error'),
     })
   }
 
@@ -201,7 +201,7 @@ export function LeechesView(): React.JSX.Element {
             Back to overview
           </QuietLink>
           {!isEmpty && filters.status === 'unresolved' && (
-            <QuietLink href="/insights/leeches/drill/setup" tone="brand" trailingArrow size="sm">
+            <QuietLink href="/insights/weak-spots/drill/setup" tone="brand" trailingArrow size="sm">
               Drill these
             </QuietLink>
           )}
@@ -250,7 +250,7 @@ function LeechesTopBar(): React.JSX.Element {
         <span>Insights</span>
       </Link>
       <span aria-hidden="true" className="shrink-0 text-faded-sumi">·</span>
-      <h1 className="flex-1 truncate text-base font-semibold text-sumi-ink">Leeches</h1>
+      <h1 className="flex-1 truncate text-base font-semibold text-sumi-ink">Weak spots</h1>
     </TopBar>
   )
 }
@@ -265,7 +265,7 @@ function LeechesHeader({ status, count }: LeechesHeaderProps): React.JSX.Element
   const subtitle = buildSubtitle(status, count)
   return (
     <div className={HEADER_PADDING_CLASS}>
-      <PageHeader kanji="蛭" label="Leeches" title={title} subtitle={subtitle} />
+      <PageHeader kanji="弱" label="Weak spots" title={title} subtitle={subtitle} />
     </div>
   )
 }

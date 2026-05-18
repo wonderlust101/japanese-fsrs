@@ -53,7 +53,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     kanji: '練',
     items: [
       { href: '/today',            iconKey: 'reviews', label: 'Reviews', hasDueCount: true   },
-      { href: '/insights/leeches', iconKey: 'leeches', label: 'Leeches', hasLeechCount: true },
+      { href: '/insights/weak-spots', iconKey: 'leeches', label: 'Weak spots', hasLeechCount: true },
     ],
   },
   {

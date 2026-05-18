@@ -288,7 +288,7 @@ function GreetingHeader({greetingName}: {greetingName: string | null}): React.JS
 // ── Exit links (quiet typographic row to Insights) ───────────────────────────
 
 const EXIT_LINKS: ReadonlyArray<{href: string; label: string}> = [
-    {href : '/insights/leeches', label : 'Review weak spots'},
+    {href : '/insights/weak-spots', label : 'Review weak spots'},
     {href : '/insights/progress', label : "See how you're trending"},
     {href : '/decks', label : 'Manage decks'}
 ];

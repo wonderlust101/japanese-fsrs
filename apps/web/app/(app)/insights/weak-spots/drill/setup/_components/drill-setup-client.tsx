@@ -35,7 +35,7 @@ const LIMIT_OPTIONS: ReadonlyArray<LimitOption> = [5, 10, 20]
  *      specific card from a deeplink).
  *   2. Pick the limit (5 / 10 / 20).
  *   3. Press Start. POSTs to /api/v1/leeches/drill-sessions, then routes to
- *      /insights/leeches/drill/[sessionId].
+ *      /insights/weak-spots/drill/[sessionId].
  *
  * `?cardId=` deeplinks the current-card flow so the Drill button on a
  * leech row routes straight to a one-card session entry point. The picker
@@ -78,7 +78,7 @@ export function DrillSetupClient(): React.JSX.Element {
     const input = buildPayload(source, limit)
     createMutation.mutate(input, {
       onSuccess: (session) => {
-        router.push(`/insights/leeches/drill/${session.sessionId}`)
+        router.push(`/insights/weak-spots/drill/${session.sessionId}`)
       },
     })
   }
@@ -91,7 +91,7 @@ export function DrillSetupClient(): React.JSX.Element {
 
       <div className="mx-auto w-full max-w-[800px] flex-1 px-4 py-8 sm:px-6 lg:py-12">
         <PageHeader
-          kanji="蛭"
+          kanji="弱"
           label="Drill setup"
           title="Practice your weak spots."
           subtitle="A focused, schedule-safe drill. Your review timing stays exactly as it is."
@@ -253,7 +253,7 @@ export function DrillSetupClient(): React.JSX.Element {
                 ? 'Nothing to drill'
                 : `Start drill · up to ${Math.min(limit, estimatedCards)} ${Math.min(limit, estimatedCards) === 1 ? 'card' : 'cards'}`}
             </Button>
-            <QuietLink href="/insights/leeches" tone="sumi" size="sm">
+            <QuietLink href="/insights/weak-spots" tone="sumi" size="sm">
               Cancel
             </QuietLink>
             {createMutation.isError && (
@@ -279,11 +279,11 @@ function TopChrome(): React.JSX.Element {
     >
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
         <Link
-          href="/insights/leeches"
+          href="/insights/weak-spots"
           className="flex items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
         >
           <span aria-hidden="true">←</span>
-          <span>Back to Leeches</span>
+          <span>Back to Weak spots</span>
         </Link>
         <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
           Practice only

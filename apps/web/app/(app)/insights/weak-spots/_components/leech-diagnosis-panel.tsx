@@ -20,7 +20,7 @@ interface LeechDiagnosisPanelProps {
  *
  * State machine:
  *   - empty (no diagnosis on record + not loading + not erroring): show a
- *     primer line + a "Diagnose this leech" button.
+ *     primer line + a "Diagnose this card" button.
  *   - loading: show a quiet "Reading the lapse pattern…" line + the disabled
  *     button.
  *   - error: show the error message + a "Try again" affordance.
@@ -99,7 +99,7 @@ export function LeechDiagnosisPanel({
               onClick={onDiagnose}
               loading={isLoading}
             >
-              Diagnose this leech
+              Diagnose this card
             </Button>
           </div>
         </div>
