@@ -403,6 +403,12 @@ export function DeckListView(): React.JSX.Element {
     <>
       <TopBar>
         <h1 className="flex-1 text-base font-semibold text-sumi-ink">Decks</h1>
+        <Link
+          href="/decks/premade"
+          className="ui-motion-colors hidden h-8 items-center rounded-[2px] px-3 font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:inline-flex"
+        >
+          Browse premade
+        </Link>
         <Button
           size="sm"
           variant="secondary"
@@ -647,8 +653,8 @@ function PremadeStarterRail(): React.JSX.Element {
         </Link>
       </div>
       <p className="mt-1.5 max-w-[60ch] text-sm text-faded-sumi">
-        Curated starter decks built for Japanese learners. Subscribe to one and
-        Tomo creates a personal copy you can study, edit, and pause.
+        Curated starter decks built for Japanese learners. Add one to your
+        library and Tomo creates a personal copy you can study, edit, and pause.
       </p>
     </section>
   )

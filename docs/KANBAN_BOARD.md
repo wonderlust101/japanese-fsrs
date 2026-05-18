@@ -14,8 +14,8 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
   - Add designs + routes for Display, Data & sync, and Review-behavior tabs (or explicit deferral notes in IA `18_settings.md`).
 - [ ] **Onboarding deck recommendations (frontend slice)**
   - Pure frontend: score the existing catalogue against `profile.{jlpt_target, interests}`. Replace the hardcoded `RECOMMENDED_DECKS` constant and route selections through `POST /api/v1/premade-decks/:id/copy`.
-- [ ] **Premade "copy to library" — frontend slice**
-  - Rename "Subscribe" → "Add to my library", render "From: <premade name>" attribution chip on copies, unify delete-deck copy. Backend shipped 2026-05-17 (Stage 4).
+- [ ] **Premade "copy to library" — frontend slice (in progress)**
+  - Render "From: <premade name>" attribution chip on deck cards copied from a premade source, and unify the delete-deck confirmation copy. The catalogue page itself shipped 2026-05-18 — `/decks/premade` is now wired to `usePremadeDecks` + `useCopyPremadeDeck` with filter-by-JLPT/type, loading skeletons, empty/error states, and a success toast; the "Subscribe" vocabulary has been replaced with "Add to my library" on every surface that linked into the catalogue. Remaining work is the attribution chip + delete-deck wording.
 - [ ] **Weak spots Phase 3 — drill follow-ups**
   - Remaining: dashboard weak-spots card on `/today`, `hasLeeches` signal, "Count this as a review" override inside drill session.
 - [ ] **Dashboard backend contracts**
