@@ -61,4 +61,10 @@ export const queryKeys = {
   profile: {
     me: () => ['profile', 'me'] as const,
   },
+  tomo: {
+    // Day-scoped key. The backend serves one note per learner per day; the
+    // dateKey segment prevents yesterday's cached note from masking today's
+    // when a tab survives midnight.
+    note: (dateKey: string) => ['tomo', 'note', dateKey] as const,
+  },
 } as const

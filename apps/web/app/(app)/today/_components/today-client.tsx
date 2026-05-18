@@ -29,7 +29,7 @@ import {
 import type { HeroDevControls } from './today-hero-dev-toolbar';
 import type { ModuleDevControls } from './today-modules-dev-toolbar';
 import { buildPreviewForecastDays, buildPreviewHeroVariant } from './today-preview-data';
-import { TodayWeakSpotsCard } from './today-weak-spots-card';
+import { TodayPreSessionNote } from './today-pre-session-note';
 import { WeekRhythmStrip, type WeekRhythmState } from './week-rhythm-strip';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -227,12 +227,13 @@ export function DashboardClient({
                     <DashboardHero variant={heroVariant}/>
                 </div>
 
-                {/* "Concise pre-session note (weak-point reminder)" per
-                    docs/information_architecture/01_today.md — silent when
-                    the learner has no unresolved weak spots. Placed between
-                    the hero and the week-rhythm strip so it sits in the IA's
-                    secondary slot just below readiness. */}
-                <TodayWeakSpotsCard/>
+                {/* "Concise pre-session note" per
+                    docs/information_architecture/01_today.md. The slot's
+                    content is decided by TodayPreSessionNote: unresolved
+                    weak spots win when they exist (operational signal),
+                    today's Tomo note fills the slot otherwise, and on days
+                    with neither the slot collapses silently. */}
+                <TodayPreSessionNote dateKey={calendar.todayKey}/>
 
                 <WeekRhythmStrip
                     state={weekRhythmState}
