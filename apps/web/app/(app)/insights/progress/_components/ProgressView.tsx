@@ -2,13 +2,17 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import type { ApiAnalyticsDashboard } from '@fsrs-japanese/shared-types'
+import type {
+  ApiAnalyticsDashboard,
+  ApiMaturitySnapshot,
+} from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
+import { useMaturityHistory } from '@/lib/api/insights'
 
 import { JlptCoverageStrip } from './JlptCoverageStrip'
 import { MatureStackedArea } from './MatureStackedArea'
@@ -27,11 +31,22 @@ import {
   JLPT_TOTALS,
   type HeatmapCell,
   type JlptCoverage,
+  type MatureMilestone,
+  type MaturePoint,
   type ProgressData,
   type ProgressSummary,
   type RetentionPoint,
 } from './progressTypes'
 import { useProgressDevState } from './ProgressDevPanel'
+
+/**
+ * Mature-card thresholds the Mature section marks with milestone dots. The
+ * MatureStackedArea component renders one labelled dot per crossing, so any
+ * snapshot whose matureCount first reaches a threshold contributes one dot
+ * at that date. Mirrors the IA brief's "100, 250, 500, 1,000" plus the
+ * higher thresholds we want available once a learner reaches the long tail.
+ */
+const MATURE_MILESTONES: ReadonlyArray<number> = [100, 250, 500, 1000, 2500, 5000]
 
 const PAGE_SHELL_CLASS     = 'min-h-screen bg-cool-paper-base pb-16'
 const PAGE_CONTAINER_CLASS = 'mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16'
@@ -75,17 +90,20 @@ function ProgressHeader({ subtitle }: ProgressHeaderProps): React.JSX.Element {
 // ── Live-data adapter ──────────────────────────────────────────────────────
 
 /**
- * Convert the live `useAnalyticsDashboard` response into the ProgressData
- * shape the page components consume. The mature pipeline section requires
- * per-day snapshots the API doesn't yet expose, so `mature` and
- * `milestones` come back empty; the Mature SectionCard handles that by
- * suppressing its chart and showing a single-line note.
+ * Convert the bundled `useAnalyticsDashboard` response + the Stage 9
+ * `insights/maturity-history` snapshots into the ProgressData shape the
+ * page components consume.
+ *
+ * Maturity history is optional — if it hasn't loaded yet (or returned an
+ * empty list because the user has no history), the Mature card falls
+ * back to its "a few more weeks of practice will fill this chart" note.
  *
  * Default `desiredRetention` is 0.9 (the FSRS default) until the user's
  * personal setting is plumbed through.
  */
 function adaptDashboard(
-  dashboard: ApiAnalyticsDashboard,
+  dashboard:       ApiAnalyticsDashboard,
+  maturityHistory: ReadonlyArray<ApiMaturitySnapshot>,
   desiredRetention: number,
 ): ProgressData {
   const heatmap: HeatmapCell[] = dashboard.heatmap.items.map((h) => ({
@@ -109,6 +127,12 @@ function adaptDashboard(
       owned:       j.learned,
     }))
 
+  const mature     = adaptMaturityHistory(maturityHistory)
+  const milestones = computeMilestones(mature)
+  const latestMature = mature.length > 0
+    ? (mature[mature.length - 1]?.mature ?? 0)
+    : 0
+
   const recent30 = heatmap.slice(-30).filter((d) => d.count > 0)
   const retention30d = recent30.length === 0
     ? 0
@@ -116,7 +140,7 @@ function adaptDashboard(
   const activeDaysLast30 = recent30.length
 
   const summary: ProgressSummary = {
-    matureCount:         0,
+    matureCount:         latestMature,
     retention30d,
     activeDaysLast30,
     cardsAddedThisMonth: 0,
@@ -128,7 +152,7 @@ function adaptDashboard(
 
   const state = classifyProgress({
     retention,
-    mature: [],
+    mature,
     desiredRetention,
     summary,
   })
@@ -138,12 +162,54 @@ function adaptDashboard(
     firstReviewDate,
     summary,
     retention,
-    mature: [],
-    milestones: [],
+    mature,
+    milestones,
     jlpt,
     heatmap,
     desiredRetention,
   }
+}
+
+// ── Maturity-history adapter ────────────────────────────────────────────────
+
+/**
+ * Map the API's `(date, new, learning, review, relearning, mature)` snapshots
+ * onto the local `MaturePoint` shape `(new, learning, young, mature)`. The
+ * UI's "Learning" lane collapses learning + relearning; "Young" is the
+ * non-mature subset of state=2 (review). The snapshot table's `reviewCount`
+ * is total state=2; `matureCount` is the state=2 ≥ 21-day-scheduled subset,
+ * so `young = max(0, reviewCount - matureCount)`. Sorted ascending by date
+ * so the MatureStackedArea renders oldest → newest left-to-right.
+ */
+function adaptMaturityHistory(
+  snapshots: ReadonlyArray<ApiMaturitySnapshot>,
+): MaturePoint[] {
+  return [...snapshots]
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+    .map((row) => ({
+      date:     row.date,
+      new:      row.newCount,
+      learning: row.learningCount + row.relearningCount,
+      young:    Math.max(0, row.reviewCount - row.matureCount),
+      mature:   row.matureCount,
+    }))
+}
+
+/**
+ * Compute milestone crossings: one dot per threshold the learner crossed,
+ * dated to the first snapshot in which `mature` reached the threshold.
+ * Snapshots are assumed sorted ascending by date (adaptMaturityHistory
+ * sorts in place).
+ */
+function computeMilestones(series: ReadonlyArray<MaturePoint>): MatureMilestone[] {
+  if (series.length === 0) return []
+  const out: MatureMilestone[] = []
+  for (const threshold of MATURE_MILESTONES) {
+    const crossing = series.find((p) => p.mature >= threshold)
+    if (crossing === undefined) break
+    out.push({ count: threshold, date: crossing.date })
+  }
+  return out
 }
 
 // ── View ───────────────────────────────────────────────────────────────────
@@ -158,13 +224,21 @@ function adaptDashboard(
 export function ProgressView(): React.JSX.Element {
   const dev = useProgressDevState()
   const isDev = process.env.NODE_ENV === 'development'
-  const dashboardQuery = useAnalyticsDashboard()
+  const dashboardQuery       = useAnalyticsDashboard()
+  // 365-day window so the Mature section's "All" range surfaces a full
+  // year of pipeline history. Smaller ranges (30d/90d/6m/1y) inside the
+  // chart slice this client-side.
+  const maturityHistoryQuery = useMaturityHistory('365')
 
   const data = useMemo<ProgressData | null>(() => {
     if (dev.fixtureData !== null) return dev.fixtureData
     if (dashboardQuery.data === undefined) return null
-    return adaptDashboard(dashboardQuery.data, 0.9)
-  }, [dev.fixtureData, dashboardQuery.data])
+    return adaptDashboard(
+      dashboardQuery.data,
+      maturityHistoryQuery.data ?? [],
+      0.9,
+    )
+  }, [dev.fixtureData, dashboardQuery.data, maturityHistoryQuery.data])
 
   // Forced dev states win first.
   if (dev.forcedState === 'error') {
@@ -265,7 +339,7 @@ export function ProgressView(): React.JSX.Element {
           description={
             hasMature
               ? buildMatureLine(data)
-              : 'Per-day pipeline snapshots arrive in the next backend pass.'
+              : 'A few more weeks of practice will fill this chart.'
           }
           chrome="chart"
           variant="chart"
@@ -373,13 +447,12 @@ function MatureFallbackNote(): React.JSX.Element {
   return (
     <div className="rounded-[2px] border border-dashed border-soft-hairline bg-cream-inset/50 px-5 py-6 text-sm leading-relaxed text-faded-sumi">
       <p className="text-sumi-ink/85">
-        The maturity pipeline chart needs per-day snapshots of card state
-        that the analytics endpoint doesn&rsquo;t yet return.
+        The maturity pipeline reads as new, learning, young, and mature
+        counts stacked across each day.
       </p>
       <p className="mt-2">
-        Once the backend pass is in, this section will show new, learning,
-        young, and mature counts stacked over time, with milestone dots at
-        100, 250, 500, and 1,000 mature cards.
+        Once you have a couple weeks of reviews logged, this chart fills
+        in, with milestone dots at 100, 250, 500, and 1,000 mature cards.
       </p>
     </div>
   )
