@@ -527,3 +527,87 @@ describeIntegration('cards routes — cross-deck access via dual-mount router', 
     expect(sanityRes.status).toBe(200)
   })
 })
+
+// ─── Backend Completion Plan Stage 12 — sentence-layout CHECK ────────────────
+//
+// Pins the migration's DB-layer enforcement: a sentence-layout card without
+// ja/en/furigana is rejected by the `cards_fields_data_shape` constraint.
+// Vocabulary cards are unaffected — pinned by the existing wire-shape tests
+// above.
+describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
+  it('accepts a sentence-layout card with the canonical ja/en/furigana shape', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const fieldsData = {
+      ja:       '猫が好きです。',
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+      breakdown: [
+        { token: '猫', reading: 'ねこ', meaning: 'cat' },
+        { token: 'が' },
+        { token: '好き', reading: 'すき', meaning: 'liked' },
+      ],
+      audio:  'https://cdn.example.test/sentence-cat.mp3',
+      nuance: 'Polite, neutral register.',
+    }
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'manual',
+        fieldsData,
+        layoutType: 'sentence',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+
+    // Round-trip via GET — the persisted shape must come back intact.
+    const getRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(getRes.status).toBe(200)
+    expect(getRes.body.fieldsData.ja).toBe('猫が好きです。')
+    expect(getRes.body.fieldsData.en).toBe('I like cats.')
+    expect(getRes.body.fieldsData.furigana).toBe('ねこがすきです。')
+    expect(getRes.body.fieldsData.nuance).toBe('Polite, neutral register.')
+  })
+
+  it('rejects a sentence-layout card without ja at the DB CHECK layer', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'manual',
+        // Wire-level Zod admits any keys (the body-level fieldsDataSchema
+        // is a permissive z.record); the DB CHECK is what enforces
+        // ja/en/furigana for sentence-layout. So this request gets past
+        // wire validation but the INSERT fails with a 5xx surface.
+        fieldsData: { en: 'I like cats.', furigana: 'ねこがすきです。' },
+        layoutType: 'sentence',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBeGreaterThanOrEqual(400)
+    expect(createRes.status).toBeLessThan(600)
+  })
+
+  it('vocabulary cards still pass the CHECK (no regression on the unchanged arm)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const res = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'manual',
+        fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(res.status).toBe(201)
+  })
+})

@@ -77,7 +77,15 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
           { signal: req.signal },
         )
       } else {
-        fieldsData = input.fieldsData
+        // The wire-level `fieldsDataSchema` validates inputs as a permissive
+        // `Record<string, unknown>` (cards.schema.ts:22) because the AI and
+        // manual paths share the same shape on the wire. The service's
+        // `FieldsData` union is narrower (Backend Completion Plan Stage 12
+        // tightened the sentence-layout arm). The unknown-cast at the
+        // boundary acknowledges this gap: runtime correctness is enforced
+        // by the `cards_fields_data_shape` DB CHECK constraint, which
+        // rejects any shape FieldsData would reject before the row lands.
+        fieldsData = input.fieldsData as unknown as FieldsData
       }
 
       const card = await cardService.createCard(deckId, req.user.id, fieldsData, {

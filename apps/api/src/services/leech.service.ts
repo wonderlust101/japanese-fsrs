@@ -13,6 +13,7 @@ import {
   type RecordDrillAttemptInput,
 } from '../schemas/leech.schema.ts'
 import {
+  FieldsDataSchema,
   getWordFields,
   type ApiLeechListItem,
   type ApiLeechListResponse,
@@ -464,7 +465,13 @@ const DrillSessionCardRowSchema = z.object({
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']),
   cardType:      z.enum(['comprehension', 'production', 'listening']),
-  fieldsData:    z.record(z.string(), z.unknown()),
+  // FieldsDataSchema (the wire-format union) was widened from
+  // `z.record(z.string(), z.unknown())` to a concrete union by Stage 12.
+  // The RPC returns DB-validated JSONB so the parse will succeed for any
+  // row admitted by `cards_fields_data_shape`; using the same schema here
+  // means the inferred type is `FieldsData`, not `Record<string, unknown>`,
+  // and the response can be returned directly without a brand cast.
+  fieldsData:    FieldsDataSchema,
   lapses:        z.number().int().nonnegative(),
 })
 
@@ -566,7 +573,9 @@ const DrillSessionDetailCardRowSchema = z.object({
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']).nullable(),
   cardType:      z.enum(['comprehension', 'production', 'listening']).nullable(),
-  fieldsData:    z.record(z.string(), z.unknown()).nullable(),
+  // `.nullable()` admits orphan rows (card deleted post-snapshot). See the
+  // sibling DrillSessionCardRowSchema comment for the Stage 12 rationale.
+  fieldsData:    FieldsDataSchema.nullable(),
   lapses:        z.number().int().nonnegative().nullable(),
   isOrphaned:    z.boolean(),
   isStale:       z.boolean(),

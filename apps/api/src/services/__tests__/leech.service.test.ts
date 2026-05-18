@@ -1923,7 +1923,16 @@ describe('leech.service — diagnoseLeech (Stage 7)', () => {
       data: {
         ...FRESH_LEECH_FETCH,
         card: {
-          fields_data: { front: 'sentence front', back: 'sentence back' },
+          // Stage 12 sentence-layout shape: ja/en/furigana required.
+          // The diagnoseLeech path reads word/reading/meaning (vocabulary
+          // fields), so any sentence-layout shape — old or new — yields
+          // CARD_FIELDS_INSUFFICIENT because those vocabulary keys are
+          // absent. Updated to the canonical shape for consistency.
+          fields_data: {
+            ja:       'これは文です。',
+            en:       'This is a sentence.',
+            furigana: 'これはぶんです。',
+          },
           layout_type: 'sentence',
           lapses:      8,
         },

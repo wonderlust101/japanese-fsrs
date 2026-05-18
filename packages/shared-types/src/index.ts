@@ -55,6 +55,22 @@ export type {
 export type { FieldsData, WordFields } from './field-shapes.ts'
 export { getWordFields, getVocabularyFields, getSentenceFrontBack } from './field-shapes.ts'
 
+// Field-shapes Zod schemas. Re-exported so service code can validate
+// `fields_data` JSONB at the API boundary without falling back to a loose
+// `z.record(z.string(), z.unknown())` that would lose union narrowing.
+// `SentenceBreakdownTokenSchema` is the per-token piece of the sentence-
+// layout `breakdown` array (Backend Completion Plan Stage 12).
+export {
+  WordFieldsSchema,
+  VocabularyFieldsDataSchema,
+  GrammarFieldsDataSchema,
+  SentenceFieldsDataSchema,
+  SentenceBreakdownTokenSchema,
+  ExampleSentenceSchema,
+  KanjiBreakdownSchema,
+  FieldsDataSchema,
+} from './schemas/field-shapes.schema.ts'
+
 // API response schemas — apps validate every API response body against these.
 export {
   ApiCardSchema, ApiDueCardSchema, ApiCardListItemSchema, ApiSimilarCardSchema,

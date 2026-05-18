@@ -67,8 +67,44 @@ export const GrammarFieldsDataSchema = WordFieldsSchema.extend({
   exampleSentences: z.array(ExampleSentenceSchema).optional(),
 })
 
-/** Sentence-layout cards have an open shape (reserved for future use). */
-export const SentenceFieldsDataSchema = z.record(z.string(), z.unknown())
+/**
+ * One token in a sentence breakdown — e.g. `{ token: '猫', reading: 'ねこ',
+ * meaning: 'cat' }`. Powers the sentence-layout card's word-by-word
+ * annotation strip. Reading and meaning are optional because particles
+ * and punctuation tokens often need no annotation.
+ */
+export const SentenceBreakdownTokenSchema = z.object({
+  token:   z.string(),
+  reading: z.string().nullable().optional(),
+  meaning: z.string().nullable().optional(),
+})
+
+/**
+ * Concrete shape for `layout_type = 'sentence'` cards. Locked in by
+ * Backend Completion Plan Stage 12 — `SentenceFieldsDataSchema` was an
+ * open record (`z.record(z.string(), z.unknown())`) before this change,
+ * "reserved for future use". The matching DB CHECK constraint enforces
+ * `ja`, `en`, and `furigana` presence at the JSONB layer; the optional
+ * keys below are validated only at parse time.
+ */
+export const SentenceFieldsDataSchema = z.object({
+  /** Japanese sentence in kanji + kana (the front of the card). */
+  ja:        z.string(),
+  /** English gloss / translation (the back of the card). */
+  en:        z.string(),
+  /** Hiragana annotation for the kanji in `ja` (used by `<FuriganaText>`). */
+  furigana:  z.string(),
+  /** Optional per-token annotation strip for word-by-word breakdown UIs. */
+  breakdown: z.array(SentenceBreakdownTokenSchema).nullable().optional(),
+  /** Optional URL to a hosted audio clip of the sentence. */
+  audio:     z.string().nullable().optional(),
+  /**
+   * Optional AI-authored prose on register, pragmatics, or what makes the
+   * sentence noteworthy. Mirrors `WordFieldsSchema.nuance` so the v4
+   * review surface can render the same "nuance" tab regardless of layout.
+   */
+  nuance:    z.string().nullable().optional(),
+})
 
 /**
  * Wire-format `fields_data` — a union by layout_type. The DB CHECK constraint

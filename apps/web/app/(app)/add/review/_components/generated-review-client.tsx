@@ -127,7 +127,13 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
     state:      0,
     due:        new Date().toISOString(),
     layoutType: 'vocabulary',
-    fieldsData,
+    // The local `fieldsData` is built field-by-field as Record<string, unknown>;
+    // the `ApiDueCard.fieldsData` type is the tight `FieldsData` union (Backend
+    // Completion Plan Stage 12 narrowed the sentence-layout arm). The unknown-
+    // cast is safe because this synthetic preview card is layoutType='vocabulary'
+    // and the assembly above always populates word/reading/meaning — the runtime
+    // shape matches the VocabularyFieldsData arm of the union.
+    fieldsData: fieldsData as unknown as ApiDueCard['fieldsData'],
   }
 }
 

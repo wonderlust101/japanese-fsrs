@@ -337,9 +337,14 @@ describeIntegration('insights routes — Stage 8 card-quality issue counts', () 
     // A sentence-layout card with nothing populated — would trigger every
     // issue type if not excluded. The RPC scopes to vocabulary/grammar
     // only, so this card contributes to zero issue counts.
+    // Sentence-layout cards require ja/en/furigana per the Stage 12
+    // CHECK constraint. The shape is intentionally minimal here — the
+    // assertion below is that the card contributes ZERO issue counts
+    // regardless of how rich its content is, because the RPC scopes to
+    // vocabulary/grammar.
     await seedCardWithFields(
       u,
-      { sentence: 'これは文です。', translation: 'This is a sentence.' },
+      { ja: 'これは文です。', en: 'This is a sentence.', furigana: 'これはぶんです。' },
       'sentence',
     )
 

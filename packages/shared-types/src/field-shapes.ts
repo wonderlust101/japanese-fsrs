@@ -57,16 +57,17 @@ export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData |
 }
 
 /**
- * Returns the typed front/back text for sentence-layout cards. Reads the
- * free-form fields_data record (the DB CHECK constraint enforces shape only on
- * vocabulary/grammar layouts; sentence is unconstrained per
- * SentenceFieldsDataSchema = z.record(string, unknown)). Coerces non-string
- * values to empty strings. Returns null for non-sentence layouts.
+ * Returns the typed front/back text for sentence-layout cards. After
+ * Backend Completion Plan Stage 12, the canonical sentence shape carries
+ * `ja` (front) and `en` (back) — both enforced as required keys by the
+ * `cards_fields_data_shape` DB CHECK constraint and by
+ * `SentenceFieldsDataSchema`. Returns null for non-sentence layouts.
+ *
+ * The `{ front, back }` consumer contract is preserved from when the
+ * shape was open (pre-Stage 12); only the source fields change.
  */
 export function getSentenceFrontBack(card: FieldsCarrier): { front: string; back: string } | null {
   if (card.layoutType !== 'sentence') return null
   const fd = card.fieldsData as SentenceFieldsData
-  const front = typeof fd['front'] === 'string' ? fd['front'] : ''
-  const back  = typeof fd['back']  === 'string' ? fd['back']  : ''
-  return { front, back }
+  return { front: fd.ja, back: fd.en }
 }

@@ -5,6 +5,7 @@ import {
   WordFieldsSchema,
   VocabularyFieldsDataSchema,
   GrammarFieldsDataSchema,
+  SentenceFieldsDataSchema,
   FieldsDataSchema,
 } from '../field-shapes.schema.ts'
 
@@ -161,5 +162,105 @@ describe('GrammarFieldsDataSchema — inherits Lapis fields from WordFieldsSchem
     }
     const parsed = GrammarFieldsDataSchema.parse(input)
     expect(parsed).toEqual(input)
+  })
+})
+
+// ─── Backend Completion Plan Stage 12 — sentence-layout schema contract ──────
+describe('SentenceFieldsDataSchema — canonical ja/en/furigana shape', () => {
+  it('accepts the minimum required shape (ja + en + furigana only)', () => {
+const parsed = SentenceFieldsDataSchema.parse({
+      ja:       '猫が好きです。',
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+    })
+    expect(parsed.ja).toBe('猫が好きです。')
+    expect(parsed.en).toBe('I like cats.')
+    expect(parsed.furigana).toBe('ねこがすきです。')
+  })
+
+  it('admits and round-trips optional breakdown / audio / nuance', () => {
+const input = {
+      ja:       '猫が好きです。',
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+      breakdown: [
+        { token: '猫', reading: 'ねこ', meaning: 'cat' },
+        { token: 'が' },
+        { token: '好き', reading: 'すき', meaning: 'liked / favored' },
+        { token: 'です' },
+        { token: '。' },
+      ],
+      audio:  'https://cdn.example.test/sentence-001.mp3',
+      nuance: 'Casual but polite — the です keeps it appropriate for most contexts.',
+    }
+    const parsed = SentenceFieldsDataSchema.parse(input)
+    expect(parsed).toEqual(input)
+  })
+
+  it('rejects a sentence card missing `ja`', () => {
+const result = SentenceFieldsDataSchema.safeParse({
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a sentence card missing `en`', () => {
+const result = SentenceFieldsDataSchema.safeParse({
+      ja:       '猫が好きです。',
+      furigana: 'ねこがすきです。',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a sentence card missing `furigana`', () => {
+const result = SentenceFieldsDataSchema.safeParse({
+      ja: '猫が好きです。',
+      en: 'I like cats.',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects the legacy open-shape sentence card (only `sentence` + `translation`)', () => {
+    // The pre-Stage-12 open shape (`z.record(z.string(), z.unknown())`)
+    // admitted anything. The tightened schema rejects it — proves the
+    // schema change is enforced at parse time, not just at the DB layer.
+const result = SentenceFieldsDataSchema.safeParse({
+      sentence:    'これは文です。',
+      translation: 'This is a sentence.',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('admits a breakdown row with token only (reading + meaning optional for particles)', () => {
+const parsed = SentenceFieldsDataSchema.parse({
+      ja:        '猫が好き。',
+      en:        'I like cats.',
+      furigana:  'ねこがすき。',
+      breakdown: [{ token: 'が' }],
+    })
+    expect(parsed.breakdown?.[0]?.token).toBe('が')
+    expect(parsed.breakdown?.[0]?.reading).toBeUndefined()
+    expect(parsed.breakdown?.[0]?.meaning).toBeUndefined()
+  })
+})
+
+describe('FieldsDataSchema union — sentence arm narrowing', () => {
+  it('parses a sentence card via the union and preserves the canonical fields', () => {
+    const parsed = FieldsDataSchema.parse({
+      ja:       'これは本です。',
+      en:       'This is a book.',
+      furigana: 'これはほんです。',
+    })
+    expect((parsed as { ja: string }).ja).toBe('これは本です。')
+  })
+
+  it('rejects an arbitrary shape that fits no arm of the union', () => {
+    // Pre-Stage-12 this would have parsed as the open sentence arm.
+    // Post-Stage-12 the union rejects it.
+    const result = FieldsDataSchema.safeParse({
+      sentence: 'これは文です。',
+    })
+    expect(result.success).toBe(false)
   })
 })
