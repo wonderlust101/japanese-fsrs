@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
+import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
+
 import {
   buildMarkdownReport,
   DevPanel,
@@ -16,7 +18,6 @@ import {
   PageHeadline,
   PageStateFrame,
   PrimaryAction,
-  useCopyConfirmation,
   VisualSlot,
 } from '../_components/page-state'
 

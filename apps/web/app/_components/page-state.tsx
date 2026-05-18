@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { ArrowGlyph } from '@/components/icons/arrow-glyph'
+import { CopyButton } from '@/components/ui/CopyButton'
 import { Logo } from '@/components/ui/Logo'
+import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
 
 /**
  * Shared composition for surfaces that signal "no content lives here" (not-
@@ -411,41 +413,9 @@ export function FullReloadHint({ onClick }: { onClick: () => void }): React.JSX.
   )
 }
 
-/**
- * Shared "copy this to clipboard" helper. Returns the click handler plus
- * the transient "Copied" state used by the dev panel and Report-this
- * button. Lives here (not in lib/) because no other surface needs it and
- * a one-file hook is easier to reason about than a shared util.
- *
- * Browser clipboard write is `async`; we fire-and-display "Copied" only
- * on success. If the API rejects (older browsers, insecure context), the
- * affordance silently no-ops rather than throwing a toast at the user —
- * the dev panel still shows the text below.
- */
-export function useCopyConfirmation(): {
-  copied: boolean
-  copy:   (text: string) => void
-} {
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!copied) return
-    const t = window.setTimeout(() => setCopied(false), 1500)
-    return () => window.clearTimeout(t)
-  }, [copied])
-
-  function copy(text: string): void {
-    if (typeof navigator === 'undefined' || navigator.clipboard === undefined) {
-      return
-    }
-    void navigator.clipboard.writeText(text).then(
-      () => setCopied(true),
-      () => { /* clipboard write blocked; surface stays calm */ },
-    )
-  }
-
-  return { copied, copy }
-}
+// Shared `useCopyConfirmation` hook now lives in `@/hooks/use-copy-confirmation`
+// and is consumed by the FixturePanel and any other surface that needs a
+// "click → ✓ Copied for 1.5s" affordance.
 
 interface DevPanelProps {
   /**
@@ -611,40 +581,8 @@ function DevField({ label, value }: { label: string; value: string }): React.JSX
   )
 }
 
-interface CopyButtonProps {
-  onClick: () => void
-  copied:  boolean
-  label:   string
-}
-
-function CopyButton({ onClick, copied, label }: CopyButtonProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-live="polite"
-      className={[
-        'inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-1',
-        'font-mono text-[0.6875rem] uppercase tracking-[0.12em] transition-colors',
-        copied
-          ? 'border-deck-n5-mark/30 bg-deck-n5-wash text-deck-n5-mark'
-          : 'border-soft-hairline bg-warm-paper-raised text-faded-sumi hover:border-faded-sumi hover:text-sumi-ink',
-        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-      ].join(' ')}
-    >
-      {copied ? (
-        <>
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-            <path d="M2 5 L 4.2 7 L 8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </svg>
-          Copied
-        </>
-      ) : (
-        label
-      )}
-    </button>
-  )
-}
+// CopyButton (the "morph to ✓ Copied" mono chip) now lives in
+// `@/components/ui/CopyButton` and is shared with the dev tooling.
 
 interface ReportPayload {
   name?:     string | undefined
