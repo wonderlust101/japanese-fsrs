@@ -382,7 +382,7 @@ function StateCard({
     <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-4 md:px-6">
       <SectionCard kanji={kanji} label={label} stripeTone={stripeTone}>
         <div className="px-1 py-4 md:px-2 md:py-6 text-center">
-          <h1 className="font-serif text-2xl md:text-3xl text-sumi-ink">{headline}</h1>
+          <h1 className="font-display text-2xl md:text-3xl font-medium text-sumi-ink">{headline}</h1>
           <p className="mt-3 text-sm md:text-base text-faded-sumi leading-relaxed max-w-[50ch] mx-auto">
             {body}
           </p>

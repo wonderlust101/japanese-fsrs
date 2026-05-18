@@ -63,7 +63,7 @@ export function OverflowMenu({
           role="menu"
           className={cn(
             'absolute right-0 top-full mt-2 z-40 w-64',
-            'rounded-md border border-soft-hairline bg-warm-paper-raised shadow-card',
+            'rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-card',
             'py-2',
           )}
         >

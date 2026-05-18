@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 
+import { Button } from '@/components/ui/Button'
+import { KbdChip } from '@/components/ui/KbdChip'
 import { cn } from '@/lib/utils'
 
 interface SessionTeachSheetProps {
@@ -96,7 +98,7 @@ export function SessionTeachSheet({
 
       <div
         className={cn(
-          'relative w-full max-w-[26rem] rounded-md',
+          'relative w-full max-w-[26rem] rounded-[2px]',
           'border border-soft-hairline bg-warm-paper-raised',
           'px-7 py-6 shadow-card',
           mode === 'auto' && 'pointer-events-none',
@@ -105,7 +107,7 @@ export function SessionTeachSheet({
         <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi">
           {mode === 'auto' ? 'A few keys, then we step out of the way' : 'Keyboard shortcuts'}
         </p>
-        <h2 id="teach-sheet-title" className="mt-1.5 font-serif text-xl text-sumi-ink">
+        <h2 id="teach-sheet-title" className="mt-1.5 font-display text-xl font-medium text-sumi-ink">
           {mode === 'auto' ? 'Welcome.' : 'Quick reference'}
         </h2>
 
@@ -115,17 +117,7 @@ export function SessionTeachSheet({
               <span className="flex flex-shrink-0 items-center gap-1">
                 {s.keys.map((k, i) => (
                   <span key={`${s.label}-${k}-${i}`} className="flex items-center gap-1">
-                    <kbd
-                      className={cn(
-                        'inline-flex min-w-[24px] h-[22px] items-center justify-center px-1.5',
-                        'rounded-[5px] bg-warm-paper-base/70 text-sumi-ink',
-                        'font-mono text-[0.6875rem] font-medium leading-none',
-                        'border border-soft-hairline',
-                        'shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_0_rgba(31,26,24,0.08)]',
-                      )}
-                    >
-                      {k}
-                    </kbd>
+                    <KbdChip size="xs" className="inline-flex min-w-[20px] justify-center">{k}</KbdChip>
                     {i < s.keys.length - 1 && (
                       <span aria-hidden="true" className="text-faded-sumi/60 text-xs">·</span>
                     )}
@@ -143,19 +135,15 @@ export function SessionTeachSheet({
           </p>
         ) : (
           <div className="mt-6 flex justify-end pointer-events-auto">
-            <button
+            <Button
               ref={closeRef}
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={onClose}
-              className={cn(
-                'inline-flex h-9 items-center justify-center rounded-md px-3.5 cursor-pointer',
-                'border border-soft-hairline bg-warm-paper-raised text-sm text-sumi-ink',
-                'hover:border-sumi-ink/35 hover:bg-cream-inset/60 transition-colors duration-150',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-              )}
             >
               Close
-            </button>
+            </Button>
           </div>
         )}
       </div>

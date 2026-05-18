@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { Button } from '@/components/ui/Button'
+import { KbdChip } from '@/components/ui/KbdChip'
 import { cn } from '@/lib/utils'
 
 interface UndoPillProps {
@@ -48,17 +50,12 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
         'bottom-[max(env(safe-area-inset-bottom),0.75rem)] mb-[5.5rem] md:mb-[6rem]',
       )}
     >
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        size="sm"
         onClick={onUndo}
-        className={cn(
-          'group relative inline-flex items-center gap-2 overflow-hidden rounded-md cursor-pointer',
-          'h-9 pl-3 pr-3.5',
-          'border border-soft-hairline bg-warm-paper-raised text-sumi-ink',
-          'shadow-[0_2px_8px_-4px_rgba(31,26,24,0.18)]',
-          'hover:border-sumi-ink/35 hover:bg-cream-inset/60 transition-colors duration-150',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-        )}
+        className="overflow-hidden gap-2"
       >
         {/* Countdown bar at the bottom edge: a hairline that shrinks
             right-to-left as the undo window elapses. Width animated via
@@ -72,18 +69,8 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
           Undo
         </span>
         <span aria-hidden="true" className="text-faded-sumi/60 text-xs">·</span>
-        <kbd
-          aria-hidden="true"
-          className={cn(
-            'inline-flex h-[18px] min-w-[18px] items-center justify-center px-1',
-            'rounded-[4px] bg-warm-paper-base/70 text-sumi-ink',
-            'font-mono text-[0.625rem] font-medium leading-none',
-            'border border-soft-hairline',
-          )}
-        >
-          U
-        </kbd>
-      </button>
+        <KbdChip size="xs" className="inline-flex">U</KbdChip>
+      </Button>
     </div>
   )
 }

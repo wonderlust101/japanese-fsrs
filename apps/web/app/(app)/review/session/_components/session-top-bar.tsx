@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '@/components/ui/Button'
 import { IconHelp } from '@/components/icons/chrome-marks'
 import { cn } from '@/lib/utils'
 
@@ -66,33 +67,24 @@ export function SessionTopBar({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
             onClick={onOpenTeach}
             aria-label="Keyboard shortcuts"
             title="Keyboard shortcuts"
-            className={cn(
-              'inline-flex h-8 w-8 items-center justify-center rounded-md cursor-pointer',
-              'text-faded-sumi hover:bg-cream-inset/60 hover:text-sumi-ink',
-              'transition-colors duration-150',
-              'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-            )}
-          >
-            <IconHelp aria-hidden="true" className="w-4 h-4" />
-          </button>
-          <button
+            leadingIcon={<IconHelp className="w-4 h-4" />}
+          />
+          <Button
             type="button"
+            variant="editorial"
+            size="sm"
             onClick={onEndSession}
-            className={cn(
-              'inline-flex h-8 items-center rounded-md px-2.5 cursor-pointer',
-              'text-[0.75rem] text-faded-sumi border border-soft-hairline bg-warm-paper-raised',
-              'hover:border-sumi-ink/35 hover:text-sumi-ink hover:bg-cream-inset/40',
-              'transition-colors duration-150',
-              'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-            )}
           >
             End session
-          </button>
+          </Button>
         </div>
       </div>
 
