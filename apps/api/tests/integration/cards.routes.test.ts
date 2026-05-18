@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
@@ -6,6 +6,11 @@ import { describeIntegration, isIntegrationEnabled } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
+let redis:         import('@upstash/redis').Redis
+
+// Track Redis keys we seeded so afterAll can clean them up; otherwise
+// later runs would see stale cache entries leftover from prior fixtures.
+const seededRedisKeys: string[] = []
 
 interface SeededUser {
   userId: string
@@ -45,12 +50,19 @@ beforeAll(async () => {
   if (!isIntegrationEnabled()) return
   ;({ app }           = await import('../../src/app'))
   ;({ supabaseAdmin } = await import('../../src/db/supabase'))
+  ;({ redis }         = await import('../../src/db/redis'))
 })
 
 afterAll(async () => {
   if (!isIntegrationEnabled()) return
   for (const u of seeded) {
     await supabaseAdmin.auth.admin.deleteUser(u.userId).catch(() => undefined)
+  }
+  // Drop any Redis keys this suite seeded so stale cache entries don't
+  // leak into later test runs (a subsequent run that seeded against a
+  // surviving entry would get the previous test's payload).
+  for (const key of seededRedisKeys) {
+    await redis.del(key).catch(() => undefined)
   }
 })
 
@@ -609,5 +621,128 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
         cardType:   'comprehension',
       })
     expect(res.status).toBe(201)
+  })
+})
+
+// ─── Backend Completion Plan Stage 13 — sentence-layout AI dispatch ──────────
+//
+// End-to-end coverage for the AI sentence-card path without burning OpenAI
+// tokens. Pre-seeds the live Redis cache with a valid sentence-card payload
+// at the canonical cache key — when the controller dispatches into
+// generateSentenceCard, the readCache call short-circuits with the seeded
+// payload, the createCard service runs against the Stage 12 DB CHECK, and
+// the card lands in the user's deck.
+//
+// Pins three things end-to-end:
+//   1. The controller dispatches on `input.layoutType === 'sentence'`.
+//   2. The cache key shape (`sentence-card:v1:{topic}:{level}:{hash}`) matches
+//      what the service computes — any drift makes the test fail.
+//   3. The Stage 12 DB CHECK accepts the canonical sentence-layout shape
+//      when it lands via the AI path.
+describeIntegration('cards routes — Stage 13 AI sentence-card dispatch', () => {
+  it('routes mode=ai layoutType=sentence to generateSentenceCard and creates the card', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const topic = 'cafe ordering N3'
+    // A fresh test user has profile.jlpt_target = NULL → controller falls
+    // back to 'N5'. Interests array starts empty → hashInterests(['']) ≡
+    // sha256(JSON.stringify([])).slice(0, 16). Both bits of derivation
+    // mirror ai.service.ts at the cache-key composition site.
+    const userLevel = 'N5'
+    const interestsHash = createHash('sha256')
+      .update(JSON.stringify([]))
+      .digest('hex')
+      .slice(0, 16)
+    const cacheKey = `sentence-card:v1:${topic}:${userLevel}:${interestsHash}`
+    seededRedisKeys.push(cacheKey)
+
+    const cachedPayload = {
+      ja:       'コーヒーをください。',
+      en:       'Coffee, please.',
+      furigana: 'コーヒーをください。',
+      breakdown: [
+        { token: 'コーヒー', meaning: 'coffee' },
+        { token: 'を' },
+        { token: 'ください', meaning: 'please / give me' },
+      ],
+      nuance: 'Polite enough for any café — neutral keigo register.',
+    }
+    // The Upstash JS client accepts both raw objects (it JSON-encodes) and
+    // strings; the service writes JSON.stringify(result), so we mirror.
+    await redis.set(cacheKey, JSON.stringify(cachedPayload))
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'ai',
+        word:       topic,
+        layoutType: 'sentence',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+
+    // Round-trip through GET — the cached sentence shape survived the
+    // Stage 12 DB CHECK on the way in, and the slim projection on the
+    // way out preserves the canonical fields.
+    const getRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(getRes.status).toBe(200)
+    expect(getRes.body.layoutType).toBe('sentence')
+    expect(getRes.body.fieldsData.ja).toBe('コーヒーをください。')
+    expect(getRes.body.fieldsData.en).toBe('Coffee, please.')
+    expect(getRes.body.fieldsData.furigana).toBe('コーヒーをください。')
+    expect(getRes.body.fieldsData.nuance).toBe('Polite enough for any café — neutral keigo register.')
+    expect(getRes.body.fieldsData.breakdown).toHaveLength(3)
+  })
+
+  it('does not route mode=ai layoutType=vocabulary through generateSentenceCard (no namespace collision)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const word = 'collision test word'
+    const userLevel = 'N5'
+    const interestsHash = createHash('sha256')
+      .update(JSON.stringify([]))
+      .digest('hex')
+      .slice(0, 16)
+    // Seed BOTH cache namespaces with distinguishable payloads. A
+    // mis-routed dispatch would prefer the sentence-card key (and thus
+    // produce a sentence shape) or vice versa. Test that the vocabulary
+    // dispatch reads from `card:v2:…` only.
+    const sentenceKey = `sentence-card:v1:${word}:${userLevel}:${interestsHash}`
+    const vocabKey    = `card:v2:${word}:${userLevel}:${interestsHash}`
+    seededRedisKeys.push(sentenceKey, vocabKey)
+
+    await redis.set(sentenceKey, JSON.stringify({
+      ja:       'wrong-route sentinel ja',
+      en:       'wrong-route sentinel en',
+      furigana: 'wrong-route sentinel fr',
+    }))
+    await redis.set(vocabKey, JSON.stringify({
+      word:    'collision-test',
+      reading: 'コリジョン',
+      meaning: 'the right vocabulary payload',
+    }))
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'ai',
+        word,
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+    expect(createRes.body.layoutType).toBe('vocabulary')
+    // Vocabulary keys present — the dispatch read from `card:v2:…`.
+    expect(createRes.body.fieldsData.word).toBe('collision-test')
+    expect(createRes.body.fieldsData.meaning).toBe('the right vocabulary payload')
+    // Sentence keys absent — the wrong-namespace payload was NEVER served.
+    expect(createRes.body.fieldsData.ja).toBeUndefined()
+    expect(createRes.body.fieldsData.furigana).toBeUndefined()
   })
 })
