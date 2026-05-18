@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { AudioButton }  from './AudioButton'
 import type { FuriganaMode } from '@/stores/useSessionPreferencesStore'
+import { FuriganaText } from '@/components/ui/FuriganaText'
 import { cn } from '@/lib/utils'
 
 interface SentenceBandProps {
@@ -57,21 +58,16 @@ export function SentenceBand({
           data-revealed={revealed ? 'true' : 'false'}
         >
           {renderRuby ? (
-            <ruby>
-              {ja}
-              <rt
-                className={cn(
-                  'font-mono text-[0.45em] tracking-[0.05em] text-faded-sumi font-normal not-italic',
-                  furiganaMode === 'always'
-                    ? 'opacity-100'
-                    : revealed
-                    ? 'opacity-100'
-                    : 'opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out',
-                )}
-              >
-                {furigana}
-              </rt>
-            </ruby>
+            <FuriganaText
+              text={ja}
+              reading={furigana ?? ''}
+              rtSize="0.45em"
+              rtRevealMode={
+                furiganaMode === 'always' ? 'always'
+                : revealed                 ? 'revealed'
+                                           : 'hover'
+              }
+            />
           ) : (
             ja
           )}

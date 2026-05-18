@@ -1,5 +1,6 @@
 'use client'
 
+import { FuriganaText } from '@/components/ui/FuriganaText'
 
 interface SampleCardProps {
   /** The Japanese word the sample card displays. */
@@ -50,15 +51,11 @@ export function SampleCard({
       <>
         <div
           key={changeKey}        >
-          <ruby
-            lang="ja"
+          <FuriganaText
+            text={word}
+            reading={reading}
             className="font-japanese text-2xl font-medium text-sumi-ink leading-tight"
-          >
-            {word}
-            <rt className="font-japanese text-[0.4em] text-faded-sumi font-normal">
-              {reading}
-            </rt>
-          </ruby>
+          />
           <p className="mt-2 text-sm text-faded-sumi">{meaning}</p>
           {caption !== undefined && (
             <p className="mt-3 pt-3 border-t border-soft-hairline text-xs text-faded-sumi font-mono uppercase tracking-[0.06em]">

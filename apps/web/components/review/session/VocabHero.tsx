@@ -1,5 +1,6 @@
 'use client'
 
+import { FuriganaText } from '@/components/ui/FuriganaText'
 import { cn } from '@/lib/utils'
 
 interface VocabHeroProps {
@@ -39,15 +40,12 @@ export function VocabHero({
   }
 
   return (
-    <ruby
-      lang="ja"
-      className={cn('font-japanese font-medium leading-[1.05] text-sumi-ink')}
+    <FuriganaText
+      text={word}
+      reading={reading}
+      rtSize="0.3em"
+      className="font-japanese font-medium leading-[1.05] text-sumi-ink"
       style={{ fontSize }}
-    >
-      {word}
-      <rt className="font-mono text-[0.3em] tracking-[0.05em] text-faded-sumi font-normal not-italic">
-        {reading}
-      </rt>
-    </ruby>
+    />
   )
 }

@@ -56,7 +56,7 @@ export function DefinitionPanel({
       id:    'nuance',
       label: 'Nuance',
       render: () => (
-        <p className="font-serif text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
+        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
           {nuance}
         </p>
       ),
@@ -69,7 +69,7 @@ export function DefinitionPanel({
       label: 'Mnemonic',
       shortcut: 'M',
       render: () => (
-        <p className="font-serif text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
+        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
           {mnemonic}
         </p>
       ),

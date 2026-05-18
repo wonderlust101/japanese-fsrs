@@ -17,7 +17,7 @@ interface WordStackProps {
 
 // The dictionary-headword stack (v4): pitch staff hovers above the kanji
 // block; the kanji is the visual hero; reading sits beneath in kana with
-// faded-sumi weight; definition is the third line, font-serif, body weight.
+// faded-sumi weight; definition is the third line in the body family.
 // A small inline row beneath holds the audio button + POS + JLPT chip.
 //
 // The block is tightly bonded: no labels, no hairlines between the three
@@ -69,9 +69,9 @@ export function WordStack({
         </p>
       )}
 
-      {/* Definition: third line, body serif. Tight bond, no label. */}
+      {/* Definition: third line. Tight bond, no label. */}
       <p
-        className="font-serif text-sumi-ink leading-snug max-w-[44ch]"
+        className="text-sumi-ink leading-snug max-w-[44ch]"
         style={{ fontSize: 'clamp(1.125rem, 1.5vw, 1.375rem)' }}
       >
         {meaning}

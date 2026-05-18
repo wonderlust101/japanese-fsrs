@@ -1,5 +1,6 @@
 'use client'
 
+import { FuriganaText } from '@/components/ui/FuriganaText'
 
 interface RubyChunk {
   base:    string
@@ -55,14 +56,7 @@ export function SampleSentence({
           <p lang="ja" className="font-japanese text-base text-sumi-ink leading-relaxed">
             {chunks.map((chunk, i) => {
               if (typeof chunk === 'string') return <span key={i}>{chunk}</span>
-              return (
-                <ruby key={i}>
-                  {chunk.base}
-                  <rt className="font-japanese text-[0.45em] text-faded-sumi font-normal">
-                    {chunk.reading}
-                  </rt>
-                </ruby>
-              )
+              return <FuriganaText key={i} text={chunk.base} reading={chunk.reading} rtSize="0.45em" />
             })}
           </p>
           <p className="mt-2 text-sm text-faded-sumi italic">{translation}</p>
