@@ -111,6 +111,7 @@ export interface CardListResult {
   items:      ApiCardListItem[]
   nextCursor: string | null
   hasMore:    boolean
+  totalCount: number
 }
 
 export interface CreateCardMeta {
@@ -336,16 +337,21 @@ export async function listCards(
   // only needs to round-trip the id portion today.
   const cursorId = cursor !== undefined ? decodeCursor(cursor, cardListCursorSchema).id : null
 
-  const { data, error } = await supabaseAdmin.rpc(
-    'list_cards_paginated',
-    asPayload({
-      p_user_id:       userId,
-      p_deck_id:       deckId,
-      p_limit:         limit + 1,
-      p_cursor:        cursorId,
-      p_status_filter: status ?? null,
-    }),
-  )
+  const [listResult, totalCount] = await Promise.all([
+    supabaseAdmin.rpc(
+      'list_cards_paginated',
+      asPayload({
+        p_user_id:       userId,
+        p_deck_id:       deckId,
+        p_limit:         limit + 1,
+        p_cursor:        cursorId,
+        p_status_filter: status ?? null,
+      }),
+    ),
+    countCardsForDeck(userId, deckId, status),
+  ])
+
+  const { data, error } = listResult
 
   if (error !== null) {
     if (error.code === '02000' && error.message.includes('deck_not_found')) {
@@ -363,7 +369,47 @@ export async function listCards(
     items,
     nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
     hasMore,
+    totalCount,
   }
+}
+
+/**
+ * Counts cards in a deck for the current user, applying the same status
+ * filter as listCards. Mirrors the RPC's internal filter logic
+ * (supabase/migrations/20260516000000_pagination_and_session_summary_rpcs.sql:80-85)
+ * at the service layer; cheap because (user_id, deck_id) is indexed.
+ */
+async function countCardsForDeck(
+  userId:  string,
+  deckId:  string,
+  status?: CardStatusFilter,
+): Promise<number> {
+  let query = supabaseAdmin
+    .from('cards')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('deck_id', deckId)
+
+  if (status !== undefined && status !== 'all') {
+    switch (status) {
+      case 'new':
+        query = query.eq('state', State.New).eq('is_suspended', false)
+        break
+      case 'learning':
+        query = query.in('state', [State.Learning, State.Relearning]).eq('is_suspended', false)
+        break
+      case 'review':
+        query = query.eq('state', State.Review).eq('is_suspended', false)
+        break
+      case 'suspended':
+        query = query.eq('is_suspended', true)
+        break
+    }
+  }
+
+  const { count, error } = await query
+  if (error !== null) throw dbError('count cards', error)
+  return count ?? 0
 }
 
 /**

@@ -72,9 +72,17 @@ export interface ApiBatchResult<T = unknown> {
  * `nextCursor: null` and `hasMore: false`; the shape stays uniform.
  */
 export interface ApiList<T = unknown> {
-  items:      T[]
-  nextCursor: string | null
-  hasMore:    boolean
+  items:       T[]
+  nextCursor:  string | null
+  hasMore:     boolean
+  /**
+   * Total count of items matching the current filter, when the endpoint can
+   * provide it cheaply. Optional — analytics arrays and other bounded
+   * responses that don't compute a count simply omit this field. The
+   * explicit `| undefined` is required for exactOptionalPropertyTypes
+   * compatibility with Zod's `.optional()` output.
+   */
+  totalCount?: number | undefined
 }
 
 // ─── Analytics wire formats ───────────────────────────────────────────────────

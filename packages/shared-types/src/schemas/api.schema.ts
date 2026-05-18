@@ -184,11 +184,13 @@ export const apiListEnvelope = <T>(
   items:      z.ZodArray<z.ZodType<T>>
   nextCursor: z.ZodNullable<z.ZodString>
   hasMore:    z.ZodBoolean
+  totalCount: z.ZodOptional<z.ZodNumber>
 }> =>
   z.object({
     items:      z.array(item),
     nextCursor: z.string().nullable(),
     hasMore:    z.boolean(),
+    totalCount: z.number().optional(),
   })
 
 export const ApiReviewedCardSchema = z.object({
