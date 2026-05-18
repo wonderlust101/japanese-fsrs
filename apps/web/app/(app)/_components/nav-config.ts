@@ -3,8 +3,8 @@
  * Sidebar and the MobileDrawer. Adding a top-level surface or a sub-nav
  * child here updates both chrome surfaces simultaneously.
  *
- * Section ordering follows the morning-ritual flow: Practice (what you do),
- * Library (what you study), Insights (what you've done).
+ * Section ordering follows the morning-ritual flow: Study (what you do
+ * with cards today), Library (what you study), Insights (what you've done).
  *
  * The config holds only serializable data (strings, primitives). Icon
  * components are resolved client-side via the registry in nav-item.tsx,
@@ -14,13 +14,15 @@
  */
 
 export type NavIconKey =
-  | 'home'
-  | 'add'
-  | 'review'
+  | 'reviews'
+  | 'mistakes'
+  | 'leeches'
   | 'decks'
-  | 'browse'
   | 'cards'
-  | 'analytics'
+  | 'overview'
+  | 'progress'
+  | 'forecast'
+  | 'statistics'
 
 export interface NavItemConfig {
   href:             string
@@ -48,11 +50,12 @@ export interface NavSectionConfig {
 
 export const NAV_SECTIONS: NavSectionConfig[] = [
   {
-    label: 'Practice',
+    label: 'Study',
     kanji: '練',
     items: [
-      { href: '/today', iconKey: 'home', label: 'Today' },
-      { href: '/add',   iconKey: 'add',  label: 'Add'   },
+      { href: '/today',             iconKey: 'reviews',  label: 'Reviews', hasDueCount: true },
+      { href: '/insights/mistakes', iconKey: 'mistakes', label: 'Mistakes' },
+      { href: '/insights/leeches',  iconKey: 'leeches',  label: 'Leeches', hasLeechCount: true },
     ],
   },
   {
@@ -67,19 +70,10 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     label: 'Insights',
     kanji: '析',
     items: [
-      {
-        href:    '/insights',
-        iconKey: 'analytics',
-        label:   'Insights',
-        children: [
-          { href: '/insights',            iconKey: 'analytics', label: 'Overview'                          },
-          { href: '/insights/mistakes',   iconKey: 'browse',    label: 'Mistakes'                          },
-          { href: '/insights/leeches',    iconKey: 'browse',    label: 'Leeches',    hasLeechCount: true   },
-          { href: '/insights/progress',   iconKey: 'browse',    label: 'Progress'                          },
-          { href: '/insights/forecast',   iconKey: 'browse',    label: 'Forecast'                          },
-          { href: '/insights/statistics', iconKey: 'browse',    label: 'Statistics'                        },
-        ],
-      },
+      { href: '/insights',            iconKey: 'overview',   label: 'Overview'   },
+      { href: '/insights/progress',   iconKey: 'progress',   label: 'Progress'   },
+      { href: '/insights/forecast',   iconKey: 'forecast',   label: 'Forecast'   },
+      { href: '/insights/statistics', iconKey: 'statistics', label: 'Statistics' },
     ],
   },
 ]

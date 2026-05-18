@@ -4,12 +4,16 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import {
-  IconAnalytics,
-  IconBrowse,
+  IconCards,
   IconChevronRight,
-  IconDashboard,
   IconDecks,
-  IconPlus,
+  IconForecast,
+  IconLeeches,
+  IconMistakes,
+  IconOverview,
+  IconProgress,
+  IconReviews,
+  IconStatistics,
 }                                           from '@/components/icons/chrome-marks'
 import { useUnresolvedLeechCount }          from '@/lib/api/leeches'
 import { OfflineQueueBadge }                from './offline-queue-badge'
@@ -25,13 +29,15 @@ import type { NavIconKey, NavItemConfig }   from './nav-config'
  * `currentColor`; the icon never animates on hover or active.
  */
 const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
-  home:      IconDashboard,
-  add:       IconPlus,
-  review:    IconBrowse,
-  decks:     IconDecks,
-  browse:    IconBrowse,
-  cards:     IconBrowse,
-  analytics: IconAnalytics,
+  reviews:    IconReviews,
+  mistakes:   IconMistakes,
+  leeches:    IconLeeches,
+  decks:      IconDecks,
+  cards:      IconCards,
+  overview:   IconOverview,
+  progress:   IconProgress,
+  forecast:   IconForecast,
+  statistics: IconStatistics,
 }
 
 interface NavItemProps {
