@@ -5,7 +5,6 @@ import Link from 'next/link'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { QuietLink } from '@/components/ui/QuietLink'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Toast, useToast } from '@/components/ui/Toast'
 import {
@@ -196,16 +195,6 @@ export function LeechesView(): React.JSX.Element {
           </div>
         )}
 
-        <footer className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-soft-hairline pt-6">
-          <QuietLink href="/insights" tone="sumi" trailingArrow size="sm">
-            Back to overview
-          </QuietLink>
-          {!isEmpty && filters.status === 'unresolved' && (
-            <QuietLink href="/insights/weak-spots/drill/setup" tone="brand" trailingArrow size="sm">
-              Drill these
-            </QuietLink>
-          )}
-        </footer>
         {dev.panel}
       </PageShell>
 
