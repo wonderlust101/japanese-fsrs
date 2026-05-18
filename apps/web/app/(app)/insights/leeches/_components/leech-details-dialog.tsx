@@ -139,7 +139,9 @@ export function LeechDetailsDialog({
                   type="button"
                   variant="primary"
                   size="sm"
-                  onClick={() => router.push(`/cards/${leech.cardId}/repair`)}
+                  onClick={() =>
+                    router.push(`/insights/leeches/drill/setup?cardId=${leech.cardId}`)
+                  }
                 >
                   Drill this leech
                 </Button>

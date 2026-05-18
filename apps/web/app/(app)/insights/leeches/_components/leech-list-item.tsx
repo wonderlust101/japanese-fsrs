@@ -136,7 +136,7 @@ export function LeechListItem({
         {!isOrphan && !leech.resolved && (
           <RowAction
             tone="primary"
-            onClick={() => router.push(`/cards/${leech.cardId}/repair`)}
+            onClick={() => router.push(`/insights/leeches/drill/setup?cardId=${leech.cardId}`)}
             ariaLabel={`Drill ${leech.word ?? 'this leech'}`}
           >
             Drill
