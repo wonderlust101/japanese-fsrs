@@ -1,5 +1,7 @@
 'use client'
 
+import { useHelpDialogActions } from '@/stores/useHelpDialogStore'
+
 interface HelpRowProps {
   /** Icon-only render at 64px collapsed rail width. Mutually exclusive with `mobile`. */
   collapsed?: boolean
@@ -28,11 +30,14 @@ function HelpKeyChip(): React.JSX.Element {
  * shortcut; this row is its visible anchor.
  */
 export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): React.JSX.Element {
+  const { openHelp } = useHelpDialogActions()
+
   if (mobile) {
     return (
       <button
         type="button"
         aria-label="Help"
+        onClick={openHelp}
         className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-[2px] text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
       >
         <span className="truncate flex-1 text-left">Help</span>
@@ -47,6 +52,7 @@ export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): Re
         title="Help and shortcuts · ?"
         aria-label="Help and shortcuts"
         aria-keyshortcuts="?"
+        onClick={openHelp}
         className="w-full flex items-center justify-center min-h-[44px] rounded-[2px] hover:bg-cream-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
       >
         <HelpKeyChip />
@@ -60,6 +66,7 @@ export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): Re
       aria-label="Help and shortcuts"
       aria-keyshortcuts="?"
       title="Help and shortcuts · ?"
+      onClick={openHelp}
       className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-[2px] text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
     >
       <span className="shrink-0 transition-colors duration-200">

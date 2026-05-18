@@ -95,7 +95,7 @@ export default function LoginPage(): React.JSX.Element {
               </span>
             )}
           </p>
-          <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1]">
+          <h1 className="font-display text-3xl font-medium text-sumi-ink leading-[1.1]">
             <span className="block">Welcome back.</span>
             <span className="block">Ready to practice?</span>
           </h1>
@@ -170,15 +170,6 @@ export default function LoginPage(): React.JSX.Element {
               className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
             >
               Sign up
-            </Link>
-          </p>
-          <p className="text-sm text-faded-sumi">
-            Need help?{' '}
-            <Link
-              href="/help"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
-            >
-              Get help
             </Link>
           </p>
         </div>
