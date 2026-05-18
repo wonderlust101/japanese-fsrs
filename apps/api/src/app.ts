@@ -16,6 +16,7 @@ import analyticsRouter from './routes/analytics.ts'
 import premadeRouter   from './routes/premade.ts'
 import leechesRouter   from './routes/leeches.ts'
 import tomoRouter      from './routes/tomo.ts'
+import insightsRouter  from './routes/insights.ts'
 
 // CORS_ORIGIN parses to string[] in env.ts (split + URL-validated).
 // Default covers local Next.js dev server.
@@ -85,6 +86,7 @@ app.use('/api/v1/cards',               cardsRouter)
 app.use('/api/v1/analytics',           analyticsRouter)
 app.use('/api/v1/leeches',             leechesRouter)
 app.use('/api/v1/tomo',                tomoRouter)
+app.use('/api/v1/insights',            insightsRouter)
 
 // ── Global error handler — must be last ────────────────────────────────────
 app.use(errorHandler)

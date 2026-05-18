@@ -837,6 +837,22 @@ export type Database = {
           total: number
         }[]
       }
+      get_problem_cards: {
+        Args: { p_bucket: string; p_user_id: string }
+        Returns: {
+          card_id:     string
+          card_type:   Database["public"]["Enums"]["card_type"]
+          deck_id:     string | null
+          due:         string
+          fields_data: Json
+          jlpt_level:  Database["public"]["Enums"]["jlpt_level"] | null
+          lapses:      number
+          last_review: string | null
+          layout_type: Database["public"]["Enums"]["layout_type"]
+          reps:        number
+          state:       number
+        }[]
+      }
       get_review_forecast: {
         Args: {
           p_daily_new_cards_limit?: number

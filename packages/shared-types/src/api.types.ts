@@ -17,6 +17,7 @@ import type {
   ApiPremadeDeckSchema,
   ApiCopyPremadeDeckResultSchema,
   ApiTomoNoteSchema,
+  ApiProblemCardSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -57,6 +58,13 @@ export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultS
 
 /** Backend Completion Plan Stage 6. Returned by `GET /api/v1/tomo/note`. */
 export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
+
+/**
+ * Backend Completion Plan Stage 7. Returned by
+ * `GET /api/v1/insights/problem-cards?bucket=…`. Slim card view oriented
+ * toward the lapse-bucket histogram and drill-through use cases.
+ */
+export type ApiProblemCard            = z.infer<typeof ApiProblemCardSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

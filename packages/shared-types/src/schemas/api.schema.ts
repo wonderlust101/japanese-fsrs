@@ -163,6 +163,40 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
   cardCount: z.number(),
 })
 
+// ─── Insights — problem cards (Stage 7) ──────────────────────────────────────
+//
+// Backend Completion Plan Stage 7. `GET /api/v1/insights/problem-cards?bucket=…`
+// returns the user's cards bucketed by lapse count — the data path that
+// originally fed the (now-retired) /insights/mistakes stem-and-leaf bars.
+// The endpoint is consumer-agnostic: future surfaces (a `/cards` lapse-range
+// saved view, an analytics chart) can pick it up without a contract change.
+//
+// Bucket boundaries match IA `14_insights_mistakes.md` and the SQL RPC.
+// The 8plus bucket cardinality equals the unresolved-leech count for the
+// same user/scope (process_review inserts a leech at lapses >=
+// LEECH_THRESHOLD = 8 by default).
+
+export const ApiProblemCardBucketSchema = z.enum(['2-3', '4-5', '6-7', '8plus'])
+
+export const ApiProblemCardSchema = z.object({
+  cardId:     z.string().uuid(),
+  deckId:     z.string().uuid().nullable(),
+  layoutType: layoutTypeSchema,
+  cardType:   cardTypeSchema,
+  jlptLevel:  jlptLevelSchema.nullable(),
+  fieldsData: FieldsDataSchema,
+  /** FSRS state integer mirroring the cards.state column (0=New, 1=Learning,
+   *  2=Review, 3=Relearning). */
+  state:      z.number().int().nonnegative(),
+  lapses:     z.number().int().nonnegative(),
+  reps:       z.number().int().nonnegative(),
+  due:        z.string(),
+  /** ISO 8601 timestamp of the most recent review on this card, or null if
+   *  no review has ever landed (rare in this list since lapses >= 2 implies
+   *  at least two reviews). */
+  lastReview: z.string().nullable(),
+})
+
 // ─── Tomo daily note ──────────────────────────────────────────────────────────
 //
 // Backend Completion Plan Stage 6. `GET /api/v1/tomo/note` returns one
