@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { CardBack } from '@/components/review/session/CardBack'
 import {
   getCardByIdAction,
@@ -52,7 +53,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: 'none' })
   const [showHistory,  setShowHistory]  = useState(false)
-  const [toast,        setToast]        = useState<string | null>(null)
+  const { toast, showToast, dismissToast } = useToast()
 
   const { data: liveCard, isLoading: liveLoading } = useQuery({
     queryKey: queryKeys.cards.detail(cardId),
@@ -270,7 +271,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
             variant="primary"
             onClick={() => {
               setActiveDialog({ kind: 'none' })
-              setToast(isSuspended
+              showToast(isSuspended
                 ? 'Unsuspend is coming. The endpoint is pending.'
                 : 'Suspend is coming. The endpoint is pending.',
               )
@@ -290,12 +291,17 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
         onCancel={() => setActiveDialog({ kind: 'none' })}
         onConfirm={() => {
           setActiveDialog({ kind: 'none' })
-          setToast('Card move is coming. The endpoint is pending.')
+          showToast('Card move is coming. The endpoint is pending.')
         }}
       />
 
       {toast !== null && (
-        <Toast message={toast} onDismiss={() => setToast(null)} />
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+        />
       )}
 
       {devPanel}
@@ -478,19 +484,6 @@ function LoadingBody(): React.JSX.Element {
         ))}
       </div>
     </SectionCard>
-  )
-}
-
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }): React.JSX.Element {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      onClick={onDismiss}
-      className="ui-motion-colors fixed bottom-4 right-4 z-30 max-w-[28rem] cursor-pointer rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3.5 py-2.5 text-sm text-sumi-ink shadow-[var(--shadow-card)] animate-page-enter"
-    >
-      {message}
-    </div>
   )
 }
 

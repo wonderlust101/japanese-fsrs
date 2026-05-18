@@ -16,6 +16,7 @@ import { TopBar } from '@/app/(app)/_components/top-bar'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { IconMore, IconEdit, IconHide, IconReveal, IconDelete } from '@/components/icons/chrome-marks'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction, deleteDeckAction } from '@/lib/actions/decks.actions'
@@ -75,7 +76,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
   const [pageSize,      setPageSize]      = useState<CardPageSize>(DEFAULT_PAGE_SIZE)
   const [pageIndex,     setPageIndex]     = useState(0)
   const [activeDialog,  setActiveDialog]  = useState<ActiveDialog>({ kind: 'none' })
-  const [toast,         setToast]         = useState<string | null>(null)
+  const { toast, showToast, dismissToast } = useToast()
 
   // Reset to page 1 whenever the inputs that change the visible set change.
   useEffect(() => { setPageIndex(0) }, [status, searchValue, pageSize])
@@ -228,12 +229,12 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 
   function handleArchive(): void {
     archiveSet.archive(deckId)
-    setToast(`Archived "${truncate(displayName, 28)}". You can restore it from this page or the Decks list.`)
+    showToast(`Archived "${truncate(displayName, 28)}". You can restore it from this page or the Decks list.`)
   }
 
   function handleRestore(): void {
     archiveSet.restore(deckId)
-    setToast(`Restored "${truncate(displayName, 28)}".`)
+    showToast(`Restored "${truncate(displayName, 28)}".`)
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -384,6 +385,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
                   hasPrev={hasPrev}
                   hasNext={hasNext}
                   isFetchingNext={isFetchingNextPage}
+                  totalCount={data?.pages[0]?.totalCount}
                   onPrev={handlePrevPage}
                   onNext={handleNextPage}
                   onPageSizeChange={handlePageSizeChange}
@@ -432,8 +434,8 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         currentName={displayName}
         onClose={() => setActiveDialog({ kind: 'none' })}
         onLocalRename={(id, name) => nameOverrides.setNameOverride(id, name)}
-        onError={(msg) => setToast(msg)}
-        onSuccess={(name) => setToast(`Renamed to "${truncate(name, 28)}".`)}
+        onError={(msg) => showToast(msg)}
+        onSuccess={(name) => showToast(`Renamed to "${truncate(name, 28)}".`)}
       />
 
       <DeleteDeckDialog
@@ -441,7 +443,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         deck={deck ?? null}
         cardCount={cardCount}
         onClose={() => setActiveDialog({ kind: 'none' })}
-        onError={(msg) => setToast(msg)}
+        onError={(msg) => showToast(msg)}
         onSuccess={() => {
           // Deck deletion cascades; clear local rename + archive bits.
           nameOverrides.setNameOverride(deckId, null)
@@ -461,7 +463,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
           deleteCardMutation.mutate(card.id, {
             onSuccess: () => {
               setActiveDialog({ kind: 'none' })
-              setToast('Card deleted.')
+              showToast('Card deleted.')
             },
           })
         }}
@@ -483,7 +485,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
             {
               onSuccess: () => {
                 setActiveDialog({ kind: 'none' })
-                setToast('Card moved.')
+                showToast('Card moved.')
               },
             },
           )
@@ -504,7 +506,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
         onCancel={() => setActiveDialog({ kind: 'none' })}
         onConfirm={() => {
           setActiveDialog({ kind: 'none' })
-          setToast('Adding a copy to another deck is coming. The endpoint is pending.')
+          showToast('Adding a copy to another deck is coming. The endpoint is pending.')
         }}
       />
 
@@ -513,7 +515,12 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
       {deleteMutation.isError && null}
 
       {toast !== null && (
-        <Toast message={toast} onDismiss={() => setToast(null)} />
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+        />
       )}
 
       {/* Reading dueCount keeps lint happy when stats live in the sidebar. */}
@@ -635,19 +642,6 @@ function CardListErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Ele
         </Button>
       </div>
     </li>
-  )
-}
-
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }): React.JSX.Element {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      onClick={onDismiss}
-      className="ui-motion-colors fixed bottom-4 right-4 z-30 max-w-[28rem] cursor-pointer rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3.5 py-2.5 text-sm text-sumi-ink shadow-[var(--shadow-card)] animate-page-enter"
-    >
-      {message}
-    </div>
   )
 }
 
