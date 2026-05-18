@@ -69,9 +69,21 @@ const GRID_CLASS = [
   'xl:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem_minmax(0,1fr)_6rem_4.5rem_2.25rem]',
 ].join(' ')
 
+// Read-only grid: Word · Meaning · (Type) · (Tags). No status, no due, no
+// kebab — keeps the read-only catalogue preview as content-only.
+const GRID_CLASS_READ_ONLY = [
+  'md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)]',
+  'lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem]',
+  'xl:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem_minmax(0,1fr)]',
+].join(' ')
+
 interface Props {
   rows:        readonly CardsResultRow[]
-  onRowAction: (cardId: string, action: CardRowAction) => void
+  /**
+   * Required unless `readOnly` is true. The kebab menu surfaces edit /
+   * move / add-copy / delete and routes them back up through this callback.
+   */
+  onRowAction?: (cardId: string, action: CardRowAction) => void
   loading?:    boolean
   /**
    * Optional suffix (including the leading `?` or `&`) appended to each
@@ -81,6 +93,14 @@ interface Props {
    * user is reading a card.
    */
   cardHrefSuffix?: string
+  /**
+   * When true, the table renders content-only: no per-row kebab, no
+   * FSRS status pill, no due column, no lapse-tier health badge. Used
+   * by the `/decks/[id]/preview` read-only surface (premade-deck
+   * catalogue → "view deck"). Row links still navigate to the card
+   * detail page so the user can read deeper content.
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -94,6 +114,7 @@ export function CardsResultsTable({
   onRowAction,
   loading = false,
   cardHrefSuffix = '',
+  readOnly = false,
 }: Props): React.JSX.Element {
   return (
     <div className="overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised">
@@ -102,23 +123,29 @@ export function CardsResultsTable({
         className="pointer-events-none block h-[2px] w-full bg-inari-vermillion"
       />
 
-      {/* Header. Right padding matches the row's `<Link>` (`pr-12`) so both
-          grids compute against the same available width — keeping every
-          column edge between header and row in lockstep. */}
+      {/* Header. Right padding matches the row's `<Link>` (`pr-12` interactive
+          mode; `pr-4` read-only) so both grids compute against the same
+          available width — keeping every column edge between header and row
+          in lockstep. */}
       <div
         className={[
           'hidden md:grid',
-          GRID_CLASS,
-          'items-center gap-3 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 pr-12 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi',
+          readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
+          'items-center gap-3 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi',
+          readOnly ? 'pr-4' : 'pr-12',
         ].join(' ')}
       >
         <span>Word</span>
         <span>Meaning</span>
         <span className="hidden lg:block">Type</span>
         <span className="hidden xl:block">Tags</span>
-        <span>Status</span>
-        <span className="text-right">Due</span>
-        <span className="sr-only">Actions</span>
+        {!readOnly && (
+          <>
+            <span>Status</span>
+            <span className="text-right">Due</span>
+            <span className="sr-only">Actions</span>
+          </>
+        )}
       </div>
 
       {loading && (
@@ -149,7 +176,8 @@ export function CardsResultsTable({
               key={row.id}
               row={row}
               hrefSuffix={cardHrefSuffix}
-              onAction={(action) => onRowAction(row.id, action)}
+              readOnly={readOnly}
+              onAction={(action) => onRowAction?.(row.id, action)}
             />
           ))}
         </ul>
@@ -163,15 +191,19 @@ export function CardsResultsTable({
 function ResultRow({
   row,
   hrefSuffix,
+  readOnly,
   onAction,
 }: {
   row:        CardsResultRow
   hrefSuffix: string
+  readOnly:   boolean
   onAction:   (action: CardRowAction) => void
 }): React.JSX.Element {
   const dueLabel = row.due === null ? '—' : formatDue(row.due)
   const statusTone = statusForState(row.state, row.isSuspended)
-  const lapseTier = lapseTierFor(row.lapses)
+  // In read-only mode the lapse-tier signals are suppressed — the row reads
+  // as neutral catalogue content rather than a personal-state diagnostic.
+  const lapseTier = readOnly ? 'ok' : lapseTierFor(row.lapses)
   const firstTag = row.tags[0]
 
   return (
@@ -184,19 +216,28 @@ function ResultRow({
       {/* Row actions sit absolutely at the far-right edge so the kebab
           is a peer of the Link, not a descendant — avoids nested
           interactive elements while still visually occupying the final
-          grid cell. */}
-      <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
-        <CardRowMenu onAction={onAction} />
-      </div>
+          grid cell. Suppressed entirely in read-only mode. */}
+      {!readOnly && (
+        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
+          <CardRowMenu onAction={onAction} />
+        </div>
+      )}
 
       <Link
         href={`/cards/${row.id}${hrefSuffix}`}
-        className="block px-4 py-4 pr-12 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]"
+        className={[
+          'block px-4 py-4 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]',
+          readOnly ? 'pr-4' : 'pr-12',
+        ].join(' ')}
       >
         {/* Desktop: shared GRID_CLASS so every cell sits under its
             header label. The last cell is a transparent spacer; the
             absolute kebab above visually fills it. */}
-        <div className={['hidden md:grid', GRID_CLASS, 'items-center gap-3'].join(' ')}>
+        <div className={[
+          'hidden md:grid',
+          readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
+          'items-center gap-3',
+        ].join(' ')}>
           {/* Word + reading share one cell. The word truncates first
               if the cell narrows; the reading stays inline as a quiet
               pronunciation aid in faded-sumi. */}
@@ -212,7 +253,7 @@ function ResultRow({
                 {row.reading}
               </span>
             )}
-            <HealthBadge tier={lapseTier} />
+            {!readOnly && <HealthBadge tier={lapseTier} />}
           </span>
           <span className="min-w-0 truncate text-sm text-sumi-ink/85">
             {row.meaning || '—'}
@@ -223,13 +264,17 @@ function ResultRow({
           <span className="hidden min-w-0 xl:block">
             <TagStrip tags={row.tags} />
           </span>
-          <span>
-            <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
-          </span>
-          <span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
-            {dueLabel}
-          </span>
-          <span aria-hidden="true" />
+          {!readOnly && (
+            <>
+              <span>
+                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
+              </span>
+              <span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
+                {dueLabel}
+              </span>
+              <span aria-hidden="true" />
+            </>
+          )}
         </div>
 
         {/* Mobile: card-row anatomy mirroring Deck Detail's CardListItem. */}
@@ -246,10 +291,12 @@ function ResultRow({
                 {row.reading}
               </span>
             )}
-            <HealthBadge tier={lapseTier} />
-            <span className="ml-auto shrink-0">
-              <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
-            </span>
+            {!readOnly && <HealthBadge tier={lapseTier} />}
+            {!readOnly && (
+              <span className="ml-auto shrink-0">
+                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
+              </span>
+            )}
           </div>
           <span className="min-w-0 truncate text-sm text-sumi-ink/80">{row.meaning || '—'}</span>
           <div className="flex items-baseline gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-faded-sumi">
@@ -264,9 +311,11 @@ function ResultRow({
                 <span className="truncate">{firstTag}</span>
               </>
             )}
-            <span className="ml-auto shrink-0 truncate">
-              {dueLabel === '—' ? 'Not due' : `Due ${dueLabel}`}
-            </span>
+            {!readOnly && (
+              <span className="ml-auto shrink-0 truncate">
+                {dueLabel === '—' ? 'Not due' : `Due ${dueLabel}`}
+              </span>
+            )}
           </div>
         </div>
       </Link>

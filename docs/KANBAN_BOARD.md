@@ -9,13 +9,13 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 ## To Do
 
 - [ ] **Flesh out IA stub pages**
-  - Only `/cards/[cardId]/repair` and `/decks/[id]/preview` remain as `StubPage`. Tracked per surface in [status/FRONTEND.md](status/FRONTEND.md).
+  - Only `/cards/[cardId]/repair` remains as a `StubPage`. `/decks/[id]/preview` shipped 2026-05-18 as a read-only deck viewer (reached from the premade catalogue's "View deck" action when a deck has already been copied). Tracked per surface in [status/FRONTEND.md](status/FRONTEND.md).
 - [ ] **Settings IA: missing sections**
   - Add designs + routes for Display, Data & sync, and Review-behavior tabs (or explicit deferral notes in IA `18_settings.md`).
 - [ ] **Onboarding deck recommendations (frontend slice)**
   - Pure frontend: score the existing catalogue against `profile.{jlpt_target, interests}`. Replace the hardcoded `RECOMMENDED_DECKS` constant and route selections through `POST /api/v1/premade-decks/:id/copy`.
 - [ ] **Premade "copy to library" — frontend slice (in progress)**
-  - Render "From: <premade name>" attribution chip on deck cards copied from a premade source, and unify the delete-deck confirmation copy. The catalogue page itself shipped 2026-05-18 — `/decks/premade` is now wired to `usePremadeDecks` + `useCopyPremadeDeck` with filter-by-JLPT/type, loading skeletons, empty/error states, and a success toast; the "Subscribe" vocabulary has been replaced with "Add to my library" on every surface that linked into the catalogue. Remaining work is the attribution chip + delete-deck wording.
+  - Render "From: <premade name>" attribution chip on `/decks` list rows for decks copied from a premade source, and unify the delete-deck confirmation copy. Catalogue itself shipped 2026-05-18 (`/decks/premade` wired to `usePremadeDecks` + `useCopyPremadeDeck`, filter-by-JLPT/type, loading skeletons, empty/error states, success toast). "Subscribe" vocabulary replaced with "Add to my library" everywhere. Catalogue rows now also detect already-copied premade decks via `useDecks` → `sourcePremadeId` mapping and surface an "In your library" `StatusPill` + a "View deck" action that routes to the new `/decks/[id]/preview` read-only viewer; "Add another copy" stays available as a `QuietLink`. Remaining work is the deck-row attribution chip + delete-deck wording.
 - [ ] **Weak spots Phase 3 — drill follow-ups**
   - Remaining: dashboard weak-spots card on `/today`, `hasLeeches` signal, "Count this as a review" override inside drill session.
 - [ ] **Dashboard backend contracts**

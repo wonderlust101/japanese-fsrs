@@ -3,14 +3,15 @@
 import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { ApiPremadeDeck, DeckType, JLPTLevel } from '@fsrs-japanese/shared-types'
+import type { ApiDeck, ApiPremadeDeck, DeckType, JLPTLevel } from '@fsrs-japanese/shared-types'
 
 import { Button } from '@/components/ui/Button'
-import { ContentTypePill, JlptPill, type ContentTypeTone } from '@/components/ui/Pill'
+import { ContentTypePill, JlptPill, StatusPill, type ContentTypeTone } from '@/components/ui/Pill'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Toast, useToast } from '@/components/ui/Toast'
+import { useDecks } from '@/lib/api/decks'
 import { useCopyPremadeDeck, usePremadeDecks } from '@/lib/api/premade'
 
 // ── Filter dimensions ────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export function PremadeCatalogue(): React.JSX.Element {
   const [type, setType] = useState<TypeFilter>('all')
 
   const decksQuery = usePremadeDecks()
+  const userDecksQuery = useDecks(50)
   const copyMutation = useCopyPremadeDeck()
 
   // Track the in-flight or just-completed copy by premade deck id so we can
@@ -76,6 +78,25 @@ export function PremadeCatalogue(): React.JSX.Element {
   const [pendingId, setPendingId] = useState<string | null>(null)
 
   const allDecks = useMemo(() => decksQuery.data?.items ?? [], [decksQuery.data])
+
+  // Build a `premadeId → user deck` map so each catalogue card can detect
+  // whether the learner has already copied that premade entry. Duplicates
+  // are allowed under the copy model — when more than one user deck shares
+  // a `sourcePremadeId`, we keep the most-recently-created one so the
+  // "View deck" link routes somewhere sensible. The catalogue badge stays
+  // a binary "in your library" — count is not surfaced here.
+  const userDeckByPremadeId = useMemo(() => {
+    const map = new Map<string, ApiDeck>()
+    const items = userDecksQuery.data?.items ?? []
+    for (const deck of items) {
+      if (deck.sourcePremadeId === null) continue
+      const existing = map.get(deck.sourcePremadeId)
+      if (existing === undefined || deck.createdAt > existing.createdAt) {
+        map.set(deck.sourcePremadeId, deck)
+      }
+    }
+    return map
+  }, [userDecksQuery.data])
 
   const filteredDecks = useMemo(() => {
     return allDecks.filter((deck) => {
@@ -146,6 +167,7 @@ export function PremadeCatalogue(): React.JSX.Element {
               <CatalogueCard
                 key={deck.id}
                 deck={deck}
+                copiedDeck={userDeckByPremadeId.get(deck.id) ?? null}
                 onCopy={() => handleCopy(deck)}
                 onViewLibrary={handleViewLibrary}
                 pending={pendingId === deck.id}
@@ -270,6 +292,10 @@ function FilterSelect({ id, label, value, onChange, options }: FilterSelectProps
 
 interface CatalogueCardProps {
   deck:          ApiPremadeDeck
+  /** The user's most-recently-created deck that was copied from this premade
+   *  entry, or `null` when the user hasn't copied it yet. Drives the "In your
+   *  library" indicator and the "View deck" affordance. */
+  copiedDeck:    ApiDeck | null
   onCopy:        () => void
   onViewLibrary: () => void
   pending:       boolean
@@ -277,13 +303,14 @@ interface CatalogueCardProps {
 }
 
 function CatalogueCard({
-  deck, onCopy, onViewLibrary, pending, disabled,
+  deck, copiedDeck, onCopy, onViewLibrary, pending, disabled,
 }: CatalogueCardProps): React.JSX.Element {
   // Domain pill (e.g. "anime", "business") appears alongside the JLPT/type
   // pills when the catalogue carries one. Keeps the metadata cluster
   // self-describing without forcing a description scan.
   const domain = deck.domain
   const cardCountLabel = `${deck.cardCount.toLocaleString()} ${deck.cardCount === 1 ? 'card' : 'cards'}`
+  const isCopied = copiedDeck !== null
 
   return (
     <SectionCard
@@ -294,7 +321,7 @@ function CatalogueCard({
       <div className="flex flex-col gap-4">
         {/* Header: name + metadata cluster */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-baseline gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
             <span
               lang="ja"
               aria-hidden="true"
@@ -305,6 +332,14 @@ function CatalogueCard({
             <h2 className="min-w-0 break-words font-display text-lg font-medium text-sumi-ink">
               {deck.name}
             </h2>
+            {isCopied && (
+              <StatusPill
+                status="subscribed"
+                label="In your library"
+                size="sm"
+                className="!rounded-[2px] !leading-tight"
+              />
+            )}
           </div>
           <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi tabular-nums">
             <span className="text-sumi-ink">{deck.cardCount.toLocaleString()}</span>
@@ -334,20 +369,45 @@ function CatalogueCard({
 
         {/* Actions */}
         <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-soft-hairline pt-4">
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={onCopy}
-            loading={pending}
-            disabled={disabled}
-            aria-label={`Add ${deck.name} to your library`}
-          >
-            Add to my library
-          </Button>
-          <QuietLink onClick={onViewLibrary} tone="sumi" size="sm" trailingArrow>
-            View my decks
-          </QuietLink>
+          {isCopied && copiedDeck !== null ? (
+            <>
+              <Link href={`/decks/${copiedDeck.id}/preview`}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  aria-label={`View ${deck.name} in your library`}
+                >
+                  View deck
+                </Button>
+              </Link>
+              <QuietLink
+                onClick={onCopy}
+                tone="sumi"
+                size="sm"
+                ariaLabel={`Add another copy of ${deck.name} to your library`}
+              >
+                {pending ? 'Adding another copy…' : 'Add another copy'}
+              </QuietLink>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={onCopy}
+                loading={pending}
+                disabled={disabled}
+                aria-label={`Add ${deck.name} to your library`}
+              >
+                Add to my library
+              </Button>
+              <QuietLink onClick={onViewLibrary} tone="sumi" size="sm" trailingArrow>
+                View my decks
+              </QuietLink>
+            </>
+          )}
         </div>
       </div>
     </SectionCard>
