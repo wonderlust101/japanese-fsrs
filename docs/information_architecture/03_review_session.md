@@ -4,7 +4,7 @@
 
 Review Session is the core practice mode. It should feel focused, quiet, and instrument-like. The learner is here to recall, reveal, rate, and continue. Everything that does not support that rhythm should be hidden, delayed, or removed.
 
-The session should support three launch card types: vocabulary recognition, sentence understanding, and production. Each card type tests a different memory direction and must have a different content hierarchy.
+The session renders three `layout_type` variants: `vocabulary`, `grammar`, and `sentence`. Each carries a different `fields_data` shape and therefore a different content hierarchy. (A user-controlled reverse-direction mode for production-style recall is a future settings toggle, not a schema dimension — see *Designer Freedom* below.)
 
 ## Primary User Jobs
 
@@ -22,27 +22,35 @@ Use a large centered card with minimal surrounding UI. The Japanese content shou
 
 No hint system should be included in the launch review UI. The sentence context is already the natural cue. Adding a Hint button risks encouraging dependency and making retention data less honest.
 
-## Card Type Content Hierarchy
+## Content Hierarchy By Layout Type
 
-### Vocabulary Recognition
+The three sections below describe the front/back composition for each `layout_type` value on `cards`. Schema reference: [DATABASE.md](../DATABASE.md) — `cards.layout_type` enum (`vocabulary | grammar | sentence`) and the `cards_fields_data_shape` CHECK.
 
-Purpose: test whether the learner understands the Japanese expression.
+### Vocabulary (`layout_type = 'vocabulary'`)
+
+Purpose: test whether the learner understands a Japanese expression.
 
 Before reveal, show the Japanese expression and sentence context. Audio may be available if the card includes it. Do not show the English definition before reveal.
 
 After reveal, show reading, meaning, sentence translation, nuance, and any memory-support content that is part of the card.
 
-### Sentence Understanding
+### Grammar (`layout_type = 'grammar'`)
 
-Purpose: test whether the learner understands the sentence and target expression in context.
+Purpose: test whether the learner understands a grammar pattern in use.
 
-Before reveal, prioritize the Japanese sentence. Avoid over-highlighting the target word unless testing shows learners need it. After reveal, show translation, target expression, reading, meaning, and a concise explanatory note.
+Same `fields_data` shape as vocabulary (`word`, `reading`, `meaning` are required), but the front emphasises the grammatical structure: the pattern itself is the prompt, with the example sentence carrying the contextual instance. After reveal, surface the structural explanation, the example translation, and any nuance about register or related patterns.
 
-### Production
+### Sentence (`layout_type = 'sentence'`)
 
-Purpose: test whether the learner can produce the Japanese from an English prompt.
+Purpose: test whether the learner understands a sentence and its target expression in context.
 
-Before reveal, show the English meaning and context prompt. Do not show the Japanese expression before reveal. After reveal, show the Japanese expression, reading, sentence, translation, and nuance.
+`fields_data` here is a distinct shape — required `ja` / `en` / `furigana`, optional `breakdown` / `nuance` / `audio` — per the Stage 12 CHECK in `supabase/migrations/20260612000000_sentence_layout_check.sql`.
+
+Before reveal, prioritise the Japanese sentence. Avoid over-highlighting the target word unless testing shows learners need it. After reveal, show translation, per-token breakdown if present, and a concise explanatory note.
+
+### Reverse-direction (production) mode
+
+A future user-settings toggle will let a learner flip vocabulary cards into production-direction recall (English prompt → Japanese expression). It applies on top of the `vocabulary` layout — *not* a separate `layout_type` or `card_type`. The single-FSRS-scheduler decision in migration `20260614000000_drop_card_type.sql` removed the historic per-modality split; if reverse-direction ships, it's a render-time preference, not a scheduling dimension.
 
 ## Rating System
 
@@ -78,7 +86,7 @@ Hidden by default:
 
 - Deck
 - Tags
-- Card type
+- Layout type
 - JLPT level
 - Source
 - Last reviewed
