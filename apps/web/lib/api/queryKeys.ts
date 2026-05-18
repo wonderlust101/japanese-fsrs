@@ -22,6 +22,14 @@ export const queryKeys = {
     jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
     milestones: () => ['analytics', 'milestones'] as const,
   },
+  insights: {
+    // The Stage 9 maturity-history endpoint accepts `days` ∈ {90, 180, 365};
+    // the window is part of the cache key so each window caches independently
+    // (a learner who toggles between 90/365 day views doesn't refetch the
+    // same row twice for the same window).
+    maturityHistory: (days: '90' | '180' | '365') =>
+      ['insights', 'maturity-history', days] as const,
+  },
   weakSpots: {
     all:    ()                       => ['weakSpots']                              as const,
     // The filter object is included in the cache key so each (status, deck,

@@ -20,6 +20,8 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
   - Remaining: dashboard weak-spots card on `/today`, `hasLeeches` signal, "Count this as a review" override inside drill session.
 - [ ] **Dashboard backend contracts**
   - Replace remaining placeholder dashboard surfaces with explicit contracts. Deck rollup shipped as Stage 3.
+- [ ] **Statistics page — extra wire-level signals (post-2026-05-18)**
+  - `/insights/statistics` is now live (driven by the analytics dashboard + Stage 9 `insights/maturity-history` + decks + forecast + profile). Four sections still pass empty arrays because their data isn't exposed: answer-button distribution (would need a `review_logs`-aggregated rollup), FSRS stability + difficulty distributions, FSRS optimization status / last-optimized timestamp, interval distribution. Each section renders a calm "no data yet" notice in the interim. Pick these off one at a time as separate backend contract slices.
 - [ ] **Launch-size premade catalogue** — content work; expand JLPT + Joyo + grammar coverage beyond starter seeds.
 - [ ] **Frontend test coverage** — pick a runner; cover review / onboarding / premade-browse / analytics flows.
 - [ ] **Legal pages** — Privacy Policy + ToS.
