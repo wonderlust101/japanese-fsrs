@@ -8,8 +8,9 @@ import type { ApiPremadeDeck, JLPTLevel, UpdateProfileInput } from '@fsrs-japane
 import { RecommendedDeckCard } from '@/components/ui/RecommendedDeckCard'
 import { DeckSummary } from '@/components/srs/DeckSummary'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { useOnboardingStore, type OnboardingLevel } from '@/stores/onboarding.store'
-import { usePremadeDecks } from '@/lib/api/premade'
+import { useCopyPremadeDeck, usePremadeDecks } from '@/lib/api/premade'
 import { updateProfileAction } from '@/lib/actions/profile.actions'
 import type { JlptPillLevel } from '@/components/ui/Pill'
 
@@ -162,18 +163,26 @@ export default function DecksPage(): React.JSX.Element {
     })
   }
 
-  const { mutate, isPending, error } = useMutation({
+  // Profile mutation. Kept as a separate mutation so the existing inline
+  // error alert continues to surface mutation failures verbatim; the deck-
+  // copy fan-out below uses its own outcome reporting (a summary toast).
+  const profileMutation = useMutation({
     mutationFn: (payload: UpdateProfileInput) => updateProfileAction(payload),
-    onSuccess: () => {
-      reset()
-      router.push('/today')
-    },
   })
+
+  // Deck-copy mutation. The hook invalidates decks.list + reviews.due +
+  // reviews.forecast on each success — N parallel calls produce N
+  // invalidations of the same keys, which TanStack Query coalesces.
+  const copyMutation = useCopyPremadeDeck()
+
+  const { toast, showToast, dismissToast } = useToast()
 
   const isSkipping = subscribedCount === 0
   const isLoading  = premadeDecksQuery.isLoading
+  const isBusy     = profileMutation.isPending || copyMutation.isPending
+  const error      = profileMutation.error
 
-  function handleContinue(): void {
+  async function handleContinue(): Promise<void> {
     if (isSkipping) {
       // Skip the deck commitment, go straight to the dashboard. Matches
       // the prior escape-link behavior: profile mutation is reserved for
@@ -192,10 +201,45 @@ export default function DecksPage(): React.JSX.Element {
       interests,
       dailyNewCardsLimit: SCHEDULE_TO_CARD_LIMIT[pace ?? 'steady'] ?? 20,
     }
-    mutate(payload)
+
+    // Fire the profile update and each deck-copy in parallel. Promise.all
+    // would let one rejection cancel the rest; allSettled keeps the
+    // partial-success path intact (best-effort, mirroring the catalogue).
+    const selected         = [...subscribedIds]
+    const profilePromise   = profileMutation.mutateAsync(payload)
+    const copyPromises     = selected.map((id) => copyMutation.mutateAsync(id))
+    const [profileResult, ...copyResults] = await Promise.allSettled([
+      profilePromise,
+      ...copyPromises,
+    ])
+
+    // Profile failure is the only path that blocks navigation — the inline
+    // alert (via profileMutation.error) reads the message and the user can
+    // retry. Any deck copies that already landed stay; they're idempotency-
+    // keyed so retrying Continue won't lose them, but it will (by Stage 4
+    // design) duplicate any that succeeded.
+    if (profileResult.status === 'rejected') return
+
+    const failedCopies    = copyResults.filter((r) => r.status === 'rejected').length
+    const succeededCopies = selected.length - failedCopies
+    if (failedCopies > 0) {
+      showToast(
+        succeededCopies === 0
+          ? `Couldn't add the ${selected.length} ${selected.length === 1 ? 'deck' : 'decks'} you picked. You can add ${selected.length === 1 ? 'it' : 'them'} from the catalogue.`
+          : `Added ${succeededCopies} of ${selected.length} decks. You can add the rest from the catalogue.`,
+        'error',
+      )
+      // Still navigate — the user picked the decks and we're not stranding
+      // them on the onboarding screen. The error toast carries the partial
+      // status forward.
+    }
+
+    reset()
+    router.push('/today')
   }
 
   return (
+    <>
     <StepCard
       previewPane={
         <DeckSummary
@@ -218,8 +262,8 @@ export default function DecksPage(): React.JSX.Element {
             showBack
             isSkipping={isSkipping}
             continueLabel={isSkipping ? "I'll browse decks myself" : 'Add and begin'}
-            continueLoading={isPending}
-            onContinue={handleContinue}
+            continueLoading={isBusy}
+            onContinue={() => { void handleContinue() }}
           />
         </div>
       }
@@ -259,6 +303,16 @@ export default function DecksPage(): React.JSX.Element {
         </StepChild>
       </div>
     </StepCard>
+
+    {toast !== null && (
+      <Toast
+        key={toast.key}
+        message={toast.message}
+        kind={toast.kind}
+        onDismiss={dismissToast}
+      />
+    )}
+    </>
   )
 }
 
