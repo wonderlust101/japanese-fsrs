@@ -9,4 +9,7 @@ export const staleTimes = {
   // a single browsing session. 1 hour is enough — the next /review visit
   // tomorrow will refetch naturally.
   tomoNote:   1000 * 60 * 60,  // 1 hour
+  // Cards browser list. Short — the user is actively filtering, and any
+  // mutation (delete, suspend, move) invalidates via queryKeys.cards.all().
+  cardsList:  1000 * 60 * 2,   // 2 min
 } as const

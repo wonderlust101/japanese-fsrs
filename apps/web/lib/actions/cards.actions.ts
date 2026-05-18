@@ -1,21 +1,29 @@
 'use server'
 
 import { apiCall, apiCallSafe } from '@/lib/api/client'
+import { z } from 'zod'
 import {
   ApiCardSchema,
   ApiCardListItemSchema,
+  ApiCrossDeckCardListItemSchema,
+  ApiBulkCardMutationResultSchema,
   ApiSimilarCardSchema,
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
   apiListEnvelope,
   voidResponseSchema,
+  type ApiBulkCardMutationResult,
   type ApiCard,
   type ApiCardListItem,
+  type ApiCrossDeckCardListItem,
   type ApiList,
   type ApiSimilarCard,
+  type CardMissingField,
+  type CardSortField,
   type CardStatusFilter,
   type CreateCardPayload,
+  type CrossDeckJlptFilter,
   type UpdateCardPayload,
   type GeneratedCardData,
   type GeneratedSentences,
@@ -159,22 +167,190 @@ export async function deleteCardAction(cardId: string): Promise<void> {
 }
 
 /**
- * Move a card to another deck. The frontend ships this expecting the backend
- * to land a POST /api/v1/cards/:id/move endpoint that takes { deckId } and
- * relocates the card row (and its content siblings) to the target deck.
- *
- * Until the endpoint exists in production, calls will surface as an API error
- * which the calling dialog surfaces to the user.
+ * Move a card to another deck. Siblings in other decks stay put — only the
+ * targeted row's deck_id changes. Backed by `POST /api/v1/cards/:id/move`,
+ * which atomically adjusts both decks' card_count.
  */
-export async function moveCardAction(cardId: string, targetDeckId: string): Promise<void> {
-  await apiCall<unknown>(
+export async function moveCardAction(cardId: string, targetDeckId: string): Promise<ApiCard> {
+  return apiCall<ApiCard>(
     `/api/v1/cards/${cardId}/move`,
-    voidResponseSchema,
+    ApiCardSchema,
     {
       method:  'POST',
       headers: { 'Idempotency-Key': crypto.randomUUID() },
       body:    JSON.stringify({ deckId: targetDeckId }),
     },
     'Failed to move card',
+  )
+}
+
+// ─── Cross-deck list + browser mutations ──────────────────────────────────────
+
+/** Query params for the cross-deck list. Mirrors the backend Zod schema. */
+export interface CrossDeckCardsActionOptions {
+  limit?:        number
+  cursor?:       string
+  search?:       string
+  deckId?:       string
+  jlptLevel?:    CrossDeckJlptFilter
+  status?:       CardStatusFilter
+  missingField?: CardMissingField
+  sort?:         CardSortField
+}
+
+const EMPTY_CROSS_DECK_PAGE: ApiList<ApiCrossDeckCardListItem> & { totalCount: number } = {
+  items: [], nextCursor: null, hasMore: false, totalCount: 0,
+}
+
+const CrossDeckListResultSchema = z.object({
+  items:      z.array(ApiCrossDeckCardListItemSchema),
+  nextCursor: z.string().nullable(),
+  hasMore:    z.boolean(),
+  totalCount: z.number().int().nonnegative(),
+})
+
+export type CrossDeckListResult = z.infer<typeof CrossDeckListResultSchema>
+
+export async function listCardsCrossDeckAction(
+  options: CrossDeckCardsActionOptions = {},
+): Promise<CrossDeckListResult> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 25))
+  if (options.cursor       !== undefined)                                       params.set('cursor',       options.cursor)
+  if (options.search       !== undefined && options.search.length > 0)          params.set('search',       options.search)
+  if (options.deckId       !== undefined)                                       params.set('deckId',       options.deckId)
+  if (options.jlptLevel    !== undefined && options.jlptLevel    !== 'all')     params.set('jlptLevel',    options.jlptLevel)
+  if (options.status       !== undefined && options.status       !== 'all')     params.set('status',       options.status)
+  if (options.missingField !== undefined)                                       params.set('missingField', options.missingField)
+  if (options.sort         !== undefined)                                       params.set('sort',         options.sort)
+
+  return apiCallSafe<CrossDeckListResult>(
+    `/api/v1/cards/cross-deck?${params.toString()}`,
+    CrossDeckListResultSchema,
+    {},
+    EMPTY_CROSS_DECK_PAGE,
+  )
+}
+
+/** Clone the card into another deck with fresh FSRS state. Returns the new card. */
+export async function copyCardAction(cardId: string, targetDeckId: string): Promise<ApiCard> {
+  return apiCall<ApiCard>(
+    `/api/v1/cards/${cardId}/copy`,
+    ApiCardSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ deckId: targetDeckId }),
+    },
+    'Failed to copy card',
+  )
+}
+
+export async function suspendCardAction(cardId: string): Promise<ApiCard> {
+  return apiCall<ApiCard>(
+    `/api/v1/cards/${cardId}/suspend`,
+    ApiCardSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({}),
+    },
+    'Failed to suspend card',
+  )
+}
+
+export async function unsuspendCardAction(cardId: string): Promise<ApiCard> {
+  return apiCall<ApiCard>(
+    `/api/v1/cards/${cardId}/unsuspend`,
+    ApiCardSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({}),
+    },
+    'Failed to unsuspend card',
+  )
+}
+
+// ─── Bulk mutations ──────────────────────────────────────────────────────────
+
+export async function bulkMoveCardsAction(
+  ids: readonly string[],
+  targetDeckId: string,
+): Promise<ApiBulkCardMutationResult> {
+  return apiCall<ApiBulkCardMutationResult>(
+    '/api/v1/cards/bulk/move',
+    ApiBulkCardMutationResultSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ ids, deckId: targetDeckId }),
+    },
+    'Failed to move cards',
+  )
+}
+
+export async function bulkSuspendCardsAction(
+  ids: readonly string[],
+): Promise<ApiBulkCardMutationResult> {
+  return apiCall<ApiBulkCardMutationResult>(
+    '/api/v1/cards/bulk/suspend',
+    ApiBulkCardMutationResultSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ ids }),
+    },
+    'Failed to suspend cards',
+  )
+}
+
+export async function bulkUnsuspendCardsAction(
+  ids: readonly string[],
+): Promise<ApiBulkCardMutationResult> {
+  return apiCall<ApiBulkCardMutationResult>(
+    '/api/v1/cards/bulk/unsuspend',
+    ApiBulkCardMutationResultSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ ids }),
+    },
+    'Failed to unsuspend cards',
+  )
+}
+
+export async function bulkDeleteCardsAction(
+  ids: readonly string[],
+): Promise<ApiBulkCardMutationResult> {
+  return apiCall<ApiBulkCardMutationResult>(
+    '/api/v1/cards/bulk/delete',
+    ApiBulkCardMutationResultSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({ ids }),
+    },
+    'Failed to delete cards',
+  )
+}
+
+export async function bulkTagCardsAction(
+  ids: readonly string[],
+  options: { addTags?: readonly string[]; removeTags?: readonly string[] },
+): Promise<ApiBulkCardMutationResult> {
+  const body: Record<string, unknown> = { ids }
+  if (options.addTags    !== undefined && options.addTags.length > 0)    body['addTags']    = options.addTags
+  if (options.removeTags !== undefined && options.removeTags.length > 0) body['removeTags'] = options.removeTags
+
+  return apiCall<ApiBulkCardMutationResult>(
+    '/api/v1/cards/bulk/tag',
+    ApiBulkCardMutationResultSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify(body),
+    },
+    'Failed to tag cards',
   )
 }

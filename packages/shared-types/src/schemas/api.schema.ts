@@ -73,6 +73,34 @@ export const ApiCardListItemSchema = ApiCardSchema.pick({
   tags:        true,
 })
 
+// ─── Cross-deck card list ─────────────────────────────────────────────────────
+//
+// Powers `GET /api/v1/cards/cross-deck` (the /cards browser). Adds the
+// joined `deckId` + `deckName` so the table can render a deck column
+// without an N+1 deck-list lookup, and `lapses` so the sort=lapses option
+// can show the metric directly in the row.
+
+export const ApiCrossDeckCardListItemSchema = ApiCardListItemSchema.extend({
+  deckId:   z.string(),
+  deckName: z.string(),
+  lapses:   z.number().int().nonnegative(),
+})
+
+// ─── Bulk mutation result ─────────────────────────────────────────────────────
+//
+// Bulk endpoints (`POST /api/v1/cards/bulk/*`) return per-id outcomes so
+// the UI can show partial-success states. `failed` is empty on the
+// happy path; populated when ownership checks reject some ids.
+
+export const ApiBulkCardMutationResultSchema = z.object({
+  succeeded: z.array(z.string()),
+  failed:    z.array(z.object({
+    id:    z.string(),
+    error: z.string(),
+    code:  z.string().optional(),
+  })),
+})
+
 export const ApiSimilarCardSchema = z.object({
   id:         z.string(),
   deckId:     z.string(),

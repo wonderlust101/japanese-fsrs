@@ -9,6 +9,11 @@ export const queryKeys = {
     byDeck:  (deckId: string) => [...queryKeys.cards.all(), 'deck', deckId]       as const,
     detail:  (id: string)     => [...queryKeys.cards.all(), 'detail', id]         as const,
     similar: (id: string)     => [...queryKeys.cards.all(), 'similar', id]        as const,
+    // Cross-deck browser. The filter object is part of the key so each
+    // (deck, status, jlpt, search, missingField, sort) combination caches
+    // independently — matches the weak-spots list pattern.
+    crossDeck:     (filters: object) => [...queryKeys.cards.all(), 'crossDeck', filters] as const,
+    qualityIssues: ()                => [...queryKeys.cards.all(), 'qualityIssues']      as const,
   },
   reviews: {
     due:      ()           => ['reviews', 'due']            as const,

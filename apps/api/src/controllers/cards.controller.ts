@@ -6,9 +6,19 @@ import {
   cardIdParamSchema,
   nestedDeckIdParamSchema,
   listCardsQuerySchema,
+  crossDeckListCardsQuerySchema,
+  moveCardBodySchema,
+  copyCardBodySchema,
+  suspendCardBodySchema,
+  bulkMoveCardsBodySchema,
+  bulkSuspendCardsBodySchema,
+  bulkUnsuspendCardsBodySchema,
+  bulkDeleteCardsBodySchema,
+  bulkTagCardsBodySchema,
   forgetCardBodySchema,
 } from '@fsrs-japanese/shared-types'
 import type {
+  ApiBulkCardMutationResult,
   ApiCard,
   FieldsData,
   GeneratedCardData,
@@ -17,6 +27,7 @@ import type {
 
 import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
 import * as cardService    from '../services/card.service.ts'
+import type { CrossDeckListParams } from '../services/card.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { forgetCard, rescheduleFromHistory } from '../services/fsrs.service.ts'
@@ -249,6 +260,221 @@ export const reschedule: RequestHandler = async (req, res): Promise<void> => {
     { cardId: id },
     async () => {
       const result = await rescheduleFromHistory(id, req.user.id)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/**
+ * GET /api/v1/cards/cross-deck
+ * Cross-deck card-browser list. Filters: search, deckId, jlptLevel, status,
+ * missingField. Sort: recent | due | lapses. Cursor-paginated.
+ *
+ * Routed under both the flat (/api/v1/cards) and deck-scoped mounts; the
+ * deck-scoped path's :deckId is intentionally ignored (the browser uses
+ * the query-string deckId filter so users can move between decks without
+ * re-routing). The handler doesn't read req.params.deckId.
+ */
+export const listCrossDeck: RequestHandler = async (req, res): Promise<void> => {
+  const query = crossDeckListCardsQuerySchema.parse(req.query)
+
+  // Build the params object incrementally to satisfy exactOptionalPropertyTypes:
+  // the service signature treats absent and present-as-undefined as distinct,
+  // so we omit the key entirely when the query value isn't set.
+  const params: CrossDeckListParams = { limit: query.limit }
+  if (query.cursor       !== undefined) params.cursor       = query.cursor
+  if (query.search       !== undefined) params.search       = query.search
+  if (query.deckId       !== undefined) params.deckId       = query.deckId
+  if (query.jlptLevel    !== undefined) params.jlptLevel    = query.jlptLevel
+  if (query.status       !== undefined) params.status       = query.status
+  if (query.missingField !== undefined) params.missingField = query.missingField
+  if (query.sort         !== undefined) params.sort         = query.sort
+
+  const result = await cardService.listCardsCrossDeck(req.user.id, params)
+  res.json(result)
+}
+
+/**
+ * POST /api/v1/cards/:id/move
+ * Moves a card to a different deck. Siblings in other decks stay put —
+ * only this row's deck_id changes. Card-count rollups on both decks are
+ * adjusted atomically by the RPC.
+ *
+ * Requires `Idempotency-Key`. Premade source cards return 404 (the same
+ * shape as a missing/foreign card) — they're never moveable.
+ */
+export const move: RequestHandler = async (req, res): Promise<void> => {
+  const { id }     = cardIdParamSchema.parse(req.params)
+  const { deckId } = moveCardBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiCard>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id, deckId },
+    async () => {
+      const card = await cardService.moveCard(id, req.user.id, deckId)
+      return { status: 200, body: card }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/**
+ * POST /api/v1/cards/:id/copy
+ * Adds a personal copy of this card to another deck. The new row joins
+ * the source's sibling family (parent_card_id resolves to the source's
+ * parent or to the source itself), gets fresh FSRS state, and is owned
+ * by the caller. Returns the new card.
+ *
+ * Requires `Idempotency-Key`.
+ */
+export const copy: RequestHandler = async (req, res): Promise<void> => {
+  const { id }     = cardIdParamSchema.parse(req.params)
+  const { deckId } = copyCardBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiCard>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id, deckId },
+    async () => {
+      const card = await cardService.copyCard(id, req.user.id, deckId)
+      return { status: 201, body: card }
+    },
+  )
+  if (status === 201) {
+    res.setHeader('Location', `/api/v1/cards/${body.id}`)
+  }
+  res.status(status).json(body)
+}
+
+/**
+ * POST /api/v1/cards/:id/suspend
+ * Sets `is_suspended = TRUE`. FSRS state is preserved — when the card is
+ * unsuspended later, the schedule picks up where it left off.
+ */
+export const suspend: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = cardIdParamSchema.parse(req.params)
+  suspendCardBodySchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency<ApiCard>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id, op: 'suspend' },
+    async () => {
+      const card = await cardService.suspendCard(id, req.user.id)
+      return { status: 200, body: card }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/**
+ * POST /api/v1/cards/:id/unsuspend
+ * Sets `is_suspended = FALSE`. Idempotent.
+ */
+export const unsuspend: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = cardIdParamSchema.parse(req.params)
+  suspendCardBodySchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency<ApiCard>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { cardId: id, op: 'unsuspend' },
+    async () => {
+      const card = await cardService.unsuspendCard(id, req.user.id)
+      return { status: 200, body: card }
+    },
+  )
+  res.status(status).json(body)
+}
+
+// ─── Bulk mutations ──────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/cards/bulk/move
+ * Bulk-moves a set of cards to a target deck. Per-id outcomes are returned
+ * so the UI can show partial-success states. Cards not owned by the caller
+ * (or premade source rows) end up in `failed`.
+ */
+export const bulkMove: RequestHandler = async (req, res): Promise<void> => {
+  const { ids, deckId } = bulkMoveCardsBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { op: 'bulk-move', ids: [...ids].sort(), deckId },
+    async () => {
+      const result = await cardService.bulkMoveCards(ids, req.user.id, deckId)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/** POST /api/v1/cards/bulk/suspend */
+export const bulkSuspend: RequestHandler = async (req, res): Promise<void> => {
+  const { ids } = bulkSuspendCardsBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { op: 'bulk-suspend', ids: [...ids].sort() },
+    async () => {
+      const result = await cardService.bulkSuspendCards(ids, req.user.id)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/** POST /api/v1/cards/bulk/unsuspend */
+export const bulkUnsuspend: RequestHandler = async (req, res): Promise<void> => {
+  const { ids } = bulkUnsuspendCardsBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { op: 'bulk-unsuspend', ids: [...ids].sort() },
+    async () => {
+      const result = await cardService.bulkUnsuspendCards(ids, req.user.id)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/** POST /api/v1/cards/bulk/delete */
+export const bulkDelete: RequestHandler = async (req, res): Promise<void> => {
+  const { ids } = bulkDeleteCardsBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { op: 'bulk-delete', ids: [...ids].sort() },
+    async () => {
+      const result = await cardService.bulkDeleteCards(ids, req.user.id)
+      return { status: 200, body: result }
+    },
+  )
+  res.status(status).json(body)
+}
+
+/** POST /api/v1/cards/bulk/tag */
+export const bulkTag: RequestHandler = async (req, res): Promise<void> => {
+  const { ids, addTags, removeTags } = bulkTagCardsBodySchema.parse(req.body)
+
+  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    {
+      op:         'bulk-tag',
+      ids:        [...ids].sort(),
+      addTags:    addTags    ? [...addTags].sort()    : null,
+      removeTags: removeTags ? [...removeTags].sort() : null,
+    },
+    async () => {
+      const result = await cardService.bulkTagCards(ids, req.user.id, addTags, removeTags)
       return { status: 200, body: result }
     },
   )

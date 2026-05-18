@@ -11,6 +11,8 @@ import type {
   ApiCardSchema,
   ApiDueCardSchema,
   ApiCardListItemSchema,
+  ApiCrossDeckCardListItemSchema,
+  ApiBulkCardMutationResultSchema,
   ApiSimilarCardSchema,
   ApiDeckSchema,
   ApiDeckWithStatsSchema,
@@ -40,6 +42,22 @@ export type ApiCard         = z.infer<typeof ApiCardSchema>
 export type ApiDueCard      = z.infer<typeof ApiDueCardSchema>
 /** Subset of ApiCard returned by /decks/:id/cards (card list). */
 export type ApiCardListItem = z.infer<typeof ApiCardListItemSchema>
+
+/**
+ * Returned by `GET /api/v1/cards/cross-deck` (the /cards browser). Extends
+ * `ApiCardListItem` with the joined `deckId` + `deckName` and the `lapses`
+ * counter, so the cross-deck table can render a deck column and a lapse
+ * sort without a follow-up lookup.
+ */
+export type ApiCrossDeckCardListItem = z.infer<typeof ApiCrossDeckCardListItemSchema>
+
+/**
+ * Returned by bulk-mutation endpoints under `POST /api/v1/cards/bulk/*`.
+ * `succeeded` lists the ids that were mutated; `failed` lists per-id
+ * rejections (premade-source guards, ownership failures, missing rows) so
+ * the UI can show a usable partial-success error.
+ */
+export type ApiBulkCardMutationResult = z.infer<typeof ApiBulkCardMutationResultSchema>
 
 /**
  * Wire-format result from /api/v1/cards/:id/similar (find_similar_cards RPC).

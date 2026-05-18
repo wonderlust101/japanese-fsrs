@@ -1,35 +1,14 @@
 'use client'
 
-export type SavedViewKey =
-  | 'weakSpots'
-  | 'missing-image'
-  | 'missing-audio'
-  | 'missing-mnemonic'
-  | 'recent'
-  | 'suspended'
-  | 'due-today'
-  | 'n4-verbs'
+import { BUILTIN_VIEWS, type SavedView } from './saved-views-storage'
 
-export interface SavedView {
-  key:         SavedViewKey
-  label:       string
-  description: string
-}
-
-export const SAVED_VIEWS: readonly SavedView[] = [
-  { key: 'weakSpots',        label: 'Weak spots',       description: 'Cards with repeated lapses or low retention.' },
-  { key: 'missing-image',    label: 'Missing images',   description: 'Cards without a picture field.' },
-  { key: 'missing-audio',    label: 'Missing audio',    description: 'Cards without expression audio.' },
-  { key: 'missing-mnemonic', label: 'Missing mnemonic', description: 'Cards without a memory hook.' },
-  { key: 'recent',           label: 'Recently added',   description: 'Newest cards across all decks.' },
-  { key: 'suspended',        label: 'Suspended',        description: 'Cards paused from the review queue.' },
-  { key: 'due-today',        label: 'Due today',        description: 'Cards scheduled for review today.' },
-  { key: 'n4-verbs',         label: 'N4 verbs',         description: 'JLPT N4 cards with verb part of speech.' },
-]
+export type SavedViewKey = string
 
 interface Props {
-  active:   SavedViewKey | null
-  onSelect: (next: SavedViewKey | null) => void
+  active:   string | null
+  onSelect: (next: string | null) => void
+  /** Override the view list if a caller wants a different set; defaults to the built-ins. */
+  views?:   ReadonlyArray<SavedView>
 }
 
 /**
@@ -37,20 +16,20 @@ interface Props {
  * narrow viewports so the strip never truncates. Clicking the active pill
  * clears the view (returns to default state).
  */
-export function SavedViewPills({ active, onSelect }: Props): React.JSX.Element {
+export function SavedViewPills({ active, onSelect, views = BUILTIN_VIEWS }: Props): React.JSX.Element {
   return (
     <nav
       aria-label="Saved views"
       className="-mx-1 overflow-x-auto"
     >
       <div className="flex min-w-max items-center gap-1.5 px-1">
-        {SAVED_VIEWS.map((view) => {
-          const isActive = view.key === active
+        {views.map((view) => {
+          const isActive = view.id === active
           return (
             <button
-              key={view.key}
+              key={view.id}
               type="button"
-              onClick={() => onSelect(isActive ? null : view.key)}
+              onClick={() => onSelect(isActive ? null : view.id)}
               aria-pressed={isActive}
               title={view.description}
               className={[

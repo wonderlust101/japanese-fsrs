@@ -87,6 +87,77 @@ export const listCardsQuerySchema = z.object({
   status: cardStatusFilterEnum.optional(),
 }).strict()
 
+// ─── Cross-deck list query (powers GET /api/v1/cards/cross-deck) ──────────────
+//
+// JLPT filter intentionally widens 'all' → no filter and accepts the magic
+// value 'beyond' to mean "no level OR beyond_jlpt" (matches the frontend's
+// 'Beyond JLPT' bucket exactly — see cards-browser-view.tsx).
+
+export const crossDeckJlptFilterEnum = z.enum([
+  'all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond',
+])
+
+export const cardMissingFieldEnum = z.enum([
+  'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
+])
+
+export const cardSortFieldEnum = z.enum(['recent', 'due', 'lapses'])
+
+export const crossDeckListCardsQuerySchema = z.object({
+  limit:        z.coerce.number().int().min(1).max(100).default(50),
+  cursor:       z.string().min(1).max(512).optional(),
+  search:       z.string().min(1).max(100).optional(),
+  deckId:       z.string().uuid('Invalid deck ID').optional(),
+  jlptLevel:    crossDeckJlptFilterEnum.optional(),
+  status:       cardStatusFilterEnum.optional(),
+  missingField: cardMissingFieldEnum.optional(),
+  sort:         cardSortFieldEnum.optional(),
+}).strict()
+
+// ─── Mutation body schemas ────────────────────────────────────────────────────
+//
+// Move / copy / suspend / unsuspend are addressed by `:id` in the path, so
+// they only need the target deck (move + copy) or an empty body
+// (suspend/unsuspend). All are POSTs with `Idempotency-Key`.
+
+export const moveCardBodySchema = z.object({
+  deckId: z.string().uuid('Invalid target deck ID'),
+}).strict()
+
+export const copyCardBodySchema = moveCardBodySchema
+
+export const suspendCardBodySchema = z.object({}).strict()
+
+// ─── Bulk mutation schemas ────────────────────────────────────────────────────
+//
+// Bulk endpoints accept a non-empty array of card ids. The cap is large
+// enough for a paged selection (page sizes go up to 100) and bounded so a
+// runaway payload can't DoS the rate limiter.
+
+const bulkIdsField = z.array(z.string().uuid('Invalid card ID')).min(1).max(500)
+
+export const bulkMoveCardsBodySchema = z.object({
+  ids:    bulkIdsField,
+  deckId: z.string().uuid('Invalid target deck ID'),
+}).strict()
+
+export const bulkSuspendCardsBodySchema = z.object({
+  ids: bulkIdsField,
+}).strict()
+
+export const bulkUnsuspendCardsBodySchema = bulkSuspendCardsBodySchema
+
+export const bulkDeleteCardsBodySchema = bulkSuspendCardsBodySchema
+
+export const bulkTagCardsBodySchema = z.object({
+  ids:        bulkIdsField,
+  addTags:    z.array(safeShortText(50, 1)).max(20).optional(),
+  removeTags: z.array(safeShortText(50, 1)).max(20).optional(),
+}).strict().refine(
+  (v) => (v.addTags && v.addTags.length > 0) || (v.removeTags && v.removeTags.length > 0),
+  { message: 'At least one of addTags or removeTags must be non-empty' },
+)
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 //
 // `*Input` is `z.infer` (post-parse) — defaults are filled, required fields all present.
@@ -101,3 +172,17 @@ export type UpdateCardInput    = z.infer<typeof updateCardSchema>
 export type UpdateCardPayload  = z.input<typeof updateCardSchema>
 export type ListCardsQuery     = z.infer<typeof listCardsQuerySchema>
 export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>
+
+export type CrossDeckListCardsQuery = z.infer<typeof crossDeckListCardsQuerySchema>
+export type CrossDeckJlptFilter     = z.infer<typeof crossDeckJlptFilterEnum>
+export type CardMissingField        = z.infer<typeof cardMissingFieldEnum>
+export type CardSortField           = z.infer<typeof cardSortFieldEnum>
+
+export type MoveCardBody             = z.infer<typeof moveCardBodySchema>
+export type CopyCardBody             = z.infer<typeof copyCardBodySchema>
+export type SuspendCardBody          = z.infer<typeof suspendCardBodySchema>
+export type BulkMoveCardsBody        = z.infer<typeof bulkMoveCardsBodySchema>
+export type BulkSuspendCardsBody     = z.infer<typeof bulkSuspendCardsBodySchema>
+export type BulkUnsuspendCardsBody   = z.infer<typeof bulkUnsuspendCardsBodySchema>
+export type BulkDeleteCardsBody      = z.infer<typeof bulkDeleteCardsBodySchema>
+export type BulkTagCardsBody         = z.infer<typeof bulkTagCardsBodySchema>

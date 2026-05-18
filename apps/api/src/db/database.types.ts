@@ -1259,6 +1259,93 @@ export type Database = {
         }
         Returns: undefined
       }
+      // ─── pending regeneration ─────────────────────────────────────────
+      // The block below mirrors the signatures introduced by migrations
+      // 20260617000000_list_cards_cross_deck_rpc.sql and
+      // 20260617000001_card_move_copy_suspend_rpcs.sql. They are added by
+      // hand so the codebase type-checks before the next
+      // `bun run db:types` regenerates this file from a database that has
+      // these migrations applied. Replace this block with the generator's
+      // output once the migrations are deployed remotely.
+      list_cards_cross_deck: {
+        Args: {
+          p_user_id:        string
+          p_limit:          number
+          p_cursor?:        string
+          p_deck_id?:       string
+          p_status?:        string
+          p_jlpt_level?:    string
+          p_search?:        string
+          p_missing_field?: string
+          p_sort?:          string
+        }
+        Returns: {
+          id:           string
+          deck_id:      string
+          deck_name:    string
+          fields_data:  Json
+          layout_type:  Database["public"]["Enums"]["layout_type"]
+          jlpt_level:   Database["public"]["Enums"]["jlpt_level"]
+          state:        number
+          is_suspended: boolean
+          due:          string
+          tags:         string[]
+          lapses:       number
+          created_at:   string
+        }[]
+      }
+      count_cards_cross_deck: {
+        Args: {
+          p_user_id:        string
+          p_deck_id?:       string
+          p_status?:        string
+          p_jlpt_level?:    string
+          p_search?:        string
+          p_missing_field?: string
+        }
+        Returns: number
+      }
+      move_card: {
+        Args: { p_card_id: string; p_user_id: string; p_target_deck_id: string }
+        Returns: string
+      }
+      copy_card: {
+        Args: { p_card_id: string; p_user_id: string; p_target_deck_id: string }
+        Returns: string
+      }
+      suspend_card: {
+        Args: { p_card_id: string; p_user_id: string }
+        Returns: string
+      }
+      unsuspend_card: {
+        Args: { p_card_id: string; p_user_id: string }
+        Returns: string
+      }
+      bulk_move_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string; p_target_deck_id: string }
+        Returns: Json
+      }
+      bulk_suspend_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
+      bulk_unsuspend_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
+      bulk_delete_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
+      bulk_tag_cards: {
+        Args: {
+          p_card_ids:    string[]
+          p_user_id:     string
+          p_add_tags:    string[]
+          p_remove_tags: string[]
+        }
+        Returns: Json
+      }
     }
     Enums: {
       deck_type: "vocabulary" | "kanji" | "mixed"

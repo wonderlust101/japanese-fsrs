@@ -23,12 +23,17 @@ import {
     State,
     jlptLevelEnum,
     layoutTypeEnum,
+    type ApiBulkCardMutationResult,
     type ApiCard,
     type ApiCardListItem,
+    type ApiCrossDeckCardListItem,
     type ApiDueCard,
     type ApiList,
     type ApiSimilarCard,
+    type CardMissingField,
+    type CardSortField,
     type CardStatusFilter,
+    type CrossDeckJlptFilter,
     type FieldsData,
     type GeneratedCardData,
     type GeneratedSentenceCard,
@@ -856,4 +861,297 @@ export async function generateEmbedding(
   }
 
   return first.embedding
+}
+
+// ─── Cross-deck list ─────────────────────────────────────────────────────────
+//
+// Powers GET /api/v1/cards/cross-deck (the /cards browser). Two RPCs are
+// fired in parallel: `list_cards_cross_deck` for the page slice and
+// `count_cards_cross_deck` for the total-count footer.
+
+/** Row shape returned by `list_cards_cross_deck`. */
+const CrossDeckCardRpcRowSchema = CardDbRowSchema.pick({
+  id:           true,
+  fields_data:  true,
+  layout_type:  true,
+  jlpt_level:   true,
+  state:        true,
+  is_suspended: true,
+  due:          true,
+  tags:         true,
+  lapses:       true,
+  created_at:   true,
+}).extend({
+  deck_id:   z.string(),
+  deck_name: z.string(),
+})
+
+type CrossDeckCardRpcRow = z.infer<typeof CrossDeckCardRpcRowSchema>
+
+function toApiCrossDeckCardListItem(raw: CrossDeckCardRpcRow): ApiCrossDeckCardListItem {
+  return {
+    id:          raw.id,
+    deckId:      raw.deck_id,
+    deckName:    raw.deck_name,
+    fieldsData:  raw.fields_data as FieldsData,
+    layoutType:  raw.layout_type,
+    jlptLevel:   raw.jlpt_level,
+    state:       raw.state,
+    isSuspended: raw.is_suspended,
+    due:         raw.due,
+    tags:        raw.tags,
+    lapses:      raw.lapses,
+  }
+}
+
+export interface CrossDeckCardListResult {
+  items:      ApiCrossDeckCardListItem[]
+  nextCursor: string | null
+  hasMore:    boolean
+  totalCount: number
+}
+
+export interface CrossDeckListParams {
+  limit:        number
+  cursor?:      string
+  search?:      string
+  deckId?:      string
+  jlptLevel?:   CrossDeckJlptFilter
+  status?:      CardStatusFilter
+  missingField?: CardMissingField
+  sort?:        CardSortField
+}
+
+export async function listCardsCrossDeck(
+  userId: string,
+  params: CrossDeckListParams,
+): Promise<CrossDeckCardListResult> {
+  const cursorId = params.cursor !== undefined
+    ? decodeCursor(params.cursor, cardListCursorSchema).id
+    : null
+
+  const sort = params.sort ?? 'recent'
+
+  const [listResult, countResult] = await Promise.all([
+    supabaseAdmin.rpc('list_cards_cross_deck', asPayload({
+      p_user_id:       userId,
+      p_limit:         params.limit + 1,
+      p_cursor:        cursorId,
+      p_deck_id:       params.deckId       ?? null,
+      p_status:        params.status       ?? null,
+      p_jlpt_level:    params.jlptLevel    ?? null,
+      p_search:        params.search       ?? null,
+      p_missing_field: params.missingField ?? null,
+      p_sort:          sort,
+    })),
+    supabaseAdmin.rpc('count_cards_cross_deck', asPayload({
+      p_user_id:       userId,
+      p_deck_id:       params.deckId       ?? null,
+      p_status:        params.status       ?? null,
+      p_jlpt_level:    params.jlptLevel    ?? null,
+      p_search:        params.search       ?? null,
+      p_missing_field: params.missingField ?? null,
+    })),
+  ])
+
+  if (listResult.error !== null) {
+    throw dbError('list cards cross-deck', listResult.error)
+  }
+  if (countResult.error !== null) {
+    throw dbError('count cards cross-deck', countResult.error)
+  }
+
+  const rows    = z.array(CrossDeckCardRpcRowSchema).parse(listResult.data ?? [])
+  const hasMore = rows.length > params.limit
+  const items   = rows.slice(0, params.limit).map(toApiCrossDeckCardListItem)
+  const lastId  = items[items.length - 1]?.id
+  const totalCount = z.number().int().nonnegative().parse(countResult.data ?? 0)
+
+  return {
+    items,
+    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
+    hasMore,
+    totalCount,
+  }
+}
+
+// ─── Move / copy / suspend / unsuspend ───────────────────────────────────────
+
+/** Maps the RPC's SQLSTATE-tagged exception to a 404 AppError. */
+function rpcCardNotFoundError(message?: string): never {
+  throw new AppError(404, message ?? 'Card not found', { code: 'CARD_NOT_FOUND' })
+}
+
+/** Maps the RPC's `deck_not_found` exception to a 404 AppError. */
+function rpcDeckNotFoundError(): never {
+  throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
+}
+
+/** Reusable adapter: NO_DATA_FOUND (02000) → 404 with a stable code. */
+function mapNotFoundError(err: { code?: string; message?: string } | null): void {
+  if (err === null) return
+  if (err.code === '02000' && (err.message ?? '').includes('card_not_found')) {
+    rpcCardNotFoundError()
+  }
+  if (err.code === '02000' && (err.message ?? '').includes('deck_not_found')) {
+    rpcDeckNotFoundError()
+  }
+}
+
+export async function moveCard(
+  cardId:       string,
+  userId:       string,
+  targetDeckId: string,
+): Promise<ApiCard> {
+  const { error } = await supabaseAdmin.rpc('move_card', asPayload({
+    p_card_id:        cardId,
+    p_user_id:        userId,
+    p_target_deck_id: targetDeckId,
+  }))
+
+  if (error !== null) {
+    mapNotFoundError(error)
+    throw dbError('move card', error)
+  }
+
+  return getCard(cardId, userId)
+}
+
+export async function copyCard(
+  cardId:       string,
+  userId:       string,
+  targetDeckId: string,
+): Promise<ApiCard> {
+  const { data, error } = await supabaseAdmin.rpc('copy_card', asPayload({
+    p_card_id:        cardId,
+    p_user_id:        userId,
+    p_target_deck_id: targetDeckId,
+  }))
+
+  if (error !== null) {
+    mapNotFoundError(error)
+    throw dbError('copy card', error)
+  }
+
+  const newId = z.string().uuid().parse(data)
+  return getCard(newId, userId)
+}
+
+export async function suspendCard(
+  cardId: string,
+  userId: string,
+): Promise<ApiCard> {
+  const { error } = await supabaseAdmin.rpc('suspend_card', asPayload({
+    p_card_id: cardId,
+    p_user_id: userId,
+  }))
+
+  if (error !== null) {
+    mapNotFoundError(error)
+    throw dbError('suspend card', error)
+  }
+
+  return getCard(cardId, userId)
+}
+
+export async function unsuspendCard(
+  cardId: string,
+  userId: string,
+): Promise<ApiCard> {
+  const { error } = await supabaseAdmin.rpc('unsuspend_card', asPayload({
+    p_card_id: cardId,
+    p_user_id: userId,
+  }))
+
+  if (error !== null) {
+    mapNotFoundError(error)
+    throw dbError('unsuspend card', error)
+  }
+
+  return getCard(cardId, userId)
+}
+
+// ─── Bulk operations ─────────────────────────────────────────────────────────
+
+const BulkResultRpcSchema = z.object({
+  succeeded: z.array(z.string()),
+  failed:    z.array(z.object({
+    id:    z.string(),
+    error: z.string(),
+    code:  z.string().optional(),
+  })),
+})
+
+function parseBulkResult(data: unknown): ApiBulkCardMutationResult {
+  return BulkResultRpcSchema.parse(data ?? { succeeded: [], failed: [] })
+}
+
+export async function bulkMoveCards(
+  cardIds:      string[],
+  userId:       string,
+  targetDeckId: string,
+): Promise<ApiBulkCardMutationResult> {
+  const { data, error } = await supabaseAdmin.rpc('bulk_move_cards', asPayload({
+    p_card_ids:       cardIds,
+    p_user_id:        userId,
+    p_target_deck_id: targetDeckId,
+  }))
+
+  if (error !== null) {
+    mapNotFoundError(error)
+    throw dbError('bulk move cards', error)
+  }
+  return parseBulkResult(data)
+}
+
+export async function bulkSuspendCards(
+  cardIds: string[],
+  userId:  string,
+): Promise<ApiBulkCardMutationResult> {
+  const { data, error } = await supabaseAdmin.rpc('bulk_suspend_cards', asPayload({
+    p_card_ids: cardIds,
+    p_user_id:  userId,
+  }))
+  if (error !== null) throw dbError('bulk suspend cards', error)
+  return parseBulkResult(data)
+}
+
+export async function bulkUnsuspendCards(
+  cardIds: string[],
+  userId:  string,
+): Promise<ApiBulkCardMutationResult> {
+  const { data, error } = await supabaseAdmin.rpc('bulk_unsuspend_cards', asPayload({
+    p_card_ids: cardIds,
+    p_user_id:  userId,
+  }))
+  if (error !== null) throw dbError('bulk unsuspend cards', error)
+  return parseBulkResult(data)
+}
+
+export async function bulkDeleteCards(
+  cardIds: string[],
+  userId:  string,
+): Promise<ApiBulkCardMutationResult> {
+  const { data, error } = await supabaseAdmin.rpc('bulk_delete_cards', asPayload({
+    p_card_ids: cardIds,
+    p_user_id:  userId,
+  }))
+  if (error !== null) throw dbError('bulk delete cards', error)
+  return parseBulkResult(data)
+}
+
+export async function bulkTagCards(
+  cardIds:    string[],
+  userId:     string,
+  addTags:    string[] | undefined,
+  removeTags: string[] | undefined,
+): Promise<ApiBulkCardMutationResult> {
+  const { data, error } = await supabaseAdmin.rpc('bulk_tag_cards', asPayload({
+    p_card_ids:    cardIds,
+    p_user_id:     userId,
+    p_add_tags:    addTags    ?? [],
+    p_remove_tags: removeTags ?? [],
+  }))
+  if (error !== null) throw dbError('bulk tag cards', error)
+  return parseBulkResult(data)
 }

@@ -26,6 +26,8 @@ export type {
   ApiCard,
   ApiDueCard,
   ApiCardListItem,
+  ApiCrossDeckCardListItem,
+  ApiBulkCardMutationResult,
   ApiDeck,
   ApiDeckWithStats,
   ApiPremadeDeck,
@@ -73,7 +75,9 @@ export {
 
 // API response schemas — apps validate every API response body against these.
 export {
-  ApiCardSchema, ApiDueCardSchema, ApiCardListItemSchema, ApiSimilarCardSchema,
+  ApiCardSchema, ApiDueCardSchema, ApiCardListItemSchema,
+  ApiCrossDeckCardListItemSchema, ApiBulkCardMutationResultSchema,
+  ApiSimilarCardSchema,
   ApiDeckSchema, ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema, ApiCopyPremadeDeckResultSchema,
   ApiTomoNoteSchema, ApiTomoNoteKindSchema,
@@ -103,11 +107,23 @@ export {
   createCardSchema, updateCardSchema,
   cardIdParamSchema, nestedDeckIdParamSchema,
   listCardsQuerySchema,
+  crossDeckListCardsQuerySchema, crossDeckJlptFilterEnum,
+  cardMissingFieldEnum, cardSortFieldEnum,
+  moveCardBodySchema, copyCardBodySchema, suspendCardBodySchema,
+  bulkMoveCardsBodySchema, bulkSuspendCardsBodySchema,
+  bulkUnsuspendCardsBodySchema, bulkDeleteCardsBodySchema,
+  bulkTagCardsBodySchema,
 } from './schemas/card.schema.ts'
 export type {
   CreateCardPayload,
   UpdateCardInput, UpdateCardPayload,
   CardStatusFilter,
+  CrossDeckListCardsQuery, CrossDeckJlptFilter,
+  CardMissingField, CardSortField,
+  MoveCardBody, CopyCardBody, SuspendCardBody,
+  BulkMoveCardsBody, BulkSuspendCardsBody,
+  BulkUnsuspendCardsBody, BulkDeleteCardsBody,
+  BulkTagCardsBody,
 } from './schemas/card.schema.ts'
 
 export {

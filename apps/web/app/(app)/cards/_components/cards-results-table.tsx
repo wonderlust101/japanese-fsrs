@@ -101,6 +101,16 @@ interface Props {
    * detail page so the user can read deeper content.
    */
   readOnly?: boolean
+  /**
+   * Selection mode. When `selectedIds` is provided, each row renders a
+   * checkbox at the leading edge (mirroring the kebab pattern as an
+   * absolute sibling of the Link, so it isn't nested inside the Link's
+   * clickable area). The header gains a "select all visible" checkbox.
+   * Omit both to keep the legacy behaviour.
+   */
+  selectedIds?:         ReadonlySet<string>
+  onToggleSelection?:   (cardId: string) => void
+  onToggleAllVisible?:  () => void
 }
 
 /**
@@ -115,7 +125,19 @@ export function CardsResultsTable({
   loading = false,
   cardHrefSuffix = '',
   readOnly = false,
+  selectedIds,
+  onToggleSelection,
+  onToggleAllVisible,
 }: Props): React.JSX.Element {
+  const selectionMode = selectedIds !== undefined && onToggleSelection !== undefined
+  const visibleIds    = rows.map((r) => r.id)
+  const allSelected   = selectionMode
+    && visibleIds.length > 0
+    && visibleIds.every((id) => selectedIds.has(id))
+  const someSelected  = selectionMode
+    && !allSelected
+    && visibleIds.some((id) => selectedIds.has(id))
+
   return (
     <div className="overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised">
       <span
@@ -126,26 +148,42 @@ export function CardsResultsTable({
       {/* Header. Right padding matches the row's `<Link>` (`pr-12` interactive
           mode; `pr-4` read-only) so both grids compute against the same
           available width — keeping every column edge between header and row
-          in lockstep. */}
+          in lockstep. The leading checkbox slot is rendered separately so
+          it doesn't disturb the column grid. */}
       <div
         className={[
-          'hidden md:grid',
-          readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
-          'items-center gap-3 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi',
+          'hidden md:flex items-center gap-3 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi',
           readOnly ? 'pr-4' : 'pr-12',
         ].join(' ')}
       >
-        <span>Word</span>
-        <span>Meaning</span>
-        <span className="hidden lg:block">Type</span>
-        <span className="hidden xl:block">Tags</span>
-        {!readOnly && (
-          <>
-            <span>Status</span>
-            <span className="text-right">Due</span>
-            <span className="sr-only">Actions</span>
-          </>
+        {selectionMode && (
+          <input
+            type="checkbox"
+            aria-label="Select all visible cards"
+            checked={allSelected}
+            ref={(el) => { if (el !== null) el.indeterminate = someSelected }}
+            onChange={onToggleAllVisible}
+            className="h-4 w-4 shrink-0 rounded-[1px] border-soft-hairline text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          />
         )}
+        <div
+          className={[
+            'grid flex-1 items-center gap-3',
+            readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
+          ].join(' ')}
+        >
+          <span>Word</span>
+          <span>Meaning</span>
+          <span className="hidden lg:block">Type</span>
+          <span className="hidden xl:block">Tags</span>
+          {!readOnly && (
+            <>
+              <span>Status</span>
+              <span className="text-right">Due</span>
+              <span className="sr-only">Actions</span>
+            </>
+          )}
+        </div>
       </div>
 
       {loading && (
@@ -178,6 +216,9 @@ export function CardsResultsTable({
               hrefSuffix={cardHrefSuffix}
               readOnly={readOnly}
               onAction={(action) => onRowAction?.(row.id, action)}
+              {...(selectionMode
+                ? { selected: selectedIds.has(row.id), onToggleSelected: () => onToggleSelection(row.id) }
+                : {})}
             />
           ))}
         </ul>
@@ -193,11 +234,15 @@ function ResultRow({
   hrefSuffix,
   readOnly,
   onAction,
+  selected,
+  onToggleSelected,
 }: {
-  row:        CardsResultRow
-  hrefSuffix: string
-  readOnly:   boolean
-  onAction:   (action: CardRowAction) => void
+  row:              CardsResultRow
+  hrefSuffix:       string
+  readOnly:         boolean
+  onAction:         (action: CardRowAction) => void
+  selected?:        boolean
+  onToggleSelected?: () => void
 }): React.JSX.Element {
   const dueLabel = row.due === null ? '—' : formatDue(row.due)
   const statusTone = statusForState(row.state, row.isSuspended)
@@ -205,14 +250,31 @@ function ResultRow({
   // as neutral catalogue content rather than a personal-state diagnostic.
   const lapseTier = readOnly ? 'ok' : lapseTierFor(row.lapses)
   const firstTag = row.tags[0]
+  const selectionMode = onToggleSelected !== undefined
 
   return (
     <li
       className={[
         'ui-motion-colors group/row relative',
         rowToneClass(lapseTier),
+        selected === true ? 'bg-vermillion-wash/30' : '',
       ].join(' ')}
     >
+      {/* Selection checkbox sits absolutely at the left edge so it's a peer
+          of the Link (not a descendant); the Link adds `pl-12` when in
+          selection mode to clear the checkbox area. */}
+      {selectionMode && (
+        <div className="absolute left-2 top-1/2 z-10 -translate-y-1/2">
+          <input
+            type="checkbox"
+            aria-label={`Select ${row.word}`}
+            checked={selected === true}
+            onChange={onToggleSelected}
+            className="h-4 w-4 rounded-[1px] border-soft-hairline text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          />
+        </div>
+      )}
+
       {/* Row actions sit absolutely at the far-right edge so the kebab
           is a peer of the Link, not a descendant — avoids nested
           interactive elements while still visually occupying the final
@@ -226,7 +288,8 @@ function ResultRow({
       <Link
         href={`/cards/${row.id}${hrefSuffix}`}
         className={[
-          'block px-4 py-4 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]',
+          'block py-4 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]',
+          selectionMode ? 'pl-12' : 'pl-4',
           readOnly ? 'pr-4' : 'pr-12',
         ].join(' ')}
       >

@@ -2,12 +2,19 @@
 
 import Link from 'next/link'
 
+/**
+ * Mirrors the backend's `ApiCardQualityIssueType` enum exactly. Source of
+ * truth is the Stage-8 `get_card_quality_issues` RPC, which always emits
+ * all six rows (zero-filled if necessary) so the consumer renders a
+ * stable shape.
+ */
 export type CardQualityIssueKind =
-  | 'missing-audio'
-  | 'missing-sentence'
-  | 'missing-kanji-breakdown'
-  | 'missing-mnemonic'
-  | 'missing-nuance'
+  | 'missing_reading'
+  | 'missing_meaning'
+  | 'missing_example'
+  | 'missing_mnemonic'
+  | 'missing_picture'
+  | 'missing_nuance'
 
 export interface CardQualityIssue {
   kind:  CardQualityIssueKind
@@ -19,19 +26,21 @@ interface CardsQualityBarsProps {
 }
 
 const QUALITY_ISSUE_LABEL: Readonly<Record<CardQualityIssueKind, string>> = {
-  'missing-audio':           'Missing audio',
-  'missing-sentence':        'Missing example sentence',
-  'missing-kanji-breakdown': 'Missing kanji breakdown',
-  'missing-mnemonic':        'Missing mnemonic',
-  'missing-nuance':          'Missing nuance note',
+  missing_reading:  'Missing reading',
+  missing_meaning:  'Missing meaning',
+  missing_example:  'Missing example sentence',
+  missing_mnemonic: 'Missing mnemonic',
+  missing_picture:  'Missing picture',
+  missing_nuance:   'Missing nuance note',
 }
 
 const ROUTE_BY_KIND: Record<CardQualityIssueKind, string> = {
-  'missing-audio':           '/cards?missing=audio',
-  'missing-sentence':        '/cards?missing=sentence',
-  'missing-kanji-breakdown': '/cards?missing=kanji-breakdown',
-  'missing-mnemonic':        '/cards?missing=mnemonic',
-  'missing-nuance':          '/cards?missing=nuance',
+  missing_reading:  '/cards?missing=reading',
+  missing_meaning:  '/cards?missing=meaning',
+  missing_example:  '/cards?missing=example',
+  missing_mnemonic: '/cards?missing=mnemonic',
+  missing_picture:  '/cards?missing=picture',
+  missing_nuance:   '/cards?missing=nuance',
 }
 
 /**

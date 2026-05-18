@@ -17,6 +17,10 @@ const router = Router({ mergeParams: true })
 router.use(authMiddleware, defaultUserRateLimitMiddleware)
 
 router.get('/',                          cardsController.list)
+// Cross-deck browser list. Registered before `/:id` so the literal segment
+// wins routing precedence (Express matches in declaration order, but being
+// explicit avoids surprises if the route table is reordered).
+router.get('/cross-deck',                cardsController.listCrossDeck)
 // Card creation has an AI path (`{ word: ... }`) that hits OpenAI; gate it
 // behind the AI minute-rate limit AND the AI daily quota. The manual path
 // (`{ fieldsData: ... }`) shares both budgets — acceptable since manual
@@ -35,5 +39,22 @@ router.post('/:id/regenerate-embedding', aiRateLimitMiddleware, aiDailyQuotaMidd
 // forget or reschedule in tight loops).
 router.post('/:id/forget',     cardsController.forget)
 router.post('/:id/reschedule', cardsController.reschedule)
+
+// /cards browser mutations. Scalar UPDATEs / atomic INSERTs — no external
+// service calls — so the default 240/min/user backstop is enough. Each is
+// idempotent via Idempotency-Key (see controllers).
+router.post('/:id/move',      cardsController.move)
+router.post('/:id/copy',      cardsController.copy)
+router.post('/:id/suspend',   cardsController.suspend)
+router.post('/:id/unsuspend', cardsController.unsuspend)
+
+// Bulk operations. Capped at 500 ids per call by the Zod schema; share the
+// resource-delete rate limiter (120/min/user) because a tight loop of
+// bulk-deletes could shed deck rollups faster than any other surface.
+router.post('/bulk/move',      resourceDeleteRateLimitMiddleware, cardsController.bulkMove)
+router.post('/bulk/suspend',   resourceDeleteRateLimitMiddleware, cardsController.bulkSuspend)
+router.post('/bulk/unsuspend', resourceDeleteRateLimitMiddleware, cardsController.bulkUnsuspend)
+router.post('/bulk/delete',    resourceDeleteRateLimitMiddleware, cardsController.bulkDelete)
+router.post('/bulk/tag',       resourceDeleteRateLimitMiddleware, cardsController.bulkTag)
 
 export default router

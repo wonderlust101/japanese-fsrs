@@ -4,7 +4,9 @@ import { z } from 'zod'
 
 import {
   ApiMaturitySnapshotSchema,
+  ApiCardQualityIssueSchema,
   type ApiMaturitySnapshot,
+  type ApiCardQualityIssue,
 } from '@fsrs-japanese/shared-types'
 
 import { apiCallSafe } from '@/lib/api/client'
@@ -27,6 +29,22 @@ export async function getMaturityHistoryAction(
   return apiCallSafe<ReadonlyArray<ApiMaturitySnapshot>>(
     `/api/v1/insights/maturity-history?days=${days}`,
     z.array(ApiMaturitySnapshotSchema),
+    {},
+    [],
+  )
+}
+
+/**
+ * Backend Completion Plan Stage 8 — `GET /api/v1/insights/card-quality`.
+ * Six rows of `{ issueType, count }` describing how many of the learner's
+ * vocabulary+grammar cards are missing a given support field. Always
+ * returns all six rows (zero-filled) so the consumer renders a stable
+ * shape. Auth/5xx returns an empty array so the panel reads as a positive.
+ */
+export async function getCardQualityIssuesAction(): Promise<ReadonlyArray<ApiCardQualityIssue>> {
+  return apiCallSafe<ReadonlyArray<ApiCardQualityIssue>>(
+    '/api/v1/insights/card-quality',
+    z.array(ApiCardQualityIssueSchema),
     {},
     [],
   )
