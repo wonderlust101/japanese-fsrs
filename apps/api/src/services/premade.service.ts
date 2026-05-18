@@ -64,13 +64,23 @@ const PremadeDeckListRpcRowSchema = z.object({
  *  shape leaves room to add fields without a wire-format break. */
 const premadeListCursorSchema = z.object({ id: z.string().uuid() })
 
-/** Slim direct-read schemas used by listSubscriptionsRaw. */
+/** Slim direct-read schemas used by listSubscriptionsRaw. `last_seen_version`
+ *  is the subscriber's highest synced source version (Backend Completion Plan
+ *  Stage 4 surfacing). */
 const SubscriptionDbRowSchema = z.object({
-  id:              z.string(),
-  premade_deck_id: z.string(),
-  subscribed_at:   z.string(),
+  id:                z.string(),
+  premade_deck_id:   z.string(),
+  subscribed_at:     z.string(),
+  last_seen_version: z.number(),
 })
-const PremadeNameRowSchema = z.object({ id: z.string(), name: z.string() })
+/** Joined slice of the source `premade_decks` row — name (for display) and
+ *  version (for the "new content available" gate compared against
+ *  `last_seen_version` on the subscription side). */
+const PremadeNameRowSchema = z.object({
+  id:      z.string(),
+  name:    z.string(),
+  version: z.number(),
+})
 const ForkedDeckRowSchema = z.object({
   id:                z.string(),
   source_premade_id: z.string(),
@@ -159,7 +169,7 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
 async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscription[]> {
   const { data: subs, error: subsError } = await supabaseAdmin
     .from('user_premade_subscriptions')
-    .select('id, premade_deck_id, subscribed_at')
+    .select('id, premade_deck_id, subscribed_at, last_seen_version')
     .eq('user_id', userId)
     .order('subscribed_at', { ascending: false })
 
@@ -175,7 +185,7 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
   const [premadeDecksResult, decksResult] = await Promise.all([
     supabaseAdmin
       .from('premade_decks')
-      .select('id, name')
+      .select('id, name, version')
       .in('id', premadeIds),
     supabaseAdmin
       .from('decks')
@@ -192,9 +202,14 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
     throw dbError('load forked decks', decksResult.error)
   }
 
-  const nameById  = new Map<string, string>(
+  // Index the joined `premade_decks` slice by id so each subscription row can
+  // pick up both its display name and the current source-side version in one
+  // lookup. `version` is the Stage 4 surfacing — paired with the subscriber's
+  // `last_seen_version` it tells the frontend whether new content has landed
+  // since the last sync (Stage 5 introduces the matching write path).
+  const premadeById = new Map<string, { name: string; version: number }>(
     z.array(PremadeNameRowSchema).parse(premadeDecksResult.data ?? [])
-      .map((p) => [p.id, p.name]),
+      .map((p) => [p.id, { name: p.name, version: p.version }]),
   )
   const deckBySrc = new Map<string, { id: string; cardCount: number }>(
     z.array(ForkedDeckRowSchema).parse(decksResult.data ?? [])
@@ -203,8 +218,14 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
 
   return rows
     .map<ApiPremadeSubscription | null>((sub) => {
-      const deck = deckBySrc.get(sub.premade_deck_id)
-      const name = nameById.get(sub.premade_deck_id) ?? '(unknown deck)'
+      const deck    = deckBySrc.get(sub.premade_deck_id)
+      const premade = premadeById.get(sub.premade_deck_id)
+      const name    = premade?.name ?? '(unknown deck)'
+      // Fall back to the subscriber's last_seen_version when the source
+      // premade row is missing (FK should make this unreachable in practice,
+      // but the map lookup is fallible by type). Keeps `version >=
+      // last_seen_version` invariant so consumers don't see negative drift.
+      const version = premade?.version ?? sub.last_seen_version
       if (deck === undefined) return null
       return {
         id:              sub.id,
@@ -213,6 +234,8 @@ async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscript
         deckId:          deck.id,
         cardCount:       deck.cardCount,
         subscribedAt:    sub.subscribed_at,
+        version,
+        lastSeenVersion: sub.last_seen_version,
       }
     })
     .filter((r): r is ApiPremadeSubscription => r !== null)

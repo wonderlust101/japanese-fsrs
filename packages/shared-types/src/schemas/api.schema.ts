@@ -148,6 +148,24 @@ export const ApiPremadeSubscriptionSchema = z.object({
   deckId:          z.string(),
   cardCount:       z.number(),
   subscribedAt:    z.string(),
+  /**
+   * Current version of the source premade deck on the catalogue side
+   * (`premade_decks.version`). Compared against `lastSeenVersion` to compute
+   * "new content available" — when `version > lastSeenVersion`, the
+   * subscriber's local fork is missing cards that have landed on the source
+   * deck since their last sync. Surfaced by Backend Completion Plan Stage 4
+   * (read-only contract change); the matching write path lands in Stage 5
+   * via `POST /api/v1/premade-decks/:id/sync`.
+   */
+  version:         z.number(),
+  /**
+   * The highest `premade_decks.version` the subscriber has synced through —
+   * stored on `user_premade_subscriptions.last_seen_version`. Bumped
+   * atomically with new-card inserts by the Stage 5 sync RPC. Equal to
+   * `version` for fresh subscriptions (both default to 1) and stays equal
+   * until the source deck's content is updated.
+   */
+  lastSeenVersion: z.number(),
 })
 
 export const ApiSubscribeResultSchema = z.object({
