@@ -8,8 +8,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## To Do
 
-- [ ] **IA wireframe doc cleanup (low-risk)**
-  - Strip stray absolute path at `00_sitemap.md:65`, replace "Lapis-compatible note" with "Tomo card note" at `00_sitemap.md:30`, drop the "legacy design system" framing at `03_review_session.md:201`.
 - [ ] **Confusable items frontend (deferred)**
   - `/insights/mistakes` retirement removed `ConfusablePairList`. Reintroduce as a tab inside `/insights/weak-spots` once the per-pair drill is designed.
 - [ ] **Flesh out IA stub pages**
@@ -48,17 +46,9 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 - [ ] **Verify custom system-page coverage** — confirm broad `error.tsx` / `not-found.tsx` / `loading.tsx` coverage before promoting to Done.
 
-## Deferred
-
-- [ ] **Morphological parsing tokens** *(deferred 2026-05-17)* — `cards.tokens` + `cards.parsed_at` added then removed (migrations `20260502000004` → `20260518000000`). Re-add when a concrete UI surface (sentence breakdown, kanji-compound furigana, morpheme search) needs them. Parser choice belongs to that follow-up.
-- [ ] **Future settings expansion ideas**
-  - Lens: every setting carries cognitive + code cost — only add when a single default cannot serve user variance.
-  - Filter: must (a) personalize practice, (b) personalize AI voice, or (c) honor privacy/agency.
-  - Ranked next picks: (1) Notifications, (2) per-modality enablement, (3) public-profile visibility, (4) data export.
-  - Trap: a "Display" tab — most options are OS-level (`prefers-color-scheme`, `prefers-reduced-motion`).
-
 ## Done
 
+- [x] **IA wireframe doc cleanup (2026-05-18)** — stray absolute path stripped from `00_sitemap.md`, "Lapis-compatible note" rewritten as "Tomo card note", and the "legacy design system" framing dropped from `03_review_session.md`. Low-risk hygiene pass against the IA wireframes.
 - [x] **Collapse `card_type` modality → single FSRS scheduler (2026-05-18)** — migration `20260614000000_drop_card_type.sql` drops `cards.card_type`, the `card_type` enum, and the per-modality scheduler map in `fsrs.service.ts`; one scheduler at `request_retention = 0.85` (matches `profiles.retention_target` default). Bonus: `get_accuracy_by_layout` renamed to `get_accuracy_by_layout_type` and re-pointed at `c.layout_type` (the old name was a misnomer that grouped by `card_type` while exposing the column as `layout`). Closes "Reconcile IA card types with `card_type` schema" — the IA's modality framing in `03_review_session.md` is also restructured around `layout_type` in the same PR.
 - [x] **Rename leech → weak spot end-to-end (2026-05-18)** — migration `20260615000000_rename_leeches_to_weak_spots.sql` renames the four DB tables, twelve indexes, and drops + recreates the four drill RPCs (`create_weak_spot_drill_session`, `get_weak_spot_drill_session`, `record_weak_spot_drill_attempt`, `transition_weak_spot_drill_session`). Also recreates `process_review`, `process_review_batch`, `get_session_summary` with renamed table refs because plpgsql function bodies are stored as text and don't re-parse on table rename. Wire-level: `/api/v1/leeches/*` → `/api/v1/weak-spots/*`; `LEECH_ALREADY_OPEN` → `WEAK_SPOT_ALREADY_OPEN`; env var `LEECH_THRESHOLD` → `WEAK_SPOT_THRESHOLD`; wire field `leechId` → `weakSpotId`. Backend files moved: `leech.service.ts`/`leeches.controller.ts`/`leeches.ts` (routes) → `weak-spot.*`/`weak-spots.*`. Frontend: every `Leech*` / `useLeech*` / `Leeches*` export, hook, store, query-key family, Pill tone, and IA wireframe renamed; `ProblemCardRow` → `WeakSpotRow`; `Problem cards` → `Weak spots` everywhere. IA `05_problem_card_repair.md` → `05_weak_spot_repair.md`. Closes "Resolve 'Problem Card' vs 'Weak spot' vocabulary". Follow-ups: regenerate `database.types.ts` via `bun gen:types` to replace the hand-edited copy; the DB CHECK source-value `unresolved_leeches` (internal enum, no learner impact) kept as-is.
 - [x] **Sentence-layout AI generator branch (Stage 13, 2026-05-17)** — `mode='ai' layoutType='sentence'` now dispatches to `generateSentenceCard` (separate Redis namespace `sentence-card:v1:…`). Coverage: 6 unit + 2 cache-seeded integration tests. No migration — Stage 12 already shipped the CHECK.
