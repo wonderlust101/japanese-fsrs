@@ -80,7 +80,6 @@ describeIntegration('cards routes — create / get / update / delete + RLS', () 
         mode: 'manual',
         fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -136,7 +135,6 @@ describeIntegration('cards routes — cascading deletes', () => {
       .send({
         mode: 'manual',
         fieldsData: { word: '犬', reading: 'いぬ', meaning: 'dog' },
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -182,7 +180,6 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .send({
         mode: 'manual',
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -207,7 +204,6 @@ describeIntegration('cards routes — regenerate-embedding', () => {
       .send({
         mode: 'manual',
         fieldsData: { word: '手', reading: 'て', meaning: 'hand' },
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -256,7 +252,6 @@ describeIntegration('cards routes — If-Match optimistic concurrency', () => {
         mode: 'manual',
         fieldsData: { word: '光', reading: 'ひかり', meaning: 'light' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -279,7 +274,6 @@ describeIntegration('cards routes — If-Match optimistic concurrency', () => {
         mode: 'manual',
         fieldsData: { word: '影', reading: 'かげ', meaning: 'shadow' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -308,7 +302,6 @@ describeIntegration('cards routes — If-Match optimistic concurrency', () => {
 // ApiCardListItem (e.g. accidentally re-including FSRS internals like
 // stability/difficulty/reps) will fail this test.
 const API_CARD_LIST_ITEM_KEYS = [
-  'cardType',
   'due',
   'fieldsData',
   'id',
@@ -331,7 +324,6 @@ describeIntegration('cards routes — list wire shape', () => {
         mode: 'manual',
         fieldsData: { word: '空', reading: 'そら', meaning: 'sky' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 
@@ -390,7 +382,6 @@ describeIntegration('cards routes — Lapis-style fields round-trip', () => {
         mode:       'manual',
         fieldsData,
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     expect(createRes.body.fieldsData).toEqual(fieldsData)
@@ -425,7 +416,6 @@ describeIntegration('cards routes — Lapis-style fields round-trip', () => {
         mode: 'manual',
         fieldsData: { word: '夢', reading: 'ゆめ', meaning: 'dream' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 
@@ -492,7 +482,6 @@ describeIntegration('cards routes — cross-deck access via dual-mount router', 
         mode: 'manual',
         fieldsData: { word: '橋', reading: 'はし', meaning: 'bridge' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId  = cardRes.body.id
@@ -571,7 +560,6 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
         mode:       'manual',
         fieldsData,
         layoutType: 'sentence',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 
@@ -601,7 +589,6 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
         // wire validation but the INSERT fails with a 5xx surface.
         fieldsData: { en: 'I like cats.', furigana: 'ねこがすきです。' },
         layoutType: 'sentence',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBeGreaterThanOrEqual(400)
     expect(createRes.status).toBeLessThan(600)
@@ -618,7 +605,6 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
         mode:       'manual',
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(res.status).toBe(201)
   })
@@ -679,7 +665,6 @@ describeIntegration('cards routes — Stage 13 AI sentence-card dispatch', () =>
         mode:       'ai',
         word:       topic,
         layoutType: 'sentence',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 
@@ -734,7 +719,6 @@ describeIntegration('cards routes — Stage 13 AI sentence-card dispatch', () =>
         mode:       'ai',
         word,
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     expect(createRes.body.layoutType).toBe('vocabulary')

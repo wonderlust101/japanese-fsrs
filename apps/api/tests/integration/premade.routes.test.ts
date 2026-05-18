@@ -67,7 +67,7 @@ async function seedPremadeDeck(opts: PremadeOptions = {}): Promise<string> {
     premade_deck_id: id,
     layout_type:     'vocabulary' as const,
     fields_data:     { word: `源-${i}`, reading: `げん${i}`, meaning: `source ${i}` },
-    card_type:       'comprehension' as const,
+
     jlpt_level:      'N5' as const,
   }))
   if (cards.length > 0) {

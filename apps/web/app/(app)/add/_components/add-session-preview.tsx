@@ -66,7 +66,6 @@ function buildPreviewCard({ word, sentence }: BuildPreviewCardInput): ApiDueCard
   return {
     id:         PREVIEW_CARD_ID,
     deckId:     PREVIEW_DECK_ID,
-    cardType:   'comprehension',
     jlptLevel:  null,
     state:      0,
     due:        new Date().toISOString(),

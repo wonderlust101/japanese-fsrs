@@ -16,8 +16,6 @@ import { devtools } from 'zustand/middleware'
 // image upload is deferred). The chip persists through Generated Card Review and
 // Card Detail per the IA, so the preview survives the navigation.
 
-export type CaptureCardType = 'comprehension' | 'production' | 'listening' | 'auto'
-
 /**
  * How the user wanted the card to be built when they left /add.
  *   'generate' — kick off AI generation on /add/review (default).
@@ -43,7 +41,6 @@ export interface CaptureDraft {
    *  is gated on `deckId !== null`. */
   deckId:       string | null
   source:       string
-  cardType:     CaptureCardType
   imageName:    string | null
   imageDataUrl: string | null
   /** Wall-clock ms when the draft was last touched; lets the next page warn
@@ -61,7 +58,6 @@ export const EMPTY_CAPTURE_DRAFT: CaptureDraft = {
   note:         '',
   deckId:       null,
   source:       '',
-  cardType:     'auto',
   imageName:    null,
   imageDataUrl: null,
   updatedAt:    0,

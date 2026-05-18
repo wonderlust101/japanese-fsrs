@@ -144,7 +144,6 @@ function baseFixtureCard(deckId: string): ApiCard {
     deckId,
     userId:         'dev-fixture-user',
     layoutType:     'vocabulary',
-    cardType:       'comprehension',
     jlptLevel:      'N3',
     tags:           ['daily', 'reading'],
     state:          State.Review,

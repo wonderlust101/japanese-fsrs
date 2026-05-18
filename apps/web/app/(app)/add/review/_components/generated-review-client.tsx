@@ -79,11 +79,6 @@ function makeEmptyFields(): CardFields {
   }
 }
 
-// Recognition is the only card type this page produces. Production and
-// listening live behind a future configuration; the chooser is intentionally
-// absent so the save flow stays one click.
-const SAVE_CARD_TYPE = 'comprehension' as const
-
 const JLPT_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
   { value: '',            label: 'No level set'      },
   { value: 'N5',          label: 'N5'                },
@@ -122,7 +117,6 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
   return {
     id:         'preview-card',
     deckId:     'preview-deck',
-    cardType:   'comprehension',
     jlptLevel:  fields.jlptLevel === '' ? null : fields.jlptLevel,
     state:      0,
     due:        new Date().toISOString(),
@@ -292,7 +286,6 @@ export function GeneratedReviewClient(): React.JSX.Element {
       await saveCardAction(deckId, {
         mode: 'manual',
         fieldsData,
-        cardType: SAVE_CARD_TYPE,
         layoutType: 'vocabulary',
         ...(tagList.length > 0 ? { tags: tagList } : {}),
         ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),

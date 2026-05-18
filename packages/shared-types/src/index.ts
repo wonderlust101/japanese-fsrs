@@ -1,4 +1,4 @@
-export { State, CardType, isCardType } from './fsrs.types.ts'
+export { State } from './fsrs.types.ts'
 
 export { JLPTLevel, LayoutType, isJlptLevel } from './card.types.ts'
 export type { ExampleSentence, KanjiBreakdown } from './card.types.ts'
@@ -99,7 +99,7 @@ export {
 // request/response shapes that cross the API ↔ web boundary.
 
 export {
-  cardTypeEnum, jlptLevelEnum, layoutTypeEnum,
+  jlptLevelEnum, layoutTypeEnum,
   createCardSchema, updateCardSchema,
   cardIdParamSchema, nestedDeckIdParamSchema,
   listCardsQuerySchema,

@@ -10,14 +10,12 @@ import { z } from 'zod'
 import { State } from 'ts-fsrs'
 
 import { JLPTLevel, LayoutType } from '../card.types.ts'
-import { CardType } from '../fsrs.types.ts'
 import { DeckType } from '../deck.types.ts'
 import { FieldsDataSchema } from './field-shapes.schema.ts'
 
 // ─── Enum schemas (mirroring the const objects in shared-types) ───────────────
 
 const layoutTypeSchema = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]])
-const cardTypeSchema   = z.enum(Object.values(CardType)   as [CardType,   ...CardType[]])
 const jlptLevelSchema  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  ...JLPTLevel[]])
 const deckTypeSchema   = z.enum(Object.values(DeckType)   as [DeckType,   ...DeckType[]])
 // ts-fsrs's State is a numeric enum — z.nativeEnum accepts numeric enums directly.
@@ -32,7 +30,6 @@ export const ApiCardSchema = z.object({
   premadeDeckId:  z.string().nullable(),
   layoutType:     layoutTypeSchema,
   fieldsData:     FieldsDataSchema,
-  cardType:       cardTypeSchema,
   parentCardId:   z.string().nullable(),
   tags:           z.array(z.string()),
   jlptLevel:      jlptLevelSchema.nullable(),
@@ -58,7 +55,6 @@ export const ApiCardSchema = z.object({
 export const ApiDueCardSchema = ApiCardSchema.pick({
   id:         true,
   deckId:     true,
-  cardType:   true,
   jlptLevel:  true,
   state:      true,
   due:        true,
@@ -70,7 +66,6 @@ export const ApiCardListItemSchema = ApiCardSchema.pick({
   id:          true,
   fieldsData:  true,
   layoutType:  true,
-  cardType:    true,
   jlptLevel:   true,
   state:       true,
   isSuspended: true,
@@ -82,7 +77,6 @@ export const ApiSimilarCardSchema = z.object({
   id:         z.string(),
   deckId:     z.string(),
   layoutType: layoutTypeSchema,
-  cardType:   cardTypeSchema,
   fieldsData: FieldsDataSchema,
   tags:       z.array(z.string()),
   jlptLevel:  jlptLevelSchema.nullable(),
@@ -182,7 +176,6 @@ export const ApiProblemCardSchema = z.object({
   cardId:     z.string().uuid(),
   deckId:     z.string().uuid().nullable(),
   layoutType: layoutTypeSchema,
-  cardType:   cardTypeSchema,
   jlptLevel:  jlptLevelSchema.nullable(),
   fieldsData: FieldsDataSchema,
   /** FSRS state integer mirroring the cards.state column (0=New, 1=Learning,
@@ -382,7 +375,7 @@ export const ApiHeatmapDaySchema = z.object({
 })
 
 export const ApiLayoutAccuracySchema = z.object({
-  layout:      cardTypeSchema,
+  layoutType:  layoutTypeSchema,
   total:       z.number(),
   successful:  z.number(),
   accuracyPct: z.number(),
@@ -493,7 +486,6 @@ export const ApiLeechListItemSchema = z.object({
   reading:      z.string().nullable(),
   meaning:      z.string().nullable(),
   layoutType:   layoutTypeSchema.nullable(),
-  cardType:     cardTypeSchema.nullable(),
   jlptLevel:    jlptLevelSchema.nullable(),
   lapses:       z.number().int().nonnegative().nullable(),
   reps:         z.number().int().nonnegative().nullable(),
@@ -530,7 +522,6 @@ export const ApiLeechDrillCardSchema = z.object({
   cardId:        z.string().uuid(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    layoutTypeSchema,
-  cardType:      cardTypeSchema,
   fieldsData:    FieldsDataSchema,
   lapses:        z.number().int().nonnegative(),
 })
@@ -548,8 +539,8 @@ export const ApiLeechDrillSessionSchema = z.object({
 // Distinct from ApiLeechDrillCardSchema/ApiLeechDrillSessionSchema (the
 // create-time response) because resume carries:
 //   • orphan rows where the underlying card was deleted post-snapshot
-//     (cardId IS NULL on the wire, layoutType/cardType/fieldsData/lapses
-//     null too because nothing remains to read from `cards`).
+//     (cardId IS NULL on the wire, layoutType/fieldsData/lapses null too
+//     because nothing remains to read from `cards`).
 //   • per-row isStale and isOrphaned flags so the client doesn't need to
 //     cross-reference cardIds against the top-level staleCards array.
 //   • a top-level isCanonicalStateStale boolean and a staleCards array.
@@ -564,7 +555,6 @@ export const ApiLeechDrillSessionDetailCardSchema = z.object({
   cardId:        z.string().uuid().nullable(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    layoutTypeSchema.nullable(),
-  cardType:      cardTypeSchema.nullable(),
   fieldsData:    FieldsDataSchema.nullable(),
   lapses:        z.number().int().nonnegative().nullable(),
   isOrphaned:    z.boolean(),

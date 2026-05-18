@@ -22,7 +22,6 @@ import {
   type ApiLeechDrillAttempt,
   type FieldsData,
   type LayoutType,
-  type CardType,
   type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
@@ -55,7 +54,6 @@ function leechSelect(innerJoin: boolean): string {
       deck_id,
       fields_data,
       layout_type,
-      card_type,
       jlpt_level,
       lapses,
       reps,
@@ -84,7 +82,6 @@ const LeechCardRowSchema = z.object({
   deck_id:      z.string().uuid(),
   fields_data:  z.record(z.string(), z.unknown()),
   layout_type:  z.enum(['vocabulary', 'grammar', 'sentence']),
-  card_type:    z.enum(['comprehension', 'production', 'listening']),
   jlpt_level:   z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']).nullable(),
   lapses:       z.number().int().nonnegative(),
   reps:         z.number().int().nonnegative(),
@@ -146,7 +143,6 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
     reading,
     meaning,
     layoutType:   (card?.layout_type as LayoutType | undefined) ?? null,
-    cardType:     (card?.card_type as CardType | undefined)     ?? null,
     jlptLevel:    (card?.jlpt_level as JLPTLevel | null | undefined) ?? null,
     lapses:       card?.lapses      ?? null,
     reps:         card?.reps        ?? null,
@@ -182,16 +178,16 @@ export function toListItem(raw: LeechRow): ApiLeechListItem {
  * RPC that can express the multi-column tuple comparison atomically. A
  * follow-up RPC migration in a later stage can lift this restriction.
  *
- * Filter dimensions (`status`, `deckId`, `jlptLevel`, `cardType`) all apply at
- * the SQL `WHERE` clause boundary. The `diagnosis` filter is in the same shape
- * but lives on `leeches` itself, not on the joined card row, so it does not
+ * Filter dimensions (`status`, `deckId`, `jlptLevel`) all apply at the SQL
+ * `WHERE` clause boundary. The `diagnosis` filter is in the same shape but
+ * lives on `leeches` itself, not on the joined card row, so it does not
  * trigger the LEFT→INNER join switch that the card-side filters do.
  */
 export async function listLeeches(
   userId: string,
   params: ListLeechesQuery,
 ): Promise<ApiLeechListResponse> {
-  const { status, deckId, jlptLevel, cardType, diagnosis, sort, limit, cursor } = params
+  const { status, deckId, jlptLevel, diagnosis, sort, limit, cursor } = params
 
   // Card-side filters force an inner join so non-matching cards drop the
   // parent leech rather than surface with `card: null`. Orphans (card_id IS
@@ -203,7 +199,7 @@ export async function listLeeches(
   // lives on `leeches`, not on `cards`. Forcing inner-join because of it
   // would incorrectly drop orphan leeches (card_id NULL) where a diagnosis
   // was recorded before the card was deleted.
-  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || cardType !== undefined
+  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined
   const selectStr = hasCardFilter ? LEECH_SELECT_INNER : LEECH_SELECT_LEFT
 
   let q = supabaseAdmin
@@ -215,7 +211,6 @@ export async function listLeeches(
 
   if (deckId    !== undefined) q = q.eq('card.deck_id',    deckId)
   if (jlptLevel !== undefined) q = q.eq('card.jlpt_level', jlptLevel)
-  if (cardType  !== undefined) q = q.eq('card.card_type',  cardType)
 
   if (diagnosis === 'available') {
     // PostgREST compiles `.not('diagnosis', 'is', null)` to `diagnosis IS NOT NULL`.
@@ -464,7 +459,6 @@ const DrillSessionCardRowSchema = z.object({
   cardId:        z.string().uuid(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']),
-  cardType:      z.enum(['comprehension', 'production', 'listening']),
   // FieldsDataSchema (the wire-format union) was widened from
   // `z.record(z.string(), z.unknown())` to a concrete union by Stage 12.
   // The RPC returns DB-validated JSONB so the parse will succeed for any
@@ -521,7 +515,6 @@ export async function createDrillSession(
     p_source:        sourceToDb(input.source),
     p_deck_id:       input.deckId    ?? null,
     p_jlpt_level:    input.jlptLevel ?? null,
-    p_card_type:     input.cardType  ?? null,
     p_order:         input.order,
     p_limit:         input.limit,
     p_mode:          input.mode,
@@ -535,7 +528,6 @@ export async function createDrillSession(
     p_source_query: {
       deckId:    input.deckId    ?? null,
       jlptLevel: input.jlptLevel ?? null,
-      cardType:  input.cardType  ?? null,
       cardIds:   input.cardIds   ?? null,
       cardId:    input.cardId    ?? null,
       minLapses: input.minLapses ?? null,
@@ -572,7 +564,6 @@ const DrillSessionDetailCardRowSchema = z.object({
   cardId:        z.string().uuid().nullable(),
   ordinal:       z.number().int().nonnegative(),
   layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']).nullable(),
-  cardType:      z.enum(['comprehension', 'production', 'listening']).nullable(),
   // `.nullable()` admits orphan rows (card deleted post-snapshot). See the
   // sibling DrillSessionCardRowSchema comment for the Stage 12 rationale.
   fieldsData:    FieldsDataSchema.nullable(),

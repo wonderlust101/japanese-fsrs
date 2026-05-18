@@ -111,7 +111,6 @@ export function LeechDetailsDialog({
             <StateCell label="Last review" value={formatDate(leech.lastReview)} />
             <StateCell label="Due"   value={formatDate(leech.due)} />
             <StateCell label="Deck"  value={leech.deckName ?? '—'} normalCase />
-            <StateCell label="Modality" value={CARD_TYPE_LABEL[leech.cardType ?? 'comprehension'] ?? 'Comprehension'} />
             <StateCell label="Flagged" value={formatDate(leech.createdAt)} />
             <StateCell
               label="Status"
@@ -231,12 +230,6 @@ function DetailSkeleton(): React.JSX.Element {
       <Skeleton className="h-28 w-full" />
     </div>
   )
-}
-
-const CARD_TYPE_LABEL: Record<string, string> = {
-  comprehension: 'Comprehension',
-  production:    'Production',
-  listening:     'Listening',
 }
 
 function jlptPillTone(level: string): JlptPillLevel {

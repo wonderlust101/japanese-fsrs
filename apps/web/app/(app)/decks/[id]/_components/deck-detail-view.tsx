@@ -684,7 +684,6 @@ function apiCardToRow(card: ApiCardListItem, deckId: string, deckName: string): 
     meaning:     wordFields?.meaning ?? sentence?.back  ?? '',
     deckId,
     deckName,
-    cardType:    card.cardType,
     jlptLevel:   card.jlptLevel,
     partOfSpeech: wordFields?.partOfSpeech ?? null,
     tags:        card.tags,

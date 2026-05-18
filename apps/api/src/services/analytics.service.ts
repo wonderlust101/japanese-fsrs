@@ -66,17 +66,15 @@ export async function getHeatmapData(userId: string, timeZone = 'UTC'): Promise<
 }
 
 /**
- * Returns review accuracy broken down by layout (cognitive modality).
- *
- * Groups all of the user's review history by card_type
- * (comprehension | production | listening). accuracyPct is the percentage of
- * reviews rated "good" or "easy".
+ * Returns review accuracy broken down by layout_type
+ * (vocabulary | grammar | sentence). accuracyPct is the percentage of reviews
+ * rated "good" or "easy".
  */
 export async function getAccuracyByLayout(userId: string): Promise<ApiList<ApiLayoutAccuracy>> {
-  const rows  = await callRpc('get_accuracy_by_layout', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
+  const rows  = await callRpc('get_accuracy_by_layout_type', { p_user_id: userId }, AccuracyRpcSchema, 'accuracy breakdown')
   const items = rows.map((r) => {
     const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
-    return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
+    return { layoutType: r.layout_type, total: r.total, successful: r.successful, accuracyPct }
   })
   return bounded(items)
 }
@@ -168,7 +166,7 @@ export async function getDashboardData(userId: string, timeZone = 'UTC'): Promis
 
   const accuracy: ApiLayoutAccuracy[] = env.accuracy.map((r) => {
     const accuracyPct = r.total === 0 ? 0 : Math.round((r.successful / r.total) * 1000) / 10
-    return { layout: r.layout, total: r.total, successful: r.successful, accuracyPct }
+    return { layoutType: r.layout_type, total: r.total, successful: r.successful, accuracyPct }
   })
 
   const jlptGap: ApiJlptGap[] = env.jlpt_gap.map((r) => {

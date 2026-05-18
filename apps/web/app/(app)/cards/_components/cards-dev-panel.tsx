@@ -199,8 +199,6 @@ const DECKS: readonly DeckSpec[] = [
   DECK_N5, DECK_N4, DECK_N3, DECK_N2, DECK_N1, DECK_GENKI, DECK_KANJI, DECK_BEYOND,
 ]
 
-const CARD_TYPES: readonly CardsResultRow['cardType'][] = ['comprehension', 'production', 'listening']
-
 const STATES: readonly { state: State; isSuspended: boolean; weight: number }[] = [
   { state: State.Review,     isSuspended: false, weight: 5 },
   { state: State.Learning,   isSuspended: false, weight: 2 },
@@ -274,7 +272,6 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
     const fallbackDeck = DECKS[Math.floor(rng() * DECKS.length)] ?? DECK_N5
     const deck = rng() < 0.85 ? jlptDeck : fallbackDeck
 
-    const cardType = CARD_TYPES[Math.floor(rng() * CARD_TYPES.length)] ?? 'comprehension'
     const { state, isSuspended } = pickWeighted(
       rng,
       STATES.map((s) => ({ weight: s.weight, value: { state: s.state, isSuspended: s.isSuspended } })),
@@ -311,7 +308,6 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
       meaning:      vocab.meaning,
       deckId:       deck.id,
       deckName:     deck.name,
-      cardType,
       jlptLevel:    vocab.jlpt,
       partOfSpeech: vocab.partOfSpeech,
       tags:         drawnTags,

@@ -33,7 +33,6 @@ function leech(
     reading:      'みおくる',
     meaning:      'to see off; to escort',
     layoutType:   'vocabulary',
-    cardType:     'comprehension',
     jlptLevel:    'N4',
     lapses:       8,
     reps:         22,
@@ -61,7 +60,7 @@ export function buildFewFixture(): ApiLeechListResponse {
     leech('l1', { word: '見送る', reading: 'みおくる', meaning: 'to see off',  lapses: 8 }),
     leech('l2', {
       word: '預ける', reading: 'あずける', meaning: 'to entrust; to deposit',
-      lapses: 6, jlptLevel: 'N3', cardType: 'production', deckName: 'JLPT N3 vocab',
+      lapses: 6, jlptLevel: 'N3', deckName: 'JLPT N3 vocab',
       deckId: 'd-n3',
     }),
     leech('l3', {
@@ -75,7 +74,7 @@ export function buildManyFixture(): ApiLeechListResponse {
   return envelope([
     leech('l1', { word: '見送る',     reading: 'みおくる',   meaning: 'to see off',                lapses: 12 }),
     leech('l2', { word: '預ける',     reading: 'あずける',   meaning: 'to entrust',                lapses: 9,
-                  jlptLevel: 'N3', cardType: 'production', deckName: 'JLPT N3 vocab', deckId: 'd-n3' }),
+                  jlptLevel: 'N3', deckName: 'JLPT N3 vocab', deckId: 'd-n3' }),
     leech('l3', { word: '果たして',   reading: 'はたして',   meaning: 'really; sure enough',       lapses: 7,
                   jlptLevel: 'N2', deckName: 'Reading practice', deckId: 'd-reading' }),
     leech('l4', { word: '相次ぐ',     reading: 'あいつぐ',   meaning: 'to happen in succession',   lapses: 6,
@@ -83,9 +82,9 @@ export function buildManyFixture(): ApiLeechListResponse {
                   diagnosis:    'Reading conflict with 相継ぐ; the visual stem 「相」 trips comprehension.',
                   prescription: 'Add a contrast card pairing 相次ぐ with 相継ぐ and a sentence anchor.' }),
     leech('l5', { word: 'まちまち',   reading: 'まちまち',   meaning: 'varied; mixed',             lapses: 5,
-                  jlptLevel: 'N2', cardType: 'listening', deckName: 'Casual', deckId: 'd-casual' }),
+                  jlptLevel: 'N2', deckName: 'Casual', deckId: 'd-casual' }),
     leech('l6', { word: '振る舞う',   reading: 'ふるまう',   meaning: 'to behave; to treat (food)', lapses: 6,
-                  jlptLevel: 'N2', cardType: 'production' }),
+                  jlptLevel: 'N2' }),
     leech('l7', { word: '取り立てて', reading: 'とりたてて', meaning: 'particularly; especially',  lapses: 8,
                   jlptLevel: 'N1' }),
   ])
@@ -110,7 +109,7 @@ export function buildOrphanFixture(): ApiLeechListResponse {
     leech('lo1', {
       cardId: null, deckId: null, deckName: null,
       word: null, reading: null, meaning: null,
-      layoutType: null, cardType: null, jlptLevel: null,
+      layoutType: null, jlptLevel: null,
       lapses: null, reps: null, due: null, lastReview: null,
     }),
     leech('lo2'),

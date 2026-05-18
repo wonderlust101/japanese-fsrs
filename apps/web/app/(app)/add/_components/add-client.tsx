@@ -124,7 +124,6 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
       note:         '',
       deckId,
       source:       '',
-      cardType:     'auto',
       imageName:    null,
       imageDataUrl: null,
       updatedAt:    Date.now(),

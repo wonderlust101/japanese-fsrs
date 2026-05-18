@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { cardTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
+import { jlptLevelEnum } from '@fsrs-japanese/shared-types'
 
 // ─── Filters / sort ───────────────────────────────────────────────────────────
 
@@ -36,7 +36,6 @@ export const listLeechesQuerySchema = z.object({
   status:     leechStatusEnum.default('unresolved'),
   deckId:     z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:  jlptLevelEnum.optional(),
-  cardType:   cardTypeEnum.optional(),
   diagnosis:  leechDiagnosisFilterEnum.optional(),
   sort:       leechSortEnum.default('mostRecent'),
   limit:      z.coerce.number().int().min(1).max(100).default(50),
@@ -133,7 +132,6 @@ export const createDrillSessionSchema = z.object({
   source:       leechDrillSourceEnum.default('unresolvedLeeches'),
   deckId:       z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:    jlptLevelEnum.optional(),
-  cardType:     cardTypeEnum.optional(),
   // manualSelection-only: explicit list of card IDs to drill. Bounded 1-50
   // to match the per-session drill limit cap.
   cardIds:      z.array(z.string().uuid('Invalid card ID')).min(1).max(50).optional(),

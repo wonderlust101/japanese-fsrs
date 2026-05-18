@@ -14,8 +14,6 @@ import {
 } from 'ts-fsrs'
 
 import {
-  isCardType,
-  type CardType,
   type ReviewRating,
   type ApiReviewedCard,
   type ApiBatchResult,
@@ -49,22 +47,11 @@ const BatchResultRowSchema = z.object({
 
 const LEECH_THRESHOLD = env.LEECH_THRESHOLD
 
-// ─── Per-type FSRS instances ──────────────────────────────────────────────────
-// Each card type gets its own FSRS instance baked with its request_retention.
-// Do not share instances across types — params are fixed at construction.
-//
-// Retention targets are tuned to the cognitive load of each modality:
-// - comprehension (0.90): passive recognition; high bar reflects ease of recall
-// - production (0.84): active oral/written recall; harder, realistic lower target
-// - listening (0.82): most cognitively demanding; lowest target balances difficulty
-//
-// These values are empirically validated against user forgetting curves.
+// ─── FSRS instance ────────────────────────────────────────────────────────────
+// Single scheduler at request_retention = 0.85 (the profiles.retention_target
+// default). Params are fixed at construction.
 
-const schedulers: Record<CardType, TsFsrsInstance> = {
-  comprehension: fsrs(generatorParameters({ request_retention: 0.90 })),
-  production:    fsrs(generatorParameters({ request_retention: 0.84 })),
-  listening:     fsrs(generatorParameters({ request_retention: 0.82 })),
-}
+const scheduler: TsFsrsInstance = fsrs(generatorParameters({ request_retention: 0.85 }))
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -102,7 +89,6 @@ export interface FsrsInitialState {
 const FSRS_SELECT_COLUMNS = [
   'id',
   'user_id',
-  'card_type',
   'state',
   'is_suspended',
   'due',
@@ -121,7 +107,6 @@ const FSRS_SELECT_COLUMNS = [
 const FsrsCardRowSchema = z.object({
   id:             z.string(),
   user_id:        z.string().nullable(),
-  card_type:      z.string(),
   state:          z.nativeEnum(State),
   is_suspended:   z.boolean(),
   due:            z.string(),
@@ -257,10 +242,6 @@ function mapRatingStringToEnum(rating: string): Rating {
   }
 }
 
-function getScheduler(cardType: string): TsFsrsInstance {
-  return isCardType(cardType) ? schedulers[cardType] : schedulers.comprehension
-}
-
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -303,7 +284,6 @@ export async function processReview(
   }
 
   // ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
-  const scheduler = getScheduler(row.card_type)
   const grade = mapRatingToGrade(rating)
   const reviewedAt = new Date()
   const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
@@ -452,7 +432,6 @@ export async function processReviewBatch(
       continue
     }
 
-    const scheduler              = getScheduler(row.card_type)
     const grade                  = mapRatingToGrade(review.rating)
     const reviewedAt             = new Date()
     const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade)
@@ -608,7 +587,6 @@ export async function rollbackReview(
     review:            new Date(log.reviewed_at),
   }
 
-  const scheduler = getScheduler(row.card_type)
   const restored: TsFsrsCard = scheduler.rollback(buildFsrsCard(row), reviewLogInput)
   const now = new Date()
 
@@ -676,7 +654,6 @@ export async function forgetCard(
     throw new AppError(403, 'Cannot reset a premade source card', { code: 'PREMADE_CARD_NOT_RESETTABLE' })
   }
 
-  const scheduler = getScheduler(row.card_type)
   const now = new Date()
   const { card: forgotten }: RecordLogItem = scheduler.forget(buildFsrsCard(row), now, resetCount)
 
@@ -718,13 +695,10 @@ export async function forgetCard(
 }
 
 /**
- * Returns the current recall probability for a card (0–1).
- * Pure math — no DB read or write. The forgetting_curve is the same for all
- * card types (it does not depend on request_retention, only on elapsed time
- * and stability), so any scheduler instance's method can be used.
+ * Returns the current recall probability for a card (0–1). Pure math — no DB.
  */
 export function getRetrievability(stability: number, elapsedDays: number): number {
-  return schedulers.comprehension.forgetting_curve(elapsedDays, stability)
+  return scheduler.forgetting_curve(elapsedDays, stability)
 }
 
 /**
@@ -735,10 +709,8 @@ export function getRetrievability(stability: number, elapsedDays: number): numbe
  */
 export function previewNextStates(
   row: FsrsCardRow,
-  cardType: CardType,
   now?: Date,
 ): Record<'again' | 'hard' | 'good' | 'easy', RatingPreview> {
-  const scheduler = schedulers[cardType] ?? schedulers.comprehension
   const preview = scheduler.repeat(buildFsrsCard(row), now ?? new Date())
 
   return {
@@ -801,7 +773,6 @@ export async function rescheduleFromHistory(
     review: new Date(log.reviewed_at),
   }))
 
-  const scheduler = getScheduler(row.card_type)
   const emptyCard = createEmptyCard()
   const result = scheduler.reschedule(emptyCard, history)
 

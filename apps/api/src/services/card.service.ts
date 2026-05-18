@@ -21,7 +21,6 @@ const log      = componentLogger('card.service');
 const adminLog = componentLogger('admin');
 import {
     State,
-    cardTypeEnum,
     jlptLevelEnum,
     layoutTypeEnum,
     type ApiCard,
@@ -30,7 +29,6 @@ import {
     type ApiList,
     type ApiSimilarCard,
     type CardStatusFilter,
-    type CardType,
     type FieldsData,
     type GeneratedCardData,
     type GeneratedSentenceCard,
@@ -59,7 +57,6 @@ export const CARD_COLUMNS = [
   'premade_deck_id',
   'layout_type',
   'fields_data',
-  'card_type',
   'parent_card_id',
   'tags',
   'jlpt_level',
@@ -85,7 +82,6 @@ export const CARD_COLUMNS = [
 export const DUE_CARD_COLUMNS = [
   'id',
   'deck_id',
-  'card_type',
   'jlpt_level',
   'state',
   'due',
@@ -98,7 +94,6 @@ export const CARD_LIST_COLUMNS = [
   'id',
   'fields_data',
   'layout_type',
-  'card_type',
   'jlpt_level',
   'state',
   'is_suspended',
@@ -116,7 +111,6 @@ export interface CardListResult {
 }
 
 export interface CreateCardMeta {
-  cardType:     CardType
   layoutType:   LayoutType
   tags:         string[] | undefined
   jlptLevel:    JLPTLevel | undefined
@@ -137,7 +131,6 @@ export function toCardRow(raw: CardDbRow): ApiCard {
     premadeDeckId: raw.premade_deck_id,
     layoutType:    raw.layout_type,
     fieldsData:    raw.fields_data as FieldsData,
-    cardType:      raw.card_type,
     parentCardId:  raw.parent_card_id,
     tags:          raw.tags,
     jlptLevel:     raw.jlpt_level,
@@ -161,7 +154,7 @@ export function toCardRow(raw: CardDbRow): ApiCard {
 /** Raw snake_case row shape returned by SELECT DUE_CARD_COLUMNS. */
 export type DueCardDbRow = Pick<
   CardDbRow,
-  'id' | 'deck_id' | 'card_type' | 'jlpt_level' | 'state' | 'due' | 'fields_data' | 'layout_type'
+  'id' | 'deck_id' | 'jlpt_level' | 'state' | 'due' | 'fields_data' | 'layout_type'
 >
 
 /** Maps a DUE_CARD_COLUMNS row to the wire-format ApiDueCard. */
@@ -169,7 +162,6 @@ export function toApiDueCard(raw: DueCardDbRow): ApiDueCard {
   return {
     id:         raw.id,
     deckId:     raw.deck_id,
-    cardType:   raw.card_type,
     jlptLevel:  raw.jlpt_level,
     state:      raw.state,
     due:        raw.due,
@@ -181,7 +173,7 @@ export function toApiDueCard(raw: DueCardDbRow): ApiDueCard {
 /** Raw snake_case row shape returned by SELECT CARD_LIST_COLUMNS. */
 export type CardListDbRow = Pick<
   CardDbRow,
-  'id' | 'fields_data' | 'layout_type' | 'card_type' | 'jlpt_level' | 'state' | 'is_suspended' | 'due' | 'tags'
+  'id' | 'fields_data' | 'layout_type' | 'jlpt_level' | 'state' | 'is_suspended' | 'due' | 'tags'
 >
 
 /** Maps a CARD_LIST_COLUMNS row to the wire-format ApiCardListItem. */
@@ -190,7 +182,6 @@ export function toApiCardListItem(raw: CardListDbRow): ApiCardListItem {
     id:          raw.id,
     fieldsData:  raw.fields_data as FieldsData,
     layoutType:  raw.layout_type,
-    cardType:    raw.card_type,
     jlptLevel:   raw.jlpt_level,
     state:       raw.state,
     isSuspended: raw.is_suspended,
@@ -213,7 +204,6 @@ const CardDbRowSchema = z.object({
   premade_deck_id: z.string().nullable(),
   layout_type:     layoutTypeEnum,
   fields_data:     z.record(z.string(), z.unknown()),
-  card_type:       cardTypeEnum,
   parent_card_id:  z.string().nullable(),
   tags:            z.array(z.string()),
   jlpt_level:      jlptLevelEnum.nullable(),
@@ -238,7 +228,6 @@ const CardListRpcRowSchema = CardDbRowSchema.pick({
   id:           true,
   fields_data:  true,
   layout_type:  true,
-  card_type:    true,
   jlpt_level:   true,
   state:        true,
   is_suspended: true,
@@ -253,7 +242,6 @@ const CardListRpcRowSchema = CardDbRowSchema.pick({
 export const DueCardRpcRowSchema = CardDbRowSchema.pick({
   id:          true,
   deck_id:     true,
-  card_type:   true,
   jlpt_level:  true,
   state:       true,
   due:         true,
@@ -266,7 +254,6 @@ const SimilarCardRpcRowSchema = z.object({
   id:          z.string(),
   deck_id:     z.string(),
   layout_type: layoutTypeEnum,
-  card_type:   cardTypeEnum,
   fields_data: z.record(z.string(), z.unknown()),
   // RPC returns NULL for cards that haven't been tagged.
   tags:        z.array(z.string()).nullable(),
@@ -487,7 +474,6 @@ export async function createCard(
       // fieldsData is Record<string, unknown> from the controller; the
       // generated Insert type expects Json. JSON-serialisable at runtime.
       fields_data:    asPayload(fieldsData),
-      card_type:      meta.cardType,
       layout_type:    meta.layoutType,
       tags:           meta.tags         ?? [],
       jlpt_level:     meta.jlptLevel    ?? null,
@@ -564,7 +550,6 @@ export async function updateCard(
     p_expected_version: expectedVersion,
     p_fields_data:      input.fieldsData ?? null,
     p_layout_type:      input.layoutType ?? null,
-    p_card_type:        input.cardType   ?? null,
     p_tags:             input.tags       ?? null,
     p_jlpt_level:       input.jlptLevel  ?? null,
   }))
@@ -635,7 +620,7 @@ export async function deleteCard(
  * Returns an empty array if the card has no embedding yet.
  *
  * The find_similar_cards RPC returns 8 columns (id, deck_id, layout_type,
- * card_type, fields_data, tags, jlpt_level, similarity) — not the full 21
+ * fields_data, tags, jlpt_level, similarity) — not the full 21
  * fields of ApiCard. The return type mirrors the actual RPC shape.
  */
 export async function getSimilarCards(
@@ -661,7 +646,6 @@ export async function getSimilarCards(
     id:         row.id,
     deckId:     row.deck_id,
     layoutType: row.layout_type,
-    cardType:   row.card_type,
     fieldsData: row.fields_data as FieldsData,
     tags:       row.tags ?? [],
     jlptLevel:  row.jlpt_level,

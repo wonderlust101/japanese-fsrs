@@ -15,7 +15,6 @@ export interface CardsResultRow {
   meaning:   string
   deckId:    string
   deckName:  string
-  cardType:  'comprehension' | 'production' | 'listening'
   jlptLevel: 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'beyond_jlpt' | null
   /** Part-of-speech label sourced from `WordFields.partOfSpeech`
    *  (noun / verb / i-adj / na-adj / adv / etc.). Optional because the

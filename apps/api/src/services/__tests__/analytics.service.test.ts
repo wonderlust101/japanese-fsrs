@@ -32,11 +32,11 @@ beforeEach(() => {
 
 describe('analytics.service — getAccuracyByLayout', () => {
   it('rounds accuracy to one decimal place', async () => {
-    state.rpcResponses['get_accuracy_by_layout'] = {
+    state.rpcResponses['get_accuracy_by_layout_type'] = {
       data: [
-        { layout: 'comprehension', total: 7,   successful: 5 },
-        { layout: 'production',    total: 100, successful: 87 },
-        { layout: 'listening',     total: 0,   successful: 0 },
+        { layout_type: 'vocabulary', total: 7,   successful: 5 },
+        { layout_type: 'grammar',    total: 100, successful: 87 },
+        { layout_type: 'sentence',   total: 0,   successful: 0 },
       ],
       error: null,
     }
@@ -45,9 +45,9 @@ describe('analytics.service — getAccuracyByLayout', () => {
     expect(out.items).toHaveLength(3)
     expect(out.nextCursor).toBeNull()
     expect(out.hasMore).toBe(false)
-    expect(out.items[0]).toEqual({ layout: 'comprehension', total: 7,   successful: 5,  accuracyPct: 71.4 })
-    expect(out.items[1]).toEqual({ layout: 'production',    total: 100, successful: 87, accuracyPct: 87 })
-    expect(out.items[2]).toEqual({ layout: 'listening',     total: 0,   successful: 0,  accuracyPct: 0 })
+    expect(out.items[0]).toEqual({ layoutType: 'vocabulary', total: 7,   successful: 5,  accuracyPct: 71.4 })
+    expect(out.items[1]).toEqual({ layoutType: 'grammar',    total: 100, successful: 87, accuracyPct: 87 })
+    expect(out.items[2]).toEqual({ layoutType: 'sentence',   total: 0,   successful: 0,  accuracyPct: 0 })
   })
 })
 

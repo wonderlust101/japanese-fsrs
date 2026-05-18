@@ -176,7 +176,6 @@ describeIntegration('decks routes — Stage 3 rollups on populated deck', () => 
           mode:       'manual',
           fieldsData: { word, reading: word, meaning: 'number' },
           layoutType: 'vocabulary',
-          cardType:   'comprehension',
         })
       expect(r.status).toBe(201)
     }

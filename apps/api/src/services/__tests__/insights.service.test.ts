@@ -9,7 +9,6 @@ interface RpcRow {
   card_id:     string
   deck_id:     string | null
   layout_type: 'vocabulary' | 'grammar' | 'sentence'
-  card_type:   'comprehension' | 'production' | 'listening'
   jlpt_level:  string | null
   fields_data: Record<string, unknown>
   state:       number
@@ -92,7 +91,6 @@ describe('insights.service — listProblemCards', () => {
         card_id:     '00000000-0000-4000-8000-000000000001',
         deck_id:     '00000000-0000-4000-8000-000000000002',
         layout_type: 'vocabulary',
-        card_type:   'comprehension',
         jlpt_level:  'N3',
         fields_data: { word: '猫', reading: 'ねこ', meaning: 'cat' },
         state:       2,
@@ -111,7 +109,6 @@ describe('insights.service — listProblemCards', () => {
     expect(item.cardId).toBe('00000000-0000-4000-8000-000000000001')
     expect(item.deckId).toBe('00000000-0000-4000-8000-000000000002')
     expect(item.layoutType).toBe('vocabulary')
-    expect(item.cardType).toBe('comprehension')
     expect(item.jlptLevel).toBe('N3')
     expect(item.lapses).toBe(5)
     expect(item.reps).toBe(12)

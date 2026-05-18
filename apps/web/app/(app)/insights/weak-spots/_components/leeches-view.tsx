@@ -56,7 +56,6 @@ export function LeechesView(): React.JSX.Element {
     }
     if (filters.deckId    !== 'all') opts.deckId    = filters.deckId
     if (filters.jlptLevel !== 'all') opts.jlptLevel = filters.jlptLevel
-    if (filters.cardType  !== 'all') opts.cardType  = filters.cardType
     if (filters.diagnosis !== 'all') opts.diagnosis = filters.diagnosis
     return opts
   }, [filters])

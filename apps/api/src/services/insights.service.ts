@@ -5,7 +5,6 @@ import { asPayload } from '../lib/db.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import {
   layoutTypeEnum,
-  cardTypeEnum,
   jlptLevelEnum,
   ApiCardQualityIssueTypeSchema,
   type ApiList,
@@ -33,7 +32,6 @@ const ProblemCardRpcRowSchema = z.object({
   card_id:     z.string().uuid(),
   deck_id:     z.string().uuid().nullable(),
   layout_type: layoutTypeEnum,
-  card_type:   cardTypeEnum,
   jlpt_level:  jlptLevelEnum.nullable(),
   fields_data: z.record(z.string(), z.unknown()),
   state:       z.number().int().nonnegative(),
@@ -50,7 +48,6 @@ function toProblemCard(raw: ProblemCardDbRow): ApiProblemCard {
     cardId:     raw.card_id,
     deckId:     raw.deck_id,
     layoutType: raw.layout_type,
-    cardType:   raw.card_type,
     jlptLevel:  raw.jlpt_level,
     // The DB enforces fields_data shape via cards_fields_data_shape CHECK;
     // the cast moves the discriminated-union narrowing to the consumer

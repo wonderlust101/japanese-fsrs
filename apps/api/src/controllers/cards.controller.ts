@@ -105,7 +105,6 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
       }
 
       const card = await cardService.createCard(deckId, req.user.id, fieldsData, {
-        cardType:     input.cardType,
         layoutType:   input.layoutType,
         tags:         input.tags,
         jlptLevel:    input.jlptLevel,

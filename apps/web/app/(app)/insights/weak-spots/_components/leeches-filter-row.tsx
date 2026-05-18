@@ -40,12 +40,6 @@ const JLPT_LABEL: Record<string, string> = {
   beyond_jlpt:  'Beyond',
 }
 
-const CARD_TYPE_OPTIONS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: 'comprehension', label: 'Comprehension' },
-  { key: 'production',    label: 'Production'    },
-  { key: 'listening',     label: 'Listening'     },
-]
-
 const DIAGNOSIS_OPTIONS: ReadonlyArray<{ key: LeechDiagnosisFilter | 'all'; label: string }> = [
   { key: 'all',       label: 'Any'        },
   { key: 'available', label: 'Diagnosed'  },
@@ -78,7 +72,6 @@ export function useLeechFiltersStorage(initial: LeechFilters): [
           : initial.status,
         deckId:    typeof parsed.deckId    === 'string' ? parsed.deckId    : initial.deckId,
         jlptLevel: typeof parsed.jlptLevel === 'string' ? parsed.jlptLevel : initial.jlptLevel,
-        cardType:  typeof parsed.cardType  === 'string' ? parsed.cardType  : initial.cardType,
         diagnosis: parsed.diagnosis === 'all' || parsed.diagnosis === 'available' || parsed.diagnosis === 'missing'
           ? parsed.diagnosis
           : initial.diagnosis,
@@ -126,7 +119,6 @@ export function LeechesFilterRow({
   const decks      = decksQuery.data?.items ?? []
   const deckId     = useId()
   const jlptId     = useId()
-  const cardTypeId = useId()
   const diagnosisId = useId()
   const sortId     = useId()
 
@@ -182,18 +174,6 @@ export function LeechesFilterRow({
         options={[
           { value: 'all', label: 'Any level' },
           ...JLPT_OPTIONS.map((lvl) => ({ value: lvl, label: JLPT_LABEL[lvl] ?? lvl })),
-        ]}
-      />
-
-      {/* Card type dropdown */}
-      <FilterSelect
-        id={cardTypeId}
-        label="Modality"
-        value={value.cardType}
-        onChange={(v) => onChange({ ...value, cardType: v })}
-        options={[
-          { value: 'all', label: 'Any type' },
-          ...CARD_TYPE_OPTIONS.map((opt) => ({ value: opt.key, label: opt.label })),
         ]}
       />
 

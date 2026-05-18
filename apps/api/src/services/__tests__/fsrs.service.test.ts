@@ -52,7 +52,6 @@ describe('fsrs.service — previewNextStates', () => {
   const baseRow = {
     id:             'card-1',
     user_id:        'user-1',
-    card_type:      'comprehension',
     state:          0,
     is_suspended:   false,
     due:            new Date().toISOString(),
@@ -67,7 +66,7 @@ describe('fsrs.service — previewNextStates', () => {
   }
 
   it('returns four rating outcomes with monotonically increasing intervals', () => {
-    const p = previewNextStates(baseRow, 'comprehension')
+    const p = previewNextStates(baseRow)
     expect(Object.keys(p).sort()).toEqual(['again', 'easy', 'good', 'hard'])
     // Easy intervals should be longer than Good which should be longer than Again.
     expect(p.easy.scheduledDays).toBeGreaterThanOrEqual(p.good.scheduledDays)
@@ -113,7 +112,6 @@ describe('fsrs.service — rollbackReview', () => {
   const cardRow = {
     id:             'card-1',
     user_id:        'user-1',
-    card_type:      'comprehension',
     state:          1,
     is_suspended:   false,
     due:            new Date().toISOString(),

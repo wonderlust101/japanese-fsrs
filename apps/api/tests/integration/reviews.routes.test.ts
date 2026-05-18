@@ -60,7 +60,6 @@ describeIntegration('reviews — submit advances FSRS state', () => {
         mode: 'manual',
         fieldsData: { word: '本', reading: 'ほん', meaning: 'book' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -92,7 +91,6 @@ describeIntegration('reviews — submit advances FSRS state', () => {
         mode: 'manual',
         fieldsData: { word: '川', reading: 'かわ', meaning: 'river' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
     const cardId = createRes.body.id
@@ -113,7 +111,6 @@ describeIntegration('reviews — submit advances FSRS state', () => {
 // contract that promised only 7 ApiDueCard fields. If a future change selects
 // extra columns or swaps the mapper, this assertion fails.
 const API_DUE_CARD_KEYS = [
-  'cardType',
   'deckId',
   'due',
   'fieldsData',
@@ -135,7 +132,6 @@ describeIntegration('reviews — Idempotency-Key replay', () => {
         mode: 'manual',
         fieldsData: { word: '夢', reading: 'ゆめ', meaning: 'dream' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -159,7 +155,6 @@ describeIntegration('reviews — Idempotency-Key replay', () => {
         mode: 'manual',
         fieldsData: { word: '光', reading: 'ひかり', meaning: 'light' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(cardRes.status).toBe(201)
     const cardId = cardRes.body.id
@@ -206,7 +201,6 @@ describeIntegration('reviews — due card wire shape', () => {
         mode: 'manual',
         fieldsData: { word: '雪', reading: 'ゆき', meaning: 'snow' },
         layoutType: 'vocabulary',
-        cardType:   'comprehension',
       })
     expect(createRes.status).toBe(201)
 

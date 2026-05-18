@@ -52,8 +52,6 @@ export function LeechListItem({
   const detectedLabel = formatRelativeDays(Math.round((Date.now() - detectedMs) / 86_400_000))
   const hasDiagnosis = leech.diagnosis !== null && leech.diagnosis !== ''
 
-  const cardTypeLabel = CARD_TYPE_LABEL[leech.cardType ?? 'comprehension'] ?? 'Comprehension'
-
   return (
     <li className="group relative flex flex-col gap-y-3 border-b border-soft-hairline px-4 py-4 last:border-b-0 sm:px-5 sm:py-5">
       {/* Hero row — clickable text area opens the detail dialog */}
@@ -90,8 +88,6 @@ export function LeechListItem({
             <span className="truncate normal-case tracking-normal">{leech.deckName}</span>
           </>
         )}
-        <span aria-hidden="true">·</span>
-        <span>{cardTypeLabel}</span>
         {leech.jlptLevel !== null && (
           <>
             <span aria-hidden="true">·</span>
@@ -215,12 +211,6 @@ function RowAction({
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const CARD_TYPE_LABEL: Record<string, string> = {
-  comprehension: 'Comprehension',
-  production:    'Production',
-  listening:     'Listening',
-}
 
 function jlptPillTone(level: string): JlptPillLevel {
   if (level === 'N1' || level === 'N2' || level === 'N3' || level === 'N4' || level === 'N5') {

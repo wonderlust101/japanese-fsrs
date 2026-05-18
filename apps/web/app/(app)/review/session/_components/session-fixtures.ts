@@ -1,5 +1,4 @@
 import type { ApiDueCard } from '@fsrs-japanese/shared-types'
-import { CardType }        from '@fsrs-japanese/shared-types'
 
 // Synthetic cards used only by the session dev tools dock. They satisfy the
 // ApiDueCard shape (vocabulary or sentence layout) and additionally carry
@@ -35,7 +34,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-taberu'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  'N5',
       state:      2,
       due:        new Date().toISOString(),
@@ -77,7 +75,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-momiji'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  'N3',
       state:      2,
       due:        new Date().toISOString(),
@@ -110,7 +107,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-natsukashii'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  'N2',
       state:      1,
       due:        new Date().toISOString(),
@@ -131,7 +127,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-hashi'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  'N4',
       state:      2,
       due:        new Date().toISOString(),
@@ -159,7 +154,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-long-kotoba'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  'N4',
       state:      2,
       due:        new Date().toISOString(),
@@ -197,7 +191,6 @@ const COMP_FIXTURES: Fixture[] = [
     card: {
       id:         id('comp-minimal'),
       deckId:     'fixture-deck',
-      cardType:   CardType.Comprehension,
       jlptLevel:  null,
       state:      0,
       due:        new Date().toISOString(),

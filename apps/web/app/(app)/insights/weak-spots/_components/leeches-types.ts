@@ -17,7 +17,6 @@ export interface LeechFilters {
   status:    LeechStatusFilter
   deckId:    string | 'all'
   jlptLevel: string | 'all'
-  cardType:  string | 'all'
   diagnosis: LeechDiagnosisFilter | 'all'
   sort:      LeechSortOrder
 }
@@ -26,7 +25,6 @@ export const INITIAL_LEECH_FILTERS: LeechFilters = {
   status:    'unresolved',
   deckId:    'all',
   jlptLevel: 'all',
-  cardType:  'all',
   diagnosis: 'all',
   sort:      'mostRecent',
 }

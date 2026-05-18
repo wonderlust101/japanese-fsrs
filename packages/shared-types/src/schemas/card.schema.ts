@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-import { CardType } from '../fsrs.types.ts'
 import { JLPTLevel, LayoutType } from '../card.types.ts'
 
 import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../sanitize.ts'
@@ -9,7 +8,6 @@ import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../sanitiz
 // Derived from the canonical `as const` objects in shared-types so a value
 // added there propagates here automatically — no second source of truth.
 
-export const cardTypeEnum   = z.enum(Object.values(CardType)   as [CardType,   ...CardType[]])
 export const layoutTypeEnum = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]])
 export const jlptLevelEnum  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  ...JLPTLevel[]])
 
@@ -28,7 +26,6 @@ const tagsSchema = z.array(safeShortText(50, 1)).max(20)
 // ─── Shared metadata fields ───────────────────────────────────────────────────
 
 const cardMetaFields = {
-  cardType:     cardTypeEnum.default('comprehension'),
   layoutType:   layoutTypeEnum.default('vocabulary'),
   tags:         tagsSchema.optional(),
   jlptLevel:    jlptLevelEnum.optional(),
@@ -68,7 +65,6 @@ export const createCardSchema = z.discriminatedUnion('mode', [
 export const updateCardSchema = z.object({
   fieldsData: fieldsDataSchema.optional(),
   layoutType: layoutTypeEnum.optional(),
-  cardType:   cardTypeEnum.optional(),
   tags:       tagsSchema.optional(),
   jlptLevel:  jlptLevelEnum.nullable().optional(),
 }).strict()

@@ -53,7 +53,7 @@ async function seedCardWithLapses(
     deck_id:        u.deckId,
     layout_type:    'vocabulary',
     fields_data:    { word, reading: word, meaning: `mock ${word}` },
-    card_type:      'comprehension',
+
     jlpt_level:     'N3',
     state:          2,
     lapses,
@@ -222,7 +222,7 @@ async function seedCardWithFields(
     deck_id:        u.deckId,
     layout_type:    layoutType,
     fields_data:    fieldsData,
-    card_type:      'comprehension',
+
     jlpt_level:     'N5',
     is_suspended:   false,
   })
@@ -433,26 +433,26 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     //   - relearning (state=3)
     //   - mature (state=2, scheduled_days >= 21)
     const insert = await supabaseAdmin.from('cards').insert([
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'new', reading: 'new', meaning: 'new' },
         state: 0, scheduled_days: 0, is_suspended: false },
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'learn1', reading: 'learn1', meaning: 'learn1' },
         state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'learn2', reading: 'learn2', meaning: 'learn2' },
         state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'review', reading: 'review', meaning: 'review' },
         state: 2, scheduled_days: 5, is_suspended: false, reps: 3 },
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'relearn', reading: 'relearn', meaning: 'relearn' },
         state: 3, scheduled_days: 1, is_suspended: false, reps: 5, lapses: 1 },
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'mature', reading: 'mature', meaning: 'mature' },
         state: 2, scheduled_days: 30, is_suspended: false, reps: 10 },
       // Suspended card — must NOT show up in any bucket.
-      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'suspended', reading: 'suspended', meaning: 'suspended' },
         state: 2, scheduled_days: 30, is_suspended: true, reps: 10 },
     ])
@@ -483,7 +483,7 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
 
     // Seed a mature card so the snapshot row has non-zero counts.
     await supabaseAdmin.from('cards').insert({
-      user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
       fields_data: { word: 'snap', reading: 'snap', meaning: 'snap' },
       state: 2, scheduled_days: 30, is_suspended: false, reps: 10,
     })
@@ -537,7 +537,7 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
 
     // a has a mature card; b should see all zeros.
     await supabaseAdmin.from('cards').insert({
-      user_id: a.userId, deck_id: a.deckId, layout_type: 'vocabulary', card_type: 'comprehension',
+      user_id: a.userId, deck_id: a.deckId, layout_type: 'vocabulary',
       fields_data: { word: 'a-only', reading: 'a-only', meaning: 'a-only' },
       state: 2, scheduled_days: 30, is_suspended: false, reps: 10,
     })
@@ -575,7 +575,7 @@ async function seedCardWithEmbedding(
     deck_id:        u.deckId,
     layout_type:    'vocabulary',
     fields_data:    { word, reading: word, meaning: `mock ${word}` },
-    card_type:      'comprehension',
+
     jlpt_level:     'N3',
     state:          2,
     is_suspended:   false,

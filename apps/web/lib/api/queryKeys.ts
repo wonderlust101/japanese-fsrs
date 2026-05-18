@@ -25,7 +25,7 @@ export const queryKeys = {
   leeches: {
     all:    ()                       => ['leeches']                              as const,
     // The filter object is included in the cache key so each (status, deck,
-    // jlpt, cardType, diagnosis, sort) combination is fetched and cached
+    // jlpt, diagnosis, sort) combination is fetched and cached
     // independently. Matches the doc's "query keys must include every filter
     // dimension" requirement.
     list:   (filters: object)        => [...queryKeys.leeches.all(), 'list', filters]      as const,

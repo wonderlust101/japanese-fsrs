@@ -869,10 +869,10 @@ export type Database = {
           tags: string[]
         }[]
       }
-      get_accuracy_by_layout: {
+      get_accuracy_by_layout_type: {
         Args: { p_user_id: string }
         Returns: {
-          layout: string
+          layout_type: string
           successful: number
           total: number
         }[]

@@ -52,8 +52,8 @@ Key implementation rules:
 - Review submission persists card state, review log, and leech detection atomically.
 - Premade source cards have `user_id = NULL` and must not receive user review state.
 - Users *copy* a premade deck into their library via `copy_premade_deck`, which creates a standalone user-owned deck plus personal card copies in one transaction. There is no ongoing subscription — refreshing content means deleting the deck and copying again, with the FSRS-progress cost surfaced explicitly. Source premade decks are hidden with `is_active = false` rather than hard-deleted, which only affects new copies; existing user copies are unaffected because they are independent rows.
-- `card_type` is the cognitive modality (`comprehension`, `production`, `listening`) used by FSRS scheduling.
-- `layout_type` is the content shape (`vocabulary`, `grammar`, `sentence`) used by `fields_data` validation and rendering.
+- A single FSRS scheduler runs at `request_retention = 0.85`. The historic per-modality split (`comprehension` / `production` / `listening`) was removed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
+- `layout_type` is the content shape (`vocabulary`, `grammar`, `sentence`) used by `fields_data` validation and rendering, and is the dimension behind `get_accuracy_by_layout_type`.
 - `parent_card_id` links sibling cards for shared field propagation.
 
 ## Frontend Responsibilities

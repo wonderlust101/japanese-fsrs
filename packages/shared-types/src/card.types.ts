@@ -1,6 +1,5 @@
 import type { z } from 'zod'
 
-import type { CardType } from './fsrs.types.ts'
 import type { ExampleSentenceSchema, KanjiBreakdownSchema } from './schemas/field-shapes.schema.ts'
 
 export const JLPTLevel = {
@@ -31,5 +30,3 @@ export type ExampleSentence = z.infer<typeof ExampleSentenceSchema>
 
 /** Per-kanji breakdown of a vocabulary item. */
 export type KanjiBreakdown = z.infer<typeof KanjiBreakdownSchema>
-
-export type { CardType }

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { cardTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
+import { layoutTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
 
 // ─── RPC response schemas ─────────────────────────────────────────────────────
 // Numeric columns from PostgreSQL aggregations may serialize as strings or
@@ -15,9 +15,9 @@ export const HeatmapRpcSchema = z.array(HeatmapRpcRowSchema)
 export type HeatmapRpcRow = z.infer<typeof HeatmapRpcRowSchema>
 
 export const AccuracyRpcRowSchema = z.object({
-  layout:     cardTypeEnum,
-  total:      z.coerce.number(),
-  successful: z.coerce.number(),
+  layout_type: layoutTypeEnum,
+  total:       z.coerce.number(),
+  successful:  z.coerce.number(),
 })
 export const AccuracyRpcSchema = z.array(AccuracyRpcRowSchema)
 export type AccuracyRpcRow = z.infer<typeof AccuracyRpcRowSchema>

@@ -157,7 +157,6 @@ const SAMPLE_LEECH_ROW: LeechRow = {
     deck_id:      DECK_ID,
     fields_data:  { word: '猫', reading: 'ねこ', meaning: 'cat' },
     layout_type:  'vocabulary',
-    card_type:    'comprehension',
     jlpt_level:   'N5',
     lapses:       8,
     reps:         12,
@@ -238,7 +237,6 @@ describe('leech.service — toListItem', () => {
     expect(item.reading).toBe('ねこ')
     expect(item.meaning).toBe('cat')
     expect(item.layoutType).toBe('vocabulary')
-    expect(item.cardType).toBe('comprehension')
     expect(item.jlptLevel).toBe('N5')
     expect(item.lapses).toBe(8)
     expect(item.reps).toBe(12)
@@ -255,7 +253,6 @@ describe('leech.service — toListItem', () => {
     expect(item.reading).toBeNull()
     expect(item.meaning).toBeNull()
     expect(item.layoutType).toBeNull()
-    expect(item.cardType).toBeNull()
     expect(item.jlptLevel).toBeNull()
     expect(item.lapses).toBeNull()
     expect(item.due).toBeNull()
@@ -665,7 +662,6 @@ const SAMPLE_DRILL_ENVELOPE = {
       cardId:        CARD_ID,
       ordinal:       0,
       layoutType:    'vocabulary',
-      cardType:      'comprehension',
       fieldsData:    { word: '猫', reading: 'ねこ', meaning: 'cat' },
       lapses:        8,
     },
@@ -675,7 +671,6 @@ const SAMPLE_DRILL_ENVELOPE = {
       cardId:        'f5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a',
       ordinal:       1,
       layoutType:    'vocabulary',
-      cardType:      'production',
       fieldsData:    { word: '犬', reading: 'いぬ', meaning: 'dog' },
       lapses:        12,
     },
@@ -771,7 +766,6 @@ describe('leech.service — createDrillSession', () => {
       source:    'deckScoped',
       deckId:    DECK_ID,
       jlptLevel: 'N3',
-      cardType:  'production',
       order:     'mostLapses',
       limit:     15,
     }))
@@ -784,7 +778,6 @@ describe('leech.service — createDrillSession', () => {
     expect(payload['p_source_query']).toEqual({
       deckId:    DECK_ID,
       jlptLevel: 'N3',
-      cardType:  'production',
       cardIds:   null,
       cardId:    null,
       minLapses: null,
@@ -875,7 +868,6 @@ function freshCard(sessionCardId: string, leechId: string, cardId: string, ordin
     cardId,
     ordinal,
     layoutType: 'vocabulary',
-    cardType:   'comprehension',
     fieldsData: { word: '猫', reading: 'ねこ', meaning: 'cat' },
     lapses:     8,
     isOrphaned: false,
@@ -894,7 +886,6 @@ function orphanCard(sessionCardId: string, leechId: string, ordinal: number): Re
     cardId:     null,
     ordinal,
     layoutType: null,
-    cardType:   null,
     fieldsData: null,
     lapses:     null,
     isOrphaned: true,

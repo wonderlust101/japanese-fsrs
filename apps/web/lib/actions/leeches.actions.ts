@@ -30,7 +30,6 @@ export interface ListLeechesOptions {
   status?:    LeechStatusFilter
   deckId?:    string
   jlptLevel?: string
-  cardType?:  string
   diagnosis?: LeechDiagnosisFilter
   sort?:      LeechSortOrder
   limit?:     number
@@ -60,7 +59,6 @@ export async function listLeechesAction(
   params.set('limit',  String(opts.limit ?? 50))
   if (opts.deckId    !== undefined) params.set('deckId',    opts.deckId)
   if (opts.jlptLevel !== undefined) params.set('jlptLevel', opts.jlptLevel)
-  if (opts.cardType  !== undefined) params.set('cardType',  opts.cardType)
   if (opts.diagnosis !== undefined) params.set('diagnosis', opts.diagnosis)
   if (opts.cursor    !== undefined) params.set('cursor',    opts.cursor)
 
@@ -129,7 +127,6 @@ export type CreateDrillSessionInput =
       source:        'unresolvedLeeches'
       deckId?:       string
       jlptLevel?:    string
-      cardType?:     string
       order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
       limit?:        number
       repeatPolicy?: 'none' | 'missedAfterLag'
@@ -138,7 +135,6 @@ export type CreateDrillSessionInput =
       source:        'deckScoped'
       deckId:        string
       jlptLevel?:    string
-      cardType?:     string
       order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
       limit?:        number
       repeatPolicy?: 'none' | 'missedAfterLag'
@@ -146,7 +142,6 @@ export type CreateDrillSessionInput =
   | {
       source:        'highLapseCandidates'
       jlptLevel?:    string
-      cardType?:     string
       minLapses?:    number
       order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
       limit?:        number

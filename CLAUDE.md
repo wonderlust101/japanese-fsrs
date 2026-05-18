@@ -177,7 +177,7 @@ Full architecture boundaries live in [docs/TDD.md](./docs/TDD.md). Keep these ro
 - Use TanStack Query for server-derived frontend data and Zustand for review/session-local state.
 - Keep embeddings in Supabase PostgreSQL with pgvector unless the technical design changes.
 - Upstash Redis supports AI response caching, rate limiting, and offline review retry buffering.
-- FSRS parameters are per cognitive modality (`comprehension`, `production`, `listening`); do not collapse them into one shared scheduler.
+- A single FSRS instance schedules every card at `request_retention = 0.85`. The historic per-modality split was collapsed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
 
 ---
 
@@ -257,7 +257,6 @@ Before finishing code work:
 - **Use `f.next()` for all normal reviews, not `f.repeat()`.** `f.repeat()` computes all 4 rating outcomes simultaneously and is only valid inside `previewNextStates()`. Never call `f.repeat()` for an actual user review — it does not persist state and calling it more than once is not idempotent.
 - **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
 - **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
-- **Per-modality FSRS instances are separate objects baked with their `request_retention` at construction.** Do not share instances across `card_type` modalities.
 - **Linked Card Sync:** When updating content fields (`word`, `reading`, `meaning`) on a card, those shared values must propagate to sibling cards through the `update_card_with_sibling_sync` RPC used by `card.service.ts`.
 - **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.

@@ -180,7 +180,7 @@ function buildAttentionWeekInputs(todayIso: string): WeeklyReportInputs {
   })
 
   const accuracy: ApiLayoutAccuracy[] = [
-    { layout: 'comprehension', total: 302, successful: 218, accuracyPct: 72 },
+    { layoutType: 'vocabulary', total: 302, successful: 218, accuracyPct: 72 },
   ]
 
   const jlptGap: ApiJlptGap[] = [
@@ -210,7 +210,7 @@ function buildCalmWeekInputs(todayIso: string): WeeklyReportInputs {
   })
 
   const accuracy: ApiLayoutAccuracy[] = [
-    { layout: 'comprehension', total: 510, successful: 458, accuracyPct: 90 },
+    { layoutType: 'vocabulary', total: 510, successful: 458, accuracyPct: 90 },
   ]
 
   const jlptGap: ApiJlptGap[] = [
@@ -236,7 +236,7 @@ function buildLowDataInputs(todayIso: string): WeeklyReportInputs {
   })
 
   const accuracy: ApiLayoutAccuracy[] = [
-    { layout: 'comprehension', total: 14, successful: 11, accuracyPct: 79 },
+    { layoutType: 'vocabulary', total: 14, successful: 11, accuracyPct: 79 },
   ]
 
   const jlptGap: ApiJlptGap[] = [
