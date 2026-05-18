@@ -8,9 +8,13 @@
 import { z } from 'zod'
 
 export const ExampleSentenceSchema = z.object({
-  ja:       z.string(),
-  en:       z.string(),
-  furigana: z.string(),
+  ja:            z.string(),
+  en:            z.string(),
+  furigana:      z.string(),
+  // Lapis-style sentence-level asset. URL to a hosted audio clip of the
+  // sentence; left as a plain string (not z.string().url()) so authoring
+  // tools and frontends can use relative paths or data URIs during dev.
+  sentenceAudio: z.string().nullable().optional(),
 })
 
 export const KanjiBreakdownSchema = z.object({
@@ -32,6 +36,23 @@ export const WordFieldsSchema = z.object({
   // declared on the schema or Zod's default `.parse()` strips it from
   // every API response on the wire.
   mnemonic:       z.string().nullable().optional(),
+  // ─── Lapis-style fields (Backend Completion Plan, Stage 1) ──────────────
+  // Schema admission only. The AI generator (Stage 2) and the v4 review-
+  // surface UI populate these. The DB CHECK constraint
+  // `cards_fields_data_shape` enforces required keys only, so additive
+  // shape changes do not require a migration.
+  //
+  // URL to a hosted image illustrating the word.
+  picture:         z.string().nullable().optional(),
+  // URL to a hosted audio clip of the expression itself.
+  expressionAudio: z.string().nullable().optional(),
+  // Integer mora position (0 = heiban / flat; 1..N = drop after Nth mora).
+  // Drives the mora-line pitch graph. Coexists with the free-form
+  // `pitchAccent` string on VocabularyFieldsDataSchema.
+  pitchPosition:   z.number().int().nonnegative().nullable().optional(),
+  // Short AI-authored prose covering register, connotation, or synonym
+  // distinctions. First tab on the back of the v4 card.
+  nuance:          z.string().nullable().optional(),
 })
 
 export const VocabularyFieldsDataSchema = WordFieldsSchema.extend({

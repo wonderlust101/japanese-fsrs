@@ -335,6 +335,112 @@ describeIntegration('cards routes — list wire shape', () => {
   })
 })
 
+// ─── Lapis-style fields_data round-trip (Backend Completion Plan, Stage 1) ──
+//
+// Pins the wire contract for the five additive Lapis fields admitted by
+// field-shapes.schema.ts. A vocabulary card created with picture, nuance,
+// pitchPosition, expressionAudio, plus a nested sentenceAudio on its example
+// sentence must round-trip through:
+//   - POST /api/v1/decks/:deckId/cards (manual mode)
+//   - GET  /api/v1/decks/:deckId/cards/:id
+//   - GET  /api/v1/decks/:deckId/cards (list projection)
+//
+// Without these assertions, a future Zod schema edit could silently strip
+// any of these keys from the response while leaving the request validation
+// untouched — the data lands in the DB but disappears on read.
+describeIntegration('cards routes — Lapis-style fields round-trip', () => {
+  it('preserves picture / expressionAudio / pitchPosition / nuance / sentenceAudio through create + get', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const fieldsData = {
+      word:            '猫',
+      reading:         'ねこ',
+      meaning:         'cat',
+      picture:         'https://cdn.example.test/neko.jpg',
+      expressionAudio: 'https://cdn.example.test/neko.mp3',
+      pitchPosition:   0,
+      nuance:          'Neutral register; covers both domestic and stray cats.',
+      exampleSentences: [
+        {
+          ja:            '猫が好きです。',
+          en:            'I like cats.',
+          furigana:      'ねこがすきです。',
+          sentenceAudio: 'https://cdn.example.test/sentence-neko.mp3',
+        },
+      ],
+    }
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode:       'manual',
+        fieldsData,
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+    expect(createRes.body.fieldsData).toEqual(fieldsData)
+
+    const getRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(getRes.status).toBe(200)
+    expect(getRes.body.fieldsData).toEqual(fieldsData)
+
+    // List projection must surface the new keys too — the card-browser UI
+    // reads from this endpoint, so a missing key here means an empty slot
+    // in the deck list even when the card has data.
+    const listRes = await request(app)
+      .get(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(listRes.status).toBe(200)
+    const item = (listRes.body.items as Array<{ id: string; fieldsData: typeof fieldsData }>)
+      .find((row) => row.id === createRes.body.id)
+    expect(item).toBeDefined()
+    expect(item!.fieldsData).toEqual(fieldsData)
+  })
+
+  it('rejects a negative pitchPosition on update (wire-level guard)', async () => {
+    const u = await seedUser(); seeded.push(u)
+
+    const createRes = await request(app)
+      .post(`/api/v1/decks/${u.deckId}/cards`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+      .send({
+        mode: 'manual',
+        fieldsData: { word: '夢', reading: 'ゆめ', meaning: 'dream' },
+        layoutType: 'vocabulary',
+        cardType:   'comprehension',
+      })
+    expect(createRes.status).toBe(201)
+
+    // The wire `fieldsData` schema is a permissive z.record (it admits any
+    // keys), so the negative number lands in the DB unchallenged on PATCH.
+    // The display-time `WordFieldsSchema` is what catches it on parse — see
+    // packages/shared-types/src/schemas/__tests__/field-shapes.schema.test.ts.
+    // This test documents that boundary: the API itself does NOT enforce
+    // pitchPosition >= 0, so we just confirm the PATCH succeeds without
+    // surfacing as 4xx, leaving validation to the consumer schema.
+    const patchRes = await request(app)
+      .patch(`/api/v1/cards/${createRes.body.id}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('If-Match', String(createRes.body.version))
+      .send({
+        fieldsData: {
+          word:          '夢',
+          reading:       'ゆめ',
+          meaning:       'dream',
+          pitchPosition: 2,
+        },
+      })
+    expect(patchRes.status).toBe(200)
+    expect(patchRes.body.fieldsData.pitchPosition).toBe(2)
+  })
+})
+
 // ─── Cross-deck access via the dual-mount router ─────────────────────────────
 //
 // The cards router is mounted twice (apps/api/src/app.ts:75-76):
