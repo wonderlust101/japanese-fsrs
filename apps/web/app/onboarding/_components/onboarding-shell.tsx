@@ -55,10 +55,13 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
     ? 0
     : Math.min(2, Math.max(0, totalSteps - stepIndex - 1))
 
-  // Welcome stays narrow (a focused cover with the forgetting-curve hero);
-  // questionnaire steps run to the app's canonical 1440px so the editorial
-  // canvas reads as a peer of /today, /decks, etc.
-  const cardWidthClass = isWelcome ? 'max-w-[760px]' : 'max-w-[1440px]'
+  // Welcome stays narrow (a focused cover with the forgetting-curve hero).
+  // Questionnaire steps run at 1080px — a measured middle ground between
+  // the prior 860px (right column was ~430px wide; descriptions truncated)
+  // and the app's 1440px canvas (questionnaire felt dashboard-wide). At
+  // 1080px the StepCard's 38% / 1fr grid produces a ~380px preview pane
+  // and a ~570px answer column — comfortable reading without sprawl.
+  const cardWidthClass = isWelcome ? 'max-w-[760px]' : 'max-w-[1080px]'
 
   return (
     <div className="relative min-h-screen bg-cool-paper-base text-sumi-ink">
