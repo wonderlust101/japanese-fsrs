@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 
 /**
@@ -9,11 +10,30 @@ import type { ReactNode } from 'react'
  * close, Esc-to-close, ARIA menu/menuitem semantics. Floats below or above
  * the trigger depending on viewport space.
  *
+ * The menu panel is portaled into `document.body` and positioned via
+ * `position: fixed` against the trigger's bounding rect. This lets the panel
+ * escape clipping ancestors (e.g. the deck card row's `overflow-hidden`
+ * wrapper that exists to clip the brand stripe + progress bar to rounded
+ * corners) without giving up the existing keyboard / click-outside / focus
+ * behavior. Portaling closes on outer scroll / resize so a stale fixed
+ * position never floats over the wrong location.
+ *
  * Intentionally local to the Library page rather than a global primitive: the
  * project does not yet have a global menu/popover primitive, and shipping one
  * is outside the scope of this redesign. If a global primitive lands later,
  * this file is the obvious migration target.
  */
+
+interface TriggerPosition {
+  /** Distance from viewport top to the trigger's bottom edge (px). */
+  bottom: number
+  /** Distance from viewport top to the trigger's top edge (px). */
+  top:    number
+  /** Distance from viewport left to the trigger's left edge (px). */
+  left:   number
+  /** Distance from viewport left to the trigger's right edge (px). */
+  right:  number
+}
 
 interface DecksMenuProps {
   /** Renderprop for the trigger element. Receives onClick + aria-expanded. */
@@ -50,6 +70,7 @@ export function DecksMenu({
 }: DecksMenuProps): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const [direction, setDirection] = useState<'down' | 'up'>('down')
+  const [triggerPos, setTriggerPos] = useState<TriggerPosition | null>(null)
   const menuId = useId()
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -65,7 +86,9 @@ export function DecksMenu({
   }, [disabled])
 
   // Click outside closes the menu. Tracked from the document so nested popovers
-  // in dialogs still get the close signal.
+  // in dialogs still get the close signal. The `menuRef` is set on the
+  // portaled panel so `.contains(target)` correctly classifies clicks inside
+  // the floating menu as "inside".
   useEffect(() => {
     if (!open) return
     function onDown(event: MouseEvent | TouchEvent): void {
@@ -97,7 +120,9 @@ export function DecksMenu({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, close])
 
-  // Decide whether the menu opens downward or upward based on viewport space.
+  // On open, capture the trigger's viewport-relative rect (used to position
+  // the portaled panel with `position: fixed`) and decide whether to open up
+  // or down based on available space.
   useEffect(() => {
     if (!open) return
     const trigger = triggerRef.current
@@ -106,6 +131,30 @@ export function DecksMenu({
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
     setDirection(spaceBelow < 240 && spaceAbove > spaceBelow ? 'up' : 'down')
+    setTriggerPos({
+      top:    rect.top,
+      bottom: rect.bottom,
+      left:   rect.left,
+      right:  rect.right,
+    })
+  }, [open])
+
+  // Fixed positioning is anchored to the viewport, so the menu would drift
+  // off the trigger if anything scrolls. Closing on outer scroll / resize
+  // keeps the surface honest. Listening with `capture: true` catches
+  // scrolls on any ancestor (the page's scroll container isn't always
+  // window — e.g. the (app) layout's inner scroll regions).
+  useEffect(() => {
+    if (!open) return
+    function onShift(): void {
+      setOpen(false)
+    }
+    window.addEventListener('scroll', onShift, { capture: true, passive: true })
+    window.addEventListener('resize', onShift)
+    return () => {
+      window.removeEventListener('scroll', onShift, { capture: true })
+      window.removeEventListener('resize', onShift)
+    }
   }, [open])
 
   // After open, move focus into the menu so keyboard users can navigate.
@@ -152,8 +201,29 @@ export function DecksMenu({
     }
   }
 
+  // Position style for the portaled panel. Computed from the captured
+  // trigger rect — left/right give horizontal alignment, top/bottom give
+  // vertical placement. The 6px gap matches the prior `mt-1.5 / mb-1.5`.
+  const panelStyle: React.CSSProperties = (() => {
+    if (triggerPos === null) return { visibility: 'hidden' }
+    const VERTICAL_GAP = 6
+    const horizontal: React.CSSProperties = align === 'end'
+      ? { right: Math.max(0, window.innerWidth - triggerPos.right) }
+      : { left:  Math.max(0, triggerPos.left) }
+    const vertical: React.CSSProperties = direction === 'down'
+      ? { top: triggerPos.bottom + VERTICAL_GAP }
+      : { bottom: window.innerHeight - triggerPos.top + VERTICAL_GAP }
+    return { position: 'fixed', ...horizontal, ...vertical }
+  })()
+
+  // Defer rendering the portal until the document is available — typescript
+  // doesn't know `typeof document` at SSR. The DecksMenu lives entirely in
+  // `'use client'` files, but the portal still needs the body element to
+  // mount into, which doesn't exist until after hydration on the client.
+  const portalTarget: HTMLElement | null = typeof document === 'undefined' ? null : document.body
+
   return (
-    <div className="relative inline-flex">
+    <>
       {renderTrigger({
         onClick:      toggle,
         onKeyDown:    onTriggerKeyDown,
@@ -162,25 +232,25 @@ export function DecksMenu({
         menuId,
       })}
 
-      {open && (
+      {open && portalTarget !== null && createPortal(
         <div
           ref={menuRef}
           role="menu"
           id={menuId}
           aria-orientation="vertical"
           onKeyDown={onMenuKeyDown}
+          style={panelStyle}
           className={[
-            'absolute z-30 min-w-[10rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised py-1.5',
+            'z-30 min-w-[10rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised py-1.5',
             'shadow-[var(--shadow-card)]',
-            direction === 'down' ? 'top-full mt-1.5' : 'bottom-full mb-1.5',
-            align === 'end' ? 'right-0' : 'left-0',
             menuClassName,
           ].join(' ')}
         >
           {renderItems({ close, menuId })}
-        </div>
+        </div>,
+        portalTarget,
       )}
-    </div>
+    </>
   )
 }
 
