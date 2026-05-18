@@ -62,8 +62,8 @@ export type ApiBulkCardMutationResult = z.infer<typeof ApiBulkCardMutationResult
 
 /**
  * Wire-format result from /api/v1/cards/:id/similar (find_similar_cards RPC).
- * Mirrors the 8 columns the RPC actually returns — distinct from ApiCard,
- * which would imply 21 columns.
+ * The frontend doesn't currently consume this — the backend service uses the
+ * type internally and the endpoint stays live for future surfaces.
  */
 export type ApiSimilarCard = z.infer<typeof ApiSimilarCardSchema>
 
@@ -78,7 +78,8 @@ export type ApiPremadeDeck            = z.infer<typeof ApiPremadeDeckSchema>
  */
 export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultSchema>
 
-/** Backend Completion Plan Stage 6. Returned by `GET /api/v1/tomo/note`. */
+/** Returned by `GET /api/v1/tomo/note`. Backend-internal today; no
+ *  frontend consumer. Kept for the API service's response shape. */
 export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
 
 /**

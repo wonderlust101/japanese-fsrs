@@ -43,8 +43,7 @@ export function useSubmitReview(): UseMutationResult<ApiReviewedCard, Error, Sub
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.heatmap() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.accuracy() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.analytics.dashboard() })
     },
   })
 }

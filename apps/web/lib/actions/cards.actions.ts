@@ -8,7 +8,6 @@ import {
   ApiCrossDeckCardListItemSchema,
   ApiBulkCardMutationResultSchema,
   ApiReviewedCardSchema,
-  ApiSimilarCardSchema,
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
   GeneratedMnemonicSchema,
@@ -20,7 +19,6 @@ import {
   type ApiCrossDeckCardListItem,
   type ApiList,
   type ApiReviewedCard,
-  type ApiSimilarCard,
   type CardMissingField,
   type CardSortField,
   type CardStatusFilter,
@@ -106,15 +104,6 @@ export async function getCardByIdAction(cardId: string): Promise<ApiCard | null>
     ApiCardSchema.nullable(),
     {},
     null,
-  )
-}
-
-export async function getSimilarCardsAction(cardId: string): Promise<ApiList<ApiSimilarCard>> {
-  return apiCallSafe<ApiList<ApiSimilarCard>>(
-    `/api/v1/cards/${cardId}/similar`,
-    apiListEnvelope(ApiSimilarCardSchema),
-    {},
-    { items: [], nextCursor: null, hasMore: false },
   )
 }
 

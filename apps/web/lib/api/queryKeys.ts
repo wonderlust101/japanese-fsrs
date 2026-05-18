@@ -22,10 +22,6 @@ export const queryKeys = {
   },
   analytics: {
     dashboard:  () => ['analytics', 'dashboard']  as const,
-    heatmap:    () => ['analytics', 'heatmap']    as const,
-    accuracy:   () => ['analytics', 'accuracy']   as const,
-    jlptGap:    () => ['analytics', 'jlpt-gap']   as const,
-    milestones: () => ['analytics', 'milestones'] as const,
   },
   insights: {
     // The Stage 9 maturity-history endpoint accepts `days` ∈ {90, 180, 365};
@@ -64,12 +60,5 @@ export const queryKeys = {
   },
   profile: {
     me: () => ['profile', 'me'] as const,
-  },
-  tomo: {
-    // Backend Completion Plan Stage 6 — one note per learner per calendar
-    // day. The key is intentionally undated; the server's cache (keyed by
-    // learner-local dateKey) handles the day boundary, and the TanStack
-    // staleTime keeps multiple component subscriptions cheap.
-    note: () => ['tomo', 'note'] as const,
   },
 } as const
