@@ -44,6 +44,120 @@ interface IconProps {
 
 // ── Nav (5) ──────────────────────────────────────────────────────────────
 
+/** Reviews. Card with Tomo top-stripe + return-arc swooping back into it —
+ *  the act of reviewing as bringing a card around for another look. */
+export function IconReviews({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <rect x="9" y="14" width="22" height="20" rx="1" {...COMMON_PROPS} />
+      <rect x="9" y="14" width="22" height="2.5" fill="currentColor" stroke="none" />
+      <path d="M 31 14 Q 36 4 22 5" {...COMMON_PROPS} />
+      <path d="M 25 3 L 22 5 L 25 7" {...COMMON_PROPS} strokeWidth={STROKE * 0.85} />
+      <path d="M 25 22 V 30 M 20 22 V 28 M 15 22 V 30" {...COMMON_PROPS} strokeWidth={STROKE * 0.6} opacity="0.65" />
+    </svg>
+  )
+}
+
+/** Mistakes. Two parallel correction-marks on a baseline — the henshin
+ *  hatch a teacher scratches in red beside a slip. */
+export function IconMistakes({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <line x1="8" y1="28" x2="32" y2="28" {...COMMON_PROPS} />
+      <line x1="14" y1="22" x2="20" y2="14" {...COMMON_PROPS} strokeWidth={STROKE * 1.15} />
+      <line x1="22" y1="22" x2="28" y2="14" {...COMMON_PROPS} strokeWidth={STROKE * 0.8} />
+      <circle cx="14" cy="22" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Leeches. Stake with a hi-no-maru head driven into the ground — a card
+ *  that won't let go. Heavier shaft to read as weight; baseline as the
+ *  surface it's pinned into. */
+export function IconLeeches({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <circle cx="20" cy="11" r="4" {...COMMON_PROPS} />
+      <circle cx="20" cy="11" r="1.6" fill="currentColor" stroke="none" />
+      <line x1="20" y1="15" x2="20" y2="30" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
+      <line x1="11" y1="32" x2="29" y2="32" {...COMMON_PROPS} />
+      <line x1="16" y1="32" x2="14" y2="36" {...COMMON_PROPS} strokeWidth={STROKE * 0.55} opacity="0.6" />
+      <line x1="24" y1="32" x2="26" y2="36" {...COMMON_PROPS} strokeWidth={STROKE * 0.55} opacity="0.6" />
+    </svg>
+  )
+}
+
+/** Cards. Single card with Tomo top-stripe + yokogaki (horizontal) content
+ *  lines. The "one entry" inside the library, distinct from Decks' stack. */
+export function IconCards({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <rect x="10" y="8" width="20" height="24" rx="1" {...COMMON_PROPS} />
+      <rect x="10" y="8" width="20" height="2.5" fill="currentColor" stroke="none" />
+      <line x1="14" y1="17" x2="26" y2="17" {...COMMON_PROPS} strokeWidth={STROKE * 0.65} opacity="0.7" />
+      <line x1="14" y1="22" x2="24" y2="22" {...COMMON_PROPS} strokeWidth={STROKE * 0.65} opacity="0.7" />
+      <line x1="14" y1="27" x2="22" y2="27" {...COMMON_PROPS} strokeWidth={STROKE * 0.65} opacity="0.7" />
+    </svg>
+  )
+}
+
+/** Overview. Report sheet with a header band + three day-markers below —
+ *  the weekly-summary rhythm the Insights overview page uses. */
+export function IconOverview({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <rect x="6" y="10" width="28" height="22" rx="1" {...COMMON_PROPS} />
+      <rect x="6" y="10" width="28" height="2.5" fill="currentColor" stroke="none" />
+      <line x1="10" y1="18" x2="30" y2="18" {...COMMON_PROPS} strokeWidth={STROKE * 0.6} opacity="0.6" />
+      <circle cx="13" cy="25" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="25" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="27" cy="25" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+/** Progress. Ascending kaidan staircase climbing to a hi-no-maru focal
+ *  disc at the peak — gradual, deliberate gain. */
+export function IconProgress({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <path d="M 6 32 L 13 32 L 13 24 L 21 24 L 21 16 L 29 16 L 29 8" {...COMMON_PROPS} />
+      <circle cx="29" cy="8" r="2.4" fill="currentColor" stroke="none" />
+      <line x1="6" y1="34" x2="34" y2="34" {...COMMON_PROPS} strokeWidth={STROKE * 0.55} opacity="0.5" />
+    </svg>
+  )
+}
+
+/** Forecast. Hi-no-maru sun half-risen above the horizon line, with the
+ *  three rays a forecast traces forward. */
+export function IconForecast({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <line x1="5" y1="26" x2="35" y2="26" {...COMMON_PROPS} />
+      <path d="M 11 26 A 9 9 0 0 1 29 26" {...COMMON_PROPS} />
+      <circle cx="20" cy="22" r="2.6" fill="currentColor" stroke="none" />
+      <line x1="9"  y1="32" x2="13" y2="32" {...COMMON_PROPS} strokeWidth={STROKE * 0.6} opacity="0.6" />
+      <line x1="18" y1="32" x2="22" y2="32" {...COMMON_PROPS} strokeWidth={STROKE * 0.6} opacity="0.6" />
+      <line x1="27" y1="32" x2="31" y2="32" {...COMMON_PROPS} strokeWidth={STROKE * 0.6} opacity="0.6" />
+    </svg>
+  )
+}
+
+/** Statistics. Histogram with a soratsuke reference line above — the
+ *  rigorous data view, distinct from sangaku Analytics. */
+export function IconStatistics({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <line x1="5" y1="32" x2="35" y2="32" {...COMMON_PROPS} />
+      <line x1="5" y1="14" x2="35" y2="14" {...COMMON_PROPS} strokeWidth={STROKE * 0.5} opacity="0.45" />
+      <line x1="11" y1="32" x2="11" y2="22" {...COMMON_PROPS} strokeWidth={STROKE * 1.1} />
+      <line x1="18" y1="32" x2="18" y2="11" {...COMMON_PROPS} strokeWidth={STROKE * 1.1} />
+      <line x1="25" y1="32" x2="25" y2="18" {...COMMON_PROPS} strokeWidth={STROKE * 1.1} />
+      <line x1="32" y1="32" x2="32" y2="24" {...COMMON_PROPS} strokeWidth={STROKE * 1.1} />
+    </svg>
+  )
+}
+
 /** Dashboard. 田 grid with hi-no-maru disc in top-left cell. */
 export function IconDashboard({ className = '' }: IconProps): React.JSX.Element {
   return (
