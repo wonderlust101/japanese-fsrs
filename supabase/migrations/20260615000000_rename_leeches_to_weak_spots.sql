@@ -478,6 +478,14 @@ $$;
 -- still references the old `leech_drill_*` tables; DROP+CREATE rewrites
 -- both. GRANT EXECUTE TO service_role is re-issued.
 
+-- Stage 5 (20260601000000) defined the 11-arg signature; Stage 6
+-- (20260603000000) added three params (`p_card_ids`, `p_card_id`,
+-- `p_min_lapses`) via CREATE OR REPLACE without dropping the older
+-- overload, so both exist on the live DB. Drop both to free the name
+-- for the rename to create_weak_spot_drill_session.
+DROP FUNCTION public.create_leech_drill_session(
+  UUID, TEXT, UUID, TEXT, TEXT, TEXT, INT, TEXT, TEXT, JSONB, JSONB
+);
 DROP FUNCTION public.create_leech_drill_session(
   UUID, TEXT, UUID, TEXT, TEXT, TEXT, INT, TEXT, TEXT, JSONB, JSONB, UUID[], UUID, INT
 );
@@ -873,7 +881,7 @@ GRANT EXECUTE ON FUNCTION public.get_weak_spot_drill_session(UUID, UUID) TO serv
 
 
 DROP FUNCTION public.record_leech_drill_attempt(
-  UUID, UUID, UUID, UUID, UUID, TEXT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ
+  UUID, UUID, UUID, UUID, UUID, UUID, TEXT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ
 );
 
 CREATE OR REPLACE FUNCTION public.record_weak_spot_drill_attempt(
@@ -987,7 +995,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.record_weak_spot_drill_attempt(
-  UUID, UUID, UUID, UUID, UUID, TEXT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ
+  UUID, UUID, UUID, UUID, UUID, UUID, TEXT, INT, INT, TIMESTAMPTZ, TIMESTAMPTZ
 ) TO service_role;
 
 

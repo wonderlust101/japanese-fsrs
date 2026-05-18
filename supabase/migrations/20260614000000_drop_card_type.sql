@@ -571,6 +571,80 @@ $$;
 GRANT EXECUTE ON FUNCTION public.copy_premade_deck(UUID, UUID) TO service_role;
 
 
+-- ─── 2B. list_cards_paginated — drop card_type from RETURNS ──────────────────
+-- The Cards browser RPC's RETURNS TABLE shape still exposes card_type. Like
+-- the other DROP+CREATE blocks above, this is required because CREATE OR
+-- REPLACE cannot change a RETURNS TABLE signature in place.
+
+DROP FUNCTION public.list_cards_paginated(UUID, UUID, INT, UUID, TEXT);
+
+CREATE FUNCTION public.list_cards_paginated(
+  p_user_id        UUID,
+  p_deck_id        UUID,
+  p_limit          INT,
+  p_cursor         UUID DEFAULT NULL,
+  p_status_filter  TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+  id           UUID,
+  fields_data  JSONB,
+  layout_type  public.layout_type,
+  jlpt_level   public.jlpt_level,
+  state        INT,
+  is_suspended BOOLEAN,
+  due          TIMESTAMPTZ,
+  tags         TEXT[]
+)
+LANGUAGE plpgsql STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_cursor_at TIMESTAMPTZ;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.decks d
+    WHERE d.id = p_deck_id AND d.user_id = p_user_id
+  ) THEN
+    RAISE EXCEPTION 'deck_not_found'
+      USING ERRCODE = 'no_data_found',
+            HINT    = 'The specified deck does not exist or does not belong to this user.';
+  END IF;
+
+  IF p_cursor IS NOT NULL THEN
+    SELECT c.created_at INTO v_cursor_at
+    FROM public.cards c
+    WHERE c.id = p_cursor
+      AND c.user_id = p_user_id;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    c.id, c.fields_data, c.layout_type, c.jlpt_level,
+    c.state, c.is_suspended, c.due, c.tags
+  FROM public.cards c
+  WHERE c.user_id = p_user_id
+    AND c.deck_id = p_deck_id
+    AND (
+      p_status_filter IS NULL
+      OR p_status_filter = 'all'
+      OR (p_status_filter = 'new'       AND c.state = 0       AND c.is_suspended = FALSE)
+      OR (p_status_filter = 'learning'  AND c.state IN (1, 3) AND c.is_suspended = FALSE)
+      OR (p_status_filter = 'review'    AND c.state = 2       AND c.is_suspended = FALSE)
+      OR (p_status_filter = 'suspended' AND c.is_suspended = TRUE)
+    )
+    AND (
+      v_cursor_at IS NULL
+      OR (c.created_at, c.id) < (v_cursor_at, p_cursor)
+    )
+  ORDER BY c.created_at DESC, c.id DESC
+  LIMIT p_limit;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.list_cards_paginated(UUID, UUID, INT, UUID, TEXT) TO service_role;
+
+
 -- ─── 3. Drop the column ──────────────────────────────────────────────────────
 
 ALTER TABLE public.cards DROP COLUMN card_type;
