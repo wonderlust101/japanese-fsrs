@@ -85,7 +85,8 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 - [x] **Premade deck backend** — browse, subscribe, unsubscribe, self-healing. *(Subscribe path superseded by copy model 2026-05-17.)*
 - [x] **FSRS review engine** — due queue, submit, batch, forecast, session summary, rollback/forget/reschedule, weak spot flagging.
 - [x] **AI generation endpoints** — cards, sentences, mnemonics with prompt sanitization, structured-output validation, response caching.
-- [x] **Analytics backend + UI** — heatmap, accuracy, JLPT gap, milestones, review forecast, bundled dashboard. Streaks removed in Stage 8.
+- [x] **Analytics backend + UI** — heatmap, accuracy, JLPT gap, milestones, review forecast, bundled dashboard. Streaks removed in Stage 8. The four granular endpoints retired 2026-05-18 — see "Retire granular analytics endpoints" below.
+- [x] **Retire granular analytics endpoints (2026-05-18)** — `/api/v1/analytics/{heatmap,accuracy,jlpt-gap,milestones}` removed. Application code stripped: 4 routes, 4 controllers, 4 service functions, and the matching unit tests. Coverage moved to a new `getDashboardData` projection test that exercises the snake→camel reshape, `accuracyPct` / `progressPct` rounding, null `daily_pace` fallback, and the bundled envelope shape. The bundled `/dashboard` endpoint is unaffected. Underlying SQL RPCs stay in place as historical record per forward-only policy. Mirrors the problem-cards / confusable-pairs retirement.
 - [x] **Core frontend app shell** — auth, onboarding, dashboard, decks, premade browse, review, summary, analytics, settings, profile.
 - [x] **Offline review queue** — failed submissions queued locally and replayed through the batch endpoint.
 - [x] **API + shared-schema test coverage** — API unit + integration tests, shared auth schema tests.

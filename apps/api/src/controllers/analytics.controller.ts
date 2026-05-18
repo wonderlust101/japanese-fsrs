@@ -7,53 +7,13 @@ import { cacheControl } from '../lib/http.ts'
 const ANALYTICS_MAX_AGE_SECONDS = 300
 
 /**
- * GET /api/v1/analytics/heatmap
- * Returns daily retention rates for the last 365 days.
- * Days with zero reviews are omitted — the frontend fills those gaps as 0.
- */
-export const heatmap: RequestHandler = async (req, res): Promise<void> => {
-  const profile = await profileService.getProfile(req.user.id)
-  const data = await analyticsService.getHeatmapData(req.user.id, profile.timezone)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
-
-/**
- * GET /api/v1/analytics/accuracy
- * Returns review accuracy broken down by layout (comprehension | production | listening).
- */
-export const accuracy: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getAccuracyByLayout(req.user.id)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
-
-/**
- * GET /api/v1/analytics/jlpt-gap
- * Returns per-JLPT-level total/learned/due counts plus progressPct.
- */
-export const jlptGap: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getJlptGap(req.user.id)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
-
-/**
- * GET /api/v1/analytics/milestones
- * Returns per-JLPT-level projected completion dates based on the user's
- * 30-day learning pace.
- */
-export const milestones: RequestHandler = async (req, res): Promise<void> => {
-  const data = await analyticsService.getMilestoneForecast(req.user.id)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
-
-/**
  * GET /api/v1/analytics/dashboard
- * Bundled response combining heatmap, accuracy, JLPT gap, and milestone
- * forecast in a single round-trip. The granular endpoints above remain
- * available for partial reloads.
+ *
+ * Bundled analytics payload — heatmap, accuracy, JLPT gap, milestone
+ * forecast, and `cardsAddedThisMonth` — in a single round-trip. The
+ * granular endpoints that previously fronted each section were retired
+ * 2026-05-18 (zero frontend consumers); the bundled response is the
+ * only analytics read path the API exposes today.
  */
 export const dashboard: RequestHandler = async (req, res): Promise<void> => {
   const profile = await profileService.getProfile(req.user.id)
