@@ -8,8 +8,6 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
 
 ## To Do
 
-- [ ] **Confusable items frontend (deferred)**
-  - `/insights/mistakes` retirement removed `ConfusablePairList`. Reintroduce as a tab inside `/insights/weak-spots` once the per-pair drill is designed.
 - [ ] **Flesh out IA stub pages**
   - Only `/cards/[cardId]/repair` and `/decks/[id]/preview` remain as `StubPage`. Tracked per surface in [status/FRONTEND.md](status/FRONTEND.md).
 - [ ] **Settings IA: missing sections**
