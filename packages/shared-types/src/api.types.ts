@@ -19,10 +19,8 @@ import type {
   ApiPremadeDeckSchema,
   ApiCopyPremadeDeckResultSchema,
   ApiTomoNoteSchema,
-  ApiProblemCardSchema,
   ApiCardQualityIssueSchema,
   ApiMaturitySnapshotSchema,
-  ApiConfusablePairSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -84,13 +82,6 @@ export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultS
 export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
 
 /**
- * Backend Completion Plan Stage 7. Returned by
- * `GET /api/v1/insights/problem-cards?bucket=…`. Slim card view oriented
- * toward the lapse-bucket histogram and drill-through use cases.
- */
-export type ApiProblemCard            = z.infer<typeof ApiProblemCardSchema>
-
-/**
  * Backend Completion Plan Stage 8. One element of the array returned by
  * `GET /api/v1/insights/card-quality`. Six entries are always present
  * (one per known issue type) so consumers can iterate a stable shape.
@@ -102,12 +93,6 @@ export type ApiCardQualityIssue       = z.infer<typeof ApiCardQualityIssueSchema
  * pipeline. Returned by `GET /api/v1/insights/maturity-history?days=…`.
  */
 export type ApiMaturitySnapshot       = z.infer<typeof ApiMaturitySnapshotSchema>
-
-/**
- * Backend Completion Plan Stage 10. One confusable card pair returned by
- * `GET /api/v1/insights/confusable-pairs`.
- */
-export type ApiConfusablePair         = z.infer<typeof ApiConfusablePairSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

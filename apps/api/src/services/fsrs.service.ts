@@ -332,14 +332,48 @@ export async function processReview(
     throw dbError('persist review', rpcError)
   }
 
+  // Fetch the just-inserted review log id. `reviewed_at` (set in JS above)
+  // is unique-enough per (user, card) for the same-instant case; we filter
+  // by all three for safety and take the most recent if multiple match.
+  // The summary page uses this id to power per-card rollback affordances.
+  const reviewLogId = await fetchLatestReviewLogId(cardId, userId, reviewedAt)
+
   return {
     id:            cardId,
+    reviewLogId,
     due:           updated.due.toISOString(),
     stability:     updated.stability,
     difficulty:    updated.difficulty,
     scheduledDays: updated.scheduled_days,
     state:         updated.state,
   }
+}
+
+/**
+ * Looks up the review_logs row that processReview / forgetCard /
+ * rescheduleFromHistory just wrote. Filtering by `(user_id, card_id,
+ * reviewed_at)` is exact for the single-card path because the caller
+ * controls `reviewed_at`. Returns null on lookup failure rather than
+ * throwing — the rollback affordance becomes unavailable, but the review
+ * itself already succeeded.
+ */
+async function fetchLatestReviewLogId(
+  cardId:     string,
+  userId:     string,
+  reviewedAt: Date,
+): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('review_logs')
+    .select('id')
+    .eq('card_id', cardId)
+    .eq('user_id', userId)
+    .eq('reviewed_at', reviewedAt.toISOString())
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error !== null || data === null) return null
+  return data.id
 }
 
 /**
@@ -486,6 +520,11 @@ export async function processReviewBatch(
           && r.scheduled_days !== null && r.state !== null) {
         results.push({
           id:            r.card_id,
+          // Batch flushes are typically offline-replay; the per-card
+          // reviewLogId isn't surfaced from the batch RPC today and the
+          // rollback affordance on Review Summary only applies to the
+          // just-finished session anyway, so omitting it here is safe.
+          reviewLogId:   null,
           due:           r.due,
           stability:     r.stability,
           difficulty:    r.difficulty,
@@ -614,8 +653,9 @@ export async function rollbackReview(
 
   return {
     id:            cardId,
-    due:           restored.due.toISOString(),
     // ^ cardId is non-null per the orphan-log guard above; safe to use.
+    reviewLogId:   null,
+    due:           restored.due.toISOString(),
     stability:     restored.stability,
     difficulty:    restored.difficulty,
     scheduledDays: restored.scheduled_days,
@@ -686,6 +726,7 @@ export async function forgetCard(
 
   return {
     id:            cardId,
+    reviewLogId:   null,
     due:           forgotten.due.toISOString(),
     stability:     forgotten.stability,
     difficulty:    forgotten.difficulty,
@@ -822,6 +863,7 @@ export async function rescheduleFromHistory(
 
   return {
     id:            cardId,
+    reviewLogId:   null,
     due:           updated.due.toISOString(),
     stability:     updated.stability,
     difficulty:    updated.difficulty,

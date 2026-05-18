@@ -27,6 +27,11 @@ type UserRating = SubmitReviewInput['rating']
 interface SessionHistoryEntry {
   card:   ApiDueCard
   rating: UserRating
+  /** UUID of the persisted `review_logs` row, captured from the submit-review
+   *  response. Null until the server replies (the rating is appended locally
+   *  immediately, before the deferred API call fires). The Review Summary uses
+   *  this to offer per-card rollback within the just-finished session. */
+  reviewLogId?: string | null
 }
 
 interface IdleState {
@@ -57,6 +62,11 @@ interface ReviewSessionActions {
   flipCard:        () => void
   submitRating:    (rating: UserRating) => void
   undoLastRating:  () => void
+  /** Patches the most recent history entry for `cardId` with the server-
+   *  returned `reviewLogId`. Called from the page after the submit-review
+   *  mutation resolves. No-op if the entry has already been replaced (e.g.
+   *  by undo) — the rollback affordance simply won't appear for that card. */
+  attachReviewLogId: (cardId: string, reviewLogId: string) => void
   endSession:      () => void
   reset:           () => void
 }
@@ -117,6 +127,24 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
             showAnswer:     true,
             sessionHistory: s.sessionHistory.slice(0, -1),
           }, true)
+        },
+
+        attachReviewLogId: (cardId, reviewLogId) => {
+          // Patch the most recent history entry that matches `cardId`. Search
+          // from the tail because that's where the just-submitted review is;
+          // searching from the head would mis-attach if the same card was
+          // rated more than once in a session (rare, but possible).
+          const s = get()
+          if (s.phase !== 'active' && s.phase !== 'finished') return
+          const next = s.sessionHistory.slice()
+          for (let i = next.length - 1; i >= 0; i -= 1) {
+            const entry = next[i]
+            if (entry !== undefined && entry.card.id === cardId && entry.reviewLogId == null) {
+              next[i] = { ...entry, reviewLogId }
+              set({ ...s, sessionHistory: next }, true)
+              return
+            }
+          }
         },
 
         endSession: () => {

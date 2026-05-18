@@ -43,7 +43,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   const currentCard    = useCurrentCard()
   const sessionHistory = useSessionHistory()
   const sessionId      = useSessionId()
-  const { startSession, endSession, undoLastRating } = useSessionActions()
+  const { startSession, endSession, undoLastRating, attachReviewLogId } = useSessionActions()
   const { mutate: submitReview, isError } = useSubmitReview()
   const [hasSyncError, setHasSyncError] = useState(false)
   const [bootstrapFailed, setBootstrapFailed] = useState(false)
@@ -168,6 +168,11 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 
     if (p.isLastCard) {
       submitReview(p.payload, {
+        onSuccess: (data) => {
+          if (data.reviewLogId !== null) {
+            attachReviewLogId(p.payload.cardId, data.reviewLogId)
+          }
+        },
         onSettled: () => {
           if (sessionId !== null) {
             rememberLastFinishedSession({
@@ -181,9 +186,15 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
         },
       })
     } else {
-      submitReview(p.payload)
+      submitReview(p.payload, {
+        onSuccess: (data) => {
+          if (data.reviewLogId !== null) {
+            attachReviewLogId(p.payload.cardId, data.reviewLogId)
+          }
+        },
+      })
     }
-  }, [submitReview, endSession, router, sessionId, sessionHistory.length])
+  }, [submitReview, endSession, router, sessionId, sessionHistory.length, attachReviewLogId])
 
   // Cancel the deferred submission entirely and rewind the local session
   // state by one rating. The API call never fires, so no rollback endpoint
@@ -244,12 +255,19 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
       }
       pendingPayloadRef.current = null
       setCanUndo(false)
-      submitReview(pending.payload, { onSettled: navigateToSummary })
+      submitReview(pending.payload, {
+        onSuccess: (data) => {
+          if (data.reviewLogId !== null) {
+            attachReviewLogId(pending.payload.cardId, data.reviewLogId)
+          }
+        },
+        onSettled: navigateToSummary,
+      })
       return
     }
 
     navigateToSummary()
-  }, [submitReview, endSession, router, sessionId, sessionHistory.length])
+  }, [submitReview, endSession, router, sessionId, sessionHistory.length, attachReviewLogId])
 
   // ① When sessionHistory grows, defer the API mutation by UNDO_WINDOW_MS.
   // If a previous deferred submission is still pending, flush it first so

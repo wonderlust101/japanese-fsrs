@@ -11,6 +11,11 @@ interface Props {
   /** Optional miss-context tag rendered to the right (e.g. "Hard×2"). */
   missTag?:  string | undefined
   onRepair?: ((weakSpot: SessionWeakSpot) => void) | undefined
+  /** Quiet "Roll back" affordance — surfaced only when the parent has a
+   *  review-log id for this card (i.e. the user is viewing the summary
+   *  they just finished). */
+  onRollback?: ((weakSpot: SessionWeakSpot) => void) | undefined
+  rollbackPending?: boolean
 }
 
 /**
@@ -23,7 +28,9 @@ interface Props {
  * own focusable element so the row still feels like one click for the
  * common "see the card" case while keeping Repair as an explicit choice.
  */
-export function WeakSpotRow({ weakSpot, meaning, missTag, onRepair }: Props): React.JSX.Element {
+export function WeakSpotRow({
+  weakSpot, meaning, missTag, onRepair, onRollback, rollbackPending,
+}: Props): React.JSX.Element {
   const cardHref = `/decks/${weakSpot.deckId}/cards/${weakSpot.cardId}`
 
   return (
@@ -51,6 +58,17 @@ export function WeakSpotRow({ weakSpot, meaning, missTag, onRepair }: Props): Re
         <span className="hidden md:inline-block font-mono text-[0.65rem] uppercase tracking-[0.12em] text-faded-sumi">
           {missTag}
         </span>
+      )}
+
+      {onRollback !== undefined && (
+        <button
+          type="button"
+          onClick={() => onRollback(weakSpot)}
+          disabled={rollbackPending === true}
+          className="hidden sm:inline-flex shrink-0 font-mono text-[0.65rem] uppercase tracking-[0.12em] text-faded-sumi underline-offset-2 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {rollbackPending === true ? 'Rolling back…' : 'Roll back'}
+        </button>
       )}
 
       <div className="hidden sm:block">

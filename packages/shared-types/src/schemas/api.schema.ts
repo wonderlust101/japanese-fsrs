@@ -185,72 +185,6 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
   cardCount: z.number(),
 })
 
-// ─── Insights — weak spots (Stage 7) ──────────────────────────────────────
-//
-// Backend Completion Plan Stage 7. `GET /api/v1/insights/problem-cards?bucket=…`
-// returns the user's cards bucketed by lapse count — the data path that
-// originally fed the (now-retired) /insights/mistakes stem-and-leaf bars.
-// The endpoint is consumer-agnostic: future surfaces (a `/cards` lapse-range
-// saved view, an analytics chart) can pick it up without a contract change.
-//
-// Bucket boundaries match IA `14_insights_mistakes.md` and the SQL RPC.
-// The 8plus bucket cardinality equals the unresolved-weakSpot count for the
-// same user/scope (process_review inserts a weakSpot at lapses >=
-// WEAK_SPOT_THRESHOLD = 8 by default).
-
-export const ApiProblemCardBucketSchema = z.enum(['2-3', '4-5', '6-7', '8plus'])
-
-export const ApiProblemCardSchema = z.object({
-  cardId:     z.string().uuid(),
-  deckId:     z.string().uuid().nullable(),
-  layoutType: layoutTypeSchema,
-  jlptLevel:  jlptLevelSchema.nullable(),
-  fieldsData: FieldsDataSchema,
-  /** FSRS state integer mirroring the cards.state column (0=New, 1=Learning,
-   *  2=Review, 3=Relearning). */
-  state:      z.number().int().nonnegative(),
-  lapses:     z.number().int().nonnegative(),
-  reps:       z.number().int().nonnegative(),
-  due:        z.string(),
-  /** ISO 8601 timestamp of the most recent review on this card, or null if
-   *  no review has ever landed (rare in this list since lapses >= 2 implies
-   *  at least two reviews). */
-  lastReview: z.string().nullable(),
-})
-
-// ─── Insights — confusable pairs (Stage 10) ──────────────────────────────────
-//
-// Backend Completion Plan Stage 10. `GET /api/v1/insights/confusable-pairs`
-// returns the user's top mis-rated card pairs that are also semantically
-// similar. Detection runs daily via pg_cron; thresholds are 2 co-mis-rates
-// per session-pair and cosine similarity ≥ 0.70.
-//
-// Each row carries display fields for both sides of the pair (word /
-// reading / meaning), the miss_count and similarity_score that placed the
-// pair on the list, and the last_observed timestamp for "freshness."
-// Consumers can render the pair without a second batch fetch.
-
-export const ApiConfusablePairSchema = z.object({
-  cardA:           z.object({
-    id:      z.string().uuid(),
-    word:    z.string().nullable(),
-    reading: z.string().nullable(),
-    meaning: z.string().nullable(),
-  }),
-  cardB:           z.object({
-    id:      z.string().uuid(),
-    word:    z.string().nullable(),
-    reading: z.string().nullable(),
-    meaning: z.string().nullable(),
-  }),
-  /** Number of distinct review sessions where both cards were mis-rated. */
-  missCount:       z.number().int().nonnegative(),
-  /** Cosine similarity of the two card embeddings; ≥ 0.70 by design. */
-  similarityScore: z.number(),
-  /** ISO 8601 timestamp of the most recent observed co-mis-rate. */
-  lastObserved:    z.string(),
-})
-
 // ─── Insights — maturity-pipeline history (Stage 9) ──────────────────────────
 //
 // Backend Completion Plan Stage 9. `GET /api/v1/insights/maturity-history?days=…`
@@ -380,6 +314,12 @@ export const apiListEnvelope = <T>(
 
 export const ApiReviewedCardSchema = z.object({
   id:            z.string(),
+  /** UUID of the `review_logs` row this review created.
+   *  Nullable for service-internal callers (forget/reschedule/batch flushes)
+   *  where surfacing rollback isn't part of the contract today. The submit
+   *  path always populates it so the Review Summary can offer per-card
+   *  rollback. */
+  reviewLogId:   z.string().uuid().nullable(),
   due:           z.string(),
   stability:     z.number(),
   difficulty:    z.number(),

@@ -34,7 +34,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 | `11_deck_detail.md` | Deck Detail | Detail page for one deck with deck health, review load, deck-specific cards, deck options, and deck-level study actions. |
 | `12_deck_preview.md` | Deck Preview | Premade deck inspection page with sample cards, included fields, estimated review load, scope, and an "Add to my library" action that copies the deck into the learner's collection (no ongoing subscription). |
 | `13_insights_overview.md` | Insights Overview | Default insights landing page: calm teacher report focused on progress, mistakes, and future workload. |
-| `14_insights_mistakes.md` | Insights Mistakes | Mistake analysis area for weak spots, repeated misses, confusable words, weak patterns, and problem card workflows. |
+| `14_insights_mistakes.md` | Insights Mistakes | Mistake analysis area for weak spots, repeated misses, weak patterns, and repair workflows. |
 | `15_insights_progress.md` | Insights Progress | Long-term progress area for retention, mature cards, JLPT movement, consistency, and learning trajectory. |
 | `16_insights_forecast.md` | Insights Forecast | Planning area for future due load, new card impact, backlog recovery, and review load smoothing. |
 | `17_insights_statistics.md` | Insights Statistics | Advanced Anki-style statistics grouped by activity, retention, cards, scheduling, and FSRS behavior. |

@@ -21,13 +21,16 @@ import {
   bulkUnsuspendCardsAction,
   copyCardAction,
   deleteCardAction,
+  forgetCardAction,
   listCardsCrossDeckAction,
   moveCardAction,
+  rescheduleCardAction,
   suspendCardAction,
   unsuspendCardAction,
   type CrossDeckCardsActionOptions,
   type CrossDeckListResult,
 } from '../actions/cards.actions'
+import type { ApiReviewedCard } from '@fsrs-japanese/shared-types'
 import { getCardQualityIssuesAction } from '../actions/insights.actions'
 
 import { staleTimes } from './config'
@@ -115,6 +118,26 @@ export function useUnsuspendCardMutation(): UseMutationResult<ApiCard, Error, st
   const invalidate = useCardCachesInvalidator()
   return useMutation({
     mutationFn: (cardId: string) => unsuspendCardAction(cardId),
+    onSuccess:  () => invalidate(),
+  })
+}
+
+export interface ForgetCardVariables { cardId: string; resetCount?: boolean }
+
+/** Reset FSRS scheduling and queue the card as new. */
+export function useForgetCardMutation(): UseMutationResult<ApiReviewedCard, Error, ForgetCardVariables> {
+  const invalidate = useCardCachesInvalidator()
+  return useMutation({
+    mutationFn: (v) => forgetCardAction(v.cardId, v.resetCount === true ? { resetCount: true } : {}),
+    onSuccess:  () => invalidate(),
+  })
+}
+
+/** Replay the card's history and recompute FSRS state from scratch. */
+export function useRescheduleCardMutation(): UseMutationResult<ApiReviewedCard, Error, string> {
+  const invalidate = useCardCachesInvalidator()
+  return useMutation({
+    mutationFn: (cardId: string) => rescheduleCardAction(cardId),
     onSuccess:  () => invalidate(),
   })
 }

@@ -7,6 +7,7 @@ import {
   ApiCardListItemSchema,
   ApiCrossDeckCardListItemSchema,
   ApiBulkCardMutationResultSchema,
+  ApiReviewedCardSchema,
   ApiSimilarCardSchema,
   GeneratedCardDataSchema,
   GeneratedSentencesSchema,
@@ -18,6 +19,7 @@ import {
   type ApiCardListItem,
   type ApiCrossDeckCardListItem,
   type ApiList,
+  type ApiReviewedCard,
   type ApiSimilarCard,
   type CardMissingField,
   type CardSortField,
@@ -256,6 +258,51 @@ export async function suspendCardAction(cardId: string): Promise<ApiCard> {
       body:    JSON.stringify({}),
     },
     'Failed to suspend card',
+  )
+}
+
+/**
+ * Reset FSRS scheduling on a card and re-queue it as new.
+ *
+ * `resetCount=true` also zeroes lifetime reps + lapses; the default
+ * preserves those for the user's analytics history. Backed by
+ * `POST /api/v1/cards/:id/forget`, which writes a manual review log so
+ * the forget itself can be rolled back if needed.
+ */
+export async function forgetCardAction(
+  cardId:  string,
+  options: { resetCount?: boolean } = {},
+): Promise<ApiReviewedCard> {
+  const body: Record<string, unknown> = {}
+  if (options.resetCount === true) body['resetCount'] = true
+  return apiCall<ApiReviewedCard>(
+    `/api/v1/cards/${cardId}/forget`,
+    ApiReviewedCardSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify(body),
+    },
+    'Failed to forget card',
+  )
+}
+
+/**
+ * Replay the card's full review history and recompute its FSRS state
+ * from scratch. Useful after a long absence or after FSRS weights
+ * change. Backed by `POST /api/v1/cards/:id/reschedule`; the original
+ * review log entries are preserved.
+ */
+export async function rescheduleCardAction(cardId: string): Promise<ApiReviewedCard> {
+  return apiCall<ApiReviewedCard>(
+    `/api/v1/cards/${cardId}/reschedule`,
+    ApiReviewedCardSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({}),
+    },
+    'Failed to reschedule card',
   )
 }
 

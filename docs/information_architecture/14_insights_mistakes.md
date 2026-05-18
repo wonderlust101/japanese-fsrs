@@ -2,7 +2,7 @@
 
 ## Page Purpose
 
-Insights Mistakes helps learners understand what they are getting wrong and why. It should identify patterns, weak spots, confusable words, card-quality issues, and weak card types.
+Insights Mistakes helps learners understand what they are getting wrong and why. It should identify patterns, weak spots, card-quality issues, and weak card types.
 
 This page should turn mistakes into useful study decisions, not shame or noise.
 
@@ -10,7 +10,6 @@ This page should turn mistakes into useful study decisions, not shame or noise.
 
 - See repeated mistake patterns.
 - Find weak-spot cards.
-- Identify confusable words.
 - Understand whether errors come from memory, ambiguity, or card quality.
 - Start repair or focused review.
 - Open weak spots in Cards or Card Detail.
@@ -21,9 +20,7 @@ This page should turn mistakes into useful study decisions, not shame or noise.
 
 1. Top mistake pattern.
 2. Weak spots.
-3. Weak spots.
-4. Confusable pairs or groups.
-5. Repair or focused review actions.
+3. Repair or focused review actions.
 
 ### Secondary Content
 

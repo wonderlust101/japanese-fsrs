@@ -1,27 +1,9 @@
 import type { RequestHandler } from 'express'
 
 import {
-  listProblemCardsQuerySchema,
   maturityHistoryQuerySchema,
-  listConfusablePairsQuerySchema,
 } from '../schemas/insights.schema.ts'
 import * as insightsService from '../services/insights.service.ts'
-
-/**
- * GET /api/v1/insights/problem-cards?bucket=…
- *
- * Backend Completion Plan Stage 7 — weak spots bucketed by lapse count.
- * Bucket values are validated at the Zod layer; an unknown bucket → 400.
- *
- * The route is consumer-agnostic: future surfaces (a `/cards` lapse-range
- * saved view, an analytics histogram, parity diagnostics) can pick this up
- * without a contract change. No live consumer in the current frontend.
- */
-export const problemCards: RequestHandler = async (req, res): Promise<void> => {
-  const { bucket } = listProblemCardsQuerySchema.parse(req.query)
-  const data       = await insightsService.listProblemCards(req.user.id, bucket)
-  res.json(data)
-}
 
 /**
  * GET /api/v1/insights/card-quality
@@ -52,20 +34,6 @@ export const cardQuality: RequestHandler = async (req, res): Promise<void> => {
 export const maturityHistory: RequestHandler = async (req, res): Promise<void> => {
   const { days } = maturityHistoryQuerySchema.parse(req.query)
   const data     = await insightsService.listMaturityHistory(req.user.id, days)
-  res.json(data)
-}
-
-/**
- * GET /api/v1/insights/confusable-pairs?limit=…
- *
- * Backend Completion Plan Stage 10 — top mis-rated semantically similar
- * card pairs. `limit` is bounded [1, 100] at the Zod layer; defaults to
- * 20 if omitted. Empty list (no error) is the expected state for fresh
- * accounts or users without similar cards in their library.
- */
-export const confusablePairs: RequestHandler = async (req, res): Promise<void> => {
-  const { limit } = listConfusablePairsQuerySchema.parse(req.query)
-  const data      = await insightsService.listConfusablePairs(req.user.id, limit)
   res.json(data)
 }
 

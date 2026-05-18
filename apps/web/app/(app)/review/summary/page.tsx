@@ -11,7 +11,8 @@ import { RatingDistributionBar, buildDistributionTakeaway }    from '@/component
 import { WeakSpotRow }                                      from '@/components/review/summary/WeakSpotRow'
 import { WeekRhythmStrip, type WeekRhythmState }               from '@/app/(app)/today/_components/week-rhythm-strip'
 import { buildDashboardCalendarContext }                       from '@/app/(app)/today/_components/today-calendar'
-import { useReviewForecast, useSessionSummary }                from '@/lib/api/reviews'
+import { useReviewForecast, useRollbackReviewMutation, useSessionSummary }                from '@/lib/api/reviews'
+import { Toast, useToast }                                     from '@/components/ui/Toast'
 import {
   useSessionActions,
   useSessionHistory,
@@ -171,13 +172,56 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     switch (route.kind) {
       case 'today':           router.push('/today'); return
       case 'insights':        router.push('/insights'); return
-      case 'repair':          router.push('/review/repair'); return
+      case 'repair': {
+        // Aggregate repair has no single target; surface the weak-spots
+        // overview where the user can pick which card to act on.
+        router.push('/insights/weak-spots')
+        return
+      }
       case 'review-problem':  {
-        const ids = route.cardIds.join(',')
-        router.push(`/review/repair?cards=${encodeURIComponent(ids)}`)
+        // Single-card repair routes to the real repair page; multiples fall
+        // back to the weak-spots list because there's no batch-repair view.
+        if (route.cardIds.length === 1) {
+          router.push(`/cards/${encodeURIComponent(route.cardIds[0] ?? '')}/repair`)
+        } else {
+          router.push('/insights/weak-spots')
+        }
         return
       }
     }
+  }
+
+  // Rollback wiring — only active for the just-finished session so the
+  // affordance disappears on cold deep-links (where we don't have the
+  // per-card review log id from the session store).
+  const rollbackMutation = useRollbackReviewMutation()
+  const { toast, showToast, dismissToast } = useToast()
+  const reviewLogByCardId = useMemo(() => {
+    if (rawId === null || rawId !== localSessionId) return new Map<string, string>()
+    const map = new Map<string, string>()
+    for (const entry of localSessionHistory) {
+      if (entry.reviewLogId != null) map.set(entry.card.id, entry.reviewLogId)
+    }
+    return map
+  }, [rawId, localSessionId, localSessionHistory])
+  const [rolledBackIds, setRolledBackIds] = useState<ReadonlySet<string>>(() => new Set())
+
+  function handleRollback(weakSpot: SessionWeakSpot): void {
+    const logId = reviewLogByCardId.get(weakSpot.cardId)
+    if (logId === undefined) return
+    rollbackMutation.mutate(logId, {
+      onSuccess: () => {
+        setRolledBackIds((prev) => {
+          const next = new Set(prev)
+          next.add(weakSpot.cardId)
+          return next
+        })
+        showToast('Review rolled back.', 'info')
+      },
+      onError: (err) => {
+        showToast(err.message ?? "Couldn't roll back that review.", 'error')
+      },
+    })
   }
 
   // WeekRhythmStrip wiring. Strip is shown on every state except when the
@@ -220,7 +264,11 @@ export default function ReviewSummaryPage(): React.JSX.Element {
           <ProblemCardsCard
             weakSpots={resolved.weakSpots}
             usingFixture={usingFixture}
+            reviewLogByCardId={reviewLogByCardId}
+            rolledBackIds={rolledBackIds}
+            rollbackPendingCardId={rollbackMutation.isPending ? (rollbackMutation.variables ?? null) : null}
             onRepair={(weakSpot) => runAction({ kind: 'review-problem', cardIds: [weakSpot.cardId] })}
+            onRollback={handleRollback}
           />
         ) : (
           weekStrip
@@ -232,6 +280,15 @@ export default function ReviewSummaryPage(): React.JSX.Element {
       {process.env.NODE_ENV !== 'production' && (
         <SummaryDevSwitcher
           active={usingFixture ? (fixtureParam as SessionPattern) : null}
+        />
+      )}
+
+      {toast !== null && (
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
         />
       )}
     </SummaryFrame>
@@ -394,11 +451,19 @@ function SessionDetailsCard({
 function ProblemCardsCard({
   weakSpots,
   usingFixture,
+  reviewLogByCardId,
+  rolledBackIds,
+  rollbackPendingCardId,
   onRepair,
+  onRollback,
 }: {
-  weakSpots:      SessionWeakSpot[]
-  usingFixture: boolean
-  onRepair:     (weakSpot: SessionWeakSpot) => void
+  weakSpots:              SessionWeakSpot[]
+  usingFixture:           boolean
+  reviewLogByCardId:      ReadonlyMap<string, string>
+  rolledBackIds:          ReadonlySet<string>
+  rollbackPendingCardId:  string | null
+  onRepair:               (weakSpot: SessionWeakSpot) => void
+  onRollback:             (weakSpot: SessionWeakSpot) => void
 }): React.JSX.Element {
   return (
     <SectionCard
@@ -408,15 +473,23 @@ function ProblemCardsCard({
       count={weakSpots.length}
     >
       <ul className="divide-y divide-soft-hairline">
-        {weakSpots.map((weakSpot) => (
-          <li key={weakSpot.weakSpotId}>
-            <WeakSpotRow
-              weakSpot={weakSpot}
-              meaning={usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
-              onRepair={onRepair}
-            />
-          </li>
-        ))}
+        {weakSpots.map((weakSpot) => {
+          const logId           = reviewLogByCardId.get(weakSpot.cardId)
+          const alreadyRolled   = rolledBackIds.has(weakSpot.cardId)
+          const canRollback     = logId !== undefined && !alreadyRolled
+          const rollbackPending = rollbackPendingCardId === logId
+          return (
+            <li key={weakSpot.weakSpotId}>
+              <WeakSpotRow
+                weakSpot={weakSpot}
+                meaning={usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
+                onRepair={onRepair}
+                onRollback={canRollback ? onRollback : undefined}
+                rollbackPending={rollbackPending}
+              />
+            </li>
+          )
+        })}
       </ul>
     </SectionCard>
   )

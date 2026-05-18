@@ -11,6 +11,7 @@ import {
   getDueCardsAction,
   getReviewForecastAction,
   getSessionSummaryAction,
+  rollbackReviewAction,
 } from '../actions/reviews.actions'
 import type {
   SessionSummary,
@@ -60,6 +61,31 @@ export function useReviewForecast(): UseQueryResult<ApiList<ApiForecastDay>> {
     queryKey: queryKeys.reviews.forecast(),
     queryFn:  getReviewForecastAction,
     staleTime: 1000 * 60 * 30,
+  })
+}
+
+/**
+ * Roll back a specific review log. The summary surfaces this on each
+ * weak-spot row when the local session matches the summary's session id,
+ * so the user can undo a misclick within the same closure moment.
+ *
+ * Cache invalidations cover every surface that observes the card's FSRS
+ * state — due queue, forecast, heatmap, accuracy, card detail — plus the
+ * session summary itself so the row count + accuracy refresh.
+ */
+export function useRollbackReviewMutation(): UseMutationResult<void, Error, string> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (reviewLogId: string) => rollbackReviewAction(reviewLogId),
+    onSuccess: () => {
+      // Invalidate every cache the rolled-back review can touch: the due
+      // queue + forecast (card may re-appear), analytics fan-out (heatmap
+      // + accuracy reflect the now-removed review), and the cards root so
+      // any open card detail re-reads its FSRS state.
+      void queryClient.invalidateQueries({ queryKey: ['reviews'] })
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cards.all() })
+    },
   })
 }
 

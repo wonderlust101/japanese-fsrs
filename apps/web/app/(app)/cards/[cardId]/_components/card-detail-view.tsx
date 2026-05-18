@@ -163,7 +163,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
               <div className="mb-6 border-b border-soft-hairline pb-4 lg:mb-8">
                 <CardActionsStrip
                   editHref={editHref}
-                  repairHref={`/review/repair/${cardId}`}
+                  repairHref={`/cards/${cardId}/repair`}
                   isPremade={isPremadeSource}
                   isSuspended={isSuspended}
                   historyOpen={showHistory}
@@ -209,7 +209,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
                     <span className="text-sumi-ink">{card.lapses}</span>{' '}
                     times. {' '}
                     <Link
-                      href={`/review/repair/${cardId}`}
+                      href={`/cards/${cardId}/repair`}
                       className="text-inari-vermillion-deep underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
                     >
                       Repair recommended

@@ -77,7 +77,6 @@ The learner should always see the current card content before accepting a fix. T
 
 ## Common Repair Types
 
-- Add contrast note for confusable words.
 - Add or improve mnemonic.
 - Replace vague sentence with clearer context.
 - Add image.

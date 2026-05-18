@@ -9,6 +9,7 @@ import {
   ApiReviewedCardSchema,
   SessionSummarySchema,
   apiListEnvelope,
+  voidResponseSchema,
   type SessionSummary,
   type ApiDueCard,
   type ApiForecastDay,
@@ -73,6 +74,27 @@ export async function submitBatchAction(
       body:    JSON.stringify({ reviews }),
     },
     'Failed to submit batch',
+  )
+}
+
+/**
+ * Undoes a specific review log entry and restores the card to its
+ * pre-review state. Backed by `POST /api/v1/reviews/:reviewLogId/rollback`.
+ *
+ * The server returns 409 if the log was written before the before-snapshot
+ * migration (rare; only old accounts). Errors surface to the caller as
+ * `Error.message`.
+ */
+export async function rollbackReviewAction(reviewLogId: string): Promise<void> {
+  await apiCall<unknown>(
+    `/api/v1/reviews/${encodeURIComponent(reviewLogId)}/rollback`,
+    voidResponseSchema,
+    {
+      method:  'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body:    JSON.stringify({}),
+    },
+    'Failed to roll back review',
   )
 }
 
