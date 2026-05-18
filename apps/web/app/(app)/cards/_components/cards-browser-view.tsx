@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
 import { State } from '@fsrs-japanese/shared-types'
@@ -22,6 +23,7 @@ import {
   type CardRowAction,
 } from './cards-results-table'
 import { CardsPagination, type CardsPageSize } from './cards-pagination'
+import { CardsQualityBars, type CardQualityIssue } from './cards-quality-bars'
 import { useCardsDevState } from './cards-dev-panel'
 
 const DEFAULT_FILTERS: CardsFilters = {
@@ -36,9 +38,17 @@ export function CardsBrowserView(): React.JSX.Element {
   const [search,    setSearch]    = useState('')
   const [filters,   setFilters]   = useState<CardsFilters>(DEFAULT_FILTERS)
   const [savedView, setSavedView] = useState<SavedViewKey | null>(null)
-  const [toast,     setToast]     = useState<string | null>(null)
+  const { toast, showToast, dismissToast } = useToast()
   const [pageSize,  setPageSize]  = useState<CardsPageSize>(DEFAULT_PAGE_SIZE)
   const [pageIndex, setPageIndex] = useState(0)
+  const [qualityOpen, setQualityOpen] = useState(false)
+
+  // Per-issue card-health counts. Hidden behind a toggle so the table-first
+  // browser stays calm by default. Currently empty — when the per-card
+  // mistake-quality pipeline ships server-side, this state hydrates from
+  // a fresh API hook. The CardsQualityBars empty state ("Every card has
+  // its support fields filled in.") reads as a positive in the meantime.
+  const qualityIssues: ReadonlyArray<CardQualityIssue> = useMemo(() => [], [])
 
   // Reset to first page whenever inputs that change the visible set change.
   useEffect(() => { setPageIndex(0) }, [search, filters, savedView, pageSize])
@@ -109,16 +119,16 @@ export function CardsBrowserView(): React.JSX.Element {
   function handleRowAction(_cardId: string, action: CardRowAction): void {
     switch (action) {
       case 'edit':
-        setToast('Card editing is coming. The /cards/[cardId]/edit route is pending.')
+        showToast('Card editing is coming. The /cards/[cardId]/edit route is pending.')
         return
       case 'add-copy':
-        setToast('Adding a copy to another deck is coming. The endpoint is pending.')
+        showToast('Adding a copy to another deck is coming. The endpoint is pending.')
         return
       case 'move':
-        setToast('Move card is coming. The /cards/:id/move endpoint is pending.')
+        showToast('Move card is coming. The /cards/:id/move endpoint is pending.')
         return
       case 'delete':
-        setToast('Delete card is coming. A confirmation dialog will land with the endpoint.')
+        showToast('Delete card is coming. A confirmation dialog will land with the endpoint.')
         return
     }
   }
@@ -126,7 +136,7 @@ export function CardsBrowserView(): React.JSX.Element {
   function handleSavedView(next: SavedViewKey | null): void {
     setSavedView(next)
     if (next !== null) {
-      setToast('Saved views are coming. The backend search endpoint is pending.')
+      showToast('Saved views are coming. The backend search endpoint is pending.')
     }
   }
   function handleFilterChange(next: CardsFilters): void {
@@ -134,7 +144,7 @@ export function CardsBrowserView(): React.JSX.Element {
     setSavedView(null)
   }
   function handleMoreFilters(): void {
-    setToast('More filters are coming. The has-audio / has-image / has-mnemonic dimensions are pending.')
+    showToast('More filters are coming. The has-audio / has-image / has-mnemonic dimensions are pending.')
   }
 
   const filtersActive = search.length > 0 ||
@@ -171,6 +181,31 @@ export function CardsBrowserView(): React.JSX.Element {
               onChange={handleFilterChange}
               onMoreClick={handleMoreFilters}
             />
+          </div>
+
+          {/* ── Card quality (toggle) ─────────────────────────────── */}
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={() => setQualityOpen((v) => !v)}
+              aria-expanded={qualityOpen}
+              aria-controls="cards-quality-panel"
+              className="inline-flex items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi transition-colors hover:border-sumi-ink hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            >
+              <span
+                lang="ja"
+                aria-hidden="true"
+                className="font-display text-sm leading-none translate-y-[0.05em] text-inari-vermillion"
+              >
+                欠
+              </span>
+              <span>{qualityOpen ? 'Hide card quality' : 'Card quality'}</span>
+            </button>
+            {qualityOpen && (
+              <div id="cards-quality-panel" className="mt-3">
+                <CardsQualityBars issues={qualityIssues} />
+              </div>
+            )}
           </div>
 
           {/* ── Result count + clear ──────────────────────────────── */}
@@ -225,7 +260,14 @@ export function CardsBrowserView(): React.JSX.Element {
       </div>
 
       {toast !== null && (
-        <Toast message={toast} onDismiss={() => setToast(null)} />
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+          offset="above-bar"
+          maxWidth="max-w-[32rem]"
+        />
       )}
 
       {devPanel}
@@ -273,15 +315,3 @@ function matchesStatus(row: CardsResultRow, status: Exclude<CardsFilters['status
   }
 }
 
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }): React.JSX.Element {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      onClick={onDismiss}
-      className="ui-motion-colors fixed bottom-20 right-4 z-30 max-w-[32rem] cursor-pointer rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3.5 py-2.5 text-sm text-sumi-ink shadow-[var(--shadow-card)] animate-page-enter"
-    >
-      {message}
-    </div>
-  )
-}
