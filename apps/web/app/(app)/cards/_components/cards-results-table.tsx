@@ -315,14 +315,14 @@ function wordToneClass(_tier: LapseTier): string {
 function HealthBadge({ tier }: { tier: LapseTier }): React.JSX.Element | null {
   if (tier === 'ok') return null
   const isLeech = tier === 'leech'
-  const label = isLeech ? 'Leech' : 'Drifting'
+  const label = isLeech ? 'Weak spot' : 'Drifting'
   const toneClass = isLeech ? 'text-inari-vermillion-deep' : 'text-amber-900'
   return (
     <span
       role="img"
       aria-label={`Card health: ${label}`}
       title={isLeech
-        ? 'Leech: this card has 8 or more lapses and is failing repeatedly.'
+        ? 'Weak spot: this card has 8 or more lapses and is failing repeatedly.'
         : 'Drifting: this card has been failed 4 or more times.'}
       className={[
         'ml-3 shrink-0 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em]',

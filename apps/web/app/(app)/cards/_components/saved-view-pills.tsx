@@ -20,7 +20,7 @@ export interface SavedView {
 
 export const SAVED_VIEWS: readonly SavedView[] = [
   { key: 'problem',          label: 'Problem cards',   description: 'Cards with repeated lapses or low retention.' },
-  { key: 'leeches',          label: 'Leeches',         description: 'Cards flagged as leeches.' },
+  { key: 'leeches',          label: 'Weak spots',      description: 'Cards that keep coming back for another look.' },
   { key: 'missing-image',    label: 'Missing images',  description: 'Cards without a picture field.' },
   { key: 'missing-audio',    label: 'Missing audio',   description: 'Cards without expression audio.' },
   { key: 'missing-mnemonic', label: 'Missing mnemonic', description: 'Cards without a memory hook.' },
