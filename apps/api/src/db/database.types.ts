@@ -137,7 +137,6 @@ export type Database = {
           deck_type: Database["public"]["Enums"]["deck_type"]
           description: string | null
           id: string
-          is_premade_fork: boolean
           is_public: boolean
           name: string
           source_premade_id: string | null
@@ -151,7 +150,6 @@ export type Database = {
           deck_type?: Database["public"]["Enums"]["deck_type"]
           description?: string | null
           id?: string
-          is_premade_fork?: boolean
           is_public?: boolean
           name: string
           source_premade_id?: string | null
@@ -165,7 +163,6 @@ export type Database = {
           deck_type?: Database["public"]["Enums"]["deck_type"]
           description?: string | null
           id?: string
-          is_premade_fork?: boolean
           is_public?: boolean
           name?: string
           source_premade_id?: string | null
@@ -515,7 +512,6 @@ export type Database = {
           jlpt_level: Database["public"]["Enums"]["jlpt_level"] | null
           name: string
           updated_at: string
-          version: number
         }
         Insert: {
           card_count?: number
@@ -528,7 +524,6 @@ export type Database = {
           jlpt_level?: Database["public"]["Enums"]["jlpt_level"] | null
           name: string
           updated_at?: string
-          version?: number
         }
         Update: {
           card_count?: number
@@ -541,7 +536,6 @@ export type Database = {
           jlpt_level?: Database["public"]["Enums"]["jlpt_level"] | null
           name?: string
           updated_at?: string
-          version?: number
         }
         Relationships: []
       }
@@ -690,45 +684,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_interests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_premade_subscriptions: {
-        Row: {
-          id: string
-          last_seen_version: number
-          premade_deck_id: string
-          subscribed_at: string
-          user_id: string
-        }
-        Insert: {
-          id?: string
-          last_seen_version?: number
-          premade_deck_id: string
-          subscribed_at?: string
-          user_id: string
-        }
-        Update: {
-          id?: string
-          last_seen_version?: number
-          premade_deck_id?: string
-          subscribed_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_premade_subscriptions_premade_deck_id_fkey"
-            columns: ["premade_deck_id"]
-            isOneToOne: false
-            referencedRelation: "premade_decks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_premade_subscriptions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1083,13 +1038,11 @@ export type Database = {
         }
         Returns: undefined
       }
-      subscribe_to_premade_deck: {
+      copy_premade_deck: {
         Args: { p_premade_deck_id: string; p_user_id: string }
         Returns: {
-          already_existed: boolean
           card_count: number
           deck_id: string
-          subscription_id: string
         }[]
       }
       transition_leech_drill_session: {
@@ -1098,10 +1051,6 @@ export type Database = {
           p_target_status: string
           p_user_id: string
         }
-        Returns: undefined
-      }
-      unsubscribe_from_premade_deck: {
-        Args: { p_premade_deck_id: string; p_user_id: string }
         Returns: undefined
       }
       update_card_with_sibling_sync: {

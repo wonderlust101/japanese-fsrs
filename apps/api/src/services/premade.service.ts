@@ -13,8 +13,7 @@ import {
   jlptLevelEnum,
   type ApiList,
   type ApiPremadeDeck,
-  type ApiPremadeSubscription,
-  type ApiSubscribeResult,
+  type ApiCopyPremadeDeckResult,
 } from '@fsrs-japanese/shared-types'
 
 // ─── Column projections ───────────────────────────────────────────────────────
@@ -27,7 +26,6 @@ const PREMADE_COLUMNS = [
   'jlpt_level',
   'domain',
   'card_count',
-  'version',
   'is_active',
   'created_at',
   'updated_at',
@@ -44,6 +42,9 @@ type PremadeDeckDbRow = z.infer<typeof PremadeDeckListRpcRowSchema>
 // Mirrors the analytics / review precedent: parse the RPC result so any future
 // column drift surfaces as a clean ZodError. Shared with direct
 // .from('premade_decks').select(...) reads.
+//
+// Backend Completion Plan Stage 4 (copy model) dropped `version`; the column
+// no longer exists on premade_decks. The schema follows.
 const PremadeDeckListRpcRowSchema = z.object({
   id:          z.string(),
   name:        z.string(),
@@ -52,7 +53,6 @@ const PremadeDeckListRpcRowSchema = z.object({
   jlpt_level:  jlptLevelEnum.nullable(),
   domain:      z.string().nullable(),
   card_count:  z.number(),
-  version:     z.number(),
   is_active:   z.boolean(),
   created_at:  z.string(),
   updated_at:  z.string(),
@@ -64,27 +64,13 @@ const PremadeDeckListRpcRowSchema = z.object({
  *  shape leaves room to add fields without a wire-format break. */
 const premadeListCursorSchema = z.object({ id: z.string().uuid() })
 
-/** Slim direct-read schemas used by listSubscriptionsRaw. `last_seen_version`
- *  is the subscriber's highest synced source version (Backend Completion Plan
- *  Stage 4 surfacing). */
-const SubscriptionDbRowSchema = z.object({
-  id:                z.string(),
-  premade_deck_id:   z.string(),
-  subscribed_at:     z.string(),
-  last_seen_version: z.number(),
-})
-/** Joined slice of the source `premade_decks` row — name (for display) and
- *  version (for the "new content available" gate compared against
- *  `last_seen_version` on the subscription side). */
-const PremadeNameRowSchema = z.object({
-  id:      z.string(),
-  name:    z.string(),
-  version: z.number(),
-})
-const ForkedDeckRowSchema = z.object({
-  id:                z.string(),
-  source_premade_id: z.string(),
-  card_count:        z.number(),
+// Backend Completion Plan Stage 4 (copy model) envelope. The copy RPC returns
+// one row carrying the newly-created deck id and the count of cards cloned
+// into it. No subscription junction, no "alreadyExisted" flag — duplicates
+// are allowed by design.
+const CopyRpcRowSchema = z.object({
+  deck_id:    z.string(),
+  card_count: z.number(),
 })
 
 function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
@@ -96,7 +82,6 @@ function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
     jlptLevel:   raw.jlpt_level,
     domain:      raw.domain,
     cardCount:   raw.card_count,
-    version:     raw.version,
     isActive:    raw.is_active,
     createdAt:   raw.created_at,
     updatedAt:   raw.updated_at,
@@ -160,189 +145,60 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
 }
 
 /**
- * Returns the user's subscription list joined with each premade deck's metadata
- * and the linked forked deck's id and card_count.
- * Internal helper — `subscriptionsList` wraps the result in the universal
- * list envelope. Other in-process callers (subscribe race fallback) need the
- * raw array.
- */
-async function listSubscriptionsRaw(userId: string): Promise<ApiPremadeSubscription[]> {
-  const { data: subs, error: subsError } = await supabaseAdmin
-    .from('user_premade_subscriptions')
-    .select('id, premade_deck_id, subscribed_at, last_seen_version')
-    .eq('user_id', userId)
-    .order('subscribed_at', { ascending: false })
-
-  if (subsError !== null) {
-    throw dbError('list subscriptions', subsError)
-  }
-
-  const rows = z.array(SubscriptionDbRowSchema).parse(subs ?? [])
-  if (rows.length === 0) return []
-
-  const premadeIds = rows.map((r) => r.premade_deck_id)
-
-  const [premadeDecksResult, decksResult] = await Promise.all([
-    supabaseAdmin
-      .from('premade_decks')
-      .select('id, name, version')
-      .in('id', premadeIds),
-    supabaseAdmin
-      .from('decks')
-      .select('id, source_premade_id, card_count')
-      .eq('user_id', userId)
-      .eq('is_premade_fork', true)
-      .in('source_premade_id', premadeIds),
-  ])
-
-  if (premadeDecksResult.error !== null) {
-    throw dbError('load premade deck names', premadeDecksResult.error)
-  }
-  if (decksResult.error !== null) {
-    throw dbError('load forked decks', decksResult.error)
-  }
-
-  // Index the joined `premade_decks` slice by id so each subscription row can
-  // pick up both its display name and the current source-side version in one
-  // lookup. `version` is the Stage 4 surfacing — paired with the subscriber's
-  // `last_seen_version` it tells the frontend whether new content has landed
-  // since the last sync (Stage 5 introduces the matching write path).
-  const premadeById = new Map<string, { name: string; version: number }>(
-    z.array(PremadeNameRowSchema).parse(premadeDecksResult.data ?? [])
-      .map((p) => [p.id, { name: p.name, version: p.version }]),
-  )
-  const deckBySrc = new Map<string, { id: string; cardCount: number }>(
-    z.array(ForkedDeckRowSchema).parse(decksResult.data ?? [])
-      .map((d) => [d.source_premade_id, { id: d.id, cardCount: d.card_count }]),
-  )
-
-  return rows
-    .map<ApiPremadeSubscription | null>((sub) => {
-      const deck    = deckBySrc.get(sub.premade_deck_id)
-      const premade = premadeById.get(sub.premade_deck_id)
-      const name    = premade?.name ?? '(unknown deck)'
-      // Fall back to the subscriber's last_seen_version when the source
-      // premade row is missing (FK should make this unreachable in practice,
-      // but the map lookup is fallible by type). Keeps `version >=
-      // last_seen_version` invariant so consumers don't see negative drift.
-      const version = premade?.version ?? sub.last_seen_version
-      if (deck === undefined) return null
-      return {
-        id:              sub.id,
-        premadeDeckId:   sub.premade_deck_id,
-        premadeDeckName: name,
-        deckId:          deck.id,
-        cardCount:       deck.cardCount,
-        subscribedAt:    sub.subscribed_at,
-        version,
-        lastSeenVersion: sub.last_seen_version,
-      }
-    })
-    .filter((r): r is ApiPremadeSubscription => r !== null)
-}
-
-/**
- * Public list endpoint for the user's premade-deck subscriptions, wrapped in
- * the universal list envelope. Subscriptions are bounded by the catalogue
- * size, so `nextCursor` is always null and `hasMore` is always false.
- */
-export async function listSubscriptions(
-  userId: string,
-): Promise<ApiList<ApiPremadeSubscription>> {
-  const items = await listSubscriptionsRaw(userId)
-  return { items, nextCursor: null, hasMore: false }
-}
-
-// RPC envelope schema for subscribe_to_premade_deck. Validated at runtime via
-// .parse() so a future signature drift surfaces as a ZodError.
-const SubscribeRpcRowSchema = z.object({
-  subscription_id: z.string(),
-  deck_id:         z.string(),
-  card_count:      z.number(),
-  already_existed: z.boolean(),
-})
-
-/**
- * Subscribes the user to a premade deck via the subscribe_to_premade_deck RPC.
+ * Copies a premade deck into a new standalone deck owned by the user. Atomic
+ * on the SQL side: either a new `decks` row plus every cloned card lands, or
+ * nothing does. Backend Completion Plan Stage 4 (copy model) replaces the
+ * earlier `subscribe_to_premade_deck` RPC.
  *
- * Atomic on the SQL side: either subscription, forked deck, and card clones
- * all exist or none do. If the user is already subscribed, returns the
- * existing fork without re-cloning.
+ * Duplicates are allowed by design: two consecutive calls for the same user
+ * + premade deck produce two independent decks. The caller's idempotency key
+ * (set at the controller layer via `withIdempotency`) is the only guard
+ * against accidental double-clicks; deliberate duplicate copies remain
+ * legitimate ("I want to restart fresh while keeping the old deck's
+ * progress").
+ *
+ * Cards in the new deck start with fresh FSRS state (state=0, due=NOW,
+ * reps=0, lapses=0). Embeddings are carried from the source row so
+ * similarity search works on day 1 without a backfill.
+ *
+ * Throws 404 `PREMADE_DECK_NOT_FOUND` when the source is missing or
+ * `is_active = FALSE`; any other RPC failure surfaces via `dbError()`.
  */
-export async function subscribeToPremadeDeck(
+export async function copyPremadeDeck(
   userId: string,
   premadeDeckId: string,
-): Promise<ApiSubscribeResult> {
-  const { data, error } = await supabaseAdmin.rpc('subscribe_to_premade_deck', {
-    p_user_id:         userId,
-    p_premade_deck_id: premadeDeckId,
-  })
-
-  if (error !== null) {
-    if (error.code === 'P0002') throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
-    // Concurrent subscribe race: the other request committed the INSERT first
-    // and the unique (user_id, premade_deck_id) constraint fired on this one.
-    // The user is in fact subscribed; surface the existing record.
-    if (error.code === '23505') {
-      const existing = (await listSubscriptionsRaw(userId))
-        .find((s) => s.premadeDeckId === premadeDeckId)
-      if (existing !== undefined) {
-        log.info(
-          { userId, premadeDeckId, deckId: existing.deckId, cardCount: existing.cardCount, alreadyExisted: true },
-          'subscribed (race fallback)',
-        )
-        return {
-          subscriptionId: existing.id,
-          deckId:         existing.deckId,
-          cardCount:      existing.cardCount,
-          alreadyExisted: true,
-        }
-      }
-    }
-    throw dbError('subscribe to premade deck', error)
-  }
-
-  const rows = z.array(SubscribeRpcRowSchema).parse(data ?? [])
-  const row  = rows[0]
-  if (row === undefined) {
-    throw new AppError(500, 'Subscribe RPC returned no row', { code: 'PREMADE_SUBSCRIBE_RPC_EMPTY' })
-  }
-
-  log.info(
-    {
-      userId,
-      premadeDeckId,
-      deckId:         row.deck_id,
-      cardCount:      row.card_count,
-      alreadyExisted: row.already_existed,
-    },
-    'subscribed',
-  )
-
-  return {
-    subscriptionId: row.subscription_id,
-    deckId:         row.deck_id,
-    cardCount:      row.card_count,
-    alreadyExisted: row.already_existed,
-  }
-}
-
-/**
- * Unsubscribes the user from a premade deck and deletes the linked forked deck
- * via the unsubscribe_from_premade_deck RPC (atomic on the SQL side).
- *
- * Idempotent: returns silently if no subscription or fork exists.
- */
-export async function unsubscribeFromPremadeDeck(
-  userId: string,
-  premadeDeckId: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin.rpc('unsubscribe_from_premade_deck', asPayload({
+): Promise<ApiCopyPremadeDeckResult> {
+  const { data, error } = await supabaseAdmin.rpc('copy_premade_deck', asPayload({
     p_user_id:         userId,
     p_premade_deck_id: premadeDeckId,
   }))
 
   if (error !== null) {
-    throw dbError('unsubscribe from premade deck', error)
+    // The new RPC raises `premade_deck_not_found` with SQLSTATE 02000
+    // (no_data_found) when the source is inactive or missing. Translate
+    // to HTTP 404 — same code the previous subscribe path used.
+    if (error.code === '02000' && error.message.includes('premade_deck_not_found')) {
+      throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
+    }
+    throw dbError('copy premade deck', error)
+  }
+
+  const rows = z.array(CopyRpcRowSchema).parse(data ?? [])
+  const row  = rows[0]
+  if (row === undefined) {
+    // RPC succeeded but returned no row — should never happen under the
+    // new contract (the RPC always RETURN QUERYs one row). Surface as 500
+    // so a future regression is loud.
+    throw new AppError(500, 'Copy RPC returned no row', { code: 'PREMADE_COPY_RPC_EMPTY' })
+  }
+
+  log.info(
+    { userId, premadeDeckId, deckId: row.deck_id, cardCount: row.card_count },
+    'copied premade deck',
+  )
+
+  return {
+    deckId:    row.deck_id,
+    cardCount: row.card_count,
   }
 }

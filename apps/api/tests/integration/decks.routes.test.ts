@@ -48,13 +48,17 @@ afterAll(async () => {
 // per-deck rollups in one round-trip; GET /api/v1/decks/:id additionally
 // carries `lastReviewedAt`. POST /decks still returns the slim ApiDeck —
 // a freshly created deck has no rollups to report.
+//
+// Backend Completion Plan Stage 4 (2026-05-17, copy model): `isPremadeFork`
+// dropped from the wire — the column no longer exists, and all decks
+// delete identically regardless of origin. `sourcePremadeId` is kept as
+// attribution-only.
 const API_DECK_KEYS = [
   'cardCount',
   'createdAt',
   'deckType',
   'description',
   'id',
-  'isPremadeFork',
   'name',
   'sourcePremadeId',
   'updatedAt',

@@ -15,8 +15,7 @@ import type {
   ApiDeckSchema,
   ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema,
-  ApiPremadeSubscriptionSchema,
-  ApiSubscribeResultSchema,
+  ApiCopyPremadeDeckResultSchema,
   ApiForecastDaySchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
@@ -47,9 +46,13 @@ export type ApiSimilarCard = z.infer<typeof ApiSimilarCardSchema>
 export type ApiDeck          = z.infer<typeof ApiDeckSchema>
 export type ApiDeckWithStats = z.infer<typeof ApiDeckWithStatsSchema>
 
-export type ApiPremadeDeck         = z.infer<typeof ApiPremadeDeckSchema>
-export type ApiPremadeSubscription = z.infer<typeof ApiPremadeSubscriptionSchema>
-export type ApiSubscribeResult     = z.infer<typeof ApiSubscribeResultSchema>
+export type ApiPremadeDeck            = z.infer<typeof ApiPremadeDeckSchema>
+/**
+ * Backend Completion Plan Stage 4 (copy model). Returned by
+ * `POST /api/v1/premade-decks/:id/copy`. Replaces the prior
+ * `ApiSubscribeResult` shape which carried subscription-junction state.
+ */
+export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
 

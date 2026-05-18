@@ -11,7 +11,8 @@ interface SeededUser { userId: string; jwt: string }
 
 const seeded: SeededUser[] = []
 // Premade deck IDs created by the test for isolation. Cleaned up in afterAll;
-// cascades remove `user_premade_subscriptions` and any forked `decks` rows.
+// cascades remove any forked `decks` rows (and their cards) under the also-
+// deleted test users, so we don't need to delete those explicitly.
 const seededPremadeDeckIds: string[] = []
 
 async function seedUser(): Promise<SeededUser> {
@@ -28,27 +29,51 @@ async function seedUser(): Promise<SeededUser> {
   return { userId, jwt: session.data.session.access_token }
 }
 
-// Creates a test-scoped premade deck so the integration test can mutate
-// `premade_decks.version` without polluting shared seed data. The seed
-// migration's premade decks are read by other tests; mutating them across
-// concurrent runs would cause flakes.
-async function seedPremadeDeck(): Promise<string> {
+interface PremadeOptions {
+  isActive?: boolean
+  cardCount?: number
+}
+
+/**
+ * Creates a test-scoped premade deck (catalogue entry) plus the requested
+ * number of source cards (user_id IS NULL). Source cards live in the
+ * catalogue; copy_premade_deck clones them into a user-owned deck.
+ *
+ * Scoped per-test so version mutations / inactive flags don't pollute the
+ * shared seed catalogue.
+ */
+async function seedPremadeDeck(opts: PremadeOptions = {}): Promise<string> {
   const id = randomUUID()
   const { error } = await supabaseAdmin
     .from('premade_decks')
     .insert({
       id,
-      name:        `Stage 4 Test Deck ${Date.now()}`,
+      name:        `Stage 4 Copy Test Deck ${Date.now()}`,
       description: 'integration-test only — deleted in afterAll',
       deck_type:   'vocabulary',
       jlpt_level:  'N5',
       domain:      null,
-      is_active:   true,
-      // version starts at the default (1); we override directly when the test
-      // needs to simulate "source deck content updated".
+      is_active:   opts.isActive ?? true,
     })
   if (error !== null) throw new Error(`createPremadeDeck failed: ${error.message}`)
   seededPremadeDeckIds.push(id)
+
+  // Seed N source cards. The copy RPC clones rows WHERE premade_deck_id =
+  // <deck> AND user_id IS NULL — these are the rows that condition matches.
+  const cards = Array.from({ length: opts.cardCount ?? 2 }, (_, i) => ({
+    id:              randomUUID(),
+    user_id:         null,
+    deck_id:         null,
+    premade_deck_id: id,
+    layout_type:     'vocabulary' as const,
+    fields_data:     { word: `源-${i}`, reading: `げん${i}`, meaning: `source ${i}` },
+    card_type:       'comprehension' as const,
+    jlpt_level:      'N5' as const,
+  }))
+  if (cards.length > 0) {
+    const { error: cardsError } = await supabaseAdmin.from('cards').insert(cards)
+    if (cardsError !== null) throw new Error(`createCards failed: ${cardsError.message}`)
+  }
   return id
 }
 
@@ -63,90 +88,103 @@ afterAll(async () => {
   for (const u of seeded) {
     await supabaseAdmin.auth.admin.deleteUser(u.userId).catch(() => undefined)
   }
-  // Delete the test-scoped premade decks. Cascades clean up
-  // user_premade_subscriptions and any forked decks under the (already
-  // deleted) test users.
+  // Delete the test-scoped premade decks. cascade=SET NULL on cards →
+  // premade_decks (cards stay around with premade_deck_id = NULL), so we
+  // explicitly delete the source cards first.
   for (const id of seededPremadeDeckIds) {
+    await supabaseAdmin.from('cards').delete().eq('premade_deck_id', id).is('user_id', null).then(() => undefined, () => undefined)
     await supabaseAdmin.from('premade_decks').delete().eq('id', id).then(() => undefined, () => undefined)
   }
 })
 
-// Backend Completion Plan Stage 4 — surface `version` + `lastSeenVersion` on
-// GET /api/v1/premade-decks/subscriptions/me. Pins the wire shape and proves
-// the "new content available" comparison works end-to-end: a fresh
-// subscription reports version === lastSeenVersion; bumping the source
-// deck's version (simulating a catalogue content update) makes
-// version > lastSeenVersion without touching the subscriber's row.
-describeIntegration('premade subscriptions routes — Stage 4 version surfacing', () => {
-  it('GET /subscriptions/me returns version + lastSeenVersion, equal for fresh subscriptions', async () => {
-    const u            = await seedUser(); seeded.push(u)
-    const premadeId    = await seedPremadeDeck()
+// Backend Completion Plan Stage 4 (copy model). The route renamed from
+// /:id/subscribe to /:id/copy. Subscriptions and version surfacing are gone.
+// Tests pin the four acceptance criteria from the plan:
+//   (a) fresh copy
+//   (b) duplicate copy → two independent decks
+//   (c) copy → delete → copy again → third independent deck
+//   (d) copy of an inactive deck → 404
+describeIntegration('premade copy route — Stage 4 acceptance', () => {
+  it('POST /premade-decks/:id/copy creates a new owned deck with fresh FSRS state', async () => {
+    const u         = await seedUser(); seeded.push(u)
+    const premadeId = await seedPremadeDeck({ cardCount: 2 })
 
-    // Subscribe via the public API so the user owns a forked deck on the
-    // /decks side — listSubscriptionsRaw filters subscriptions to those with
-    // a live fork (orphan-cleanup invariant), so a direct
-    // user_premade_subscriptions insert wouldn't surface here.
-    const subscribeRes = await request(app)
-      .post(`/api/v1/premade-decks/${premadeId}/subscribe`)
+    const copyRes = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
-    // 201 (fresh) or 200 (idempotent re-subscribe — won't happen on first call,
-    // but the API treats both as success and both surface the same row shape).
-    expect([200, 201]).toContain(subscribeRes.status)
+    expect(copyRes.status).toBe(201)
+    expect(copyRes.headers['location']).toBe(`/api/v1/decks/${copyRes.body.deckId}`)
+    expect(typeof copyRes.body.deckId).toBe('string')
+    expect(copyRes.body.cardCount).toBe(2)
 
-    const listRes = await request(app)
-      .get('/api/v1/premade-decks/subscriptions/me')
+    // The new deck is fetchable via /api/v1/decks/:id with the same wire
+    // shape every user-created deck has. After Stage 4 there is no special
+    // path through deleteDeck; every deck is identical.
+    const deckRes = await request(app)
+      .get(`/api/v1/decks/${copyRes.body.deckId}`)
       .set('Authorization', `Bearer ${u.jwt}`)
-    expect(listRes.status).toBe(200)
-    expect(Array.isArray(listRes.body.items)).toBe(true)
-
-    const row = (listRes.body.items as Array<{
-      premadeDeckId:   string
-      version:         number
-      lastSeenVersion: number
-    }>).find((r) => r.premadeDeckId === premadeId)
-    expect(row).toBeDefined()
-    // Both columns default to 1; the seed insert above doesn't override
-    // version, so the fresh-subscription invariant holds.
-    expect(row!.version).toBe(1)
-    expect(row!.lastSeenVersion).toBe(1)
-    expect(row!.version).toBe(row!.lastSeenVersion)
+    expect(deckRes.status).toBe(200)
+    expect(deckRes.body.sourcePremadeId).toBe(premadeId)
+    expect(deckRes.body.newCount).toBe(2)
+    expect(deckRes.body.lastReviewedAt).toBeNull()
   })
 
-  it('reports version > lastSeenVersion once the source deck has been content-updated', async () => {
+  it('two consecutive copies of the same premade deck produce two independent decks', async () => {
     const u         = await seedUser(); seeded.push(u)
-    const premadeId = await seedPremadeDeck()
+    const premadeId = await seedPremadeDeck({ cardCount: 1 })
 
-    const subscribeRes = await request(app)
-      .post(`/api/v1/premade-decks/${premadeId}/subscribe`)
+    const first = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
       .set('Authorization', `Bearer ${u.jwt}`)
       .set('Idempotency-Key', randomUUID())
-    expect([200, 201]).toContain(subscribeRes.status)
+    expect(first.status).toBe(201)
 
-    // Simulate a catalogue content update by bumping the source deck's
-    // version directly. Stage 5 will introduce the proper sync RPC that
-    // bumps `last_seen_version` after pulling new cards; until then, the
-    // version+last_seen_version pair is the read-only signal the frontend
-    // uses to render a "new content available" badge.
-    const { error: bumpError } = await supabaseAdmin
-      .from('premade_decks')
-      .update({ version: 2 })
-      .eq('id', premadeId)
-    if (bumpError !== null) throw new Error(`bump version failed: ${bumpError.message}`)
-
-    const listRes = await request(app)
-      .get('/api/v1/premade-decks/subscriptions/me')
+    const second = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
       .set('Authorization', `Bearer ${u.jwt}`)
-    expect(listRes.status).toBe(200)
+      // Distinct idempotency key — the copy model deliberately allows
+      // duplicate copies. Same key would replay the original 201.
+      .set('Idempotency-Key', randomUUID())
+    expect(second.status).toBe(201)
 
-    const row = (listRes.body.items as Array<{
-      premadeDeckId:   string
-      version:         number
-      lastSeenVersion: number
-    }>).find((r) => r.premadeDeckId === premadeId)
-    expect(row).toBeDefined()
-    expect(row!.version).toBe(2)
-    expect(row!.lastSeenVersion).toBe(1)
-    expect(row!.version).toBeGreaterThan(row!.lastSeenVersion)
+    expect(first.body.deckId).not.toBe(second.body.deckId)
+  })
+
+  it('copy → delete → copy again produces a third independent deck (no subscription junction in the way)', async () => {
+    const u         = await seedUser(); seeded.push(u)
+    const premadeId = await seedPremadeDeck({ cardCount: 1 })
+
+    const first = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+    expect(first.status).toBe(201)
+
+    // Deleting the copied deck uses the SAME path as deleting any other
+    // user-owned deck. No `is_premade_fork` branch, no unsubscribe RPC.
+    const del = await request(app)
+      .delete(`/api/v1/decks/${first.body.deckId}`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+    expect(del.status).toBe(204)
+
+    const third = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+    expect(third.status).toBe(201)
+    expect(third.body.deckId).not.toBe(first.body.deckId)
+  })
+
+  it('copy of an inactive premade deck returns 404 with PREMADE_DECK_NOT_FOUND', async () => {
+    const u         = await seedUser(); seeded.push(u)
+    const premadeId = await seedPremadeDeck({ isActive: false, cardCount: 1 })
+
+    const res = await request(app)
+      .post(`/api/v1/premade-decks/${premadeId}/copy`)
+      .set('Authorization', `Bearer ${u.jwt}`)
+      .set('Idempotency-Key', randomUUID())
+    expect(res.status).toBe(404)
+    expect(res.body.code).toBe('PREMADE_DECK_NOT_FOUND')
   })
 })

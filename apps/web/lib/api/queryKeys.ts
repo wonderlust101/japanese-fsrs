@@ -38,10 +38,13 @@ export const queryKeys = {
     drillSession: (id: string)       => [...queryKeys.leeches.all(), 'drillSession', id]   as const,
   },
   premadeDecks: {
-    all:           ()           => ['premade-decks']                                  as const,
-    list:          ()           => [...queryKeys.premadeDecks.all(), 'list']          as const,
-    detail:        (id: string) => [...queryKeys.premadeDecks.all(), 'detail', id]    as const,
-    subscriptions: ()           => [...queryKeys.premadeDecks.all(), 'subscriptions'] as const,
+    all:    ()           => ['premade-decks']                              as const,
+    list:   ()           => [...queryKeys.premadeDecks.all(), 'list']      as const,
+    detail: (id: string) => [...queryKeys.premadeDecks.all(), 'detail', id] as const,
+    // `subscriptions` key removed in Backend Completion Plan Stage 4 (copy
+    // model) — the subscription concept no longer exists. "Decks I started
+    // from a premade" is now a client-side filter on `queryKeys.decks.list()`
+    // by `sourcePremadeId IS NOT NULL`.
   },
   profile: {
     me: () => ['profile', 'me'] as const,

@@ -222,7 +222,11 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
       void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.premadeDecks.subscriptions() })
+      // The `premadeDecks.subscriptions` invalidation that lived here was
+      // removed in Backend Completion Plan Stage 4 (copy model): the
+      // subscription concept is gone, and "decks I copied from premade"
+      // is now a client-side filter on the decks list (already invalidated
+      // via decks.all() above).
       router.push('/decks')
     },
   })

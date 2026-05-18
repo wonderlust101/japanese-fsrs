@@ -4,7 +4,6 @@ import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { unsubscribeFromPremadeDeck } from './premade.service.ts'
 import {
   State,
   deckTypeEnum,
@@ -20,7 +19,10 @@ const DECK_COLUMNS = [
   'name',
   'description',
   'deck_type',
-  'is_premade_fork',
+  // `is_premade_fork` was dropped in Backend Completion Plan Stage 4 (copy
+  // model). `source_premade_id` stays as attribution-only — non-null means
+  // "this deck started from a premade catalogue entry"; nothing branches on
+  // it anymore.
   'source_premade_id',
   'card_count',
   'version',
@@ -46,7 +48,8 @@ const DeckListRpcRowSchema = z.object({
   name:              z.string(),
   description:       z.string().nullable(),
   deck_type:         deckTypeEnum,
-  is_premade_fork:   z.boolean(),
+  // `is_premade_fork` removed in Backend Completion Plan Stage 4 (copy
+  // model). The column no longer exists on the decks table.
   source_premade_id: z.string().nullable(),
   card_count:        z.number(),
   version:           z.number(),
@@ -64,11 +67,12 @@ const DeckListRpcRowSchema = z.object({
   last_reviewed_at:  z.string().nullable().optional(),
 })
 
-/** Slim projection used by deleteDeck to detect premade-fork ownership. */
+/** Slim projection used by deleteDeck for the existence check. After the
+ *  Backend Completion Plan Stage 4 (copy model) refactor, all decks delete
+ *  through the same path — no branch on `is_premade_fork`, so we only need
+ *  the `id` to confirm the row exists and is owned by the caller. */
 const DeckOwnerRowSchema = z.object({
-  id:                z.string(),
-  is_premade_fork:   z.boolean(),
-  source_premade_id: z.string().nullable(),
+  id: z.string(),
 })
 
 /** Cursor payload for the decks-list endpoint. The `list_decks_paginated`
@@ -84,7 +88,6 @@ function toRow(raw: DeckDbRow): ApiDeck {
     name:            raw.name,
     description:     raw.description,
     deckType:        raw.deck_type,
-    isPremadeFork:   raw.is_premade_fork,
     sourcePremadeId: raw.source_premade_id,
     cardCount:       raw.card_count,
     version:         raw.version,
@@ -363,18 +366,18 @@ export async function updateDeck(
 /**
  * Deletes a deck and all of its cards (cascade is set in the DB schema).
  *
- * For premade-fork decks, delegates to `unsubscribeFromPremadeDeck` so the
- * matching `user_premade_subscriptions` row is also removed atomically. The
- * subscription has no FK to `decks` (only to `premade_decks`), so a plain
- * deck DELETE would leave it orphaned and break the next subscribe attempt
- * via the unique-constraint on (user_id, premade_deck_id).
+ * Backend Completion Plan Stage 4 (copy model) collapsed the prior
+ * premade-fork branch — without a subscription junction to keep in sync,
+ * every deck (catalogue-copied or hand-rolled) deletes identically through
+ * the same path. The ownership SELECT stays so we can distinguish "not
+ * found / wrong owner" from a delete failure.
  *
  * Throws 404 if the deck does not exist or does not belong to the user.
  */
 export async function deleteDeck(deckId: string, userId: string): Promise<void> {
   const { data, error: fetchError } = await supabaseAdmin
     .from('decks')
-    .select('id, is_premade_fork, source_premade_id')
+    .select('id')
     .eq('id', deckId)
     .eq('user_id', userId)
     .single()
@@ -383,14 +386,9 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
     throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
   }
 
-  const deck = DeckOwnerRowSchema.parse(data)
-
-  // Premade fork → use the unsubscribe path so deck + subscription delete
-  // atomically (via the unsubscribe_from_premade_deck RPC).
-  if (deck.is_premade_fork && deck.source_premade_id !== null) {
-    await unsubscribeFromPremadeDeck(userId, deck.source_premade_id)
-    return
-  }
+  // Defensive parse — keeps drift on the slim SELECT surface as a clean
+  // ZodError instead of letting a malformed row reach the delete branch.
+  DeckOwnerRowSchema.parse(data)
 
   const { error: deleteError } = await supabaseAdmin
     .from('decks')

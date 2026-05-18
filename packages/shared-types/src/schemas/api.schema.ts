@@ -97,7 +97,11 @@ export const ApiDeckSchema = z.object({
   description:     z.string().nullable(),
   deckType:        deckTypeSchema,
   cardCount:       z.number(),
-  isPremadeFork:   z.boolean(),
+  // `sourcePremadeId` is attribution only — non-null means "this deck was
+  // started from a premade catalogue entry". Backend Completion Plan
+  // Stage 4 (copy model) dropped the companion `is_premade_fork` boolean:
+  // under the new model all decks are owned, standalone, and delete via
+  // the same path regardless of origin.
   sourcePremadeId: z.string().nullable(),
   version:         z.number(),
   createdAt:       z.string(),
@@ -135,44 +139,28 @@ export const ApiPremadeDeckSchema = z.object({
   jlptLevel:   jlptLevelSchema.nullable(),
   domain:      z.string().nullable(),
   cardCount:   z.number(),
-  version:     z.number(),
+  // `version` removed in Backend Completion Plan Stage 4 (copy model) —
+  // there is no version drift to track once a user has copied; refreshing
+  // content means deleting the deck and copying again.
   isActive:    z.boolean(),
   createdAt:   z.string(),
   updatedAt:   z.string(),
 })
 
-export const ApiPremadeSubscriptionSchema = z.object({
-  id:              z.string(),
-  premadeDeckId:   z.string(),
-  premadeDeckName: z.string(),
-  deckId:          z.string(),
-  cardCount:       z.number(),
-  subscribedAt:    z.string(),
-  /**
-   * Current version of the source premade deck on the catalogue side
-   * (`premade_decks.version`). Compared against `lastSeenVersion` to compute
-   * "new content available" — when `version > lastSeenVersion`, the
-   * subscriber's local fork is missing cards that have landed on the source
-   * deck since their last sync. Surfaced by Backend Completion Plan Stage 4
-   * (read-only contract change); the matching write path lands in Stage 5
-   * via `POST /api/v1/premade-decks/:id/sync`.
-   */
-  version:         z.number(),
-  /**
-   * The highest `premade_decks.version` the subscriber has synced through —
-   * stored on `user_premade_subscriptions.last_seen_version`. Bumped
-   * atomically with new-card inserts by the Stage 5 sync RPC. Equal to
-   * `version` for fresh subscriptions (both default to 1) and stays equal
-   * until the source deck's content is updated.
-   */
-  lastSeenVersion: z.number(),
-})
-
-export const ApiSubscribeResultSchema = z.object({
-  subscriptionId: z.string(),
-  deckId:         z.string(),
-  cardCount:      z.number(),
-  alreadyExisted: z.boolean(),
+/**
+ * Result of `POST /api/v1/premade-decks/:id/copy` — Backend Completion Plan
+ * Stage 4 (copy model). The user-facing response carries only the
+ * newly-created deck id and the count of cards cloned into it; everything
+ * else lives on the deck itself and is reachable via `GET /api/v1/decks/:id`.
+ *
+ * Replaces the prior `ApiSubscribeResult` shape: the subscription junction
+ * (and therefore `subscriptionId` / `alreadyExisted`) no longer exists.
+ * Duplicates are intentional under the copy model — two consecutive copies
+ * of the same premade deck produce two independent `deckId` values.
+ */
+export const ApiCopyPremadeDeckResultSchema = z.object({
+  deckId:    z.string(),
+  cardCount: z.number(),
 })
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
