@@ -244,6 +244,12 @@ Before finishing code work:
 - All prompts live in `apps/api/src/services/ai.service.ts`. Do not inline prompts in route handlers.
 - Card generation must use `response_format: { type: 'json_object' }` and parse the response. Always validate the shape before returning to the client.
 - Never pass raw user input directly into a prompt without sanitization. Strip HTML and trim whitespace first.
+- **Keep the generator in sync with `fields_data`.** Any time a new field is added to `WordFieldsSchema`, `ExampleSentenceSchema`, `VocabularyFieldsDataSchema`, `GrammarFieldsDataSchema`, or `SentenceFieldsDataSchema` (`packages/shared-types/src/schemas/field-shapes.schema.ts`), the corresponding generator must be updated in the same PR:
+  1. Extend the matching `Generated*Schema` in `packages/shared-types/src/schemas/ai.schema.ts` so structured-output validation admits the field.
+  2. Update the prompt body in `apps/api/src/services/ai.service.ts` so the model is instructed to produce the field (or explicitly told to omit it when the field requires assets the backend can't host yet, e.g. audio URLs).
+  3. Bump the relevant prompt version constant (`CARD_PROMPT_VERSION`, `SENTENCE_CARD_PROMPT_VERSION`, `MNEMONIC_PROMPT_VERSION`, `DIAGNOSIS_PROMPT_VERSION`, …) so cached Redis responses for the old prompt are not served after deploy. Mirror the pattern established by `DIAGNOSIS_PROMPT_VERSION` at `ai.service.ts:62`.
+  4. Cover the new field with at least one test fixture in `apps/api/src/services/__tests__/ai.service.test.ts` that asserts the field is admitted on the wire (or correctly omitted when intentionally unmapped).
+  A field that ships on the schema without a generator update will only ever be populated through manual card editing — the AI path will continue producing cards without it, and the UI slot will keep rendering empty in production. Treat the schema and the generator as one unit.
 
 ## Common Pitfalls
 
@@ -274,6 +280,7 @@ Always refer to the canonical docs before suggesting architectural changes, prod
 - **Technical Companion:** [docs/TDD.md](./docs/TDD.md) - architecture and implementation boundaries that defer to the database reference.
 - **Active Board:** [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md) - current project tasks and owner decisions in motion.
 - **Status Index:** [docs/IMPLEMENTATION_STATUS.md](./docs/IMPLEMENTATION_STATUS.md) - current status index; detailed code-inspected evidence lives in `docs/status/`.
+- **Backend Completion Plan:** tracked as stage-labelled entries in [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md). Each stage ships as one PR with scoped acceptance criteria; the kanban records the dependency order as Done entries.
 - **Testing:** [docs/TESTING.md](./docs/TESTING.md) - test tiers, locations, mocking, and execution guidance.
 - **Information Architecture / Wireframes:** [docs/information_architecture/README.md](./docs/information_architecture/README.md) - per-page wireframes (one file per screen) plus the cross-page [sitemap](./docs/information_architecture/00_sitemap.md). Consult before changing page structure, navigation, or adding new screens.
 

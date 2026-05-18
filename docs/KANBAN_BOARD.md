@@ -473,7 +473,9 @@ Source for status: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), refresh
   build.
 
 - [x] **Leeches Phase 1 — List + Detail + Diagnosis (2026-05-17)** — first delivery against
-  `docs/Add Leeches List and Drill Support.md`. New dedicated route at `/insights/leeches` reaches the
+  `docs/Add Leeches List and Drill Support.md` [archived — file removed 2026-05-17 after the
+  spec rolled into Done entries on this board]. New dedicated route at `/insights/leeches` (subsequently
+  renamed to `/insights/weak-spots`) reaches the
   unresolved/resolved leech list with a kanji `蛭 · Leeches` page header, six filter dimensions (Status pills + Deck /
   JLPT / Modality / Diagnosis selects + Sort), and a row anatomy that surfaces Japanese hero (`FuriganaText`), meaning,
   deck, modality, JLPT pill, lapses (mono tabular), last-review and detection dates, diagnosis status, and per-row

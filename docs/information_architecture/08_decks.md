@@ -8,13 +8,13 @@ Decks are containers and scheduling contexts. Cards are individual learning obje
 
 ## Primary User Jobs
 
-- View all personal and subscribed decks.
+- View all decks in the learner's library (user-built and copied-from-premade alike — once added, all decks are equivalent and editable).
 - Understand which decks have reviews due.
 - Study a specific deck.
 - Open deck details.
 - Adjust deck options.
 - Browse premade decks.
-- Import or subscribe to a deck.
+- Add a premade deck to the library (copies it once; no ongoing subscription).
 - Understand deck health at a glance.
 
 ## Content Hierarchy
@@ -84,8 +84,9 @@ The page should not become a substitute for Cards. If the user wants to search o
 - “Open cards in this deck” should route to Cards with the deck filter applied.
 - Study this deck starts a deck-filtered review session or setup.
 - Deck options should clarify when changes affect future scheduling.
-- Browse premade decks should lead to Deck Preview before subscription.
-- Import should explain expected review load before adding many cards.
+- Browse premade decks should lead to Deck Preview before the user commits to adding the deck to their library.
+- Adding a deck should explain expected review load before the copy lands in the library.
+- Decks copied from premade may show a small "From: <premade deck name>" attribution chip (informational only — once copied the deck is fully the user's own).
 
 ## States
 

@@ -18,7 +18,6 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`user_interests`](#table-user_interests)
   - [`premade_decks`](#table-premade_decks)
   - [`decks`](#table-decks)
-  - [`user_premade_subscriptions`](#table-user_premade_subscriptions)
   - [`cards`](#table-cards)
   - [`review_logs`](#table-review_logs)
   - [`leeches`](#table-leeches)
@@ -97,7 +96,6 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `leech_drill_session_cards` | ALL | SELECT, INSERT | — |
 | `leech_drill_attempts` | ALL | SELECT, INSERT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
-| `user_premade_subscriptions` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
 
 `profiles` deliberately omits `INSERT` from `authenticated` — rows are created exclusively by the `handle_new_user()` trigger. RPCs grant `EXECUTE` to `service_role` only; the API is the only legitimate caller.
@@ -162,7 +160,7 @@ Normalized junction table storing the user's declared interests (e.g. `'anime'`,
 
 ### Table: `premade_decks`
 
-Curated, system-owned decks provided by the application. `user_id` is never set on these rows — they belong to no individual user. Users subscribe to premade decks, which creates personal card copies via `subscribe_to_premade_deck()`. Premade source rows are never mutated by users.
+Curated, system-owned decks provided by the application. `user_id` is never set on these rows — they belong to no individual user. Users **copy** a premade deck into their library via `copy_premade_deck()`, which creates a new `decks` row plus personal card copies. The copy is a fully owned, standalone deck — there is no ongoing link back to the source for content updates. If a user wants newer content, they delete their deck and copy again, accepting the loss of FSRS progress as the explicit cost. Premade source rows are never mutated by users.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
@@ -173,16 +171,14 @@ Curated, system-owned decks provided by the application. `user_id` is never set 
 | `jlpt_level` | `jlpt_level` | YES | `NULL` | JLPT level the deck targets, if applicable. Used to filter premade decks by JLPT goal. |
 | `domain` | `TEXT` | YES | `NULL` | Optional subject domain (e.g. `'business'`, `'anime'`). Used for filtering. |
 | `card_count` | `INT` | NO | `0` | Denormalized count of source cards. Maintained automatically by `update_deck_card_count()` trigger. CHECK ≥ 0. |
-| `version` | `INT` | NO | `1` | Content version. Incremented when curated cards are added or changed. Compared against `user_premade_subscriptions.last_seen_version` to detect when a subscriber needs new cards synced. CHECK ≥ 1. |
-| `is_active` | `BOOLEAN` | NO | `TRUE` | Catalog visibility flag — **the canonical lifecycle**. Premade decks are NEVER hard-deleted in normal ops; this boolean is toggled instead. When `FALSE`, the deck is hidden from the browse page and no new subscriptions are accepted. |
+| `is_active` | `BOOLEAN` | NO | `TRUE` | Catalog visibility flag — **the canonical lifecycle**. Premade decks are NEVER hard-deleted in normal ops; this boolean is toggled instead. When `FALSE`, the deck is hidden from the browse page and no new copies are accepted. Existing user copies are unaffected — they are already standalone decks. |
 | `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
 | `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Auto-maintained by `premade_decks_updated_at` trigger. |
 
 **CHECK constraints:**
 - `premade_decks_card_count_nonneg`: `card_count >= 0`
-- `premade_decks_version_positive`: `version >= 1`
 
-**Cascade asymmetry note:** If a premade deck IS hard-deleted (admin-only path), `decks.source_premade_id` is set to NULL (forks survive), `cards.premade_deck_id` cascades (source cards vanish), and `user_premade_subscriptions.premade_deck_id` cascades (subscription rows vanish, leaving forks orphaned). This is intentional — see the column comment on `is_active`.
+**Cascade asymmetry note:** If a premade deck IS hard-deleted (admin-only path), `decks.source_premade_id` is set to NULL (user copies survive — they're already standalone) and `cards.premade_deck_id` cascades (source cards vanish; user-owned copies of those cards are not affected because they live under `deck_id`, not `premade_deck_id`). The user keeps their deck and their FSRS progress; only the attribution link to the original premade deck is severed.
 
 **RLS policies:**
 - SELECT: `is_active = TRUE` for all authenticated and anon users.
@@ -192,7 +188,7 @@ Curated, system-owned decks provided by the application. `user_id` is never set 
 
 ### Table: `decks`
 
-User-owned collections of cards. Each deck belongs to exactly one user. A deck may be a fork of a premade deck (created at subscription time via `subscribe_to_premade_deck()`) or a blank user-created deck.
+User-owned collections of cards. Each deck belongs to exactly one user. A deck may have been seeded from a premade deck (via `copy_premade_deck()`) or created blank. Once created, all decks are equivalent — there is no behavioral distinction between "copied-from-premade" and "user-built" decks. `source_premade_id` is retained for attribution only.
 
 | Column | Type | Nullable | Default | Purpose |
 |---|---|---|---|---|
@@ -202,8 +198,7 @@ User-owned collections of cards. Each deck belongs to exactly one user. A deck m
 | `description` | `TEXT` | YES | `NULL` | Optional description shown in the deck list. |
 | `deck_type` | `deck_type` | NO | `'vocabulary'` | Category: `vocabulary`, `kanji`, or `mixed`. |
 | `is_public` | `BOOLEAN` | NO | `FALSE` | Currently always `FALSE`; public deck behavior must be specified before changing behavior. |
-| `is_premade_fork` | `BOOLEAN` | NO | `FALSE` | `TRUE` when this deck was created by subscribing to a premade deck. Drives the subscription sync UI and routes `deleteDeck` to `unsubscribe_from_premade_deck()` to prevent orphaned subscription rows. |
-| `source_premade_id` | `UUID` | YES | `NULL` | FK to `premade_decks(id)` — `SET NULL` on premade deletion so the user fork survives. Set only when `is_premade_fork = TRUE`. |
+| `source_premade_id` | `UUID` | YES | `NULL` | FK to `premade_decks(id)` — `SET NULL` on premade deletion so the user deck survives. **Attribution only:** set when the deck was created via `copy_premade_deck()` so the UI can show "From: <premade deck name>". Carries no behavioral weight — deck behavior is identical regardless of whether this is set. |
 | `card_count` | `INT` | NO | `0` | Denormalized count of cards in this deck. Maintained by `update_deck_card_count()` trigger. CHECK ≥ 0. |
 | `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_deck_with_version_check()` on every successful PATCH. Required as `If-Match` header on `PATCH /api/v1/decks/:id`. |
 | `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |
@@ -214,38 +209,15 @@ User-owned collections of cards. Each deck belongs to exactly one user. A deck m
 
 **Indexes:**
 - `decks_user_updated_idx`: `(user_id, updated_at DESC)` — serves `list_decks_paginated()` ORDER BY index-only.
-- `decks_source_premade_id_idx`: `(source_premade_id) WHERE source_premade_id IS NOT NULL` — required for `ON DELETE SET NULL` cascades from `premade_decks` and for the JOIN inside `subscribe_to_premade_deck()`.
+- `decks_source_premade_id_idx`: `(source_premade_id) WHERE source_premade_id IS NOT NULL` — required for `ON DELETE SET NULL` cascades from `premade_decks`. (Pre-copy-model, this also served a JOIN inside `subscribe_to_premade_deck()`; that RPC has been removed.)
 
 **RLS policies:**
 - SELECT/INSERT/UPDATE/DELETE: `auth.uid() = user_id` (USING + WITH CHECK as appropriate).
 
 **Common writes:**
-- `INSERT`: directly via `POST /api/v1/decks` or via `subscribe_to_premade_deck()` RPC.
+- `INSERT`: directly via `POST /api/v1/decks` or via `copy_premade_deck()` RPC.
 - `UPDATE`: via `update_deck_with_version_check(p_deck_id, p_user_id, p_expected_version, p_patch)` RPC.
-- `DELETE`: directly when not a premade fork; via `unsubscribe_from_premade_deck()` when `is_premade_fork = TRUE`.
-
----
-
-### Table: `user_premade_subscriptions`
-
-Junction table tracking which premade decks each user has subscribed to. A row is inserted here (and personal card copies are created) by `subscribe_to_premade_deck()` when a user calls `POST /api/v1/premade-decks/:id/subscribe`. The `last_seen_version` field drives update detection when a premade deck's content changes.
-
-| Column | Type | Nullable | Default | Purpose |
-|---|---|---|---|---|
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary key. |
-| `user_id` | `UUID` | NO | — | The subscribing user. FK to `profiles(id)` — cascades on user deletion. |
-| `premade_deck_id` | `UUID` | NO | — | The subscribed deck. FK to `premade_decks(id)` — cascades on deck deletion. |
-| `subscribed_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the user subscribed. |
-| `last_seen_version` | `INT` | NO | `1` | The `premade_decks.version` at the time of last subscription sync. When `premade_decks.version > last_seen_version`, new cards are available to copy. |
-
-**Uniqueness:** `UNIQUE (user_id, premade_deck_id)` — one subscription per user per premade deck. Provides the leading-column index for `WHERE user_id = $1` lookups (the standalone `user_id` index was dropped in `20260517000000` as redundant).
-
-**Indexes:**
-- `user_premade_subscriptions_premade_deck_id_idx`: `(premade_deck_id)` — serves the FK-enforcement scan when a premade deck is deleted (the UNIQUE leads with `user_id` so cannot be used for this).
-
-**RLS policy:** `auth.uid() = user_id` for ALL operations.
-
-**Self-healing subscribe:** `subscribe_to_premade_deck()` handles four states atomically: (1) both subscription and fork exist → return existing; (2) subscription without fork → reuse subscription, recreate fork + cards (orphan repair); (3) neither exists → fresh subscribe; (4) deck without subscription → insert subscription, reuse deck. This was added in `20260521000000` to fix a "delete fork → re-subscribe = 500" bug caused by the missing FK from this table to `decks`.
+- `DELETE`: directly via `DELETE /api/v1/decks/:id`. All decks delete identically — there is no special branch for premade-derived decks. Cards cascade to the deck delete via FK; the user accepts the loss of FSRS progress as the explicit cost of starting over.
 
 ---
 
@@ -334,7 +306,7 @@ These fields are the live FSRS state and **must only be written via `fsrs.servic
 | `cards_user_new_creation_idx` | `(user_id, created_at) WHERE state = 0 AND is_suspended = FALSE` | **Hot path**: serves the new-cards branch of `get_due_cards()` (FIFO by `created_at ASC`). |
 | `cards_deck_pagination_idx` | `(deck_id, created_at DESC, id DESC)` | Makes `list_cards_paginated()` an index-only scan; eliminates in-memory sort on the deck-browser hot path. |
 | `cards_user_id_jlpt_level_idx` | `(user_id, jlpt_level) WHERE user_id IS NOT NULL` | Serves `get_jlpt_gap()` and `get_milestone_forecast()` aggregations. |
-| `cards_premade_deck_id_idx` | `(premade_deck_id)` | FK enforcement + scan during `subscribe_to_premade_deck()` source-card clone. |
+| `cards_premade_deck_id_idx` | `(premade_deck_id)` | FK enforcement + scan during `copy_premade_deck()` source-card clone. |
 | `cards_parent_card_id_idx` | `(parent_card_id)` | Sibling lookup during `update_card_with_sibling_sync()`. |
 | `cards_embedding_idx` | `USING hnsw (embedding vector_cosine_ops) WHERE user_id IS NOT NULL` | HNSW index for cosine similarity (`<=>`) in `find_similar_cards()`. Premade source cards are excluded since the RPC filters `user_id = p_user_id`. |
 
@@ -587,7 +559,7 @@ Per-user replay store for idempotent POST endpoints. Required by:
 - `POST /api/v1/decks`
 - `POST /api/v1/decks/:deckId/cards`
 - `POST /api/v1/cards/:id/regenerate-embedding`
-- `POST /api/v1/premade-decks/:id/subscribe`
+- `POST /api/v1/premade-decks/:id/copy`
 
 Callers include an `Idempotency-Key: <uuid>` header. The same key + same request body → replays the stored response. Same key + different body → 422 conflict. Same key + still in-flight → 409. Keys expire after 24 hours; expired rows are cleaned up lazily on the next `claim_idempotency_key` call for the same user (no pg_cron required at this scale).
 
@@ -641,14 +613,13 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `get_stale_embedding_cards(p_user_id)` | Returns cards where `embedding_updated_at < updated_at` (content changed after embedding was computed). | Replaces a broken PostgREST `.filter()` call that didn't support column-vs-column comparison. |
 | `find_similar_cards(p_card_id, p_user_id, p_limit)` | Cosine-similarity search over the user's own cards. | Uses `<=>` (cosine distance, **not** `<->` L2). Backed by the partial HNSW index. |
 
-### Deck / profile / subscription writes
+### Deck / profile / premade-copy writes
 
 | Function | Purpose | Notes |
 |---|---|---|
 | `update_deck_with_version_check(p_deck_id, p_user_id, p_expected_version, p_patch JSONB)` | Atomic deck PATCH with version check. Raises `deck_version_mismatch` (→ 412) on stale `If-Match`. | |
 | `update_profile_with_interests(p_user_id, p_expected_version, p_patch JSONB, p_interests TEXT[])` | Atomic profile PATCH + interests replace. Closes the silent-wipe-of-interests window. Raises `profile_version_mismatch` (→ 412). | `p_interests = NULL` → leave untouched; `'{}'` → clear; `ARRAY[…]` → replace. |
-| `subscribe_to_premade_deck(p_user_id, p_premade_deck_id)` | Atomic subscribe: subscription row + forked deck + bulk card clone. **Self-healing** for orphaned subscription/deck combos. Carries `embedding` + `embedding_updated_at` from source cards. | Returns `(subscription_id, deck_id, card_count, already_existed)`. |
-| `unsubscribe_from_premade_deck(p_user_id, p_premade_deck_id)` | Atomic deck DELETE + subscription DELETE. Idempotent. | The deck-delete cascades to user-owned cards via FK. |
+| `copy_premade_deck(p_user_id, p_premade_deck_id)` | Atomic copy: inserts one new `decks` row owned by `p_user_id` with `source_premade_id = p_premade_deck_id` (attribution only), then bulk-clones every source card into the new deck with fresh FSRS state (`state = 0`, `due = NOW()`, etc.) and copies `embedding` + `embedding_updated_at` from each source row. **Allows duplicates** — calling twice produces two independent decks (the user accepts the storage cost willingly). Validates that the premade deck exists and is `is_active = TRUE`. | Returns `(deck_id, card_count)`. Raises `premade_deck_not_found` (→ 404) when the source is missing or inactive. |
 
 ### Read RPCs
 
@@ -716,21 +687,18 @@ auth.users
             ├── user_interests              (1:N, cascade)
             ├── decks                       (1:N, cascade)
             │       └── cards               (1:N, cascade)  ←── parent_card_id (self-ref, SET NULL)
-            ├── user_premade_subscriptions  (1:N, cascade)
             ├── review_logs                 (1:N, cascade)        [card_id is SET NULL on card delete]
             ├── leeches                     (1:N, cascade)        [card_id is SET NULL on card delete]
             └── idempotency_keys            (1:N, no FK — accessed via RPCs)
 
 premade_decks (system-owned, never hard-deleted in normal ops)
     ├── cards (premade source cards: user_id IS NULL, deck_id IS NULL)   [CASCADE]
-    ├── decks.source_premade_id                                          [SET NULL — forks survive]
-    └── user_premade_subscriptions                                       [CASCADE]
+    └── decks.source_premade_id                                          [SET NULL — user copies survive]
 ```
 
 **Notable cascade asymmetries:**
 - `review_logs.card_id` and `leeches.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
-- `decks.source_premade_id`: `SET NULL` so user forks survive a premade hard-delete.
-- `user_premade_subscriptions.premade_deck_id`: `CASCADE`, leaving forks "orphaned" on hard-delete (intentional — see `is_active` column comment).
+- `decks.source_premade_id`: `SET NULL` so user copies survive a premade hard-delete with attribution severed. The deck and the user's FSRS progress are unaffected because user cards live under `deck_id`, not `premade_deck_id`.
 
 ---
 
@@ -748,12 +716,12 @@ premade_decks (system-owned, never hard-deleted in normal ops)
 
 **Optimistic concurrency with `version` columns:** `cards`, `decks`, and `profiles` carry an `INT version` column. PATCH endpoints require `If-Match: <version>` and the corresponding RPC raises `*_version_mismatch` (SQLSTATE 22000) on stale snapshots, mapped by the service layer to HTTP 412. List/due projections intentionally omit `version` — only the detail view drives PATCH.
 
-**Self-healing subscribe:** `subscribe_to_premade_deck()` handles all four combinations of (subscription exists?) × (fork deck exists?) atomically, recovering from orphaned state caused by `deleteDeck` skipping the subscription row (a real bug fixed in `20260521000000`).
+**Premade decks are a starting point, not a strict path:** Users *copy* a premade deck into their library via `copy_premade_deck()`. The result is a fully owned, standalone deck with no ongoing relationship to the source — no subscription row, no version tracking, no sync. To pick up new content from an updated premade deck, the user deletes their deck and copies again, explicitly accepting the loss of FSRS progress. This is a deliberate UX choice: the cost of getting new content is surfaced at exactly the moment the user decides whether the new content is worth it, rather than being hidden behind a "sync" button that could surprise the user with workload they didn't ask for. Duplicate copies are allowed (storage is cheap; the user is in control).
 
 **`idempotency_keys` lazy TTL:** Rather than a background cron job, expired keys are deleted synchronously at the start of each `claim_idempotency_key` call, bounded per-user. This is safe at current scale and requires no pg_cron setup.
 
-**Pagination uses tuple cursors with stable secondary sort:** Every list RPC orders by `(primary_sort_col, id)` and uses tuple comparison (`(c.created_at, c.id) < (v_cursor_at, p_cursor)`) so rows sharing the primary sort value (e.g. cards bulk-cloned by `subscribe_to_premade_deck` with `created_at = NOW()`) don't fall through page boundaries.
+**Pagination uses tuple cursors with stable secondary sort:** Every list RPC orders by `(primary_sort_col, id)` and uses tuple comparison (`(c.created_at, c.id) < (v_cursor_at, p_cursor)`) so rows sharing the primary sort value (e.g. cards bulk-cloned by `copy_premade_deck` with `created_at = NOW()`) don't fall through page boundaries.
 
-**Premade decks use `is_active` toggle, not hard-delete:** The cascade asymmetry between `decks.source_premade_id ON DELETE SET NULL` and `user_premade_subscriptions.premade_deck_id ON DELETE CASCADE` only matters during admin-only hard-delete ops. Normal lifecycle is `is_active = FALSE` (which the SELECT RLS policy filters on).
+**Premade decks use `is_active` toggle, not hard-delete:** When a premade deck is retired, flipping `is_active = FALSE` hides it from the browse page without affecting any user's existing copies (copies are independent `decks` rows by design). Hard-delete is admin-only and only severs the `source_premade_id` attribution link via `ON DELETE SET NULL`.
 
 **Statement & lock timeouts on `service_role`:** `statement_timeout = '10s'`, `lock_timeout = '2s'`. These compose under the 10s `supabase-js` fetch timeout to ensure a misbehaving query never hangs the API longer than the upstream HTTP timeout permits.

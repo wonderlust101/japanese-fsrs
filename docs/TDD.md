@@ -39,8 +39,8 @@ API route families are mounted under `/api/v1`: auth, profile, decks, premade de
 - Retryable mutating POSTs use `Idempotency-Key`; exact storage and replay behavior lives in [DATABASE.md](DATABASE.md) and the route/controller implementation.
 - `PATCH /cards/:id`, `PATCH /decks/:id`, and `PATCH /profile` use `If-Match: <version>` optimistic concurrency.
 - List endpoints use cursor pagination and return `{ items, nextCursor, hasMore }`.
-- Bounded responses such as due cards, analytics, forecasts, similar cards, and subscriptions keep the same envelope with `nextCursor: null` and `hasMore: false` where applicable.
-- All protected routes use auth middleware. In production, they also use the default per-user rate limiter, with stricter production limiters layered onto costly AI, subscribe, delete, batch, and analytics-dashboard paths. Development and test bypass rate-limit checks so local iteration and integration suites do not call Upstash for every guarded route.
+- Bounded responses such as due cards, analytics, forecasts, and similar cards keep the same envelope with `nextCursor: null` and `hasMore: false` where applicable.
+- All protected routes use auth middleware. In production, they also use the default per-user rate limiter, with stricter production limiters layered onto costly AI, premade-copy, delete, batch, and analytics-dashboard paths. Development and test bypass rate-limit checks so local iteration and integration suites do not call Upstash for every guarded route.
 
 ## Database And Scheduling
 
@@ -51,7 +51,7 @@ Key implementation rules:
 - FSRS state writes go through `apps/api/src/services/fsrs.service.ts` and database RPCs.
 - Review submission persists card state, review log, and leech detection atomically.
 - Premade source cards have `user_id = NULL` and must not receive user review state.
-- User subscriptions create personal card copies. Source premade decks are hidden with `is_active = false` rather than normally hard-deleted.
+- Users *copy* a premade deck into their library via `copy_premade_deck`, which creates a standalone user-owned deck plus personal card copies in one transaction. There is no ongoing subscription — refreshing content means deleting the deck and copying again, with the FSRS-progress cost surfaced explicitly. Source premade decks are hidden with `is_active = false` rather than hard-deleted, which only affects new copies; existing user copies are unaffected because they are independent rows.
 - `card_type` is the cognitive modality (`comprehension`, `production`, `listening`) used by FSRS scheduling.
 - `layout_type` is the content shape (`vocabulary`, `grammar`, `sentence`) used by `fields_data` validation and rendering.
 - `parent_card_id` links sibling cards for shared field propagation.

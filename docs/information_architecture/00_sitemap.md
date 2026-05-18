@@ -12,7 +12,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 |---|---|---|
 | Today | What should I practice right now? | Daily practice launchpad. Shows due reviews, a calm pre-session note, session resume states, and short future workload preview. |
 | Add | How do I capture Japanese I found? | Fast capture flow for a Japanese word or phrase plus sentence context. The goal is to turn real-world Japanese into high-quality study material with minimal friction. |
-| Decks | What collections am I studying? | Deck-level management for user decks, subscribed decks, premade decks, deck options, scheduling defaults, and deck-specific actions. |
+| Decks | What collections am I studying? | Deck-level management for user decks, decks copied from premade catalogues, deck options, scheduling defaults, and deck-specific actions. Premade decks are a starting point: adding one creates a personal copy that diverges immediately — there is no ongoing subscription. |
 | Cards | How do I search, edit, tag, or repair individual cards? | Advanced card browser for search, filters, bulk actions, mass tagging, card quality management, and cross-deck card operations. |
 | Insights | How am I progressing, and what needs work? | Teacher-report style learning insight area with progress, mistakes, forecasting, and an advanced statistics tab for Anki-style data. |
 | Settings | How should Tomo behave? | Account, learning preferences, review behavior, display, data, sync, and security. |
@@ -32,7 +32,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 | `09_cards.md` | Cards | Card browser for search, filtering, saved views, mass tagging, bulk actions, and cross-deck management. |
 | `10_card_detail.md` | Card Detail | Deep view for one card or note: fields, generated card types, history, scheduling, tags, quality status, and repair actions. |
 | `11_deck_detail.md` | Deck Detail | Detail page for one deck with deck health, review load, deck-specific cards, deck options, and deck-level study actions. |
-| `12_deck_preview.md` | Deck Preview | Premade deck inspection page with sample cards, included fields, estimated review load, scope, and subscribe controls. |
+| `12_deck_preview.md` | Deck Preview | Premade deck inspection page with sample cards, included fields, estimated review load, scope, and an "Add to my library" action that copies the deck into the learner's collection (no ongoing subscription). |
 | `13_insights_overview.md` | Insights Overview | Default insights landing page: calm teacher report focused on progress, mistakes, and future workload. |
 | `14_insights_mistakes.md` | Insights Mistakes | Mistake analysis area for leeches, repeated misses, confusable words, weak patterns, and problem card workflows. |
 | `15_insights_progress.md` | Insights Progress | Long-term progress area for retention, mature cards, JLPT movement, consistency, and learning trajectory. |
