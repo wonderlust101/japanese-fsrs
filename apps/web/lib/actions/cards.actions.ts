@@ -67,11 +67,26 @@ export async function generateCardPreviewAction(word: string): Promise<Generated
  *  generateCardPreviewAction first. */
 type ManualCreateCardPayload = Extract<CreateCardPayload, { fieldsData: unknown }>
 
-export async function saveCardAction(deckId: string, payload: ManualCreateCardPayload): Promise<void> {
+/**
+ * Saves a manually-edited card to the user's deck. Returns the freshly-
+ * inserted `ApiCard` so callers can capture `id` and (for the /add/review
+ * iteration flow) switch follow-up regenerations to the cheaper dedicated
+ * endpoints (`generateSentencesAction`, `generateMnemonicAction`) which
+ * are cardId-keyed.
+ *
+ * Idempotency: a fresh `Idempotency-Key` is generated per call. A network
+ * retry replays the original 201; a deliberate "create the same card
+ * again" is a separate user gesture that produces a new key, so the
+ * action layer doesn't try to dedupe across submissions.
+ */
+export async function saveCardAction(
+  deckId:  string,
+  payload: ManualCreateCardPayload,
+): Promise<ApiCard> {
   const key = crypto.randomUUID()
-  await apiCall<unknown>(
+  return apiCall<ApiCard>(
     `/api/v1/decks/${deckId}/cards`,
-    voidResponseSchema,
+    ApiCardSchema,
     {
       method:  'POST',
       headers: { 'Idempotency-Key': key },

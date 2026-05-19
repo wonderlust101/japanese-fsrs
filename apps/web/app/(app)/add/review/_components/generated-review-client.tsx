@@ -28,6 +28,7 @@ import { useDecks }     from '@/lib/api/decks'
 import {
   generateCardPreviewAction,
   generateSentencesAction,
+  generateMnemonicAction,
   saveCardAction,
 } from '@/lib/actions/cards.actions'
 import {
@@ -175,6 +176,12 @@ export function GeneratedReviewClient(): React.JSX.Element {
   const [saving,    setSaving]    = useState<boolean>(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved,     setSaved]     = useState<{ count: number; deckName: string } | null>(null)
+  // Captured from the save response so subsequent regenerations can call
+  // the cheap, dedicated `/api/v1/ai/generate-sentences` and
+  // `/generate-mnemonic` endpoints instead of re-running the full
+  // generate-card flow. Stays null pre-save (the dedicated endpoints
+  // require a saved cardId to look up `word` server-side).
+  const [savedCardId, setSavedCardId] = useState<string | null>(null)
 
   // ── Decks ─────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
@@ -246,34 +253,66 @@ export function GeneratedReviewClient(): React.JSX.Element {
     }, [])
 
   // ── Regenerate ────────────────────────────────────────────────────────
-  void generateSentencesAction  // reserved for post-save iteration
+  //
+  // Two paths, picked by whether the card has been saved yet:
+  //
+  //   - **Pre-save** (savedCardId === null): the dedicated endpoints
+  //     can't help — they look up the card server-side to extract `word`,
+  //     and the card doesn't exist yet. We fall back to
+  //     `generateCardPreviewAction` and slice the field we want.
+  //   - **Post-save** (savedCardId !== null): the cheap, dedicated
+  //     endpoints (`/ai/generate-sentences`, `/ai/generate-mnemonic`)
+  //     return just the field we need without re-generating the rest of
+  //     the card. ~80% cheaper at the OpenAI layer.
+  //
+  // Note: the post-save branch is wired but not yet reachable from this
+  // component — the SuccessBlock terminal state currently replaces the
+  // form on save. A future post-save iteration UI (read-only seed + a
+  // "tweak more" affordance that PATCHes back) will activate it.
 
   const onRegenSentence = useCallback((): void => {
     if (regenSentence || generating) return
     setRegenSentence(true); setAiError(null)
-    void generateCardPreviewAction(fields.word.trim())
-      .then((data) => {
-        const first = data.exampleSentences?.[0]
-        if (first !== undefined) {
-          setFields((prev) => ({ ...prev, sentenceJa: first.ja, sentenceEn: first.en, sentenceFuri: first.furigana }))
-        }
-      })
+
+    const work = savedCardId !== null
+      ? generateSentencesAction(savedCardId, 1).then((data) => {
+          const first = data.sentences[0]
+          if (first !== undefined) {
+            setFields((prev) => ({ ...prev, sentenceJa: first.ja, sentenceEn: first.en, sentenceFuri: first.furigana }))
+          }
+        })
+      : generateCardPreviewAction(fields.word.trim()).then((data) => {
+          const first = data.exampleSentences?.[0]
+          if (first !== undefined) {
+            setFields((prev) => ({ ...prev, sentenceJa: first.ja, sentenceEn: first.en, sentenceFuri: first.furigana }))
+          }
+        })
+
+    void work
       .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
       .finally(() => setRegenSentence(false))
-  }, [fields.word, regenSentence, generating])
+  }, [fields.word, regenSentence, generating, savedCardId])
 
   const onRegenMnemonic = useCallback((): void => {
     if (regenMnemonic || generating) return
     setRegenMnemonic(true); setAiError(null)
-    void generateCardPreviewAction(fields.word.trim())
-      .then((data) => {
-        if (data.mnemonic !== undefined && data.mnemonic.length > 0) {
-          setFields((prev) => ({ ...prev, mnemonic: data.mnemonic ?? prev.mnemonic }))
-        }
-      })
+
+    const work = savedCardId !== null
+      ? generateMnemonicAction(savedCardId).then((data) => {
+          if (data.mnemonic.length > 0) {
+            setFields((prev) => ({ ...prev, mnemonic: data.mnemonic }))
+          }
+        })
+      : generateCardPreviewAction(fields.word.trim()).then((data) => {
+          if (data.mnemonic !== undefined && data.mnemonic.length > 0) {
+            setFields((prev) => ({ ...prev, mnemonic: data.mnemonic ?? prev.mnemonic }))
+          }
+        })
+
+    void work
       .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
       .finally(() => setRegenMnemonic(false))
-  }, [fields.word, regenMnemonic, generating])
+  }, [fields.word, regenMnemonic, generating, savedCardId])
 
   // ── Save ──────────────────────────────────────────────────────────────
   const onSave = useCallback(async (): Promise<void> => {
@@ -283,13 +322,14 @@ export function GeneratedReviewClient(): React.JSX.Element {
       const preview = buildPreviewCard(fields)
       const fieldsData = preview.fieldsData as Record<string, unknown>
       const tagList = parseList(fields.tags)
-      await saveCardAction(deckId, {
+      const created = await saveCardAction(deckId, {
         mode: 'manual',
         fieldsData,
         layoutType: 'vocabulary',
         ...(tagList.length > 0 ? { tags: tagList } : {}),
         ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
       })
+      setSavedCardId(created.id)
       setSaved({ count: 1, deckName: deckName ?? 'your deck' })
       captureActions.reset()
     } catch (err: unknown) {
