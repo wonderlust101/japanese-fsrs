@@ -12,7 +12,7 @@ import { useMobileNavStore } from '@/stores/useMobileNavStore'
 import { AddCardCta }           from './add-card-cta'
 import { HelpRow }              from './help-row'
 import { NAV_SECTIONS }         from './nav-config'
-import { NavItem }              from './nav-item'
+import { NavItem, WeakSpotCountNavItem } from './nav-item'
 import { NavSection }           from './nav-section'
 import { TodayStripExpanded }   from './today-strip'
 import { UserMenu }             from './user-menu'
@@ -156,16 +156,21 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
               kanji={section.kanji}
               isFirst={index === 0}
             >
-              {section.items.map((item) => (
-                <NavItem
-                  key={item.href}
-                  item={item}
-                  onNavigate={close}
-                  {...(item.hasDueCount === true && reviewsSubLabel !== undefined
-                    ? { subLabel: reviewsSubLabel }
-                    : {})}
-                />
-              ))}
+              {section.items.map((item) => {
+                // Dispatch weak-spots rows to the count-aware wrapper so
+                // mobile parity matches desktop sidebar.
+                const Renderer = item.hasWeakSpotCount === true ? WeakSpotCountNavItem : NavItem
+                return (
+                  <Renderer
+                    key={item.href}
+                    item={item}
+                    onNavigate={close}
+                    {...(item.hasDueCount === true && reviewsSubLabel !== undefined
+                      ? { subLabel: reviewsSubLabel }
+                      : {})}
+                  />
+                )
+              })}
             </NavSection>
           ))}
         </nav>

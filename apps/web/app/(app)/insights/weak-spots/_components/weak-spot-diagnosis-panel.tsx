@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/Button'
+import { MoreDisclosure } from '@/components/review/MoreDisclosure'
 
 interface WeakSpotDiagnosisPanelProps {
   diagnosis:    string | null
@@ -27,9 +28,10 @@ interface WeakSpotDiagnosisPanelProps {
  *   - filled: show diagnosis + (optionally) prescription, no button.
  *
  * Per the doc's IA guidance, the chrome label avoids "AI" in user-facing
- * copy. The kicker reads "Tomo's read" (the teacher framing), and the
- * "how this was made" disclosure is deferred to a Phase-2 expand affordance
- * to keep the surface calm.
+ * copy. The kicker reads "Tomo's read" (the teacher framing). When diagnosis
+ * content is present, a closed-by-default `MoreDisclosure` exposes a short
+ * provenance line — what Tomo looked at, plus the reassurance that the read
+ * doesn't change the schedule.
  */
 export function WeakSpotDiagnosisPanel({
   diagnosis,
@@ -68,6 +70,14 @@ export function WeakSpotDiagnosisPanel({
               {prescription}
             </p>
           )}
+          <div className="pt-1">
+            <MoreDisclosure label="About this read">
+              <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+                Tomo&rsquo;s read is generated from this card&rsquo;s recent lapse
+                pattern and review history. It doesn&rsquo;t change your schedule.
+              </p>
+            </MoreDisclosure>
+          </div>
         </div>
       ) : isError ? (
         <div className="flex flex-col gap-3">

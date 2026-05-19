@@ -10,7 +10,7 @@ import { useLocalStorageBoolean } from '@/lib/hooks/useLocalStorageBoolean'
 import { AddCardCta }                             from './add-card-cta'
 import { HelpRow }                                from './help-row'
 import { NAV_SECTIONS, type NavItemConfig }       from './nav-config'
-import { NavItem }                                from './nav-item'
+import { NavItem, WeakSpotCountNavItem }          from './nav-item'
 import { NavSection }                             from './nav-section'
 import { TodayStripCollapsed, TodayStripExpanded } from './today-strip'
 import { UserMenu }                                from './user-menu'
@@ -100,8 +100,15 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 
   // Decorate the Reviews nav item with the dynamic subLabel. The static
   // NAV_SECTIONS config can't carry it (depends on live data). We rebuild
-  // the items array with the augmented Reviews item.
+  // the items array with the augmented Reviews item. Weak-spots rows are
+  // dispatched through `WeakSpotCountNavItem` so the unresolved-count chip
+  // renders at the top level (the in-file dispatch in nav-item.tsx only
+  // fires for child rows of a parent-with-children, which top-level rows
+  // aren't).
   function decorate(item: NavItemConfig): React.ReactNode {
+    if (item.hasWeakSpotCount === true) {
+      return <WeakSpotCountNavItem key={item.href} item={item} collapsed={renderCollapsed} />
+    }
     if (item.hasDueCount === true && reviewsSubLabel !== undefined) {
       return <NavItem key={item.href} item={item} collapsed={renderCollapsed} subLabel={reviewsSubLabel} />
     }

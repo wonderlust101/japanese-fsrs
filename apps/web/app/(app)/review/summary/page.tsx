@@ -6,12 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button }                                              from '@/components/ui/Button'
 import { Card }                                                from '@/components/ui/Card'
 import { Logo }                                                from '@/components/ui/Logo'
+import { QuietLink }                                           from '@/components/ui/QuietLink'
 import { SectionCard }                                         from '@/components/ui/SectionCard'
 import { RatingDistributionBar, buildDistributionTakeaway }    from '@/components/review/summary/RatingDistributionBar'
 import { WeakSpotRow }                                      from '@/components/review/summary/WeakSpotRow'
 import { WeekRhythmStrip, type WeekRhythmState }               from '@/app/(app)/today/_components/week-rhythm-strip'
 import { buildDashboardCalendarContext }                       from '@/app/(app)/today/_components/today-calendar'
 import { useReviewForecast, useRollbackReviewMutation, useSessionSummary }                from '@/lib/api/reviews'
+import { useUnresolvedWeakSpotCount }                          from '@/lib/api/weak-spots'
 import { Toast, useToast }                                     from '@/components/ui/Toast'
 import {
   useSessionActions,
@@ -279,6 +281,8 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 
       {showProblemCards && weekStrip}
 
+      {!usingFixture && <WeakSpotsBacklogNudge />}
+
       {process.env.NODE_ENV !== 'production' && (
         <SummaryDevSwitcher
           active={usingFixture ? (fixtureParam as SessionPattern) : null}
@@ -294,6 +298,47 @@ export default function ReviewSummaryPage(): React.JSX.Element {
         />
       )}
     </SummaryFrame>
+  )
+}
+
+// ── Weak-spots backlog nudge ────────────────────────────────────────────────
+// Calm cumulative-backlog signal at session close. Distinct from the in-card
+// ProblemCardsCard above, which lists weak spots *triggered this session*;
+// this nudge surfaces the total unresolved backlog (which may include earlier
+// sessions' weak spots) and points to the drill setup so the learner can
+// follow through without hunting through nav. Silent during loading; DOM-
+// absent when no unresolved weak spots exist.
+
+function WeakSpotsBacklogNudge(): React.JSX.Element | null {
+  const { count, hasMore, isLoading } = useUnresolvedWeakSpotCount()
+  if (isLoading) return null
+  if (count === 0) return null
+
+  const display = hasMore ? `${count}+` : String(count)
+  const noun    = count === 1 ? 'weak spot' : 'weak spots'
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-soft-hairline pt-6">
+      <span
+        lang="ja"
+        aria-hidden="true"
+        className="font-display text-lg leading-none text-inari-vermillion opacity-60"
+      >
+        弱
+      </span>
+      <p className="text-sm leading-relaxed text-faded-sumi">
+        <span className="font-mono tabular-nums text-sumi-ink">{display}</span>{' '}
+        {noun} still {count === 1 ? 'needs' : 'need'} a look.
+      </p>
+      <QuietLink
+        href="/insights/weak-spots/drill/setup"
+        tone="brand"
+        size="sm"
+        trailingArrow
+      >
+        Drill them
+      </QuietLink>
+    </div>
   )
 }
 

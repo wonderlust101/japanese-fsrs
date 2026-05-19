@@ -422,10 +422,11 @@ export function NavItem({
  * `hasWeakSpotCount: true`, so the TanStack Query subscription is local to
  * the weakSpot row and never fires for nav rows that don't need it.
  *
- * Lives in this file so the recursive child render can dispatch to it
- * inline without a cross-file lookup.
+ * Exported so both `Sidebar` and `MobileDrawer` can dispatch to it for
+ * top-level weak-spots rows (the recursive child render below uses the
+ * same wrapper for the parent-with-children code path).
  */
-function WeakSpotCountNavItem(props: NavItemProps): React.JSX.Element {
+export function WeakSpotCountNavItem(props: NavItemProps): React.JSX.Element {
   const { count, hasMore } = useUnresolvedWeakSpotCount()
   return <NavItem {...props} weakSpotBadge={{ count, hasMore }} />
 }
