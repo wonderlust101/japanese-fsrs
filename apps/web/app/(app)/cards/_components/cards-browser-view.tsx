@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // useCallback used by wireItemById
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -29,6 +29,7 @@ import {
   type ApiCrossDeckCardListItem,
   type CardMissingField,
   type CardSortField,
+  type PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
 import { CardsSearchBar } from './cards-search-bar'
@@ -48,6 +49,12 @@ import {
 } from './cards-results-table'
 import { CardsPagination, type CardsPageSize } from './cards-pagination'
 import { CardsQualityBars, type CardQualityIssue, type CardQualityIssueKind } from './cards-quality-bars'
+import {
+  MoreFiltersPopover,
+  DEFAULT_MORE_FILTERS,
+  countMoreFilters,
+  type MoreFiltersValue,
+} from './more-filters-popover'
 import { useCardsDevState } from './cards-dev-panel'
 
 const DEFAULT_FILTERS: CardsFilters = {
@@ -59,14 +66,87 @@ const DEFAULT_FILTERS: CardsFilters = {
 const DEFAULT_PAGE_SIZE: CardsPageSize = 25
 
 // URL `?missing=` accepts the bare field name (matches the quality-bar
-// links — `ROUTE_BY_KIND` in cards-quality-bars.tsx).
+// links — `ROUTE_BY_KIND` in cards-quality-bars.tsx). Migration 20260624
+// added the 'pitch' and 'audio' tokens; the set is kept in sync here.
 const MISSING_FIELDS: ReadonlySet<CardMissingField> = new Set([
   'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
+  'pitch', 'audio',
 ])
 
 function parseMissingFromQuery(raw: string | null): CardMissingField | undefined {
   if (raw === null) return undefined
   return MISSING_FIELDS.has(raw as CardMissingField) ? (raw as CardMissingField) : undefined
+}
+
+// URL `?present=` and `?pitchPattern=` seed the More-filters popover on
+// mount only — same one-way pattern as `?missing=`. Unknown values are
+// silently dropped (tolerant parse).
+const PRESENT_TOKENS: ReadonlySet<'picture' | 'pitch' | 'audio'> = new Set([
+  'picture', 'pitch', 'audio',
+])
+const PATTERN_TOKENS: ReadonlySet<PitchPattern> = new Set([
+  'heiban', 'atamadaka', 'nakadaka', 'odaka',
+])
+
+function parseMoreFromQuery(
+  presentRaw: string | null,
+  patternRaw: string | null,
+): MoreFiltersValue {
+  const next: MoreFiltersValue = { ...DEFAULT_MORE_FILTERS }
+  if (presentRaw !== null && PRESENT_TOKENS.has(presentRaw as 'picture' | 'pitch' | 'audio')) {
+    if (presentRaw === 'pitch')   next.pitch = 'has'
+    if (presentRaw === 'picture') next.image = 'has'
+    if (presentRaw === 'audio')   next.audio = 'has'
+  }
+  if (patternRaw !== null && PATTERN_TOKENS.has(patternRaw as PitchPattern)) {
+    next.pitch = 'has'           // pattern requires has-pitch
+    next.pitchPattern = patternRaw as PitchPattern
+  }
+  return next
+}
+
+// Translate the popover's tri-state UI shape into the action's
+// positive/negative params.
+//
+// v1 backend constraint: missingField and presentField are mutually
+// exclusive (the shared Zod .refine + the RPC guard both reject the
+// combination). The popover allows the user to express both directions
+// independently, but only one can be serialized at a time. Resolution:
+//
+//   1. If the popover sets any 'has', send presentField (positive
+//      filters are more specific and rarely combined with absences).
+//   2. Otherwise, if the popover sets any 'missing', send missingField.
+//   3. The URL-seeded `existingMissing` (from ?missing=) is the
+//      fallback when the popover is at defaults.
+//
+// Within each direction the popover is also single-token (image / audio
+// / pitch). Resolution within direction: pitch > audio > image, which
+// matches the popover's visual top-to-bottom precedence.
+function presenceToActionParams(
+  more: MoreFiltersValue,
+  existingMissing: CardMissingField | undefined,
+): {
+  missingField?: CardMissingField
+  presentField?: 'picture' | 'pitch' | 'audio'
+  pitchPattern?: PitchPattern
+} {
+  let presentField: 'picture' | 'pitch' | 'audio' | undefined
+  if (more.image === 'has') presentField = 'picture'
+  if (more.audio === 'has') presentField = 'audio'
+  if (more.pitch === 'has') presentField = 'pitch'
+
+  if (presentField !== undefined) {
+    const out: { presentField: 'picture' | 'pitch' | 'audio'; pitchPattern?: PitchPattern } = { presentField }
+    if (presentField === 'pitch' && more.pitchPattern !== null) out.pitchPattern = more.pitchPattern
+    return out
+  }
+
+  let missingField = existingMissing
+  if (more.image === 'missing') missingField = 'picture'
+  if (more.audio === 'missing') missingField = 'audio'
+  if (more.pitch === 'missing') missingField = 'pitch'
+
+  return missingField !== undefined ? { missingField } : {}
 }
 
 export function CardsBrowserView(): React.JSX.Element {
@@ -88,6 +168,19 @@ export function CardsBrowserView(): React.JSX.Element {
   const [missingField, setMissingField] = useState<CardMissingField | undefined>(undefined)
   useEffect(() => {
     setMissingField(parseMissingFromQuery(searchParams.get('missing')))
+  }, [searchParams])
+
+  // More-filters popover state. URL-seeded once on mount (mirroring the
+  // ?missing= read-once pattern at line 89). Subsequent in-popover edits
+  // do not push to the URL.
+  const [moreFilters,     setMoreFilters]     = useState<MoreFiltersValue>(DEFAULT_MORE_FILTERS)
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
+  const moreTriggerRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    setMoreFilters(parseMoreFromQuery(
+      searchParams.get('present'),
+      searchParams.get('pitchPattern'),
+    ))
   }, [searchParams])
 
   const { toast, showToast, dismissToast } = useToast()
@@ -124,20 +217,31 @@ export function CardsBrowserView(): React.JSX.Element {
     if (filters.deckId !== 'all')    opts.deckId    = filters.deckId
     if (filters.jlpt !== 'all')      opts.jlptLevel = filters.jlpt as NonNullable<CrossDeckCardsActionOptions['jlptLevel']>
     if (filters.status !== 'all')    opts.status    = filters.status as NonNullable<CrossDeckCardsActionOptions['status']>
-    if (missingField !== undefined)  opts.missingField = missingField
+
+    // Translate popover state + URL-seeded ?missing= into the action's
+    // mutually-exclusive missing/present split. The popover's explicit
+    // state takes precedence over the URL seed for the same dimension.
+    const morePart = presenceToActionParams(moreFilters, missingField)
+    if (morePart.missingField !== undefined) opts.missingField = morePart.missingField
+    if (morePart.presentField !== undefined) opts.presentField = morePart.presentField
+    if (morePart.pitchPattern !== undefined) opts.pitchPattern = morePart.pitchPattern
+
     // Apply the active view's recipe on top of the filter row — but the
     // user's explicit filter row takes precedence over the view recipe so
-    // a saved view doesn't lock the user out of overriding it.
+    // a saved view doesn't lock the user out of overriding it. The same
+    // precedence applies to the new presentField/pitchPattern dimensions.
     if (activeViewId !== null) {
       const recipe = viewById(activeViewId)?.recipe
       if (recipe !== undefined) {
-        if (recipe.status       !== undefined && filters.status === 'all') opts.status       = recipe.status
-        if (recipe.missingField !== undefined && missingField   === undefined) opts.missingField = recipe.missingField
-        if (recipe.search       !== undefined && search.trim().length === 0)   opts.search       = recipe.search
+        if (recipe.status       !== undefined && filters.status === 'all')                          opts.status       = recipe.status
+        if (recipe.missingField !== undefined && opts.missingField === undefined && opts.presentField === undefined) opts.missingField = recipe.missingField
+        if (recipe.presentField !== undefined && opts.presentField === undefined && opts.missingField === undefined) opts.presentField = recipe.presentField
+        if (recipe.pitchPattern !== undefined && opts.pitchPattern === undefined && opts.presentField === 'pitch')   opts.pitchPattern = recipe.pitchPattern
+        if (recipe.search       !== undefined && search.trim().length === 0)                        opts.search       = recipe.search
       }
     }
     return opts
-  }, [search, filters, pageSize, sortFromActiveView, missingField, activeViewId, viewById])
+  }, [search, filters, pageSize, sortFromActiveView, missingField, moreFilters, activeViewId, viewById])
 
   const liveQuery       = useCardsCrossDeckQuery(queryOpts)
   const qualityQuery    = useCardQualityIssuesQuery()
@@ -157,7 +261,7 @@ export function CardsBrowserView(): React.JSX.Element {
   useEffect(() => {
     setSelected(new Set())
     setPageIndex(0)
-  }, [search, filters, pageSize, activeViewId, missingField])
+  }, [search, filters, pageSize, activeViewId, missingField, moreFilters])
 
   // ── Quality issues — map snake_case backend kinds to the bar component's enum. ─
   const qualityIssues: ReadonlyArray<CardQualityIssue> = useMemo(() => {
@@ -333,12 +437,19 @@ export function CardsBrowserView(): React.JSX.Element {
     setActiveViewId(null)
   }
   function handleMoreFilters(): void {
-    showToast('Pitch / has-image / has-audio dimensions are coming. They need backend columns we haven\'t shipped yet.', 'info')
+    setMoreFiltersOpen((v) => !v)
+  }
+  function handleMoreFiltersApply(next: MoreFiltersValue): void {
+    setMoreFilters(next)
+    setActiveViewId(null)
+    setMoreFiltersOpen(false)
   }
 
+  const moreFilterCount = countMoreFilters(moreFilters)
   const filtersActive = search.length > 0
     || filters.deckId !== 'all' || filters.jlpt !== 'all' || filters.status !== 'all'
     || missingField !== undefined
+    || moreFilterCount > 0
     || activeViewId !== null
 
   // First-deck-id helper for the bulk Move dialog ("current deck" prop).
@@ -379,6 +490,16 @@ export function CardsBrowserView(): React.JSX.Element {
               decks={decks}
               onChange={handleFilterChange}
               onMoreClick={handleMoreFilters}
+              moreTriggerRef={moreTriggerRef}
+              moreFilterCount={moreFilterCount}
+              moreOpen={moreFiltersOpen}
+            />
+            <MoreFiltersPopover
+              open={moreFiltersOpen}
+              anchorRef={moreTriggerRef}
+              value={moreFilters}
+              onApply={handleMoreFiltersApply}
+              onClose={() => setMoreFiltersOpen(false)}
             />
           </div>
 

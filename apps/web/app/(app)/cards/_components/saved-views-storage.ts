@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type {
   CardMissingField,
+  CardPresentField,
   CardSortField,
   CardStatusFilter,
+  PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
 /**
@@ -23,6 +25,8 @@ export interface SavedViewRecipe {
   jlptLevel?:    'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'beyond' | 'all'
   status?:       CardStatusFilter
   missingField?: CardMissingField
+  presentField?: CardPresentField
+  pitchPattern?: PitchPattern
   sort?:         CardSortField
 }
 

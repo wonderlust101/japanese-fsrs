@@ -20,6 +20,8 @@ import {
   type ApiList,
   type ApiReviewedCard,
   type CardMissingField,
+  type CardPresentField,
+  type PitchPattern,
   type CardSortField,
   type CardStatusFilter,
   type CreateCardPayload,
@@ -201,6 +203,8 @@ export interface CrossDeckCardsActionOptions {
   jlptLevel?:    CrossDeckJlptFilter
   status?:       CardStatusFilter
   missingField?: CardMissingField
+  presentField?: CardPresentField
+  pitchPattern?: PitchPattern
   sort?:         CardSortField
 }
 
@@ -228,6 +232,8 @@ export async function listCardsCrossDeckAction(
   if (options.jlptLevel    !== undefined && options.jlptLevel    !== 'all')     params.set('jlptLevel',    options.jlptLevel)
   if (options.status       !== undefined && options.status       !== 'all')     params.set('status',       options.status)
   if (options.missingField !== undefined)                                       params.set('missingField', options.missingField)
+  if (options.presentField !== undefined)                                       params.set('presentField', options.presentField)
+  if (options.pitchPattern !== undefined)                                       params.set('pitchPattern', options.pitchPattern)
   if (options.sort         !== undefined)                                       params.set('sort',         options.sort)
 
   return apiCallSafe<CrossDeckListResult>(

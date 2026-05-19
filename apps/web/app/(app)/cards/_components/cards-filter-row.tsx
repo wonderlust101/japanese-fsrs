@@ -24,6 +24,19 @@ interface Props {
   decks:      readonly DeckOption[]
   onChange:   (next: CardsFilters) => void
   onMoreClick: () => void
+  /**
+   * Forwarded to the More-filters trigger so the parent can position
+   * the popover anchored to it. Stays optional so other callers (dev
+   * panels, fixtures) can render the row without a popover wiring.
+   */
+  moreTriggerRef?: React.Ref<HTMLButtonElement>
+  /**
+   * Count of non-default dimensions configured in the More-filters
+   * popover. Renders an inline badge on the trigger when ≥ 1 so users
+   * can see at a glance that the popover has active filters.
+   */
+  moreFilterCount?: number
+  moreOpen?: boolean
 }
 
 const STATUS_LABEL: Record<CardsStatus, string> = {
@@ -53,7 +66,10 @@ const STATUS_ORDER: readonly CardsStatus[] = ['all', 'new', 'learning', 'review'
  * opens a popover with the rest of the IA-specified filters
  * (has audio / image / sentence / nuance / mnemonic / pitch).
  */
-export function CardsFilterRow({ filters, decks, onChange, onMoreClick }: Props): React.JSX.Element {
+export function CardsFilterRow({
+  filters, decks, onChange, onMoreClick,
+  moreTriggerRef, moreFilterCount = 0, moreOpen = false,
+}: Props): React.JSX.Element {
   return (
     <section
       aria-label="Card filters"
@@ -92,9 +108,20 @@ export function CardsFilterRow({ filters, decks, onChange, onMoreClick }: Props)
       </PillGroup>
 
       <ToolbarChip
+        ref={moreTriggerRef}
         onClick={onMoreClick}
         leadingNode={<IconFilter className="h-3.5 w-3.5 text-faded-sumi" />}
         className="sm:ml-auto"
+        aria-haspopup="dialog"
+        aria-expanded={moreOpen}
+        trailingNode={moreFilterCount > 0 ? (
+          <span
+            aria-label={`${moreFilterCount} more filter${moreFilterCount === 1 ? '' : 's'} active`}
+            className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-sumi-ink px-1 text-[10px] font-semibold text-warm-paper-raised"
+          >
+            {moreFilterCount}
+          </span>
+        ) : undefined}
       >
         More filters
       </ToolbarChip>
