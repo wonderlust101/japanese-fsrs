@@ -63,19 +63,16 @@ describe('card.schema — crossDeckListCardsQuerySchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects setting both missingField and presentField (mutually exclusive)', () => {
+  it('admits cross-dimension combinations of missingField and presentField', () => {
+    // Migration 20260624000001 relaxed the mutual-exclusion guard so the
+    // popover can naturally express "has X AND missing Y" combinations.
+    // Same-dimension contradictions remain impossible by widget design
+    // on the client (single segmented control per dimension).
     const result = crossDeckListCardsQuerySchema.safeParse({
+      presentField: 'picture',
       missingField: 'audio',
-      presentField: 'audio',
     })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      // The .refine attaches the error to presentField so the UI knows
-      // which control to highlight. Use the message rather than the path
-      // index since the issue path may include refine indices.
-      const message = result.error.issues.map((i) => i.message).join('|')
-      expect(message).toContain('Pass only one of missingField, presentField')
-    }
+    expect(result.success).toBe(true)
   })
 
   it('still rejects unknown top-level keys (.strict() is preserved)', () => {

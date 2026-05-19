@@ -250,6 +250,30 @@ describe('card.service — listCardsCrossDeck', () => {
     expect(listPayload.p_present_field).toBeNull()
     expect(listPayload.p_pitch_pattern).toBeNull()
   })
+
+  it('forwards cross-direction combinations (missingField + presentField simultaneously)', async () => {
+    // Migration 20260624000001 relaxed the mutual-exclusion guard. The
+    // service does not enforce the prior constraint either; it forwards
+    // whatever the validated schema admits.
+    state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
+
+    await listCardsCrossDeck(uuid(), {
+      limit:        25,
+      presentField: 'picture',
+      missingField: 'audio',
+    })
+
+    const listCall    = state.rpcCalls.find((c) => c.name === 'list_cards_cross_deck')
+    const listPayload = listCall?.payload as Record<string, unknown>
+    expect(listPayload.p_present_field).toBe('picture')
+    expect(listPayload.p_missing_field).toBe('audio')
+
+    const countCall    = state.rpcCalls.find((c) => c.name === 'count_cards_cross_deck')
+    const countPayload = countCall?.payload as Record<string, unknown>
+    expect(countPayload.p_present_field).toBe('picture')
+    expect(countPayload.p_missing_field).toBe('audio')
+  })
 })
 
 // ── moveCard / copyCard / suspendCard / unsuspendCard ──────────────────────

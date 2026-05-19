@@ -108,20 +108,16 @@ function parseMoreFromQuery(
 // Translate the popover's tri-state UI shape into the action's
 // positive/negative params.
 //
-// v1 backend constraint: missingField and presentField are mutually
-// exclusive (the shared Zod .refine + the RPC guard both reject the
-// combination). The popover allows the user to express both directions
-// independently, but only one can be serialized at a time. Resolution:
+// As of migration 20260624000001 the backend accepts both `missingField`
+// and `presentField` simultaneously (cross-dimension combinations like
+// "has picture AND missing audio" are legitimate). The two params still
+// each carry a single token, so within a direction the popover's
+// vertical precedence (pitch > audio > image) picks the winning token
+// when multiple dimensions sit on the same side.
 //
-//   1. If the popover sets any 'has', send presentField (positive
-//      filters are more specific and rarely combined with absences).
-//   2. Otherwise, if the popover sets any 'missing', send missingField.
-//   3. The URL-seeded `existingMissing` (from ?missing=) is the
-//      fallback when the popover is at defaults.
-//
-// Within each direction the popover is also single-token (image / audio
-// / pitch). Resolution within direction: pitch > audio > image, which
-// matches the popover's visual top-to-bottom precedence.
+// The URL-seeded `existingMissing` (from ?missing=) is the fallback
+// only when the popover's negative direction is at defaults — i.e. no
+// in-popover override on any missing dimension.
 function presenceToActionParams(
   more: MoreFiltersValue,
   existingMissing: CardMissingField | undefined,
@@ -135,18 +131,28 @@ function presenceToActionParams(
   if (more.audio === 'has') presentField = 'audio'
   if (more.pitch === 'has') presentField = 'pitch'
 
-  if (presentField !== undefined) {
-    const out: { presentField: 'picture' | 'pitch' | 'audio'; pitchPattern?: PitchPattern } = { presentField }
-    if (presentField === 'pitch' && more.pitchPattern !== null) out.pitchPattern = more.pitchPattern
-    return out
-  }
-
-  let missingField = existingMissing
+  let missingField: CardMissingField | undefined
   if (more.image === 'missing') missingField = 'picture'
   if (more.audio === 'missing') missingField = 'audio'
   if (more.pitch === 'missing') missingField = 'pitch'
 
-  return missingField !== undefined ? { missingField } : {}
+  // Fall back to the URL-seeded `?missing=` value only when the popover
+  // hasn't picked a missing direction. Suppress the seed if it would
+  // contradict a positive selection on the same dimension (the popover
+  // is the more recent user signal).
+  if (missingField === undefined && existingMissing !== undefined) {
+    const contradiction =
+      (presentField === 'picture' && existingMissing === 'picture') ||
+      (presentField === 'audio'   && existingMissing === 'audio')   ||
+      (presentField === 'pitch'   && existingMissing === 'pitch')
+    if (!contradiction) missingField = existingMissing
+  }
+
+  const out: { missingField?: CardMissingField; presentField?: 'picture' | 'pitch' | 'audio'; pitchPattern?: PitchPattern } = {}
+  if (missingField !== undefined) out.missingField = missingField
+  if (presentField !== undefined) out.presentField = presentField
+  if (presentField === 'pitch' && more.pitchPattern !== null) out.pitchPattern = more.pitchPattern
+  return out
 }
 
 export function CardsBrowserView(): React.JSX.Element {
@@ -228,16 +234,15 @@ export function CardsBrowserView(): React.JSX.Element {
 
     // Apply the active view's recipe on top of the filter row — but the
     // user's explicit filter row takes precedence over the view recipe so
-    // a saved view doesn't lock the user out of overriding it. The same
-    // precedence applies to the new presentField/pitchPattern dimensions.
+    // a saved view doesn't lock the user out of overriding it.
     if (activeViewId !== null) {
       const recipe = viewById(activeViewId)?.recipe
       if (recipe !== undefined) {
-        if (recipe.status       !== undefined && filters.status === 'all')                          opts.status       = recipe.status
-        if (recipe.missingField !== undefined && opts.missingField === undefined && opts.presentField === undefined) opts.missingField = recipe.missingField
-        if (recipe.presentField !== undefined && opts.presentField === undefined && opts.missingField === undefined) opts.presentField = recipe.presentField
-        if (recipe.pitchPattern !== undefined && opts.pitchPattern === undefined && opts.presentField === 'pitch')   opts.pitchPattern = recipe.pitchPattern
-        if (recipe.search       !== undefined && search.trim().length === 0)                        opts.search       = recipe.search
+        if (recipe.status       !== undefined && filters.status === 'all')                       opts.status       = recipe.status
+        if (recipe.missingField !== undefined && opts.missingField === undefined)                opts.missingField = recipe.missingField
+        if (recipe.presentField !== undefined && opts.presentField === undefined)                opts.presentField = recipe.presentField
+        if (recipe.pitchPattern !== undefined && opts.pitchPattern === undefined && opts.presentField === 'pitch') opts.pitchPattern = recipe.pitchPattern
+        if (recipe.search       !== undefined && search.trim().length === 0)                     opts.search       = recipe.search
       }
     }
     return opts

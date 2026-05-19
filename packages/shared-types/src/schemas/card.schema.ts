@@ -106,8 +106,10 @@ export const cardMissingFieldEnum = z.enum([
 ])
 
 // Positive-direction presence filter: "find cards that HAVE X". Sibling
-// of `cardMissingFieldEnum`; the two are mutually exclusive (see the
-// `.refine` on `crossDeckListCardsQuerySchema` below). Limited to the
+// of `cardMissingFieldEnum`. Both may be set simultaneously to express
+// cross-dimension combinations like "has picture AND missing audio";
+// same-dimension contradictions are impossible by widget design on the
+// client (single segmented control per dimension). Limited to the
 // dimensions the UI surfaces — adding `reading` / `meaning` here makes no
 // sense since those are virtually always populated.
 export const cardPresentFieldEnum = z.enum(['picture', 'pitch', 'audio'])
@@ -131,17 +133,13 @@ export const crossDeckListCardsQuerySchema = z.object({
   presentField: cardPresentFieldEnum.optional(),
   pitchPattern: pitchPatternEnum.optional(),
   sort:         cardSortFieldEnum.optional(),
-}).strict().refine(
-  // `missingField` and `presentField` are negative/positive variants of
-  // the same dimension; passing both is contradictory. The RPC also
-  // guards this as defense in depth, but rejecting at the trust boundary
-  // surfaces a clear 400 to the client rather than a DB exception.
-  (v) => !(v.missingField !== undefined && v.presentField !== undefined),
-  {
-    message: 'Pass only one of missingField, presentField',
-    path:    ['presentField'],
-  },
-)
+}).strict()
+// NOTE: previous revision (20260624) attached a .refine here that
+// rejected payloads with both missingField and presentField set. The
+// guard collaterally blocked legitimate cross-dimension combinations
+// like "has picture AND missing audio"; same-dimension contradictions
+// are widget-impossible on the client. The matching RPC guard was
+// relaxed in 20260624000001.
 
 // ─── Mutation body schemas ────────────────────────────────────────────────────
 //
