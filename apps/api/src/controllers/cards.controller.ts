@@ -146,6 +146,7 @@ export const update: RequestHandler = async (req, res): Promise<void> => {
   const { id } = cardIdParamSchema.parse(req.params)
   const input  = updateCardSchema.parse(req.body)
   const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+  await deckService.assertCardDeckActive(id, req.user.id)
   const card   = await cardService.updateCard(id, req.user.id, input, expectedVersion, scopedDeckId(req))
   res.json(card)
 }
@@ -186,6 +187,7 @@ export const similar: RequestHandler = async (req, res): Promise<void> => {
  */
 export const regenerateEmbedding: RequestHandler = async (req, res): Promise<void> => {
   const { id } = cardIdParamSchema.parse(req.params)
+  await deckService.assertCardDeckActive(id, req.user.id)
   const { status } = await withIdempotency<null>(
     req.user.id,
     req.header('idempotency-key'),
@@ -228,6 +230,8 @@ export const forget: RequestHandler = async (req, res): Promise<void> => {
   const { id }         = cardIdParamSchema.parse(req.params)
   const { resetCount } = forgetCardBodySchema.parse(req.body ?? {})
 
+  await deckService.assertCardDeckActive(id, req.user.id)
+
   const { status, body } = await withIdempotency(
     req.user.id,
     req.header('idempotency-key'),
@@ -258,6 +262,8 @@ export const forget: RequestHandler = async (req, res): Promise<void> => {
 export const reschedule: RequestHandler = async (req, res): Promise<void> => {
   const { id } = cardIdParamSchema.parse(req.params)
   emptyBodySchema.parse(req.body ?? {})
+
+  await deckService.assertCardDeckActive(id, req.user.id)
 
   const { status, body } = await withIdempotency(
     req.user.id,
@@ -313,6 +319,12 @@ export const move: RequestHandler = async (req, res): Promise<void> => {
   const { id }     = cardIdParamSchema.parse(req.params)
   const { deckId } = moveCardBodySchema.parse(req.body)
 
+  // Both ends of the move must be active. Source is gated via the card→deck
+  // resolver; target deck is gated directly. Either check throwing produces
+  // a 422 `DECK_ARCHIVED` (or 404) before the RPC runs.
+  await deckService.assertCardDeckActive(id, req.user.id)
+  await deckService.assertDeckActive(deckId, req.user.id)
+
   const { status, body } = await withIdempotency<ApiCard>(
     req.user.id,
     req.header('idempotency-key'),
@@ -338,6 +350,12 @@ export const copy: RequestHandler = async (req, res): Promise<void> => {
   const { id }     = cardIdParamSchema.parse(req.params)
   const { deckId } = copyCardBodySchema.parse(req.body)
 
+  // Same dual gate as `move`: archived source freezes its cards, archived
+  // target rejects new content. Cheaper to fail the request than to land a
+  // row the user will have to unarchive to see.
+  await deckService.assertCardDeckActive(id, req.user.id)
+  await deckService.assertDeckActive(deckId, req.user.id)
+
   const { status, body } = await withIdempotency<ApiCard>(
     req.user.id,
     req.header('idempotency-key'),
@@ -362,6 +380,8 @@ export const suspend: RequestHandler = async (req, res): Promise<void> => {
   const { id } = cardIdParamSchema.parse(req.params)
   suspendCardBodySchema.parse(req.body ?? {})
 
+  await deckService.assertCardDeckActive(id, req.user.id)
+
   const { status, body } = await withIdempotency<ApiCard>(
     req.user.id,
     req.header('idempotency-key'),
@@ -381,6 +401,8 @@ export const suspend: RequestHandler = async (req, res): Promise<void> => {
 export const unsuspend: RequestHandler = async (req, res): Promise<void> => {
   const { id } = cardIdParamSchema.parse(req.params)
   suspendCardBodySchema.parse(req.body ?? {})
+
+  await deckService.assertCardDeckActive(id, req.user.id)
 
   const { status, body } = await withIdempotency<ApiCard>(
     req.user.id,

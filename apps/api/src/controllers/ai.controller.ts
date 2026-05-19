@@ -9,6 +9,7 @@ import {
 } from '@fsrs-japanese/shared-types'
 import * as aiService      from '../services/ai.service.ts'
 import * as cardService    from '../services/card.service.ts'
+import * as deckService    from '../services/deck.service.ts'
 import * as profileService from '../services/profile.service.ts'
 
 /**
@@ -32,6 +33,11 @@ export const generateCard: RequestHandler = async (req, res): Promise<void> => {
  */
 export const generateSentences: RequestHandler = async (req, res): Promise<void> => {
   const { cardId, count } = generateSentencesInputSchema.parse(req.body)
+
+  // Freeze AI spend on archived decks. Fail before the cardService.getCard /
+  // profile fetch and (especially) the OpenAI call. 422 `DECK_ARCHIVED` lets
+  // the frontend route the user to unarchive instead of a generic error.
+  await deckService.assertCardDeckActive(cardId, req.user.id)
 
   // Card lookup is scoped to user_id, so a wrong-owner request returns 404.
   const card    = await cardService.getCard(cardId, req.user.id)
@@ -59,6 +65,9 @@ export const generateSentences: RequestHandler = async (req, res): Promise<void>
  */
 export const generateMnemonic: RequestHandler = async (req, res): Promise<void> => {
   const { cardId } = generateMnemonicInputSchema.parse(req.body)
+
+  // See `generateSentences` — same archived-deck rationale.
+  await deckService.assertCardDeckActive(cardId, req.user.id)
 
   const card    = await cardService.getCard(cardId, req.user.id)
   const profile = await profileService.getProfile(req.user.id)

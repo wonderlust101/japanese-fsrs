@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+import { useArchiveDeck, useDecks, useUnarchiveDeck } from '@/lib/api/decks'
 
 /**
  * Per-user, per-device persistence for Library page state that has no backend
@@ -35,6 +37,10 @@ export interface DeckViewPrefs {
 const VIEW_PREFS_KEY      = 'tomo.decks.viewPrefs.v1'
 const STUDY_ORDER_KEY     = 'tomo.decks.studyOrder.v1'
 const ARCHIVED_KEY        = 'tomo.decks.archived.v1'
+// Sentinel flipped to true after the one-shot localStorage→server archive
+// migration has run on this browser. The presence of the flag short-circuits
+// the migration on every subsequent mount.
+const ARCHIVED_KEY_MIGRATED = 'tomo.decks.archived.v1.migrated'
 const RESERVED_LOCAL_NAME_KEY = 'tomo.decks.localNameOverrides.v1'
 
 const DEFAULT_PREFS: DeckViewPrefs = {
@@ -189,10 +195,18 @@ export function useStudyOrder(knownDeckIds: ReadonlyArray<string>): {
 }
 
 /**
- * Archive set: a flat list of deck IDs the user has archived. Archived decks
- * are excluded from the study queue (and so from the resolved study order's
- * slot indexing). They surface only when the user toggles "Show archived" in
- * the utility row.
+ * Archive set, backed by `decks.archived_at` since migration
+ * 20260622000000_deck_archive.sql. The canonical archived set is derived
+ * from `useDecks(50, 'all')`, the mutate verbs forward to the API hooks,
+ * and TanStack Query's invalidation keeps the list in sync after a write
+ * (no local mirror to drift).
+ *
+ * One-shot localStorage migration: on the first authenticated mount after
+ * this PR ships, any deck IDs still in the legacy `tomo.decks.archived.v1`
+ * LS key are POSTed to `/decks/:id/archive` (idempotent on the server) and
+ * the key is cleared. The migration runs once per browser by guarding on a
+ * ref + a sentinel LS key (`ARCHIVED_KEY_MIGRATED`). Errors are swallowed —
+ * worst case the user re-archives a deck they expected to find shelved.
  */
 export function useArchiveSet(): {
   archivedIds: ReadonlySet<string>
@@ -201,25 +215,56 @@ export function useArchiveSet(): {
   restore:     (deckId: string) => void
   archiveMany: (deckIds: ReadonlyArray<string>) => void
 } {
-  const [archived, setArchived] = useState<ReadonlyArray<string>>([])
+  // `view: 'all'` so this query covers both active + archived rows; TanStack
+  // Query dedupes between consumers sharing the same key, so multiple
+  // `useArchiveSet` callers on the same page share one fetch.
+  const decksQuery     = useDecks(50, 'all')
+  const archiveMut     = useArchiveDeck()
+  const unarchiveMut   = useUnarchiveDeck()
+  const migrationFired = useRef(false)
 
+  const archivedIds = useMemo<ReadonlySet<string>>(() => {
+    const items = decksQuery.data?.items ?? []
+    const set = new Set<string>()
+    for (const d of items) if (d.archivedAt !== null) set.add(d.id)
+    return set
+  }, [decksQuery.data])
+
+  // One-shot LS → server migration. Runs once per browser, after the deck
+  // list has resolved (so we can intersect the LS set against decks the
+  // user actually owns — guards against stale IDs from deleted decks).
   useEffect(() => {
-    setArchived(safeRead<string[]>(ARCHIVED_KEY, []))
-  }, [])
-
-  const set = useMemo(() => new Set(archived), [archived])
-
-  const persist = useCallback((next: ReadonlyArray<string>) => {
-    setArchived(next)
-    safeWrite(ARCHIVED_KEY, next)
-  }, [])
+    if (migrationFired.current) return
+    if (typeof window === 'undefined') return
+    if (decksQuery.data === undefined) return
+    if (safeRead<boolean>(ARCHIVED_KEY_MIGRATED, false)) return
+    const legacy = safeRead<string[]>(ARCHIVED_KEY, [])
+    if (legacy.length === 0) {
+      window.localStorage.removeItem(ARCHIVED_KEY)
+      safeWrite(ARCHIVED_KEY_MIGRATED, true)
+      return
+    }
+    migrationFired.current = true
+    const ownIds = new Set(decksQuery.data.items.map((d) => d.id))
+    const toArchive = legacy.filter((id) => ownIds.has(id))
+    void Promise.allSettled(toArchive.map((id) => archiveMut.mutateAsync(id)))
+      .finally(() => {
+        window.localStorage.removeItem(ARCHIVED_KEY)
+        safeWrite(ARCHIVED_KEY_MIGRATED, true)
+      })
+  }, [decksQuery.data, archiveMut])
 
   return {
-    archivedIds: set,
-    isArchived:  (deckId) => set.has(deckId),
-    archive:     (deckId) => persist([...new Set([...archived, deckId])]),
-    restore:     (deckId) => persist(archived.filter((id) => id !== deckId)),
-    archiveMany: (deckIds) => persist([...new Set([...archived, ...deckIds])]),
+    archivedIds,
+    isArchived: (deckId) => archivedIds.has(deckId),
+    archive:    (deckId) => { archiveMut.mutate(deckId) },
+    restore:    (deckId) => { unarchiveMut.mutate(deckId) },
+    archiveMany: (deckIds) => {
+      // Parallel fan-out matches the bulk-delete pattern in deck-list.tsx.
+      // Per-id failures are surfaced via the mutation's error state on the
+      // call site that needs them; the hook itself fires-and-forgets.
+      void Promise.allSettled(deckIds.map((id) => archiveMut.mutateAsync(id)))
+    },
   }
 }
 

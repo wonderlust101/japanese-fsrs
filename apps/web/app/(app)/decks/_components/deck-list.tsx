@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { IconPlus } from '@/components/icons/chrome-marks'
 import { deleteDeckAction, getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
+import { useCopyDeck } from '@/lib/api/decks'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { inferDeckLevel } from '@/lib/deck-level'
 
@@ -108,11 +109,17 @@ export function DeckListView(): React.JSX.Element {
     return m.total > 0 && m.mature >= m.total
   }
 
-  // ── Persistent state (localStorage) ───────────────────────────────────
+  // ── Persistent state ──────────────────────────────────────────────────
+  // View prefs + study order still live in localStorage (no backend
+  // representation yet). Archive state migrated to the server in 2026-05-19;
+  // `useArchiveSet` is now a thin wrapper around `useDecks` + the
+  // archive/unarchive mutations.
   const { prefs, setSort, setTypeFilter, setView } = useViewPrefs()
   const studyOrder = useStudyOrder(knownIds)
   const archiveSet = useArchiveSet()
   const nameOverrides = useLocalNameOverrides()
+
+  const copyMutation = useCopyDeck()
 
   // ── Local UI state ────────────────────────────────────────────────────
   const [searchInputValue, setSearchInputValue] = useState('')
@@ -353,8 +360,15 @@ export function DeckListView(): React.JSX.Element {
     showToast(`Restored "${truncate(deckName, 28)}".`)
   }
 
-  function handleCopy(): void {
-    showToast('Copy is coming soon. Renames, deletes, and archives work now.')
+  function handleCopy(deckId: string, deckName: string): void {
+    copyMutation.mutate(deckId, {
+      onSuccess: () => {
+        showToast(`Copied "${truncate(deckName, 28)}".`)
+      },
+      onError: (err) => {
+        showToast(err.message || `Couldn't copy "${truncate(deckName, 28)}".`, 'error')
+      },
+    })
   }
 
   function handleBulkArchive(): void {
@@ -365,7 +379,20 @@ export function DeckListView(): React.JSX.Element {
   }
 
   function handleBulkCopy(): void {
-    showToast('Copy is coming soon. Renames, deletes, and archives work now.')
+    const ids = [...selectedIds]
+    setCurateMode(false)
+    void Promise.allSettled(
+      ids.map((id) => copyMutation.mutateAsync(id)),
+    ).then((results) => {
+      const failures = results.filter((r) => r.status === 'rejected').length
+      if (failures === 0) {
+        showToast(`Copied ${ids.length} deck${ids.length === 1 ? '' : 's'}.`)
+      } else if (failures === ids.length) {
+        showToast(`Couldn't copy ${ids.length} deck${ids.length === 1 ? '' : 's'}.`, 'error')
+      } else {
+        showToast(`Copied ${ids.length - failures}. ${failures} failed.`, 'error')
+      }
+    })
   }
 
   function handleBulkDelete(): void {
@@ -505,7 +532,7 @@ export function DeckListView(): React.JSX.Element {
                   onToggleSelect={() => toggleSelected(deck.id)}
                   onSetAsPriority={() => handleSetAsPriority(deck.id, displayNameOf(deck))}
                   onRename={() => setActiveDialog({ kind: 'rename', deck })}
-                  onCopy={handleCopy}
+                  onCopy={() => handleCopy(deck.id, displayNameOf(deck))}
                   onEditOptions={() => setActiveDialog({ kind: 'edit', deck })}
                   onArchive={() => handleArchive(deck.id, displayNameOf(deck))}
                   onRestore={() => handleRestore(deck.id, displayNameOf(deck))}

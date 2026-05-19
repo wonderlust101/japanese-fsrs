@@ -11,6 +11,7 @@ import {
   listWeakSpotsQuerySchema,
   recordDrillAttemptSchema,
 } from '../schemas/weak-spot.schema.ts'
+import * as deckService     from '../services/deck.service.ts'
 import * as weakSpotService from '../services/weak-spot.service.ts'
 
 export const list: RequestHandler = async (req, res): Promise<void> => {
@@ -39,6 +40,22 @@ export const reopen: RequestHandler = async (req, res): Promise<void> => {
 
 export const createDrillSession: RequestHandler = async (req, res): Promise<void> => {
   const input = createDrillSessionSchema.parse(req.body)
+
+  // Sources that name an explicit deck/card hard-fail on an archived target —
+  // the user picked it, so a silent skip would be confusing. The other two
+  // sources (`unresolvedLeeches`, `highLapseCandidates`) span the whole
+  // library; archived-deck cards are silently excluded inside the RPC
+  // (migration 20260623000000) so a partial drill is still useful.
+  //
+  // The `deckId` / `cardId` presence is guaranteed by the `superRefine` in
+  // `createDrillSessionSchema` (matched on `source`); the local guards here
+  // satisfy TS without leaning on the schema's runtime check.
+  if (input.source === 'deckScoped' && input.deckId !== undefined) {
+    await deckService.assertDeckActive(input.deckId, req.user.id)
+  } else if (input.source === 'currentCard' && input.cardId !== undefined) {
+    await deckService.assertCardDeckActive(input.cardId, req.user.id)
+  }
+
   const { status, body } = await withIdempotency<ApiWeakSpotDrillSession>(
     req.user.id,
     req.header('idempotency-key'),

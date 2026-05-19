@@ -462,6 +462,44 @@ export async function assertDeckActive(deckId: string, userId: string): Promise<
 }
 
 /**
+ * Per-card variant of `assertDeckActive`. Resolves the card's owning deck
+ * via the `cards` table (ownership-gated on `user_id`) and forwards to
+ * `assertDeckActive`. Used by every card-scoped write path so an archived
+ * deck freezes its cards without each controller re-implementing the
+ * card→deck lookup.
+ *
+ * Throws:
+ *   - 404 `CARD_NOT_FOUND` — card is missing, owned by another user, or
+ *     a premade source (`user_id` NULL). Matches `card.service.ts`'s 404
+ *     shape so the frontend doesn't need to branch on the not-found code.
+ *   - 404 `DECK_NOT_FOUND` — card row points at a deck that vanished
+ *     (defensive: FK cascade should make this unreachable).
+ *   - 422 `DECK_ARCHIVED` — the card's deck is archived.
+ *
+ * One round-trip for the card lookup, one for `assertDeckActive`. The
+ * card-row read is a single-index probe; cost is comparable to the
+ * existing `cards` fetch most card services already perform, so this
+ * helper sits in front of those services without measurably changing
+ * latency.
+ */
+export async function assertCardDeckActive(cardId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('cards')
+    .select('deck_id')
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error !== null) {
+    throw dbError('assert card deck active (probe)', error)
+  }
+  if (data === null || data.deck_id === null) {
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
+  }
+  await assertDeckActive(data.deck_id, userId)
+}
+
+/**
  * Sets `decks.archived_at = NOW()` so the deck disappears from the active
  * listing, the review queue, and every write path that flows through
  * `assertDeckActive`. Idempotent: archiving an already-archived deck leaves

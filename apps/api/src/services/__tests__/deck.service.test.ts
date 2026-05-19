@@ -93,7 +93,7 @@ mock.module('../../db/supabase.ts', () => ({
   },
 }))
 
-const { copyDeck, archiveDeck, unarchiveDeck, assertDeckActive } = await import('../deck.service.ts')
+const { copyDeck, archiveDeck, unarchiveDeck, assertDeckActive, assertCardDeckActive } = await import('../deck.service.ts')
 
 beforeEach(() => {
   state.rpcResult   = null
@@ -236,6 +236,73 @@ describe('deck.service — assertDeckActive', () => {
     catch (err) { captured = err as { statusCode: number; code?: string } }
     expect(captured?.statusCode).toBe(422)
     expect(captured?.code).toBe('DECK_ARCHIVED')
+  })
+})
+
+// ─── assertCardDeckActive ────────────────────────────────────────────────────
+//
+// Two-stage helper: probe `cards` for `deck_id`, then forward to
+// `assertDeckActive`. Tests stage two queued results in order: the card
+// lookup, then the deck probe.
+
+const CARD_LOOKUP_OK      = { data: { deck_id: 'deck-1' }, error: null }
+const CARD_LOOKUP_MISSING = { data: null,                  error: null }
+const CARD_LOOKUP_ORPHAN  = { data: { deck_id: null },     error: null }
+
+describe('deck.service — assertCardDeckActive', () => {
+  it('resolves silently when the card maps to an active deck', async () => {
+    state.fromQueue.push(CARD_LOOKUP_OK)
+    state.fromQueue.push(ACTIVE_PROBE)
+
+    await assertCardDeckActive('card-1', 'user-1')
+
+    expect(state.fromCalls.length).toBe(2)
+    expect(state.fromCalls[0]?.table).toBe('cards')
+    expect(state.fromCalls[1]?.table).toBe('decks')
+  })
+
+  it('throws 404 CARD_NOT_FOUND when the card is missing or wrong-owner', async () => {
+    state.fromQueue.push(CARD_LOOKUP_MISSING)
+    let captured: { statusCode: number; code?: string } | null = null
+    try { await assertCardDeckActive('card-x', 'user-1') }
+    catch (err) { captured = err as { statusCode: number; code?: string } }
+    expect(captured?.statusCode).toBe(404)
+    expect(captured?.code).toBe('CARD_NOT_FOUND')
+    // Short-circuited: no deck probe issued.
+    expect(state.fromCalls.length).toBe(1)
+  })
+
+  it('throws 404 CARD_NOT_FOUND when the card row has a NULL deck_id', async () => {
+    // Defensive: cards are normally NOT NULL on deck_id, but premade source
+    // rows can be orphan-shaped under some historical migration paths.
+    state.fromQueue.push(CARD_LOOKUP_ORPHAN)
+    let captured: { statusCode: number; code?: string } | null = null
+    try { await assertCardDeckActive('card-1', 'user-1') }
+    catch (err) { captured = err as { statusCode: number; code?: string } }
+    expect(captured?.statusCode).toBe(404)
+    expect(captured?.code).toBe('CARD_NOT_FOUND')
+  })
+
+  it('throws 422 DECK_ARCHIVED when the card maps to an archived deck', async () => {
+    state.fromQueue.push(CARD_LOOKUP_OK)
+    state.fromQueue.push(ARCHIVED_PROBE)
+    let captured: { statusCode: number; code?: string } | null = null
+    try { await assertCardDeckActive('card-1', 'user-1') }
+    catch (err) { captured = err as { statusCode: number; code?: string } }
+    expect(captured?.statusCode).toBe(422)
+    expect(captured?.code).toBe('DECK_ARCHIVED')
+  })
+
+  it('throws 404 DECK_NOT_FOUND when the card maps to a vanished deck', async () => {
+    // Defensive: FK cascade should make this unreachable. The check exists
+    // so the helper fails closed if the FK is ever relaxed.
+    state.fromQueue.push(CARD_LOOKUP_OK)
+    state.fromQueue.push(MISSING_PROBE)
+    let captured: { statusCode: number; code?: string } | null = null
+    try { await assertCardDeckActive('card-1', 'user-1') }
+    catch (err) { captured = err as { statusCode: number; code?: string } }
+    expect(captured?.statusCode).toBe(404)
+    expect(captured?.code).toBe('DECK_NOT_FOUND')
   })
 })
 
