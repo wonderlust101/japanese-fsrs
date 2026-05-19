@@ -18,6 +18,7 @@ import type {
   ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema,
   ApiCopyPremadeDeckResultSchema,
+  ApiCopyDeckResultSchema,
   ApiTomoNoteSchema,
   ApiCardQualityIssueSchema,
   ApiMaturitySnapshotSchema,
@@ -77,6 +78,11 @@ export type ApiPremadeDeck            = z.infer<typeof ApiPremadeDeckSchema>
  * `ApiSubscribeResult` shape which carried subscription-junction state.
  */
 export type ApiCopyPremadeDeckResult  = z.infer<typeof ApiCopyPremadeDeckResultSchema>
+
+/** Returned by `POST /api/v1/decks/:id/copy`. Same wire shape as the
+ *  premade copy result; kept as a distinct type because the two routes
+ *  have different ownership semantics and resolve names differently. */
+export type ApiCopyDeckResult         = z.infer<typeof ApiCopyDeckResultSchema>
 
 /** Returned by `GET /api/v1/tomo/note`. Backend-internal today; no
  *  frontend consumer. Kept for the API service's response shape. */

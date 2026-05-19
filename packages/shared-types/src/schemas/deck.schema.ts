@@ -33,8 +33,18 @@ export const listDecksQuerySchema = z.object({
   cursor: z.string().min(1).max(512).optional(),
 }).strict()
 
+// Body for `POST /api/v1/decks/:id/copy`. The optional `name` overrides the
+// server-side default "<source> (Copy)" naming. Length + sanitization rules
+// match createDeckSchema so a copied deck can't acquire a name the create
+// path would reject. Empty body `{}` is valid — the RPC resolves the default.
+export const copyDeckSchema = z.object({
+  name: safeShortText(100, 1).optional(),
+}).strict()
+
 export type CreateDeckInput   = z.infer<typeof createDeckSchema>
 export type CreateDeckPayload = z.input<typeof createDeckSchema>
 export type UpdateDeckInput   = z.infer<typeof updateDeckSchema>
 export type UpdateDeckPayload = z.input<typeof updateDeckSchema>
 export type ListDecksQuery    = z.infer<typeof listDecksQuerySchema>
+export type CopyDeckInput     = z.infer<typeof copyDeckSchema>
+export type CopyDeckPayload   = z.input<typeof copyDeckSchema>

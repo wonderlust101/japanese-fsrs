@@ -185,6 +185,22 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
   cardCount: z.number(),
 })
 
+/**
+ * Result of `POST /api/v1/decks/:id/copy` — duplicates a user-owned deck
+ * into a new standalone deck. Same wire shape as the premade copy result;
+ * we keep them as separate types because the two routes have different
+ * semantics (this one rejects premade source rows, doesn't carry
+ * `source_premade_id`, and resolves a server-side default name).
+ *
+ * Duplicates are intentional under the copy model: repeated calls produce
+ * independent decks. The controller's idempotency-key guards against
+ * accidental double-clicks; deliberate duplicates use distinct keys.
+ */
+export const ApiCopyDeckResultSchema = z.object({
+  deckId:    z.string(),
+  cardCount: z.number(),
+})
+
 // ─── Insights — maturity-pipeline history (Stage 9) ──────────────────────────
 //
 // Backend Completion Plan Stage 9. `GET /api/v1/insights/maturity-history?days=…`

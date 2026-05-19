@@ -27,7 +27,7 @@ Summary counts below cover the five legend statuses only. Two ad-hoc statuses ap
 
 | Area | Implemented | Partial | Missing | Unknown | Manual |
 |---|---:|---:|---:|---:|---:|
-| Backend and Data | 28 | 1 | 0 | 0 | 0 |
+| Backend and Data | 29 | 1 | 0 | 0 | 0 |
 | AI and Japanese Content | 10 | 0 | 1 | 0 | 0 |
 | Frontend | 12 | 10 | 1 | 0 | 0 |
 | Testing | 3 | 0 | 1 | 0 | 1 |

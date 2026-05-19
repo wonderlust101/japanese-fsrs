@@ -2,7 +2,8 @@ import type { RequestHandler } from 'express'
 
 import {
   createDeckSchema, updateDeckSchema, deckIdParamSchema, listDecksQuerySchema,
-  type ApiDeck,
+  copyDeckSchema,
+  type ApiDeck, type ApiCopyDeckResult,
 } from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
@@ -49,4 +50,38 @@ export const remove: RequestHandler = async (req, res): Promise<void> => {
   const { id } = deckIdParamSchema.parse(req.params)
   await deckService.deleteDeck(id, req.user.id)
   res.status(204).end()
+}
+
+/**
+ * POST /api/v1/decks/:id/copy
+ *
+ * Duplicates a user-owned deck. Optional `name` body field overrides the
+ * server's default "<source> (Copy)" naming. Returns 201 with the new
+ * `{ deckId, cardCount }` plus a `Location` header pointing at the new deck.
+ *
+ * Mirrors the premade-copy controller shape:
+ *   - Idempotency-Key required by convention — copy is a large-blast-radius
+ *     write (clones every non-suspended source card). Same key + same body
+ *     → replay original response. Deliberate duplicates use a new key.
+ *   - Body is `.strict()` so unknown keys are rejected up front.
+ *   - Premade source decks and cross-user attempts both fail closed as
+ *     404 `DECK_NOT_FOUND` (see service for the no-ownership-leak rationale).
+ */
+export const copy: RequestHandler = async (req, res): Promise<void> => {
+  const { id }   = deckIdParamSchema.parse(req.params)
+  const { name } = copyDeckSchema.parse(req.body ?? {})
+
+  const { status, body } = await withIdempotency<ApiCopyDeckResult>(
+    req.user.id,
+    req.header('idempotency-key'),
+    { sourceDeckId: id, name: name ?? null },
+    async () => {
+      const data = await deckService.copyDeck(req.user.id, id, name)
+      return { status: 201, body: data }
+    },
+  )
+  if (status === 201) {
+    res.setHeader('Location', `/api/v1/decks/${body.deckId}`)
+  }
+  res.status(status).json(body)
 }

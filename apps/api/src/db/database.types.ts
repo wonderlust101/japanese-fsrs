@@ -1102,6 +1102,20 @@ export type Database = {
           deck_id: string
         }[]
       }
+      // 20260621000000_copy_user_deck_rpc.sql — duplicates a user's own deck.
+      // Same return shape as copy_premade_deck; the wire-facing camelCase types
+      // diverge so the two routes' semantics stay distinct.
+      copy_user_deck: {
+        Args: {
+          p_source_deck_id: string
+          p_target_name:    string | null
+          p_user_id:        string
+        }
+        Returns: {
+          card_count: number
+          deck_id:    string
+        }[]
+      }
       transition_weak_spot_drill_session: {
         Args: {
           p_session_id: string

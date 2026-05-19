@@ -32,6 +32,7 @@ export type {
   ApiDeckWithStats,
   ApiPremadeDeck,
   ApiCopyPremadeDeckResult,
+  ApiCopyDeckResult,
   ApiTomoNote,
   ApiSimilarCard,
   ApiCardQualityIssue,
@@ -81,6 +82,7 @@ export {
   ApiSimilarCardSchema,
   ApiDeckSchema, ApiDeckWithStatsSchema,
   ApiPremadeDeckSchema, ApiCopyPremadeDeckResultSchema,
+  ApiCopyDeckResultSchema,
   ApiTomoNoteSchema, ApiTomoNoteKindSchema,
   ApiCardQualityIssueSchema, ApiCardQualityIssueTypeSchema,
   ApiMaturitySnapshotSchema, ApiMaturityHistoryDaysSchema,
@@ -128,12 +130,13 @@ export type {
 
 export {
   deckTypeEnum, createDeckSchema, updateDeckSchema, deckIdParamSchema,
-  listDecksQuerySchema,
+  listDecksQuerySchema, copyDeckSchema,
 } from './schemas/deck.schema.ts'
 export type {
   CreateDeckInput, CreateDeckPayload,
   UpdateDeckInput, UpdateDeckPayload,
   ListDecksQuery,
+  CopyDeckInput, CopyDeckPayload,
 } from './schemas/deck.schema.ts'
 
 export {
