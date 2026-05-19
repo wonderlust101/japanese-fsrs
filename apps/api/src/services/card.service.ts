@@ -31,9 +31,11 @@ import {
     type ApiList,
     type ApiSimilarCard,
     type CardMissingField,
+    type CardPresentField,
     type CardSortField,
     type CardStatusFilter,
     type CrossDeckJlptFilter,
+    type PitchPattern,
     type FieldsData,
     type GeneratedCardData,
     type GeneratedSentenceCard,
@@ -919,6 +921,8 @@ export interface CrossDeckListParams {
   jlptLevel?:   CrossDeckJlptFilter
   status?:      CardStatusFilter
   missingField?: CardMissingField
+  presentField?: CardPresentField
+  pitchPattern?: PitchPattern
   sort?:        CardSortField
 }
 
@@ -943,6 +947,8 @@ export async function listCardsCrossDeck(
       p_search:        params.search       ?? null,
       p_missing_field: params.missingField ?? null,
       p_sort:          sort,
+      p_present_field: params.presentField ?? null,
+      p_pitch_pattern: params.pitchPattern ?? null,
     })),
     supabaseAdmin.rpc('count_cards_cross_deck', asPayload({
       p_user_id:       userId,
@@ -951,6 +957,8 @@ export async function listCardsCrossDeck(
       p_jlpt_level:    params.jlptLevel    ?? null,
       p_search:        params.search       ?? null,
       p_missing_field: params.missingField ?? null,
+      p_present_field: params.presentField ?? null,
+      p_pitch_pattern: params.pitchPattern ?? null,
     })),
   ])
 

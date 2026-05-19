@@ -1209,12 +1209,17 @@ export type Database = {
       }
       // ─── pending regeneration ─────────────────────────────────────────
       // The block below mirrors the signatures introduced by migrations
-      // 20260617000000_list_cards_cross_deck_rpc.sql and
-      // 20260617000001_card_move_copy_suspend_rpcs.sql. They are added by
-      // hand so the codebase type-checks before the next
+      // 20260617000000_list_cards_cross_deck_rpc.sql,
+      // 20260617000001_card_move_copy_suspend_rpcs.sql, and
+      // 20260624000000_cards_browser_presence_filters.sql. They are added
+      // by hand so the codebase type-checks before the next
       // `bun run db:types` regenerates this file from a database that has
       // these migrations applied. Replace this block with the generator's
       // output once the migrations are deployed remotely.
+      count_moras: {
+        Args: { p_reading: string }
+        Returns: number
+      }
       list_cards_cross_deck: {
         Args: {
           p_user_id:        string
@@ -1226,6 +1231,8 @@ export type Database = {
           p_search?:        string
           p_missing_field?: string
           p_sort?:          string
+          p_present_field?: string
+          p_pitch_pattern?: string
         }
         Returns: {
           id:           string
@@ -1250,6 +1257,8 @@ export type Database = {
           p_jlpt_level?:    string
           p_search?:        string
           p_missing_field?: string
+          p_present_field?: string
+          p_pitch_pattern?: string
         }
         Returns: number
       }

@@ -280,7 +280,9 @@ export const reschedule: RequestHandler = async (req, res): Promise<void> => {
 /**
  * GET /api/v1/cards/cross-deck
  * Cross-deck card-browser list. Filters: search, deckId, jlptLevel, status,
- * missingField. Sort: recent | due | lapses. Cursor-paginated.
+ * missingField, presentField, pitchPattern. Sort: recent | due | lapses.
+ * Cursor-paginated. `missingField` and `presentField` are mutually exclusive
+ * (the shared Zod schema rejects payloads that set both).
  *
  * Routed under both the flat (/api/v1/cards) and deck-scoped mounts; the
  * deck-scoped path's :deckId is intentionally ignored (the browser uses
@@ -300,7 +302,28 @@ export const listCrossDeck: RequestHandler = async (req, res): Promise<void> => 
   if (query.jlptLevel    !== undefined) params.jlptLevel    = query.jlptLevel
   if (query.status       !== undefined) params.status       = query.status
   if (query.missingField !== undefined) params.missingField = query.missingField
+  if (query.presentField !== undefined) params.presentField = query.presentField
+  if (query.pitchPattern !== undefined) params.pitchPattern = query.pitchPattern
   if (query.sort         !== undefined) params.sort         = query.sort
+
+  // Structured log at the request-decision point. Cursor and search are
+  // intentionally elided: cursor is opaque and noisy, search may contain
+  // user-typed text (mild PII; low ops value). Mirrors the redaction
+  // posture documented in CLAUDE.md.
+  req.log.info(
+    {
+      filters: {
+        deckId:       query.deckId,
+        jlptLevel:    query.jlptLevel,
+        status:       query.status,
+        missingField: query.missingField,
+        presentField: query.presentField,
+        pitchPattern: query.pitchPattern,
+        sort:         query.sort,
+      },
+    },
+    'cards.crossDeck.list',
+  )
 
   const result = await cardService.listCardsCrossDeck(req.user.id, params)
   res.json(result)

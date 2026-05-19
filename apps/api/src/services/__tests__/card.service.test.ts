@@ -201,6 +201,55 @@ describe('card.service — listCardsCrossDeck', () => {
     expect(result.hasMore).toBe(true)
     expect(result.nextCursor).not.toBeNull()
   })
+
+  it('forwards presentField and pitchPattern to both RPCs', async () => {
+    state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
+
+    await listCardsCrossDeck(uuid(), {
+      limit:        50,
+      presentField: 'audio',
+      pitchPattern: 'atamadaka',
+    })
+
+    const listCall  = state.rpcCalls.find((c) => c.name === 'list_cards_cross_deck')
+    const countCall = state.rpcCalls.find((c) => c.name === 'count_cards_cross_deck')
+    const listPayload  = listCall?.payload  as Record<string, unknown>
+    const countPayload = countCall?.payload as Record<string, unknown>
+
+    expect(listPayload.p_present_field).toBe('audio')
+    expect(listPayload.p_pitch_pattern).toBe('atamadaka')
+    expect(listPayload.p_missing_field).toBeNull()
+    // Count RPC must receive the same filter values so the footer total
+    // never drifts from the visible page slice.
+    expect(countPayload.p_present_field).toBe('audio')
+    expect(countPayload.p_pitch_pattern).toBe('atamadaka')
+    expect(countPayload.p_missing_field).toBeNull()
+  })
+
+  it('forwards extended missingField tokens (pitch, audio)', async () => {
+    state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
+
+    await listCardsCrossDeck(uuid(), { limit: 25, missingField: 'pitch' })
+
+    const listCall    = state.rpcCalls.find((c) => c.name === 'list_cards_cross_deck')
+    const listPayload = listCall?.payload as Record<string, unknown>
+    expect(listPayload.p_missing_field).toBe('pitch')
+  })
+
+  it('sends nulls for both filter directions when neither is set', async () => {
+    state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
+
+    await listCardsCrossDeck(uuid(), { limit: 10 })
+
+    const listCall    = state.rpcCalls.find((c) => c.name === 'list_cards_cross_deck')
+    const listPayload = listCall?.payload as Record<string, unknown>
+    expect(listPayload.p_missing_field).toBeNull()
+    expect(listPayload.p_present_field).toBeNull()
+    expect(listPayload.p_pitch_pattern).toBeNull()
+  })
 })
 
 // ── moveCard / copyCard / suspendCard / unsuspendCard ──────────────────────

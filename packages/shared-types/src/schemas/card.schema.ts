@@ -97,9 +97,26 @@ export const crossDeckJlptFilterEnum = z.enum([
   'all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond',
 ])
 
+// Negative-direction presence filter: "find cards MISSING X". Extended in
+// 20260624 to cover pitch + audio so the cross-deck browser can sweep for
+// gaps in the same fields the AI generator produces.
 export const cardMissingFieldEnum = z.enum([
   'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
+  'pitch', 'audio',
 ])
+
+// Positive-direction presence filter: "find cards that HAVE X". Sibling
+// of `cardMissingFieldEnum`; the two are mutually exclusive (see the
+// `.refine` on `crossDeckListCardsQuerySchema` below). Limited to the
+// dimensions the UI surfaces — adding `reading` / `meaning` here makes no
+// sense since those are virtually always populated.
+export const cardPresentFieldEnum = z.enum(['picture', 'pitch', 'audio'])
+
+// Pitch-accent pattern classes derived from `pitchPosition` + mora count
+// of the reading. See `count_moras` SQL helper in migration 20260624 for
+// the predicate semantics. Pattern requires `pitchPosition` to be set;
+// cards without it are excluded silently from any pattern result.
+export const pitchPatternEnum = z.enum(['heiban', 'atamadaka', 'nakadaka', 'odaka'])
 
 export const cardSortFieldEnum = z.enum(['recent', 'due', 'lapses'])
 
@@ -111,8 +128,20 @@ export const crossDeckListCardsQuerySchema = z.object({
   jlptLevel:    crossDeckJlptFilterEnum.optional(),
   status:       cardStatusFilterEnum.optional(),
   missingField: cardMissingFieldEnum.optional(),
+  presentField: cardPresentFieldEnum.optional(),
+  pitchPattern: pitchPatternEnum.optional(),
   sort:         cardSortFieldEnum.optional(),
-}).strict()
+}).strict().refine(
+  // `missingField` and `presentField` are negative/positive variants of
+  // the same dimension; passing both is contradictory. The RPC also
+  // guards this as defense in depth, but rejecting at the trust boundary
+  // surfaces a clear 400 to the client rather than a DB exception.
+  (v) => !(v.missingField !== undefined && v.presentField !== undefined),
+  {
+    message: 'Pass only one of missingField, presentField',
+    path:    ['presentField'],
+  },
+)
 
 // ─── Mutation body schemas ────────────────────────────────────────────────────
 //
@@ -176,6 +205,8 @@ export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>
 export type CrossDeckListCardsQuery = z.infer<typeof crossDeckListCardsQuerySchema>
 export type CrossDeckJlptFilter     = z.infer<typeof crossDeckJlptFilterEnum>
 export type CardMissingField        = z.infer<typeof cardMissingFieldEnum>
+export type CardPresentField        = z.infer<typeof cardPresentFieldEnum>
+export type PitchPattern            = z.infer<typeof pitchPatternEnum>
 export type CardSortField           = z.infer<typeof cardSortFieldEnum>
 
 export type MoveCardBody             = z.infer<typeof moveCardBodySchema>
