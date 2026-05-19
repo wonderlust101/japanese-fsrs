@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express'
 
 import {
   createDeckSchema, updateDeckSchema, deckIdParamSchema, listDecksQuerySchema,
-  copyDeckSchema,
+  copyDeckSchema, archiveDeckSchema,
   type ApiDeck, type ApiCopyDeckResult,
 } from '@fsrs-japanese/shared-types'
 import * as deckService from '../services/deck.service.ts'
@@ -10,8 +10,8 @@ import { withIdempotency } from '../lib/idempotency.ts'
 import { parseIfMatchVersion } from '../lib/http.ts'
 
 export const list: RequestHandler = async (req, res): Promise<void> => {
-  const { limit, cursor } = listDecksQuerySchema.parse(req.query)
-  const result = await deckService.listDecks(req.user.id, limit, cursor)
+  const { limit, cursor, view } = listDecksQuerySchema.parse(req.query)
+  const result = await deckService.listDecks(req.user.id, limit, cursor, view)
   res.json(result)
 }
 
@@ -42,6 +42,10 @@ export const update: RequestHandler = async (req, res): Promise<void> => {
   const { id } = deckIdParamSchema.parse(req.params)
   const input  = updateDeckSchema.parse(req.body)
   const expectedVersion = parseIfMatchVersion(req.header('if-match'))
+  // PATCH is a content edit; archived decks are frozen except for the
+  // archive lifecycle + delete. The 422 `DECK_ARCHIVED` shape lets the
+  // frontend show "unarchive first" without parsing error strings.
+  await deckService.assertDeckActive(id, req.user.id)
   const deck   = await deckService.updateDeck(id, req.user.id, input, expectedVersion)
   res.json(deck)
 }
@@ -71,6 +75,11 @@ export const copy: RequestHandler = async (req, res): Promise<void> => {
   const { id }   = deckIdParamSchema.parse(req.params)
   const { name } = copyDeckSchema.parse(req.body ?? {})
 
+  // Copying an archived deck is blocked. The user has the unarchive +
+  // delete escape hatches; "copy this frozen deck" would smuggle the
+  // archived state into a new active deck and surprise the user.
+  await deckService.assertDeckActive(id, req.user.id)
+
   const { status, body } = await withIdempotency<ApiCopyDeckResult>(
     req.user.id,
     req.header('idempotency-key'),
@@ -84,4 +93,38 @@ export const copy: RequestHandler = async (req, res): Promise<void> => {
     res.setHeader('Location', `/api/v1/decks/${body.deckId}`)
   }
   res.status(status).json(body)
+}
+
+/**
+ * POST /api/v1/decks/:id/archive
+ *
+ * Sets the deck's `archived_at` timestamp so it disappears from the active
+ * listing, the review queue, and every write path that flows through
+ * `assertDeckActive`. Idempotent: archiving an already-archived deck is a
+ * no-op (returns the existing row, original timestamp intact).
+ *
+ * No `Idempotency-Key` requirement — archive is a pure state-flip with no
+ * side-effects beyond the `archived_at` write, and the idempotency comes
+ * from the operation itself.
+ */
+export const archive: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = deckIdParamSchema.parse(req.params)
+  archiveDeckSchema.parse(req.body ?? {})
+
+  const deck = await deckService.archiveDeck(id, req.user.id)
+  res.json(deck)
+}
+
+/**
+ * POST /api/v1/decks/:id/unarchive
+ *
+ * Clears `archived_at`, restoring the deck to the active listing and the
+ * review queue. Idempotent: unarchiving an already-active deck is a no-op.
+ */
+export const unarchive: RequestHandler = async (req, res): Promise<void> => {
+  const { id } = deckIdParamSchema.parse(req.params)
+  archiveDeckSchema.parse(req.body ?? {})
+
+  const deck = await deckService.unarchiveDeck(id, req.user.id)
+  res.json(deck)
 }

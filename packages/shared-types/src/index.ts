@@ -130,13 +130,14 @@ export type {
 
 export {
   deckTypeEnum, createDeckSchema, updateDeckSchema, deckIdParamSchema,
-  listDecksQuerySchema, copyDeckSchema,
+  listDecksQuerySchema, copyDeckSchema, archiveDeckSchema, decksViewEnum,
 } from './schemas/deck.schema.ts'
 export type {
   CreateDeckInput, CreateDeckPayload,
   UpdateDeckInput, UpdateDeckPayload,
   ListDecksQuery,
   CopyDeckInput, CopyDeckPayload,
+  DecksView,
 } from './schemas/deck.schema.ts'
 
 export {

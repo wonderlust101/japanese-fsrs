@@ -32,6 +32,9 @@ const DECK_COLUMNS = [
   'version',
   'created_at',
   'updated_at',
+  // Archive timestamp (migration 20260622000000). NULL = active, non-null
+  // = archived. Surfaced on the wire as `archivedAt`.
+  'archived_at',
 ].join(', ')
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -59,6 +62,9 @@ const DeckListRpcRowSchema = z.object({
   version:           z.number(),
   created_at:        z.string(),
   updated_at:        z.string(),
+  // Archive timestamp (migration 20260622000000). NULL = active, non-null
+  // = archived. Present on both RPC rows and direct .from('decks') reads.
+  archived_at:       z.string().nullable(),
   // Stage 3 — present on list_decks_paginated rows, absent on direct
   // `.from('decks').select(DECK_COLUMNS)` reads. Kept optional rather
   // than splitting into a second schema so the existing shared usage in
@@ -106,6 +112,7 @@ function toRow(raw: DeckDbRow): ApiDeck {
     version:         raw.version,
     createdAt:       raw.created_at,
     updatedAt:       raw.updated_at,
+    archivedAt:      raw.archived_at,
   }
 }
 
@@ -152,6 +159,7 @@ export async function listDecks(
   userId:  string,
   limit:   number,
   cursor?: string,
+  view:    'active' | 'archived' | 'all' = 'active',
 ): Promise<ApiList<ApiDeckWithStats>> {
   // Decode opaque cursor → bare id for the RPC. See lib/http.ts for the
   // cursor format rationale.
@@ -161,6 +169,7 @@ export async function listDecks(
     p_user_id: userId,
     p_limit:   limit + 1,
     p_cursor:  cursorId,
+    p_view:    view,
   }))
 
   if (error !== null) {
@@ -412,6 +421,172 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
   if (deleteError !== null) {
     throw dbError('delete deck', deleteError)
   }
+}
+
+/**
+ * Service-level guard used by every write path that mutates content inside
+ * a deck (deck PATCH/copy, card create/update/forget/reschedule/move/copy/
+ * suspend/unsuspend/regenerate-embedding, and the review-submit batch).
+ * Throws 404 `DECK_NOT_FOUND` when the deck is missing or owned by another
+ * user, and 422 `DECK_ARCHIVED` when it exists but `archived_at IS NOT NULL`.
+ *
+ * The 404 / 422 split matters: a missing deck is a routing bug; an archived
+ * deck is a legitimate state the client should surface as "this deck is
+ * frozen — unarchive to make changes." The two codes let the frontend
+ * branch cleanly without parsing error strings.
+ *
+ * Reads only — no FOR UPDATE. The archive bit can race with this read in
+ * theory, but the worst case is a write landing on the same statement an
+ * archive request is committing; the row-level UPDATE that follows would
+ * still succeed under MVCC. Heavier locks are not justified here — archive
+ * is rare and the cost of a missed gate is one extra review, not data
+ * corruption.
+ */
+export async function assertDeckActive(deckId: string, userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('decks')
+    .select('archived_at')
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error !== null) {
+    throw dbError('assert deck active', error)
+  }
+  if (data === null) {
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
+  }
+  if (data.archived_at !== null) {
+    throw new AppError(422, 'Deck is archived. Unarchive it to make changes.', { code: 'DECK_ARCHIVED' })
+  }
+}
+
+/**
+ * Sets `decks.archived_at = NOW()` so the deck disappears from the active
+ * listing, the review queue, and every write path that flows through
+ * `assertDeckActive`. Idempotent: archiving an already-archived deck leaves
+ * the original timestamp in place and returns the row unchanged.
+ *
+ * Returns the refreshed deck row (without rollup stats) so the controller
+ * can echo the freshly-archived shape and clients can update their cache.
+ *
+ * Errors:
+ *   - 404 `DECK_NOT_FOUND` — deck is missing or owned by another user.
+ *
+ * Note: no version-check / `If-Match` here. Archive is a one-click action,
+ * not a content edit; coordinating an optimistic-concurrency header would
+ * be ceremony without benefit. The `version` column still bumps inside the
+ * UPDATE so any caller holding a stale snapshot will see a new version on
+ * the next PATCH.
+ */
+export async function archiveDeck(deckId: string, userId: string): Promise<ApiDeck> {
+  // Existence + ownership probe first so we can distinguish 404 from a
+  // generic DB failure. `.maybeSingle()` returns `{ data: null }` (not an
+  // error) when the row is missing.
+  const { data: existing, error: probeError } = await supabaseAdmin
+    .from('decks')
+    .select('archived_at')
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (probeError !== null) {
+    throw dbError('archive deck (probe)', probeError)
+  }
+  if (existing === null) {
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
+  }
+
+  // Idempotent: if already archived, just re-read and return the row. We
+  // deliberately don't refresh the `archived_at` timestamp — preserving the
+  // original moment-of-archive is more useful for UI ("archived 3 days ago")
+  // than a sliding timestamp would be.
+  if (existing.archived_at !== null) {
+    const { data, error } = await supabaseAdmin
+      .from('decks')
+      .select(DECK_COLUMNS)
+      .eq('id', deckId)
+      .eq('user_id', userId)
+      .single()
+    if (error !== null || data === null) {
+      throw dbError('archive deck (re-read)', error)
+    }
+    return toRow(DeckListRpcRowSchema.parse(data))
+  }
+
+  // Archive is a state-transition, not a content edit. We leave `version`
+  // alone — that column tracks content edits for the PATCH/If-Match flow,
+  // which is already blocked on archived decks by `assertDeckActive`. The
+  // `archived_at` change is itself the audit signal.
+  const { data, error } = await supabaseAdmin
+    .from('decks')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .select(DECK_COLUMNS)
+    .single()
+
+  if (error !== null || data === null) {
+    throw dbError('archive deck', error)
+  }
+
+  const row = toRow(DeckListRpcRowSchema.parse(data))
+  log.info({ userId, deckId }, 'archived deck')
+  return row
+}
+
+/**
+ * Clears `decks.archived_at`, restoring the deck to the active listing and
+ * the review queue. Idempotent: unarchiving an already-active deck is a
+ * no-op (returns the row unchanged). The `archived_at` value is *cleared*,
+ * not retained — once a deck is restored we treat the previous archive as
+ * over, and a subsequent archive will get a fresh timestamp.
+ *
+ * Errors:
+ *   - 404 `DECK_NOT_FOUND` — deck is missing or owned by another user.
+ */
+export async function unarchiveDeck(deckId: string, userId: string): Promise<ApiDeck> {
+  const { data: existing, error: probeError } = await supabaseAdmin
+    .from('decks')
+    .select('archived_at')
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (probeError !== null) {
+    throw dbError('unarchive deck (probe)', probeError)
+  }
+  if (existing === null) {
+    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
+  }
+  if (existing.archived_at === null) {
+    const { data, error } = await supabaseAdmin
+      .from('decks')
+      .select(DECK_COLUMNS)
+      .eq('id', deckId)
+      .eq('user_id', userId)
+      .single()
+    if (error !== null || data === null) {
+      throw dbError('unarchive deck (re-read)', error)
+    }
+    return toRow(DeckListRpcRowSchema.parse(data))
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('decks')
+    .update({ archived_at: null })
+    .eq('id', deckId)
+    .eq('user_id', userId)
+    .select(DECK_COLUMNS)
+    .single()
+
+  if (error !== null || data === null) {
+    throw dbError('unarchive deck', error)
+  }
+
+  const row = toRow(DeckListRpcRowSchema.parse(data))
+  log.info({ userId, deckId }, 'unarchived deck')
+  return row
 }
 
 /**

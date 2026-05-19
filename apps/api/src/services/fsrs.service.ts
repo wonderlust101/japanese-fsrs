@@ -122,6 +122,49 @@ const FsrsCardRowSchema = z.object({
 })
 type FsrsCardRow = z.infer<typeof FsrsCardRowSchema>
 
+/**
+ * Returns the subset of `cardIds` that belong to an archived deck (the
+ * caller's). Used to gate review writes (`processReview`,
+ * `processReviewBatch`) so archived decks behave like a freeze.
+ *
+ * Two round-trips, but each is small and indexed:
+ *   1. Find this user's archived deck ids (typically 0–2 rows).
+ *   2. Intersect against the supplied card ids.
+ *
+ * The two-query shape is deliberately plain instead of a single nested
+ * PostgREST join — the planner cost is the same and the SQL is much easier
+ * to reason about when a future migration touches `decks` or `cards`.
+ */
+async function getArchivedCardIds(userId: string, cardIds: readonly string[]): Promise<Set<string>> {
+  if (cardIds.length === 0) return new Set()
+
+  const { data: archivedDecks, error: decksError } = await supabaseAdmin
+    .from('decks')
+    .select('id')
+    .eq('user_id', userId)
+    .not('archived_at', 'is', null)
+
+  if (decksError !== null) {
+    throw dbError('fetch archived decks for review gate', decksError)
+  }
+  if (archivedDecks === null || archivedDecks.length === 0) return new Set()
+
+  const archivedDeckIds = archivedDecks.map((d: { id: string }) => d.id)
+
+  const { data: archivedCards, error: cardsError } = await supabaseAdmin
+    .from('cards')
+    .select('id')
+    .in('id', [...cardIds])
+    .eq('user_id', userId)
+    .in('deck_id', archivedDeckIds)
+
+  if (cardsError !== null) {
+    throw dbError('intersect archived deck cards', cardsError)
+  }
+
+  return new Set((archivedCards ?? []).map((c: { id: string }) => c.id))
+}
+
 /** review_logs row shape — includes before-snapshot columns added in migration 20260502000001. */
 const ReviewLogRowSchema = z.object({
   id:                    z.string(),
@@ -284,6 +327,14 @@ export async function processReview(
     throw new AppError(409, 'Card is suspended; unsuspend it before reviewing', { code: 'CARD_SUSPENDED' })
   }
 
+  // Archive gate: reject reviews on cards in an archived deck. Same 422 +
+  // DECK_ARCHIVED shape the deck-level write gates use, so the frontend
+  // can branch on a single code regardless of the entry point.
+  const archivedSet = await getArchivedCardIds(userId, [cardId])
+  if (archivedSet.has(cardId)) {
+    throw new AppError(422, 'Deck is archived. Unarchive it to review.', { code: 'DECK_ARCHIVED' })
+  }
+
   // ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
   const grade = mapRatingToGrade(rating)
   const reviewedAt = new Date()
@@ -413,6 +464,13 @@ export async function processReviewBatch(
     z.array(FsrsCardRowSchema).parse(cardData ?? []).map((r) => [r.id, r]),
   )
 
+  // Pre-resolve which of the requested cards live in archived decks. One
+  // small query — bounded by the batch size — and we use the resulting
+  // Set to fail those reviews per-row with a structured error (same shape
+  // as the "card_not_found" / "card_suspended" branches below). Pulled
+  // out of the per-review loop so it costs one round-trip, not N.
+  const archivedCardIds = await getArchivedCardIds(userId, cardIds)
+
   // RPC payload row mirrors the per-review fields process_review takes,
   // packed flat per the JSONB shape declared in the migration.
   interface BatchRpcRow {
@@ -464,6 +522,13 @@ export async function processReviewBatch(
     }
     if (row.is_suspended) {
       errors.push({ cardId: review.cardId, error: 'Card is suspended; unsuspend it before reviewing' })
+      continue
+    }
+    if (archivedCardIds.has(review.cardId)) {
+      // Soft-fail per-row, same as suspend/missing — the rest of the batch
+      // proceeds. Single-card processReview throws 422 DECK_ARCHIVED; here
+      // we surface a sibling error string the controller already echoes.
+      errors.push({ cardId: review.cardId, error: 'Deck is archived; unarchive it before reviewing' })
       continue
     }
 

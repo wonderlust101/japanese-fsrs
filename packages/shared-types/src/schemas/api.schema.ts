@@ -128,6 +128,13 @@ export const ApiDeckSchema = z.object({
   version:         z.number(),
   createdAt:       z.string(),
   updatedAt:       z.string(),
+  /**
+   * ISO 8601 timestamp the user archived the deck, or `null` when the deck
+   * is active. Archived decks are excluded from the default `GET /decks`
+   * listing, the `/reviews/due` queue, the review forecast, and every
+   * write path except `DELETE /decks/:id` and `POST /decks/:id/unarchive`.
+   */
+  archivedAt:      z.string().nullable(),
 })
 
 export const ApiDeckWithStatsSchema = ApiDeckSchema.extend({

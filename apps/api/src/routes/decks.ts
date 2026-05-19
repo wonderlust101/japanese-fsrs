@@ -24,4 +24,11 @@ router.delete('/:id', resourceDeleteRateLimitMiddleware, decksController.remove)
 // avoid an unrelated rename here.
 router.post('/:id/copy', subscribeRateLimitMiddleware, decksController.copy)
 
+// Lifecycle: archive / unarchive. Default user limiter only — these are
+// cheap state-flips, not expensive writes. Idempotent at the service layer
+// so repeated calls are safe (and won't reset the original archive
+// timestamp).
+router.post('/:id/archive',   decksController.archive)
+router.post('/:id/unarchive', decksController.unarchive)
+
 export default router

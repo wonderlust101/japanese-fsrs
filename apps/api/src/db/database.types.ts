@@ -170,6 +170,7 @@ export type Database = {
       }
       decks: {
         Row: {
+          archived_at: string | null
           card_count: number
           created_at: string
           deck_type: Database["public"]["Enums"]["deck_type"]
@@ -183,6 +184,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          archived_at?: string | null
           card_count?: number
           created_at?: string
           deck_type?: Database["public"]["Enums"]["deck_type"]
@@ -196,6 +198,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          archived_at?: string | null
           card_count?: number
           created_at?: string
           deck_type?: Database["public"]["Enums"]["deck_type"]
@@ -959,19 +962,34 @@ export type Database = {
           tags: string[]
         }[]
       }
+      // 20260622000000_deck_archive.sql — adds p_view parameter and
+      // archived_at to RETURNS TABLE. The hand-maintained typing was already
+      // stale (missing the Stage 3 rollups and the Stage 4 is_premade_fork
+      // drop); this update gets it back in sync with the live RPC signature.
       list_decks_paginated: {
-        Args: { p_cursor?: string; p_limit: number; p_user_id: string }
+        Args: {
+          p_cursor?: string
+          p_limit:   number
+          p_user_id: string
+          p_view?:   string
+        }
         Returns: {
-          card_count: number
-          created_at: string
-          deck_type: Database["public"]["Enums"]["deck_type"]
-          description: string
-          id: string
-          is_premade_fork: boolean
-          name: string
-          source_premade_id: string
-          updated_at: string
-          version: number
+          id:                string
+          name:              string
+          description:       string | null
+          deck_type:         Database["public"]["Enums"]["deck_type"]
+          source_premade_id: string | null
+          card_count:        number
+          version:           number
+          created_at:        string
+          updated_at:        string
+          archived_at:       string | null
+          due_count:         number
+          new_count:         number
+          mature_count:      number
+          due_new_count:     number
+          due_review_count:  number
+          last_reviewed_at:  string | null
         }[]
       }
       list_premade_decks_paginated: {

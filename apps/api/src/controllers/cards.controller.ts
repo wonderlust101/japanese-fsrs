@@ -28,6 +28,7 @@ import type {
 import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
 import * as cardService    from '../services/card.service.ts'
 import type { CrossDeckListParams } from '../services/card.service.ts'
+import * as deckService    from '../services/deck.service.ts'
 import * as aiService      from '../services/ai.service.ts'
 import * as profileService from '../services/profile.service.ts'
 import { forgetCard, rescheduleFromHistory } from '../services/fsrs.service.ts'
@@ -67,6 +68,10 @@ export const get: RequestHandler = async (req, res): Promise<void> => {
 export const create: RequestHandler = async (req, res): Promise<void> => {
   const { deckId } = nestedDeckIdParamSchema.parse(req.params)
   const input      = createCardSchema.parse(req.body)
+
+  // Archived decks are frozen — no new cards (would invisibly grow a deck
+  // the user thinks is shelved). 404/422 differentiation lives in the helper.
+  await deckService.assertDeckActive(deckId, req.user.id)
 
   const { status, body } = await withIdempotency<ApiCard>(
     req.user.id,
