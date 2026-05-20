@@ -26,8 +26,16 @@
 --   3. INSERT INTO public.review_logs (…) gains `RETURNING id INTO v_log_id`.
 --   4. Every `RETURN NEXT` branch assigns `review_log_id`
 --      (NULL on failure, `v_log_id` on success).
+--
+-- Postgres rejects `CREATE OR REPLACE` when the RETURNS TABLE shape
+-- changes; we add `review_log_id UUID` to the row, so an explicit
+-- DROP is required first. `IF EXISTS` makes the migration safe on
+-- fresh databases (no function to drop) and on any environment where
+-- the prior 20260615000000 rename had already created the old shape.
 -- =============================================================
 
+
+DROP FUNCTION IF EXISTS public.process_review_batch(UUID, JSONB, INT);
 
 CREATE OR REPLACE FUNCTION process_review_batch(
   p_user_id          UUID,
