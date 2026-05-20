@@ -13,6 +13,8 @@ import {
 } from '@/lib/actions/auth.actions'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { ContextNote, ContextStrip } from './context-strip'
+import { SectionShell } from './section-shell'
 import { useFieldFeedback } from './use-field-feedback'
 
 /**
@@ -109,6 +111,30 @@ export function SecuritySection(): React.JSX.Element {
   }
 
   return (
+    <SectionShell
+      strip={(
+        <ContextStrip>
+          <ContextNote eyebrow="Password" title="What makes a good one">
+            <p>
+              At least eight characters, preferably a phrase you can remember. Tomo never
+              shows or stores your password in plain text.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Other devices">
+            <p>
+              Signing out everywhere ends every other session immediately. Useful if you
+              suspect another device still has access.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Deletion" title="What gets removed">
+            <p>
+              Decks, cards, review history, generated sentences and mnemonics, and your
+              profile. The action takes effect right away and cannot be undone.
+            </p>
+          </ContextNote>
+        </ContextStrip>
+      )}
+    >
     <SectionCard
       id="security"
       kanji="鍵"
@@ -250,6 +276,7 @@ export function SecuritySection(): React.JSX.Element {
         )}
       </div>
     </SectionCard>
+    </SectionShell>
   )
 }
 

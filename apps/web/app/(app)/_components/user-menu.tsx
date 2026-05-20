@@ -9,7 +9,6 @@ import type { User } from '@supabase/supabase-js'
 import {
   IconChevronRight,
   IconFlag,
-  IconProfile,
   IconSettings,
   IconSignOut,
 } from '@/components/icons/chrome-marks'
@@ -29,8 +28,13 @@ const NOOP = (): void => {}
 /**
  * The account-strip control that lives at the bottom of every chrome surface
  * (Sidebar and MobileDrawer). The trigger button shows the user's initial
- * badge and display name; tapping it opens a popover with Profile, Settings,
- * Report a bug, and Sign out. Click outside or Escape closes.
+ * badge and display name; tapping it opens a popover with Settings, Report
+ * a bug, and Sign out. Click outside or Escape closes.
+ *
+ * The legacy "Profile" entry was retired: profile-style identity fields
+ * (email, display name, native language, timezone, study goal) live as the
+ * Account tab inside /settings, and the IA's "no duplicate Profile and
+ * Settings destinations" rule meant the menu shortcut was redundant.
  *
  * Icons are the geometric ink-stroke set from `@/components/icons`, sized at
  * 16px in the popover so they read as quiet leading marks beside the labels.
@@ -123,10 +127,6 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
           aria-label="Account options"
           className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-[2px] border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
-          <Link href="/settings/profile" role="menuitem" onClick={handleItemClick} className={itemClass}>
-            <IconProfile className="shrink-0 w-4 h-4 text-faded-sumi" />
-            <span className="flex-1">Profile</span>
-          </Link>
           <Link href="/settings" role="menuitem" onClick={handleItemClick} className={itemClass}>
             <IconSettings className="shrink-0 w-4 h-4 text-faded-sumi" />
             <span className="flex-1">Settings</span>

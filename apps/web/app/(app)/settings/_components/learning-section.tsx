@@ -8,6 +8,8 @@ import { updateProfileAction } from '@/lib/actions/profile.actions'
 import { isJlptLevel }         from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { ContextNote, ContextStrip } from './context-strip'
+import { SectionShell } from './section-shell'
 import { SettingsField } from './settings-field'
 import { useFieldFeedback } from './use-field-feedback'
 
@@ -124,7 +126,38 @@ export function LearningSection({
     void commit('interests', { interests: next }, () => setInterests(prev))
   }
 
+  const retentionLoadHint =
+    retention >= 0.95 ? 'High retention — expect more reviews per day.' :
+    retention >= 0.85 ? 'Balanced — Tomo\'s default for most learners.'  :
+    retention >= 0.75 ? 'Looser — fewer reviews, more occasional lapses.' :
+                        'Quite loose — lapses are normal at this target.'
+
   return (
+    <SectionShell
+      strip={(
+        <ContextStrip>
+          <ContextNote eyebrow="Daily load" title={`${dailyNew} new · up to ${dailyReview} reviews`}>
+            <p>
+              Tomo refills the new-card budget at midnight in your timezone. Reviews are
+              capped to keep mornings finite even after a missed day.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Retention" title={`${Math.round(retention * 100)}% target`}>
+            <p>{retentionLoadHint}</p>
+            <p>
+              FSRS schedules each card so you recall it at this probability when it's due.
+              Higher values mean shorter intervals; lower values mean longer gaps.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Interests">
+            <p>
+              Used only to flavour example sentences and mnemonics. Tomo never trains a
+              model on what you select — these stay on your account.
+            </p>
+          </ContextNote>
+        </ContextStrip>
+      )}
+    >
     <SectionCard
       id="learning"
       kanji="学"
@@ -243,5 +276,6 @@ export function LearningSection({
         </SettingsField>
       </div>
     </SectionCard>
+    </SectionShell>
   )
 }

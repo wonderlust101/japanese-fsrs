@@ -28,6 +28,7 @@ export default async function SettingsProfilePage(): Promise<React.JSX.Element> 
       initialDisplayName={displayName}
       initialNativeLanguage={profile.nativeLanguage}
       initialTimezone={profile.timezone}
+      initialStudyGoal={profile.studyGoal ?? ''}
     />
   )
 }

@@ -8,6 +8,8 @@ import { updateProfileAction }         from '@/lib/actions/profile.actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { ContextNote, ContextStrip } from './context-strip'
+import { SectionShell } from './section-shell'
 import { SETTINGS_INPUT_CLASS, SettingsField } from './settings-field'
 import { useFieldFeedback } from './use-field-feedback'
 
@@ -30,6 +32,7 @@ interface Props {
   initialDisplayName:    string
   initialNativeLanguage: string
   initialTimezone:       string
+  initialStudyGoal:      string
 }
 
 /**
@@ -51,6 +54,7 @@ export function ProfileSection({
   initialDisplayName,
   initialNativeLanguage,
   initialTimezone,
+  initialStudyGoal,
 }: Props): React.JSX.Element {
   const feedback = useFieldFeedback()
 
@@ -60,10 +64,12 @@ export function ProfileSection({
     isLanguageValue(initialNativeLanguage) ? initialNativeLanguage : 'en',
   )
   const [timezone,    setTimezone]    = useState(initialTimezone)
+  const [studyGoal,   setStudyGoal]   = useState(initialStudyGoal)
 
   const [committedEmail,       setCommittedEmail]       = useState(email)
   const [committedDisplayName, setCommittedDisplayName] = useState(initialDisplayName)
   const [committedTimezone,    setCommittedTimezone]    = useState(initialTimezone)
+  const [committedStudyGoal,   setCommittedStudyGoal]   = useState(initialStudyGoal)
 
   // Persistent "check your inbox" notice after a successful email submit.
   // Cleared as soon as the user starts editing the field again so a stale
@@ -75,7 +81,8 @@ export function ProfileSection({
   const emailDirty       = emailValue.trim()  !== committedEmail
   const displayNameDirty = displayName.trim() !== committedDisplayName
   const timezoneDirty    = timezone.trim()    !== committedTimezone
-  const formDirty        = emailDirty || displayNameDirty || timezoneDirty
+  const studyGoalDirty   = studyGoal          !== committedStudyGoal
+  const formDirty        = emailDirty || displayNameDirty || timezoneDirty || studyGoalDirty
 
   function handleEmailChange(value: string): void {
     setEmailValue(value)
@@ -95,6 +102,12 @@ export function ProfileSection({
     setTimezone(value)
     if (value.trim() !== committedTimezone) feedback.markDirty('timezone')
     else                                    feedback.clearDirty('timezone')
+  }
+
+  function handleStudyGoalChange(value: string): void {
+    setStudyGoal(value)
+    if (value !== committedStudyGoal) feedback.markDirty('study-goal')
+    else                              feedback.clearDirty('study-goal')
   }
 
   async function handleNativeChange(value: LanguageValue): Promise<void> {
@@ -171,6 +184,17 @@ export function ProfileSection({
       })())
     }
 
+    if (studyGoalDirty) {
+      tasks.push((async (): Promise<CommitOutcome> => {
+        try {
+          await updateProfileAction({ studyGoal })
+          return { id: 'study-goal', ok: true }
+        } catch (e) {
+          return { id: 'study-goal', ok: false, error: e instanceof Error ? e.message : 'Could not save.' }
+        }
+      })())
+    }
+
     const results = await Promise.all(tasks)
 
     for (const r of results) {
@@ -184,6 +208,7 @@ export function ProfileSection({
         }
         if (r.id === 'display-name') setCommittedDisplayName(trimmedName)
         if (r.id === 'timezone')      setCommittedTimezone(trimmedTz)
+        if (r.id === 'study-goal')    setCommittedStudyGoal(studyGoal)
       } else {
         feedback.markError(r.id, r.error ?? 'Could not save.')
       }
@@ -200,10 +225,35 @@ export function ProfileSection({
   }
 
   return (
+    <SectionShell
+      strip={(
+        <ContextStrip>
+          <ContextNote eyebrow="Locale" title="How Tomo reads your day">
+            <p>
+              Timezone determines when "today" rolls over and when the daily new-card
+              budget refreshes. Native language tunes how AI explanations are phrased,
+              never the Japanese itself.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Email change">
+            <p>
+              Updating your sign-in email sends a confirmation link to the new address.
+              Your effective email doesn't change until you click that link.
+            </p>
+          </ContextNote>
+          <ContextNote eyebrow="Goal" title="The study goal stays small">
+            <p>
+              One sentence is plenty. Tomo uses it to flavour example sentences and to
+              show on your Today screen on rough mornings.
+            </p>
+          </ContextNote>
+        </ContextStrip>
+      )}
+    >
     <SectionCard
       id="profile"
       kanji="人"
-      label="Profile"
+      label="Account"
       description="How you appear inside Tomo, and the locale your day runs on."
       variant="compact"
     >
@@ -283,6 +333,25 @@ export function ProfileSection({
             className={SETTINGS_INPUT_CLASS}
           />
         </SettingsField>
+
+        <SettingsField
+          label="Study goal"
+          hint="One short sentence. Used to personalise example sentences."
+          dirty={feedback.isDirty('study-goal')}
+          saved={feedback.isSaved('study-goal')}
+          error={feedback.getError('study-goal')}
+          htmlFor="settings-study-goal"
+        >
+          <textarea
+            id="settings-study-goal"
+            value={studyGoal}
+            onChange={(e) => handleStudyGoalChange(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder="e.g. Reading novels by next spring."
+            className={`${SETTINGS_INPUT_CLASS} resize-none leading-relaxed`}
+          />
+        </SettingsField>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 pl-3">
@@ -303,6 +372,7 @@ export function ProfileSection({
         )}
       </div>
     </SectionCard>
+    </SectionShell>
   )
 }
 

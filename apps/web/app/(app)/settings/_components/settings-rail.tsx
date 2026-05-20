@@ -7,20 +7,29 @@ import { useEffect, useRef } from 'react'
 import { SETTINGS_SECTIONS } from './settings-sections'
 
 /**
- * Horizontal tab bar for the /settings/* sub-routes. Sticks beneath the
- * TopBar and renders the three sections as kanji + label tabs, with a
- * 2px Inari Vermillion underline marking the active route. Same component
- * at every breakpoint: tabs are intrinsically narrow, so overflow-x-auto
- * only engages on extreme widths or future label growth.
+ * Horizontal tab bar for /settings/* — one component, every breakpoint.
  *
- * Replaces the previous desktop vertical rail + mobile pill row split.
- * One nav, one source of truth, one visual register.
+ * Sits sticky beneath the TopBar and stretches the full 1440px canvas.
+ * Each tab is a kanji + label pair with a 2px Inari Vermillion underline
+ * on the active route. The hairline on the nav's bottom edge runs the
+ * whole viewport so the strip reads as a deliberate header rule, not a
+ * floating pill cluster.
  *
- * The active tab auto-scrolls itself to the horizontal center on route
- * change so the user never has to hunt for the current selection inside
- * a horizontally scrolled bar (a carry-over nicety from the old mobile
- * pill row).
+ * Auto-scrolls the active tab into horizontal center on route change so
+ * the current section never sits off-screen if the row overflows (which
+ * it only does at very narrow widths or after future label growth).
+ *
+ * File name kept as `settings-rail.tsx` for now — it's the settings
+ * navigation primitive; the visual form is "tab bar". Renaming the file
+ * is a separate, churn-y move.
  */
+
+function activeSectionFromPathname(pathname: string): string | null {
+  const segments = pathname.split('/').filter((s) => s.length > 0)
+  if (segments[0] !== 'settings') return null
+  return segments[1] ?? null
+}
+
 export function SettingsTabBar(): React.JSX.Element {
   const pathname = usePathname()
   const activeId = activeSectionFromPathname(pathname)
@@ -36,7 +45,6 @@ export function SettingsTabBar(): React.JSX.Element {
 
     const tabRect       = activeTab.getBoundingClientRect()
     const containerRect = container.getBoundingClientRect()
-
     const offsetCenter =
       (tabRect.left + tabRect.width / 2) -
       (containerRect.left + containerRect.width / 2)
@@ -45,15 +53,13 @@ export function SettingsTabBar(): React.JSX.Element {
 
   return (
     <nav
-      role="navigation"
       aria-label="Settings sections"
       className="sticky top-16 z-10 border-b border-soft-hairline bg-cool-paper-base"
     >
       <div
         ref={containerRef}
         className={[
-          'mx-auto flex max-w-[52rem] gap-1 overflow-x-auto px-4 sm:px-6 lg:px-10',
-          // Hide native scrollbar; the tab row is small and self-explanatory.
+          'mx-auto flex max-w-[1440px] gap-1 overflow-x-auto',
           '[scrollbar-width:none] [-ms-overflow-style:none]',
           '[&::-webkit-scrollbar]:hidden',
         ].join(' ')}
@@ -68,7 +74,7 @@ export function SettingsTabBar(): React.JSX.Element {
               aria-current={active ? 'page' : undefined}
               className={[
                 'group relative inline-flex shrink-0 items-baseline gap-2',
-                'px-3 py-3 text-sm font-medium ui-motion-colors sm:px-4 sm:py-3.5',
+                'px-3 py-3.5 text-sm font-medium ui-motion-colors sm:px-4',
                 active ? 'text-sumi-ink' : 'text-faded-sumi hover:text-sumi-ink',
               ].join(' ')}
             >
@@ -85,10 +91,6 @@ export function SettingsTabBar(): React.JSX.Element {
                 {section.kanji}
               </span>
               <span>{section.label}</span>
-
-              {/* Active underline. Sits at -bottom-px to overlap the nav's
-                  1px soft-hairline baseline; the 2px vermillion segment
-                  visually replaces the hairline for the active tab. */}
               <span
                 aria-hidden="true"
                 className={[
@@ -102,10 +104,4 @@ export function SettingsTabBar(): React.JSX.Element {
       </div>
     </nav>
   )
-}
-
-function activeSectionFromPathname(pathname: string): string | null {
-  const segments = pathname.split('/').filter((s) => s.length > 0)
-  if (segments[0] !== 'settings') return null
-  return segments[1] ?? null
 }
