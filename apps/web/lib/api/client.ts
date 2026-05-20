@@ -23,6 +23,21 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 /** Tiny schema for the API's standard error envelope. Used at error paths. */
 const apiErrorBodySchema = z.object({ error: z.string() }).partial()
 
+/**
+ * Thrown by `apiCall` on non-2xx responses. Extends `Error` so existing
+ * `err instanceof Error` / `err.message` callers keep working unchanged;
+ * adds `status` so callers that need to distinguish (e.g. 412 If-Match
+ * conflicts from 5xx) can branch without parsing the message string.
+ */
+export class ApiHttpError extends Error {
+  readonly status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name   = 'ApiHttpError'
+    this.status = status
+  }
+}
+
 export async function apiCall<T>(
   path:           string,
   responseSchema: z.ZodType<T>,
@@ -48,7 +63,7 @@ export async function apiCall<T>(
   if (!res.ok) {
     const raw = await res.json().catch(() => ({}))
     const body = apiErrorBodySchema.safeParse(raw).data ?? {}
-    throw new Error(body.error ?? errorPrefix)
+    throw new ApiHttpError(res.status, body.error ?? errorPrefix)
   }
 
   // 204 No Content — for void responses, callers pass `voidResponseSchema`.

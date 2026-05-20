@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type ChangeEvent,
@@ -12,7 +13,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { IconUndo } from '@/components/icons/chrome-marks'
 
-import type { ApiDueCard, JLPTLevel } from '@fsrs-japanese/shared-types'
+import {
+  getWordFields,
+  getVocabularyFields,
+  type ApiDueCard,
+  type JLPTLevel,
+} from '@fsrs-japanese/shared-types'
 
 import { Button }       from '@/components/ui/Button'
 import { Input }        from '@/components/ui/Input'
@@ -29,7 +35,10 @@ import {
   generateCardPreviewAction,
   generateSentencesAction,
   generateMnemonicAction,
+  getCardByIdAction,
+  moveCardAction,
   saveCardAction,
+  updateCardAction,
 } from '@/lib/actions/cards.actions'
 import {
   useCaptureDraftActions,
@@ -92,7 +101,9 @@ const JLPT_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
 
 // ── Synthetic preview card ────────────────────────────────────────────────────
 
-function buildPreviewCard(fields: CardFields): ApiDueCard {
+// Shared by the synthetic preview card and the save/update payloads — keeps
+// "what we send to the backend" and "what the preview renders" in lockstep.
+function buildFieldsData(fields: CardFields): Record<string, unknown> {
   const example = fields.sentenceJa.trim().length > 0
     ? [{ ja: fields.sentenceJa, en: fields.sentenceEn, furigana: fields.sentenceFuri || fields.sentenceJa, audio: fields.sentenceAudio || undefined }]
     : undefined
@@ -115,6 +126,15 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
   const freq = Number(fields.frequencyRank);   if (Number.isFinite(freq) && freq > 0) fieldsData.frequencyRank = freq
   const pos  = Number(fields.pitchPosition);   if (Number.isFinite(pos))              fieldsData.pitchPosition  = pos
 
+  return fieldsData
+}
+
+function buildPreviewCard(fields: CardFields): ApiDueCard {
+  // The `ApiDueCard.fieldsData` type is the tight `FieldsData` union; the
+  // unknown-cast is safe because this synthetic preview card is
+  // layoutType='vocabulary' and `buildFieldsData` always populates
+  // word/reading/meaning — the runtime shape matches the VocabularyFieldsData
+  // arm of the union.
   return {
     id:         'preview-card',
     deckId:     'preview-deck',
@@ -122,13 +142,7 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
     state:      0,
     due:        new Date().toISOString(),
     layoutType: 'vocabulary',
-    // The local `fieldsData` is built field-by-field as Record<string, unknown>;
-    // the `ApiDueCard.fieldsData` type is the tight `FieldsData` union (Backend
-    // Completion Plan Stage 12 narrowed the sentence-layout arm). The unknown-
-    // cast is safe because this synthetic preview card is layoutType='vocabulary'
-    // and the assembly above always populates word/reading/meaning — the runtime
-    // shape matches the VocabularyFieldsData arm of the union.
-    fieldsData: fieldsData as unknown as ApiDueCard['fieldsData'],
+    fieldsData: buildFieldsData(fields) as unknown as ApiDueCard['fieldsData'],
   }
 }
 
@@ -148,8 +162,15 @@ export function GeneratedReviewClient(): React.JSX.Element {
   const captureActions = useCaptureDraftActions()
 
   const noDraft = draft.word.trim().length === 0
+  // Tracked via a ref so the redirect effect doesn't have to depend on the
+  // `saved` state (declared further down) and re-run when it changes. Once
+  // we've saved, the draft is intentionally empty (captureActions.reset()
+  // at save time) — the redirect would bounce the user off the success
+  // screen they just earned, so it must not fire post-save.
+  const hasSavedRef = useRef<boolean>(false)
   useEffect(() => {
     if (!noDraft) return
+    if (hasSavedRef.current) return
     router.replace('/add')
   }, [noDraft, router])
 
@@ -181,7 +202,29 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // `/generate-mnemonic` endpoints instead of re-running the full
   // generate-card flow. Stays null pre-save (the dedicated endpoints
   // require a saved cardId to look up `word` server-side).
-  const [savedCardId, setSavedCardId] = useState<string | null>(null)
+  const [savedCardId,  setSavedCardId]  = useState<string | null>(null)
+  // Captured at save time so PATCH can satisfy If-Match. Refreshed from
+  // every successful PATCH / move response so successive tweaks don't
+  // need a refetch.
+  const [savedVersion, setSavedVersion] = useState<number | null>(null)
+  // Tracks where the saved card currently lives so we can detect that
+  // the user picked a different deck during a tweak and route the change
+  // through `moveCardAction` before the content PATCH.
+  const [savedDeckId,  setSavedDeckId]  = useState<string | null>(null)
+
+  // Post-save iteration UI: 'creating' is the original flow up to and
+  // including the SuccessBlock terminal state; 'editing-saved' renders
+  // the form again pre-filled with the just-saved values so the user
+  // can tweak and PATCH back. The transition is triggered from the
+  // SuccessBlock's third action ("Tweak this card").
+  const [mode, setMode] = useState<'creating' | 'editing-saved'>('creating')
+  // Inline feedback under the primary action in editing-saved mode:
+  // 'updated' after a successful PATCH (cleared on next field edit),
+  // 'conflict' after a 412 reseed (cleared on next field edit).
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'updated' | 'conflict'>('idle')
+
+  // Focusable landmark for the route-like mode change.
+  const headerRef = useRef<HTMLDivElement | null>(null)
 
   // ── Decks ─────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
@@ -250,6 +293,10 @@ export function GeneratedReviewClient(): React.JSX.Element {
   const updateField = useCallback(
     <K extends keyof CardFields>(key: K, value: CardFields[K]): void => {
       setFields((prev) => ({ ...prev, [key]: value }))
+      // Status reflects the current truth, not a timed celebration —
+      // clearing on the next edit matches the existing "Ready to save."
+      // ↔ blocker pattern in this form.
+      setUpdateStatus((prev) => (prev === 'idle' ? prev : 'idle'))
     }, [])
 
   // ── Regenerate ────────────────────────────────────────────────────────
@@ -314,30 +361,142 @@ export function GeneratedReviewClient(): React.JSX.Element {
       .finally(() => setRegenMnemonic(false))
   }, [fields.word, regenMnemonic, generating, savedCardId])
 
-  // ── Save ──────────────────────────────────────────────────────────────
+  // ── Refetch helper (412 conflict path) ────────────────────────────────
+  //
+  // Reseeds form state from the server's current version of the card. Used
+  // by the 412 conflict path: the user's pending edits are discarded in
+  // favour of whatever's now persisted, so they can re-apply changes on
+  // top of fresh truth. Only the fields this form exposes are reseeded;
+  // FSRS state on the server is untouched by this flow.
+  const reseedFromServer = useCallback(async (cardId: string): Promise<void> => {
+    const fresh = await getCardByIdAction(cardId)
+    if (fresh === null) return
+    // Typed access via shared-types helpers: WordFieldsSchema covers the
+    // vocabulary/grammar base (word, reading, meaning, partOfSpeech, mnemonic,
+    // frequencyRank, nuance, pitchPosition, expressionAudio, picture);
+    // VocabularyFieldsDataSchema adds the vocabulary-only fields the form
+    // exposes (exampleSentences, kanjiBreakdown, pitchAccent, collocations,
+    // homophones). Sentence-layout cards yield null from both helpers; the
+    // form has no shape for them, so the path collapses to empty defaults.
+    const wf    = getWordFields(fresh)
+    const vocab = getVocabularyFields(fresh)
+    const first = vocab?.exampleSentences?.[0]
+    const kanji = vocab?.kanjiBreakdown    ?? []
+    const cols  = vocab?.collocations      ?? []
+    const homo  = vocab?.homophones        ?? []
+    setFields({
+      word:            wf?.word                ?? '',
+      reading:         wf?.reading             ?? '',
+      meaning:         wf?.meaning             ?? '',
+      partOfSpeech:    wf?.partOfSpeech        ?? '',
+      nuance:          wf?.nuance              ?? '',
+      mnemonic:        wf?.mnemonic            ?? '',
+      pitchAccent:     vocab?.pitchAccent      ?? '',
+      pitchPosition:   typeof wf?.pitchPosition === 'number' ? String(wf.pitchPosition) : '',
+      expressionAudio: wf?.expressionAudio     ?? '',
+      frequencyRank:   typeof wf?.frequencyRank === 'number' ? String(wf.frequencyRank)  : '',
+      jlptLevel:       fresh.jlptLevel         ?? '',
+      sentenceJa:      first?.ja               ?? '',
+      sentenceEn:      first?.en               ?? '',
+      sentenceFuri:    first?.furigana         ?? '',
+      sentenceAudio:   first?.sentenceAudio    ?? '',
+      kanjiBreakdown:  kanji.map((k) => ({ kanji: k.kanji, meaning: k.meaning, reading: k.reading })),
+      collocations:    cols.join('\n'),
+      homophones:      homo.join('\n'),
+      tags:            (fresh.tags ?? []).join('\n'),
+      picture:         wf?.picture             ?? null,
+    })
+    setDeckId(fresh.deckId)
+    setSavedDeckId(fresh.deckId)
+    setSavedVersion(fresh.version)
+  }, [])
+
+  // ── Save / Update ─────────────────────────────────────────────────────
+  //
+  // Two paths picked by `mode`:
+  //   - 'creating'       → POST via saveCardAction, capture id + version + deckId
+  //                        for any subsequent tweak loop, then show SuccessBlock.
+  //   - 'editing-saved'  → if the deck selector moved, run moveCardAction first
+  //                        (the PATCH schema is strict and doesn't accept
+  //                        deckId), then PATCH content via updateCardAction.
+  //                        Result is a discriminated `UpdateCardResult` so the
+  //                        412 If-Match conflict surfaces as `{ ok: false,
+  //                        conflict: true }` rather than a thrown error (which
+  //                        would lose its class identity across the Server
+  //                        Action boundary).
   const onSave = useCallback(async (): Promise<void> => {
     if (!canSave || deckId === null) return
     setSaving(true); setSaveError(null)
+
+    if (mode === 'creating') {
+      try {
+        const tagList = parseList(fields.tags)
+        const created = await saveCardAction(deckId, {
+          mode: 'manual',
+          fieldsData: buildFieldsData(fields),
+          layoutType: 'vocabulary',
+          ...(tagList.length > 0 ? { tags: tagList } : {}),
+          ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
+        })
+        setSavedCardId(created.id)
+        setSavedVersion(created.version)
+        setSavedDeckId(created.deckId)
+        setSaved({ count: 1, deckName: deckName ?? 'your deck' })
+        // Flip *before* resetting the draft so the noDraft → redirect
+        // effect sees `hasSavedRef.current === true` on the very next
+        // render (refs are synchronous; state is not).
+        hasSavedRef.current = true
+        captureActions.reset()
+      } catch (err: unknown) {
+        setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
+    // mode === 'editing-saved'
+    if (savedCardId === null || savedVersion === null) {
+      setSaving(false)
+      return
+    }
     try {
-      const preview = buildPreviewCard(fields)
-      const fieldsData = preview.fieldsData as Record<string, unknown>
+      let workingVersion = savedVersion
+      if (deckId !== savedDeckId) {
+        const moved = await moveCardAction(savedCardId, deckId)
+        workingVersion = moved.version
+        setSavedDeckId(moved.deckId)
+        setSavedVersion(moved.version)
+      }
       const tagList = parseList(fields.tags)
-      const created = await saveCardAction(deckId, {
-        mode: 'manual',
-        fieldsData,
-        layoutType: 'vocabulary',
-        ...(tagList.length > 0 ? { tags: tagList } : {}),
-        ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
-      })
-      setSavedCardId(created.id)
-      setSaved({ count: 1, deckName: deckName ?? 'your deck' })
-      captureActions.reset()
+      // The Record<string, unknown> shape from `buildFieldsData` matches the
+      // vocabulary arm of the FieldsData union at runtime — same justification
+      // as the cast inside `buildPreviewCard` above. The double-cast routes
+      // through `unknown` because the wire type is the tight Zod-inferred union.
+      const payload = {
+        fieldsData: buildFieldsData(fields) as unknown,
+        layoutType: 'vocabulary' as const,
+        tags:       tagList,
+        jlptLevel:  fields.jlptLevel === '' ? null : fields.jlptLevel,
+      } as unknown as Parameters<typeof updateCardAction>[2]
+      const result = await updateCardAction(savedCardId, workingVersion, payload)
+      if (result.ok) {
+        setSavedVersion(result.card.version)
+        setSaved({ count: 1, deckName: deckName ?? 'your deck' })
+        setUpdateStatus('updated')
+      } else {
+        // 412 If-Match conflict — server's version of the card has advanced
+        // since this user's last read. Discard local edits, reseed, and let
+        // the user re-apply on top of fresh truth.
+        await reseedFromServer(savedCardId)
+        setUpdateStatus('conflict')
+      }
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
+      setSaveError(err instanceof Error ? err.message : 'Could not update the card.')
     } finally {
       setSaving(false)
     }
-  }, [canSave, deckId, fields, deckName, captureActions])
+  }, [canSave, deckId, fields, deckName, captureActions, mode, savedCardId, savedVersion, savedDeckId, reseedFromServer])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
@@ -351,9 +510,16 @@ export function GeneratedReviewClient(): React.JSX.Element {
   }, [canSave, onSave])
 
   // ── Renders ───────────────────────────────────────────────────────────
-  if (noDraft) return <div className="px-6 pt-16 text-sm text-faded-sumi" role="status">Loading…</div>
+  // Only short-circuit on noDraft *before* a save has happened. After save,
+  // captureActions.reset() empties the draft intentionally — letting the
+  // loading stub steal the render would hide the SuccessBlock entirely.
+  if (noDraft && saved === null) return <div className="px-6 pt-16 text-sm text-faded-sumi" role="status">Loading…</div>
 
-  if (saved !== null) {
+  // SuccessBlock is the terminal celebratory state — shown only while we
+  // remain in 'creating' mode. 'editing-saved' keeps `saved` set (so
+  // savedCardId/version are populated and the cheap regen branch fires)
+  // but re-renders the form so the user can tweak.
+  if (saved !== null && mode === 'creating') {
     return (
       <Frame>
         <SuccessBlock
@@ -361,30 +527,53 @@ export function GeneratedReviewClient(): React.JSX.Element {
           deckName={saved.deckName}
           onAddAnother={() => startNav(() => router.push('/add'))}
           onReturnToToday={() => startNav(() => router.push('/today'))}
+          onTweak={() => {
+            setMode('editing-saved')
+            setUpdateStatus('idle')
+            setSaveError(null)
+            // Move focus to the page header so screen-reader users get
+            // the mode change announced as a meaningful landmark
+            // (CODING_STANDARDS_FRONTEND.md: "Route changes move focus
+            // to a meaningful landmark"). Defer to next tick so the
+            // re-render has mounted the header.
+            requestAnimationFrame(() => headerRef.current?.focus())
+          }}
         />
       </Frame>
     )
   }
 
-  const header = isAiPath
+  const header = mode === 'editing-saved'
     ? {
-        kanji:    '校',
-        label:    'Review prepared card',
-        title:    'Confirm what’s right.',
-        subtitle: 'Tomo drafted this from the word and sentence you chose. Fix anything that’s off.',
+        kanji:    '直',
+        label:    'Editing saved card',
+        title:    'Tweak and update.',
+        subtitle: 'Your changes will overwrite the saved card. Cheap regenerations are available below.',
       }
-    : {
-        kanji:    '確',
-        label:    'Confirm your card',
-        title:    'Fill in the back.',
-        subtitle: 'Add the details a learner will see after they flip during practice.',
-      }
+    : isAiPath
+      ? {
+          kanji:    '校',
+          label:    'Review prepared card',
+          title:    'Confirm what’s right.',
+          subtitle: 'Tomo drafted this from the word and sentence you chose. Fix anything that’s off.',
+        }
+      : {
+          kanji:    '確',
+          label:    'Confirm your card',
+          title:    'Fill in the back.',
+          subtitle: 'Add the details a learner will see after they flip during practice.',
+        }
 
-  const saveLabel = 'Save card'
+  const saveLabel = mode === 'editing-saved' ? 'Update card' : 'Save card'
 
   return (
     <Frame>
-      <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
+      {/* tabIndex={-1} makes the header a programmatic focus target without
+          putting it in the Tab sequence — used by the 'Tweak this card'
+          handler so the mode change has a screen-reader-meaningful landing. */}
+      <div ref={headerRef} tabIndex={-1} className="outline-none">
+        <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
+      </div>
 
       <SectionEyebrow />
 
@@ -604,6 +793,8 @@ export function GeneratedReviewClient(): React.JSX.Element {
             blockers={blockers}
             saveError={saveError}
             onSave={onSave}
+            mode={mode}
+            updateStatus={updateStatus}
           />
         </aside>
       </div>
@@ -833,26 +1024,41 @@ function ImageField({
 // stays visible without competing for attention.
 
 interface SaveBlockProps {
-  saveLabel: string
-  canSave:   boolean
-  saving:    boolean
-  blockers:  string[]
-  saveError: string | null
-  onSave:    () => void
+  saveLabel:    string
+  canSave:      boolean
+  saving:       boolean
+  blockers:     string[]
+  saveError:    string | null
+  onSave:       () => void
+  mode:         'creating' | 'editing-saved'
+  updateStatus: 'idle' | 'updated' | 'conflict'
 }
 
 function SaveBlock({
-  saveLabel, canSave, saving, blockers, saveError, onSave,
+  saveLabel, canSave, saving, blockers, saveError, onSave, mode, updateStatus,
 }: SaveBlockProps): React.JSX.Element {
+  // Status line precedence:
+  //   blockers > saveError (handled below) > updateStatus (post-PATCH) > mode default.
+  // The post-update line is rendered as a separate `role="status"` paragraph so
+  // a screen reader announces it without depending on whether blockers cleared.
+  const idleLine = mode === 'editing-saved' ? 'Editing saved card.' : 'Ready to save.'
   return (
     <div className="flex flex-col gap-3 px-1">
       {blockers.length > 0 ? (
         <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi" role="status">
           {blockers[0]}
         </p>
+      ) : updateStatus === 'updated' ? (
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-matcha-green" role="status">
+          Updated.
+        </p>
+      ) : updateStatus === 'conflict' ? (
+        <p className="text-sm text-error" role="alert">
+          Someone else updated this card. Your unsaved edits were replaced with the latest version.
+        </p>
       ) : (
         <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
-          Ready to save.
+          {idleLine}
         </p>
       )}
       <Button
@@ -880,9 +1086,10 @@ interface SuccessBlockProps {
   deckName:        string
   onAddAnother:    () => void
   onReturnToToday: () => void
+  onTweak:         () => void
 }
 
-function SuccessBlock({ count, deckName, onAddAnother, onReturnToToday }: SuccessBlockProps): React.JSX.Element {
+function SuccessBlock({ count, deckName, onAddAnother, onReturnToToday, onTweak }: SuccessBlockProps): React.JSX.Element {
   const cardsWord = count === 1 ? 'card' : 'cards'
   return (
     <SectionCard kanji="済" label="Saved">
@@ -892,11 +1099,14 @@ function SuccessBlock({ count, deckName, onAddAnother, onReturnToToday }: Succes
             Saved {count} {cardsWord} to {deckName}.
           </h1>
           <p className="mt-3 max-w-[55ch] text-base text-faded-sumi leading-relaxed">
-            You can keep adding, open the new card, or return to Today.
+            You can keep adding, tweak what you just saved, or return to Today.
           </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
             <Button variant="primary" size="lg" onClick={onAddAnother} autoFocus>
               Add another
+            </Button>
+            <Button variant="editorial" size="lg" onClick={onTweak}>
+              Tweak this card
             </Button>
             <Button variant="editorial" size="lg" onClick={onReturnToToday}>
               Return to Today

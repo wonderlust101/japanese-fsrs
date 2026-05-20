@@ -1,6 +1,6 @@
 'use server'
 
-import { apiCall, apiCallSafe } from '@/lib/api/client'
+import { apiCall, apiCallSafe, ApiHttpError } from '@/lib/api/client'
 import { z } from 'zod'
 import {
   ApiCardSchema,
@@ -124,21 +124,40 @@ export async function getCardByIdAction(cardId: string): Promise<ApiCard | null>
   )
 }
 
+/**
+ * Result type for `updateCardAction`. The 412 If-Match conflict is a *normal*
+ * outcome of optimistic concurrency — not an exceptional one — so it surfaces
+ * as a discriminated result rather than a thrown error. This crosses the
+ * Server-Action boundary cleanly (Next.js can't carry a typed error class
+ * from server to client). All other failures still throw via `apiCall`.
+ */
+export type UpdateCardResult =
+  | { ok: true;  card: ApiCard }
+  | { ok: false; conflict: true }
+
 export async function updateCardAction(
   cardId:  string,
   version: number,
   payload: UpdateCardPayload,
-): Promise<void> {
-  await apiCall<unknown>(
-    `/api/v1/cards/${cardId}`,
-    voidResponseSchema,
-    {
-      method:  'PATCH',
-      headers: { 'If-Match': String(version) },
-      body:    JSON.stringify(payload),
-    },
-    'Failed to update card',
-  )
+): Promise<UpdateCardResult> {
+  try {
+    const card = await apiCall<ApiCard>(
+      `/api/v1/cards/${cardId}`,
+      ApiCardSchema,
+      {
+        method:  'PATCH',
+        headers: { 'If-Match': String(version) },
+        body:    JSON.stringify(payload),
+      },
+      'Failed to update card',
+    )
+    return { ok: true, card }
+  } catch (err: unknown) {
+    if (err instanceof ApiHttpError && err.status === 412) {
+      return { ok: false, conflict: true }
+    }
+    throw err
+  }
 }
 
 export async function generateSentencesAction(
