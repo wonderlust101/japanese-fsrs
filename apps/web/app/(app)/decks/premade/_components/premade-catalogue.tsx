@@ -322,7 +322,17 @@ function CatalogueCard({
               集
             </span>
             <h2 className="min-w-0 break-words font-display text-lg font-medium text-sumi-ink">
-              {deck.name}
+              {isCopied && copiedDeck !== null ? (
+                <Link
+                  href={`/decks/${copiedDeck.id}/preview`}
+                  aria-label={`Preview ${deck.name}`}
+                  className="ui-motion-colors rounded-[2px] underline-offset-4 hover:text-inari-vermillion hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                >
+                  {deck.name}
+                </Link>
+              ) : (
+                deck.name
+              )}
             </h2>
             {isCopied && (
               <StatusPill
