@@ -5,6 +5,7 @@ import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+import { uuidIdCursorSchema } from '../schemas/common.schema.ts'
 
 const log = componentLogger('premade.service')
 import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
@@ -60,9 +61,10 @@ const PremadeDeckListRpcRowSchema = z.object({
 
 /** Cursor payload for the premade-decks-list endpoint. The
  *  `list_premade_decks_paginated` RPC re-derives the sort key from the row
- *  pointed to by `id`, so the cursor only needs to carry `id` today. Object
- *  shape leaves room to add fields without a wire-format break. */
-const premadeListCursorSchema = z.object({ id: z.string().uuid() })
+ *  pointed to by `id`, so the cursor only needs to carry `id` today. Shared
+ *  with card.service.ts and deck.service.ts via `uuidIdCursorSchema` — see
+ *  schemas/common.schema.ts. */
+const premadeListCursorSchema = uuidIdCursorSchema
 
 // Backend Completion Plan Stage 4 (copy model) envelope. The copy RPC returns
 // one row carrying the newly-created deck id and the count of cards cloned

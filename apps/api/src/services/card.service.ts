@@ -8,6 +8,7 @@ import { componentLogger } from '../lib/logger.ts';
 import { withBreaker } from '../lib/circuit-breaker.ts';
 import { encodeCursor, decodeCursor } from '../lib/http.ts';
 import { AppError, ServiceUnavailableError, dbError } from '../middleware/errorHandler.ts';
+import { uuidIdCursorSchema } from '../schemas/common.schema.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
 
 /** Breaker namespace for OpenAI embedding calls (separate from the chat
@@ -270,10 +271,10 @@ const SimilarCardRpcRowSchema = z.object({
 
 /** Cursor payload for the cards-list endpoint. The `list_cards_paginated`
  *  RPC re-derives `created_at` from the row pointed to by `id`, so the cursor
- *  itself only needs to carry `id` today. The shape is an object (not a bare
- *  string) so future versions can add fields (e.g. embedding a sort marker)
- *  without a wire break. */
-const cardListCursorSchema = z.object({ id: z.string().uuid() })
+ *  itself only needs to carry `id` today. Shared with deck.service.ts and
+ *  premade.service.ts via `uuidIdCursorSchema` — see schemas/common.schema.ts
+ *  for the rationale on the object-shape (vs bare-string) cursor. */
+const cardListCursorSchema = uuidIdCursorSchema
 
 /** Slim direct-read schemas for one-off SELECTs that don't need the full row. */
 const CardFieldsRowSchema = z.object({

@@ -5,6 +5,7 @@ import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+import { uuidIdCursorSchema } from '../schemas/common.schema.ts'
 import {
   State,
   deckTypeEnum,
@@ -96,9 +97,9 @@ const CopyDeckRpcRowSchema = z.object({
 
 /** Cursor payload for the decks-list endpoint. The `list_decks_paginated`
  *  RPC re-derives the sort timestamp from the row pointed to by `id`, so the
- *  cursor only needs to carry `id` today. Object shape preserves room for
- *  future fields without breaking the wire contract. */
-const deckListCursorSchema = z.object({ id: z.string().uuid() })
+ *  cursor only needs to carry `id` today. Shared with card.service.ts and
+ *  premade.service.ts via `uuidIdCursorSchema` — see schemas/common.schema.ts. */
+const deckListCursorSchema = uuidIdCursorSchema
 
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
 function toRow(raw: DeckDbRow): ApiDeck {
