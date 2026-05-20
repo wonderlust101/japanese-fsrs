@@ -19,9 +19,6 @@ interface Props {
 /**
  * Collapsed-by-default options panel. Expands to a small button column with
  * the actions that already have wired dialogs / handlers in the app.
- *
- * Per-deck scheduling controls (daily new-card limit, FSRS preset, review
- * order) are stubbed as a follow-up — none of those have backend wiring yet.
  */
 export function DeckOptionsPanel({
   deckId,
@@ -107,10 +104,6 @@ export function DeckOptionsPanel({
             }
             danger
           />
-          {/* Per-deck scheduling controls (daily new limit, FSRS preset,
-              review order) are a follow-up: the API currently has no
-              endpoints for them. When those land, plug them in above the
-              destructive actions. */}
         </div>
       </div>
     </SectionCard>

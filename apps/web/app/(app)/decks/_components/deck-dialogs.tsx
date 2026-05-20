@@ -164,8 +164,8 @@ export function DeleteDeckDialog({
         <p className="text-sm text-sumi-ink/85">
           Its{' '}
           <span className="font-mono tabular-nums">{cardCount}</span>{' '}
-          card{cardCount === 1 ? '' : 's'} and your review history for them will be deleted.
-          This can't be undone.
+          card{cardCount === 1 ? '' : 's'} and your review history will be deleted.
+          This can&rsquo;t be undone.
         </p>
 
         <div className="flex justify-end gap-2 pt-1">

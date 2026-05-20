@@ -17,6 +17,11 @@ export interface DeckCardProps {
   /** Display name (may differ from deck.name when a local rename override is active). */
   displayName: string
 
+  /** Premade source deck's name when this deck was copied from the catalogue,
+   *  resolved by the parent against the premade list. NULL when the deck was
+   *  created from scratch. Surfaced as a quiet "From: <name>" attribution. */
+  sourcePremadeName: string | null
+
   /** Slot index in the resolved study order, 1-based. Null for archived decks. */
   slotIndex: number | null
 
@@ -82,6 +87,7 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
   const {
     deck,
     displayName,
+    sourcePremadeName,
     slotIndex,
     viewIndex,
     isPriority,
@@ -177,18 +183,19 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
             ariaLabel={`${displayName}, deck${slotIndex !== null ? `, slot ${formatSlot(slotIndex)}` : ''}`}
           >
             {/*
-              2-row grid so the top lines (deck name | due count) sit on the
-              same horizontal line and the bottom lines (cards count |
-              new/review breakdown) sit on theirs. Action cluster spans both
-              rows and centres vertically against the stack.
+              2-row grid for the row's clickable metadata zone. The action
+              cluster lives OUTSIDE this Link so the inner action button
+              (Study / Open) navigates to its own href instead of being
+              eaten by the outer row link — a nested <a> would otherwise
+              produce invalid HTML and inconsistent click routing.
 
-              Columns: [identity 1fr][chip auto][action auto]
+              Columns: [identity 1fr][chip auto]
               Rows:    [top auto][bottom auto]
             */}
             <div
               className={[
                 'grid min-w-0 items-center',
-                'grid-cols-[minmax(0,1fr)_auto_auto] gap-x-4 gap-y-1.5',
+                'grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5',
                 'sm:gap-x-6 md:gap-x-8 lg:gap-x-10',
               ].join(' ')}
             >
@@ -209,10 +216,22 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
                 )}
               </div>
 
-              {/* Row 2, col 1 — cards-count metadata */}
+              {/* Row 2, col 1 — cards-count metadata + optional premade
+                  attribution. The attribution is a quiet "From: <name>"
+                  chip that follows the cards count after a middot. NULL
+                  for decks created from scratch; populated for decks
+                  copied from the premade catalogue (resolved by the
+                  parent against the premade list). */}
               <p className="col-start-1 row-start-2 truncate font-mono text-xs leading-tight text-faded-sumi tabular-nums">
                 <span className="text-sumi-ink/80">{cardCount}</span>
                 {' '}{cardCount === 1 ? 'card' : 'cards'}
+                {sourcePremadeName !== null && (
+                  <>
+                    <span aria-hidden="true" className="px-1.5 text-faded-sumi/60">·</span>
+                    <span className="text-faded-sumi">From: </span>
+                    <span className="text-sumi-ink/75">{sourcePremadeName}</span>
+                  </>
+                )}
               </p>
 
               {/* Rows 1+2, col 2 — chip-or-state.
@@ -226,36 +245,38 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
                 dueNewCount={dueNewCount}
                 dueReviewCount={dueReviewCount}
               />
-
-              {/* Rows 1+2, col 3 — action cluster.
-                  Spans both rows so it vertically centres against the
-                  two-line stack to its left. */}
-              {!curateMode && (
-                <div className="col-start-3 row-span-2 flex shrink-0 items-center gap-2 sm:gap-3">
-                  <PrimaryActionLink
-                    href={primaryAction.href}
-                    label={primaryAction.label}
-                    tone={primaryAction.tone}
-                  />
-                  <DeckRowKebab
-                    isPriority={isPriority}
-                    isArchived={isArchived}
-                    canMoveUp={props.canMoveUp}
-                    canMoveDown={props.canMoveDown}
-                    onSetAsPriority={props.onSetAsPriority}
-                    onRename={props.onRename}
-                    onCopy={props.onCopy}
-                    onEditOptions={props.onEditOptions}
-                    onArchive={props.onArchive}
-                    onRestore={props.onRestore}
-                    onDelete={props.onDelete}
-                    onMoveUp={props.onMoveUp}
-                    onMoveDown={props.onMoveDown}
-                  />
-                </div>
-              )}
             </div>
           </DeckRowSurface>
+
+          {/* Action cluster as a sibling of the row Link — keeps the inner
+              Study/Open Link from being nested in an <a>, which the browser
+              would resolve as a click on the outer row Link regardless of
+              stopPropagation. Matches the row's vertical padding so the
+              cluster sits on the same baseline. */}
+          {!curateMode && (
+            <div className="flex shrink-0 items-center gap-2 pr-5 py-5 sm:gap-3 sm:pr-6 sm:py-6">
+              <PrimaryActionLink
+                href={primaryAction.href}
+                label={primaryAction.label}
+                tone={primaryAction.tone}
+              />
+              <DeckRowKebab
+                isPriority={isPriority}
+                isArchived={isArchived}
+                canMoveUp={props.canMoveUp}
+                canMoveDown={props.canMoveDown}
+                onSetAsPriority={props.onSetAsPriority}
+                onRename={props.onRename}
+                onCopy={props.onCopy}
+                onEditOptions={props.onEditOptions}
+                onArchive={props.onArchive}
+                onRestore={props.onRestore}
+                onDelete={props.onDelete}
+                onMoveUp={props.onMoveUp}
+                onMoveDown={props.onMoveDown}
+              />
+            </div>
+          )}
         </div>
 
         {/* Bottom progress unit: a caption strip + a full-bleed track. The
@@ -541,7 +562,6 @@ function PrimaryActionLink({ href, label, tone }: PrimaryActionLinkProps): React
   return (
     <Link
       href={href}
-      onClick={(e) => e.stopPropagation()}
       className={[
         'ui-motion-colors inline-flex h-8 items-center gap-1 rounded-[2px] px-2.5 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',

@@ -11,6 +11,7 @@ import { Toast, useToast } from '@/components/ui/Toast'
 import { IconPlus } from '@/components/icons/chrome-marks'
 import { deleteDeckAction, getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
 import { useCopyDeck } from '@/lib/api/decks'
+import { usePremadeDecks } from '@/lib/api/premade'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { inferDeckLevel } from '@/lib/deck-level'
 
@@ -120,6 +121,17 @@ export function DeckListView(): React.JSX.Element {
   const nameOverrides = useLocalNameOverrides()
 
   const copyMutation = useCopyDeck()
+
+  // Premade catalogue → name lookup for the "From: <name>" attribution chip
+  // on rows where the deck was copied from a premade source. Shared cache
+  // with the catalogue page (`/decks/premade`) via TanStack Query's queryKey
+  // dedupe, so this is free when the user has already visited the catalogue.
+  const premadeDecksQuery = usePremadeDecks()
+  const premadeNameById = useMemo<ReadonlyMap<string, string>>(() => {
+    const map = new Map<string, string>()
+    for (const p of premadeDecksQuery.data?.items ?? []) map.set(p.id, p.name)
+    return map
+  }, [premadeDecksQuery.data])
 
   // ── Local UI state ────────────────────────────────────────────────────
   const [searchInputValue, setSearchInputValue] = useState('')
@@ -518,6 +530,7 @@ export function DeckListView(): React.JSX.Element {
                   key={deck.id}
                   deck={deck}
                   displayName={displayNameOf(deck)}
+                  sourcePremadeName={deck.sourcePremadeId !== null ? (premadeNameById.get(deck.sourcePremadeId) ?? null) : null}
                   slotIndex={isArchived ? null : slotIndex}
                   viewIndex={viewIndex}
                   isPriority={isPriority}
