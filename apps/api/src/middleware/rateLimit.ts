@@ -67,6 +67,11 @@ const RATE_LIMITING_ENABLED = env.NODE_ENV === 'production'
 // stays accurate across SDK upgrades.
 type RatelimitResponse = Awaited<ReturnType<Ratelimit['limit']>>
 
+// Upstash's Duration string type isn't exported either; derive from the
+// `slidingWindow` parameter so a future Duration-string addition (e.g. '7 d')
+// stays type-correct without manual maintenance here.
+type SlidingWindowDuration = Parameters<typeof Ratelimit.slidingWindow>[1]
+
 // ─── Header helper ────────────────────────────────────────────────────────────
 
 /**
@@ -105,61 +110,275 @@ export function tighter(a: RatelimitResponse, b: RatelimitResponse): RatelimitRe
   return a.remaining <= b.remaining ? a : b
 }
 
-// ─── AI rate limit (per-minute) ───────────────────────────────────────────────
+// ─── Factory ──────────────────────────────────────────────────────────────────
+//
+// Most limiters share the same shape: derive a key from the request, run one
+// `Ratelimit.limit(key)`, emit headers, throw 429 on `!success`. The factory
+// below captures that pattern so each limiter is defined as a small spec
+// object instead of a ~25-line imperative middleware function. The two
+// exceptions are `authRateLimitMiddleware` (runs two parallel limiters with
+// conditional fall-through) and the bespoke OTP-verify limiter (keys off
+// email-or-IP) — both kept as explicit handlers below.
 
-const aiRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(20, '1 m'),
-  prefix: 'ratelimit:ai',
-})
+interface LimiterSpec {
+  /** Header / log label, e.g. 'ai'. */
+  readonly label: string
+  /** Redis key prefix passed to `new Ratelimit`, e.g. 'ratelimit:ai'. */
+  readonly prefix: string
+  /** Sliding-window length string, e.g. '1 m'. */
+  readonly window: SlidingWindowDuration
+  /** Sliding-window capacity. */
+  readonly max: number
+  /** Stable error code from the registry in errorHandler.ts. */
+  readonly code: string
+  /** User-facing 429 message. */
+  readonly message: string
+  /** Derives the per-request bucket key. Typically `${req.user.id}:label`. */
+  readonly keyFn: (req: Request) => string
+}
+
+/** Convenience: every per-user limiter keys on `${userId}:label`. */
+function userKey(label: string): (req: Request) => string {
+  return (req) => `${req.user.id}:${label}`
+}
+
+function createLimiterMiddleware(spec: LimiterSpec): RequestHandler {
+  const ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(spec.max, spec.window),
+    prefix:  spec.prefix,
+  })
+
+  return async (req, res, next): Promise<void> => {
+    if (!RATE_LIMITING_ENABLED) { next(); return }
+    try {
+      const key    = spec.keyFn(req)
+      const result = await ratelimit.limit(key)
+      applyRateLimitHeaders(req, res, result, spec.label, key)
+      if (!result.success) {
+        throw new AppError(429, spec.message, { code: spec.code })
+      }
+      next()
+    } catch (err) {
+      failOpenOnInfraError(err, req, next)
+    }
+  }
+}
+
+// ─── Per-user limiters (uniform pattern) ──────────────────────────────────────
+//
+// Each block is the spec + the corresponding export. The order matches the
+// historic file order so a git blame on any specific limiter still surfaces
+// the original commit. The error-code table in errorHandler.ts is the source
+// of truth for `code` values; do not invent new codes here without adding the
+// matching row there.
 
 /**
  * Rate-limits AI endpoints per authenticated user (20/min). Must run after
  * authMiddleware. Apply alongside `aiDailyQuotaMiddleware` for cost control.
  */
-export const aiRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:ai`
-    const result = await aiRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'ai', key)
-    if (!result.success) {
-      throw new AppError(429, 'AI rate limit exceeded. Please wait before making another request.', { code: 'RATE_LIMITED_AI_MINUTE' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── AI daily quota ───────────────────────────────────────────────────────────
-
-const aiDailyQuotaRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(200, '24 h'),
-  prefix: 'ratelimit:ai-daily',
+export const aiRateLimitMiddleware = createLimiterMiddleware({
+  label:   'ai',
+  prefix:  'ratelimit:ai',
+  window:  '1 m',
+  max:     20,
+  code:    'RATE_LIMITED_AI_MINUTE',
+  message: 'AI rate limit exceeded. Please wait before making another request.',
+  keyFn:   userKey('ai'),
 })
 
 /**
  * Daily-quota cap on AI endpoints (200/24h per user). Cost-control alongside
  * the per-minute `aiRateLimitMiddleware`. Must run after authMiddleware.
  */
-export const aiDailyQuotaMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:ai-daily`
-    const result = await aiDailyQuotaRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'ai-daily', key)
-    if (!result.success) {
-      throw new AppError(429, 'Daily AI quota exceeded. Try again tomorrow.', { code: 'RATE_LIMITED_AI_DAILY' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
+export const aiDailyQuotaMiddleware = createLimiterMiddleware({
+  label:   'ai-daily',
+  prefix:  'ratelimit:ai-daily',
+  window:  '24 h',
+  max:     200,
+  code:    'RATE_LIMITED_AI_DAILY',
+  message: 'Daily AI quota exceeded. Try again tomorrow.',
+  keyFn:   userKey('ai-daily'),
+})
 
-// ─── Auth rate limit (split: per-email + per-IP) ──────────────────────────────
+/**
+ * Generous floor on every authenticated request. Catches scripted abuse from
+ * a token holder; never trips legitimate UI traffic. Per-endpoint limiters
+ * (which always have lower thresholds) trip first on costly endpoints.
+ * Must run after authMiddleware.
+ */
+export const defaultUserRateLimitMiddleware = createLimiterMiddleware({
+  label:   'default-user',
+  prefix:  'ratelimit:default-user',
+  window:  '1 m',
+  max:     240,
+  code:    'RATE_LIMITED_DEFAULT_USER',
+  message: 'Request rate limit exceeded. Please slow down.',
+  keyFn:   userKey('default'),
+})
+
+/**
+ * Batch-flush limiter (5 / 5 min / user). Bounds the worst case
+ * (5 × 500 reviews × ~50 ms ≈ 125 s of CPU per 5 min) while leaving headroom
+ * for legitimate offline-buffer flushes.
+ */
+export const batchRateLimitMiddleware = createLimiterMiddleware({
+  label:   'batch',
+  prefix:  'ratelimit:batch',
+  window:  '5 m',
+  max:     5,
+  code:    'RATE_LIMITED_BATCH',
+  message: 'Batch sync rate limit exceeded. Please wait before retrying.',
+  keyFn:   userKey('batch'),
+})
+
+/**
+ * Subscribe limiter (15 / 15 min / user). The subscribe RPC clones every
+ * source card into a new owned deck — most expensive write path.
+ */
+export const subscribeRateLimitMiddleware = createLimiterMiddleware({
+  label:   'subscribe',
+  prefix:  'ratelimit:subscribe',
+  window:  '15 m',
+  max:     15,
+  code:    'RATE_LIMITED_SUBSCRIBE',
+  message: 'Subscription rate limit exceeded. Please wait before retrying.',
+  keyFn:   userKey('subscribe'),
+})
+
+/**
+ * Single-review submit limiter (60 / min / user). Bounds review-log spam
+ * without hampering active study (typical pace is 0.2–0.5 cards/sec).
+ */
+export const submitRateLimitMiddleware = createLimiterMiddleware({
+  label:   'submit',
+  prefix:  'ratelimit:submit',
+  window:  '1 m',
+  max:     60,
+  code:    'RATE_LIMITED_SUBMIT',
+  message: 'Submit rate limit exceeded. Please slow down.',
+  keyFn:   userKey('submit'),
+})
+
+/**
+ * Password-change limiter (5 / 15 min / user). Bounds brute-force of the
+ * `currentPassword` field on POST /api/v1/auth/change-password while leaving
+ * room for typo retries.
+ */
+export const passwordChangeRateLimitMiddleware = createLimiterMiddleware({
+  label:   'password-change',
+  prefix:  'ratelimit:password-change',
+  window:  '15 m',
+  max:     5,
+  code:    'RATE_LIMITED_PASSWORD_CHANGE',
+  message: 'Password-change rate limit exceeded. Please wait before retrying.',
+  keyFn:   userKey('password-change'),
+})
+
+/**
+ * Account-deletion limiter (3 / hour / user). Account deletion is irreversible
+ * — caps abuse from a stolen access token without hampering legitimate retries
+ * on a flaky network.
+ */
+export const accountDeleteRateLimitMiddleware = createLimiterMiddleware({
+  label:   'account-delete',
+  prefix:  'ratelimit:account-delete',
+  window:  '1 h',
+  max:     3,
+  code:    'RATE_LIMITED_ACCOUNT_DELETE',
+  message: 'Account deletion rate limit exceeded. Please wait before retrying.',
+  keyFn:   userKey('account-delete'),
+})
+
+/**
+ * Unsubscribe limiter (10 / hour / user). Unsubscribe cascade-deletes the
+ * forked deck and all of its cards — large blast radius.
+ */
+export const unsubscribeRateLimitMiddleware = createLimiterMiddleware({
+  label:   'unsubscribe',
+  prefix:  'ratelimit:unsubscribe',
+  window:  '1 h',
+  max:     10,
+  code:    'RATE_LIMITED_UNSUBSCRIBE',
+  message: 'Unsubscribe rate limit exceeded. Please wait before retrying.',
+  keyFn:   userKey('unsubscribe'),
+})
+
+/**
+ * Costly-read limiter (120 / min / user) for pgvector cosine search. Trips
+ * before the 240/min default-user backstop on this specific endpoint.
+ */
+export const similarSearchRateLimitMiddleware = createLimiterMiddleware({
+  label:   'similar',
+  prefix:  'ratelimit:similar',
+  window:  '1 m',
+  max:     120,
+  code:    'RATE_LIMITED_SIMILAR',
+  message: 'Similar-card search rate limit exceeded. Please slow down.',
+  keyFn:   userKey('similar'),
+})
+
+/**
+ * Dashboard limiter (120 / min / user) for the 5-RPC analytics bundle.
+ * Trips before the 240/min default-user backstop on this endpoint.
+ */
+export const analyticsDashboardRateLimitMiddleware = createLimiterMiddleware({
+  label:   'analytics-dashboard',
+  prefix:  'ratelimit:analytics-dashboard',
+  window:  '1 m',
+  max:     120,
+  code:    'RATE_LIMITED_DASHBOARD',
+  message: 'Dashboard rate limit exceeded. Please slow down.',
+  keyFn:   userKey('analytics-dashboard'),
+})
+
+/**
+ * Shared limiter for cascade-DELETE endpoints (decks, cards) — 120 / min / user.
+ * The work is symmetric (cascade fan-out via FK constraints) and the actor is
+ * the same authenticated user; one bucket is sufficient.
+ */
+export const resourceDeleteRateLimitMiddleware = createLimiterMiddleware({
+  label:   'resource-delete',
+  prefix:  'ratelimit:resource-delete',
+  window:  '1 m',
+  max:     120,
+  code:    'RATE_LIMITED_RESOURCE_DELETE',
+  message: 'Resource-delete rate limit exceeded. Please slow down.',
+  keyFn:   userKey('resource-delete'),
+})
+
+/**
+ * Stricter limiter for `POST /verify-otp` specifically (5 / hour / email).
+ * Six-digit OTPs have a 1M-deep search space; the standard 5/15min/email plus
+ * distributed IPs could make sustained guessing feasible. Apply AFTER
+ * `authRateLimitMiddleware`.
+ *
+ * Email-missing fallback: keys off the request IP rather than a global
+ * `'anon'` bucket. The previous fallback shared one 5/hour budget across
+ * every email-less call from any client — a single malformed-body caller
+ * could DoS the whole flow system-wide. Mirrors the IP-keyed fallback
+ * pattern in `authRateLimitMiddleware`.
+ */
+export const authOtpVerifyRateLimitMiddleware = createLimiterMiddleware({
+  label:   'auth:otp-verify',
+  prefix:  'ratelimit:auth:otp-verify',
+  window:  '1 h',
+  max:     5,
+  code:    'RATE_LIMITED_OTP_VERIFY',
+  message: 'Too many OTP attempts. Try again in an hour.',
+  keyFn:   (req) => {
+    const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
+    const ip    = req.ip ?? 'unknown'
+    return email || `ip:${ip}`
+  },
+})
+
+// ─── Bespoke: auth (parallel email + IP limiters) ─────────────────────────────
+//
+// Doesn't fit the factory because it runs two limiters in parallel and reports
+// the more-restrictive of the two via `tighter()`. Falls back to IP-only when
+// the request body has no `email` field (refresh / cancel-signup).
 
 // Two parallel limiters. The previous tuple `${email}:${ip}` collapsed both
 // dimensions into a single counter that an attacker could circumvent by
@@ -222,300 +441,6 @@ export const authRateLimitMiddleware: RequestHandler = async (req, res, next): P
       if (!ipResult.success) {
         throw new AppError(429, 'Too many auth attempts. Try again later.', { code: 'RATE_LIMITED_AUTH' })
       }
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── OTP-verify limit (stricter; per email) ───────────────────────────────────
-
-const authOtpVerifyRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '1 h'),
-  prefix: 'ratelimit:auth:otp-verify',
-})
-
-/**
- * Stricter limiter for `POST /verify-otp` specifically. Six-digit OTPs have a
- * 1M-deep search space; the standard 5/15min/email plus distributed IPs
- * could make sustained guessing feasible. 5/hour/email closes that.
- * Apply AFTER `authRateLimitMiddleware`.
- *
- * Email-missing fallback: keys off the request IP rather than a global
- * `'anon'` bucket. The previous fallback shared one 5/hour budget across
- * every email-less call from any client — a single malformed-body caller
- * could DoS the whole flow system-wide. Mirrors the IP-keyed fallback
- * pattern in `authRateLimitMiddleware`.
- */
-export const authOtpVerifyRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
-    const ip    = req.ip ?? 'unknown'
-    const key   = email || `ip:${ip}`
-    const result = await authOtpVerifyRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'auth:otp-verify', key)
-    if (!result.success) {
-      throw new AppError(429, 'Too many OTP attempts. Try again in an hour.', { code: 'RATE_LIMITED_OTP_VERIFY' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Default per-user backstop ────────────────────────────────────────────────
-
-const defaultUserRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(240, '1 m'),
-  prefix: 'ratelimit:default-user',
-})
-
-/**
- * Generous floor on every authenticated request. Catches scripted abuse from
- * a token holder; never trips legitimate UI traffic. Per-endpoint limiters
- * (which always have lower thresholds) trip first on costly endpoints.
- * Must run after authMiddleware.
- */
-export const defaultUserRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:default`
-    const result = await defaultUserRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'default-user', key)
-    if (!result.success) {
-      throw new AppError(429, 'Request rate limit exceeded. Please slow down.', { code: 'RATE_LIMITED_DEFAULT_USER' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Batch-review limit ───────────────────────────────────────────────────────
-
-// Sliding window: 5 batch flushes per 5 minutes per user. Bounds the worst case
-// (5 × 500 reviews × ~50 ms ≈ 125 s of CPU per 5 min) while leaving headroom
-// for legitimate offline-buffer flushes.
-const batchRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '5 m'),
-  prefix: 'ratelimit:batch',
-})
-
-export const batchRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:batch`
-    const result = await batchRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'batch', key)
-    if (!result.success) {
-      throw new AppError(429, 'Batch sync rate limit exceeded. Please wait before retrying.', { code: 'RATE_LIMITED_BATCH' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Subscribe (premade fork) limit ───────────────────────────────────────────
-
-// Sliding window: 15 subscribes per 15 mins per user. The subscribe RPC clones
-// every source card into a new owned deck — most expensive write path.
-const subscribeRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(15, '15 m'),
-  prefix: 'ratelimit:subscribe',
-})
-
-export const subscribeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:subscribe`
-    const result = await subscribeRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'subscribe', key)
-    if (!result.success) {
-      throw new AppError(429, 'Subscription rate limit exceeded. Please wait before retrying.', { code: 'RATE_LIMITED_SUBSCRIBE' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Single-review submit limit ───────────────────────────────────────────────
-
-// Sliding window: 60 single-review submits per minute per user. Bounds review-log
-// spam without hampering active study (typical pace is 0.2–0.5 cards/sec).
-const submitRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(60, '1 m'),
-  prefix: 'ratelimit:submit',
-})
-
-export const submitRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:submit`
-    const result = await submitRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'submit', key)
-    if (!result.success) {
-      throw new AppError(429, 'Submit rate limit exceeded. Please slow down.', { code: 'RATE_LIMITED_SUBMIT' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Password-change limit ────────────────────────────────────────────────────
-
-// Sliding window: 5 password-change attempts per 15 mins per user. Bounds
-// brute-force of the `currentPassword` field on POST /api/v1/auth/change-password
-// while leaving room for typo retries.
-const passwordChangeRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '15 m'),
-  prefix: 'ratelimit:password-change',
-})
-
-export const passwordChangeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:password-change`
-    const result = await passwordChangeRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'password-change', key)
-    if (!result.success) {
-      throw new AppError(429, 'Password-change rate limit exceeded. Please wait before retrying.', { code: 'RATE_LIMITED_PASSWORD_CHANGE' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Account-deletion limit ───────────────────────────────────────────────────
-
-// Sliding window: 3 account deletions per hour per user. Account deletion is
-// irreversible — caps abuse from a stolen access token without hampering
-// legitimate retries on a flaky network.
-const accountDeleteRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(3, '1 h'),
-  prefix: 'ratelimit:account-delete',
-})
-
-export const accountDeleteRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:account-delete`
-    const result = await accountDeleteRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'account-delete', key)
-    if (!result.success) {
-      throw new AppError(429, 'Account deletion rate limit exceeded. Please wait before retrying.', { code: 'RATE_LIMITED_ACCOUNT_DELETE' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Unsubscribe (premade fork) limit ─────────────────────────────────────────
-
-// Sliding window: 10 unsubscribes per hour per user. Unsubscribe cascade-deletes
-// the forked deck and all of its cards — large blast radius.
-const unsubscribeRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '1 h'),
-  prefix: 'ratelimit:unsubscribe',
-})
-
-export const unsubscribeRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:unsubscribe`
-    const result = await unsubscribeRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'unsubscribe', key)
-    if (!result.success) {
-      throw new AppError(429, 'Unsubscribe rate limit exceeded. Please wait before retrying.', { code: 'RATE_LIMITED_UNSUBSCRIBE' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-// ─── Per-endpoint targeted limits ─────────────────────────────────────────────
-
-// 120/min/user on costly reads (pgvector cosine + 5-RPC dashboard bundle) and
-// cascade DELETEs. Trips before the 240/min default-user backstop on these
-// specific endpoints.
-
-const similarSearchRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(120, '1 m'),
-  prefix: 'ratelimit:similar',
-})
-
-export const similarSearchRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:similar`
-    const result = await similarSearchRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'similar', key)
-    if (!result.success) {
-      throw new AppError(429, 'Similar-card search rate limit exceeded. Please slow down.', { code: 'RATE_LIMITED_SIMILAR' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-const analyticsDashboardRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(120, '1 m'),
-  prefix: 'ratelimit:analytics-dashboard',
-})
-
-export const analyticsDashboardRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:analytics-dashboard`
-    const result = await analyticsDashboardRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'analytics-dashboard', key)
-    if (!result.success) {
-      throw new AppError(429, 'Dashboard rate limit exceeded. Please slow down.', { code: 'RATE_LIMITED_DASHBOARD' })
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
-
-const resourceDeleteRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(120, '1 m'),
-  prefix: 'ratelimit:resource-delete',
-})
-
-/**
- * Shared limiter for cascade-DELETE endpoints (decks, cards). The work is
- * symmetric (cascade fan-out via FK constraints) and the actor is the same
- * authenticated user; one bucket is sufficient.
- */
-export const resourceDeleteRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const key = `${req.user.id}:resource-delete`
-    const result = await resourceDeleteRatelimit.limit(key)
-    applyRateLimitHeaders(req, res, result, 'resource-delete', key)
-    if (!result.success) {
-      throw new AppError(429, 'Resource-delete rate limit exceeded. Please slow down.', { code: 'RATE_LIMITED_RESOURCE_DELETE' })
     }
     next()
   } catch (err) {
