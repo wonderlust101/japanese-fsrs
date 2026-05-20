@@ -226,8 +226,6 @@ const FSRS_FULL: FsrsState = {
   trueRetention:    0.88,
   stability:        buildStabilityDist(),
   difficulty:       buildDifficultyDist(),
-  optimizationStatus: 'ready',
-  lastOptimizedAt:    '2026-04-30',
 }
 
 const FSRS_PENDING: FsrsState = {
@@ -235,17 +233,13 @@ const FSRS_PENDING: FsrsState = {
   trueRetention:    0.82,
   stability:        buildStabilityDist(),
   difficulty:       buildDifficultyDist(),
-  optimizationStatus: 'pending',
-  lastOptimizedAt:    '2026-03-12',
 }
 
-const FSRS_NEVER: FsrsState = {
+const FSRS_EMPTY: FsrsState = {
   desiredRetention: 0.90,
   trueRetention:    0.85,
   stability:        [],
   difficulty:       [],
-  optimizationStatus: 'never-run',
-  lastOptimizedAt:    null,
 }
 
 // ── Fixture builders ────────────────────────────────────────────────────────
@@ -280,7 +274,7 @@ export function buildLimitedFixture(): StatisticsData {
     intervals:     INTERVALS_LIMITED,
     cumulative:    buildCumulativeDue(41, 90, 3),
     overdue:       OVERDUE_CLEAR,
-    fsrs:          FSRS_NEVER,
+    fsrs:          FSRS_EMPTY,
   }
 }
 
@@ -291,14 +285,5 @@ export function buildHeavyBacklogFixture(): StatisticsData {
     ...base,
     overdue: OVERDUE_HEAVY,
     fsrs:    FSRS_PENDING,
-  }
-}
-
-/** Full data shape, but FSRS hasn't been run yet. */
-export function buildNoFsrsFixture(): StatisticsData {
-  const base = buildFullFixture()
-  return {
-    ...base,
-    fsrs: FSRS_NEVER,
   }
 }

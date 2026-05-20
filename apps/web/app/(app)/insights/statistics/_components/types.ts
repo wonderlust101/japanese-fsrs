@@ -87,9 +87,6 @@ export interface FsrsState {
   trueRetention:    number  // 0–1
   stability:        ReadonlyArray<FsrsHistogramBucket>
   difficulty:       ReadonlyArray<FsrsHistogramBucket>
-  optimizationStatus: 'ready' | 'pending' | 'never-run'
-  /** ISO date string, or null. */
-  lastOptimizedAt:  string | null
 }
 
 // ── Aggregate page data ─────────────────────────────────────────────────────

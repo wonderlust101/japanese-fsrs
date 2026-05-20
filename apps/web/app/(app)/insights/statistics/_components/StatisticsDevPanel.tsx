@@ -8,7 +8,6 @@ import {
   buildFullFixture,
   buildHeavyBacklogFixture,
   buildLimitedFixture,
-  buildNoFsrsFixture,
 } from './fixtures'
 import type { StatisticsData } from './types'
 
@@ -17,7 +16,6 @@ export type StatisticsFixtureKey =
   | 'full'
   | 'limited'
   | 'heavy-backlog'
-  | 'no-fsrs'
   | 'loading'
   | 'error'
 
@@ -32,10 +30,9 @@ export interface StatisticsDevState {
 
 const FIXTURES: { key: StatisticsFixtureKey; label: string; description: string }[] = [
   { key: 'off',           label: 'Off',             description: 'Live data — render the real statistics.' },
-  { key: 'full',          label: 'Full data',       description: 'Mid-progress N3 learner, 365 days of activity, FSRS optimized.' },
-  { key: 'limited',       label: 'Limited data',    description: 'New user, 2 weeks of activity, FSRS never run.' },
-  { key: 'heavy-backlog', label: 'Heavy backlog',   description: '84 overdue cards, FSRS optimization pending.' },
-  { key: 'no-fsrs',       label: 'No FSRS yet',     description: 'Full activity but FSRS hasn\'t been optimized.' },
+  { key: 'full',          label: 'Full data',       description: 'Mid-progress N3 learner, 365 days of activity.' },
+  { key: 'limited',       label: 'Limited data',    description: 'New user, 2 weeks of activity.' },
+  { key: 'heavy-backlog', label: 'Heavy backlog',   description: '84 overdue cards.' },
   { key: 'loading',       label: 'Loading',         description: 'Show full-page skeletons.' },
   { key: 'error',         label: 'Error',           description: 'Show inline error alert.' },
 ]
@@ -55,7 +52,6 @@ export function useStatisticsDevState(): StatisticsDevState {
     if (fixture === 'full')          return buildFullFixture()
     if (fixture === 'limited')       return buildLimitedFixture()
     if (fixture === 'heavy-backlog') return buildHeavyBacklogFixture()
-    if (fixture === 'no-fsrs')       return buildNoFsrsFixture()
     return null
   }, [isDev, fixture])
 

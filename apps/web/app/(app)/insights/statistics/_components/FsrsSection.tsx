@@ -2,7 +2,6 @@ import { SectionCard } from '@/components/ui/SectionCard'
 
 import { DesiredRetentionDial } from './DesiredRetentionDial'
 import { FsrsHistogram } from './FsrsHistogram'
-import { OptimizationStatus } from './OptimizationStatus'
 import { RetentionComparison } from './RetentionComparison'
 import { STATISTICS_SECTIONS_BY_ID } from './sections'
 import { StatisticsSection } from './StatisticsSection'
@@ -15,14 +14,13 @@ interface FsrsSectionProps {
 const SECTION = STATISTICS_SECTIONS_BY_ID.fsrs
 
 /**
- * FSRS section. Five visualizations, each with a one-sentence plain-
+ * FSRS section. Four visualizations, each with a one-sentence plain-
  * English caption (per IA's `plain-language descriptions` requirement):
  *
  *   1. Desired-retention dial (target vs actual)
  *   2. Retention comparison (paired bars + delta)
  *   3. Stability distribution (how durable cards are)
  *   4. Difficulty distribution (how hard cards feel)
- *   5. Optimization status indicator
  */
 export function FsrsSection({ fsrs }: FsrsSectionProps): React.JSX.Element {
   return (
@@ -65,17 +63,6 @@ export function FsrsSection({ fsrs }: FsrsSectionProps): React.JSX.Element {
           <FsrsHistogram
             buckets={fsrs.difficulty}
             ariaLabel={`Difficulty distribution across ${fsrs.difficulty.length} buckets.`}
-          />
-        </SectionCard>
-
-        <SectionCard
-          kanji="調"
-          label="Optimization status"
-          description="Whether FSRS parameters are tuned to your current review history."
-        >
-          <OptimizationStatus
-            status={fsrs.optimizationStatus}
-            lastOptimizedAt={fsrs.lastOptimizedAt}
           />
         </SectionCard>
       </div>

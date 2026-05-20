@@ -51,11 +51,7 @@ export interface LiveStatisticsInputs {
 
 /**
  * Maps the bundled live-data inputs onto the StatisticsData shape the page's
- * five sections already consume. Sections whose data the backend doesn't
- * expose yet (answer-button distribution, FSRS stability/difficulty
- * distributions, FSRS optimization status, interval distribution) receive
- * zeroes or empty arrays — every consumer renders its "no data yet" notice
- * gracefully for those cases.
+ * five sections already consume.
  */
 export function adaptLiveStatistics(
   inputs: LiveStatisticsInputs,
@@ -257,13 +253,6 @@ function adaptFsrs({ retentionTarget, activity, stability, difficulty }: FsrsAda
     trueRetention,
     stability:  toFsrsHistogramBuckets(stability),
     difficulty: toFsrsHistogramBuckets(difficulty),
-    // Optimization status is deferred. There's no FSRS-weight refit
-    // process to status against (no `profiles.fsrs_weights_last_fit`
-    // column today); a column that's NULL for every user forever would
-    // be worse than this honest `'never-run'` reading. Re-evaluate when
-    // the optimizer ships.
-    optimizationStatus: 'never-run',
-    lastOptimizedAt:    null,
   }
 }
 
