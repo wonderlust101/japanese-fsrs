@@ -44,7 +44,7 @@ export function DrillCardDisplay({
         label=""
         chrome="list"
         stripeTone="brand"
-        className="mx-auto w-full max-w-[640px]"
+        className="w-full"
       >
         <div className="flex min-h-[16rem] items-center justify-center px-6 py-10">
           <p className="text-base italic text-faded-sumi">
@@ -62,7 +62,7 @@ export function DrillCardDisplay({
       label=""
       chrome="list"
       stripeTone="brand"
-      className="mx-auto w-full max-w-[640px]"
+      className="w-full"
     >
       <div className="flex min-h-[18rem] flex-col gap-y-6 px-2 py-6 sm:px-4 sm:py-8">
         {renderCardBody(card.layoutType, card.fieldsData, showAnswer)}

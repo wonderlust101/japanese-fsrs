@@ -9,7 +9,13 @@ interface SessionTopBarProps {
   offline:       boolean
   syncError:     boolean
   onEndSession:  () => void
-  onOpenTeach:   () => void
+  onOpenTeach?:  () => void
+  /** Eyebrow label to the right of the kanji. Defaults to `Reviewing`. */
+  eyebrowLabel?: string
+  /** Kanji ornament. Defaults to `復` (review). */
+  eyebrowKanji?: string
+  /** End-session button copy. Defaults to `End session`. */
+  endLabel?:     string
 }
 
 // Page-scope chrome for the review session. Fixed to the top of the layout
@@ -17,6 +23,10 @@ interface SessionTopBarProps {
 // hairline progress tucked beneath. Position-in-queue lives in the hairline
 // alone; learner prefs live in the in-card overflow menu so the chrome
 // stays meditative.
+//
+// Also consumed by the weak-spot drill session (different `eyebrowLabel` +
+// `endLabel`, same kanji, same vermillion accent). The drill is a 1-to-1
+// visual copy of the review session; this component is the source of truth.
 
 export function SessionTopBar({
   percentage,
@@ -24,6 +34,9 @@ export function SessionTopBar({
   syncError,
   onEndSession,
   onOpenTeach,
+  eyebrowLabel = 'Reviewing',
+  eyebrowKanji = '復',
+  endLabel = 'End session',
 }: SessionTopBarProps): React.JSX.Element {
   return (
     <header
@@ -38,10 +51,10 @@ export function SessionTopBar({
             aria-hidden="true"
             className="font-japanese text-xl text-inari-vermillion leading-none translate-y-[0.05em]"
           >
-            復
+            {eyebrowKanji}
           </span>
           <span className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-sumi-ink/80">
-            Reviewing
+            {eyebrowLabel}
           </span>
           {(offline || syncError) && (
             <span
@@ -67,23 +80,25 @@ export function SessionTopBar({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            onClick={onOpenTeach}
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts"
-            leadingIcon={<IconHelp className="w-4 h-4" />}
-          />
+          {onOpenTeach !== undefined && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={onOpenTeach}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts"
+              leadingIcon={<IconHelp className="w-4 h-4" />}
+            />
+          )}
           <Button
             type="button"
             variant="editorial"
             size="sm"
             onClick={onEndSession}
           >
-            End session
+            {endLabel}
           </Button>
         </div>
       </div>

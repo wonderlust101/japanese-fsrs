@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { Logo } from '@/components/ui/Logo'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { cn } from '@/lib/utils'
 import { useDrillSessionQuery } from '@/lib/api/weak-spots'
 import {
   useDrillActions,
@@ -14,396 +14,549 @@ import {
   useDrillExitedEarly,
   useDrillIsFinished,
   useDrillQueue,
+  useWeakSpotDrillSessionStore,
   type DrillAttemptRecord,
 } from '@/stores/useWeakSpotDrillSessionStore'
+
+import {
+  buildDevAttempts,
+  isDevSessionId,
+  type DrillAttemptsFixtureKey,
+} from '../../../_components/drill-fixtures'
 
 interface DrillSummaryClientProps {
   sessionId: string
 }
 
-interface DerivedMetrics {
-  practiced:        number
-  firstPassRecall:  number
-  hesitated:        number
-  missed:           number
-  countedAsReview:  number
-  medianRtMs:       number | null
-  totalRecallRate:  number | null
-}
-
 /**
- * Post-drill summary. Drill-specific metrics only (per the doc's voice
- * rules: "Use labels such as 'practice confidence,' 'session accuracy,'
- * or 'steady enough to resolve.' Reserve 'retention' and 'retrievability'
- * for canonical FSRS analytics."):
+ * Drill summary. Visual 1-to-1 copy of `/review/summary`:
  *
- *   - Cards practiced
- *   - First-pass recall rate
- *   - Hesitated count
- *   - Missed count (still need attention)
- *   - Median response time
- *   - Cards counted as real reviews (always 0 in Phase 2)
+ *   - `SummaryFrame` centered grid mirrors the review summary scaffold.
+ *   - `ClosureCard` carries the closure moment (kanji + label header,
+ *     headline, subcopy, receipt strip, rationale, action footer, kitsune
+ *     mark on lg+).
+ *   - Two-column grid below: "Session details" (rating breakdown for drill's
+ *     3 channels + what-to-notice prose) and "Cards" (per-attempt list).
  *
- * Reads from the local Zustand store first (instant, survives a backend
- * outage). Falls back to the session detail query if the local store was
- * cleared (e.g. direct deep-link to a summary URL from a different tab).
+ * Read from the local Zustand store first (instant, survives a backend
+ * outage). Fall back to the session detail query for the deep-link case.
  */
 export function DrillSummaryClient({
   sessionId,
 }: DrillSummaryClientProps): React.JSX.Element {
-  const isFinished  = useDrillIsFinished()
-  const exitedEarly = useDrillExitedEarly()
-  const attempts    = useDrillAttempts()
-  const queue       = useDrillQueue()
-  const actions     = useDrillActions()
+  const router       = useRouter()
+  const isDev        = isDevSessionId(sessionId)
+  const isFinished   = useDrillIsFinished()
+  const exitedEarly  = useDrillExitedEarly()
+  const attempts     = useDrillAttempts()
+  const queue        = useDrillQueue()
+  const actions      = useDrillActions()
+  const searchParams = useSearchParams()
 
-  // Refetch detail if the local store doesn't have a finished session for
-  // this id — covers the deep-link case. The query handles loading itself.
-  const detailQuery = useDrillSessionQuery(isFinished ? null : sessionId)
+  // Dev: when ?seed=<key> is present, hydrate the store with a baked attempt
+  // set. With no seed but with `dev-` sessionId, hydrate as finished+empty so
+  // the existing empty branch renders without the network-error arm.
+  useEffect(() => {
+    if (!isDev) return
+    if (isFinished) return
+    const seed = searchParams.get('seed') as DrillAttemptsFixtureKey | null
+    const baked = seed !== null ? buildDevAttempts(sessionId, seed) : null
+    useWeakSpotDrillSessionStore.setState({
+      phase:       'finished',
+      sessionId,
+      queue:       baked?.queue ?? [],
+      attempts:    baked?.attempts ?? [],
+      exitedEarly: false,
+      actions,
+    }, true)
+  }, [isDev, isFinished, sessionId, searchParams, actions])
+
+  const detailQuery = useDrillSessionQuery(isDev || isFinished ? null : sessionId)
 
   // Reset the store on unmount so a stale 'finished' state doesn't trail
-  // into the next visit.
+  // into the next visit. Same pattern as review's summary.
   useEffect(() => {
     return () => {
-      // Only reset if we still hold a finished session for this id, so we
-      // don't accidentally nuke an in-progress session from another tab.
-      // The cleanup intentionally captures `isFinished` and `actions` only
-      // at mount; redundant resets on re-render aren't useful here.
       if (isFinished) actions.reset()
     }
   }, [])
 
-  const metrics = useMemo<DerivedMetrics>(() => deriveMetrics(attempts), [attempts])
+  const metrics = useMemo(() => deriveMetrics(attempts), [attempts])
 
-  // ── States ───────────────────────────────────────────────────────────────
+  // ── States: loading / error / empty ──────────────────────────────────────
   if (!isFinished && detailQuery.isLoading) {
-    return (
-      <PageShell>
-        <p className="text-sm text-faded-sumi">Loading drill summary…</p>
-      </PageShell>
-    )
+    return <SummaryFrame><SummarySkeleton /></SummaryFrame>
   }
-
   if (!isFinished && (detailQuery.isError || detailQuery.data === undefined)) {
     return (
-      <PageShell>
-        <div role="alert" className="rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep">
-          <p>Couldn’t load that drill summary.</p>
-          <p className="mt-1 text-error-deep/80">Open the weak spots page to start a fresh drill.</p>
-          <div className="mt-4">
-            <Link
-              href="/insights/weak-spots"
-              className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep underline-offset-2 hover:underline"
-            >
-              Back to Weak spots →
-            </Link>
+      <SummaryFrame>
+        <SectionCard kanji="失" label="Couldn’t load" stripeTone="error">
+          <p className="text-sm leading-relaxed text-faded-sumi">
+            Open the weak spots page to start a fresh drill, or refresh to try again.
+          </p>
+          <div className="mt-5">
+            <Button variant="primary" onClick={() => router.push('/insights/weak-spots')}>
+              Back to Weak spots
+            </Button>
           </div>
-        </div>
-      </PageShell>
+        </SectionCard>
+      </SummaryFrame>
     )
   }
-
   if (attempts.length === 0) {
     return (
-      <PageShell>
-        <SectionCard
-          id="drill-summary-empty"
+      <SummaryFrame>
+        <ClosureCard
           kanji="畢"
           label="Drill ended"
-          description={exitedEarly ? 'Exited before rating any cards.' : 'No cards were rated.'}
-          variant="compact"
-        >
-          <p className="text-sm leading-relaxed text-faded-sumi">
-            Nothing was answered, so there’s nothing to read. The schedule is
-            untouched — your reviews continue as before.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link
-              href="/insights/weak-spots/drill/setup"
-              className="inline-flex h-10 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-4 text-sm font-semibold text-warm-paper-raised transition-colors hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-            >
-              Start a new drill
-            </Link>
-            <QuietLink href="/insights/weak-spots" tone="sumi" size="sm">
-              Back to Weak spots
-            </QuietLink>
-          </div>
-        </SectionCard>
-      </PageShell>
+          headline={exitedEarly ? 'Ended before rating any cards.' : 'No cards were rated.'}
+          subcopy="Nothing was answered, so there's nothing to read. The schedule is untouched."
+          receipt={null}
+          rationale="Open Weak spots to start a fresh drill, or head back to Today."
+          primary={{ label: 'Start a new drill', onClick: () => router.push('/insights/weak-spots/drill/setup') }}
+          secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/insights/weak-spots') }}
+        />
+      </SummaryFrame>
     )
   }
 
+  const closure = pickClosure(metrics, exitedEarly)
+
   return (
-    <PageShell>
-      <div className="flex flex-col gap-y-8">
-        {exitedEarly && (
-          <div
-            role="status"
-            className="rounded-[2px] border border-soft-hairline bg-cream-inset/50 px-4 py-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi"
-          >
-            Exited early · queue not finished
-          </div>
-        )}
+    <SummaryFrame>
+      <ClosureCard
+        kanji={closure.kanji}
+        label={closure.label}
+        headline={closure.headline}
+        {...(closure.subcopy !== undefined && { subcopy: closure.subcopy })}
+        receipt={{ practiced: metrics.practiced, medianRtMs: metrics.medianRtMs, exitedEarly }}
+        rationale={closure.rationale}
+        primary={{ label: 'Start another drill', onClick: () => router.push('/insights/weak-spots/drill/setup') }}
+        secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/insights/weak-spots') }}
+      />
 
-        {/* Headline metrics */}
-        <SectionCard
-          id="drill-summary-metrics"
-          kanji="数"
-          label="Drill outcome"
-          description="A drill-only read. Your review schedule is unchanged."
-          variant="compact"
-        >
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
-            <Metric
-              label="Practiced"
-              value={String(metrics.practiced)}
-              unit={metrics.practiced === 1 ? 'card' : 'cards'}
-            />
-            <Metric
-              label="Remembered"
-              value={
-                metrics.totalRecallRate === null
-                  ? '—'
-                  : `${Math.round(metrics.totalRecallRate * 100)}%`
-              }
-              unit="recall"
-            />
-            <Metric
-              label="Hesitated"
-              value={String(metrics.hesitated)}
-              unit={metrics.hesitated === 1 ? 'card' : 'cards'}
-            />
-            <Metric
-              label="Missed"
-              value={String(metrics.missed)}
-              unit={metrics.missed === 1 ? 'card' : 'cards'}
-              tone={metrics.missed > 0 ? 'attention' : 'sumi'}
-            />
-            <Metric
-              label="First-pass"
-              value={
-                metrics.firstPassRecall === 0
-                  ? '0'
-                  : String(metrics.firstPassRecall)
-              }
-              unit={metrics.firstPassRecall === 1 ? 'card' : 'cards'}
-              hint="Remembered on first attempt"
-            />
-            <Metric
-              label="Median time"
-              value={
-                metrics.medianRtMs === null
-                  ? '—'
-                  : formatResponseTime(metrics.medianRtMs)
-              }
-              unit="per card"
-            />
-            <Metric
-              label="Queue"
-              value={`${attempts.length}/${queue.length}`}
-              unit={queue.length === 1 ? 'card' : 'cards'}
-              hint={attempts.length < queue.length ? 'Unfinished' : 'Complete'}
-            />
-            <Metric
-              label="Counted as review"
-              value={String(metrics.countedAsReview)}
-              unit={metrics.countedAsReview === 1 ? 'attempt' : 'attempts'}
-            />
-          </dl>
-        </SectionCard>
-
-        {/* Per-card detail */}
-        <SectionCard
-          id="drill-summary-cards"
-          kanji="札"
-          label="Cards"
-          description={metrics.missed > 0
-            ? 'Cards that still need another look are first.'
-            : 'In the order you answered.'}
-          variant="compact"
-        >
-          <ul role="list" className="flex flex-col divide-y divide-soft-hairline">
-            {[...attempts]
-              .sort((a, b) => attemptPriority(a) - attemptPriority(b))
-              .map((attempt) => (
-                <li
-                  key={attempt.eventId}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 first:pt-0"
-                >
-                  <p className="text-sm text-sumi-ink">
-                    <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
-                      {attempt.result === 'missed' ? 'Missed' : attempt.result === 'hesitated' ? 'Hesitated' : 'Remembered'}
-                    </span>
-                    <span className="mx-2 text-faded-sumi" aria-hidden="true">·</span>
-                    <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
-                      {formatResponseTime(attempt.responseTimeMs)}
-                    </span>
-                  </p>
-                  <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
-                    {new Date(attempt.answeredAt).toLocaleTimeString(undefined, {
-                      hour:   '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </li>
-              ))}
-          </ul>
-        </SectionCard>
-
-        {/* Actions */}
-        <footer className="flex flex-wrap items-center gap-3 border-t border-soft-hairline pt-6">
-          <Link
-            href="/insights/weak-spots/drill/setup"
-            className="inline-flex h-10 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-4 text-sm font-semibold text-warm-paper-raised transition-colors hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            Start another drill
-          </Link>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={() => {
-              window.location.href = '/insights/weak-spots'
-            }}
-          >
-            Back to Weak spots
-          </Button>
-          <QuietLink href="/today" tone="sumi" size="sm" trailingArrow>
-            Open today
-          </QuietLink>
-        </footer>
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <SessionDetailsCard metrics={metrics} attempts={attempts} />
+        <CardsListCard attempts={attempts} queueLength={queue.length} />
       </div>
-    </PageShell>
+    </SummaryFrame>
   )
 }
 
-// ── Shell + helpers ──────────────────────────────────────────────────────────
+// ── Frame ───────────────────────────────────────────────────────────────────
+// Lifted from /review/summary so the two surfaces share the exact outer
+// scaffolding: outer flex column, inner content-centered grid with
+// breath-room padding.
 
-function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+function SummaryFrame({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b border-soft-hairline bg-warm-paper-raised">
-        <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
-          <Link
-            href="/insights/weak-spots"
-            className="flex items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            <span aria-hidden="true">←</span>
-            <span>Back to Weak spots</span>
-          </Link>
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
-            Drill summary
-          </p>
+    <div className="flex min-h-full flex-col">
+      <div className="relative isolate flex flex-1 flex-col">
+        <div className="relative z-10 mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 content-center gap-y-8 px-6 pb-12 pt-8 md:px-12 md:pb-16 md:pt-10 lg:gap-y-10 lg:px-16 lg:pb-20 lg:pt-12">
+          {children}
         </div>
-      </header>
-
-      <div className="mx-auto w-full max-w-[960px] flex-1 px-4 py-8 sm:px-6 lg:py-12">
-        <PageHeader
-          kanji="弱"
-          label="Drill summary"
-          title="A drill-only read."
-          subtitle="Practice confidence, not retention. Your review timing stayed exactly as it was."
-        />
-        <div className="mt-8">{children}</div>
       </div>
     </div>
   )
 }
 
-interface MetricProps {
-  label: string
-  value: string
-  unit?: string
-  hint?: string
-  tone?: 'sumi' | 'attention'
+// ── Closure card ────────────────────────────────────────────────────────────
+// Full-width SectionCard. Internal 2-col on lg+: text-left (kicker comes from
+// SectionCard's own header), mark-right with the kitsune at 96 / 144px.
+
+interface ActionSpec {
+  label:   string
+  onClick: () => void
 }
 
-function Metric({
+interface ReceiptInfo {
+  practiced:   number
+  medianRtMs:  number | null
+  exitedEarly: boolean
+}
+
+interface ClosureCardProps {
+  kanji:     string
+  label:     string
+  headline:  string
+  subcopy?:  string
+  receipt:   ReceiptInfo | null
+  rationale: string
+  primary:   ActionSpec
+  secondary: ActionSpec
+}
+
+function ClosureCard({
+  kanji,
   label,
-  value,
-  unit,
-  hint,
-  tone = 'sumi',
-}: MetricProps): React.JSX.Element {
+  headline,
+  subcopy,
+  receipt,
+  rationale,
+  primary,
+  secondary,
+}: ClosureCardProps): React.JSX.Element {
   return (
-    <div>
-      <dt className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
-        {label}
-      </dt>
-      <dd
-        className={[
-          'mt-1.5 font-display text-2xl leading-none tabular-nums',
-          tone === 'attention' ? 'text-inari-vermillion-deep' : 'text-sumi-ink',
-        ].join(' ')}
-      >
-        {value}
-        {unit !== undefined && (
-          <span className="ml-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
-            {unit}
+    <SectionCard id="drill-summary-closure" kanji={kanji} label={label}>
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="min-w-0">
+          <h1 className="break-words font-display text-[2rem] sm:text-[2.5rem] lg:text-[2.875rem] leading-[1.05] text-sumi-ink">
+            {headline}
+          </h1>
+
+          {subcopy !== undefined && (
+            <p className="mt-3 max-w-[55ch] text-base text-faded-sumi leading-relaxed">
+              {subcopy}
+            </p>
+          )}
+
+          {receipt !== null && (
+            <p className="mt-6 font-mono text-xs sm:text-sm text-faded-sumi">
+              <span className="text-sumi-ink">{receipt.practiced}</span> {receipt.practiced === 1 ? 'card' : 'cards'}
+              {receipt.medianRtMs !== null && (
+                <>
+                  <span aria-hidden="true" className="mx-2 text-soft-hairline">·</span>
+                  <span className="text-sumi-ink">{formatResponseTime(receipt.medianRtMs)}</span> median
+                </>
+              )}
+              <span aria-hidden="true" className="mx-2 text-soft-hairline">·</span>
+              {receipt.exitedEarly ? 'ended early' : 'completed'}
+            </p>
+          )}
+
+          <div className="mt-7 flex flex-col gap-4">
+            <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+              {rationale}
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button variant="primary" size="lg" onClick={primary.onClick}>
+                {primary.label}
+              </Button>
+              <Button variant="editorial" size="lg" onClick={secondary.onClick}>
+                {secondary.label}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div aria-hidden="true" className="flex items-center justify-center lg:order-last lg:pl-4">
+          <span className="inline-flex lg:hidden">
+            <Logo size={96} showWordmark={false} priority />
           </span>
+          <span className="hidden lg:inline-flex">
+            <Logo size={144} showWordmark={false} priority />
+          </span>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Session details card ────────────────────────────────────────────────────
+// Same chrome as review's session-details card. Top: "What to notice" prose
+// classifying the session. Bottom: 3-channel rating breakdown bar.
+
+function SessionDetailsCard({
+  metrics,
+  attempts,
+}: {
+  metrics:  DerivedMetrics
+  attempts: readonly DrillAttemptRecord[]
+}): React.JSX.Element {
+  const diagnosis = buildDiagnosis(metrics, attempts.length)
+  return (
+    <SectionCard id="drill-summary-details" kanji="詳" label="Session details">
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+          What to notice
+        </p>
+        <p className="max-w-[62ch] text-base leading-relaxed text-sumi-ink">
+          {diagnosis.lead}
+        </p>
+        {diagnosis.aside !== null && (
+          <p className="max-w-[62ch] text-sm leading-relaxed text-faded-sumi">
+            {diagnosis.aside}
+          </p>
         )}
-      </dd>
-      {hint !== undefined && (
-        <p className="mt-1 text-[0.75rem] leading-snug text-faded-sumi">{hint}</p>
-      )}
+      </div>
+
+      <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
+
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+          Rating breakdown
+        </p>
+        <DrillResultBar
+          missed={metrics.missed}
+          hesitated={metrics.hesitated}
+          remembered={metrics.remembered}
+          total={attempts.length}
+        />
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Cards list card ─────────────────────────────────────────────────────────
+// Mirrors review's WeakSpotsCard: SectionCard chrome with a divide-y list
+// inside. Drill version lists each attempt (sorted: missed first, then
+// hesitated, then remembered).
+
+function CardsListCard({
+  attempts,
+  queueLength,
+}: {
+  attempts:    readonly DrillAttemptRecord[]
+  queueLength: number
+}): React.JSX.Element {
+  const sorted = [...attempts].sort((a, b) => attemptPriority(a) - attemptPriority(b))
+  const finished = attempts.length === queueLength
+  return (
+    <SectionCard
+      id="drill-summary-cards"
+      kanji="札"
+      label="Cards"
+      count={attempts.length}
+      description={finished ? 'In the order you answered, weakest first.' : `${attempts.length} of ${queueLength} rated before exit.`}
+    >
+      <ul role="list" className="divide-y divide-soft-hairline">
+        {sorted.map((attempt) => (
+          <li
+            key={attempt.eventId}
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 first:pt-0"
+          >
+            <p className="text-sm text-sumi-ink">
+              <span
+                className={cn(
+                  'font-mono text-[0.6875rem] uppercase tracking-[0.16em]',
+                  attempt.result === 'missed'    && 'text-inari-vermillion-deep',
+                  attempt.result === 'hesitated' && 'text-jlpt-beyond-amber-warn',
+                  attempt.result === 'remembered'&& 'text-jlpt-n5-fresh-leaf',
+                )}
+              >
+                {attempt.result === 'missed' ? 'Missed' : attempt.result === 'hesitated' ? 'Hesitated' : 'Remembered'}
+              </span>
+              <span aria-hidden="true" className="mx-2 text-faded-sumi">·</span>
+              <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+                {formatResponseTime(attempt.responseTimeMs)}
+              </span>
+            </p>
+            <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
+              {new Date(attempt.answeredAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
+  )
+}
+
+// ── Drill rating breakdown bar ──────────────────────────────────────────────
+// 3-channel stacked bar. Visually rhymes with review's
+// RatingDistributionBar but with the drill's vocabulary.
+
+function DrillResultBar({
+  missed,
+  hesitated,
+  remembered,
+  total,
+}: {
+  missed:     number
+  hesitated:  number
+  remembered: number
+  total:      number
+}): React.JSX.Element {
+  const safeTotal = Math.max(total, 1)
+  const segments = [
+    { label: 'Missed',     count: missed,     color: 'var(--color-rating-again)' },
+    { label: 'Hesitated',  count: hesitated,  color: 'var(--color-rating-hard)' },
+    { label: 'Remembered', count: remembered, color: 'var(--color-rating-good)' },
+  ]
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        role="img"
+        aria-label={`Missed ${missed}, hesitated ${hesitated}, remembered ${remembered} of ${total}`}
+        className="flex h-3 w-full overflow-hidden rounded-[2px] bg-cream-inset"
+      >
+        {segments.map((seg) => (
+          <div
+            key={seg.label}
+            style={{ width: `${(seg.count / safeTotal) * 100}%`, backgroundColor: seg.color }}
+          />
+        ))}
+      </div>
+      <dl className="grid grid-cols-3 gap-x-3 text-center">
+        {segments.map((seg) => (
+          <div key={seg.label} className="flex flex-col gap-0.5">
+            <dt className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
+              {seg.label}
+            </dt>
+            <dd className="font-display text-lg leading-none tabular-nums text-sumi-ink">
+              {seg.count}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
+  )
+}
+
+// ── Skeleton ────────────────────────────────────────────────────────────────
+
+function SummarySkeleton(): React.JSX.Element {
+  return (
+    <>
+      <SectionCard kanji="畢" label="Drill closed" ariaBusy>
+        <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0 space-y-4">
+            <div className="h-10 w-3/4 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-4 w-1/2 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-3 w-44 animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-10 w-40 animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+          <div className="flex items-center justify-center lg:pl-4" aria-hidden="true">
+            <div className="h-24 w-24 animate-pulse rounded-full bg-cream-inset lg:h-36 lg:w-36" />
+          </div>
+        </div>
+      </SectionCard>
+      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+        <SectionCard kanji="詳" label="Session details" ariaBusy>
+          <div className="space-y-3">
+            <div className="h-2 w-24 animate-pulse rounded-[1px] bg-cream-inset" />
+            <div className="h-4 w-full animate-pulse rounded-[2px] bg-cream-inset" />
+            <div className="h-4 w-2/3 animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+          <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
+          <div className="space-y-3">
+            <div className="h-2 w-32 animate-pulse rounded-[1px] bg-cream-inset" />
+            <div className="h-3 w-full animate-pulse rounded-[2px] bg-cream-inset" />
+          </div>
+        </SectionCard>
+        <SectionCard kanji="札" label="Cards" ariaBusy>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-3 w-full animate-pulse rounded-[2px] bg-cream-inset" />
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+    </>
   )
 }
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 
+interface DerivedMetrics {
+  practiced:        number
+  firstPassRecall:  number
+  remembered:       number
+  hesitated:        number
+  missed:           number
+  medianRtMs:       number | null
+}
+
 function deriveMetrics(attempts: readonly DrillAttemptRecord[]): DerivedMetrics {
   if (attempts.length === 0) {
-    return {
-      practiced:       0,
-      firstPassRecall: 0,
-      hesitated:       0,
-      missed:          0,
-      countedAsReview: 0,
-      medianRtMs:      null,
-      totalRecallRate: null,
-    }
+    return { practiced: 0, firstPassRecall: 0, remembered: 0, hesitated: 0, missed: 0, medianRtMs: null }
   }
-
-  const seenCardIds = new Set<string>()
+  const seen = new Set<string>()
   let firstPassRecall = 0
   let missed = 0
   let hesitated = 0
   let remembered = 0
-  let countedAsReview = 0
-  const responseTimes: number[] = []
-
-  for (const attempt of attempts) {
-    const key = attempt.sessionCardId
-    const isFirstSeen = !seenCardIds.has(key)
-    seenCardIds.add(key)
-    responseTimes.push(attempt.responseTimeMs)
-    if (attempt.countedAsReview) countedAsReview++
-    if (attempt.result === 'missed')      missed++
-    if (attempt.result === 'hesitated')   hesitated++
-    if (attempt.result === 'remembered') {
+  const rt: number[] = []
+  for (const a of attempts) {
+    const first = !seen.has(a.sessionCardId)
+    seen.add(a.sessionCardId)
+    rt.push(a.responseTimeMs)
+    if (a.result === 'missed')     missed++
+    if (a.result === 'hesitated')  hesitated++
+    if (a.result === 'remembered') {
       remembered++
-      if (isFirstSeen) firstPassRecall++
+      if (first) firstPassRecall++
     }
   }
-
-  const medianRtMs = responseTimes.length === 0 ? null : median(responseTimes)
-  const totalRecallRate = remembered / attempts.length
-
   return {
-    practiced:       seenCardIds.size,
+    practiced:       seen.size,
     firstPassRecall,
+    remembered,
     hesitated,
     missed,
-    countedAsReview,
-    medianRtMs,
-    totalRecallRate,
+    medianRtMs:      rt.length === 0 ? null : median(rt),
   }
 }
 
-function attemptPriority(attempt: DrillAttemptRecord): number {
-  if (attempt.result === 'missed')     return 0
-  if (attempt.result === 'hesitated')  return 1
+interface ClosurePick {
+  kanji:    string
+  label:    string
+  headline: string
+  subcopy?: string
+  rationale: string
+}
+
+function pickClosure(m: DerivedMetrics, exitedEarly: boolean): ClosurePick {
+  if (exitedEarly) {
+    return {
+      kanji:    '畢',
+      label:    'Drill ended',
+      headline: 'You stepped away early.',
+      subcopy:  'No problem. The cards you rated still tell you something useful.',
+      rationale: 'Your review schedule is untouched. Come back to drill when the moment is right.',
+    }
+  }
+  if (m.missed === 0 && m.hesitated === 0) {
+    return {
+      kanji:    '☆',
+      label:    'Drill closed',
+      headline: 'Steady all the way through.',
+      subcopy:  'Every card came back to you without hesitation.',
+      rationale: 'These weak spots are looking stable. Consider resolving the ones that feel done.',
+    }
+  }
+  if (m.missed > m.remembered) {
+    return {
+      kanji:    '苦',
+      label:    'Drill closed',
+      headline: 'A tough one. These need more time.',
+      subcopy:  'More misses than hits. The drill is doing its job by surfacing them.',
+      rationale: 'Run another short drill in a day or two. Repetition is the cure.',
+    }
+  }
+  if (m.hesitated > m.missed + m.remembered / 2) {
+    return {
+      kanji:    '思',
+      label:    'Drill closed',
+      headline: 'Lots of thinking, less recall.',
+      subcopy:  'You recovered most cards, but they took work.',
+      rationale: 'Hesitated cards are on the edge. A drill or two more should firm them up.',
+    }
+  }
+  return {
+    kanji:    '良',
+    label:    'Drill closed',
+    headline: 'Solid work on a tough pile.',
+    subcopy:  'A mixed but balanced session.',
+    rationale: 'Keep the daily reviews going; drill the ones that still feel shaky.',
+  }
+}
+
+function buildDiagnosis(m: DerivedMetrics, totalAttempts: number): { lead: string; aside: string | null } {
+  if (totalAttempts === 0) return { lead: 'No attempts to analyze.', aside: null }
+  const recallPct = Math.round((m.remembered / totalAttempts) * 100)
+  const lead = `You remembered ${m.remembered} of ${totalAttempts} attempts (${recallPct}%). First-pass recall: ${m.firstPassRecall} of ${m.practiced} cards.`
+  if (m.missed > 0) {
+    return { lead, aside: `${m.missed} ${m.missed === 1 ? 'card still needs' : 'cards still need'} more time. They'll surface again as weak spots.` }
+  }
+  if (m.hesitated > 0) {
+    return { lead, aside: `${m.hesitated} hesitated ${m.hesitated === 1 ? 'card is' : 'cards are'} on the edge. One more drill should settle them.` }
+  }
+  return { lead, aside: null }
+}
+
+function attemptPriority(a: DrillAttemptRecord): number {
+  if (a.result === 'missed')    return 0
+  if (a.result === 'hesitated') return 1
   return 2
 }
 
