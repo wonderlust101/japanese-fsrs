@@ -27,11 +27,28 @@ export const GeneratedCardDataSchema = z.object({
       sentenceAudio: safeStr.optional(),
     }),
   ).optional(),
+  // Widened in Backend Completion Plan Stage 3 (CARD_PROMPT_VERSION='v3') to
+  // mirror `KanjiBreakdownSchema` on the wire — the storage layer's
+  // `cards_fields_data_shape` CHECK expects `{kanji, radical, meaning, reading}`
+  // and the v4 review surface renders all four. `radical` + `reading` are
+  // marked optional so a model that omits them per-character still parses
+  // (the prompt allows opting out per-character).
   kanjiBreakdown:   z.array(
-    z.object({ kanji: safeStr, meaning: safeStr }),
+    z.object({
+      kanji:   safeStr,
+      meaning: safeStr,
+      radical: safeStr.optional(),
+      reading: safeStr.optional(),
+    }),
   ).optional(),
   pitchAccent:      safeStr.optional(),
   mnemonic:         safeStr.optional(),
+  // Stage 3 (CARD_PROMPT_VERSION='v3'): admit the two vocabulary-only
+  // discrimination fields the review surface renders as standalone tabs.
+  // Empty arrays are allowed; the prompt instructs the model to omit
+  // entirely when nothing distinctive is available rather than fabricate.
+  collocations:     z.array(safeStr).optional(),
+  homophones:       z.array(safeStr).optional(),
   // ─── Lapis-style fields (Backend Completion Plan, Stage 2) ──────────────
   // These mirror the additive keys admitted on `WordFieldsSchema` in Stage 1.
   // The schema admits them so the structured-output validation passes when

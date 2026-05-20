@@ -57,7 +57,7 @@ export type {
 // JSONB content shape for ApiCard.fieldsData. Consumers narrow via
 // `getWordFields` / `getVocabularyFields` / `getSentenceFrontBack` instead of widening.
 export type { FieldsData, WordFields } from './field-shapes.ts'
-export { getWordFields, getVocabularyFields, getSentenceFrontBack } from './field-shapes.ts'
+export { getWordFields, getVocabularyFields, getSentenceFields, getSentenceFrontBack } from './field-shapes.ts'
 
 // Field-shapes Zod schemas. Re-exported so service code can validate
 // `fields_data` JSONB at the API boundary without falling back to a loose

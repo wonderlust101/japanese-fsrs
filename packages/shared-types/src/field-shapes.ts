@@ -57,17 +57,32 @@ export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData |
 }
 
 /**
+ * Returns the full typed `SentenceFieldsData` payload for sentence-layout
+ * cards, or null otherwise. Use this when a consumer needs `furigana`,
+ * `audio`, `breakdown`, or `nuance` in addition to the `{ja, en}` pair —
+ * it avoids the `Record<string, unknown>` cast pattern at the call site.
+ *
+ * The DB CHECK constraint `cards_fields_data_shape` enforces `ja`, `en`,
+ * and `furigana` presence at the JSONB layer for sentence-layout cards,
+ * so the cast inside this helper is safe at runtime (mirrors the same
+ * pattern as `getWordFields`).
+ */
+export function getSentenceFields(card: FieldsCarrier): SentenceFieldsData | null {
+  return card.layoutType === 'sentence' ? (card.fieldsData as SentenceFieldsData) : null
+}
+
+/**
  * Returns the typed front/back text for sentence-layout cards. After
  * Backend Completion Plan Stage 12, the canonical sentence shape carries
  * `ja` (front) and `en` (back) — both enforced as required keys by the
  * `cards_fields_data_shape` DB CHECK constraint and by
  * `SentenceFieldsDataSchema`. Returns null for non-sentence layouts.
  *
- * The `{ front, back }` consumer contract is preserved from when the
- * shape was open (pre-Stage 12); only the source fields change.
+ * Convenience wrapper over `getSentenceFields` preserved for the
+ * `{ front, back }` consumer contract that predates the open-shape
+ * narrowing.
  */
 export function getSentenceFrontBack(card: FieldsCarrier): { front: string; back: string } | null {
-  if (card.layoutType !== 'sentence') return null
-  const fd = card.fieldsData as SentenceFieldsData
-  return { front: fd.ja, back: fd.en }
+  const fd = getSentenceFields(card)
+  return fd === null ? null : { front: fd.ja, back: fd.en }
 }

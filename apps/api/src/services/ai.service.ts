@@ -67,10 +67,21 @@ const DIAGNOSIS_PROMPT_VERSION = 'v1'
 
 // Same pattern as DIAGNOSIS_PROMPT_VERSION. Bumped to 'v2' in Backend
 // Completion Plan Stage 2 when the `generateCard` prompt grew to ask for
-// `pitchPosition` and `nuance`. Entries cached under the v1 (unversioned)
-// key are bypassed by the new key shape, so cache-warm cost spikes once
-// per deploy and steady-state hit rate recovers as v2 entries populate.
-const CARD_PROMPT_VERSION = 'v2'
+// `pitchPosition` and `nuance`. Bumped to 'v3' in Stage 3 when the prompt
+// grew to request `collocations`, `homophones`, and the widened
+// `kanjiBreakdown` shape ({kanji, radical, meaning, reading}). Entries
+// cached under prior keys are bypassed by the new key shape, so cache-warm
+// cost spikes once per deploy and steady-state hit rate recovers as v3
+// entries populate.
+//
+// Schema-admitted but intentionally NOT in the prompt (kept here so a
+// future reader doesn't try to "fix" the omission): `picture`,
+// `expressionAudio`, and example-sentence `sentenceAudio`. These require
+// hosted assets the system cannot yet produce; asking the model for URLs
+// it can't fulfill produces hallucinated 404s, which is worse than no
+// field. The schema admits them so a future prompt-version bump or
+// out-of-band populator can land without a second schema change.
+const CARD_PROMPT_VERSION = 'v3'
 
 // Same pattern as DIAGNOSIS_PROMPT_VERSION + CARD_PROMPT_VERSION. Bump on
 // any change to the Tomo daily-note prompt body so cached notes from the
@@ -219,10 +230,12 @@ Return JSON with these keys:
   "meaning": string (English meaning),
   "partOfSpeech": string,
   "exampleSentences": [{ "ja": string, "en": string, "furigana": string }],
-  "kanjiBreakdown": [{ "kanji": string, "meaning": string }],
+  "kanjiBreakdown": [{ "kanji": string, "radical": string (the radical name in English, e.g. "person" or "water" — omit per-character if unsure), "meaning": string, "reading": string (the on-yomi or kun-yomi most relevant in this word, hiragana or katakana — omit per-character if unsure) }],
   "pitchAccent": string (free-form notation like "[0]" or "へいばん"),
   "pitchPosition": integer (mora position of the pitch drop; 0 = heiban / flat, 1 = drop after the first mora, 2 = drop after the second mora, etc. Omit the field if you are not confident.),
   "nuance": string (1–2 sentences in English on register, connotation, or distinctions vs. close synonyms — what a learner needs to use the word correctly, not just translate it. Omit if there is nothing distinctive to say.),
+  "collocations": string[] (2–6 short collocations the word is most commonly part of — natural co-occurring phrases in idiomatic Japanese, written in kanji+kana exactly as a native would write them, e.g. "ご飯を食べる" / "言葉を交わす". Omit the field entirely if you have nothing distinctive to add; do not invent.),
+  "homophones": string[] (0–4 same-reading words with a brief gloss in parentheses, e.g. "箸 (chopsticks, atamadaka)". Omit the field entirely if there are no meaningful homophones.),
   "mnemonic": string (memorable association for ${safeLevel} learner)
 }
 

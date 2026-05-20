@@ -2,18 +2,23 @@ import type { ApiDueCard } from '@fsrs-japanese/shared-types'
 import {
   getWordFields,
   getVocabularyFields,
-  getSentenceFrontBack,
+  getSentenceFields,
 } from '@fsrs-japanese/shared-types'
 
-// Optional Lapis-style fields the review surface knows how to render but the
-// API schema does not yet expose. Sourced from card `fieldsData` when present
-// (e.g. via dev fixtures, or once the backend ships them per the kanban
-// follow-up). Production cards typically have these as undefined; consumers
-// must handle absence gracefully.
+// Layout-normalization adapter for the review surface.
 //
-// Keeping the optional read in one helper makes it easy to delete this file
-// the day the schema is widened: the rest of the UI just consumes the
-// returned shape.
+// `ApiDueCard.fieldsData` is a discriminated union over `layoutType`
+// (vocabulary / grammar / sentence). The session card renderer
+// (ReviewCard / CardFront / CardBack) consumes a single flattened
+// `ResolvedCardFields` shape regardless of layout — this helper does
+// the narrowing once and provides safe fallbacks for the
+// vocabulary-vs-sentence asymmetry (e.g. `word ?? sentence.front`).
+//
+// All reads go through the typed shared-types helpers
+// (`getWordFields` / `getVocabularyFields` / `getSentenceFields`); no
+// `Record<string, unknown>` widening at the consumer site. The fields
+// returned here mirror the schemas in
+// `packages/shared-types/src/schemas/field-shapes.schema.ts`.
 
 export interface ResolvedCardFields {
   word:            string
@@ -24,8 +29,8 @@ export interface ResolvedCardFields {
   /**
    * AI-authored prose explaining usage register, connotation, and synonym
    * distinctions. Renders as the first tab on the back of the card.
-   * Currently sourced from `fieldsData.nuance` via a runtime read; the
-   * schema follow-up will land this on WordFieldsSchema properly.
+   * Sourced from `WordFieldsSchema.nuance` (vocabulary / grammar) or
+   * `SentenceFieldsDataSchema.nuance` (sentence layout).
    */
   nuance:          string | null
   frequencyRank:   number | null
@@ -45,55 +50,52 @@ export interface ResolvedCardFields {
   jlptLevel:       string | null
 }
 
-function asString(v: unknown): string | null {
-  return typeof v === 'string' && v !== '' ? v : null
-}
-
-function asNumber(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v : null
-}
-
 export function resolveCardFields(card: ApiDueCard): ResolvedCardFields {
   const word     = getWordFields(card)
   const vocab    = getVocabularyFields(card)
-  const sentence = getSentenceFrontBack(card)
-  const raw      = card.fieldsData as Record<string, unknown>
+  const sentence = getSentenceFields(card)
 
-  const example  = vocab?.exampleSentences?.[0]
-  const sentenceAudio = example !== undefined
-    ? asString((example as unknown as { audio?: unknown }).audio)
-    : null
-
+  // Prefer the first example sentence on a vocabulary card; fall back to the
+  // sentence-layout shape (different shape entirely — top-level ja/en/furigana
+  // rather than a nested exampleSentences[] array).
+  const example = vocab?.exampleSentences?.[0]
   const exampleSentence = example !== undefined
     ? {
         ja:       example.ja,
         en:       example.en,
         furigana: example.furigana,
-        audio:    sentenceAudio,
+        // ExampleSentenceSchema's audio key is `sentenceAudio`. The previous
+        // implementation read `.audio` here (the sentence-layout's key name)
+        // and silently returned null; see the audit trail in the kanban Done
+        // entry for Stage 3.
+        audio:    example.sentenceAudio ?? null,
       }
     : sentence !== null
     ? {
-        ja:       sentence.front,
-        en:       sentence.back,
-        furigana: asString(raw.furigana) ?? sentence.front,
-        audio:    asString(raw.sentenceAudio),
+        ja:       sentence.ja,
+        en:       sentence.en,
+        furigana: sentence.furigana,
+        // SentenceFieldsDataSchema uses `audio` (not `sentenceAudio`) — the
+        // two shapes are intentionally distinct: example-sentences are
+        // nested inside vocabulary cards, sentence-layout is the card.
+        audio:    sentence.audio ?? null,
       }
     : null
 
   return {
-    word:            word?.word    ?? sentence?.front ?? '',
-    reading:         word?.reading ?? null,
-    meaning:         word?.meaning ?? sentence?.back ?? '',
-    partOfSpeech:    word?.partOfSpeech ?? null,
-    mnemonic:        word?.mnemonic    ?? null,
-    nuance:          asString(raw.nuance),
-    frequencyRank:   word?.frequencyRank ?? null,
-    pitchPosition:   asNumber(raw.pitchPosition),
-    pitchAccent:     asString(raw.pitchAccent),
-    expressionAudio: asString(raw.expressionAudio),
-    picture:         asString(raw.picture),
-    collocations:    vocab?.collocations ?? [],
-    homophones:      vocab?.homophones   ?? [],
+    word:            word?.word            ?? sentence?.ja ?? '',
+    reading:         word?.reading         ?? null,
+    meaning:         word?.meaning         ?? sentence?.en ?? '',
+    partOfSpeech:    word?.partOfSpeech    ?? null,
+    mnemonic:        word?.mnemonic        ?? null,
+    nuance:          word?.nuance          ?? sentence?.nuance ?? null,
+    frequencyRank:   word?.frequencyRank   ?? null,
+    pitchPosition:   word?.pitchPosition   ?? null,
+    pitchAccent:     vocab?.pitchAccent    ?? null,
+    expressionAudio: word?.expressionAudio ?? null,
+    picture:         word?.picture         ?? null,
+    collocations:    vocab?.collocations   ?? [],
+    homophones:      vocab?.homophones     ?? [],
     kanjiBreakdown:  vocab?.kanjiBreakdown ?? [],
     exampleSentence,
     jlptLevel:       card.jlptLevel,
