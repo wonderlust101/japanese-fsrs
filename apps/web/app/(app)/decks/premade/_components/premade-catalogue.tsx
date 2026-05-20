@@ -2,7 +2,6 @@
 
 import { useId, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { ApiDeck, ApiPremadeDeck, DeckType, JLPTLevel } from '@fsrs-japanese/shared-types'
 
 import { Button } from '@/components/ui/Button'
@@ -63,7 +62,6 @@ const TYPE_PILL_TONE: Record<DeckType, ContentTypeTone> = {
  * is a low-frequency surface, so a fresh visit shows the full view.
  */
 export function PremadeCatalogue(): React.JSX.Element {
-  const router = useRouter()
   const { toast, showToast, dismissToast } = useToast()
 
   const [jlpt, setJlpt] = useState<JlptFilter>('all')
@@ -123,10 +121,6 @@ export function PremadeCatalogue(): React.JSX.Element {
     })
   }
 
-  function handleViewLibrary(): void {
-    router.push('/decks')
-  }
-
   // ── States ────────────────────────────────────────────────────────────────
 
   if (decksQuery.isError) {
@@ -169,7 +163,6 @@ export function PremadeCatalogue(): React.JSX.Element {
                 deck={deck}
                 copiedDeck={userDeckByPremadeId.get(deck.id) ?? null}
                 onCopy={() => handleCopy(deck)}
-                onViewLibrary={handleViewLibrary}
                 pending={pendingId === deck.id}
                 disabled={pendingId !== null && pendingId !== deck.id}
               />
@@ -297,13 +290,12 @@ interface CatalogueCardProps {
    *  library" indicator and the "View deck" affordance. */
   copiedDeck:    ApiDeck | null
   onCopy:        () => void
-  onViewLibrary: () => void
   pending:       boolean
   disabled:      boolean
 }
 
 function CatalogueCard({
-  deck, copiedDeck, onCopy, onViewLibrary, pending, disabled,
+  deck, copiedDeck, onCopy, pending, disabled,
 }: CatalogueCardProps): React.JSX.Element {
   // Domain pill (e.g. "anime", "business") appears alongside the JLPT/type
   // pills when the catalogue carries one. Keeps the metadata cluster
@@ -391,22 +383,17 @@ function CatalogueCard({
               </QuietLink>
             </>
           ) : (
-            <>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={onCopy}
-                loading={pending}
-                disabled={disabled}
-                aria-label={`Add ${deck.name} to your library`}
-              >
-                Add to my library
-              </Button>
-              <QuietLink onClick={onViewLibrary} tone="sumi" size="sm" trailingArrow>
-                View my decks
-              </QuietLink>
-            </>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onCopy}
+              loading={pending}
+              disabled={disabled}
+              aria-label={`Add ${deck.name} to your library`}
+            >
+              Add to my library
+            </Button>
           )}
         </div>
       </div>

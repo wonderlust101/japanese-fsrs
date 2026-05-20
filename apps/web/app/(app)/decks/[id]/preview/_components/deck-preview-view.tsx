@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import {
   getWordFields,
@@ -12,12 +13,13 @@ import {
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { IconSearch } from '@/components/icons/chrome-marks'
 import { CardsResultsTable, type CardsResultRow } from '@/app/(app)/cards/_components/cards-results-table'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction } from '@/lib/actions/decks.actions'
 import { listCardsCrossDeckAction } from '@/lib/actions/cards.actions'
+import { useCopyPremadeDeck } from '@/lib/api/premade'
 
 import {
   CardListPagination,
@@ -32,17 +34,22 @@ interface Props {
 }
 
 /**
- * Read-only preview of a deck. Reuses the regular deck-detail chrome
- * (PageHeader, search, CardsResultsTable, pagination) but strips every
- * surface that exposes personal stats or editing — the kebab menu in
- * the TopBar, the "Study deck" CTA, per-row kebab, FSRS status pill,
- * due date, the snapshot aside, and the Options panel.
+ * Deck preview surface. Reuses the regular deck-detail chrome — PageHeader,
+ * search, CardsResultsTable, pagination — but strips every surface that
+ * exposes personal stats or editing: the TopBar kebab, the "Study deck" CTA,
+ * per-row kebab, FSRS status pill, due date, snapshot aside, and Options
+ * panel. The single deck-level action is "Add to my library", which copies
+ * the underlying premade source so the learner ends up with a fresh deck
+ * to study from.
  *
- * Reached today via the premade catalogue's "View deck" action for any
- * premade entry the user has already copied into their library. Routed
- * at `/decks/[id]/preview`.
+ * Reached via the premade catalogue's "View deck" action for any premade
+ * entry the user has already copied. Routed at `/decks/[id]/preview`.
  */
 export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element {
+  const router = useRouter()
+  const { toast, showToast, dismissToast } = useToast()
+  const copyMutation = useCopyPremadeDeck()
+
   const [searchValue, setSearchValue] = useState('')
   const [pageSize, setPageSize]       = useState<CardPageSize>(DEFAULT_PAGE_SIZE)
   const [pageIndex, setPageIndex]     = useState(0)
@@ -110,6 +117,29 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
     setPageIndex((i) => Math.max(0, i - 1))
   }
 
+  // Adds another copy of the underlying premade source, mirroring the
+  // catalogue's "Add another copy" affordance. The CTA only renders when
+  // `sourcePremadeId !== null` (see rightSlot below), so the mutation has a
+  // real id to work with; the guard here is defensive against stale clicks
+  // after the deck row is unloaded.
+  function handleAddToLibrary(): void {
+    if (sourcePremadeId === null || copyMutation.isPending) return
+    copyMutation.mutate(sourcePremadeId, {
+      onSuccess: (result) => {
+        showToast(
+          `Added ${result.cardCount} ${result.cardCount === 1 ? 'card' : 'cards'} to your library.`,
+        )
+        router.push(`/decks/${result.deckId}/preview`)
+      },
+      onError: (err) => {
+        showToast(
+          err.message || 'Could not add this deck. Try again in a moment.',
+          'error',
+        )
+      },
+    })
+  }
+
   return (
     <>
       <TopBar>
@@ -137,22 +167,23 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                 ? { subtitle: deck.description }
                 : {})}
               rightSlot={
-                <Link href={`/decks/${deckId}`}>
-                  <Button size="sm" variant="secondary">
-                    Open deck
+                sourcePremadeId !== null ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    onClick={handleAddToLibrary}
+                    loading={copyMutation.isPending}
+                    aria-label={`Add ${deckName} to your library`}
+                  >
+                    Add to my library
                   </Button>
-                </Link>
+                ) : undefined
               }
             />
           </div>
 
           <div className="space-y-6">
-            {/* Read-only banner. Distinguishes the surface from the
-                editing-enabled /decks/[id] page so a learner who landed
-                here from the catalogue knows why the kebab menus are
-                missing. */}
-            <PreviewBanner sourcePremadeId={sourcePremadeId} deckId={deckId} />
-
             <main className="min-w-0">
               <SearchOnlyToolbar
                 value={searchValue}
@@ -220,45 +251,20 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
           </div>
         </div>
       </div>
+
+      {toast !== null && (
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+        />
+      )}
     </>
   )
 }
 
 // ─── Subcomponents ───────────────────────────────────────────────────────
-
-interface PreviewBannerProps {
-  sourcePremadeId: string | null
-  deckId:          string
-}
-
-function PreviewBanner({ sourcePremadeId, deckId }: PreviewBannerProps): React.JSX.Element {
-  const message = sourcePremadeId !== null
-    ? 'This is a read-only preview of a deck started from the premade catalogue. Open the deck to study, edit, or organise it.'
-    : 'This is a read-only preview. Open the deck to study, edit, or organise it.'
-
-  return (
-    <aside
-      aria-label="Read-only preview"
-      className="rounded-[2px] border border-soft-hairline bg-cream-inset/55 px-4 py-3 sm:px-5 sm:py-4"
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <p className="text-sm leading-relaxed text-faded-sumi">
-          <span
-            lang="ja"
-            aria-hidden="true"
-            className="mr-2 font-display text-sm leading-none text-inari-vermillion"
-          >
-            観
-          </span>
-          {message}
-        </p>
-        <QuietLink href={`/decks/${deckId}`} tone="brand" size="sm" trailingArrow>
-          Open deck
-        </QuietLink>
-      </div>
-    </aside>
-  )
-}
 
 interface SearchOnlyToolbarProps {
   value:    string
