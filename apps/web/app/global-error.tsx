@@ -1,5 +1,9 @@
 'use client'
 
+import { useEffect } from 'react'
+
+import { reportError } from '@/lib/report-error'
+
 /**
  * Last-resort fallback. Next.js renders this when the root error boundary
  * (`app/error.tsx`) itself throws, or when the root layout fails during
@@ -35,7 +39,9 @@ const COLORS = {
 } as const
 
 export default function GlobalError({ error, reset }: GlobalErrorProps): React.JSX.Element {
-  console.error('[tomo] global error caught:', error)
+  useEffect(() => {
+    reportError(error, { source: 'global error boundary', digest: error.digest })
+  }, [error])
 
   return (
     <html lang="en">

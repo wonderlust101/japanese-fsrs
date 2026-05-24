@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
 import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
+import { reportError } from '@/lib/report-error'
 
 import {
   buildMarkdownReport,
@@ -64,8 +65,8 @@ export default function AppError({ error, reset }: ErrorBoundaryProps): React.JS
   const { copied: reported, copy: copyReport } = useCopyConfirmation()
 
   useEffect(() => {
-    console.error('[tomo] (app) error boundary caught:', error)
-  }, [error])
+    reportError(error, { source: '(app) error boundary', pathname, digest: error.digest })
+  }, [error, pathname])
 
   function handleRetry(): void {
     const next = retries + 1

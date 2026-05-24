@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
+import { reportError } from '@/lib/report-error'
+
 import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
 
 import {
@@ -75,8 +77,8 @@ export default function RootError({ error, reset }: ErrorBoundaryProps): React.J
   // even when the dev panel is collapsed. In production this still helps
   // anyone with the console open during a reproduction.
   useEffect(() => {
-    console.error('[tomo] error boundary caught:', error)
-  }, [error])
+    reportError(error, { source: 'root error boundary', pathname, digest: error.digest })
+  }, [error, pathname])
 
   function handleRetry(): void {
     const next = retries + 1
