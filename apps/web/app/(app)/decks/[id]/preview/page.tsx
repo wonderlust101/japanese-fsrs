@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { getDeckCached } from '@/lib/data/route-reads'
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function DeckPreviewPage({ params }: PageProps): Promise<React.JSX.Element> {
   const { id: deckId } = await params
   const deck           = await getDeckCached(deckId)
-  if (deck === null) redirect('/decks')
+  if (deck === null) notFound()
 
   return <DeckPreviewView deckId={deckId} deckName={deck.name} />
 }

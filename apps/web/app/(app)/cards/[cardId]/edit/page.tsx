@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { listDecksAction } from '@/lib/actions/decks.actions'
@@ -27,7 +27,8 @@ export default async function EditCardPage({ params }: Props): Promise<React.JSX
   //    directly; the detail view already disables its Edit link for these.
   //  - non word-layout (sentence cards) → this editor only authors the
   //    vocabulary/grammar field set, so send those back to the detail view.
-  if (card === null || card.deckId === null) redirect('/decks')
+  if (card === null) notFound()
+  if (card.deckId === null) redirect('/decks')
   if (card.userId === null) redirect(`/cards/${cardId}`)
   if (getWordFields(card) === null) redirect(`/cards/${cardId}`)
 

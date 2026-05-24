@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { getCardByIdCached, getDeckCached } from '@/lib/data/route-reads'
@@ -24,7 +24,10 @@ export default async function CardDetailPage({ params }: Props): Promise<React.J
   // `deckId` is nullable on the schema (orphaned card states are permitted by
   // some workflows); a card without a deck has no meaningful detail view here,
   // so route back to the decks list.
-  if (card === null || card.deckId === null) redirect('/decks')
+  if (card === null) notFound()
+  // Orphaned card (exists but no deck) has no meaningful detail view; this is a
+  // deliberate redirect, not a 404.
+  if (card.deckId === null) redirect('/decks')
 
   const deck = await getDeckCached(card.deckId)
 
