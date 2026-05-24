@@ -131,7 +131,7 @@ export function SrsComponentsSection(): React.JSX.Element {
     >
       <div>
         <h3 className="text-xs text-faded-sumi mb-3">DashboardHero</h3>
-        <div className="rounded-[2px] border border-soft-hairline bg-cool-paper-base p-3 sm:p-4">
+        <div className="rounded-xs border border-soft-hairline bg-cool-paper-base p-3 sm:p-4">
           <div className="mb-2 flex flex-wrap gap-2">
             {HERO_STATE_OPTIONS.map(option => (
               <button
@@ -139,7 +139,7 @@ export function SrsComponentsSection(): React.JSX.Element {
                 type="button"
                 onClick={() => setHeroKind(option.value)}
                 className={[
-                  'h-8 rounded-[2px] border px-3 text-xs font-medium transition-colors duration-150 ease-out',
+                  'h-8 rounded-xs border px-3 text-xs font-medium transition-colors duration-150 ease-out',
                   heroKind === option.value
                     ? 'border-inari-vermillion bg-vermillion-wash text-inari-vermillion-deep'
                     : 'border-soft-hairline bg-warm-paper-raised text-faded-sumi hover:border-faded-sumi hover:text-sumi-ink',
@@ -156,7 +156,7 @@ export function SrsComponentsSection(): React.JSX.Element {
                 type="button"
                 onClick={() => setHeroDeckMode(option.value)}
                 className={[
-                  'h-8 rounded-[2px] border px-3 text-xs font-medium transition-colors duration-150 ease-out',
+                  'h-8 rounded-xs border px-3 text-xs font-medium transition-colors duration-150 ease-out',
                   heroDeckMode === option.value
                     ? 'border-inari-vermillion bg-vermillion-wash text-inari-vermillion-deep'
                     : 'border-soft-hairline bg-warm-paper-raised text-faded-sumi hover:border-faded-sumi hover:text-sumi-ink',
@@ -204,7 +204,7 @@ export function SrsComponentsSection(): React.JSX.Element {
                     type="button"
                     onClick={() => setPace(p)}
                     className={[
-                      'px-2 py-1 rounded-[2px] border',
+                      'px-2 py-1 rounded-xs border',
                       pace === p
                         ? 'border-inari-vermillion text-inari-vermillion'
                         : 'border-soft-hairline text-faded-sumi hover:border-faded-sumi',
@@ -232,7 +232,7 @@ export function SrsComponentsSection(): React.JSX.Element {
                     type="button"
                     onClick={() => toggleDeck(deck.id)}
                     className={[
-                      'px-2 py-1 rounded-[2px] border',
+                      'px-2 py-1 rounded-xs border',
                       subscribedIds.has(deck.id)
                         ? 'border-inari-vermillion text-inari-vermillion'
                         : 'border-soft-hairline text-faded-sumi hover:border-faded-sumi',
@@ -272,7 +272,7 @@ export function SrsComponentsSection(): React.JSX.Element {
                     type="button"
                     onClick={() => setVolume(level)}
                     className={[
-                      'px-2 py-1 rounded-[2px] border',
+                      'px-2 py-1 rounded-xs border',
                       volume === level
                         ? 'border-inari-vermillion text-inari-vermillion'
                         : 'border-soft-hairline text-faded-sumi hover:border-faded-sumi',

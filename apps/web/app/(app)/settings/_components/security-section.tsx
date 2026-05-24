@@ -262,7 +262,7 @@ export function SecuritySection(): React.JSX.Element {
             Delete account
           </Button>
         ) : (
-          <div className="rounded-[2px] border border-inari-vermillion/30 bg-vermillion-wash/30 p-4">
+          <div className="rounded-xs border border-inari-vermillion/30 bg-vermillion-wash/30 p-4">
             <p className="text-xs text-sumi-ink">
               To confirm, enter your current password. This will sign you out and remove your data immediately.
             </p>

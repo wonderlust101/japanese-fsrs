@@ -31,11 +31,11 @@ export function TodayWeekRhythmSilhouette(): React.JSX.Element {
   return (
     <section
       aria-label="The week ahead, unavailable"
-      className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-5 py-5 sm:px-6 sm:py-6"
+      className="relative overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised px-5 py-5 sm:px-6 sm:py-6"
     >
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
+        className="absolute inset-x-0 top-0 h-0.5 bg-inari-vermillion"
       />
       <div className="flex items-baseline gap-x-3">
         <span aria-hidden="true" lang="ja" className="font-display text-xl text-sumi-ink/40">週</span>

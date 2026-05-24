@@ -138,7 +138,7 @@ function TabButton({
       className={[
         // 44px touch target on mobile, release on desktop. Matches the
         // toolbar chip sizing pattern used in DecksUtilityRow.
-        'ui-motion-colors relative inline-flex min-h-[44px] items-center gap-2 px-3 py-2.5 text-sm sm:min-h-0',
+        'ui-motion-colors relative inline-flex min-h-11 items-center gap-2 px-3 py-2.5 text-sm sm:min-h-0',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         active
           ? 'text-sumi-ink font-medium'
@@ -157,7 +157,7 @@ function TabButton({
       {active && (
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 -bottom-px h-[2px] bg-inari-vermillion"
+          className="absolute inset-x-0 -bottom-px h-0.5 bg-inari-vermillion"
         />
       )}
     </button>

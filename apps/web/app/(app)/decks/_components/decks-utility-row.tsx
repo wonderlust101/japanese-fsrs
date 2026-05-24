@@ -137,9 +137,9 @@ function SortDropdown({
           leadingNode={<IconSort className="h-3.5 w-3.5 text-faded-sumi" />}
           trailingNode={<Chevron />}
           // Sibling-consistency with the cards page: 44px touch target
-          // on mobile, release on desktop. Same `min-h-[44px] sm:min-h-0`
+          // on mobile, release on desktop. Same `min-h-11 sm:min-h-0`
           // pattern used across the cards toolbar primitives.
-          className="min-h-[44px] sm:min-h-0 active:bg-cream-inset"
+          className="min-h-11 sm:min-h-0 active:bg-cream-inset"
         >
           <span className="hidden text-faded-sumi sm:inline">Sort </span>
           <span className="text-sumi-ink">{SORT_LABEL[current]}</span>
@@ -184,7 +184,7 @@ function TypeDropdown({
           aria-expanded={ariaExpanded}
           leadingNode={<IconFilter className="h-3.5 w-3.5 text-faded-sumi" />}
           trailingNode={<Chevron />}
-          className="min-h-[44px] sm:min-h-0 active:bg-cream-inset"
+          className="min-h-11 sm:min-h-0 active:bg-cream-inset"
         >
           {TYPE_LABEL[current]}
         </ToolbarChip>
@@ -222,13 +222,13 @@ function CurateButton({
       aria-pressed={active}
       aria-label={active ? 'Done curating' : 'Curate decks'}
       className={[
-        // h-9 desktop / min-h-[44px] mobile = same touch-sizing pattern
+        // h-9 desktop / min-h-11 mobile = same touch-sizing pattern
         // as cards toolbar primitives. active: gives iOS tap feedback.
         // shrink-0 keeps the button at its natural width so it never compresses
         // the flex-1 search field sharing its row. On mobile it goes icon-only
         // and holds a full 44x44 touch target (min-w + min-h + centered icon);
         // at sm it relaxes to the inline h-9 label button. label returns at sm.
-        'ui-motion-colors inline-flex h-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 shrink-0 items-center justify-center sm:justify-start gap-2 rounded-[2px] px-2.5 sm:pr-3 text-sm font-medium',
+        'ui-motion-colors inline-flex h-9 min-h-11 min-w-[44px] sm:min-h-0 sm:min-w-0 shrink-0 items-center justify-center sm:justify-start gap-2 rounded-xs px-2.5 sm:pr-3 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         active
           ? 'bg-sumi-ink text-warm-paper-raised hover:bg-sumi-ink/95 active:bg-sumi-ink/85'

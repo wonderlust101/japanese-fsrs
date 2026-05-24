@@ -153,7 +153,7 @@ function Stage({
   return (
     <div
       className={cn(
-        'transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+        'transition-[opacity,transform] duration-300 ease-out-expo',
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1',
         className,
       )}
@@ -170,7 +170,7 @@ function Picture({ src, alt }: { src: string; alt: string }): React.JSX.Element 
         src={src}
         alt={alt}
         loading="lazy"
-        className="max-h-[260px] md:max-h-[300px] w-auto rounded-[2px] border border-soft-hairline bg-cream-inset/30 object-contain"
+        className="max-h-[260px] md:max-h-[300px] w-auto rounded-xs border border-soft-hairline bg-cream-inset/30 object-contain"
       />
     </div>
   )

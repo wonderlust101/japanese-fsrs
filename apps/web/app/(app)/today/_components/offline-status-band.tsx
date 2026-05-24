@@ -40,14 +40,14 @@ export function OfflineStatusBand(): React.JSX.Element | null {
         role="status"
         aria-live="polite"
         className={[
-          'relative overflow-hidden rounded-[2px]',
+          'relative overflow-hidden rounded-xs',
           'border border-aizome-indigo/15 bg-warm-paper-raised',
           'px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
         ].join(' ')}
       >
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-[2px] bg-aizome-indigo"
+          className="absolute inset-x-0 top-0 h-0.5 bg-aizome-indigo"
         />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
@@ -71,7 +71,7 @@ export function OfflineStatusBand(): React.JSX.Element | null {
               type="button"
               onClick={() => { queue.retryNow() }}
               className={[
-                'inline-flex min-h-11 items-center rounded-[2px]',
+                'inline-flex min-h-11 items-center rounded-xs',
                 'border border-aizome-indigo/30 bg-warm-paper-raised px-3',
                 'font-mono text-xs tracking-wide text-aizome-indigo',
                 'today-motion-colors hover:bg-aizome-indigo/[0.06]',
@@ -90,7 +90,7 @@ export function OfflineStatusBand(): React.JSX.Element | null {
                 }
               }}
               className={[
-                'inline-flex min-h-11 items-center rounded-[2px] px-2 py-1',
+                'inline-flex min-h-11 items-center rounded-xs px-2 py-1',
                 'font-mono text-xs tracking-wide text-faded-sumi',
                 'today-motion-colors hover:text-sumi-ink hover:underline underline-offset-4',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',

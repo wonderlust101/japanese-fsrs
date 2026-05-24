@@ -61,7 +61,7 @@ export function ContextStrip({
 
 export function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <kbd className="inline-flex items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-sm text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
+    <kbd className="inline-flex items-center rounded-xs border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-sm text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
       {children}
     </kbd>
   )

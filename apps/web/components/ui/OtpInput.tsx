@@ -111,7 +111,7 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
             // clipped by the card's overflow-hidden. min-w-0 permits the shrink.
             'flex-1 min-w-0 max-w-[52px] h-14 sm:h-[60px]',
             'font-mono text-2xl font-semibold text-center text-sumi-ink',
-            'bg-cream-inset rounded-[var(--radius-md)]',
+            'bg-cream-inset rounded-md',
             'ui-motion-colors outline-none',
             'focus:ring-[3px] focus:ring-vermillion-wash focus:border-inari-vermillion',
             hasError

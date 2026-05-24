@@ -47,7 +47,7 @@ export function RetentionSection({
             role="tabpanel"
             aria-labelledby={TAB_ID(windowDays)}
             tabIndex={0}
-            className="rounded-[2px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="rounded-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             <RetentionLongCurve days={days} windowDays={windowDays} />
           </div>
@@ -117,7 +117,7 @@ function WindowTabs({
     <div
       role="tablist"
       aria-label="Retention window"
-      className="inline-flex items-center gap-x-1 rounded-[2px] border border-soft-hairline bg-cream-inset/40 p-0.5"
+      className="inline-flex items-center gap-x-1 rounded-xs border border-soft-hairline bg-cream-inset/40 p-0.5"
     >
       {WINDOW_OPTIONS.map((opt, i) => {
         const active = opt === value
@@ -134,7 +134,7 @@ function WindowTabs({
             onClick={() => onChange(opt)}
             onKeyDown={(e) => handleKeyDown(e, i)}
             className={cn(
-              'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[2px] px-3',
+              'inline-flex min-h-11 min-w-[44px] items-center justify-center rounded-xs px-3',
               'font-mono text-sm transition-colors',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
               active

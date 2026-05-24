@@ -44,7 +44,7 @@ export function IconSystemSection(): React.JSX.Element {
 
 function ColorTierStrip(): React.JSX.Element {
   return (
-    <div className="border border-soft-hairline rounded-[2px] bg-warm-paper-raised">
+    <div className="border border-soft-hairline rounded-xs bg-warm-paper-raised">
       <div className="px-5 py-3 border-b border-soft-hairline">
         <p className="text-xs text-faded-sumi">Color tiers</p>
         <h3 className="font-display text-base text-sumi-ink mt-0.5">
@@ -74,7 +74,7 @@ function Tier({
   return (
     <div className="flex items-start gap-3">
       <span
-        className="block w-6 h-6 rounded-[2px] flex-shrink-0 mt-0.5 border border-soft-hairline"
+        className="block w-6 h-6 rounded-xs flex-shrink-0 mt-0.5 border border-soft-hairline"
         style={{ backgroundColor: swatch }}
       />
       <div className="flex flex-col">
@@ -126,7 +126,7 @@ function IconGroups(): React.JSX.Element {
                     className={[
                       'tomo-iconcell',
                       'flex flex-col items-stretch gap-3',
-                      'border border-soft-hairline rounded-[2px]',
+                      'border border-soft-hairline rounded-xs',
                       'px-4 pt-4 pb-3',
                     ].join(' ')}
                     tabIndex={0}
@@ -154,7 +154,7 @@ function IconGroups(): React.JSX.Element {
 function StatesPanel(): React.JSX.Element {
   const Icon = IconDashboard
   return (
-    <div className="border border-soft-hairline rounded-[2px] bg-warm-paper-raised">
+    <div className="border border-soft-hairline rounded-xs bg-warm-paper-raised">
       <div className="px-5 py-3 border-b border-soft-hairline">
         <p className="text-xs text-faded-sumi">States</p>
         <h3 className="font-display text-base text-sumi-ink mt-0.5">
@@ -166,23 +166,23 @@ function StatesPanel(): React.JSX.Element {
         style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}
       >
         <StateCell label="Rest" caption="Icon Faded Sumi (#6B5F58).">
-          <div className="tomo-iconcell px-3 py-2 rounded-[2px]">
+          <div className="tomo-iconcell px-3 py-2 rounded-xs">
             <Icon className="h-8 w-8" />
           </div>
         </StateCell>
         <StateCell label="Hover" caption="Icon Sumi Ink (#1F1A18). Cell Cream Inset.">
-          <div className="tomo-iconcell px-3 py-2 rounded-[2px]" data-state="hover">
+          <div className="tomo-iconcell px-3 py-2 rounded-xs" data-state="hover">
             <Icon className="h-8 w-8" />
           </div>
         </StateCell>
         <StateCell label="Active route" caption="Icon Inari Vermillion (#B03646). Cell Vermillion Wash.">
-          <div className="tomo-iconcell px-3 py-2 rounded-[2px]" data-state="active">
+          <div className="tomo-iconcell px-3 py-2 rounded-xs" data-state="active">
             <Icon className="h-8 w-8" />
           </div>
         </StateCell>
         <StateCell label="Focus" caption="3px Vermillion Wash halo via box-shadow.">
           <div
-            className="tomo-iconcell px-3 py-2 rounded-[2px]"
+            className="tomo-iconcell px-3 py-2 rounded-xs"
             style={{ boxShadow: '0 0 0 3px #F8E5E5' }}
           >
             <Icon className="h-8 w-8" />

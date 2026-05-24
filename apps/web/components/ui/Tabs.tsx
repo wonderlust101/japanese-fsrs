@@ -110,7 +110,7 @@ export function Tabs<V extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(item.value)}
             className={cn(
-              'relative -mb-px py-3 pointer-coarse:min-h-[44px] font-mono text-sm',
+              'relative -mb-px py-3 pointer-coarse:min-h-11 font-mono text-sm',
               'transition-colors duration-150 ease-out',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
               selected
@@ -138,7 +138,7 @@ export function Tabs<V extends string>({
             {selected && (
               <span
                 aria-hidden="true"
-                className="absolute inset-x-0 bottom-0 h-[2px] bg-inari-vermillion"
+                className="absolute inset-x-0 bottom-0 h-0.5 bg-inari-vermillion"
               />
             )}
           </button>

@@ -29,7 +29,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             className={[
-              'peer w-full h-10 pl-3 pr-8 text-sm text-sumi-ink bg-cream-inset border rounded-[2px]',
+              'peer w-full h-10 pl-3 pr-8 text-sm text-sumi-ink bg-cream-inset border rounded-xs',
               'ui-motion-colors appearance-none',
               'focus:outline focus:outline-1 focus:outline-offset-2',
               error

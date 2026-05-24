@@ -46,7 +46,7 @@ export function AnswerButtonDistribution({
           slices.map((s) => `${s.label} ${Math.round((s.count / safeTotal) * 100)}%`).join(', ') +
           '.'
         }
-        className="flex h-11 w-full overflow-hidden rounded-[2px] border border-soft-hairline"
+        className="flex h-11 w-full overflow-hidden rounded-xs border border-soft-hairline"
       >
         {slices.map((s) => {
           const widthPct = (s.count / safeTotal) * 100
@@ -74,7 +74,7 @@ export function AnswerButtonDistribution({
               <span
                 aria-hidden="true"
                 className={cn(
-                  'mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-[2px]',
+                  'mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-xs',
                   s.bg,
                 )}
               />

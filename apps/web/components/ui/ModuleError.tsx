@@ -15,7 +15,7 @@ interface ModuleErrorProps {
  */
 export function ModuleError({ label, onRetry }: ModuleErrorProps): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[2px] bg-cream-inset px-4 py-3.5">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xs bg-cream-inset px-4 py-3.5">
       <p className="text-base text-sumi-ink">
         Couldn&rsquo;t load {label}.
       </p>

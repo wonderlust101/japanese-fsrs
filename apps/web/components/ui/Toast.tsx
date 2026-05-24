@@ -58,7 +58,7 @@ export function Toast({
           <button
             type="button"
             onClick={() => { action.onClick(); onDismiss() }}
-            className="shrink-0 rounded-[2px] px-2 py-1 font-mono text-sm font-semibold uppercase tracking-[0.06em] text-inari-vermillion underline-offset-2 hover:bg-cream-inset/70 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="shrink-0 rounded-xs px-2 py-1 font-mono text-sm font-semibold uppercase tracking-[0.06em] text-inari-vermillion underline-offset-2 hover:bg-cream-inset/70 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             {action.label}
           </button>

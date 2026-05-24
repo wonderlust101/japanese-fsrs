@@ -281,7 +281,7 @@ export function DecksMenu({
           onKeyDown={onMenuKeyDown}
           style={panelStyle}
           className={[
-            'z-30 min-w-[10rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised py-1.5',
+            'z-[var(--z-popover)] min-w-[10rem] rounded-xs border border-soft-hairline bg-warm-paper-raised py-1.5',
             'shadow-card',
             menuClassName,
           ].join(' ')}

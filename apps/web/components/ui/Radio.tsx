@@ -22,7 +22,7 @@ export function Radio({ checked, className }: RadioProps): React.JSX.Element {
     <span
       aria-hidden="true"
       className={cn(
-        'ui-motion-colors flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[2px] border bg-warm-paper-raised',
+        'ui-motion-colors flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-xs border bg-warm-paper-raised',
         checked
           ? 'border-inari-vermillion'
           : 'border-soft-hairline',

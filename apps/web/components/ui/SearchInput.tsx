@@ -50,7 +50,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={placeholder}
           aria-label={ariaLabel}
           className={[
-            'ui-motion-colors block h-10 w-full rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 text-sm text-sumi-ink placeholder:text-faded-sumi',
+            'ui-motion-colors block h-10 w-full rounded-xs border border-soft-hairline bg-cream-inset pl-8 text-sm text-sumi-ink placeholder:text-faded-sumi',
             'hover:border-faded-sumi',
             'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
             '[&::-webkit-search-cancel-button]:appearance-none',

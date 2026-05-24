@@ -104,7 +104,7 @@ export function InputsSection(): React.JSX.Element {
                   <label
                     key={opt}
                     className={[
-                      'group flex cursor-pointer items-start gap-3 rounded-[2px] border px-4 py-3 transition-colors',
+                      'group flex cursor-pointer items-start gap-3 rounded-xs border px-4 py-3 transition-colors',
                       'has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-sumi-ink has-[:focus-visible]:outline-offset-2',
                       checked ? 'border-inari-vermillion bg-vermillion-wash/40' : 'border-soft-hairline hover:border-faded-sumi',
                     ].join(' ')}

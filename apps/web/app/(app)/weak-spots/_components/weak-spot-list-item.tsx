@@ -77,7 +77,7 @@ export function WeakSpotListItem({
         type="button"
         onClick={() => onOpen(weakSpot.id)}
         aria-label={`View details for ${label}`}
-        className="absolute inset-0 rounded-[2px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-2px]"
+        className="absolute inset-0 rounded-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-2px]"
       />
 
       {/* ── Content (non-interactive; clicks fall through to the button) ── */}
@@ -144,7 +144,7 @@ export function WeakSpotListItem({
               href={`/weak-spots/drill/setup?cardId=${weakSpot.cardId}`}
               variant="secondary"
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-11 sm:min-h-0"
             >
               Drill
             </ButtonLink>
@@ -154,7 +154,7 @@ export function WeakSpotListItem({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-11 sm:min-h-0"
               loading={isMutating}
               onClick={() => onReopen(weakSpot.id)}
             >
@@ -165,7 +165,7 @@ export function WeakSpotListItem({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-11 sm:min-h-0"
               loading={isMutating}
               onClick={() => onResolve(weakSpot.id)}
             >

@@ -79,7 +79,7 @@ export function SessionTeachSheet({
       role={mode === 'manual' ? 'dialog' : 'presentation'}
       aria-modal={mode === 'manual' ? 'true' : undefined}
       aria-labelledby={mode === 'manual' ? 'teach-sheet-title' : undefined}
-      className="fixed inset-0 z-[55] flex items-center justify-center px-5"
+      className="fixed inset-0 z-[var(--z-popover)] flex items-center justify-center px-5"
     >
       {/* Backdrop: paper-tone, no blur (brand: paper laid on paper).
           Click-outside dismisses in manual mode; in auto mode the document
@@ -98,7 +98,7 @@ export function SessionTeachSheet({
 
       <div
         className={cn(
-          'relative w-full max-w-[26rem] rounded-[2px]',
+          'relative w-full max-w-[26rem] rounded-xs',
           'border border-soft-hairline bg-warm-paper-raised',
           'px-7 py-6 shadow-card',
           mode === 'auto' && 'pointer-events-none',

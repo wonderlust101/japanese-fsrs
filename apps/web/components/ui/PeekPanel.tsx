@@ -80,7 +80,7 @@ export function PeekPanel({
       } : undefined}
       tabIndex={interactive ? 0 : undefined}
       className={cn(
-        'ui-motion-colors fixed z-30 rounded-[2px] border border-soft-hairline',
+        'ui-motion-colors fixed z-[var(--z-toast)] rounded-xs border border-soft-hairline',
         'bg-warm-paper-raised px-3.5 py-2.5 text-sm text-sumi-ink',
         'shadow-card animate-page-enter',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',

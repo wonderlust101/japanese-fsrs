@@ -69,7 +69,7 @@ export function StickyActionBar({
       role={role}
       aria-label={ariaLabel}
       className={cn(
-        'sticky z-20 border-soft-hairline bg-warm-paper-raised',
+        'sticky z-[var(--z-raised)] border-soft-hairline bg-warm-paper-raised',
         EDGE_CLASS[edge],
         className,
       )}
@@ -78,7 +78,7 @@ export function StickyActionBar({
         <span
           aria-hidden="true"
           className={cn(
-            'pointer-events-none absolute inset-x-0 h-[2px] bg-inari-vermillion',
+            'pointer-events-none absolute inset-x-0 h-0.5 bg-inari-vermillion',
             STRIPE_POSITION[edge],
           )}
         />

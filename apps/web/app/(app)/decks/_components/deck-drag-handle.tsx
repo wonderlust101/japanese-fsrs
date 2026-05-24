@@ -30,7 +30,7 @@ export function DragHandle({ onPointerDown, disabled, ariaLabel }: DragHandlePro
       aria-disabled={disabled}
       title={ariaLabel}
       className={[
-        'ui-motion-colors flex h-4 w-4 cursor-grab items-center justify-center rounded-[2px]',
+        'ui-motion-colors flex h-4 w-4 cursor-grab items-center justify-center rounded-xs',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         disabled
           ? 'cursor-not-allowed text-faded-sumi/35 hover:bg-transparent'

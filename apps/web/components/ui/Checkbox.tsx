@@ -40,7 +40,7 @@ function CheckboxRoot({
       onClick={() => { if (disabled !== true) onChange(!checked) }}
       className={cn(
         'group relative inline-flex h-5 w-5 shrink-0 items-center justify-center',
-        'rounded-[2px] border transition-colors duration-150 ease-out',
+        'rounded-xs border transition-colors duration-150 ease-out',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         // Invisible padding extends the click target to 44×44 (WCAG 2.5.5)
         // without growing the visible glyph. Clicks anywhere in the pseudo's
@@ -64,7 +64,7 @@ function CheckboxRoot({
         <path
           d="M3.5 8.5 L7 12 L13 5"
           fill="none"
-          stroke="var(--color-warm-paper-raised, #FAF6F1)"
+          stroke="var(--color-warm-paper-raised)"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"

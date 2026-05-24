@@ -71,7 +71,7 @@ interface DrillSessionClientProps {
  *     Remembered) instead of review's four. The only deliberate visual
  *     diff between the two surfaces.
  *
- * The overlay div (`fixed inset-0 z-50 bg-cool-paper-base`) lives in this
+ * The overlay div (`fixed inset-0 z-[var(--z-overlay)] bg-cool-paper-base`) lives in this
  * component, not in a layout file, so the drill summary (a sibling path)
  * inherits the app shell rather than this overlay.
  */
@@ -390,7 +390,7 @@ export function DrillSessionClient({
               a fixed-position strip rather than inline flow so the link
               tracks the rating bar at the bottom of the viewport on
               short screens too. */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-22 z-30 flex justify-center px-4">
+          <div className="pointer-events-none fixed inset-x-0 bottom-22 z-[var(--z-bar)] flex justify-center px-4">
             <span className="pointer-events-auto">
               <QuietLink
                 tone="sumi"
@@ -430,7 +430,7 @@ export function DrillSessionClient({
 //
 // The fixed-overlay wrapper lives here rather than in a layout.tsx so the
 // sibling /summary path doesn't inherit the overlay. Mirrors review's
-// session/layout.tsx structure (`fixed inset-0 z-50 bg-cool-paper-base
+// session/layout.tsx structure (`fixed inset-0 z-[var(--z-overlay)] bg-cool-paper-base
 // overflow-y-auto`) but applied at the page level.
 
 interface DrillFrameProps {
@@ -441,7 +441,7 @@ interface DrillFrameProps {
 
 function DrillFrame({ percentage, onExit, children }: DrillFrameProps): React.JSX.Element {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-cool-paper-base overflow-y-auto">
+    <div className="fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto">
       <SessionTopBar
         eyebrowLabel="Drill · Practice only"
         endLabel="End drill"
@@ -525,7 +525,7 @@ function RealReviewConfirmBar({
       role="group"
       aria-label="Submit as real review"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-30',
+        'fixed bottom-0 left-0 right-0 z-[var(--z-bar)]',
         'bg-warm-paper-raised border-t border-soft-hairline/60',
         'px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]',
       )}

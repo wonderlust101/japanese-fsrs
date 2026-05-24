@@ -56,7 +56,7 @@ export function QueueErrorPane({
         <span
           aria-hidden="true"
           lang="ja"
-          className="font-display text-[1.75rem] leading-none text-faded-sumi"
+          className="font-display text-numeral leading-none text-faded-sumi"
         >
           静
         </span>
@@ -87,12 +87,12 @@ export function QueueErrorPane({
             disabled={refreshing}
             aria-busy={refreshing ? true : undefined}
             className={[
-              'inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[2px] px-6 py-3',
+              'inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xs px-6 py-3',
               'sm:w-auto sm:min-w-[12rem] sm:px-8',
               'text-base font-semibold',
               'today-hero-primary-action bg-inari-vermillion text-warm-paper-raised',
               'today-motion-colors',
-              'hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+              'hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-pressed',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
               'disabled:cursor-progress disabled:opacity-70',
             ].join(' ')}

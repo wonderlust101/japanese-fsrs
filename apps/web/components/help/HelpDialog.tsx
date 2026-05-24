@@ -138,7 +138,7 @@ function DialogLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="text-sumi-ink underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
+      className="text-sumi-ink underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
     >
       {children}
     </Link>

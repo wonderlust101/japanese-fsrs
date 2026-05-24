@@ -37,7 +37,7 @@ export function SampleCard({
   return (
     <div
       className={[
-        'relative rounded-[2px] bg-warm-paper-raised border border-soft-hairline',
+        'relative rounded-xs bg-warm-paper-raised border border-soft-hairline',
         'px-5 pt-6 pb-4 w-full',
         className,
       ].join(' ')}
@@ -45,7 +45,7 @@ export function SampleCard({
       {/* Top stripe */}
       <span
         aria-hidden="true"
-        className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[2px] bg-inari-vermillion"
+        className="absolute top-0 left-0 right-0 h-0.5 rounded-t-[2px] bg-inari-vermillion"
       />
 
       <>

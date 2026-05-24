@@ -87,7 +87,7 @@ export function DeckSummary({
           What's in your set
         </p>
 
-        <div className="relative h-3 bg-cream-inset rounded-[2px] overflow-hidden flex">
+        <div className="relative h-3 bg-cream-inset rounded-xs overflow-hidden flex">
           {allDecks.map((deck, i) => {
             const subscribed = subscribedIds.has(deck.id)
             const fraction = subscribed && totalCards > 0
@@ -99,7 +99,7 @@ export function DeckSummary({
                 className="h-full bg-inari-vermillion"
                 style={{
                   flex:           `0 0 ${fraction * 100}%`,
-                  transition:     'flex-basis 420ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  transition:     'flex-basis 420ms var(--ease-out-quint)',
                   willChange:     'flex-basis',
                   borderRight:    i < allDecks.length - 1 ? '1px solid var(--color-warm-paper-raised)' : undefined,
                 }}

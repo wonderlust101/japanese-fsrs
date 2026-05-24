@@ -204,10 +204,10 @@ export function NavItem({
           data-active={containerActive ? 'true' : undefined}
           title={item.label}
           className={[
-            'nav-row group relative overflow-hidden rounded-[2px]',
+            'nav-row group relative overflow-hidden rounded-xs',
             'flex items-center justify-center',
-            'min-h-[44px] w-12 mx-auto',
-            'text-sumi-ink transition-colors duration-[200ms]',
+            'min-h-11 w-12 mx-auto',
+            'text-sumi-ink transition-colors duration-200',
             'hover:bg-cream-inset',
             'data-[active=true]:bg-vermillion-wash',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -215,12 +215,12 @@ export function NavItem({
         >
           <span
             aria-hidden="true"
-            className="absolute top-0 inset-x-0 h-[2px] bg-inari-vermillion origin-left scale-x-0 transition-transform duration-[200ms] group-data-[active=true]:scale-x-100 pointer-events-none"
+            className="absolute top-0 inset-x-0 h-0.5 bg-inari-vermillion origin-left scale-x-0 transition-transform duration-200 group-data-[active=true]:scale-x-100 pointer-events-none"
           />
           <Icon
             className="
               relative z-[1] shrink-0 w-7 h-7
-              text-faded-sumi transition-colors duration-[200ms]
+              text-faded-sumi transition-colors duration-200
               group-hover:text-sumi-ink
               group-data-[active=true]:text-inari-vermillion
             "
@@ -236,10 +236,10 @@ export function NavItem({
   const linkBase = [
     'nav-row group relative overflow-hidden',
     'flex items-center gap-2',
-    'min-h-[44px]',
-    'rounded-[2px]',
+    'min-h-11',
+    'rounded-xs',
     'text-base font-medium text-sumi-ink',
-    'transition-colors duration-[200ms] delay-[50ms]',
+    'transition-colors duration-200 delay-[50ms]',
     'hover:bg-cream-inset',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
     'data-[active=true]:bg-vermillion-wash',
@@ -271,9 +271,9 @@ export function NavItem({
           <span
             aria-hidden="true"
             className="
-              absolute top-0 inset-x-0 h-[2px]
+              absolute top-0 inset-x-0 h-0.5
               bg-inari-vermillion origin-left
-              scale-x-0 transition-transform duration-[200ms]
+              scale-x-0 transition-transform duration-200
               group-data-[active=true]:scale-x-100
               group-data-[active=true]:animate-nav-stripe-draw
               pointer-events-none
@@ -285,7 +285,7 @@ export function NavItem({
               className="
                 relative z-[1] shrink-0 w-6 h-6
                 text-faded-sumi
-                transition-colors duration-[200ms]
+                transition-colors duration-200
                 group-hover:text-sumi-ink
                 group-data-[active=true]:text-inari-vermillion
               "
@@ -298,7 +298,7 @@ export function NavItem({
 
           <IconChevronRight
             aria-hidden="true"
-            className={`relative z-[1] shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-[200ms] ease-out group-hover:text-sumi-ink ${
+            className={`relative z-[1] shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-200 ease-out group-hover:text-sumi-ink ${
               isExpanded ? 'rotate-90' : ''
             }`}
           />
@@ -361,9 +361,9 @@ export function NavItem({
         <span
           aria-hidden="true"
           className="
-            absolute top-0 inset-x-0 h-[2px]
+            absolute top-0 inset-x-0 h-0.5
             bg-inari-vermillion origin-left
-            scale-x-0 transition-transform duration-[200ms]
+            scale-x-0 transition-transform duration-200
             group-data-[active=true]:scale-x-100
             group-data-[active=true]:animate-nav-stripe-draw
             pointer-events-none
@@ -376,7 +376,7 @@ export function NavItem({
             className="
               relative z-[1] shrink-0 w-6 h-6
               text-faded-sumi
-              transition-colors duration-[200ms]
+              transition-colors duration-200
               group-hover:text-sumi-ink
               group-data-[active=true]:text-inari-vermillion
             "
@@ -405,7 +405,7 @@ export function NavItem({
             className={[
               'relative z-[1] ml-auto shrink-0 inline-flex items-center justify-center',
               'min-w-[1.25rem] px-1.5 py-px',
-              'rounded-[2px] border border-inari-vermillion/35 bg-warm-paper-raised',
+              'rounded-xs border border-inari-vermillion/35 bg-warm-paper-raised',
               'font-mono text-sm tabular-nums leading-none',
               'text-inari-vermillion-deep',
               // When the row is active, the row background shifts to

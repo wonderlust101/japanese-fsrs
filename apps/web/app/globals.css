@@ -151,7 +151,10 @@
   --color-warning:         oklch(0.45 0.10 65);   /* deep mustard-amber */
   --color-warning-soft:    oklch(0.96 0.025 75);  /* very pale warm tint */
 
-  /* ── Border radius (preserved) ───────────────────────────────────── */
+  /* ── Border radius ───────────────────────────────────────────────── */
+  /* xs (2px) is the system default "cut-paper" corner shared by cards,
+     buttons, inputs, and chrome (DESIGN.md: Card anatomy / Buttons). */
+  --radius-xs:   2px;
   --radius-sm:   6px;
   --radius-md:   10px;
   --radius-lg:   14px;
@@ -164,6 +167,13 @@
   --shadow-lg:    0 8px 24px rgba(70, 30, 35, 0.10);
   --shadow-focus: 0 0 0 3px var(--color-vermillion-wash);
 
+  /* Pressed/active inset shadow — "the press is felt as ink, not movement"
+     (DESIGN.md: Buttons). -pressed: default filled press; -strong: deeper
+     slider-thumb press; -inverse: for dark (sumi-ink) surfaces. */
+  --shadow-pressed:         inset 0 1px 2px rgba(31, 26, 24, 0.12);
+  --shadow-pressed-strong:  inset 0 1px 2px rgba(31, 26, 24, 0.22);
+  --shadow-pressed-inverse: inset 0 1px 2px rgba(253, 251, 247, 0.10);
+
   /* Row-level lift for the dragged deck row. Tighter spread than
      --shadow-lg so the row reads as "picked up", not "floating". */
   --shadow-deck-lift: 0 8px 22px rgba(70, 30, 35, 0.10);
@@ -175,6 +185,11 @@
   /* Exponential ease-out for transform/opacity transitions. Project default
      where ease-out-quint is wanted (mature progress fill, drop indicator). */
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Expo ease-out — the calligraphic "weighted exhale" curve used across the
+     --animate-* keyframes (card draw, nav settle, eyebrow bloom). Tokenized so
+     inline transitions stop re-typing the literal cubic-bezier. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* ── Type scale (Tailwind v4 syntax: font-size + matched line-height per token) ─ */
   /* 12px is the type-system floor: no UI text renders smaller. `text-xs` is
@@ -200,6 +215,15 @@
   --text-4xl--line-height: 4.5rem;
   --text-5xl:  4.5rem;
   --text-5xl--line-height: 5rem;
+
+  /* Stat / numeral display sizes (off the body text ladder). --text-numeral
+     is the big empty-state vermillion figure; --text-glyph is the aria-hidden
+     decorative background glyph. The responsive stat-figure size is the
+     .text-stat role (below, in @layer components). */
+  --text-numeral: 1.75rem;
+  --text-numeral--line-height: 1;
+  --text-glyph: 3.75rem;
+  --text-glyph--line-height: 1;
 
   /* ── Reading measure (enables max-w-measure-tight | max-w-measure |
      max-w-measure-wide via Tailwind v4's --container-* namespace). One small
@@ -393,6 +417,22 @@
   }
 }
 
+/* ── Z-index ladder ──────────────────────────────────────────────────────
+   Tailwind v4 has no z-index theme namespace, so the stacking scale lives in
+   :root and is consumed via z-[var(--z-*)]. One ordered ladder for every
+   fixed / overlay / popover surface, so stacking stops being hand-tuned per
+   call. Local, in-component z-[1]/z-10 stacking contexts are intentionally
+   NOT on this ladder — they only compete with their own siblings. */
+:root {
+  --z-sticky:  10;  /* sticky headers / rails (top bar, settings rail, tabs) */
+  --z-raised:  20;  /* sticky action bars (bulk bar, sticky action bar)       */
+  --z-bar:     30;  /* fixed bottom rating / action bars, undo pills          */
+  --z-nav:     40;  /* session top bar; mobile-drawer scrim                   */
+  --z-overlay: 50;  /* full-screen takeovers + drawer panel                   */
+  --z-popover: 60;  /* dropdowns, menus, popovers, sheets — above overlays    */
+  --z-toast:   70;  /* toasts (PeekPanel) — above everything                  */
+}
+
 /* ── Base ────────────────────────────────────────────────────────────── */
 html {
   -webkit-font-smoothing: antialiased;
@@ -478,12 +518,16 @@ body {
   .text-title   { font-size: 1.625rem; line-height: 1.15; }
   .text-display { font-size: 2rem;     line-height: 1.05; }
   .text-hero    { font-size: 2.5rem;   line-height: 1.0;  }
+  /* Stat figure: tabular numerals in summary/setup/tiles. Base → sm bump only
+     (stats don't grow at lg). Callers add `font-display tabular-nums`. */
+  .text-stat    { font-size: 1.625rem; line-height: 1;    }
 
   @media (width >= 40rem) {
     .text-section { font-size: 1.5rem;   }
     .text-title   { font-size: 1.875rem; }
     .text-display { font-size: 2.5rem;   }
     .text-hero    { font-size: 3rem;     }
+    .text-stat    { font-size: 1.875rem; }
   }
   @media (width >= 64rem) {
     .text-section { font-size: 1.625rem; }

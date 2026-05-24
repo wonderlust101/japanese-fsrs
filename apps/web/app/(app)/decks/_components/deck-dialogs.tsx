@@ -345,7 +345,7 @@ function ArchiveToggle({
   disabled: boolean
 }): React.JSX.Element {
   return (
-    <div className="flex items-start gap-3 rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-3">
+    <div className="flex items-start gap-3 rounded-xs border border-soft-hairline bg-cream-inset/45 p-3">
       <span className="mt-0.5 shrink-0">
         <Toggle
           checked={archived}

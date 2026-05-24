@@ -287,7 +287,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             Already have an account?{' '}
             <Link
               href="/login"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
+              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Sign in
             </Link>
@@ -296,7 +296,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             Need help?{' '}
             <Link
               href="/help"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
+              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Get help
             </Link>
@@ -389,7 +389,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
                 type="button"
                 onClick={handleResend}
                 disabled={resendMutation.isPending}
-                className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
+                className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
               >
                 Resend code
               </button>
@@ -415,7 +415,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
             <button
               type="button"
               onClick={onBack}
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px] transition-colors duration-150"
+              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Go back
             </button>

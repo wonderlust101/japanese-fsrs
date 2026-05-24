@@ -606,7 +606,7 @@ function CardIdentityHeader({
 
       {isSuspended && (
         <div className="hidden shrink-0 items-center sm:flex">
-          <span className="rounded-[2px] border border-soft-hairline bg-cream-inset px-2.5 py-1 font-mono text-xs text-faded-sumi">
+          <span className="rounded-xs border border-soft-hairline bg-cream-inset px-2.5 py-1 font-mono text-xs text-faded-sumi">
             Suspended
           </span>
         </div>
@@ -691,7 +691,7 @@ function CardActionsStrip({
               aria-controls={menuId}
               aria-label="More actions"
               className={[
-                'ui-motion-colors -my-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px]',
+                'ui-motion-colors -my-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xs',
                 'text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink active:bg-cream-inset',
                 'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
               ].join(' ')}
@@ -868,7 +868,7 @@ function ToolAction({
   children:      React.ReactNode
 }): React.JSX.Element {
   const base =
-    'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] px-2.5 ' +
+    'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-xs px-2.5 ' +
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2'
   const tone = danger === true
     ? 'text-inari-vermillion-deep hover:bg-inari-vermillion-deep/8 hover:text-inari-vermillion'
@@ -1022,7 +1022,7 @@ function PagerButton({
       disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex h-6 w-6 items-center justify-center rounded-[2px]',
+        'inline-flex h-6 w-6 items-center justify-center rounded-xs',
         'border border-soft-hairline font-mono text-sm leading-none',
         'transition-colors duration-150',
         disabled

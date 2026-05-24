@@ -335,7 +335,7 @@ export function RetentionRibbonChart({
       {/* Legend */}
       <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-sm text-faded-sumi">
         <li className="flex items-center gap-x-2">
-          <span aria-hidden="true" className="inline-block h-[2px] w-6 bg-inari-vermillion-deep" />
+          <span aria-hidden="true" className="inline-block h-0.5 w-6 bg-inari-vermillion-deep" />
           {windowDays}-day mean
         </li>
         <li className="flex items-center gap-x-2">
@@ -355,7 +355,7 @@ export function RetentionRibbonChart({
           ± 1 standard deviation
         </li>
         <li className="flex items-center gap-x-2">
-          <span aria-hidden="true" className="inline-block h-[2px] w-6 border-t border-dashed border-inari-vermillion-deep/60" />
+          <span aria-hidden="true" className="inline-block h-0.5 w-6 border-t border-dashed border-inari-vermillion-deep/60" />
           target
         </li>
       </ul>

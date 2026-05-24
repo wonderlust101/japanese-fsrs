@@ -14,7 +14,7 @@ interface MenuItemSharedProps {
   trailing?: ReactNode
   /** Renders a right-aligned vermillion check glyph. Trailing wins if both are provided. */
   selected?: boolean
-  /** `compact` (default): py-1.5, no item radius. `spacious`: py-2 + rounded-[2px] + font-medium. */
+  /** `compact` (default): py-1.5, no item radius. `spacious`: py-2 + rounded-xs + font-medium. */
   density?:  MenuItemDensity
   /** Destructive variant: vermillion text + vermillion-wash hover/focus background. */
   danger?:   boolean
@@ -50,7 +50,7 @@ function buildClass({
 }): string {
   const padY = density === 'spacious' ? 'py-2'  : 'py-1.5'
   const text = density === 'spacious' ? 'font-medium' : ''
-  const rad  = density === 'spacious' ? 'rounded-[2px]' : ''
+  const rad  = density === 'spacious' ? 'rounded-xs' : ''
 
   const colors = danger
     ? 'text-inari-vermillion-deep hover:bg-vermillion-wash focus-visible:bg-vermillion-wash'
@@ -62,7 +62,7 @@ function buildClass({
     // so the menu stays dense at pointer-precision widths. Every
     // MenuItem consumer (sort dropdown, view picker, deck filter,
     // per-row kebab, etc.) inherits this automatically.
-    'min-h-[44px] sm:min-h-0',
+    'min-h-11 sm:min-h-0',
     'ui-motion-colors',
     'focus-visible:outline-none',
     'disabled:opacity-50 disabled:pointer-events-none',

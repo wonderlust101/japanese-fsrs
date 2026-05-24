@@ -254,7 +254,7 @@ export function TomoSelect<T extends string>({
         className={[
           // 44px touch target on mobile (WCAG 2.5.5), 40px at pointer-precision
           // widths — mirrors the option-row sizing inside the popover.
-          'group relative inline-flex h-11 sm:h-10 w-full items-center justify-between gap-3 rounded-[2px]',
+          'group relative inline-flex h-11 sm:h-10 w-full items-center justify-between gap-3 rounded-xs',
           'border border-soft-hairline bg-cream-inset px-3 text-left text-sm text-sumi-ink',
           'ui-motion-colors hover:border-faded-sumi',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -279,7 +279,7 @@ export function TomoSelect<T extends string>({
           role="listbox"
           aria-labelledby={ariaLabelledBy}
           className={[
-            'fixed z-[60] max-h-64 overflow-y-auto rounded-[2px]',
+            'fixed z-[var(--z-popover)] max-h-64 overflow-y-auto rounded-xs',
             'border border-soft-hairline bg-warm-paper-raised shadow-card',
             'py-1',
           ].join(' ')}

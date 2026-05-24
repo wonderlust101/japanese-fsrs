@@ -59,7 +59,7 @@ export function CatchUpPlannerCard({
         <Link
           href="/today"
           className={cn(
-            'inline-flex h-10 items-center rounded-[2px] px-4 text-sm font-medium',
+            'inline-flex h-10 items-center rounded-xs px-4 text-sm font-medium',
             'bg-inari-vermillion text-warm-paper-raised',
             'transition-colors duration-150 ease-out',
             'hover:bg-inari-vermillion-deep',
@@ -86,7 +86,7 @@ function ScenarioTile({ scenario }: { scenario: Scenario }): React.JSX.Element {
         // Recommended is the only bordered/filled tile, so the border reads
         // purely as a selection signal. The others carry a transparent border
         // of the same width to keep all three boxes optically aligned.
-        'flex flex-col gap-y-2 rounded-[2px] border py-4',
+        'flex flex-col gap-y-2 rounded-xs border py-4',
         recommended
           ? 'border-inari-vermillion bg-vermillion-wash/40 px-4'
           : 'border-transparent px-1',
@@ -108,7 +108,7 @@ function ScenarioTile({ scenario }: { scenario: Scenario }): React.JSX.Element {
         )}
       </div>
       <div className="flex items-baseline gap-x-2">
-        <span className="font-display text-[1.75rem] font-medium leading-none tabular-nums text-sumi-ink">
+        <span className="font-display text-numeral font-medium leading-none tabular-nums text-sumi-ink">
           {perDay}
         </span>
         <span className="text-sm text-faded-sumi">/ day</span>

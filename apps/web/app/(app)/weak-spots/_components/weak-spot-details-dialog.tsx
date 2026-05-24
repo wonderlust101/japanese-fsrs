@@ -71,7 +71,7 @@ export function WeakSpotDetailsDialog({
       ) : isError ? (
         <div
           role="alert"
-          className="rounded-[2px] border border-error/30 bg-error-tint/40 px-4 py-4 text-sm text-error-deep"
+          className="rounded-xs border border-error/30 bg-error-tint/40 px-4 py-4 text-sm text-error-deep"
         >
           <p>Couldn&rsquo;t load this card right now.</p>
           {errorMessage !== undefined && (
@@ -86,7 +86,7 @@ export function WeakSpotDetailsDialog({
               stats grid and live here as card identity. */}
           <section
             aria-label="Card content"
-            className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 px-4 py-4 sm:px-5 sm:py-5"
+            className="rounded-xs border border-soft-hairline bg-cream-inset/45 px-4 py-4 sm:px-5 sm:py-5"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
@@ -153,7 +153,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="primary"
                   size="sm"
-                  className="min-h-[44px] sm:min-h-0"
+                  className="min-h-11 sm:min-h-0"
                   onClick={() =>
                     router.push(`/weak-spots/drill/setup?cardId=${weakSpot.cardId}`)
                   }
@@ -166,7 +166,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="min-h-[44px] sm:min-h-0"
+                  className="min-h-11 sm:min-h-0"
                   onClick={() => router.push(`/cards/${weakSpot.cardId}`)}
                 >
                   Open card
@@ -179,7 +179,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-h-[44px] sm:min-h-0"
+                  className="min-h-11 sm:min-h-0"
                   onClick={() => onResolve(weakSpot.id)}
                   loading={isResolving}
                   disabled={weakSpot.cardId === null}
@@ -191,7 +191,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="min-h-[44px] sm:min-h-0"
+                  className="min-h-11 sm:min-h-0"
                   onClick={() => onReopen(weakSpot.id)}
                   loading={isReopening}
                 >
@@ -260,7 +260,7 @@ function StatusPill({ resolved }: { resolved: boolean }): React.JSX.Element {
   return (
     <span
       className={[
-        'inline-flex shrink-0 items-center rounded-[2px] border px-2 py-0.5 font-mono text-sm',
+        'inline-flex shrink-0 items-center rounded-xs border px-2 py-0.5 font-mono text-sm',
         resolved
           ? 'border-aizome-indigo/30 bg-aizome-indigo/10 text-aizome-indigo'
           : 'border-deck-beyond-mark/30 bg-deck-beyond-wash text-deck-beyond-mark',

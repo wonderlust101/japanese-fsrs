@@ -34,7 +34,7 @@ export function MobileStickyActionBar({
       role="region"
       aria-label={ariaLabel}
       className={cn(
-        'fixed inset-x-0 bottom-0 z-30 border-t border-soft-hairline',
+        'fixed inset-x-0 bottom-0 z-[var(--z-bar)] border-t border-soft-hairline',
         // Bottom padding clears the iOS home indicator, matching the review /
         // drill rating bars' established safe-area pattern (this bar is the
         // primary CTA on the mobile dashboard).

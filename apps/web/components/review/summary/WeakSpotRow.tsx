@@ -153,7 +153,7 @@ export function WeakSpotRow({
               aria-hidden="true"
               className="flex shrink-0 items-start pr-3 pt-3 sm:pr-4 sm:pt-4"
             >
-              <span className="inline-flex items-center gap-2 rounded-[2px] border border-soft-hairline bg-cream-inset/60 px-1.5 py-0.5 font-mono text-sm uppercase tracking-[0.08em] text-faded-sumi">
+              <span className="inline-flex items-center gap-2 rounded-xs border border-soft-hairline bg-cream-inset/60 px-1.5 py-0.5 font-mono text-sm uppercase tracking-[0.08em] text-faded-sumi">
                 <span className="h-1.5 w-1.5 rounded-full bg-faded-sumi/70 animate-pulse motion-reduce:animate-none" />
                 Diagnosing…
               </span>
@@ -163,7 +163,7 @@ export function WeakSpotRow({
   )
 
   return (
-    <li className="group/weak relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised ui-motion-colors hover:bg-cream-inset/40">
+    <li className="group/weak relative overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised ui-motion-colors hover:bg-cream-inset/40">
       {hasDiagnosis ? (
         <button
           type="button"
@@ -209,7 +209,7 @@ export function WeakSpotRow({
           type="button"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRollback(weakSpot) }}
           disabled={rollbackPending === true}
-          className="absolute bottom-2 right-3 hidden min-h-[28px] items-center rounded-[2px] px-2 py-1 font-mono text-sm text-faded-sumi underline-offset-2 hover:bg-cream-inset/70 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+          className="absolute bottom-2 right-3 hidden min-h-[28px] items-center rounded-xs px-2 py-1 font-mono text-sm text-faded-sumi underline-offset-2 hover:bg-cream-inset/70 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
         >
           {rollbackPending === true ? 'Rolling back…' : 'Roll back'}
         </button>

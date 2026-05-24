@@ -41,7 +41,7 @@ export function StatTile({
       <dd className="flex items-baseline gap-x-2">
         <span
           className={[
-            'font-display text-[1.625rem] font-medium leading-none tabular-nums',
+            'font-display text-stat font-medium tabular-nums',
             accent ? 'text-inari-vermillion-deep' : 'text-sumi-ink',
           ].join(' ')}
         >

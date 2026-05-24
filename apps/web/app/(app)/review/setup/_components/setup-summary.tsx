@@ -121,7 +121,7 @@ function PrimaryStat({
         {label}
       </dt>
       <dd className="flex items-baseline gap-2 min-w-0">
-        <span className="font-display text-[1.625rem] leading-none tabular-nums text-sumi-ink sm:text-[1.875rem]">
+        <span className="font-display text-stat tabular-nums text-sumi-ink">
           {value}
         </span>
         {suffix !== undefined && (

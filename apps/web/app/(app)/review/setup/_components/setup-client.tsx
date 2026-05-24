@@ -425,7 +425,7 @@ function ActionArea({
         <Link
           href={startHref}
           className={cn(
-            'inline-flex h-12 flex-1 items-center justify-center rounded-[2px] px-6 text-base font-semibold sm:flex-none',
+            'inline-flex h-12 flex-1 items-center justify-center rounded-xs px-6 text-base font-semibold sm:flex-none',
             'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
             'transition-colors duration-150 ease-out',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -461,7 +461,7 @@ function ActionArea({
               signal, not a warning. */}
           <span aria-live="polite" className="inline-flex items-center">
             {savedFlash ? (
-              <span className="inline-flex items-center pointer-coarse:min-h-[44px] font-mono text-sm text-inari-vermillion-deep">
+              <span className="inline-flex items-center pointer-coarse:min-h-11 font-mono text-sm text-inari-vermillion-deep">
                 Saved
               </span>
             ) : (
@@ -469,7 +469,7 @@ function ActionArea({
                 type="button"
                 onClick={handleSaveClick}
                 className={cn(
-                  'inline-flex items-center rounded-[2px] px-2.5 py-1.5 text-sumi-ink pointer-coarse:min-h-[44px]',
+                  'inline-flex items-center rounded-xs px-2.5 py-1.5 text-sumi-ink pointer-coarse:min-h-11',
                   'border border-soft-hairline bg-warm-paper-raised',
                   'hover:border-faded-sumi hover:bg-cream-inset/60 cursor-pointer',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -485,7 +485,7 @@ function ActionArea({
             ref={resetButtonRef}
             type="button"
             onClick={() => setConfirmOpen((v) => !v)}
-            className="inline-flex items-center pointer-coarse:min-h-[44px] text-faded-sumi underline decoration-soft-hairline underline-offset-4 hover:text-sumi-ink cursor-pointer"
+            className="inline-flex items-center pointer-coarse:min-h-11 text-faded-sumi underline decoration-soft-hairline underline-offset-4 hover:text-sumi-ink cursor-pointer"
           >
             Reset
           </button>
@@ -538,7 +538,7 @@ function NoReviewsState(): React.JSX.Element {
         <Link
           href="/add"
           className={cn(
-            'inline-flex h-12 items-center justify-center rounded-[2px] px-6 text-base font-semibold',
+            'inline-flex h-12 items-center justify-center rounded-xs px-6 text-base font-semibold',
             'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
             'transition-colors duration-150 ease-out',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -584,7 +584,7 @@ function FirstTimeState(): React.JSX.Element {
         <Link
           href="/decks"
           className={cn(
-            'inline-flex h-12 items-center justify-center rounded-[2px] px-6 text-base font-semibold',
+            'inline-flex h-12 items-center justify-center rounded-xs px-6 text-base font-semibold',
             'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
             'transition-colors duration-150 ease-out',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',

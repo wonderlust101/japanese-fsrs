@@ -144,7 +144,7 @@ export function CardsResultsTable({
 
   return (
     <div
-      className="overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
+      className="overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised"
       aria-busy={paginating || undefined}
     >
       {/* Top stripe doubles as the pagination progress channel. The static
@@ -152,7 +152,7 @@ export function CardsResultsTable({
           narrower opaque sliver sweeps across it. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none relative block h-[2px] w-full overflow-hidden bg-inari-vermillion/35"
+        className="pointer-events-none relative block h-0.5 w-full overflow-hidden bg-inari-vermillion/35"
       >
         {/* Resting brand stripe (full-width). Fades out while the sweep
             runs so the moving sliver reads cleanly without doubling up. */}
@@ -232,7 +232,7 @@ export function CardsResultsTable({
           <span
             lang="ja"
             aria-hidden="true"
-            className="font-display text-[1.75rem] leading-none text-inari-vermillion/75"
+            className="font-display text-numeral leading-none text-inari-vermillion/75"
           >
             空
           </span>
@@ -373,7 +373,7 @@ function ResultRow({
           {!readOnly && (
             <>
               <span>
-                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
+                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
               </span>
               <span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
                 {dueLabel}
@@ -400,7 +400,7 @@ function ResultRow({
             {!readOnly && <HealthBadge tier={lapseTier} />}
             {!readOnly && (
               <span className="ml-auto shrink-0">
-                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-[2px] !leading-tight" />
+                <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
               </span>
             )}
           </div>
@@ -501,7 +501,7 @@ function CardRowMenu({ onAction }: { onAction: (action: CardRowAction) => void }
           aria-expanded={ariaExpanded}
           aria-label="Card actions"
           className={[
-            'ui-motion-colors inline-flex h-8 w-8 items-center justify-center rounded-[2px] text-faded-sumi',
+            'ui-motion-colors inline-flex h-8 w-8 items-center justify-center rounded-xs text-faded-sumi',
             'hover:bg-cream-inset hover:text-sumi-ink',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           ].join(' ')}

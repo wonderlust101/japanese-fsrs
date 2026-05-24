@@ -42,7 +42,7 @@ export function CopyButton({
       aria-live="polite"
       aria-label={ariaLabel ?? label}
       className={cn(
-        'inline-flex items-center gap-2 rounded-[2px] border font-mono transition-colors',
+        'inline-flex items-center gap-2 rounded-xs border font-mono transition-colors',
         SIZE_CLASS[size],
         copied
           ? 'border-deck-n5-mark/30 bg-deck-n5-wash text-deck-n5-mark'

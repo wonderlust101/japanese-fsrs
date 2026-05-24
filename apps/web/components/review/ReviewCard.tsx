@@ -291,7 +291,7 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
                   trigger={
                     <span
                       className={cn(
-                        'inline-flex h-8 w-8 items-center justify-center rounded-[2px] text-faded-sumi',
+                        'inline-flex h-8 w-8 items-center justify-center rounded-xs text-faded-sumi',
                         'hover:bg-cream-inset/60 hover:text-sumi-ink transition-colors duration-150',
                         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
                       )}

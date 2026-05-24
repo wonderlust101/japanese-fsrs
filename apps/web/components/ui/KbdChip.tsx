@@ -27,7 +27,7 @@ const SIZE_CLASS: Record<KbdSize, string> = {
  * Space, etc.) inside input fields and toolbar rows.
  *
  * Distinct from `<Pill variant="keyboard-key">`:
- *   - KbdChip is small + rounded-[2px] + faded-sumi + no inset shadow (a
+ *   - KbdChip is small + rounded-xs + faded-sumi + no inset shadow (a
  *     ghosted shortcut hint that lives in chrome rows or floats inside an Input).
  *   - Pill's keyboard-key is the larger keycap-style rounded-full chip used for
  *     in-review prompts like "Space" or the rating-row keys.
@@ -47,7 +47,7 @@ export function KbdChip({
         // Display intentionally NOT set here so consumers can use responsive
         // display utilities (`hidden sm:inline-flex` etc.) without collision.
         // Always pair this primitive with `inline-flex` (or a responsive variant).
-        'items-center rounded-[2px] border border-soft-hairline',
+        'items-center rounded-xs border border-soft-hairline',
         'bg-warm-paper-raised font-mono tracking-tight text-faded-sumi',
         SIZE_CLASS[size],
         isFloating && 'pointer-events-none',

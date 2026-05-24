@@ -42,7 +42,7 @@ export function CardStack({
             }}
           >
             <div className="
-              relative w-full h-full rounded-[2px] overflow-hidden
+              relative w-full h-full rounded-xs overflow-hidden
               bg-warm-paper-raised
               border-l border-r border-b border-soft-hairline
             " />

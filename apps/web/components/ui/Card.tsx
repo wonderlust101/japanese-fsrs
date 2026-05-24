@@ -39,7 +39,7 @@ const STRIPE_TONE_VAR: Record<Exclude<StripeTone, 'none'>, string> = {
  *
  * Anatomy:
  *   - 1px Soft Hairline border around all edges
- *   - 2px sharp corners (rounded-[2px])
+ *   - 2px sharp corners (rounded-xs)
  *   - 2px Inari Vermillion top-edge stripe (the identity device)
  *   - Warm Paper Raised background (so the card reads as "warmer than the cool
  *     page beneath it")
@@ -92,7 +92,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
           ? 'border-l border-r border-b border-soft-hairline'
           : 'border border-soft-hairline'
 
-    const stripeHeight = stripeWeight === 'hairline' ? 'h-px' : 'h-[2px]'
+    const stripeHeight = stripeWeight === 'hairline' ? 'h-px' : 'h-0.5'
     const stripePosition = isModule
       ? `absolute inset-x-0 top-0 z-10 ${stripeHeight}`
       : `absolute top-0 -left-px -right-px ${stripeHeight}`
@@ -101,7 +101,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <Element
         ref={ref}
         className={[
-          'relative rounded-[2px] overflow-hidden',
+          'relative rounded-xs overflow-hidden',
           isSurface ? 'bg-cream-inset' : 'bg-warm-paper-raised',
           borderClass,
           padding,

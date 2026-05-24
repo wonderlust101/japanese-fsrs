@@ -94,7 +94,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className={[
-            'w-full bg-cream-inset border rounded-[2px] resize-y',
+            'w-full bg-cream-inset border rounded-xs resize-y',
             'text-sumi-ink placeholder:text-faded-sumi',
             'ui-motion-colors',
             'focus:outline focus:outline-1 focus:outline-offset-2',

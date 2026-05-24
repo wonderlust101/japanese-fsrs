@@ -113,7 +113,7 @@ function ProportionalBar({
   return (
     <div className="flex flex-col gap-y-3">
       <div
-        className="relative flex h-11 w-full overflow-visible rounded-[2px] border border-soft-hairline"
+        className="relative flex h-11 w-full overflow-visible rounded-xs border border-soft-hairline"
         role="group"
         aria-label={`Proportional bar of upcoming load across ${contributions.length} decks. Total ${totalDue} cards.`}
       >
@@ -191,7 +191,7 @@ function SegmentTooltip({
       aria-hidden={!active}
       className={cn(
         'pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2',
-        'flex items-center gap-x-2 whitespace-nowrap rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
+        'flex items-center gap-x-2 whitespace-nowrap rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
         'shadow-card transition-opacity duration-150',
         active ? 'opacity-100' : 'opacity-0',
       )}
@@ -234,13 +234,13 @@ function DeckLegend({
             onMouseEnter={() => onHover(c.id)}
             onMouseLeave={() => onHover(null)}
             className={cn(
-              '-mx-2 flex items-baseline gap-x-3 rounded-[2px] px-2 py-1 transition-colors',
+              '-mx-2 flex items-baseline gap-x-3 rounded-xs px-2 py-1 transition-colors',
               isActive && 'bg-vermillion-wash/40',
             )}
           >
             <span
               aria-hidden="true"
-              className="mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-[2px]"
+              className="mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-xs"
               style={{ backgroundColor: rgbaBg }}
             />
             <QuietLink href={`/decks/${c.id}`} tone="sumi" trailingArrow size="sm">
@@ -264,13 +264,13 @@ function DeckLegend({
 function ContributorsSkeleton(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-y-6">
-      <div className="dashboard-skeleton h-11 w-full rounded-[2px]" />
+      <div className="dashboard-skeleton h-11 w-full rounded-xs" />
       <ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         {Array.from({ length: 6 }, (_, i) => (
           <li key={i} className="flex items-baseline gap-x-3">
-            <div className="dashboard-skeleton h-3 w-3 shrink-0 rounded-[2px]" />
-            <div className="dashboard-skeleton h-3 w-[10rem] rounded-[2px]" />
-            <div className="dashboard-skeleton ml-auto h-3 w-[3rem] rounded-[2px]" />
+            <div className="dashboard-skeleton h-3 w-3 shrink-0 rounded-xs" />
+            <div className="dashboard-skeleton h-3 w-[10rem] rounded-xs" />
+            <div className="dashboard-skeleton ml-auto h-3 w-[3rem] rounded-xs" />
           </li>
         ))}
       </ul>

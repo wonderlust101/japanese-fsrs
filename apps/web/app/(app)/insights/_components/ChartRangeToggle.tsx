@@ -72,7 +72,7 @@ export function ChartRangeToggle<K extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="flex items-center gap-0.5 rounded-[2px] border border-soft-hairline bg-cream-inset/40 p-0.5"
+      className="flex items-center gap-0.5 rounded-xs border border-soft-hairline bg-cream-inset/40 p-0.5"
     >
       {options.map((o, index) => {
         const active = o.key === value
@@ -87,7 +87,7 @@ export function ChartRangeToggle<K extends string>({
             onClick={() => onChange(o.key)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={[
-              'inline-flex min-h-[2.75rem] items-center rounded-[2px] px-3 font-mono text-sm transition-colors',
+              'inline-flex min-h-[2.75rem] items-center rounded-xs px-3 font-mono text-sm transition-colors',
               'sm:min-h-[1.75rem] sm:px-2.5',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
               active

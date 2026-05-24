@@ -17,7 +17,7 @@ export function TopBarBackLink({ href, ariaLabel }: TopBarBackLinkProps): React.
     <Link
       href={href}
       aria-label={ariaLabel}
-      className="hidden shrink-0 items-center justify-center w-8 h-8 -ml-1 rounded-[2px] text-faded-sumi hover:text-sumi-ink hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 lg:inline-flex"
+      className="hidden shrink-0 items-center justify-center w-8 h-8 -ml-1 rounded-xs text-faded-sumi hover:text-sumi-ink hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 lg:inline-flex"
     >
       <span aria-hidden="true" className="text-base leading-none">←</span>
     </Link>

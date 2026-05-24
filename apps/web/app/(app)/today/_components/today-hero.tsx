@@ -38,7 +38,7 @@ import {
 // is felt as ink, not as movement." Color shift carries the press.
 
 const HERO_CTA_BASE = [
-    'inline-flex min-h-14 w-full max-w-full items-center justify-center gap-3 rounded-[2px] px-6 py-3',
+    'inline-flex min-h-14 w-full max-w-full items-center justify-center gap-3 rounded-xs px-6 py-3',
     'sm:w-auto sm:min-w-[min(280px,100%)] sm:px-10',
     'text-base font-semibold',
     'today-motion-colors',
@@ -48,7 +48,7 @@ const HERO_CTA_BASE = [
 const HERO_CTA_PRIMARY = [
     'bg-inari-vermillion text-warm-paper-raised',
     'hover:bg-inari-vermillion-deep',
-    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+    'active:bg-inari-vermillion-deep active:shadow-pressed',
 ].join(' ');
 
 const HERO_CTA_SECONDARY = [
@@ -192,11 +192,11 @@ export function DashboardHero({variant, dateKey}: DashboardHeroProps): React.JSX
     return (
         <section
             aria-labelledby="hero-headline"
-            className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-base px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7"
+            className="relative overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-base px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7"
         >
             <span
                 aria-hidden="true"
-                className="absolute inset-x-0 top-0 z-20 h-[2px] bg-inari-vermillion"
+                className="absolute inset-x-0 top-0 z-20 h-0.5 bg-inari-vermillion"
             />
 
             <div className="relative z-10">
@@ -697,7 +697,7 @@ function DeckStack({
         return (
             <div className="today-hero-deck-stack relative z-10 flex h-[16.75rem] w-full max-w-[27.5rem] items-center justify-center" aria-hidden="true">
                 <div className="today-hero-card-shell today-hero-card-single w-full max-w-[24.5rem]">
-                    <div className="today-hero-card-surface relative overflow-hidden rounded-[2px] border border-dashed border-soft-hairline bg-warm-paper-raised/70 p-5">
+                    <div className="today-hero-card-surface relative overflow-hidden rounded-xs border border-dashed border-soft-hairline bg-warm-paper-raised/70 p-5">
                         <div className="mx-auto mb-4 flex h-16 max-w-[13rem] items-end justify-center gap-2 border-b border-soft-hairline/70" aria-hidden="true">
                             <span className="block h-9 w-12 rotate-[-3deg] rounded-[1px] border border-soft-hairline bg-cream-inset"/>
                             <span className="block h-12 w-12 rotate-[2deg] rounded-[1px] border border-inari-vermillion/30 bg-inari-vermillion/10"/>
@@ -770,7 +770,7 @@ function DeckStackCard({
         >
             <div
                 className={[
-                    'today-hero-card-surface relative overflow-hidden rounded-[2px]',
+                    'today-hero-card-surface relative overflow-hidden rounded-xs',
                     'border border-soft-hairline/85 bg-warm-paper-raised p-4'
                 ].join(' ')}
                 style={{borderTopColor : markColorForTag(deck.tag)}}

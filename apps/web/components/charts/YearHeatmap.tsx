@@ -236,7 +236,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
           onBlur={() => setSel(null)}
           viewBox={`0 0 ${viewW} ${viewH}`}
           preserveAspectRatio="xMidYMid meet"
-          className="block h-auto w-full rounded-[2px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          className="block h-auto w-full rounded-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
         >
           {/* Month labels */}
           {monthMarks.map(({ week, month }, i) => (
@@ -300,7 +300,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
         {sel !== null && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-2.5 py-1.5 text-xs text-sumi-ink shadow-card"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-xs border border-soft-hairline bg-warm-paper-raised px-2.5 py-1.5 text-xs text-sumi-ink shadow-card"
             style={{
               left: `${((xFor(sel.week) + CELL / 2) / viewW) * 100}%`,
               top:  `${((yFor(sel.row) - 2) / viewH) * 100}%`,
@@ -341,7 +341,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
               <span
                 key={i}
                 aria-hidden="true"
-                className="block h-[10px] w-[10px] rounded-[2px]"
+                className="block h-[10px] w-[10px] rounded-xs"
                 style={{ backgroundColor: vermillionAlpha(a) }}
               />
             ))}

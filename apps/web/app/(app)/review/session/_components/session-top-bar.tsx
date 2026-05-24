@@ -54,7 +54,7 @@ export function SessionTopBar({
     <header
       role="banner"
       aria-label="Review session controls"
-      className="fixed top-0 left-0 right-0 z-40 bg-warm-paper-raised border-b border-soft-hairline/55"
+      className="fixed top-0 left-0 right-0 z-[var(--z-nav)] bg-warm-paper-raised border-b border-soft-hairline/55"
     >
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
         <div className="flex items-center gap-2 min-w-0">

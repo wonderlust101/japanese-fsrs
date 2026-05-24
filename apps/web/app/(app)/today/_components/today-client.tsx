@@ -311,7 +311,7 @@ function HeroStickyCtaLink({cta}: {cta: HeroCta}): React.JSX.Element {
     const primaryClasses = [
         'bg-inari-vermillion text-warm-paper-raised',
         'hover:bg-inari-vermillion-deep',
-        'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+        'active:bg-inari-vermillion-deep active:shadow-pressed',
     ].join(' ');
     const secondaryClasses = [
         'border border-soft-hairline bg-warm-paper-raised text-sumi-ink',
@@ -323,7 +323,7 @@ function HeroStickyCtaLink({cta}: {cta: HeroCta}): React.JSX.Element {
         <Link
             href={cta.href}
             className={[
-                'inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-[2px] px-6 py-3',
+                'inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-xs px-6 py-3',
                 'text-base font-semibold',
                 'today-motion-colors',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',

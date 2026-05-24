@@ -74,7 +74,7 @@ export function CardListItem({ card, onAdd, onMove, onDelete }: Props): React.JS
       >
         <div
           className={[
-            'relative overflow-hidden rounded-[2px] border-l border-r border-b border-soft-hairline',
+            'relative overflow-hidden rounded-xs border-l border-r border-b border-soft-hairline',
             surfaceTone,
             'group-hover/card:bg-cream-inset/40',
             'ui-motion-colors',
@@ -83,7 +83,7 @@ export function CardListItem({ card, onAdd, onMove, onDelete }: Props): React.JS
           {/* Brand identity stripe. */}
           <span
             aria-hidden="true"
-            className="absolute top-0 -left-px -right-px h-[2px]"
+            className="absolute top-0 -left-px -right-px h-0.5"
             style={{ backgroundColor: stripeColor }}
           />
 
@@ -163,7 +163,7 @@ export function CardListItem({ card, onAdd, onMove, onDelete }: Props): React.JS
               aria-haspopup="menu"
               aria-expanded={ariaExpanded}
               aria-label="Card actions"
-              className="ui-motion-colors flex h-7 w-7 items-center justify-center rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+              className="ui-motion-colors flex h-7 w-7 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
             >
               <IconMore className="h-4 w-4" />
             </button>

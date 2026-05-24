@@ -79,7 +79,7 @@ export function CardsViewDropdown({
           // disturbing the 36px density of the desktop toolbar. The
           // min-height override is the simplest way to do this without
           // forking the SIZE_CLASS scale or fighting class-merge order.
-          className="min-h-[44px] sm:min-h-0"
+          className="min-h-11 sm:min-h-0"
           trailingNode={<Chevron />}
           leadingNode={
             <span

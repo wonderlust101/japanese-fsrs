@@ -303,7 +303,7 @@ function PreviewMessage({ title, body, action }: PreviewMessageProps): React.JSX
   return (
     <div
       role="status"
-      className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-6 text-center sm:p-8"
+      className="rounded-xs border border-soft-hairline bg-cream-inset/45 p-6 text-center sm:p-8"
     >
       <p className="text-sm font-medium text-sumi-ink">{title}</p>
       <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">{body}</p>

@@ -272,7 +272,7 @@ function FilterSelect({ id, label, value, onChange, options }: FilterSelectProps
         id={id}
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
-        className="rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+        className="rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -329,7 +329,7 @@ function CatalogueCard({
                 <Link
                   href={`/decks/${copiedDeck.id}/preview`}
                   aria-label={`Preview ${deck.name}`}
-                  className="ui-motion-colors rounded-[2px] underline-offset-4 hover:text-inari-vermillion hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                  className="ui-motion-colors rounded-xs underline-offset-4 hover:text-inari-vermillion hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
                 >
                   {deck.name}
                 </Link>
@@ -342,7 +342,7 @@ function CatalogueCard({
                 status="subscribed"
                 label="In your library"
                 size="sm"
-                className="!rounded-[2px] !leading-tight"
+                className="!rounded-xs !leading-tight"
               />
             )}
           </div>
@@ -428,11 +428,11 @@ function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.El
     // (空, "kara"). Carries the sibling-consistency rule across both
     // pages: filtered-to-nothing reads the same way everywhere.
     return (
-      <div className="mt-8 rounded-[2px] border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
+      <div className="mt-8 rounded-xs border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
         <span
           lang="ja"
           aria-hidden="true"
-          className="font-display text-[1.75rem] leading-none text-inari-vermillion/75"
+          className="font-display text-numeral leading-none text-inari-vermillion/75"
         >
           空
         </span>
@@ -450,7 +450,7 @@ function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.El
   }
 
   return (
-    <div className="mt-8 rounded-[2px] border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
+    <div className="mt-8 rounded-xs border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
       <p className="text-sm font-medium text-sumi-ink">No premade decks yet.</p>
       <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">
         Curated decks land here as Tomo&rsquo;s catalogue grows. In the
@@ -459,7 +459,7 @@ function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.El
       <div className="mt-5 flex items-center justify-center gap-2">
         <Link
           href="/add"
-          className="ui-motion-pressable inline-flex h-9 items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 text-sm font-medium text-sumi-ink hover:bg-cream-inset hover:border-faded-sumi focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          className="ui-motion-pressable inline-flex h-9 items-center rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 text-sm font-medium text-sumi-ink hover:bg-cream-inset hover:border-faded-sumi focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
         >
           Add Japanese
         </Link>
@@ -476,7 +476,7 @@ function ErrorState({ onRetry }: ErrorStateProps): React.JSX.Element {
   return (
     <div
       role="alert"
-      className="mt-6 rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
+      className="mt-6 rounded-xs border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
     >
       <p className="font-medium">Couldn&rsquo;t load the catalogue.</p>
       <p className="mt-1 text-error-deep/80">

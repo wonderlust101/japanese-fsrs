@@ -202,7 +202,7 @@ export function LegendSwatch({
         aria-hidden="true"
         className={cn(
           'inline-block',
-          shape === 'line' ? 'h-[2px] w-4' : 'h-2.5 w-2.5 rounded-[2px]',
+          shape === 'line' ? 'h-0.5 w-4' : 'h-2.5 w-2.5 rounded-xs',
         )}
         style={{
           opacity,

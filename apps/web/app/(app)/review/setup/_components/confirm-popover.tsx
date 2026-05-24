@@ -180,10 +180,10 @@ export function ConfirmPopover({
         visibility: measured ? 'visible' : 'hidden',
       }}
       className={cn(
-        'z-[60] overflow-hidden rounded-[2px]',
+        'z-[var(--z-popover)] overflow-hidden rounded-xs',
         'border border-soft-hairline bg-warm-paper-raised shadow-card',
         // Identity stripe.
-        'before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-inari-vermillion before:content-[""]',
+        'before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-inari-vermillion before:content-[""]',
       )}
     >
       <div className="px-4 pt-4 pb-3">
@@ -201,7 +201,7 @@ export function ConfirmPopover({
           type="button"
           onClick={onCancel}
           className={cn(
-            'font-mono text-sm px-2 py-1 rounded-[2px]',
+            'font-mono text-sm px-2 py-1 rounded-xs',
             'text-faded-sumi hover:text-sumi-ink cursor-pointer',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           )}
@@ -212,7 +212,7 @@ export function ConfirmPopover({
           type="button"
           onClick={onConfirm}
           className={cn(
-            'inline-flex items-center justify-center rounded-[2px]',
+            'inline-flex items-center justify-center rounded-xs',
             'bg-inari-vermillion-deep px-3 py-1.5 text-warm-paper-raised',
             'font-medium text-sm cursor-pointer hover:bg-inari-vermillion',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',

@@ -38,7 +38,7 @@ const STATE_CLASS: Record<ChipState, string> = {
 }
 
 const BASE = [
-  'ui-motion-colors inline-flex items-center gap-2 rounded-[2px] border',
+  'ui-motion-colors inline-flex items-center gap-2 rounded-xs border',
   'pl-2.5 pr-2.5 font-medium',
   'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
   // HTML `disabled` drives the visual disabled state so callers don't have
@@ -54,7 +54,7 @@ const BASE = [
  * triggers, sticky-bar utility actions, and saved-view pills.
  *
  * Replaces ~12 verbatim copies of
- * `ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink`.
+ * `ui-motion-colors inline-flex h-9 items-center gap-2 rounded-xs border border-soft-hairline bg-warm-paper-raised pl-2.5 pr-2.5 text-sm text-sumi-ink`.
  *
  * Anatomy follows DESIGN.md card-system geometry: 2px corner, 1px
  * soft-hairline border, warm-paper-raised fill, cream-inset hover, sumi-ink

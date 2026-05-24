@@ -47,7 +47,7 @@ export function WeakSpotDiagnosisPanel({
   return (
     <section
       aria-labelledby="weakSpot-diagnosis-heading"
-      className="rounded-[2px] border border-dashed border-inari-vermillion bg-vermillion-wash/40 px-4 py-4 sm:px-5 sm:py-5"
+      className="rounded-xs border border-dashed border-inari-vermillion bg-vermillion-wash/40 px-4 py-4 sm:px-5 sm:py-5"
     >
       <header className="mb-3 flex items-baseline gap-2 font-mono text-sm text-inari-vermillion-deep">
         <span
@@ -66,7 +66,7 @@ export function WeakSpotDiagnosisPanel({
             {diagnosis}
           </p>
           {prescription !== null && prescription.length > 0 && (
-            <p className="rounded-[2px] bg-vermillion-wash/50 px-3 py-2 text-base italic leading-relaxed text-sumi-ink/85">
+            <p className="rounded-xs bg-vermillion-wash/50 px-3 py-2 text-base italic leading-relaxed text-sumi-ink/85">
               {prescription}
             </p>
           )}
@@ -89,7 +89,7 @@ export function WeakSpotDiagnosisPanel({
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-11 sm:min-h-0"
               onClick={onRetry}
               loading={isLoading}
             >
@@ -107,7 +107,7 @@ export function WeakSpotDiagnosisPanel({
               type="button"
               variant="primary"
               size="sm"
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-11 sm:min-h-0"
               onClick={onDiagnose}
               loading={isLoading}
             >

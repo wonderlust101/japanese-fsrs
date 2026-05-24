@@ -131,7 +131,7 @@ export function PitchGraph({
               <span
                 aria-hidden="true"
                 className={cn(
-                  'block w-full h-[2px] rounded-full',
+                  'block w-full h-0.5 rounded-full',
                   isHigh ? 'bg-current opacity-90' : 'opacity-0',
                 )}
               />

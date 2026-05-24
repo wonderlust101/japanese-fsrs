@@ -375,7 +375,7 @@ function DrillResultBar({
       <div
         role="img"
         aria-label={`Missed ${missed}, hesitated ${hesitated}, remembered ${remembered} of ${total}`}
-        className="flex h-3 w-full overflow-hidden rounded-[2px] bg-cream-inset"
+        className="flex h-3 w-full overflow-hidden rounded-xs bg-cream-inset"
       >
         {segments.map((seg) => (
           <div

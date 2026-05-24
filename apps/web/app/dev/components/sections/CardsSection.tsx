@@ -133,7 +133,7 @@ export function CardsSection(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setStackTurn(prev => prev + 1)}
-                className="self-start px-3 py-1.5 text-xs rounded-[2px] bg-cream-inset text-sumi-ink border border-soft-hairline hover:border-faded-sumi"
+                className="self-start px-3 py-1.5 text-xs rounded-xs bg-cream-inset text-sumi-ink border border-soft-hairline hover:border-faded-sumi"
               >
                 Turn
               </button>

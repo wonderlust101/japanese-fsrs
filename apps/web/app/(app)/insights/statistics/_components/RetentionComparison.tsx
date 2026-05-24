@@ -52,14 +52,14 @@ export function RetentionComparison({
 
       {/* Diverging track: center tick = target, bar grows toward the gap. */}
       <div className="flex flex-col gap-y-2">
-        <div className="relative h-[10px] w-full rounded-[2px] bg-soft-hairline/40">
+        <div className="relative h-[10px] w-full rounded-xs bg-soft-hairline/40">
           <span
             aria-hidden="true"
             className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-sumi-ink/45"
           />
           <span
             aria-hidden="true"
-            className="absolute inset-y-0 block rounded-[2px]"
+            className="absolute inset-y-0 block rounded-xs"
             style={{
               backgroundColor: barColor,
               left:  above ? '50%' : `${50 - frac * 50}%`,

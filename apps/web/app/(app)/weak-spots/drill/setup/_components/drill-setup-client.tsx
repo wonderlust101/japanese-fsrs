@@ -160,7 +160,7 @@ export function DrillSetupClient(): React.JSX.Element {
                         onChange={(e) =>
                           setSource({ kind: 'deckScoped', deckId: e.currentTarget.value })
                         }
-                        className="mt-3 w-full max-w-[20rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                        className="mt-3 w-full max-w-[20rem] rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
                       >
                         {decks.length === 0 && (
                           <option value="">No decks yet</option>
@@ -194,7 +194,7 @@ export function DrillSetupClient(): React.JSX.Element {
                             if (!Number.isFinite(next)) return
                             setSource({ kind: 'highLapseCandidates', minLapses: Math.min(20, Math.max(1, next)) })
                           }}
-                          className="h-8 w-16 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-2 text-center text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                          className="h-8 w-16 rounded-xs border border-soft-hairline bg-warm-paper-raised px-2 text-center text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
                         />
                       </div>
                     )}
@@ -232,7 +232,7 @@ export function DrillSetupClient(): React.JSX.Element {
                         aria-checked={active}
                         onClick={() => setLimit(opt)}
                         className={cn(
-                          'min-w-[5rem] rounded-[2px] border px-4 py-2',
+                          'min-w-[5rem] rounded-xs border px-4 py-2',
                           'font-mono text-sm',
                           'transition-colors',
                           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -324,7 +324,7 @@ function PrimaryStat({
         {label}
       </dt>
       <dd className="flex items-baseline gap-2 min-w-0">
-        <span className="font-display text-[1.625rem] leading-none tabular-nums text-sumi-ink sm:text-[1.875rem]">
+        <span className="font-display text-stat tabular-nums text-sumi-ink">
           {value}
         </span>
         {suffix !== undefined && (
@@ -398,7 +398,7 @@ function SourceOption({
   return (
     <label
       className={cn(
-        'group flex cursor-pointer flex-col rounded-[2px] border px-4 py-3 transition-colors',
+        'group flex cursor-pointer flex-col rounded-xs border px-4 py-3 transition-colors',
         'has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-sumi-ink has-[:focus-visible]:outline-offset-2',
         checked
           ? 'border-inari-vermillion bg-vermillion-wash/40'

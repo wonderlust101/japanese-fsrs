@@ -93,7 +93,7 @@ export function Dialog({
         // The flex is gated to `open:` so a closed <dialog> keeps the UA
         // `display:none` (an unconditional `flex` would make it render while
         // closed). showModal() sets the [open] attribute the variant targets.
-        'relative m-auto max-h-[calc(100dvh-2rem)] w-full overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised p-0 shadow-lg open:flex open:flex-col',
+        'relative m-auto max-h-[calc(100dvh-2rem)] w-full overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised p-0 shadow-lg open:flex open:flex-col',
         SIZE_CLASS[size],
         // Backdrop: sumi-ink at 40% + a 2px blur to deepen the modal stage.
         '[&::backdrop]:bg-sumi-ink/40 [&::backdrop]:backdrop-blur-[2px]',
@@ -103,7 +103,7 @@ export function Dialog({
           every SectionCard surface across the app. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-inari-vermillion"
       />
 
       {/* Pinned header: the title (context) and the close escape-hatch stay
@@ -149,7 +149,7 @@ export function Dialog({
             // 44px touch target on phones, tightening to the 28px pointer size
             // on sm+. Negative margins absorb the larger box so the header
             // geometry is unchanged at every size (matches card-detail-view).
-            className="ui-motion-colors -my-2.5 -mr-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:my-0 sm:-mr-1 sm:h-7 sm:w-7"
+            className="ui-motion-colors -my-2.5 -mr-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:my-0 sm:-mr-1 sm:h-7 sm:w-7"
           >
             <svg
               aria-hidden="true"

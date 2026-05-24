@@ -21,7 +21,7 @@ export function OverdueImpactCallout({
     <aside
       aria-label="Overdue impact"
       className={cn(
-        'grid grid-cols-1 items-baseline gap-x-6 gap-y-4 rounded-[2px] px-5 py-5 sm:grid-cols-[auto,1fr] sm:px-6 sm:py-6',
+        'grid grid-cols-1 items-baseline gap-x-6 gap-y-4 rounded-xs px-5 py-5 sm:grid-cols-[auto,1fr] sm:px-6 sm:py-6',
         hasBacklog ? 'bg-vermillion-wash/55' : 'bg-cream-inset',
       )}
     >
@@ -31,7 +31,7 @@ export function OverdueImpactCallout({
         </p>
         <p
           className={cn(
-            'font-display text-[3rem] font-medium leading-none tabular-nums sm:text-[3.5rem]',
+            'font-display text-3xl font-medium leading-none tabular-nums sm:text-[3.5rem]',
             hasBacklog ? 'text-inari-vermillion-deep' : 'text-sumi-ink',
           )}
         >

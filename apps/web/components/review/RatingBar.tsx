@@ -113,7 +113,7 @@ export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.
       role="group"
       aria-label="Rate this card"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-30',
+        'fixed bottom-0 left-0 right-0 z-[var(--z-bar)]',
         'bg-warm-paper-raised border-t border-soft-hairline/60',
         'px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]',
       )}

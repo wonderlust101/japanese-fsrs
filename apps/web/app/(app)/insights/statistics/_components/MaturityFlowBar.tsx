@@ -53,7 +53,7 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
           aria-label={
             `Maturity flow: ${counts.new} new, ${counts.learning} learning, ${counts.young} young, ${counts.mature} mature, ${counts.suspended} suspended.`
           }
-          className="flex h-11 w-full overflow-hidden rounded-[2px] border border-soft-hairline"
+          className="flex h-11 w-full overflow-hidden rounded-xs border border-soft-hairline"
         >
           {stages.map((stage) => {
             const value = counts[stage.key]
@@ -98,7 +98,7 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'inline-block h-[10px] w-[10px] shrink-0 rounded-[2px]',
+                    'inline-block h-[10px] w-[10px] shrink-0 rounded-xs',
                     stage.bg,
                   )}
                 />

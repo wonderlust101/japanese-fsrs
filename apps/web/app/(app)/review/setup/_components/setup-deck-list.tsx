@@ -75,7 +75,7 @@ export function SetupDeckList({
                 // top so it visually pairs with the title rather than
                 // floating between the two lines.
                 'flex w-full items-start gap-4 px-1 py-3 text-left min-h-[64px]',
-                'rounded-[2px] transition-colors duration-150 ease-out',
+                'rounded-xs transition-colors duration-150 ease-out',
                 'has-[[role=checkbox]:focus-visible]:outline has-[[role=checkbox]:focus-visible]:outline-2 has-[[role=checkbox]:focus-visible]:outline-sumi-ink has-[[role=checkbox]:focus-visible]:outline-offset-2',
                 empty
                   ? 'cursor-not-allowed'

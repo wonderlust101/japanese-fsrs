@@ -47,7 +47,7 @@ export function FsrsHistogram({ buckets, ariaLabel }: FsrsHistogramProps): React
             <span className="font-mono text-sm text-sumi-ink/85">
               {bucket.label}
             </span>
-            <div className="relative h-[10px] w-full overflow-hidden rounded-[2px] bg-soft-hairline/40">
+            <div className="relative h-[10px] w-full overflow-hidden rounded-xs bg-soft-hairline/40">
               <span
                 aria-hidden="true"
                 className="absolute left-0 top-0 block h-full"

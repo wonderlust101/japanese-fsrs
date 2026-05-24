@@ -155,7 +155,7 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
     >
       <div
         className={[
-          'group relative rounded-[2px] border-l border-r border-b border-soft-hairline',
+          'group relative rounded-xs border-l border-r border-b border-soft-hairline',
           cardTone,
           'overflow-hidden',
           curateMode && selected ? 'ring-1 ring-inari-vermillion ring-offset-0' : '',
@@ -164,7 +164,7 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
         {/* Brand identity stripe. */}
         <span
           aria-hidden="true"
-          className="absolute top-0 -left-px -right-px h-[2px]"
+          className="absolute top-0 -left-px -right-px h-0.5"
           style={{ backgroundColor: stripeTone }}
         />
 
@@ -538,7 +538,7 @@ function PrimaryActionLink({ href, label, tone }: PrimaryActionLinkProps): React
     <Link
       href={href}
       className={[
-        'ui-motion-colors inline-flex h-11 sm:h-8 items-center gap-1 rounded-[2px] px-3 sm:px-2.5 text-sm font-medium',
+        'ui-motion-colors inline-flex h-11 sm:h-8 items-center gap-1 rounded-xs px-3 sm:px-2.5 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         activeClass,
         ...classes,

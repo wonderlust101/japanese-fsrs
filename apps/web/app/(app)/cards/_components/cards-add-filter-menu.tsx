@@ -108,7 +108,7 @@ export function CardsAddFilterMenu({
       aria-modal="false"
       aria-labelledby={headingId}
       style={{ top: position.top, left: position.left, position: 'fixed', width: 320 }}
-      className="z-50 rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-card animate-page-enter"
+      className="z-[var(--z-popover)] rounded-xs border border-soft-hairline bg-warm-paper-raised shadow-card animate-page-enter"
     >
       <div className="border-b border-soft-hairline px-3 pt-3 pb-2">
         <h2 id={headingId} className="font-mono text-sm uppercase tracking-[0.08em] text-faded-sumi">
@@ -123,7 +123,7 @@ export function CardsAddFilterMenu({
           role="combobox"
           aria-expanded="true"
           aria-autocomplete="list"
-          className="mt-2 w-full rounded-[2px] border border-soft-hairline bg-warm-paper-base px-2 py-1.5 text-sm text-sumi-ink placeholder:text-faded-sumi focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-1"
+          className="mt-2 w-full rounded-xs border border-soft-hairline bg-warm-paper-base px-2 py-1.5 text-sm text-sumi-ink placeholder:text-faded-sumi focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-1"
           aria-label="Search filters"
         />
       </div>

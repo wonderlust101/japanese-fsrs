@@ -36,10 +36,10 @@ export function AddCardCta({
 }: AddCardCtaProps): React.JSX.Element {
   const baseLink = [
     'group relative inline-flex items-center justify-center',
-    'rounded-[2px] bg-inari-vermillion text-warm-paper-raised',
-    'transition-colors duration-[200ms]',
+    'rounded-xs bg-inari-vermillion text-warm-paper-raised',
+    'transition-colors duration-200',
     'hover:bg-inari-vermillion-deep',
-    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+    'active:bg-inari-vermillion-deep active:shadow-pressed',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
   ].join(' ')
 

@@ -109,7 +109,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         aria-hidden="true"
         onClick={close}
         className={[
-          'lg:hidden fixed inset-0 z-40 bg-sumi-ink/40 transition-opacity duration-[250ms] ease-out',
+          'lg:hidden fixed inset-0 z-[var(--z-nav)] bg-sumi-ink/40 transition-opacity duration-[250ms] ease-out',
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
         ].join(' ')}
       />
@@ -122,7 +122,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         aria-label="Menu"
         aria-hidden={!isOpen}
         className={[
-          'lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
+          'lg:hidden fixed inset-y-0 left-0 z-[var(--z-overlay)] w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
           'transform transition-transform duration-[250ms] ease-out',
           'border-r border-soft-hairline',
           isOpen ? 'translate-x-0' : '-translate-x-full',
@@ -140,7 +140,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
             href="/today"
             aria-label="Go to Reviews"
             onClick={close}
-            className="rounded-[2px] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="rounded-xs outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             <Logo size={48} wordmarkSize="lg" priority />
           </Link>
@@ -149,7 +149,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
             type="button"
             onClick={close}
             aria-label="Close menu"
-            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 transition-colors"
+            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-xs text-sumi-ink hover:bg-cream-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 transition-colors"
           >
             <IconClose aria-hidden="true" className="w-5 h-5" />
           </button>

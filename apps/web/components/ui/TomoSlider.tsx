@@ -229,7 +229,7 @@ export function TomoSlider({
           'h-[18px] w-[18px] rounded-full',
           'border border-inari-vermillion-deep/30',
           isDragging
-            ? 'bg-inari-vermillion-deep shadow-[inset_0_1px_2px_rgba(31,26,24,0.22)]'
+            ? 'bg-inari-vermillion-deep shadow-pressed-strong'
             : 'bg-inari-vermillion',
           // Hover halo only when not dragging (avoid the ring competing with
           // the pressed state)

@@ -379,7 +379,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
               aria-haspopup="menu"
               aria-expanded={ariaExpanded}
               aria-label="Deck options"
-              className="ui-motion-colors flex h-8 w-8 shrink-0 items-center justify-center rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+              className="ui-motion-colors flex h-8 w-8 shrink-0 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
             >
               <IconMore className="h-4 w-4" />
             </button>
@@ -553,7 +553,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
           bulk selection is active so the bulk bar owns the bottom edge. */}
       {selected.size === 0 && (
         <div
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-soft-hairline bg-cool-paper-base px-4 pt-3 sm:hidden"
+          className="fixed inset-x-0 bottom-0 z-[var(--z-bar)] border-t border-soft-hairline bg-cool-paper-base px-4 pt-3 sm:hidden"
           style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
         >
           <StudyDeckCta href={studyHref} disabled={studyDisabled} reason={studyDisabledReason} full />

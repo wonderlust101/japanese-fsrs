@@ -70,7 +70,7 @@ export function CompositionStrip({
     <div className={cn('w-full', className)} aria-label={describe(segments, total)} role="img">
       {/* Strip */}
       <div
-        className="relative flex w-full overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset"
+        className="relative flex w-full overflow-hidden rounded-xs border border-soft-hairline bg-cream-inset"
         style={{ height: STRIP_HEIGHT_PX }}
       >
         {isEmpty ? (

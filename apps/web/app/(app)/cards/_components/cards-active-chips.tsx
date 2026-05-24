@@ -313,7 +313,7 @@ function ChipEditorPopover({
       aria-modal="false"
       aria-labelledby={headingId}
       style={{ top: position.top, left: position.left, position: 'fixed' }}
-      className="z-50 min-w-[14rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-card animate-page-enter"
+      className="z-[var(--z-popover)] min-w-[14rem] rounded-xs border border-soft-hairline bg-warm-paper-raised shadow-card animate-page-enter"
     >
       <div className="px-3 pt-3 pb-2 border-b border-soft-hairline">
         <h2 id={headingId} className="font-mono text-sm uppercase tracking-[0.08em] text-faded-sumi">

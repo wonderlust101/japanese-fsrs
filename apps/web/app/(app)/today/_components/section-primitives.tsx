@@ -147,13 +147,13 @@ export function CardHeader({
 
 export const CHART_MODULE_CHROME = [
   'relative overflow-hidden bg-warm-paper-raised',
-  'border border-soft-hairline rounded-[2px]',
+  'border border-soft-hairline rounded-xs',
   'px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
 ].join(' ')
 
 export const LIST_MODULE_CHROME = [
   'h-full bg-warm-paper-raised',
-  'border border-soft-hairline rounded-[2px]',
+  'border border-soft-hairline rounded-xs',
   'px-5 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-7',
 ].join(' ')
 
@@ -283,7 +283,7 @@ function PreviewStage({
   return (
     <div
       className={[
-        'today-empty-preview-stage relative min-h-[7.25rem] w-full overflow-hidden rounded-[2px]',
+        'today-empty-preview-stage relative min-h-[7.25rem] w-full overflow-hidden rounded-xs',
         toneClass.frame,
         'px-4 py-3 sm:px-5',
         className,
@@ -361,7 +361,7 @@ function ShelfPreview(): React.JSX.Element {
           <span
             key={card.label}
             className={[
-              'flex h-[4.75rem] w-[clamp(2.75rem,10vw,3.75rem)] items-center justify-center rounded-[2px]',
+              'flex h-[4.75rem] w-[clamp(2.75rem,10vw,3.75rem)] items-center justify-center rounded-xs',
               'today-empty-preview-card border font-display text-xl leading-none',
               card.className,
             ].join(' ')}
@@ -373,7 +373,7 @@ function ShelfPreview(): React.JSX.Element {
           </span>
         ))}
       </div>
-      <span aria-hidden="true" className="absolute bottom-8 left-8 right-8 h-[2px] bg-aizome-indigo/12" />
+      <span aria-hidden="true" className="absolute bottom-8 left-8 right-8 h-0.5 bg-aizome-indigo/12" />
     </PreviewStage>
   )
 }
@@ -431,7 +431,7 @@ function FocusPreview(): React.JSX.Element {
       <span
         lang="ja"
         aria-hidden="true"
-        className="today-empty-preview-accent absolute right-4 top-3 select-none font-display text-[3.75rem] leading-none text-inari-vermillion/[0.09]"
+        className="today-empty-preview-accent absolute right-4 top-3 select-none font-display text-glyph leading-none text-inari-vermillion/[0.09]"
       >
         要
       </span>
@@ -490,11 +490,11 @@ function WeakSpotsPreview(): React.JSX.Element {
             key={card.word}
             aria-hidden="true"
             className={[
-              'absolute h-[7.45rem] w-[5.35rem] rounded-[2px] border',
+              'absolute h-[7.45rem] w-[5.35rem] rounded-xs border',
               card.className,
             ].join(' ')}
           >
-            <span className={`today-empty-preview-accent absolute inset-x-0 top-0 h-[2px] ${card.marker}`} />
+            <span className={`today-empty-preview-accent absolute inset-x-0 top-0 h-0.5 ${card.marker}`} />
             <span className="absolute left-3 top-3 font-mono text-sm font-medium text-faded-sumi">
               {card.label}
             </span>
@@ -629,7 +629,7 @@ function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): React.JSX
           <span
             lang="ja"
             aria-hidden="true"
-            className="absolute right-4 top-3 select-none font-display text-[3.75rem] leading-none text-error/[0.10]"
+            className="absolute right-4 top-3 select-none font-display text-glyph leading-none text-error/[0.10]"
           >
             要
           </span>
@@ -690,7 +690,7 @@ function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): React.JSX
         <ErrorPreviewStage label="retry ready">
           <div className="relative z-10 flex h-20 items-center justify-center pt-5">
             <span className="h-px w-16 bg-error/35" />
-            <span className="mx-3 flex h-10 w-10 items-center justify-center rounded-[2px] border border-error/35 bg-error-tint font-mono text-sm font-semibold text-error-deep">
+            <span className="mx-3 flex h-10 w-10 items-center justify-center rounded-xs border border-error/35 bg-error-tint font-mono text-sm font-semibold text-error-deep">
               !
             </span>
             <span className="h-px w-16 border-t border-dashed border-error/45" />
@@ -711,7 +711,7 @@ function ErrorPreviewStage({
     <div
       aria-hidden="true"
       className={[
-        'dashboard-error-preview group/error relative min-h-[7.25rem] overflow-hidden rounded-[2px]',
+        'dashboard-error-preview group/error relative min-h-[7.25rem] overflow-hidden rounded-xs',
         'border border-error/20 bg-warm-paper-raised/70 px-4 py-3',
         'today-motion-colors hover:border-error/35 hover:bg-error-tint/35',
       ].join(' ')}
@@ -746,7 +746,7 @@ function NoticeFrame({
     <div
       role="alert"
       className={[
-        'w-full min-w-0 rounded-[2px] border border-error/25 bg-error-tint/35 p-4 sm:p-5',
+        'w-full min-w-0 rounded-xs border border-error/25 bg-error-tint/35 p-4 sm:p-5',
         className,
       ].join(' ')}
     >

@@ -103,7 +103,7 @@ function SwatchGroup({
         {tokens.map(token => (
           <ShowcaseItem key={token.name} label={token.name} caption={token.value || '—'}>
             <div
-              className="h-12 w-full rounded-[2px] border border-soft-hairline"
+              className="h-12 w-full rounded-xs border border-soft-hairline"
               style={{ backgroundColor: `var(${token.name})` }}
               aria-hidden="true"
             />

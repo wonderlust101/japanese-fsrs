@@ -48,7 +48,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
         onClick={onSelect}
         aria-pressed={selected}
         className={[
-          'ui-motion-pressable group relative w-full text-left rounded-[2px] bg-warm-paper-raised',
+          'ui-motion-pressable group relative w-full text-left rounded-xs bg-warm-paper-raised',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           'border',
           selected

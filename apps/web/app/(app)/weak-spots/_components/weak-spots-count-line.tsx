@@ -67,7 +67,7 @@ export function WeakSpotsCountLine({
           onClick={onToggleSortDir}
           aria-label={`Reverse sort direction (currently ${directionWord})`}
           title={directionWord}
-          className="ui-motion-colors inline-flex h-11 w-11 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink active:bg-cream-inset focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          className="ui-motion-colors inline-flex h-11 w-11 sm:h-5 sm:w-5 shrink-0 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink active:bg-cream-inset focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
         >
           <DirGlyph asc={effectiveAsc} />
         </button>
@@ -83,7 +83,7 @@ export function WeakSpotsCountLine({
               onKeyDown={onKeyDown}
               aria-haspopup="menu"
               aria-expanded={ariaExpanded}
-              className="ui-motion-colors inline-flex min-h-[44px] sm:min-h-0 items-center gap-2 rounded-[2px] px-2 -mx-2 sm:px-1 sm:-mx-1 hover:text-sumi-ink active:bg-cream-inset/60 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+              className="ui-motion-colors inline-flex min-h-11 sm:min-h-0 items-center gap-2 rounded-xs px-2 -mx-2 sm:px-1 sm:-mx-1 hover:text-sumi-ink active:bg-cream-inset/60 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
             >
               <span className="text-faded-sumi">Sort by</span>
               <span className="text-sumi-ink">{sortLabel}</span>

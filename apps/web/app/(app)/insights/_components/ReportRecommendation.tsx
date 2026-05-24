@@ -37,7 +37,7 @@ export function ReportRecommendation({
     <aside
       aria-label="Your next move"
       className={cn(
-        'relative grid grid-cols-[auto,1fr] items-start gap-x-6 gap-y-4 rounded-[2px]',
+        'relative grid grid-cols-[auto,1fr] items-start gap-x-6 gap-y-4 rounded-xs',
         'bg-cream-inset',
         'px-5 py-5 sm:px-6 sm:py-6',
       )}

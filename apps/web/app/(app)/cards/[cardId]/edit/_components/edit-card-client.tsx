@@ -724,7 +724,7 @@ function CollapsibleSection({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={cn(
-            'flex w-full items-start gap-3 rounded-[2px] text-left',
+            'flex w-full items-start gap-3 rounded-xs text-left',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           )}
         >
@@ -796,7 +796,7 @@ function DeckPickerCard({
         description={`This card lives in ${deckName}. Create another deck to move it elsewhere.`}
       >
         <div className="pt-1">
-          <span className="inline-flex items-center rounded-[2px] border border-soft-hairline bg-cream-inset px-2.5 py-1 text-sm text-sumi-ink">
+          <span className="inline-flex items-center rounded-xs border border-soft-hairline bg-cream-inset px-2.5 py-1 text-sm text-sumi-ink">
             {deckName}
           </span>
         </div>
@@ -857,7 +857,7 @@ function PreviewBlock({
       aria-pressed={flipped}
       aria-label={flipped ? 'Show front of card' : 'Show back of card'}
       className={cn(
-        'inline-flex items-center gap-2 rounded-[2px] px-1.5 py-0.5',
+        'inline-flex items-center gap-2 rounded-xs px-1.5 py-0.5',
         'text-sm',
         'text-faded-sumi hover:text-sumi-ink transition-colors duration-150',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
@@ -929,7 +929,7 @@ function PagerButton({
       disabled={disabled}
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex h-6 w-6 items-center justify-center rounded-[2px]',
+        'inline-flex h-6 w-6 items-center justify-center rounded-xs',
         'border border-soft-hairline font-mono text-sm leading-none',
         'transition-colors duration-150',
         disabled
@@ -1063,7 +1063,7 @@ function SentenceEditor({
                 onClick={() => setEditingId(open ? null : entry.id)}
                 aria-expanded={open}
                 className={cn(
-                  'flex min-w-0 flex-1 items-center gap-2 rounded-[2px] text-left',
+                  'flex min-w-0 flex-1 items-center gap-2 rounded-xs text-left',
                   'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
                 )}
               >
@@ -1259,11 +1259,11 @@ function SaveShortcutHint(): React.JSX.Element | null {
   return (
     <p className="text-xs text-faded-sumi">
       Press{' '}
-      <kbd className="rounded-[2px] border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
+      <kbd className="rounded-xs border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
         {hint.isMac ? '⌘' : 'Ctrl'}
       </kbd>
       {' '}
-      <kbd className="rounded-[2px] border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
+      <kbd className="rounded-xs border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
         Enter
       </kbd>
       {' '}to save.

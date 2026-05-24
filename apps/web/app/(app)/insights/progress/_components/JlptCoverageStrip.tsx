@@ -51,7 +51,7 @@ export function JlptCoverageStrip({ data }: JlptCoverageStripProps): React.JSX.E
       <div
         role="img"
         aria-label="JLPT coverage by level. Each segment is sized by total cards in that level; fill shows owned cards."
-        className="flex h-11 w-full overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset/60"
+        className="flex h-11 w-full overflow-hidden rounded-xs border border-soft-hairline bg-cream-inset/60"
       >
         {jlpt.map((level) => {
           const widthPct = totalAll > 0 ? (level.total / totalAll) * 100 : 0
@@ -68,7 +68,7 @@ export function JlptCoverageStrip({ data }: JlptCoverageStripProps): React.JSX.E
           return (
             <li key={level.level} className="flex items-center justify-between gap-x-3">
               <span
-                className="inline-flex w-fit shrink-0 items-center rounded-[2px] px-2 py-0.5 font-mono text-sm"
+                className="inline-flex w-fit shrink-0 items-center rounded-xs px-2 py-0.5 font-mono text-sm"
                 style={{ backgroundColor: styles.washVar, color: styles.textVar }}
               >
                 {level.level}

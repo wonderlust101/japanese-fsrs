@@ -285,8 +285,8 @@ export function WeakSpotsView(): React.JSX.Element {
               />
             </div>
 
-            <div className="mt-3 overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised">
-              <span aria-hidden="true" className="block h-[2px] w-full bg-inari-vermillion" />
+            <div className="mt-3 overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised">
+              <span aria-hidden="true" className="block h-0.5 w-full bg-inari-vermillion" />
               <ul role="list" className="flex flex-col">
                 {items.map((weakSpot) => (
                   <WeakSpotListItem
@@ -446,7 +446,7 @@ function ErrorAlert(): React.JSX.Element {
   return (
     <div
       role="alert"
-      className="mt-6 rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
+      className="mt-6 rounded-xs border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
     >
       <p>Couldn&rsquo;t load your weak spots right now.</p>
       <p className="mt-1 text-error-deep/80">Refresh the page, or try again in a moment.</p>
@@ -459,9 +459,9 @@ function ListSkeleton(): React.JSX.Element {
     <div
       aria-busy="true"
       aria-label="Loading weak spots"
-      className="mt-6 overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
+      className="mt-6 overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised"
     >
-      <span aria-hidden="true" className="block h-[2px] w-full bg-inari-vermillion/40" />
+      <span aria-hidden="true" className="block h-0.5 w-full bg-inari-vermillion/40" />
       <div className="flex flex-col">
         {Array.from({ length: 5 }, (_, i) => (
           <div

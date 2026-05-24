@@ -51,7 +51,7 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
         <div
           role="group"
           aria-label={`Proportional bar of card counts across ${sorted.length} decks. Total ${total} cards.`}
-          className="relative flex h-11 w-full overflow-visible rounded-[2px] border border-soft-hairline"
+          className="relative flex h-11 w-full overflow-visible rounded-xs border border-soft-hairline"
         >
           {sorted.map((d, i) => {
             const widthPct  = (d.totalCards / safe) * 100
@@ -81,7 +81,7 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
                   aria-hidden={!isActive}
                   className={cn(
                     'pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2',
-                    'flex items-center gap-x-2 whitespace-nowrap rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
+                    'flex items-center gap-x-2 whitespace-nowrap rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
                     'shadow-card transition-opacity duration-150',
                     isActive ? 'opacity-100' : 'opacity-0',
                   )}
@@ -115,13 +115,13 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
               onMouseEnter={() => setHoveredId(d.id)}
               onMouseLeave={() => setHoveredId(null)}
               className={cn(
-                '-mx-2 flex items-baseline gap-x-3 rounded-[2px] px-2 py-1 transition-colors',
+                '-mx-2 flex items-baseline gap-x-3 rounded-xs px-2 py-1 transition-colors',
                 isActive && 'bg-vermillion-wash/40',
               )}
             >
               <span
                 aria-hidden="true"
-                className="mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-[2px]"
+                className="mt-1 inline-block h-[10px] w-[10px] shrink-0 rounded-xs"
                 style={{ backgroundColor: segmentBg(i) }}
               />
               <QuietLink href={`/decks/${d.id}`} tone="sumi" trailingArrow size="sm">

@@ -521,7 +521,7 @@ export function DeckListView(): React.JSX.Element {
         <TopBarActions>
           <Link
             href="/decks/premade"
-            className="ui-motion-colors hidden h-8 items-center rounded-[2px] px-3 font-mono text-xs text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:inline-flex"
+            className="ui-motion-colors hidden h-8 items-center rounded-xs px-3 font-mono text-xs text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:inline-flex"
           >
             Browse premade
           </Link>
@@ -806,11 +806,11 @@ function NoMatchesState({
   // for the rack/shelf objects of the same shape. Keeps the visual
   // dialect consistent between sibling pages.
   return (
-    <div className="mt-2 rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-6 text-center">
+    <div className="mt-2 rounded-xs border border-soft-hairline bg-cream-inset/45 p-6 text-center">
       <span
         lang="ja"
         aria-hidden="true"
-        className="font-display text-[1.75rem] leading-none text-inari-vermillion/75"
+        className="font-display text-numeral leading-none text-inari-vermillion/75"
       >
         棚
       </span>
@@ -821,7 +821,7 @@ function NoMatchesState({
 
 function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
   return (
-    <div className="mt-2 rounded-[2px] border border-soft-hairline bg-cream-inset/55 p-6 text-center">
+    <div className="mt-2 rounded-xs border border-soft-hairline bg-cream-inset/55 p-6 text-center">
       <h2 className="text-sm font-medium text-sumi-ink">Couldn't load your decks.</h2>
       <p className="mt-1 text-sm text-faded-sumi">
         The library tried to read from the server and didn't get a reply. Try again in a moment.

@@ -22,7 +22,7 @@ export function KanjiBreakdown({ breakdown }: Props): React.JSX.Element {
         {breakdown.map((entry) => (
           <div
             key={entry.kanji}
-            className="flex min-w-[8rem] flex-1 flex-col gap-1 rounded-[2px] border border-soft-hairline bg-cream-inset/35 p-3 sm:flex-[0_0_auto] sm:min-w-[10rem]"
+            className="flex min-w-[8rem] flex-1 flex-col gap-1 rounded-xs border border-soft-hairline bg-cream-inset/35 p-3 sm:flex-[0_0_auto] sm:min-w-[10rem]"
           >
             <div className="flex items-baseline gap-2">
               <span lang="ja" className="text-2xl font-semibold leading-none text-sumi-ink">

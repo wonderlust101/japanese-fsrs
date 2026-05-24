@@ -41,7 +41,7 @@ export function StatisticsSection({
             onClick={toggle}
             aria-expanded={!collapsed}
             aria-controls={panelId}
-            className="group -mx-1 flex items-center gap-x-3 rounded-[2px] px-1 py-0.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="group -mx-1 flex items-center gap-x-3 rounded-xs px-1 py-0.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           >
             <Chevron collapsed={collapsed} />
             <h2 id={ariaId} className="flex min-w-0 items-baseline gap-x-3">

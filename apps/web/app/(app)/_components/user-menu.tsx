@@ -104,7 +104,7 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Account menu"
-        className="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[2px] text-base font-medium text-sumi-ink hover:bg-cream-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-base font-medium text-sumi-ink hover:bg-cream-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 transition-colors"
       >
         <span
           aria-hidden="true"
@@ -115,7 +115,7 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
         <span className="truncate flex-1 text-left">{displayLabel}</span>
         <IconChevronRight
           aria-hidden="true"
-          className={`shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-[200ms] ease-out ${
+          className={`shrink-0 w-4 h-4 text-faded-sumi transition-transform duration-200 ease-out ${
             isOpen ? 'rotate-90' : ''
           }`}
         />
@@ -125,7 +125,7 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
         <div
           role="menu"
           aria-label="Account options"
-          className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-[2px] border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
+          className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-xs border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
           <MenuItem.Link
             href="/settings"

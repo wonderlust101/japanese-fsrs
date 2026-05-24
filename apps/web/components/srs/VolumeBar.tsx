@@ -46,7 +46,7 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
             Uses transform: scaleY (composited on the GPU) instead of animating
             height (which would trigger layout every frame). Anchor at bottom so
             the bar grows upward. */}
-        <div className="relative w-12 h-[280px] bg-cream-inset rounded-[2px] overflow-hidden border border-soft-hairline">
+        <div className="relative w-12 h-[280px] bg-cream-inset rounded-xs overflow-hidden border border-soft-hairline">
           <div
             className="absolute inset-0 bg-inari-vermillion origin-bottom"
             style={{ transform: `scaleY(${fillHeight})` }}

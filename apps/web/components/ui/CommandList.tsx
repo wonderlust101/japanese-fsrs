@@ -219,8 +219,8 @@ export function CommandList<TValue extends string>({
   // `touchTargets={true}` forces 44px everywhere when the consumer
   // wants touch density even at desktop widths.
   const rowPadding = touchTargets === true
-    ? 'min-h-[44px] px-3 py-2'
-    : 'min-h-[44px] px-3 py-2 sm:min-h-[32px] sm:px-2.5 sm:py-1.5'
+    ? 'min-h-11 px-3 py-2'
+    : 'min-h-11 px-3 py-2 sm:min-h-[32px] sm:px-2.5 sm:py-1.5'
 
   if (items.length === 0) {
     return (
@@ -284,7 +284,7 @@ export function CommandList<TValue extends string>({
                 if (item.disabled !== true) onSelect(item.value)
               }}
               className={cn(
-                'ui-motion-colors flex w-full items-center justify-between gap-3 rounded-[2px] text-left text-sm',
+                'ui-motion-colors flex w-full items-center justify-between gap-3 rounded-xs text-left text-sm',
                 'cursor-pointer select-none',
                 rowPadding,
                 isActive ? 'bg-cream-inset' : '',

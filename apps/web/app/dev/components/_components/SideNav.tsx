@@ -15,7 +15,7 @@ export function SideNav({ sections }: SideNavProps): React.JSX.Element {
             <a
               href={`#${section.id}`}
               className={[
-                'block px-2 py-1.5 text-sm text-faded-sumi rounded-[2px]',
+                'block px-2 py-1.5 text-sm text-faded-sumi rounded-xs',
                 'hover:text-sumi-ink hover:bg-cream-inset',
               ].join(' ')}
             >

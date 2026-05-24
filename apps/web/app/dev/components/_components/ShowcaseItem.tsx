@@ -21,7 +21,7 @@ export function ShowcaseItem({
     <div className="flex flex-col gap-3">
       <div
         className={[
-          'border border-soft-hairline rounded-[2px] bg-warm-paper-raised',
+          'border border-soft-hairline rounded-xs bg-warm-paper-raised',
           'p-6 min-h-[88px]',
           fill ? 'flex' : 'flex items-center justify-center',
         ].join(' ')}

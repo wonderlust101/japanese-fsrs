@@ -155,7 +155,7 @@ export function OverflowMenu({
             ref={menuRef}
             role="menu"
             style={{ top: pos.top, right: pos.right }}
-            className="fixed z-50 w-64 rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-card py-2"
+            className="fixed z-[var(--z-popover)] w-64 rounded-xs border border-soft-hairline bg-warm-paper-raised shadow-card py-2"
           >
             {deckName !== null && (
               <div className="px-3 pb-2 pt-1 border-b border-soft-hairline/60">

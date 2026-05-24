@@ -169,7 +169,7 @@ export function Sidebar({ user }: Props): React.JSX.Element {
             <Link
               href="/today"
               aria-label="Go to Reviews"
-              className="relative rounded-[2px] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+              className="relative rounded-xs outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
             >
               <Logo size={48} wordmarkSize="lg" priority />
               <span
@@ -245,7 +245,7 @@ function CollapseToggle({
       aria-expanded={!collapsed}
       aria-keyshortcuts="["
       title={(collapsed ? 'Expand sidebar' : 'Collapse sidebar') + ' · ['}
-      className="relative z-[2] flex items-center justify-center w-11 h-11 rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+      className="relative z-[2] flex items-center justify-center w-11 h-11 rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
     >
       {collapsed
         ? <IconChevronRight aria-hidden="true" className="w-4 h-4" />

@@ -450,7 +450,7 @@ function RangeEcho({ rangeKey }: { rangeKey: ProgressRangeKey }): React.JSX.Elem
 
 function MatureFallbackNote(): React.JSX.Element {
   return (
-    <div className="rounded-[2px] border border-dashed border-soft-hairline bg-cream-inset/50 px-5 py-6 text-sm leading-relaxed text-faded-sumi">
+    <div className="rounded-xs border border-dashed border-soft-hairline bg-cream-inset/50 px-5 py-6 text-sm leading-relaxed text-faded-sumi">
       <p className="text-sumi-ink/85">
         The maturity pipeline reads as new, learning, young, and mature
         counts stacked across each day.

@@ -43,7 +43,7 @@ export function TextSection(): React.JSX.Element {
             <Logo showWordmark={false} />
           </ShowcaseItem>
           <ShowcaseItem label="Inverted" caption='tone="inverted"'>
-            <div className="bg-inari-vermillion p-4 rounded-[2px]">
+            <div className="bg-inari-vermillion p-4 rounded-xs">
               <Logo tone="inverted" />
             </div>
           </ShowcaseItem>

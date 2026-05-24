@@ -364,7 +364,7 @@ function PageButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-[2px]',
+        'inline-flex h-8 w-8 pointer-coarse:h-11 pointer-coarse:w-11 items-center justify-center rounded-xs',
         'border border-soft-hairline',
         'text-sumi-ink hover:bg-cream-inset/60 hover:border-faded-sumi',
         'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-soft-hairline',
@@ -464,7 +464,7 @@ function ActionLink({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center pointer-coarse:min-h-[44px]',
+        'inline-flex items-center pointer-coarse:min-h-11',
         'font-mono text-sm',
         'text-faded-sumi hover:text-sumi-ink',
         'disabled:opacity-40 disabled:cursor-not-allowed',

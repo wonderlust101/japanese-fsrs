@@ -48,7 +48,7 @@ export function EmptyState({
     <div
       role={role}
       className={[
-        'flex flex-col items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised text-center',
+        'flex flex-col items-center rounded-xs border border-soft-hairline bg-warm-paper-raised text-center',
         isPrimary ? 'gap-4 px-6 py-12' : 'gap-3 px-6 py-10',
         className,
       ].filter((c) => c.length > 0).join(' ')}
@@ -59,7 +59,7 @@ export function EmptyState({
           aria-hidden="true"
           className={[
             'font-display leading-none',
-            isPrimary ? 'text-[3rem] text-inari-vermillion' : 'text-[1.75rem] text-inari-vermillion/75',
+            isPrimary ? 'text-3xl text-inari-vermillion' : 'text-numeral text-inari-vermillion/75',
           ].join(' ')}
         >
           {kanji}

@@ -123,14 +123,14 @@ export function MoveCardDialog({
             <span
               key={i}
               aria-hidden="true"
-              className="dashboard-skeleton block h-12 w-full rounded-[2px]"
+              className="dashboard-skeleton block h-12 w-full rounded-xs"
             />
           ))}
         </div>
       )}
 
       {!isLoading && noOtherDecks && (
-        <div className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-4 text-center text-sm text-faded-sumi">
+        <div className="rounded-xs border border-soft-hairline bg-cream-inset/45 p-4 text-center text-sm text-faded-sumi">
           You don't have any other decks to move this card to. Create another deck first.
         </div>
       )}
@@ -150,7 +150,7 @@ export function MoveCardDialog({
           <div
             role="radiogroup"
             aria-label="Target decks"
-            className="max-h-96 overflow-y-auto rounded-[2px] border border-soft-hairline bg-cream-inset/40"
+            className="max-h-96 overflow-y-auto rounded-xs border border-soft-hairline bg-cream-inset/40"
           >
             {targetDecks.map((deck, i) => {
               const checked = deck.id === selectedDeckId

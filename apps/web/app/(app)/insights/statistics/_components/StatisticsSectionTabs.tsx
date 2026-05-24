@@ -66,7 +66,7 @@ export function StatisticsSectionTabs(): React.JSX.Element {
         // Negative margins exactly mirror the page container's padding
         // (`px-4 md:px-12 lg:px-16`) so the bar bleeds to precisely the
         // max-w-[1440px] container edge and never overshoots past it.
-        'sticky top-16 z-10 -mx-4 md:-mx-12 lg:-mx-16',
+        'sticky top-16 z-[var(--z-sticky)] -mx-4 md:-mx-12 lg:-mx-16',
         'border-b border-soft-hairline bg-cool-paper-base',
       )}
     >
@@ -82,7 +82,7 @@ export function StatisticsSectionTabs(): React.JSX.Element {
                 aria-current={selected ? 'location' : undefined}
                 onClick={() => handleClick(section.id)}
                 className={cn(
-                  'relative -mb-px flex min-h-[44px] items-center gap-x-2 px-4 py-3',
+                  'relative -mb-px flex min-h-11 items-center gap-x-2 px-4 py-3',
                   'font-mono text-sm',
                   'transition-colors duration-150 ease-out',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
@@ -105,7 +105,7 @@ export function StatisticsSectionTabs(): React.JSX.Element {
                 {selected && (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-x-2 bottom-0 h-[2px] bg-inari-vermillion"
+                    className="absolute inset-x-2 bottom-0 h-0.5 bg-inari-vermillion"
                   />
                 )}
               </button>

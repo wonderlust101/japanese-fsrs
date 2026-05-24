@@ -28,7 +28,7 @@ export default function OnboardingWelcomePage(): React.JSX.Element {
           A few questions, then your first cards.
         </p>
 
-        <div className="bg-cool-paper-shade rounded-[2px] p-4 md:p-6 border border-soft-hairline">
+        <div className="bg-cool-paper-shade rounded-xs p-4 md:p-6 border border-soft-hairline">
           <ForgettingCurve className="w-full" />
           <p className="text-sm italic text-faded-sumi mt-3 leading-[1.55]">
             Without practice, recall fades. Tomo schedules review cards just before they slip, so daily reviews stay focused.

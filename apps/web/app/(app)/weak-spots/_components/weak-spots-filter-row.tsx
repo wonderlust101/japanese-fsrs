@@ -258,7 +258,7 @@ function ChromeDropdown<T extends string>({
           trailingNode={<Chevron />}
           // 44px touch target on coarse pointers (the chip's default md height
           // is 36px); collapses to the intrinsic height from sm: up.
-          className={['min-h-[44px] sm:min-h-0', triggerClassName ?? ''].join(' ').trim()}
+          className={['min-h-11 sm:min-h-0', triggerClassName ?? ''].join(' ').trim()}
         >
           <span className="truncate">{label}</span>
         </ToolbarChip>

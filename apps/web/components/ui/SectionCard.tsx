@@ -139,7 +139,7 @@ export function SectionCard({
           // page-level sticky chrome (TopBar, section tabs) which sit at
           // z-10+ so the stripe never paints over them as the card
           // scrolls past.
-          className="absolute inset-x-0 top-0 z-[1] h-[2px]"
+          className="absolute inset-x-0 top-0 z-[1] h-0.5"
           style={{ backgroundColor: stripeColor }}
         />
       )}

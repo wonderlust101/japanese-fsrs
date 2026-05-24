@@ -54,7 +54,7 @@ export function SettingsTabBar(): React.JSX.Element {
   return (
     <nav
       aria-label="Settings sections"
-      className="sticky top-16 z-10 border-b border-soft-hairline bg-cool-paper-base"
+      className="sticky top-16 z-[var(--z-sticky)] border-b border-soft-hairline bg-cool-paper-base"
     >
       <div
         ref={containerRef}
@@ -94,7 +94,7 @@ export function SettingsTabBar(): React.JSX.Element {
               <span
                 aria-hidden="true"
                 className={[
-                  'absolute inset-x-3 -bottom-px h-[2px] transition-colors duration-200 ease-out sm:inset-x-4',
+                  'absolute inset-x-3 -bottom-px h-0.5 transition-colors duration-200 ease-out sm:inset-x-4',
                   active ? 'bg-inari-vermillion' : 'bg-transparent',
                 ].join(' ')}
               />

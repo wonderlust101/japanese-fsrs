@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Review session' }
 
 export default function ReviewSessionLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-cool-paper-base overflow-y-auto">
+    <div className="fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto">
       {/* The page is free to mount its own fixed top bar; the main area
           reserves vertical space so the card centers between the bar above
           and the bar below. Padding-top accounts for the fixed top bar

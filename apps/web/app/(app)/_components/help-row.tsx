@@ -13,7 +13,7 @@ function HelpKeyChip(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 border border-inari-vermillion/45 rounded-[2px] font-mono text-sm text-inari-vermillion-deep"
+      className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 border border-inari-vermillion/45 rounded-xs font-mono text-sm text-inari-vermillion-deep"
     >
       ?
     </span>
@@ -38,7 +38,7 @@ export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): Re
         type="button"
         aria-label="Help"
         onClick={openHelp}
-        className="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[2px] text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+        className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
       >
         <span className="truncate flex-1 text-left">Help</span>
       </button>
@@ -53,7 +53,7 @@ export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): Re
         aria-label="Help and shortcuts"
         aria-keyshortcuts="?"
         onClick={openHelp}
-        className="w-full flex items-center justify-center min-h-[44px] rounded-[2px] hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+        className="w-full flex items-center justify-center min-h-11 rounded-xs hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
       >
         <HelpKeyChip />
       </button>
@@ -67,7 +67,7 @@ export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): Re
       aria-keyshortcuts="?"
       title="Help and shortcuts · ?"
       onClick={openHelp}
-      className="w-full flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-[2px] text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+      className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
     >
       <span className="shrink-0 transition-colors duration-200">
         <HelpKeyChip />

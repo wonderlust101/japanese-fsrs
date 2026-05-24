@@ -51,14 +51,14 @@ export function PageStateFrame({ variant, children }: PageStateFrameProps): Reac
       role="region"
       aria-labelledby="page-state-headline"
       className={[
-        'relative w-full max-w-[min(640px,92vw)] overflow-hidden rounded-[2px]',
+        'relative w-full max-w-[min(640px,92vw)] overflow-hidden rounded-xs',
         'border border-soft-hairline bg-warm-paper-raised',
         'px-6 py-8 sm:px-10 sm:py-12',
       ].join(' ')}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 top-0 z-10 h-[2px] bg-inari-vermillion"
+        className="absolute inset-x-0 top-0 z-10 h-0.5 bg-inari-vermillion"
       />
       <div className="relative z-0 flex flex-col items-center text-center">
         {children}
@@ -205,7 +205,7 @@ export function EmptyPathVisual({
       <div
         className={[
           'absolute inset-x-0 top-1/2 -translate-y-1/2 rotate-[-1.2deg]',
-          'mx-auto w-[88%] rounded-[2px] px-5 py-6',
+          'mx-auto w-[88%] rounded-xs px-5 py-6',
           'border border-dashed',
           isError
             ? 'border-error/45 bg-error-tint/25'
@@ -302,12 +302,12 @@ export function PrimaryAction({
   // for both tones, so the button reads consistently regardless of register.
   const className = [
     'inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-3',
-    'rounded-[2px] px-8 py-3 text-base font-semibold',
+    'rounded-xs px-8 py-3 text-base font-semibold',
     'today-motion-transform',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2',
     isError
-      ? 'bg-error text-warm-paper-raised hover:bg-error-deep active:bg-error-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)] focus-visible:outline-error-deep'
-      : 'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)] focus-visible:outline-sumi-ink',
+      ? 'bg-error text-warm-paper-raised hover:bg-error-deep active:bg-error-deep active:shadow-pressed focus-visible:outline-error-deep'
+      : 'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-pressed focus-visible:outline-sumi-ink',
   ].join(' ')
 
   const inner = (
@@ -370,7 +370,7 @@ interface InlinePathProps {
  */
 export function InlinePath({ children, href, onClick }: InlinePathProps): React.JSX.Element {
   const className = [
-    'inline-flex items-center gap-2 rounded-[2px] px-1 py-1',
+    'inline-flex items-center gap-2 rounded-xs px-1 py-1',
     'text-sm text-faded-sumi transition-colors',
     'hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
   ].join(' ')
@@ -404,7 +404,7 @@ export function FullReloadHint({ onClick }: { onClick: () => void }): React.JSX.
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-2 rounded-[2px] px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+        className="inline-flex items-center gap-2 rounded-xs px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
       >
         Still stuck? Full reload
         <ArrowGlyph direction="right" className="opacity-60" />
@@ -497,7 +497,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
     <section
       aria-label="Developer information"
       className={[
-        'mt-10 w-full rounded-[2px] border border-soft-hairline bg-cream-inset/60',
+        'mt-10 w-full rounded-xs border border-soft-hairline bg-cream-inset/60',
         'text-left',
       ].join(' ')}
     >
@@ -516,7 +516,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-label={expanded ? 'Collapse developer info' : 'Expand developer info'}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[2px] text-faded-sumi transition-colors hover:bg-warm-paper-raised hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-xs text-faded-sumi transition-colors hover:bg-warm-paper-raised hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
           >
             <svg
               width="12"
@@ -553,7 +553,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
               </div>
               <pre
                 className={[
-                  'mt-2 max-h-80 overflow-auto rounded-[2px] bg-warm-paper-raised',
+                  'mt-2 max-h-80 overflow-auto rounded-xs bg-warm-paper-raised',
                   'p-3 font-mono text-sm leading-relaxed text-sumi-ink',
                   'whitespace-pre',
                 ].join(' ')}

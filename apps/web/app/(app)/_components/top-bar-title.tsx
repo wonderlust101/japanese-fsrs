@@ -34,7 +34,7 @@ export function TopBarTitle({ kanji, label, labelLang, keepOnMobile = false, cla
         className,
       )}
     >
-      <span className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-[2px] bg-vermillion-wash animate-eyebrow-kanji-bloom">
+      <span className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-xs bg-vermillion-wash animate-eyebrow-kanji-bloom">
         <span
           lang="ja"
           aria-hidden="true"

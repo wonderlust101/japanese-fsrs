@@ -122,7 +122,7 @@ function BarAction({
       disabled={disabled}
       aria-describedby={describedById}
       className={[
-        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] px-2.5 text-sm font-medium',
+        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-xs px-2.5 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         'disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none',
         danger

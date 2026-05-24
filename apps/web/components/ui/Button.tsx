@@ -34,7 +34,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary: [
     'bg-inari-vermillion text-warm-paper-raised',
     'hover:bg-inari-vermillion-deep',
-    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
+    'active:bg-inari-vermillion-deep active:shadow-pressed',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
   ].join(' '),
   secondary: [
@@ -58,7 +58,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   danger: [
     'bg-sumi-ink text-warm-paper-raised',
     'hover:bg-sumi-ink/95',
-    'active:bg-sumi-ink/95 active:shadow-[inset_0_1px_2px_rgba(253,251,247,0.10)]',
+    'active:bg-sumi-ink/95 active:shadow-pressed-inverse',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-warm-paper-raised focus-visible:outline-offset-2',
   ].join(' '),
 }
@@ -82,7 +82,7 @@ const gapClasses: Record<ButtonSize, string> = {
 }
 
 const BUTTON_BASE = [
-  'ui-motion-pressable relative inline-flex items-center justify-center font-medium rounded-[2px]',
+  'ui-motion-pressable relative inline-flex items-center justify-center font-medium rounded-xs',
   'disabled:opacity-60 disabled:pointer-events-none disabled:cursor-not-allowed',
 ].join(' ')
 

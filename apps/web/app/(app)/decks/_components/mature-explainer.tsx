@@ -121,7 +121,7 @@ export function MatureExplainer({
         left:       coords?.left ?? 0,
         top:        coords?.top  ?? 0,
       }}
-      className="absolute z-30 w-[280px] rounded-[2px] border border-soft-hairline bg-warm-paper-raised p-4 shadow-deck-lift"
+      className="absolute z-[var(--z-popover)] w-[280px] rounded-xs border border-soft-hairline bg-warm-paper-raised p-4 shadow-deck-lift"
     >
       {/* Vermillion arrow pointing up at the Mature tab. */}
       <span

@@ -34,6 +34,7 @@ typography:
     fontFamily: "JetBrains Mono, ui-monospace, monospace"
     fontWeight: 400
 rounded:
+  xs: "2px"
   sm: "6px"
   md: "10px"
   lg: "14px"
@@ -83,19 +84,19 @@ components:
     backgroundColor: "{colors.warm-paper-raised}"
     border: "1px solid {colors.soft-hairline}"
     topStripe: "2px solid {colors.inari-vermillion}"
-    rounded: "2px"
+    rounded: "{rounded.xs}"
     padding: "2rem"
   card-deck:
     backgroundColor: "{colors.warm-paper-raised}"
     border: "1px solid {colors.soft-hairline}"
     topStripe: "2px solid {colors.inari-vermillion}"
-    rounded: "2px"
+    rounded: "{rounded.xs}"
     padding: "1.25rem"
   card-review:
     backgroundColor: "{colors.warm-paper-raised}"
     border: "1px solid {colors.soft-hairline}"
     topStripe: "2px solid {colors.inari-vermillion}"
-    rounded: "2px"
+    rounded: "{rounded.xs}"
     padding: "2rem 3rem"
   rating-button-again:
     backgroundColor: "{colors.sumi-ink}"
@@ -228,7 +229,7 @@ Two Latin families (Bricolage Grotesque for display, DM Sans for body), Noto San
 
 ### Hierarchy
 
-The committed type scale is in `globals.css` (`--text-xs` through `--text-5xl`, with v4-namespaced line-height tokens). The roles map as:
+The committed type scale is in `globals.css` (`--text-xs` through `--text-5xl`, with v4-namespaced line-height tokens), plus display-figure tokens (`--text-numeral`, `--text-glyph`) and the responsive role utilities (`.text-section` / `.text-title` / `.text-display` / `.text-hero` / `.text-stat`). The roles map as:
 
 - **Display** (`--text-3xl` → `--text-5xl`, Bricolage Grotesque): hero word on the review card, dashboard masthead lines, auth/onboarding card titles, milestone illustrations.
 - **Headline** (`--text-2xl`, Bricolage or DM Sans semibold): major page-section headings.
@@ -236,6 +237,7 @@ The committed type scale is in `globals.css` (`--text-xs` through `--text-5xl`, 
 - **Body** (`--text-base`, DM Sans regular): default reading text — sentences, mnemonics, grammar explanations.
 - **Body Small** (`--text-sm`, DM Sans): nav labels, stats rows, hints.
 - **Label** (`--text-xs uppercase tracking-[0.08em]`, DM Sans medium): section labels in the nav, badges, fieldset legends, keyboard-shortcut chips.
+- **Stat figure** (`.text-stat`, responsive 1.625rem → 1.875rem, tabular numerals): the large figures in review-summary / setup / insights stat tiles. The oversized empty-state numeral uses `--text-numeral` (1.75rem); aria-hidden background ornaments use `--text-glyph` (3.75rem).
 
 The minimum scale ratio between hierarchy steps is 1.25; the gap between Body and Display lands closer to 2.5–3× to give Japanese content room to be the loudest thing on the page.
 
@@ -257,7 +259,7 @@ The minimum scale ratio between hierarchy steps is 1.25; the gap between Body an
 
 Tomo's cards are **not elevated by shadow**. Depth comes from the cool-vs-warm surface contrast (a warm-paper card on a cool-paper page reads as an object resting on a desk), the 1px Soft Hairline border, the 2px Inari Vermillion top stripe, and — on auth and onboarding — the visible stack of fading sibling cards behind the foreground card.
 
-Shadow is reserved for **state and overlay**, never for ambient decoration. There are exactly four moments shadow appears.
+Shadow is reserved for **state and overlay**, never for ambient decoration. There are exactly five moments shadow appears.
 
 ### Shadow Vocabulary
 
@@ -265,6 +267,7 @@ Shadow is reserved for **state and overlay**, never for ambient decoration. Ther
 - **Popover Lift Shadow** (`--shadow-card`): warm-tinted soft shadow on overlays that detach from the page — the UserMenu account popover, dropdown menus, hover cards. Approximately `0 4px 12px rgba(70, 30, 35, 0.07)`.
 - **Modal Lift Shadow** (`--shadow-lg`): stronger warm-tinted shadow for modal dialogs (delete-account confirmation, error dialogs, and approved modal tools). Approximately `0 8px 24px rgba(70, 30, 35, 0.10)`.
 - **Soft Hairline Shadow** (`--shadow-sm`): the lightest possible separation, reserved for moments of hint-of-lift only — currently dormant in the system; available when needed.
+- **Pressed Shadow** (`--shadow-pressed`): inset `inset 0 1px 2px rgba(31, 26, 24, 0.12)` on the active/pressed state of filled buttons and controls — "the press is felt as ink, not movement." Two variants: `--shadow-pressed-strong` (0.22 alpha) for slider thumbs, and `--shadow-pressed-inverse` (warm-paper at 0.10 alpha) for dark Sumi Ink surfaces.
 
 Cards (the SRS unit, deck cards in lists, the review card, the auth/onboarding card) use **none** of these at rest. They are flat objects with a 1px Soft Hairline border and a 2px Inari Vermillion top stripe. Hover, when it exists, never adds shadow to a card.
 
@@ -278,6 +281,27 @@ Cards (the SRS unit, deck cards in lists, the review card, the auth/onboarding c
 
 **The Opaque-Chrome Rule.** Sticky and floating chrome surfaces (mobile sticky action bar, dev panels, toast notifications) commit to fully opaque `bg-warm-paper-raised` rather than translucency-plus-blur. Glass effects (`backdrop-blur-*` plus reduced opacity) are explicitly off-pattern for chrome: warm-paper against the cool page already provides sufficient visual separation via the 1px soft-hairline border and the warm/cool surface contrast. **Modal backdrop carve-out:** the native `<dialog>` element's `::backdrop` pseudo-element (see `apps/web/components/ui/Dialog.tsx`) may pair `bg-sumi-ink/40` with up to `backdrop-blur-[2px]` to deepen the modal stage by softening the page underneath. The blur lives on the page-dimming scrim only; the dialog body itself stays opaque `bg-warm-paper-raised` per the chrome rule above. This is the single documented exception — any other surface that wants blur would need its own explicit carve-out here.
 
+### Stacking Order
+
+Z-index is a single ordered ladder defined in `globals.css` `:root` (Tailwind v4 has no
+z-index theme namespace) and consumed via `z-[var(--z-*)]`. Surfaces never hand-pick a number.
+
+| Token | Value | Layer |
+|---|---|---|
+| `--z-sticky` | 10 | sticky headers / rails |
+| `--z-raised` | 20 | sticky action bars |
+| `--z-bar` | 30 | fixed bottom rating / action bars, undo pills |
+| `--z-nav` | 40 | session top bar, mobile-drawer scrim |
+| `--z-overlay` | 50 | full-screen takeovers, drawer panel |
+| `--z-popover` | 60 | dropdowns, menus, popovers, sheets — above overlays |
+| `--z-toast` | 70 | toasts — above everything |
+
+**The Stacking-Ladder Rule.** Popovers and dropdowns sit above the overlays that launch them
+(`--z-popover` > `--z-overlay`), and toasts sit above both — a toast must never be occluded by
+the surface that triggered it. Local, in-component stacking (`relative z-[1]`, a stripe painted
+over card content) is deliberately *not* on this ladder; it only competes with its own siblings.
+Never introduce an ad-hoc `z-[55]` to escalate above a tier — add to or reuse the ladder instead.
+
 ## Components
 
 The component library below is **prescribed**, not described. The current code in `apps/web/components/` and the chrome under `apps/web/app/(app)/_components/` differs from this section. Implementation must migrate to the spec below; afterward, run `$impeccable document` to verify the spec landed and to regenerate the `.impeccable/design.json` sidecar with shadow-DOM-renderable HTML/CSS for the live panel.
@@ -286,7 +310,7 @@ The component library below is **prescribed**, not described. The current code i
 
 The button is **a block of color resting on warm paper**. It is not a glossy clickable thing; it is the page's voice acting on a control. Five variants (Primary, Secondary, Editorial, Ghost, Danger), three sizes (sm, md, lg). Plus an `iconOnly` shape axis for square icon buttons.
 
-- **Shape:** 2px radius (`rounded-[2px]`), uniform across variants and sizes. Cut-paper feel; not a soft pill. Matches the card's 2px corner so a button-inside-a-card composition reads as a single visual register.
+- **Shape:** 2px radius (`rounded-xs`, the `--radius-xs` token), uniform across variants and sizes. Cut-paper feel; not a soft pill. Matches the card's 2px corner so a button-inside-a-card composition reads as a single visual register.
 - **Sizes:** sm (`h-8 px-3 text-sm`), md (`h-10 px-4 text-sm`, default), lg (`h-12 px-5 text-base`).
 - **Primary:** Inari Vermillion (`#B03646`) background, Warm Paper Raised (`#FDFBF7`) text. Hovers to Inari Vermillion Deep (`#7E1F2A`). Reserved for the single most important action on a screen, never used twice in the same view.
 - **Secondary:** Warm Paper Raised (`#FDFBF7`) background, Sumi Ink (`#1F1A18`) text, 1px Soft Hairline (`#E5DCD0`) border. Hovers to Cream Inset (`#F4EFE6`) background, border darkens to Faded Sumi.
@@ -294,7 +318,7 @@ The button is **a block of color resting on warm paper**. It is not a glossy cli
 - **Ghost:** Transparent background, Faded Sumi text, no border. Hovers to Cream Inset background, Sumi Ink text.
 - **Danger:** Sumi Ink (`#1F1A18`) background, Warm Paper Raised text. Hovers to a deeper sumi (`#0E0A09`). The hue swap to charcoal makes destructive visually unmistakable from Primary vermillion. Requires a `leadingIcon` prop (default: hairline-X-in-circle seal-mark).
 - **Focus:** Non-danger variants use 1px Sumi Ink outline at `outline-offset-2` on `:focus-visible`. Danger uses Warm Paper Raised outline at the same offset (so the line reads against the dark fill). Buttons use a tighter outline rather than the 3px Vermillion Wash halo; the halo is reserved for chrome elements (nav rows, inputs) where it doesn't compete with the button's own background.
-- **Active state:** Filled variants (Primary, Danger) get `box-shadow: inset 0 1px 2px rgba(31, 26, 24, 0.12)` and a deeper bg, no scale transform. The press is felt as ink, not as movement.
+- **Active state:** Filled variants (Primary, Danger) get the `--shadow-pressed` inset shadow (`inset 0 1px 2px rgba(31, 26, 24, 0.12)`) and a deeper bg, no scale transform. The press is felt as ink, not as movement.
 - **Disabled:** Opacity 0.6, `cursor-not-allowed`, pointer-events disabled.
 - **Loading:** Three sumi-ink dots (`bg-current` so they match each variant's text color) pulse in a centered overlay; the children sit at `opacity-0` so width is preserved. Animation `--animate-button-dot-pulse` (1400ms ease-in-out infinite, staggered 0/200/400ms per dot).
 
@@ -302,7 +326,7 @@ The button is **a block of color resting on warm paper**. It is not a glossy cli
 
 The input is **a recessed surface inside the card**. The Cream Inset background makes it read as cut into the card's warm-paper plane rather than floating above it.
 
-- **Style:** Three sizes (sm `h-8 px-2.5 text-sm`, md `h-10 px-3 text-sm` default, lg `h-12 px-4 text-base`), Cream Inset (`#F4EFE6`) background, 1px Soft Hairline (`#E5DCD0`) border, 2px radius (`rounded-[2px]`), Sumi Ink (`#1F1A18`) text.
+- **Style:** Three sizes (sm `h-8 px-2.5 text-sm`, md `h-10 px-3 text-sm` default, lg `h-12 px-4 text-base`), Cream Inset (`#F4EFE6`) background, 1px Soft Hairline (`#E5DCD0`) border, 2px radius (`rounded-xs`, the `--radius-xs` token), Sumi Ink (`#1F1A18`) text.
 - **Placeholder:** Faded Sumi (`#6B5F58`) at the same weight (no italic, no extra styling).
 - **Focus:** 1px Sumi Ink outline at `outline-offset-2` (matches Button's focus pattern). Border stays Soft Hairline.
 - **Error:** Border shifts to JLPT N1 Saturated Red (`#B91C1C`); error outline shifts to error-deep on focus; error message renders below at `text-sm` (not `text-xs`) in error red with a leading 12×12 hairline-X-in-circle glyph and `role="alert"`. Field-level errors via the `error` prop (used for "invalid credentials" → password field by convention).
@@ -316,7 +340,7 @@ The input is **a recessed surface inside the card**. The Cream Inset background 
 
 The card is the **visual hero of the system** — the SRS unit given weight and presence. Every card across the app shares one anatomy.
 
-- **Corner Style:** 2px radius (`rounded-[2px]`). Sharp, cut-paper feel; not a soft pill.
+- **Corner Style:** 2px radius (`rounded-xs`, the `--radius-xs` token). Sharp, cut-paper feel; not a soft pill.
 - **Background:** Warm Paper Raised (`#FDFBF7`). Distinctly warmer than the Cool Paper Base page beneath, so the card reads as an object on a desk.
 - **Border:** 1px Soft Hairline (`#E5DCD0`) on the left, right, and bottom edges. The top edge is replaced by the top-stripe (below).
 - **Top Stripe:** 2px solid Inari Vermillion (`#B03646`) running flush with the top edge of the card. The brand identity device. Implemented as an absolutely-positioned span with negative offsets so it reaches the rounded corners cleanly; `overflow-hidden` on the card root clips the stripe to the 2px radius.

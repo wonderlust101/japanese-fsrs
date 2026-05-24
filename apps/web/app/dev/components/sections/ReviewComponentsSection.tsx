@@ -32,7 +32,7 @@ export function ReviewComponentsSection(): React.JSX.Element {
         <h3 className="text-xs text-faded-sumi mb-3">ReviewCard</h3>
         <ShowcaseGrid minColumnWidth={520}>
           <ShowcaseItem label="ReviewCard" caption="depends on useReviewSessionStore" fill>
-            <div className="flex flex-col gap-3 p-6 bg-cream-inset border border-soft-hairline rounded-[2px] text-sm text-faded-sumi">
+            <div className="flex flex-col gap-3 p-6 bg-cream-inset border border-soft-hairline rounded-xs text-sm text-faded-sumi">
               <p>
                 <code className="font-mono text-sumi-ink">ReviewCard</code> reads its current
                 card from <code className="font-mono text-sumi-ink">useReviewSessionStore</code>{' '}

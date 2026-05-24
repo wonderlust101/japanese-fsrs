@@ -57,7 +57,7 @@ export function RecommendedDeckCard({
   return (
     <div
       className={[
-        'ui-motion-colors group flex w-full items-center gap-4 px-4 py-3 sm:px-5 sm:py-4 rounded-[2px]',
+        'ui-motion-colors group flex w-full items-center gap-4 px-4 py-3 sm:px-5 sm:py-4 rounded-xs',
         'border',
         subscribed
           ? 'border-inari-vermillion/40 bg-vermillion-wash/40'
@@ -86,7 +86,7 @@ export function RecommendedDeckCard({
         onClick={onToggle}
         aria-pressed={subscribed}
         className={[
-          'ui-motion-pressable shrink-0 inline-flex items-center justify-center gap-2 h-8 px-3 rounded-[2px] text-xs font-medium',
+          'ui-motion-pressable shrink-0 inline-flex items-center justify-center gap-2 h-8 px-3 rounded-xs text-xs font-medium',
           'border',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           subscribed

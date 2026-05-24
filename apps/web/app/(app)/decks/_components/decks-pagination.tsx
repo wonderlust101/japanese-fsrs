@@ -93,7 +93,7 @@ export function DecksPagination({
           onValueChange={(v) => onPageSizeChange(Number(v) as DecksPageSize)}
           options={DECKS_PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
           ariaLabel="Decks per page"
-          className="min-w-[4.5rem] min-h-[44px] sm:min-h-0"
+          className="min-w-[4.5rem] min-h-11 sm:min-h-0"
         />
       </div>
 
@@ -105,7 +105,7 @@ export function DecksPagination({
           onClick={prev}
           leadingNode={<ArrowLeftGlyph />}
           aria-label="Previous page"
-          className="shrink-0 min-h-[44px] sm:min-h-0"
+          className="shrink-0 min-h-11 sm:min-h-0"
         >
           <span className="hidden sm:inline">Prev</span>
         </ToolbarChip>
@@ -134,7 +134,7 @@ export function DecksPagination({
                 onClick={() => pickPage(token)}
                 aria-label={`Page ${token}`}
                 aria-current={token === page ? 'page' : undefined}
-                className="shrink-0 min-w-[2.25rem] justify-center tabular-nums min-h-[44px] sm:min-h-0 sm:min-w-[2rem]"
+                className="shrink-0 min-w-[2.25rem] justify-center tabular-nums min-h-11 sm:min-h-0 sm:min-w-[2rem]"
               >
                 {token}
               </ToolbarChip>
@@ -148,7 +148,7 @@ export function DecksPagination({
           onClick={next}
           trailingNode={<ArrowRightGlyph />}
           aria-label="Next page"
-          className="shrink-0 min-h-[44px] sm:min-h-0"
+          className="shrink-0 min-h-11 sm:min-h-0"
         >
           <span className="hidden sm:inline">Next</span>
         </ToolbarChip>

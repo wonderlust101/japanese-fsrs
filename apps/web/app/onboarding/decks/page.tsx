@@ -326,7 +326,7 @@ function RecommendedDeckRowSkeletons(): React.JSX.Element {
       {[0, 1, 2].map((i) => (
         <StepChild key={i}>
           <div
-            className="flex items-center gap-4 rounded-[2px] border border-soft-hairline px-4 py-3"
+            className="flex items-center gap-4 rounded-xs border border-soft-hairline px-4 py-3"
             aria-hidden="true"
           >
             <Skeleton className="h-5 w-10" />
@@ -347,7 +347,7 @@ function EmptyRecommendationsNotice(): React.JSX.Element {
   return (
     <div
       role="status"
-      className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 px-4 py-4 text-sm leading-relaxed text-faded-sumi"
+      className="rounded-xs border border-soft-hairline bg-cream-inset/45 px-4 py-4 text-sm leading-relaxed text-faded-sumi"
     >
       <p>
         No starter decks for this level yet. You can{' '}

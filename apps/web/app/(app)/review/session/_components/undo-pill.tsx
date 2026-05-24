@@ -46,7 +46,7 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
         // `inset-x-0 mx-auto w-fit` centers horizontally without using a
         // transform — leaves the transform channel free for the entry
         // animation below.
-        'fixed inset-x-0 mx-auto w-fit z-30',
+        'fixed inset-x-0 mx-auto w-fit z-[var(--z-bar)]',
         // Sit just above the rating bar so the two never collide. On small
         // viewports the rating bar reserves ~76px from the bottom; we add
         // 12px of breathing room. Centered horizontally so it lands in the

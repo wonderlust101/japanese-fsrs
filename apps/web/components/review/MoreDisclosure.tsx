@@ -31,7 +31,7 @@ export function MoreDisclosure({
         className={cn(
           'group inline-flex items-center gap-2 text-sm text-faded-sumi',
           'hover:text-sumi-ink transition-colors duration-150',
-          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px]',
+          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs',
         )}
       >
         <IconChevronDown

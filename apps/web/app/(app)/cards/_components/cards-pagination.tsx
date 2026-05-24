@@ -75,11 +75,11 @@ export function CardsPagination({
           options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
           ariaLabel="Cards per page"
           // Touch target on mobile: the per-page selector lands at
-          // 44px via min-h, the same `min-h-[44px] sm:min-h-0`
+          // 44px via min-h, the same `min-h-11 sm:min-h-0`
           // pattern used on the View dropdown. min-h doesn't fight
           // TomoSelect's intrinsic height on desktop because the
           // trigger is shorter than 44px there.
-          className="min-w-[4.5rem] min-h-[44px] sm:min-h-0"
+          className="min-w-[4.5rem] min-h-11 sm:min-h-0"
         />
       </div>
 
@@ -95,7 +95,7 @@ export function CardsPagination({
           onClick={onPrev}
           leadingNode={<ArrowLeftGlyph />}
           aria-label="Previous page"
-          className="shrink-0 min-h-[44px] sm:min-h-0"
+          className="shrink-0 min-h-11 sm:min-h-0"
         >
           <span className="hidden sm:inline">Prev</span>
         </ToolbarChip>
@@ -129,7 +129,7 @@ export function CardsPagination({
                 onClick={() => onPickPage(token)}
                 aria-label={`Page ${token}`}
                 aria-current={token === currentPage ? 'page' : undefined}
-                className="shrink-0 min-w-[2.25rem] justify-center tabular-nums min-h-[44px] sm:min-h-0 sm:min-w-[2rem]"
+                className="shrink-0 min-w-[2.25rem] justify-center tabular-nums min-h-11 sm:min-h-0 sm:min-w-[2rem]"
               >
                 {token}
               </ToolbarChip>
@@ -143,7 +143,7 @@ export function CardsPagination({
           onClick={onNext}
           trailingNode={isPaginating ? <PagingSpinner /> : <ArrowRightGlyph />}
           aria-label={isPaginating ? 'Loading next page' : 'Next page'}
-          className="shrink-0 min-h-[44px] sm:min-h-0"
+          className="shrink-0 min-h-11 sm:min-h-0"
         >
           <span className="hidden sm:inline">Next</span>
         </ToolbarChip>

@@ -319,7 +319,7 @@ export function NewCardImpactCard({
             <label
               htmlFor="newcard-pace-number"
               className={cn(
-                'inline-flex cursor-text items-baseline gap-x-2 rounded-[2px]',
+                'inline-flex cursor-text items-baseline gap-x-2 rounded-xs',
                 'border border-soft-hairline bg-cream-inset px-3.5 py-2',
                 'transition-colors duration-150',
                 'hover:border-faded-sumi/60',
@@ -339,7 +339,7 @@ export function NewCardImpactCard({
                 aria-label="New cards per day"
                 className={cn(
                   'w-[3.5ch] cursor-text bg-transparent text-right',
-                  'font-mono text-[2rem] font-semibold leading-none tabular-nums text-inari-vermillion-deep',
+                  'font-mono text-2xl font-semibold leading-none tabular-nums text-inari-vermillion-deep',
                   'focus:outline-none',
                   '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
                 )}
@@ -361,8 +361,8 @@ export function NewCardImpactCard({
             aria-label="New cards per day (slider, 0 to 20)"
             className={cn(
               'block w-full appearance-none bg-transparent',
-              '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-[2px] [&::-webkit-slider-runnable-track]:bg-soft-hairline',
-              '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-[2px] [&::-moz-range-track]:bg-soft-hairline',
+              '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-xs [&::-webkit-slider-runnable-track]:bg-soft-hairline',
+              '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-xs [&::-moz-range-track]:bg-soft-hairline',
               '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-[9px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-inari-vermillion-deep [&::-webkit-slider-thumb]:cursor-grab',
               '[&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-inari-vermillion-deep [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
@@ -411,7 +411,7 @@ function LegendLine({
     <span className="flex items-center gap-x-2">
       <span
         aria-hidden="true"
-        className="inline-block h-[2px] w-4 rounded-[1px]"
+        className="inline-block h-0.5 w-4 rounded-[1px]"
         style={{ backgroundColor: color, opacity }}
       />
       <span className={bold ? 'font-medium text-inari-vermillion-deep' : undefined}>

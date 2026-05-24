@@ -39,11 +39,11 @@ export function CardsBulkBar({
     <div
       role="region"
       aria-label="Bulk card actions"
-      className="sticky bottom-0 z-20 border-t border-soft-hairline bg-warm-paper-raised"
+      className="sticky bottom-0 z-[var(--z-raised)] border-t border-soft-hairline bg-warm-paper-raised"
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion"
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-inari-vermillion"
       />
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:py-3.5 md:px-12 lg:px-16">
         <ToolbarChip onClick={onClear}>Done</ToolbarChip>
@@ -81,7 +81,7 @@ function BarAction({
       type="button"
       onClick={onClick}
       className={[
-        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] px-2.5 text-sm font-medium',
+        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-xs px-2.5 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         danger === true
           ? 'text-inari-vermillion-deep hover:bg-vermillion-wash'

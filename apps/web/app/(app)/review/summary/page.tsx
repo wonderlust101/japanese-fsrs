@@ -605,7 +605,7 @@ function ClosureStat({
                 {label}
             </dt>
             <dd className="flex items-baseline gap-2 min-w-0">
-        <span className="font-display text-[1.625rem] leading-none tabular-nums text-sumi-ink sm:text-[1.875rem]">
+        <span className="font-display text-stat tabular-nums text-sumi-ink">
           {value}
         </span>
                 {suffix !== undefined && (
@@ -683,9 +683,9 @@ function ReflectionSkeleton(): React.JSX.Element {
     return (
         <div className="relative flex h-full min-h-[200px] flex-col justify-center py-6" aria-busy="true" aria-live="polite">
             <div className="mx-auto flex w-full max-w-measure-tight flex-col gap-3 px-4">
-                <div className="h-4 w-5/6 animate-pulse rounded-[2px] bg-cream-inset/80 motion-reduce:animate-none"/>
-                <div className="h-4 w-4/6 animate-pulse rounded-[2px] bg-cream-inset/80 motion-reduce:animate-none"/>
-                <div className="h-4 w-3/6 animate-pulse rounded-[2px] bg-cream-inset/80 motion-reduce:animate-none"/>
+                <div className="h-4 w-5/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none"/>
+                <div className="h-4 w-4/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none"/>
+                <div className="h-4 w-3/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none"/>
             </div>
         </div>
     );

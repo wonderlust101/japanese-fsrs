@@ -92,7 +92,7 @@ export function CardsFilterSheet({
       role="dialog"
       aria-modal="true"
       aria-label="Filter cards"
-      className="fixed inset-0 z-50 flex flex-col items-stretch justify-end"
+      className="fixed inset-0 z-[var(--z-overlay)] flex flex-col items-stretch justify-end"
     >
       {/* Dim backdrop. Tap dismisses. Sits BEHIND the sheet via DOM
           order; the sheet's higher z within this stacking context
@@ -142,7 +142,7 @@ export function CardsFilterSheet({
             {chips.map((chip) => (
               <span
                 key={`${chip.dim}:${chip.value}`}
-                className="inline-flex h-7 items-center gap-2 rounded-[2px] border border-soft-hairline bg-cream-inset px-2 font-mono text-sm text-sumi-ink"
+                className="inline-flex h-7 items-center gap-2 rounded-xs border border-soft-hairline bg-cream-inset px-2 font-mono text-sm text-sumi-ink"
               >
                 {chip.label}
                 <button

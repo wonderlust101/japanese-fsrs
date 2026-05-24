@@ -102,7 +102,7 @@ export function DesiredRetentionDial({
         <span className="flex items-center gap-x-2">
           <span
             aria-hidden="true"
-            className="inline-block h-[2px] w-4 rounded-[1px] bg-inari-vermillion-deep"
+            className="inline-block h-0.5 w-4 rounded-[1px] bg-inari-vermillion-deep"
           />
           <span>
             Target <span className="text-sumi-ink">{Math.round(desiredPct * 100)}%</span>
@@ -111,7 +111,7 @@ export function DesiredRetentionDial({
         <span className="flex items-center gap-x-2">
           <span
             aria-hidden="true"
-            className="inline-block h-[2px] w-4 rounded-[1px] bg-sumi-ink opacity-85"
+            className="inline-block h-0.5 w-4 rounded-[1px] bg-sumi-ink opacity-85"
           />
           <span>
             Actual <span className="text-sumi-ink">{Math.round(actualPct * 100)}%</span>

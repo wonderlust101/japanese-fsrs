@@ -45,7 +45,7 @@ export function RatingDistributionBar({ breakdown, total }: Props): React.JSX.El
       <div
         role="img"
         aria-label={ariaLabel}
-        className="flex w-full h-7 overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset"
+        className="flex w-full h-7 overflow-hidden rounded-xs border border-soft-hairline bg-cream-inset"
       >
         {segments.map((s) => {
           if (s.count === 0) return null
