@@ -311,6 +311,7 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
       reviewCount: number
       relearningCount: number
       matureCount: number
+      suspendedCount: number
     }
     expect(today.newCount).toBe(1)
     expect(today.learningCount).toBe(2)
@@ -318,6 +319,8 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     expect(today.relearningCount).toBe(1)
     // Mature: the suspended one with scheduled_days=30 must NOT count.
     expect(today.matureCount).toBe(1)
+    // ...but it is tallied separately in suspendedCount.
+    expect(today.suspendedCount).toBe(1)
   })
 
   it('record_card_state_snapshots upserts a row that the history RPC reads back as historical (after manual cron simulation)', async () => {

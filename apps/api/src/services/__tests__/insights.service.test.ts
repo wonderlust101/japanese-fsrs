@@ -16,6 +16,7 @@ interface MaturitySnapshotRpcRow {
   review_count:     number
   relearning_count: number
   mature_count:     number
+  suspended_count:  number
 }
 
 interface MockState {
@@ -173,6 +174,7 @@ describe('insights.service — listMaturityHistory', () => {
         review_count:     200,
         relearning_count: 5,
         mature_count:     500,
+        suspended_count:  12,
       },
       {
         snapshot_date:    '2026-05-16',
@@ -181,6 +183,7 @@ describe('insights.service — listMaturityHistory', () => {
         review_count:     210,
         relearning_count: 5,
         mature_count:     510,
+        suspended_count:  14,
       },
     ]
 
@@ -195,6 +198,7 @@ describe('insights.service — listMaturityHistory', () => {
     expect(first.reviewCount).toBe(200)
     expect(first.relearningCount).toBe(5)
     expect(first.matureCount).toBe(500)
+    expect(first.suspendedCount).toBe(12)
     expect(result.nextCursor).toBeNull()
     expect(result.hasMore).toBe(false)
   })

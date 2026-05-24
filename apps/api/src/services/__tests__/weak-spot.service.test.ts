@@ -27,8 +27,10 @@ interface CallRecord {
 
 interface MockState {
   // Keyed by the table name passed to `.from(table)`. Multiple sequential
-  // selects against the same table queue up in this list.
-  responses: Record<string, Array<{ data: unknown; error: { message: string; code?: string } | null }>>
+  // selects against the same table queue up in this list. `count` is optional:
+  // it is only present for `select(..., { count: 'exact' })` queries (the
+  // weakSpot list), and the awaited builder surfaces it alongside data/error.
+  responses: Record<string, Array<{ data: unknown; error: { message: string; code?: string } | null; count?: number | null }>>
   calls:     CallRecord[]
   lastTable: string | null
   // `.maybeSingle()` switches the terminal resolver to a single-row shape;
@@ -62,8 +64,16 @@ function reset(): void {
   aiMock.diagnosisCalls     = []
 }
 
+// Tests key their queued responses by a camelCase alias (e.g. `weakSpots`)
+// while the service queries the real snake_case table (`weak_spots`). Resolve
+// the queue under the exact table name first, then fall back to the camelCase
+// form so a `from('weak_spots')` call still finds `responses['weakSpots']`.
+function toCamelTable(table: string): string {
+  return table.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
+}
+
 function makeBuilder(table: string): unknown {
-  const queue = state.responses[table] ?? []
+  const queue = state.responses[table] ?? state.responses[toCamelTable(table)] ?? []
 
   const handler: ProxyHandler<{ then: unknown }> = {
     get(_target, prop) {
@@ -188,16 +198,30 @@ describe('weakSpot schemas', () => {
     expect(parsed.status).toBe('unresolved')
     expect(parsed.sort).toBe('mostRecent')
     expect(parsed.limit).toBe(50)
+    expect(parsed.offset).toBe(0)
   })
 
   it('listWeakSpotsQuerySchema rejects unknown keys (.strict)', () => {
     const result = listWeakSpotsQuerySchema.safeParse({ foo: 'bar' })
     expect(result.success).toBe(false)
+    // The retired cursor param must now be rejected as an unknown key.
+    expect(listWeakSpotsQuerySchema.safeParse({ cursor: 'abc' }).success).toBe(false)
   })
 
   it('listWeakSpotsQuerySchema coerces limit and clamps via max', () => {
     expect(listWeakSpotsQuerySchema.parse({ limit: '25' }).limit).toBe(25)
     expect(listWeakSpotsQuerySchema.safeParse({ limit: 200 }).success).toBe(false)
+  })
+
+  it('listWeakSpotsQuerySchema coerces offset and rejects negatives', () => {
+    expect(listWeakSpotsQuerySchema.parse({ offset: '50' }).offset).toBe(50)
+    expect(listWeakSpotsQuerySchema.safeParse({ offset: -1 }).success).toBe(false)
+  })
+
+  it('listWeakSpotsQuerySchema accepts an optional search and caps its length', () => {
+    expect(listWeakSpotsQuerySchema.parse({ search: '見送' }).search).toBe('見送')
+    expect(listWeakSpotsQuerySchema.parse({}).search).toBeUndefined()
+    expect(listWeakSpotsQuerySchema.safeParse({ search: 'x'.repeat(101) }).success).toBe(false)
   })
 
   it('weakSpotIdParamSchema rejects non-UUID', () => {
@@ -264,15 +288,29 @@ describe('weakSpot.service — toListItem', () => {
 
 describe('weakSpot.service — listWeakSpots', () => {
   it('filters by user_id and unresolved by default', async () => {
-    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
     const out = await listWeakSpots('user-1', baseParams)
 
     const eqCalls = state.calls.filter((c) => c.method === 'eq')
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['user_id', 'user-1'] })
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['resolved', false] })
     expect(out.items).toHaveLength(1)
-    expect(out.hasMore).toBe(false)
-    expect(out.nextCursor).toBeNull()
+    expect(out.totalCount).toBe(1)
+  })
+
+  it('requests an exact count and the offset window via range', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 218 }]
+    const out = await listWeakSpots('user-1', { ...baseParams, limit: 25, offset: 50 })
+
+    // `.select(selectStr, { count: 'exact' })` — the count option is the 2nd arg.
+    const selectCall = state.calls.find((c) => c.method === 'select')
+    expect(selectCall?.args[1]).toEqual({ count: 'exact' })
+    // `.range(offset, offset + limit - 1)` — inclusive upper bound.
+    const rangeCall = state.calls.find((c) => c.method === 'range')
+    expect(rangeCall?.args).toEqual([50, 74])
+    // totalCount reflects the full match set, not the page window length.
+    expect(out.totalCount).toBe(218)
+    expect(out.items).toHaveLength(1)
   })
 
   it('passes resolved=true when status=resolved', async () => {
@@ -283,37 +321,26 @@ describe('weakSpot.service — listWeakSpots', () => {
     expect(eqCalls).toContainEqual({ method: 'eq', args: ['resolved', true] })
   })
 
-  it('signals hasMore and emits a cursor when limit + 1 rows return', async () => {
-    // Three near-identical rows; service should keep limit=2 and report hasMore.
-    const rows = [
-      { ...SAMPLE_WEAK_SPOT_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a', created_at: '2026-05-05T00:00:00.000Z' },
-      { ...SAMPLE_WEAK_SPOT_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b', created_at: '2026-05-04T00:00:00.000Z' },
-      { ...SAMPLE_WEAK_SPOT_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c', created_at: '2026-05-03T00:00:00.000Z' },
-    ]
-    state.responses['weakSpots'] = [{ data: rows, error: null }]
+  it('paginates every sort order, including the card-side sorts', async () => {
+    // mostLapses sorts on the joined cards relation; under the old cursor
+    // model this threw CURSOR_INVALID. Offset paging serves it like any other.
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 9 }]
+    const out = await listWeakSpots('user-1', { ...baseParams, sort: 'mostLapses', limit: 2, offset: 4 })
 
-    const out = await listWeakSpots('user-1', { ...baseParams, limit: 2 })
-    expect(out.items).toHaveLength(2)
-    expect(out.hasMore).toBe(true)
-    expect(out.nextCursor).not.toBeNull()
-
-    // The cursor should round-trip through base64url JSON to the last visible row.
-    const decoded = JSON.parse(Buffer.from(out.nextCursor as string, 'base64url').toString('utf8'))
-    expect(decoded).toEqual({
-      createdAt: '2026-05-04T00:00:00.000Z',
-      id:        'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b',
-    })
+    const rangeCall = state.calls.find((c) => c.method === 'range')
+    expect(rangeCall?.args).toEqual([4, 5])
+    expect(out.totalCount).toBe(9)
   })
 
   it('includes an orphan weakSpot row when no card filter is set', async () => {
-    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW, ORPHAN_WEAK_SPOT_ROW], error: null }]
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW, ORPHAN_WEAK_SPOT_ROW], error: null, count: 2 }]
     const out = await listWeakSpots('user-1', { ...baseParams, status: 'resolved' })
     expect(out.items).toHaveLength(2)
     expect(out.items[1]?.cardId).toBeNull()
   })
 
   it('applies a card-side filter via dot notation', async () => {
-    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
     await listWeakSpots('user-1', { ...baseParams, deckId: DECK_ID })
 
     const eqCalls = state.calls.filter((c) => c.method === 'eq')
@@ -323,22 +350,60 @@ describe('weakSpot.service — listWeakSpots', () => {
     })
   })
 
-  it('throws CURSOR_INVALID 400 when cursor is supplied with mostLapses sort', async () => {
-    const cursor = Buffer.from(JSON.stringify({
-      createdAt: '2026-05-01T00:00:00.000Z',
-      id:        'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a',
-    }), 'utf8').toString('base64url')
+  it('search applies an ILIKE or-group on the card embed and forces the inner join', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
+    await listWeakSpots('user-1', { ...baseParams, search: '見送る' })
 
-    let caught: unknown
-    try {
-      await listWeakSpots('user-1', { ...baseParams, sort: 'mostLapses', cursor })
-    } catch (err) {
-      caught = err
-    }
-    expect(caught).toBeInstanceOf(Error)
-    const e = caught as { statusCode?: number; code?: string }
-    expect(e.statusCode).toBe(400)
-    expect(e.code).toBe('CURSOR_INVALID')
+    // Inner join: the select string must embed `cards!inner` so non-matching
+    // (and orphan) rows drop rather than surface with a null card.
+    const selectCall = state.calls.find((c) => c.method === 'select')
+    expect(String(selectCall?.args[0])).toContain('cards!inner')
+
+    // OR group scoped to the `card` embed, covering all three text fields.
+    const orCall = state.calls.find((c) => c.method === 'or')
+    expect(orCall?.args[1]).toEqual({ referencedTable: 'card' })
+    const orFilter = String(orCall?.args[0])
+    expect(orFilter).toContain('fields_data->>word.ilike."*見送る*"')
+    expect(orFilter).toContain('fields_data->>reading.ilike."*見送る*"')
+    expect(orFilter).toContain('fields_data->>meaning.ilike."*見送る*"')
+  })
+
+  it('treats an all-whitespace search as no search (no or-group, left join)', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
+    await listWeakSpots('user-1', { ...baseParams, search: '   ' })
+    expect(state.calls.find((c) => c.method === 'or')).toBeUndefined()
+    const selectCall = state.calls.find((c) => c.method === 'select')
+    expect(String(selectCall?.args[0])).not.toContain('cards!inner')
+  })
+
+  it('strips quotes/backslashes from the search term before quoting the pattern', async () => {
+    state.responses['weakSpots'] = [{ data: [], error: null, count: 0 }]
+    await listWeakSpots('user-1', { ...baseParams, search: 'a"b\\c' })
+    const orFilter = String(state.calls.find((c) => c.method === 'or')?.args[0])
+    expect(orFilter).toContain('ilike."*abc*"')
+  })
+
+  it('sortDir overrides the natural direction of the primary order key', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
+    // mostRecent's natural direction is descending; asc must flip created_at + id.
+    await listWeakSpots('user-1', { ...baseParams, sort: 'mostRecent', sortDir: 'asc' })
+    const orderCalls = state.calls.filter((c) => c.method === 'order')
+    const createdAt  = orderCalls.find((c) => c.args[0] === 'created_at')
+    expect((createdAt?.args[1] as { ascending?: boolean }).ascending).toBe(true)
+  })
+
+  it('omitting sortDir keeps the mode default (mostLapses → descending lapses)', async () => {
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
+    await listWeakSpots('user-1', { ...baseParams, sort: 'mostLapses' })
+    const lapses = state.calls.filter((c) => c.method === 'order').find((c) => c.args[0] === 'lapses')
+    expect((lapses?.args[1] as { ascending?: boolean }).ascending).toBe(false)
+  })
+
+  it('defaults totalCount to 0 when the driver returns a null count', async () => {
+    state.responses['weakSpots'] = [{ data: [], error: null, count: null }]
+    const out = await listWeakSpots('user-1', baseParams)
+    expect(out.items).toHaveLength(0)
+    expect(out.totalCount).toBe(0)
   })
 
   it('translates Supabase errors via dbError (5xx becomes 500)', async () => {
@@ -546,7 +611,7 @@ describe('weakSpot.service — reopenWeakSpot', () => {
 
 describe('weakSpot.service — listWeakSpots deckOrder sort', () => {
   it('orders by foreign-table cards.deck_id ascending, then created_at desc, then id desc', async () => {
-    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null }]
+    state.responses['weakSpots'] = [{ data: [SAMPLE_WEAK_SPOT_ROW], error: null, count: 1 }]
     await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder' }))
 
     const orderCalls = state.calls.filter((c) => c.method === 'order')
@@ -560,35 +625,21 @@ describe('weakSpot.service — listWeakSpots deckOrder sort', () => {
     expect(orderCalls[2]?.args[0]).toBe('id')
   })
 
-  it('throws CURSOR_INVALID 400 when a cursor is supplied with deckOrder', async () => {
-    const cursor = Buffer.from(JSON.stringify({
-      createdAt: '2026-05-01T00:00:00.000Z',
-      id:        'a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c',
-    }), 'utf8').toString('base64url')
-
-    let caught: unknown
-    try {
-      await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder', cursor }))
-    } catch (err) {
-      caught = err
-    }
-    const e = caught as { statusCode?: number; code?: string }
-    expect(e.statusCode).toBe(400)
-    expect(e.code).toBe('CURSOR_INVALID')
-  })
-
-  it('never emits a nextCursor for deckOrder, even when hasMore is true', async () => {
-    // Three rows, limit 2 → service detects hasMore but must withhold the cursor.
+  it('paginates deckOrder with an offset window and exact count', async () => {
+    // deckOrder sorts on the joined cards relation. Under the retired cursor
+    // model this could only ever return the top-N page; offset paging gives it
+    // the same numbered pagination as every other sort.
     const rows = [
       { ...SAMPLE_WEAK_SPOT_ROW, id: 'e5b9f6a7-8b9c-4d0e-9f2a-ab9c8d7e6f5a' },
       { ...SAMPLE_WEAK_SPOT_ROW, id: 'f6cae7b8-9cad-4e1f-9a3b-bc0d9e8f7a6b' },
-      { ...SAMPLE_WEAK_SPOT_ROW, id: 'a7dbf8c9-adbe-4f2a-9b4c-cd1eaf9a8b7c' },
     ]
-    state.responses['weakSpots'] = [{ data: rows, error: null }]
+    state.responses['weakSpots'] = [{ data: rows, error: null, count: 7 }]
 
-    const out = await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder', limit: 2 }))
-    expect(out.hasMore).toBe(true)
-    expect(out.nextCursor).toBeNull()
+    const out = await listWeakSpots('user-1', listWeakSpotsQuerySchema.parse({ sort: 'deckOrder', limit: 2, offset: 2 }))
+    const rangeCall = state.calls.find((c) => c.method === 'range')
+    expect(rangeCall?.args).toEqual([2, 3])
+    expect(out.items).toHaveLength(2)
+    expect(out.totalCount).toBe(7)
   })
 })
 

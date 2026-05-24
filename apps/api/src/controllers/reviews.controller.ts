@@ -2,13 +2,15 @@ import type { RequestHandler } from 'express'
 
 import {
   submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema,
-  rollbackReviewParamSchema,
+  rollbackReviewParamSchema, previewRatingsParamSchema,
 } from '@fsrs-japanese/shared-types'
 
 import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
-import * as reviewService  from '../services/review.service.ts'
-import * as profileService from '../services/profile.service.ts'
-import { processReview, rollbackReview } from '../services/fsrs.service.ts'
+import * as reviewService         from '../services/review.service.ts'
+import * as profileService        from '../services/profile.service.ts'
+import * as dayReflectionService  from '../services/day-reflection.service.ts'
+import * as weakSpotService       from '../services/weak-spot.service.ts'
+import { processReview, rollbackReview, previewCardRatings } from '../services/fsrs.service.ts'
 import { withIdempotency } from '../lib/idempotency.ts'
 
 /**
@@ -86,8 +88,42 @@ export const forecast: RequestHandler = async (req, res): Promise<void> => {
  */
 export const sessionSummary: RequestHandler = async (req, res): Promise<void> => {
   const { sessionId } = sessionSummaryParamsSchema.parse(req.params)
-  const summary = await reviewService.getSessionSummary(sessionId, req.user.id)
+  const profile = await profileService.getProfile(req.user.id)
+  const summary = await reviewService.getSessionSummary(sessionId, req.user.id, profile)
   res.json(summary)
+}
+
+/**
+ * GET /api/v1/reviews/day-reflection/:sessionId
+ *
+ * Returns one Tomo-voice reflection over the user's review work for the
+ * local-calendar day that contains the given session. Aggregates ALL
+ * sessions on that date; regenerates whenever a new session joins the day
+ * (session-IDs fingerprint changes → cache miss → fresh AI generation).
+ *
+ * Falls back to a rule-based body (with `source: 'fallback'`) when the AI
+ * path is unavailable; the endpoint never surfaces a 5xx for content-
+ * availability reasons. Reuses the `sessionSummaryParamsSchema` since the
+ * path parameter shape is identical.
+ */
+export const dayReflection: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = sessionSummaryParamsSchema.parse(req.params)
+  const reflection = await dayReflectionService.getDayReflection(sessionId, req.user.id)
+  res.json(reflection)
+}
+
+/**
+ * POST /api/v1/reviews/sessions/:sessionId/diagnose-weak-spots
+ *
+ * Fires AI diagnosis for every undiagnosed weak spot in the session in
+ * one batched operation. Each per-row diagnose call is rate-limit-aware
+ * via the existing `diagnoseWeakSpot` pipeline. Returns a tally;
+ * per-row failures are counted, not propagated.
+ */
+export const diagnoseSessionWeakSpots: RequestHandler = async (req, res): Promise<void> => {
+  const { sessionId } = sessionSummaryParamsSchema.parse(req.params)
+  const result = await weakSpotService.batchDiagnoseForSession(req.user.id, sessionId)
+  res.json(result)
 }
 
 /**
@@ -116,4 +152,23 @@ export const rollback: RequestHandler = async (req, res): Promise<void> => {
     },
   )
   res.status(status).json(body)
+}
+
+/**
+ * GET /api/v1/reviews/:cardId/preview
+ * Anki-style "what happens if I rate this?" preview for the four ratings on
+ * an owned card. Pure computation: no database writes, no idempotency key.
+ *
+ * The `due` field on each rating is serialized to ISO string (the service
+ * returns a Date; res.json() handles the conversion via JSON.stringify).
+ */
+export const previewRatings: RequestHandler = async (req, res): Promise<void> => {
+  const { cardId } = previewRatingsParamSchema.parse(req.params)
+  const preview = await previewCardRatings(cardId, req.user.id)
+  res.json({
+    again: { scheduledDays: preview.again.scheduledDays, due: preview.again.due.toISOString() },
+    hard:  { scheduledDays: preview.hard.scheduledDays,  due: preview.hard.due.toISOString() },
+    good:  { scheduledDays: preview.good.scheduledDays,  due: preview.good.due.toISOString() },
+    easy:  { scheduledDays: preview.easy.scheduledDays,  due: preview.easy.due.toISOString() },
+  })
 }

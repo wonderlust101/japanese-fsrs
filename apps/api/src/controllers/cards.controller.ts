@@ -14,7 +14,6 @@ import {
   bulkSuspendCardsBodySchema,
   bulkUnsuspendCardsBodySchema,
   bulkDeleteCardsBodySchema,
-  bulkTagCardsBodySchema,
   forgetCardBodySchema,
 } from '@fsrs-japanese/shared-types'
 import type {
@@ -122,7 +121,6 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
 
       const card = await cardService.createCard(deckId, req.user.id, fieldsData, {
         layoutType:   input.layoutType,
-        tags:         input.tags,
         jlptLevel:    input.jlptLevel,
         parentCardId: input.parentCardId,
       })
@@ -296,7 +294,7 @@ export const listCrossDeck: RequestHandler = async (req, res): Promise<void> => 
   // the service signature treats absent and present-as-undefined as distinct,
   // so we omit the key entirely when the query value isn't set.
   const params: CrossDeckListParams = { limit: query.limit }
-  if (query.cursor       !== undefined) params.cursor       = query.cursor
+  if (query.offset       !== undefined) params.offset       = query.offset
   if (query.search       !== undefined) params.search       = query.search
   if (query.deckId       !== undefined) params.deckId       = query.deckId
   if (query.jlptLevel    !== undefined) params.jlptLevel    = query.jlptLevel
@@ -305,11 +303,12 @@ export const listCrossDeck: RequestHandler = async (req, res): Promise<void> => 
   if (query.presentField !== undefined) params.presentField = query.presentField
   if (query.pitchPattern !== undefined) params.pitchPattern = query.pitchPattern
   if (query.sort         !== undefined) params.sort         = query.sort
+  if (query.sortDir      !== undefined) params.sortDir      = query.sortDir
 
-  // Structured log at the request-decision point. Cursor and search are
-  // intentionally elided: cursor is opaque and noisy, search may contain
-  // user-typed text (mild PII; low ops value). Mirrors the redaction
-  // posture documented in CLAUDE.md.
+  // Structured log at the request-decision point. Search is
+  // intentionally elided (may contain user-typed text, mild PII).
+  // Offset is small and unstructured enough to log directly. Mirrors
+  // the redaction posture documented in CLAUDE.md.
   req.log.info(
     {
       filters: {
@@ -320,6 +319,8 @@ export const listCrossDeck: RequestHandler = async (req, res): Promise<void> => 
         presentField: query.presentField,
         pitchPattern: query.pitchPattern,
         sort:         query.sort,
+        sortDir:      query.sortDir,
+        offset:       query.offset,
       },
     },
     'cards.crossDeck.list',
@@ -510,23 +511,3 @@ export const bulkDelete: RequestHandler = async (req, res): Promise<void> => {
   res.status(status).json(body)
 }
 
-/** POST /api/v1/cards/bulk/tag */
-export const bulkTag: RequestHandler = async (req, res): Promise<void> => {
-  const { ids, addTags, removeTags } = bulkTagCardsBodySchema.parse(req.body)
-
-  const { status, body } = await withIdempotency<ApiBulkCardMutationResult>(
-    req.user.id,
-    req.header('idempotency-key'),
-    {
-      op:         'bulk-tag',
-      ids:        [...ids].sort(),
-      addTags:    addTags    ? [...addTags].sort()    : null,
-      removeTags: removeTags ? [...removeTags].sort() : null,
-    },
-    async () => {
-      const result = await cardService.bulkTagCards(ids, req.user.id, addTags, removeTags)
-      return { status: 200, body: result }
-    },
-  )
-  res.status(status).json(body)
-}

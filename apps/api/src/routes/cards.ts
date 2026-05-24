@@ -55,6 +55,5 @@ router.post('/bulk/move',      resourceDeleteRateLimitMiddleware, cardsControlle
 router.post('/bulk/suspend',   resourceDeleteRateLimitMiddleware, cardsController.bulkSuspend)
 router.post('/bulk/unsuspend', resourceDeleteRateLimitMiddleware, cardsController.bulkUnsuspend)
 router.post('/bulk/delete',    resourceDeleteRateLimitMiddleware, cardsController.bulkDelete)
-router.post('/bulk/tag',       resourceDeleteRateLimitMiddleware, cardsController.bulkTag)
 
 export default router

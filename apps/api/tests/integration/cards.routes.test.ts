@@ -309,7 +309,6 @@ const API_CARD_LIST_ITEM_KEYS = [
   'jlptLevel',
   'layoutType',
   'state',
-  'tags',
 ].sort()
 
 describeIntegration('cards routes — list wire shape', () => {
@@ -341,10 +340,9 @@ describeIntegration('cards routes — list wire shape', () => {
 
 // ─── Lapis-style fields_data round-trip (Backend Completion Plan, Stage 1) ──
 //
-// Pins the wire contract for the five additive Lapis fields admitted by
+// Pins the wire contract for the additive Lapis fields admitted by
 // field-shapes.schema.ts. A vocabulary card created with picture, nuance,
-// pitchPosition, expressionAudio, plus a nested sentenceAudio on its example
-// sentence must round-trip through:
+// and pitchPosition must round-trip through:
 //   - POST /api/v1/decks/:deckId/cards (manual mode)
 //   - GET  /api/v1/decks/:deckId/cards/:id
 //   - GET  /api/v1/decks/:deckId/cards (list projection)
@@ -353,23 +351,21 @@ describeIntegration('cards routes — list wire shape', () => {
 // any of these keys from the response while leaving the request validation
 // untouched — the data lands in the DB but disappears on read.
 describeIntegration('cards routes — Lapis-style fields round-trip', () => {
-  it('preserves picture / expressionAudio / pitchPosition / nuance / sentenceAudio through create + get', async () => {
+  it('preserves picture / pitchPosition / nuance through create + get', async () => {
     const u = await seedUser(); seeded.push(u)
 
     const fieldsData = {
-      word:            '猫',
-      reading:         'ねこ',
-      meaning:         'cat',
-      picture:         'https://cdn.example.test/neko.jpg',
-      expressionAudio: 'https://cdn.example.test/neko.mp3',
-      pitchPosition:   0,
-      nuance:          'Neutral register; covers both domestic and stray cats.',
+      word:          '猫',
+      reading:       'ねこ',
+      meaning:       'cat',
+      picture:       'https://cdn.example.test/neko.jpg',
+      pitchPosition: 0,
+      nuance:        'Neutral register; covers both domestic and stray cats.',
       exampleSentences: [
         {
-          ja:            '猫が好きです。',
-          en:            'I like cats.',
-          furigana:      'ねこがすきです。',
-          sentenceAudio: 'https://cdn.example.test/sentence-neko.mp3',
+          ja:       '猫が好きです。',
+          en:       'I like cats.',
+          furigana: 'ねこがすきです。',
         },
       ],
     }
@@ -548,7 +544,6 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
         { token: 'が' },
         { token: '好き', reading: 'すき', meaning: 'liked' },
       ],
-      audio:  'https://cdn.example.test/sentence-cat.mp3',
       nuance: 'Polite, neutral register.',
     }
 

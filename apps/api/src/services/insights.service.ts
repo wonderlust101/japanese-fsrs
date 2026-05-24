@@ -73,6 +73,11 @@ const MaturitySnapshotRpcRowSchema = z.object({
   review_count:     z.number().int().nonnegative(),
   relearning_count: z.number().int().nonnegative(),
   mature_count:     z.number().int().nonnegative(),
+  // Optional + default 0 so the API parses cleanly whether or not migration
+  // 20260701000000 (which adds suspended_count to the RPC) has been applied
+  // to the target DB yet. Pre-migration rows simply read 0; post-migration
+  // they carry the live tally. Avoids a deploy-order ZodError → 400.
+  suspended_count:  z.number().int().nonnegative().optional().default(0),
 })
 
 /**
@@ -119,6 +124,7 @@ export async function listMaturityHistory(
     reviewCount:     r.review_count,
     relearningCount: r.relearning_count,
     matureCount:     r.mature_count,
+    suspendedCount:  r.suspended_count,
   }))
 
   return { items, nextCursor: null, hasMore: false }

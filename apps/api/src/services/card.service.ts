@@ -34,6 +34,7 @@ import {
     type CardMissingField,
     type CardPresentField,
     type CardSortField,
+    type CardSortDir,
     type CardStatusFilter,
     type CrossDeckJlptFilter,
     type PitchPattern,
@@ -56,7 +57,6 @@ export const CARD_COLUMNS = [
   'layout_type',
   'fields_data',
   'parent_card_id',
-  'tags',
   'jlpt_level',
   'state',
   'is_suspended',
@@ -96,7 +96,6 @@ export const CARD_LIST_COLUMNS = [
   'state',
   'is_suspended',
   'due',
-  'tags',
 ].join(', ')
 
 // ─── Return shapes ────────────────────────────────────────────────────────────
@@ -110,7 +109,6 @@ export interface CardListResult {
 
 export interface CreateCardMeta {
   layoutType:   LayoutType
-  tags:         string[] | undefined
   jlptLevel:    JLPTLevel | undefined
   parentCardId: string | undefined
 }
@@ -130,7 +128,6 @@ export function toCardRow(raw: CardDbRow): ApiCard {
     layoutType:    raw.layout_type,
     fieldsData:    raw.fields_data as FieldsData,
     parentCardId:  raw.parent_card_id,
-    tags:          raw.tags,
     jlptLevel:     raw.jlpt_level,
     state:         raw.state,
     isSuspended:   raw.is_suspended,
@@ -171,7 +168,7 @@ export function toApiDueCard(raw: DueCardDbRow): ApiDueCard {
 /** Raw snake_case row shape returned by SELECT CARD_LIST_COLUMNS. */
 export type CardListDbRow = Pick<
   CardDbRow,
-  'id' | 'fields_data' | 'layout_type' | 'jlpt_level' | 'state' | 'is_suspended' | 'due' | 'tags'
+  'id' | 'fields_data' | 'layout_type' | 'jlpt_level' | 'state' | 'is_suspended' | 'due'
 >
 
 /** Maps a CARD_LIST_COLUMNS row to the wire-format ApiCardListItem. */
@@ -184,7 +181,6 @@ export function toApiCardListItem(raw: CardListDbRow): ApiCardListItem {
     state:       raw.state,
     isSuspended: raw.is_suspended,
     due:         raw.due,
-    tags:        raw.tags,
   }
 }
 
@@ -203,7 +199,6 @@ const CardDbRowSchema = z.object({
   layout_type:     layoutTypeEnum,
   fields_data:     z.record(z.string(), z.unknown()),
   parent_card_id:  z.string().nullable(),
-  tags:            z.array(z.string()),
   jlpt_level:      jlptLevelEnum.nullable(),
   state:           z.nativeEnum(State),
   is_suspended:    z.boolean(),
@@ -230,7 +225,6 @@ const CardListRpcRowSchema = CardDbRowSchema.pick({
   state:        true,
   is_suspended: true,
   due:          true,
-  tags:         true,
 })
 
 /**
@@ -253,8 +247,6 @@ const SimilarCardRpcRowSchema = z.object({
   deck_id:     z.string(),
   layout_type: layoutTypeEnum,
   fields_data: z.record(z.string(), z.unknown()),
-  // RPC returns NULL for cards that haven't been tagged.
-  tags:        z.array(z.string()).nullable(),
   jlpt_level:  jlptLevelEnum.nullable(),
   similarity:  z.number(),
 })
@@ -462,7 +454,6 @@ export async function createCard(
       // generated Insert type expects Json. JSON-serialisable at runtime.
       fields_data:    asPayload(fieldsData),
       layout_type:    meta.layoutType,
-      tags:           meta.tags         ?? [],
       jlpt_level:     meta.jlptLevel    ?? null,
       parent_card_id: meta.parentCardId ?? null,
       // FSRS initial state. is_suspended uses the column default (FALSE).
@@ -537,7 +528,6 @@ export async function updateCard(
     p_expected_version: expectedVersion,
     p_fields_data:      input.fieldsData ?? null,
     p_layout_type:      input.layoutType ?? null,
-    p_tags:             input.tags       ?? null,
     p_jlpt_level:       input.jlptLevel  ?? null,
   }))
 
@@ -606,8 +596,8 @@ export async function deleteCard(
  * Returns up to 10 cards semantically similar to the given card via pgvector.
  * Returns an empty array if the card has no embedding yet.
  *
- * The find_similar_cards RPC returns 8 columns (id, deck_id, layout_type,
- * fields_data, tags, jlpt_level, similarity) — not the full 21
+ * The find_similar_cards RPC returns a slim projection (id, deck_id,
+ * layout_type, fields_data, jlpt_level, similarity), not the full 21
  * fields of ApiCard. The return type mirrors the actual RPC shape.
  */
 export async function getSimilarCards(
@@ -634,7 +624,6 @@ export async function getSimilarCards(
     deckId:     row.deck_id,
     layoutType: row.layout_type,
     fieldsData: row.fields_data as FieldsData,
-    tags:       row.tags ?? [],
     jlptLevel:  row.jlpt_level,
     similarity: row.similarity,
   }))
@@ -663,7 +652,6 @@ const CrossDeckCardRpcRowSchema = CardDbRowSchema.pick({
   state:        true,
   is_suspended: true,
   due:          true,
-  tags:         true,
   lapses:       true,
   created_at:   true,
 }).extend({
@@ -684,21 +672,19 @@ function toApiCrossDeckCardListItem(raw: CrossDeckCardRpcRow): ApiCrossDeckCardL
     state:       raw.state,
     isSuspended: raw.is_suspended,
     due:         raw.due,
-    tags:        raw.tags,
     lapses:      raw.lapses,
   }
 }
 
 export interface CrossDeckCardListResult {
   items:      ApiCrossDeckCardListItem[]
-  nextCursor: string | null
   hasMore:    boolean
   totalCount: number
 }
 
 export interface CrossDeckListParams {
   limit:        number
-  cursor?:      string
+  offset?:      number
   search?:      string
   deckId?:      string
   jlptLevel?:   CrossDeckJlptFilter
@@ -707,23 +693,21 @@ export interface CrossDeckListParams {
   presentField?: CardPresentField
   pitchPattern?: PitchPattern
   sort?:        CardSortField
+  sortDir?:     CardSortDir
 }
 
 export async function listCardsCrossDeck(
   userId: string,
   params: CrossDeckListParams,
 ): Promise<CrossDeckCardListResult> {
-  const cursorId = params.cursor !== undefined
-    ? decodeCursor(params.cursor, cardListCursorSchema).id
-    : null
-
-  const sort = params.sort ?? 'recent'
+  const sort   = params.sort ?? 'recent'
+  const offset = params.offset ?? 0
 
   const [listResult, countResult] = await Promise.all([
     supabaseAdmin.rpc('list_cards_cross_deck', asPayload({
       p_user_id:       userId,
-      p_limit:         params.limit + 1,
-      p_cursor:        cursorId,
+      p_limit:         params.limit,
+      p_offset:        offset,
       p_deck_id:       params.deckId       ?? null,
       p_status:        params.status       ?? null,
       p_jlpt_level:    params.jlptLevel    ?? null,
@@ -732,6 +716,9 @@ export async function listCardsCrossDeck(
       p_sort:          sort,
       p_present_field: params.presentField ?? null,
       p_pitch_pattern: params.pitchPattern ?? null,
+      // null means "use the RPC's per-axis natural default" — see
+      // migration 20260630000001 for the resolution logic.
+      p_sort_dir:      params.sortDir ?? null,
     })),
     supabaseAdmin.rpc('count_cards_cross_deck', asPayload({
       p_user_id:       userId,
@@ -752,15 +739,16 @@ export async function listCardsCrossDeck(
     throw dbError('count cards cross-deck', countResult.error)
   }
 
-  const rows    = z.array(CrossDeckCardRpcRowSchema).parse(listResult.data ?? [])
-  const hasMore = rows.length > params.limit
-  const items   = rows.slice(0, params.limit).map(toApiCrossDeckCardListItem)
-  const lastId  = items[items.length - 1]?.id
+  const rows       = z.array(CrossDeckCardRpcRowSchema).parse(listResult.data ?? [])
+  const items      = rows.map(toApiCrossDeckCardListItem)
   const totalCount = z.number().int().nonnegative().parse(countResult.data ?? 0)
+  // With offset pagination, hasMore is derived from totalCount rather
+  // than from a +1 limit-bump probe. Cheaper at the RPC and removes the
+  // tail-row slicing the cursor version needed.
+  const hasMore    = offset + items.length < totalCount
 
   return {
     items,
-    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
     hasMore,
     totalCount,
   }
@@ -931,18 +919,3 @@ export async function bulkDeleteCards(
   return parseBulkResult(data)
 }
 
-export async function bulkTagCards(
-  cardIds:    string[],
-  userId:     string,
-  addTags:    string[] | undefined,
-  removeTags: string[] | undefined,
-): Promise<ApiBulkCardMutationResult> {
-  const { data, error } = await supabaseAdmin.rpc('bulk_tag_cards', asPayload({
-    p_card_ids:    cardIds,
-    p_user_id:     userId,
-    p_add_tags:    addTags    ?? [],
-    p_remove_tags: removeTags ?? [],
-  }))
-  if (error !== null) throw dbError('bulk tag cards', error)
-  return parseBulkResult(data)
-}

@@ -2,12 +2,10 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
-import { encodeCursor, decodeCursor } from '../lib/http.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { generateWeakSpotDiagnosis } from './ai.service.ts'
 import {
-  weakSpotCreatedAtCursorSchema,
   type CreateDrillSessionInput,
   type ListWeakSpotsQuery,
   type RecordDrillAttemptInput,
@@ -159,7 +157,8 @@ export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Returns a cursor-paginated list of the authenticated user's weakSpots.
+ * Returns an offset-paginated list of the authenticated user's weakSpots,
+ * plus the full `totalCount` of rows matching the active filters.
  *
  * Sort modes:
  *   - 'mostRecent'       (default) — ORDER BY created_at DESC, id DESC
@@ -169,14 +168,13 @@ export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
  *   - 'deckOrder'                  — ORDER BY card.deck_id ASC,
  *                                             created_at DESC, id DESC
  *
- * Cursor pagination is supported for the two time-keyed sorts; both keys are
- * immutable on `weakSpots`, so the cursor is stable across concurrent UPDATEs
- * (a resolve flip does not move a row in the index).
- *
- * `mostLapses` and `deckOrder` are currently top-N only: their head sort keys
- * live on the joined card row, and a correct keyset implementation needs an
- * RPC that can express the multi-column tuple comparison atomically. A
- * follow-up RPC migration in a later stage can lift this restriction.
+ * Pagination is a single offset window (`.range(offset, offset + limit - 1)`)
+ * with an exact head count, matching the cross-deck cards list. This replaced
+ * the earlier keyset-cursor model: cursors only ever worked for the two
+ * time-keyed sorts (the card-side sorts threw `CURSOR_INVALID`), so offset
+ * paging unifies all four orders behind one code path. The trade-off is the
+ * usual offset one (a concurrent insert can shift a row across a page
+ * boundary), acceptable for a low-churn insights list.
  *
  * Filter dimensions (`status`, `deckId`, `jlptLevel`) all apply at the SQL
  * `WHERE` clause boundary. The `diagnosis` filter is in the same shape but
@@ -187,7 +185,16 @@ export async function listWeakSpots(
   userId: string,
   params: ListWeakSpotsQuery,
 ): Promise<ApiWeakSpotListResponse> {
-  const { status, deckId, jlptLevel, diagnosis, sort, limit, cursor } = params
+  const { status, deckId, jlptLevel, diagnosis, sort, sortDir, limit, offset } = params
+  const searchTerm = params.search?.trim() ?? ''
+  const hasSearch  = searchTerm.length > 0
+
+  // Resolve the primary sort direction: an explicit `sortDir` overrides the
+  // mode's natural default (newest / most lapses first → descending; oldest /
+  // first-deck → ascending). The client surfaces this as a direction toggle.
+  const naturalAscending = sort === 'oldestUnresolved' || sort === 'deckOrder'
+  const primaryAscending =
+    sortDir === 'asc' ? true : sortDir === 'desc' ? false : naturalAscending
 
   // Card-side filters force an inner join so non-matching cards drop the
   // parent weakSpot rather than surface with `card: null`. Orphans (card_id IS
@@ -199,15 +206,23 @@ export async function listWeakSpots(
   // lives on `weakSpots`, not on `cards`. Forcing inner-join because of it
   // would incorrectly drop orphan weakSpots (card_id NULL) where a diagnosis
   // was recorded before the card was deleted.
-  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined
+  // Search also targets the joined card, so it forces the inner join for the
+  // same reason the deck/JLPT filters do: a free-text query is asking "which
+  // weakSpots have a card matching this text", and orphan rows (card_id NULL)
+  // can never match. Embedded-resource filters only drop the *parent* row
+  // under `!inner`; under a LEFT join they'd merely null the embed.
+  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || hasSearch
   const selectStr = hasCardFilter ? WEAK_SPOT_SELECT_INNER : WEAK_SPOT_SELECT_LEFT
 
+  // `count: 'exact'` makes the awaited result carry the full match count
+  // alongside the page window, so the client can render numbered pagination.
+  // `.range()` is inclusive on both ends, hence `offset + limit - 1`.
   let q = supabaseAdmin
     .from('weak_spots')
-    .select(selectStr)
+    .select(selectStr, { count: 'exact' })
     .eq('user_id', userId)
     .eq('resolved', status === 'resolved')
-    .limit(limit + 1)
+    .range(offset, offset + limit - 1)
 
   if (deckId    !== undefined) q = q.eq('card.deck_id',    deckId)
   if (jlptLevel !== undefined) q = q.eq('card.jlpt_level', jlptLevel)
@@ -219,20 +234,40 @@ export async function listWeakSpots(
     q = q.is('diagnosis', null)
   }
 
+  // ── Free-text search ──
+  // ILIKE across the joined card's word / reading / meaning JSONB fields. The
+  // `referencedTable: 'card'` option scopes the OR group to the embedded card
+  // relation (the select alias is `card:cards`). The pattern is wrapped in
+  // double quotes so spaces or punctuation in the term can't break PostgREST's
+  // comma/paren-delimited or() grammar; embedded quotes/backslashes are
+  // stripped first since they'd terminate the quoted value.
+  if (hasSearch) {
+    const safe    = searchTerm.replace(/[\\"]/g, '')
+    const pattern = `"*${safe}*"`
+    q = q.or(
+      [
+        `fields_data->>word.ilike.${pattern}`,
+        `fields_data->>reading.ilike.${pattern}`,
+        `fields_data->>meaning.ilike.${pattern}`,
+      ].join(','),
+      { referencedTable: 'card' },
+    )
+  }
+
   // ── Ordering ──
-  if (sort === 'mostRecent') {
+  // `mostRecent` and `oldestUnresolved` are the same axis (created_at) at
+  // opposite directions; both honour `primaryAscending` so the client's single
+  // "Date flagged" axis + direction toggle maps onto either. The id tiebreaker
+  // tracks the primary direction to keep keyset order total.
+  if (sort === 'mostRecent' || sort === 'oldestUnresolved') {
     q = q
-      .order('created_at', { ascending: false })
-      .order('id',         { ascending: false })
-  } else if (sort === 'oldestUnresolved') {
-    q = q
-      .order('created_at', { ascending: true })
-      .order('id',         { ascending: true })
+      .order('created_at', { ascending: primaryAscending })
+      .order('id',         { ascending: primaryAscending })
   } else if (sort === 'mostLapses') {
     // `foreignTable` orders by the joined cards row; nullsFirst:false keeps
     // orphan weakSpots (card row absent) at the end of the list.
     q = q
-      .order('lapses',     { ascending: false, nullsFirst: false, foreignTable: 'cards' })
+      .order('lapses',     { ascending: primaryAscending, nullsFirst: false, foreignTable: 'cards' })
       .order('created_at', { ascending: false })
       .order('id',         { ascending: false })
   } else {
@@ -242,54 +277,21 @@ export async function listWeakSpots(
     // this sort is most useful paired with a deckId filter, where intra-deck
     // ordering matters and inter-deck ordering doesn't.
     q = q
-      .order('deck_id',    { ascending: true, foreignTable: 'cards' })
+      .order('deck_id',    { ascending: primaryAscending, foreignTable: 'cards' })
       .order('created_at', { ascending: false })
       .order('id',         { ascending: false })
   }
 
-  // ── Cursor ──
-  if (cursor !== undefined) {
-    if (sort === 'mostLapses' || sort === 'deckOrder') {
-      // See docstring — both sorts are top-N only for now. Their head sort key
-      // lives on the joined card row, so a correct keyset cursor needs an RPC
-      // we haven't built. A clean 400 is better than silently returning the
-      // same page on every "next" click.
-      throw new AppError(400, 'Cursor pagination is not supported for this sort order', { code: 'CURSOR_INVALID' })
-    }
-    const { createdAt, id } = decodeCursor(cursor, weakSpotCreatedAtCursorSchema)
-    // Keyset pagination over the tuple (created_at, id). For DESC order:
-    //   WHERE created_at < cursor.createdAt
-    //      OR (created_at = cursor.createdAt AND id < cursor.id)
-    // For ASC order, swap < / > operators.
-    //
-    // Supabase JS's .or() takes a single string of comma-separated filter
-    // alternatives; nested AND is `and(<filter>,<filter>)`. UUIDs and ISO-8601
-    // timestamps cannot contain commas or unescaped reserved chars, so direct
-    // interpolation is safe — but if the cursor schema ever widens, revisit.
-    const op = sort === 'mostRecent' ? 'lt' : 'gt'
-    q = q.or(`created_at.${op}.${createdAt},and(created_at.eq.${createdAt},id.${op}.${id})`)
-  }
-
-  const { data, error } = await q
+  const { data, error, count } = await q
 
   if (error !== null) {
     throw dbError('list weakSpots', error)
   }
 
-  const rows    = z.array(WeakSpotRowSchema).parse(data ?? [])
-  const hasMore = rows.length > limit
-  const visible = rows.slice(0, limit)
-  const items   = visible.map(toListItem)
+  const rows  = z.array(WeakSpotRowSchema).parse(data ?? [])
+  const items = rows.map(toListItem)
 
-  let nextCursor: string | null = null
-  if (hasMore && sort !== 'mostLapses' && sort !== 'deckOrder') {
-    const last = visible[visible.length - 1]
-    if (last !== undefined) {
-      nextCursor = encodeCursor({ createdAt: last.created_at, id: last.id })
-    }
-  }
-
-  return { items, nextCursor, hasMore }
+  return { items, totalCount: count ?? 0 }
 }
 
 /**
@@ -976,4 +978,84 @@ export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Prom
   // 8. Return the full joined detail so the client can drop the response into
   //    its TanStack Query cache directly. Same shape as GET /:id.
   return getWeakSpotById(userId, weakSpotId)
+}
+
+// ─── Batch diagnose for session (audit-remediation: feature 1) ──────────────
+//
+// Walks every weak spot attached to a session, fires `diagnoseWeakSpot` on
+// any that don't have a diagnosis yet, and reports a tally. Used by the
+// review-summary surface to populate per-row diagnoses without inflating
+// `processReview`'s latency on every rating.
+//
+// Concurrency is bounded by `openaiSemaphore` inside each call — the
+// `Promise.allSettled` here just lets independent diagnoses run in
+// parallel without one failure blocking the rest.
+
+const BatchDiagnoseWeakSpotRowSchema = z.object({
+  id: z.string(),
+})
+
+export interface BatchDiagnoseResult {
+  diagnosed: number
+  skipped:   number
+  failed:    number
+}
+
+/**
+ * Diagnoses every undiagnosed weak spot in a session in one operation.
+ *
+ * Returns a tally; the per-row diagnoses are stored in the `weak_spots`
+ * table and surface on the next `getSessionSummary` fetch.
+ *
+ * Errors per individual weak spot are logged + counted, not rethrown.
+ * The endpoint should still return 200 even when some AI calls fail —
+ * partial success is the expected steady state for a network-dependent
+ * batch operation.
+ */
+export async function batchDiagnoseForSession(
+  userId:    string,
+  sessionId: string,
+): Promise<BatchDiagnoseResult> {
+  // 1. Find weak spots in this session that don't have a diagnosis yet.
+  //    `diagnosis IS NULL` is the gate: existing diagnoses are sticky and
+  //    only refreshed via an explicit per-row re-diagnose (not exposed yet).
+  const { data: rows, error } = await supabaseAdmin
+    .from('weak_spots')
+    .select('id')
+    .eq('user_id',    userId)
+    .eq('session_id', sessionId)
+    .is('diagnosis',  null)
+
+  if (error !== null) {
+    throw dbError('fetch session weak spots for batch diagnose', error)
+  }
+
+  const ids = z.array(BatchDiagnoseWeakSpotRowSchema).parse(rows ?? []).map((r) => r.id)
+
+  if (ids.length === 0) {
+    return { diagnosed: 0, skipped: 0, failed: 0 }
+  }
+
+  // 2. Fire diagnoses in parallel. `diagnoseWeakSpot` internally bounds
+  //    OpenAI concurrency via `openaiSemaphore` (ai.service.ts), so we
+  //    don't need a second semaphore here — let allSettled drive parallel
+  //    invocations and the semaphore inside each call serializes the
+  //    actual API hits to the configured concurrency cap.
+  const settled = await Promise.allSettled(
+    ids.map((id) => diagnoseWeakSpot(userId, id)),
+  )
+
+  let diagnosed = 0
+  let failed    = 0
+  for (const result of settled) {
+    if (result.status === 'fulfilled') {
+      diagnosed += 1
+    } else {
+      failed += 1
+      const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
+      log.warn({ userId, sessionId, err: { message } }, 'batchDiagnoseForSession: per-row diagnose failed')
+    }
+  }
+
+  return { diagnosed, skipped: 0, failed }
 }

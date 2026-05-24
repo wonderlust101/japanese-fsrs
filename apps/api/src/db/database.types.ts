@@ -136,6 +136,7 @@ export type Database = {
           review_count:     number
           relearning_count: number
           mature_count:     number
+          suspended_count:  number
           recorded_at:      string
         }
         Insert: {
@@ -146,6 +147,7 @@ export type Database = {
           review_count?:     number
           relearning_count?: number
           mature_count?:     number
+          suspended_count?:  number
           recorded_at?:      string
         }
         Update: {
@@ -156,6 +158,7 @@ export type Database = {
           review_count?:     number
           relearning_count?: number
           mature_count?:     number
+          suspended_count?:  number
           recorded_at?:      string
         }
         Relationships: [
@@ -868,6 +871,7 @@ export type Database = {
           review_count:     number
           relearning_count: number
           mature_count:     number
+          suspended_count:  number
         }[]
       }
       record_card_state_snapshots: {
@@ -915,7 +919,11 @@ export type Database = {
         }[]
       }
       get_session_summary: {
-        Args: { p_session_id: string; p_user_id: string }
+        Args: { p_session_id: string; p_user_id: string; p_timezone: string }
+        Returns: Json
+      }
+      get_day_review_aggregate: {
+        Args: { p_session_id: string; p_user_id: string; p_timezone: string }
         Returns: Json
       }
       get_stale_embedding_cards: {

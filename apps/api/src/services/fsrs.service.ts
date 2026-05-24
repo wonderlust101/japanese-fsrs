@@ -25,6 +25,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '../db/supabase.ts'
 import { env }           from '../lib/env.ts'
 import { asPayload } from '../lib/db.ts'
+import { invalidateDueCache } from '../lib/due-cache.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
@@ -127,42 +128,25 @@ type FsrsCardRow = z.infer<typeof FsrsCardRowSchema>
  * caller's). Used to gate review writes (`processReview`,
  * `processReviewBatch`) so archived decks behave like a freeze.
  *
- * Two round-trips, but each is small and indexed:
- *   1. Find this user's archived deck ids (typically 0–2 rows).
- *   2. Intersect against the supplied card ids.
- *
- * The two-query shape is deliberately plain instead of a single nested
- * PostgREST join — the planner cost is the same and the SQL is much easier
- * to reason about when a future migration touches `decks` or `cards`.
+ * One round-trip via PostgREST inner-join on the existing cards.deck_id FK.
+ * The join filters server-side on `decks.archived_at IS NOT NULL`, so only
+ * card rows whose deck is archived come back. Indexed on both sides.
  */
 async function getArchivedCardIds(userId: string, cardIds: readonly string[]): Promise<Set<string>> {
   if (cardIds.length === 0) return new Set()
 
-  const { data: archivedDecks, error: decksError } = await supabaseAdmin
-    .from('decks')
-    .select('id')
-    .eq('user_id', userId)
-    .not('archived_at', 'is', null)
-
-  if (decksError !== null) {
-    throw dbError('fetch archived decks for review gate', decksError)
-  }
-  if (archivedDecks === null || archivedDecks.length === 0) return new Set()
-
-  const archivedDeckIds = archivedDecks.map((d: { id: string }) => d.id)
-
-  const { data: archivedCards, error: cardsError } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('cards')
-    .select('id')
-    .in('id', [...cardIds])
+    .select('id, decks!inner(archived_at)')
     .eq('user_id', userId)
-    .in('deck_id', archivedDeckIds)
+    .in('id', [...cardIds])
+    .not('decks.archived_at', 'is', null)
 
-  if (cardsError !== null) {
-    throw dbError('intersect archived deck cards', cardsError)
+  if (error !== null) {
+    throw dbError('intersect archived deck cards', error)
   }
 
-  return new Set((archivedCards ?? []).map((c: { id: string }) => c.id))
+  return new Set((data ?? []).map((c: { id: string }) => c.id))
 }
 
 /** review_logs row shape — includes before-snapshot columns added in migration 20260502000001. */
@@ -327,13 +311,10 @@ export async function processReview(
     throw new AppError(409, 'Card is suspended; unsuspend it before reviewing', { code: 'CARD_SUSPENDED' })
   }
 
-  // Archive gate: reject reviews on cards in an archived deck. Same 422 +
-  // DECK_ARCHIVED shape the deck-level write gates use, so the frontend
-  // can branch on a single code regardless of the entry point.
-  const archivedSet = await getArchivedCardIds(userId, [cardId])
-  if (archivedSet.has(cardId)) {
-    throw new AppError(422, 'Deck is archived. Unarchive it to review.', { code: 'DECK_ARCHIVED' })
-  }
+  // Archive gate moved into the process_review RPC in migration
+  // 20260625000000 — saves the pre-RPC round-trip. The TS-side error
+  // mapping below detects SQLSTATE 'P0420' and surfaces the same 422 +
+  // DECK_ARCHIVED shape the frontend already handles from the batch path.
 
   // ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
   const grade = mapRatingToGrade(rating)
@@ -381,8 +362,20 @@ export async function processReview(
   }))
 
   if (rpcError !== null) {
+    // SQLSTATE 'P0420' is the archive guard added inside process_review by
+    // migration 20260625000000. Map it back to the 422 + DECK_ARCHIVED
+    // shape the batch path already emits, so the frontend branches on a
+    // single error code regardless of single vs batch.
+    if (rpcError.code === 'P0420') {
+      throw new AppError(422, 'Deck is archived. Unarchive it to review.', { code: 'DECK_ARCHIVED' })
+    }
     throw dbError('persist review', rpcError)
   }
+
+  // Invalidate the user's cached due list. Fire-and-forget so the response
+  // isn't blocked on Redis. The card we just rated must not reappear in the
+  // next /reviews/due fetch — see lib/due-cache.ts.
+  void invalidateDueCache(userId)
 
   // Fetch the just-inserted review log id. `reviewed_at` (set in JS above)
   // is unique-enough per (user, card) for the same-instant case; we filter
@@ -579,6 +572,11 @@ export async function processReviewBatch(
     if (rpcError !== null) {
       throw dbError('persist review batch', rpcError)
     }
+
+    // Invalidate the user's cached due list — at least one card in the batch
+    // moved. Even partial-success batches must invalidate so the next
+    // /reviews/due fetch reflects the new state. Fire-and-forget.
+    void invalidateDueCache(userId)
 
     const rows = z.array(BatchResultRowSchema).parse(rpcData ?? [])
     for (const r of rows) {
@@ -786,6 +784,9 @@ export async function forgetCard(
     throw dbError('forget card', rpcError)
   }
 
+  // Card moved back to New state; due-list visibility changes. Fire-and-forget.
+  void invalidateDueCache(userId)
+
   return {
     id:            cardId,
     reviewLogId:   null,
@@ -822,6 +823,43 @@ export function previewNextStates(
     good:  { due: preview[Rating.Good].card.due,  scheduledDays: preview[Rating.Good].card.scheduled_days,  stability: preview[Rating.Good].card.stability },
     easy:  { due: preview[Rating.Easy].card.due,  scheduledDays: preview[Rating.Easy].card.scheduled_days,  stability: preview[Rating.Easy].card.stability },
   }
+}
+
+/**
+ * Loads an owned card's FSRS state and returns the four-rating preview.
+ * Backs `GET /api/v1/reviews/:cardId/preview` (the Anki-style "what happens
+ * if I rate this?" labels above the rating buttons).
+ *
+ * Reuses the same ownership + premade-source guards as processReview so
+ * preview results match exactly what a real rating would yield. Suspended
+ * cards are allowed (preview is informational; the UI surface won't render
+ * rating buttons for a suspended card anyway).
+ */
+export async function previewCardRatings(
+  cardId: string,
+  userId: string,
+): Promise<Record<'again' | 'hard' | 'good' | 'easy', RatingPreview>> {
+  const { data, error } = await supabaseAdmin
+    .from('cards')
+    .select(FSRS_SELECT_COLUMNS)
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .single()
+
+  if (error !== null) {
+    throw dbError('fetch card for preview', error)
+  }
+  if (data === null) {
+    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
+  }
+
+  const row = FsrsCardRowSchema.parse(data)
+
+  if (row.user_id === null) {
+    throw new AppError(403, 'Cannot preview a premade source card', { code: 'PREMADE_CARD_NOT_REVIEWABLE' })
+  }
+
+  return previewNextStates(row)
 }
 
 /**
@@ -922,6 +960,10 @@ export async function rescheduleFromHistory(
   if (rpcError !== null) {
     throw dbError('reschedule card', rpcError)
   }
+
+  // Reschedule rewrote the card's due date; refresh the cached due list.
+  // Fire-and-forget.
+  void invalidateDueCache(userId)
 
   return {
     id:            cardId,

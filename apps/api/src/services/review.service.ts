@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
+import { readDueCache, writeDueCache } from '../lib/due-cache.ts'
 import { normalizeTimeZone } from '../lib/timezone.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { processReviewBatch, type ProcessReviewResult } from './fsrs.service.ts'
@@ -62,11 +63,22 @@ const SessionSummaryEnvelopeSchema = z.object({
     deck_id:      z.string().nullable(),
     word:         z.string().nullable(),
     reading:      z.string().nullable(),
+    // Nullable because the CTE LEFT JOINs `cards`; orphan weak spots
+    // (parent card deleted) won't have a value. Added by migration
+    // 20260626000000.
+    lapses:       z.number().int().nonnegative().nullable(),
     diagnosis:    z.string().nullable(),
     prescription: z.string().nullable(),
     resolved:     z.boolean(),
     created_at:   z.string(),
   })),
+  // Added by migration 20260628000000. Capped at 2 in the RPC so the
+  // frontend can branch between "first session" and "returning" copy
+  // without leaking the user's full history count.
+  user_total_sessions: z.number().int().nonnegative(),
+  // DISTINCT session_id count for the user-local day containing this
+  // session. Drives the closure card's pluralized label.
+  sessions_today:      z.number().int().nonnegative(),
 })
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -89,6 +101,16 @@ export async function getDueCards(
   userId:  string,
   profile: Profile,
 ): Promise<ApiList<ApiDueCard>> {
+  // Cache short-circuit. 60s TTL caps any staleness from non-invalidating
+  // mutation paths (deck archive, suspend, create/delete). The four FSRS
+  // write paths (processReview, processReviewBatch, forgetCard,
+  // rescheduleFromHistory) call `invalidateDueCache` explicitly so a user
+  // who JUST rated a card doesn't see it again on the next fetch.
+  const cached = await readDueCache<ApiDueCard>(userId)
+  if (cached !== null) {
+    return { items: cached.items, nextCursor: null, hasMore: cached.hasMore }
+  }
+
   const timeZone = normalizeTimeZone(profile.timezone)
   const { data, error } = await supabaseAdmin.rpc(
     'get_due_cards',
@@ -107,7 +129,12 @@ export async function getDueCards(
   const rows  = z.array(DueCardRpcRowSchema).parse(data ?? [])
   const items = rows.map(toApiDueCard)
   // Bounded by FSRS daily caps; no cursor pagination.
-  return { items, nextCursor: null, hasMore: false }
+  const payload: ApiList<ApiDueCard> = { items, nextCursor: null, hasMore: false }
+
+  // Fire-and-forget write — a Redis hiccup must not delay the response.
+  void writeDueCache<ApiDueCard>(userId, { items, nextCursor: null, hasMore: false })
+
+  return payload
 }
 
 /**
@@ -188,10 +215,12 @@ export async function submitBatch(
 export async function getSessionSummary(
   sessionId: string,
   userId:    string,
+  profile:   Profile,
 ): Promise<SessionSummary> {
+  const timeZone = normalizeTimeZone(profile.timezone)
   const { data, error } = await supabaseAdmin.rpc(
     'get_session_summary',
-    asPayload({ p_session_id: sessionId, p_user_id: userId }),
+    asPayload({ p_session_id: sessionId, p_user_id: userId, p_timezone: timeZone }),
   )
 
   if (error !== null) {
@@ -220,6 +249,7 @@ export async function getSessionSummary(
     deckId:       l.deck_id   ?? '',
     word:         l.word      ?? '',
     reading:      l.reading   ?? null,
+    ...(l.lapses !== null && { lapses: l.lapses }),
     diagnosis:    l.diagnosis ?? null,
     prescription: l.prescription ?? null,
     resolved:     l.resolved,
@@ -228,11 +258,13 @@ export async function getSessionSummary(
 
   return {
     sessionId,
-    totalCards:      env.total,
-    totalTimeMs:     env.total_time_ms,
+    totalCards:        env.total,
+    totalTimeMs:       env.total_time_ms,
     accuracyPct,
-    nextDueAt:       env.next_due_at,
-    ratingBreakdown: env.breakdown,
+    nextDueAt:         env.next_due_at,
+    ratingBreakdown:   env.breakdown,
     weakSpots,
+    userTotalSessions: env.user_total_sessions,
+    sessionsToday:     env.sessions_today,
   }
 }

@@ -88,7 +88,6 @@ const {
   bulkMoveCards,
   bulkSuspendCards,
   bulkDeleteCards,
-  bulkTagCards,
 } = await import('../card.service.ts')
 
 beforeEach(() => reset())
@@ -106,7 +105,6 @@ function makeCardRow(over: Partial<Record<string, unknown>> = {}): Record<string
     layout_type:     'vocabulary',
     fields_data:     { word: '日本語' },
     parent_card_id:  null,
-    tags:            [],
     jlpt_level:      'N5',
     state:           0,
     is_suspended:    false,
@@ -137,7 +135,6 @@ function makeListRow(over: Partial<Record<string, unknown>> = {}): Record<string
     state:        0,
     is_suspended: false,
     due:          new Date().toISOString(),
-    tags:         [],
     lapses:       0,
     created_at:   new Date().toISOString(),
     ...over,
@@ -187,11 +184,11 @@ describe('card.service — listCardsCrossDeck', () => {
     expect(payload.p_search).toBe('water')
     expect(payload.p_missing_field).toBe('mnemonic')
     expect(payload.p_sort).toBe('lapses')
-    expect(payload.p_limit).toBe(51) // limit + 1 for hasMore detection
+    expect(payload.p_limit).toBe(50) // exact limit; offset pagination dropped the +1 probe
   })
 
-  it('detects hasMore and emits a nextCursor when the page is full', async () => {
-    const rows = Array.from({ length: 6 }, () => makeListRow())
+  it('detects hasMore from totalCount when rows remain past the page', async () => {
+    const rows = Array.from({ length: 5 }, () => makeListRow())
     state.rpcResponses.list_cards_cross_deck  = [{ data: rows, error: null }]
     state.rpcResponses.count_cards_cross_deck = [{ data: 200, error: null }]
 
@@ -199,7 +196,6 @@ describe('card.service — listCardsCrossDeck', () => {
 
     expect(result.items).toHaveLength(5)
     expect(result.hasMore).toBe(true)
-    expect(result.nextCursor).not.toBeNull()
   })
 
   it('forwards presentField and pitchPattern to both RPCs', async () => {
@@ -208,7 +204,7 @@ describe('card.service — listCardsCrossDeck', () => {
 
     await listCardsCrossDeck(uuid(), {
       limit:        50,
-      presentField: 'audio',
+      presentField: 'picture',
       pitchPattern: 'atamadaka',
     })
 
@@ -217,17 +213,17 @@ describe('card.service — listCardsCrossDeck', () => {
     const listPayload  = listCall?.payload  as Record<string, unknown>
     const countPayload = countCall?.payload as Record<string, unknown>
 
-    expect(listPayload.p_present_field).toBe('audio')
+    expect(listPayload.p_present_field).toBe('picture')
     expect(listPayload.p_pitch_pattern).toBe('atamadaka')
     expect(listPayload.p_missing_field).toBeNull()
     // Count RPC must receive the same filter values so the footer total
     // never drifts from the visible page slice.
-    expect(countPayload.p_present_field).toBe('audio')
+    expect(countPayload.p_present_field).toBe('picture')
     expect(countPayload.p_pitch_pattern).toBe('atamadaka')
     expect(countPayload.p_missing_field).toBeNull()
   })
 
-  it('forwards extended missingField tokens (pitch, audio)', async () => {
+  it('forwards extended missingField tokens (pitch)', async () => {
     state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
     state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
 
@@ -261,18 +257,18 @@ describe('card.service — listCardsCrossDeck', () => {
     await listCardsCrossDeck(uuid(), {
       limit:        25,
       presentField: 'picture',
-      missingField: 'audio',
+      missingField: 'mnemonic',
     })
 
     const listCall    = state.rpcCalls.find((c) => c.name === 'list_cards_cross_deck')
     const listPayload = listCall?.payload as Record<string, unknown>
     expect(listPayload.p_present_field).toBe('picture')
-    expect(listPayload.p_missing_field).toBe('audio')
+    expect(listPayload.p_missing_field).toBe('mnemonic')
 
     const countCall    = state.rpcCalls.find((c) => c.name === 'count_cards_cross_deck')
     const countPayload = countCall?.payload as Record<string, unknown>
     expect(countPayload.p_present_field).toBe('picture')
-    expect(countPayload.p_missing_field).toBe('audio')
+    expect(countPayload.p_missing_field).toBe('mnemonic')
   })
 })
 
@@ -393,19 +389,6 @@ describe('card.service — bulk mutations', () => {
     const out = await bulkDeleteCards(ids, uuid())
     expect(out.succeeded).toHaveLength(1)
     expect(out.failed).toHaveLength(1)
-  })
-
-  it('bulkTagCards forwards addTags / removeTags arrays (defaulting undefined to [])', async () => {
-    state.rpcResponses.bulk_tag_cards = [{
-      data:  { succeeded: [uuid()], failed: [] },
-      error: null,
-    }]
-
-    await bulkTagCards([uuid()], uuid(), ['core'], undefined)
-    const call = state.rpcCalls.find((c) => c.name === 'bulk_tag_cards')
-    const payload = call?.payload as Record<string, unknown>
-    expect(payload.p_add_tags).toEqual(['core'])
-    expect(payload.p_remove_tags).toEqual([])
   })
 
   it('bulk RPCs map an empty data payload to the empty partition shape', async () => {

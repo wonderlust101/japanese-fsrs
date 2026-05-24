@@ -38,11 +38,21 @@ export const listWeakSpotsQuerySchema = z.object({
   jlptLevel:  jlptLevelEnum.optional(),
   diagnosis:  weakSpotDiagnosisFilterEnum.optional(),
   sort:       weakSpotSortEnum.default('mostRecent'),
+  // Optional override for the primary sort direction. When omitted, each sort
+  // mode uses its natural default (newest / most lapses / first deck). The
+  // client splits sort into an axis (this `sort`) plus a direction toggle,
+  // mirroring the Cards browser's count-line control.
+  sortDir:    z.enum(['asc', 'desc']).optional(),
+  // Free-text search across the joined card's word / reading / meaning.
+  // Trimmed; an all-whitespace value is treated as "no search" by the
+  // service. Capped so a pathological query can't bloat the PostgREST filter.
+  search:     z.string().max(100).optional(),
   limit:      z.coerce.number().int().min(1).max(100).default(50),
-  // Opaque base64url-encoded cursor. Same length budget as the cards/decks
-  // list endpoints; precise shape validation happens at decode time and a
-  // malformed value surfaces as a 400 with code 'CURSOR_INVALID'.
-  cursor:     z.string().min(1).max(512).optional(),
+  // Offset pagination (mirrors the cross-deck cards list as of
+  // 20260630000003). The client multiplies the 0-indexed page by the page
+  // size; the service translates this to a Supabase `.range()` window. Coerced
+  // because it arrives as a query-string value.
+  offset:     z.coerce.number().int().min(0).default(0),
 }).strict()
 
 export type ListWeakSpotsQuery = z.infer<typeof listWeakSpotsQuerySchema>

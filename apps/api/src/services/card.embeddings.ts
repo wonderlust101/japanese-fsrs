@@ -1,5 +1,8 @@
+import { createHash } from 'node:crypto'
+
 import { z } from 'zod'
 
+import { redis } from '../db/redis.ts'
 import { supabaseAdmin } from '../db/supabase.ts'
 import { env }           from '../lib/env.ts'
 import { openai, openaiSemaphore } from '../lib/openai.ts'
@@ -7,6 +10,26 @@ import { asPayload } from '../lib/db.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { withBreaker } from '../lib/circuit-breaker.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
+
+const log = componentLogger('card.embeddings')
+
+// ─── Embedding-by-text-hash cache ─────────────────────────────────────────────
+// Same physical text (e.g. premade-deck content reused across users, or a
+// common JLPT word created twice) always maps to the same OpenAI embedding.
+// Cache the vector in Redis keyed by sha256(text) so repeats skip the
+// 200–400ms billable OpenAI call.
+//
+// Cache key includes the model name AND a version prefix:
+//   - Different OPENAI_EMBEDDING_MODEL values produce different vectors —
+//     mixing would silently corrupt similarity search.
+//   - Version prefix is a manual invalidation lever (bump to invalidate
+//     everything under the old key shape without flushing Redis).
+//
+// Failure-mode: any Redis read failure (network, breaker open) is treated as
+// a cache miss; any write failure is logged and dropped. Embedding generation
+// never fails because of cache plumbing.
+const EMBEDDING_CACHE_TTL     = 60 * 60 * 24 * 30   // 30 days
+const EMBEDDING_CACHE_VERSION = 'v1'
 
 // Extracted from card.service.ts so the embedding plumbing (OpenAI calls,
 // circuit breaker, pgvector serialization) lives next to the other AI/external-
@@ -100,6 +123,14 @@ export async function backfillEmbedding(
   const text = buildEmbeddingText(fieldsData)
   if (text === null) return
 
+  // Cache lookup. Same input text → same vector, so a hit lets us skip the
+  // OpenAI round-trip entirely. Any Redis failure (network, breaker open
+  // for upstash) is treated as a miss — the embedding path always proceeds.
+  const inputHash = createHash('sha256').update(text).digest('hex')
+  const cacheKey = `embed:${EMBEDDING_CACHE_VERSION}:${EMBEDDING_MODEL}:${inputHash}`
+
+  const cached = await readEmbeddingCache(cacheKey)
+
   // Breaker wraps the OpenAI call only — Postgres-side failures bubble as
   // dbError() below and aren't a signal about embedding-service health.
   // Forward `opts.signal` so a client disconnect short-circuits the
@@ -107,13 +138,20 @@ export async function backfillEmbedding(
   // createCard() deliberately does NOT forward signal — that work is
   // decoupled from the request lifecycle and the semaphore queue blocks
   // until a slot frees (correct for background work).
-  const embedding = await openaiSemaphore.run({ signal: opts?.signal }, () =>
+  const embedding = cached ?? await openaiSemaphore.run({ signal: opts?.signal }, () =>
     withBreaker(
       EMBEDDING_BREAKER,
       EMBEDDING_UNAVAILABLE_MSG,
       () => generateEmbedding(text, opts),
     ),
   )
+
+  // Fire-and-forget cache write on miss. We don't await — a Redis hiccup
+  // here mustn't delay the response, and the DB write below is the source
+  // of truth for this card's embedding either way.
+  if (cached === null) {
+    void writeEmbeddingCache(cacheKey, embedding)
+  }
 
   const { error } = await supabaseAdmin
     .from('cards')
@@ -150,6 +188,57 @@ function buildEmbeddingText(fieldsData: Record<string, unknown>): string | null 
   if (meaning) parts.push(`meaning: ${meaning}`)
 
   return parts.length > 0 ? parts.join(' | ') : null
+}
+
+/**
+ * Read a cached embedding vector. Returns null on miss, on Redis failure
+ * (network, upstash breaker open), or on a corrupt entry (shape drift or
+ * wrong dimension). On corrupt entries the bad key is best-effort deleted so
+ * subsequent reads fall through to a fresh OpenAI call.
+ */
+async function readEmbeddingCache(cacheKey: string): Promise<number[] | null> {
+  let raw: unknown
+  try {
+    raw = await redis.get<unknown>(cacheKey)
+  } catch (err) {
+    log.warn({
+      cacheKey,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'embedding cache read failed; treating as miss')
+    return null
+  }
+  if (raw === null) return null
+
+  try {
+    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed) || parsed.length !== 1536 || !parsed.every(n => typeof n === 'number')) {
+      throw new Error('cached vector failed shape check')
+    }
+    return parsed as number[]
+  } catch (err) {
+    log.warn({
+      cacheKey,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'corrupt embedding cache entry; treating as miss')
+    void redis.del(cacheKey).catch(() => { /* swallow — entry will TTL out */ })
+    return null
+  }
+}
+
+/**
+ * Write a freshly generated embedding to the cache. Fire-and-forget: any
+ * failure is logged but never propagates — the DB-side `cards.embedding`
+ * write below remains the source of truth for the card.
+ */
+async function writeEmbeddingCache(cacheKey: string, embedding: number[]): Promise<void> {
+  try {
+    await redis.set(cacheKey, JSON.stringify(embedding), { ex: EMBEDDING_CACHE_TTL })
+  } catch (err) {
+    log.warn({
+      cacheKey,
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'embedding cache write failed')
+  }
 }
 
 /**
