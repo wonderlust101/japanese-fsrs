@@ -32,28 +32,33 @@ export const generateCard: RequestHandler = async (req, res): Promise<void> => {
  * Generates fresh example sentences for a card the user owns.
  */
 export const generateSentences: RequestHandler = async (req, res): Promise<void> => {
-  const { cardId, count } = generateSentencesInputSchema.parse(req.body)
+  const input = generateSentencesInputSchema.parse(req.body)
 
-  // Freeze AI spend on archived decks. Fail before the cardService.getCard /
-  // profile fetch and (especially) the OpenAI call. 422 `DECK_ARCHIVED` lets
-  // the frontend route the user to unarchive instead of a generic error.
-  await deckService.assertCardDeckActive(cardId, req.user.id)
-
-  // Card lookup is scoped to user_id, so a wrong-owner request returns 404.
-  const card    = await cardService.getCard(cardId, req.user.id)
-  const profile = await profileService.getProfile(req.user.id)
-  const word    = getWordFields(card)?.word ?? ''
-
-  if (word.length === 0) {
-    // 422 = well-formed body but the referenced card lacks the data we need.
-    throw new AppError(422, 'Card has no `word` field to generate sentences for', { code: 'CARD_FIELDS_INSUFFICIENT' })
+  // Two source paths (the schema guarantees exactly one is set):
+  //   - cardId: a saved card. Assert the deck is active (freeze AI spend on
+  //     archived decks before the OpenAI call) and look the word up server-side.
+  //   - word:   the /add/review pre-save path, where no card exists yet.
+  let word = ''
+  if (input.cardId !== undefined) {
+    await deckService.assertCardDeckActive(input.cardId, req.user.id)
+    // Card lookup is scoped to user_id, so a wrong-owner request returns 404.
+    const card = await cardService.getCard(input.cardId, req.user.id)
+    word = getWordFields(card)?.word ?? ''
+    if (word.length === 0) {
+      // 422 = well-formed body but the referenced card lacks the data we need.
+      throw new AppError(422, 'Card has no `word` field to generate sentences for', { code: 'CARD_FIELDS_INSUFFICIENT' })
+    }
+  } else if (input.word !== undefined) {
+    word = input.word
   }
 
+  const profile = await profileService.getProfile(req.user.id)
   const data = await aiService.generateSentences(
     word,
     profile.jlptTarget ?? 'N5',
     profile.interests   ?? [],
-    count ?? 3,
+    input.count ?? 3,
+    input.avoid ?? [],
     { signal: req.signal },
   )
   res.json(data)

@@ -56,12 +56,12 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
     const level    = 'N5'
     const cached   = JSON.stringify({ word: '水', reading: 'みず', meaning: 'water' })
     // Compute the cache key shape so we can preload redis directly. The
-    // `v3` segment is `CARD_PROMPT_VERSION` (Backend Completion Plan Stage 3
-    // widened the prompt with collocations / homophones / full kanjiBreakdown)
-    // — bump in lockstep with the service constant.
+    // `v4` segment is `CARD_PROMPT_VERSION` (bumped to v4 when collocations /
+    // homophones / all audio fields were removed from the prompt) — bump in
+    // lockstep with the service constant.
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    const key  = `card:v3:${word}:${level}:${hash}`
+    const key  = `card:v5:${word}:${level}:${hash}`
     state.redisStore.set(key, cached)
 
     const result = await generateCard(word, level, [])
@@ -86,10 +86,51 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
     expect(out.sentences).toHaveLength(2)
   })
 
+  it('generateSentences namespaces the cache key by the avoid list', async () => {
+    // A non-empty `avoid` appends a hash segment so "generate more" with a
+    // different existing-set is a distinct key (fresh output) rather than a
+    // replay of a prior cached batch. Empty avoid keeps the legacy key shape.
+    const { createHash } = await import('node:crypto')
+    const interestsHash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+    const avoid         = ['古い本を読む。']
+    const avoidHash     = createHash('sha256').update(JSON.stringify(avoid)).digest('hex').slice(0, 16)
+
+    const cached = JSON.stringify({ sentences: [{ ja: '新しい本。', en: 'A new book.', furigana: 'あたらしいほん。' }] })
+    state.redisStore.set(`sentences:水:N5:${interestsHash}:1:${avoidHash}`, cached)
+
+    const out = await generateSentences('水', 'N5', [], 1, avoid)
+    expect(out.sentences[0]?.ja).toBe('新しい本。')
+  })
+
   it('generateMnemonic cache key is user-scoped', async () => {
     state.redisStore.set('mnemonic:水:user-1', JSON.stringify({ mnemonic: 'flowing strokes' }))
     const out = await generateMnemonic('水', 'user-1', 'N5', 'en', [])
     expect(out.mnemonic).toBe('flowing strokes')
+  })
+})
+
+// ─── generate-sentences input contract (word OR cardId, + avoid) ────────────
+describe('generateSentencesInputSchema — word-or-cardId', () => {
+  const VALID_UUID = '00000000-0000-0000-0000-000000000000'
+
+  it('accepts a cardId', async () => {
+    const { generateSentencesInputSchema } = await import('@fsrs-japanese/shared-types')
+    expect(generateSentencesInputSchema.safeParse({ cardId: VALID_UUID }).success).toBe(true)
+  })
+
+  it('accepts a word with optional count + avoid', async () => {
+    const { generateSentencesInputSchema } = await import('@fsrs-japanese/shared-types')
+    expect(generateSentencesInputSchema.safeParse({ word: '水', count: 3, avoid: ['古い本。'] }).success).toBe(true)
+  })
+
+  it('rejects a request with neither cardId nor word', async () => {
+    const { generateSentencesInputSchema } = await import('@fsrs-japanese/shared-types')
+    expect(generateSentencesInputSchema.safeParse({ count: 2 }).success).toBe(false)
+  })
+
+  it('rejects a request with both cardId and word', async () => {
+    const { generateSentencesInputSchema } = await import('@fsrs-japanese/shared-types')
+    expect(generateSentencesInputSchema.safeParse({ cardId: VALID_UUID, word: '水' }).success).toBe(false)
   })
 })
 
@@ -100,15 +141,14 @@ describe('ai.service — cache hit short-circuits OpenAI', () => {
 //   1. The structured-output Zod schema admits the new fields, so a model
 //      response carrying them round-trips through `.parse()` instead of being
 //      stripped.
-//   2. The cache key embeds `CARD_PROMPT_VERSION` (currently 'v3'), so
+//   2. The cache key embeds `CARD_PROMPT_VERSION` (currently 'v5'), so
 //      entries cached under any prior key shape are bypassed by the new
 //      key. Without this contract, a deploy that changes the prompt body
 //      would serve stale outputs from the prior prompt until the 7-day
 //      TTL.
-//   3. `picture` / `expressionAudio` / `sentenceAudio` are admitted by the
-//      schema (so a future prompt-version bump can populate them) but the
-//      current prompt does not request them — the schema's optionality is
-//      the contract that lets both states coexist.
+//   3. `picture` is admitted by the schema (so a future prompt-version bump
+//      can populate it) but the current prompt does not request it — the
+//      schema's optionality is the contract that lets both states coexist.
 describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
   it('generateCard returns cached pitchPosition + nuance when present (round-trip through GeneratedCardDataSchema)', async () => {
     const word     = '空'
@@ -122,8 +162,8 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
     })
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    // Cache key includes the prompt version so this fixture lives at the v3 key.
-    const key = `card:v3:${word}:${level}:${hash}`
+    // Cache key includes the prompt version so this fixture lives at the v5 key.
+    const key = `card:v5:${word}:${level}:${hash}`
     state.redisStore.set(key, cached)
 
     const result = await generateCard(word, level, [])
@@ -132,17 +172,16 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
     expect(result.nuance).toBe('Refers to the visible sky; for "outer space" use 宇宙.')
   })
 
-  it('generateCard bypasses pre-version-bump cache entries (v3 key shape differs from prior keys)', async () => {
+  it('generateCard bypasses pre-version-bump cache entries (v5 key shape differs from prior keys)', async () => {
     const word    = '川'
     const level   = 'N5'
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
 
-    // Seed an entry under a stale (pre-Stage-3, pre-Stage-2, or unversioned)
-    // key shape. After deploy, lookups now happen at the v3 key, so this
-    // entry is dead weight until it TTLs out. The new lookup must miss and
-    // fall through.
-    const oldKey  = `card:v2:${word}:${level}:${hash}`
+    // Seed an entry under a stale (pre-v5) key shape. After deploy, lookups
+    // now happen at the v5 key, so this entry is dead weight until it TTLs
+    // out. The new lookup must miss and fall through.
+    const oldKey  = `card:v4:${word}:${level}:${hash}`
     state.redisStore.set(oldKey, JSON.stringify({ word: 'stale', reading: 'stale', meaning: 'stale' }))
 
     const result = await generateCard(word, level, []).catch((err) => err)
@@ -159,7 +198,10 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
     )
   })
 
-  it('GeneratedCardDataSchema accepts an exampleSentence carrying sentenceAudio', async () => {
+  it('GeneratedCardDataSchema drops a removed sentenceAudio key on example sentences', async () => {
+    // sentenceAudio was removed from the card model; the schema strips
+    // unknown keys, so a model response carrying it parses to the canonical
+    // three-key example sentence without the audio key.
     const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
     const parsed = GeneratedCardDataSchema.parse({
       word:    '猫',
@@ -174,7 +216,9 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
         },
       ],
     })
-    expect(parsed.exampleSentences?.[0]?.sentenceAudio).toBe('https://cdn.example.test/sentence-001.mp3')
+    const first = parsed.exampleSentences?.[0]
+    expect(first?.ja).toBe('猫が好きです。')
+    expect(first !== undefined && 'sentenceAudio' in first).toBe(false)
   })
 
   it('GeneratedCardDataSchema rejects a negative pitchPosition (defends against bad model output)', async () => {
@@ -200,12 +244,14 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
   })
 
   // ─── Backend Completion Plan Stage 3 ─────────────────────────────────────
-  // The prompt now requests `collocations`, `homophones`, and the widened
-  // `kanjiBreakdown { kanji, radical, meaning, reading }` shape. The schema
-  // changes alongside; without these tests a future cache-key bump that
-  // forgets the structured-output update would silently truncate fields.
+  // The prompt requests the widened `kanjiBreakdown { kanji, radical,
+  // meaning, reading }` shape. The schema changes alongside; without these
+  // tests a future cache-key bump that forgets the structured-output update
+  // would silently truncate fields.
 
-  it('GeneratedCardDataSchema accepts collocations + homophones arrays', async () => {
+  it('GeneratedCardDataSchema drops removed collocations + homophones keys', async () => {
+    // collocations / homophones were removed from the card model; the schema
+    // strips unknown keys, so a model response carrying them parses without.
     const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
     const parsed = GeneratedCardDataSchema.parse({
       word:         '言葉',
@@ -214,9 +260,8 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
       collocations: ['言葉を交わす', '言葉に詰まる', '優しい言葉'],
       homophones:   ['異葉 (different leaf — rare)'],
     })
-    expect(parsed.collocations).toHaveLength(3)
-    expect(parsed.collocations?.[0]).toBe('言葉を交わす')
-    expect(parsed.homophones).toHaveLength(1)
+    expect('collocations' in parsed).toBe(false)
+    expect('homophones'   in parsed).toBe(false)
   })
 
   it('GeneratedCardDataSchema accepts kanjiBreakdown entries with radical + reading', async () => {
@@ -258,38 +303,19 @@ describe('ai.service — Stage 2 Lapis fields on the cached payload', () => {
     expect(parsed.kanjiBreakdown?.[1]?.reading).toBeUndefined()
   })
 
-  it('GeneratedCardDataSchema accepts empty collocations / homophones arrays without coercion', async () => {
-    // An empty array is semantically different from omitting the field —
-    // the model returning `[]` is a positive statement of "no collocations
-    // worth listing" rather than "I forgot to consider this". Keep the
-    // semantic distinction visible at parse time.
-    const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
-    const parsed = GeneratedCardDataSchema.parse({
-      word:         '空',
-      reading:      'そら',
-      meaning:      'sky',
-      collocations: [],
-      homophones:   [],
-    })
-    expect(parsed.collocations).toEqual([])
-    expect(parsed.homophones).toEqual([])
-  })
-
-  it('GeneratedCardDataSchema admits picture / expressionAudio fields even though the prompt does not request them', async () => {
+  it('GeneratedCardDataSchema admits the picture field even though the prompt does not request it', async () => {
     // The schema is forward-compatible so a future prompt-version bump can
-    // wire up these fields without a second schema change. Today's prompt
-    // explicitly tells the model NOT to invent values for them, but if a
-    // model does produce them they must round-trip cleanly.
+    // wire up picture without a second schema change. Today's prompt
+    // explicitly tells the model NOT to invent a value for it, but if a
+    // model does produce one it must round-trip cleanly.
     const { GeneratedCardDataSchema } = await import('@fsrs-japanese/shared-types')
     const parsed = GeneratedCardDataSchema.parse({
-      word:            '光',
-      reading:         'ひかり',
-      meaning:         'light',
-      picture:         'https://cdn.example.test/hikari.jpg',
-      expressionAudio: 'https://cdn.example.test/hikari.mp3',
+      word:    '光',
+      reading: 'ひかり',
+      meaning: 'light',
+      picture: 'https://cdn.example.test/hikari.jpg',
     })
     expect(parsed.picture).toBe('https://cdn.example.test/hikari.jpg')
-    expect(parsed.expressionAudio).toBe('https://cdn.example.test/hikari.mp3')
   })
 })
 
@@ -339,8 +365,8 @@ describe('ai.service — corrupt cached payload is treated as miss', () => {
   it('generateCard removes the corrupt cache entry (does not surface ZodError)', async () => {
     const { createHash } = await import('node:crypto')
     const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
-    // Key includes `v3` for CARD_PROMPT_VERSION — see the Stage 2/3 block above.
-    const key  = `card:v3:水:N5:${hash}`
+    // Key includes `v4` for CARD_PROMPT_VERSION — see the Stage 2/3 block above.
+    const key  = `card:v5:水:N5:${hash}`
     const corrupt = JSON.stringify({ word: '水' /* missing reading + meaning */ })
     state.redisStore.set(key, corrupt)
 
@@ -375,7 +401,7 @@ describe('ai.service — corrupt cached payload is treated as miss', () => {
 // Mirrors the Stage 2 pattern: version-keyed cache, separate namespace from
 // the vocabulary generator. The schema enforces the Stage 12 shape.
 describe('ai.service — generateSentenceCard cache', () => {
-  it('returns the cached payload when present at the v1 sentence-card key shape', async () => {
+  it('returns the cached payload when present at the v2 sentence-card key shape', async () => {
     const topic    = 'ordering coffee'
     const level    = 'N3'
     const { createHash } = await import('node:crypto')
@@ -386,7 +412,7 @@ describe('ai.service — generateSentenceCard cache', () => {
       furigana: 'コーヒーをください。',
       nuance:   'Polite enough for a café — neutral register.',
     })
-    const key = `sentence-card:v1:${topic}:${level}:${hash}`
+    const key = `sentence-card:v2:${topic}:${level}:${hash}`
     state.redisStore.set(key, cached)
 
     const result = await generateSentenceCard(topic, level, [])
@@ -404,7 +430,7 @@ describe('ai.service — generateSentenceCard cache', () => {
 
     // Seed an entry under the vocabulary card key shape — wrong namespace
     // for the sentence generator; it must not be served.
-    const wrongNamespaceKey = `card:v3:${topic}:${level}:${hash}`
+    const wrongNamespaceKey = `card:v5:${topic}:${level}:${hash}`
     state.redisStore.set(wrongNamespaceKey, JSON.stringify({
       word:    'お茶',
       reading: 'おちゃ',
