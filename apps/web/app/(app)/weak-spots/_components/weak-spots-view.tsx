@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
 import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
@@ -25,9 +26,10 @@ import { WeakSpotDetailsDialog } from './weak-spot-details-dialog'
 import { WeakSpotListItem } from './weak-spot-list-item'
 import { WeakSpotsCountLine } from './weak-spots-count-line'
 import { WeakSpotsEmpty } from './weak-spots-empty'
-import { WeakSpotsFilterRow, useWeakSpotFiltersStorage } from './weak-spots-filter-row'
+import { WeakSpotsFilterRow } from './weak-spots-filter-row'
 import { useLeechesDevState } from '@/dev/panels/insights-weak-spots'
 import { INITIAL_WEAK_SPOT_FILTERS, WEAK_SPOT_DRILL_ENABLED, type WeakSpotFilters } from './weak-spots-types'
+import { parseWeakSpotFiltersFromURL, serializeWeakSpotFiltersToURL } from './weak-spots-filter-state'
 
 const DEFAULT_PAGE_SIZE: CardsPageSize = 25
 
@@ -57,7 +59,20 @@ const PAGE_CONTAINER_CLASS = 'mx-auto w-full max-w-[1440px] px-4 pt-4 pb-20 md:p
  */
 export function WeakSpotsView(): React.JSX.Element {
   const dev = useLeechesDevState()
-  const [filters, setFilters] = useWeakSpotFiltersStorage(INITIAL_WEAK_SPOT_FILTERS)
+  // Filter/sort/search state lives in the URL (mirrors the Cards browser) so a
+  // narrowed view is shareable and deep-linkable. `filters` derives from the
+  // query string; `setFilters` writes back via router.replace (scroll:false, no
+  // history clutter), which re-runs the useMemo on the next render.
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const filters = useMemo<WeakSpotFilters>(
+    () => parseWeakSpotFiltersFromURL((k) => searchParams.get(k)),
+    [searchParams],
+  )
+  const setFilters = useCallback((next: WeakSpotFilters): void => {
+    const qs = serializeWeakSpotFiltersToURL(next).toString()
+    router.replace(qs.length > 0 ? `/weak-spots?${qs}` : '/weak-spots', { scroll: false })
+  }, [router])
 
   // ── Pagination (offset model, mirrors the Cards browser). ────────────────
   // `page` is 1-indexed and session-local (the filters themselves persist to

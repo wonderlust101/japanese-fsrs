@@ -10,7 +10,6 @@ import { DecksMenu, MenuItem } from '@/app/(app)/decks/_components/decks-menu'
 import { useDecks } from '@/lib/api/decks'
 import type {
   WeakSpotDiagnosisFilter,
-  WeakSpotSortOrder,
   WeakSpotStatusFilter,
 } from '@/lib/actions/weak-spots.actions'
 
@@ -21,18 +20,9 @@ interface WeakSpotsFilterRowProps {
   onChange: (next: WeakSpotFilters) => void
 }
 
-const STORAGE_KEY = 'weak-spots:filters'
-
 const STATUS_OPTIONS: ReadonlyArray<{ value: WeakSpotStatusFilter; label: string }> = [
   { value: 'unresolved', label: 'Unresolved' },
   { value: 'resolved',   label: 'Resolved'   },
-]
-
-// Sort lives on the result-count line (not here) so the row holds filter
-// dimensions only — the same split the Cards browser uses. Kept here so the
-// storage hook below still validates a persisted sort value.
-const SORT_VALUES: ReadonlyArray<WeakSpotSortOrder> = [
-  'mostRecent', 'oldestUnresolved', 'mostLapses', 'deckOrder',
 ]
 
 const JLPT_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
@@ -50,75 +40,6 @@ const DIAGNOSIS_OPTIONS: ReadonlyArray<{ value: WeakSpotDiagnosisFilter | 'all';
   { value: 'available', label: 'Diagnosed'     },
   { value: 'missing',   label: 'Undiagnosed'   },
 ]
-
-/**
- * LocalStorage hook for weakSpot filters. Hydrates on mount (client only) so
- * SSR rendering matches the server's initial state; subsequent updates
- * persist on every onChange. Mirrors `useMistakesFiltersStorage`.
- *
- * Defensive parsing: rejects any payload whose primitives aren't string,
- * because a hand-edited or corrupted localStorage value could otherwise
- * crash the filter row mid-render.
- */
-export function useWeakSpotFiltersStorage(initial: WeakSpotFilters): [
-  WeakSpotFilters,
-  (next: WeakSpotFilters) => void,
-] {
-  const [filters, setFilters] = useState<WeakSpotFilters>(initial)
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (raw === null) return
-      const parsed = JSON.parse(raw) as Partial<WeakSpotFilters>
-      const hydrated: WeakSpotFilters = {
-        status:    parsed.status    === 'resolved' || parsed.status === 'unresolved'
-          ? parsed.status
-          : initial.status,
-        deckId:    typeof parsed.deckId    === 'string' ? parsed.deckId    : initial.deckId,
-        jlptLevel: typeof parsed.jlptLevel === 'string' ? parsed.jlptLevel : initial.jlptLevel,
-        diagnosis: parsed.diagnosis === 'all' || parsed.diagnosis === 'available' || parsed.diagnosis === 'missing'
-          ? parsed.diagnosis
-          : initial.diagnosis,
-        sort:      SORT_VALUES.includes(parsed.sort as WeakSpotSortOrder)
-          ? (parsed.sort as WeakSpotSortOrder)
-          : initial.sort,
-        sortDir:   parsed.sortDir === 'asc' || parsed.sortDir === 'desc'
-          ? parsed.sortDir
-          : initial.sortDir,
-        // Search is deliberately NOT restored: it's transient query intent,
-        // not a saved preference. A return visit always starts unfiltered by
-        // text (the persisted dimension filters still apply).
-        search:    initial.search,
-      }
-      // Migration: the old standalone `oldestUnresolved` mode is now the
-      // `mostRecent` (date-flagged) axis read ascending, so the new direction
-      // toggle covers it. Fold any persisted value into the axis + direction.
-      if (hydrated.sort === 'oldestUnresolved') {
-        hydrated.sort    = 'mostRecent'
-        hydrated.sortDir = 'asc'
-      }
-      setFilters(hydrated)
-    } catch {
-      // Ignore — fallback to the initial value.
-    }
-    // `initial` is captured at first render — we don't want hydration to
-    // fight a changing initial value, so this effect intentionally runs
-    // once and never reads `initial` again.
-  }, [])
-
-  const update = (next: WeakSpotFilters): void => {
-    setFilters(next)
-    try {
-      // Persist every dimension except the transient search term.
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...next, search: '' }))
-    } catch {
-      // Ignore — quota or privacy mode; non-blocking.
-    }
-  }
-
-  return [filters, update]
-}
 
 /**
  * Toolbar for the weakSpots page, a faithful port of the Cards-browser
