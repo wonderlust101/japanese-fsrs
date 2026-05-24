@@ -2,20 +2,6 @@
 
 import { useId } from 'react'
 
-/**
- * Shared class string for `<input>` and `<select>` controls used inside a
- * SettingsField. Centralised so every Settings control reads in the same
- * visual register: Cream Inset background, Soft Hairline border, hover
- * to Faded Sumi border, 3px Vermillion Wash focus halo (DESIGN.md Focus
- * Ring contract), 2px corners (DESIGN.md "cut-paper" radius).
- */
-export const SETTINGS_INPUT_CLASS = [
-  'h-10 w-full rounded-[2px] border border-soft-hairline bg-cream-inset px-3 text-sm text-sumi-ink',
-  'ui-motion-colors hover:border-faded-sumi',
-  'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash focus-visible:border-faded-sumi',
-  'disabled:opacity-60 disabled:cursor-not-allowed',
-].join(' ')
-
 interface SettingsFieldProps {
   label:    string
   // tsconfig has `exactOptionalPropertyTypes: true`, which means `prop?: T`
@@ -69,7 +55,7 @@ export function SettingsField({
   const id = htmlFor ?? generatedId
 
   return (
-    <div className="grid grid-cols-1 gap-1.5">
+    <div className="grid grid-cols-1 gap-2">
       <div className="flex items-baseline justify-between gap-3 pl-3">
         <label
           htmlFor={id}
@@ -120,7 +106,7 @@ function SavedTick({ visible }: { visible: boolean }): React.JSX.Element {
       aria-atomic="true"
       aria-hidden={visible ? undefined : true}
       className={[
-        'inline-flex items-center gap-1 font-mono text-[0.625rem] uppercase tracking-[0.16em]',
+        'inline-flex items-center gap-1 font-mono text-sm',
         'text-jlpt-n5-fresh-leaf transition-opacity duration-300 ease-out',
         visible ? 'opacity-100' : 'opacity-0',
       ].join(' ')}

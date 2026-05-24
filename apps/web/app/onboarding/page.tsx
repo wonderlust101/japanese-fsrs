@@ -5,8 +5,10 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { ForgettingCurve } from '@/components/srs/ForgettingCurve'
 import { ArrowGlyph } from '@/components/icons/arrow-glyph'
+import { useOnboardingDevState } from '@/dev/panels/onboarding'
 
 export default function OnboardingWelcomePage(): React.JSX.Element {
+  useOnboardingDevState()
   const router        = useRouter()
 
   return (
@@ -14,7 +16,7 @@ export default function OnboardingWelcomePage(): React.JSX.Element {
       <div        className="flex flex-col gap-7"
       >
         <header className="flex flex-col gap-2">
-          <p className="text-[0.625rem] font-mono uppercase tracking-[0.16em] text-faded-sumi">
+          <p className="text-sm font-mono text-faded-sumi">
             Tomo · Japanese spaced repetition
           </p>
           <h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1] tracking-[-0.01em]">
@@ -22,7 +24,7 @@ export default function OnboardingWelcomePage(): React.JSX.Element {
           </h1>
         </header>
 
-        <p className="text-base md:text-md font-medium text-sumi-ink leading-[1.55] max-w-[52ch]">
+        <p className="text-base md:text-md font-medium text-sumi-ink leading-[1.55] max-w-measure">
           A few questions, then your first cards.
         </p>
 

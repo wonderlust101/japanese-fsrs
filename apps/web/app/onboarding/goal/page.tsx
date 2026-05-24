@@ -11,6 +11,8 @@ import {
   SpeechBubble,
   ToriiGate,
 } from '@/components/icons/study-marks'
+import { useOnboardingGoalDevState } from '@/dev/panels/onboarding-goal'
+
 import { StepCard, StepChild } from '../_components/step-card'
 import { StepFooter } from '../_components/step-footer'
 import { useNumberKey } from '../_components/use-number-key'
@@ -53,6 +55,7 @@ const PLACEHOLDER_PREVIEW: GoalPreview = {
 }
 
 export default function GoalPage(): React.JSX.Element {
+  useOnboardingGoalDevState()
   const router            = useRouter()
   const goal              = useOnboardingStore((s) => s.goal)
   const setGoal           = useOnboardingStore((s) => s.actions.setGoal)

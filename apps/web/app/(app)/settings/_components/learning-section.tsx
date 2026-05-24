@@ -8,6 +8,7 @@ import { updateProfileAction } from '@/lib/actions/profile.actions'
 import { isJlptLevel }         from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { useSettingsLearningDevState } from '@/dev/panels/settings-learning'
 import { ContextNote, ContextStrip } from './context-strip'
 import { SectionShell } from './section-shell'
 import { SettingsField } from './settings-field'
@@ -46,6 +47,7 @@ export function LearningSection({
   initialRetention,
   initialInterests,
 }: Props): React.JSX.Element {
+  useSettingsLearningDevState()
   const feedback = useFieldFeedback()
 
   const [jlpt,        setJlpt]        = useState<JlptLevel>(
@@ -165,7 +167,7 @@ export function LearningSection({
       description="How firmly you practice, and what Tomo writes about."
       variant="compact"
     >
-      <div className="space-y-6">
+      <div className="flex flex-col gap-y-6">
         <SettingsField
           label="JLPT target"
           saved={feedback.isSaved('jlpt-target')}

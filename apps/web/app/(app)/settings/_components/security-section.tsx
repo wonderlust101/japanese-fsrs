@@ -13,6 +13,7 @@ import {
 } from '@/lib/actions/auth.actions'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { useSettingsSecurityDevState } from '@/dev/panels/settings-security'
 import { ContextNote, ContextStrip } from './context-strip'
 import { SectionShell } from './section-shell'
 import { useFieldFeedback } from './use-field-feedback'
@@ -29,6 +30,7 @@ import { useFieldFeedback } from './use-field-feedback'
  * they read as sub-sections within the card, not as new sections.
  */
 export function SecuritySection(): React.JSX.Element {
+  useSettingsSecurityDevState()
   const router      = useRouter()
   const queryClient = useQueryClient()
   const feedback    = useFieldFeedback()
@@ -143,13 +145,13 @@ export function SecuritySection(): React.JSX.Element {
       variant="compact"
     >
       {/* ─── Change password ─────────────────────────────────────────── */}
-      <form onSubmit={submitChangePassword} className="space-y-4">
+      <form onSubmit={submitChangePassword} className="flex flex-col gap-y-4">
         <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-sumi-ink">
           <span>Change password</span>
           <SavedTick visible={feedback.isSaved('password')} label="updated" />
         </h3>
 
-        <div className="space-y-3 pl-3">
+        <div className="flex flex-col gap-y-3 pl-3">
           <Input
             label="Current password"
             type="password"
@@ -216,13 +218,13 @@ export function SecuritySection(): React.JSX.Element {
       <Divider tone="danger" className="my-6" />
 
       {/* ─── Delete account (inline re-auth unfold) ──────────────────── */}
-      <div className="space-y-4">
+      <div className="flex flex-col gap-y-4">
         <div>
-          <p className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-inari-vermillion-deep/85">
+          <p className="font-mono text-sm text-inari-vermillion-deep/85">
             Danger zone
           </p>
           <h3 className="mt-1.5 text-sm font-semibold text-sumi-ink">Delete account</h3>
-          <p className="mt-1 max-w-[52ch] text-xs text-faded-sumi">
+          <p className="mt-1 max-w-measure text-xs text-faded-sumi">
             Permanently removes your decks, cards, and review history. This cannot be undone.
           </p>
         </div>
@@ -312,7 +314,7 @@ function SavedTick({
       aria-atomic="true"
       aria-hidden={visible ? undefined : true}
       className={[
-        'inline-flex items-center gap-1 font-mono text-[0.625rem] uppercase tracking-[0.16em]',
+        'inline-flex items-center gap-1 font-mono text-sm',
         'text-jlpt-n5-fresh-leaf transition-opacity duration-300 ease-out',
         visible ? 'opacity-100' : 'opacity-0',
       ].join(' ')}

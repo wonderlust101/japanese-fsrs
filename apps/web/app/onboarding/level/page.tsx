@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { NEXT_STEP, useOnboardingStore, type OnboardingLevel } from '@/stores/onboarding.store'
 import { SelectionCard } from '@/components/ui/SelectionCard'
 import { VolumeBar } from '@/components/srs/VolumeBar'
+import { useOnboardingLevelDevState } from '@/dev/panels/onboarding-level'
 import { StepCard, StepChild } from '../_components/step-card'
 import { StepFooter } from '../_components/step-footer'
 import { useNumberKey } from '../_components/use-number-key'
@@ -31,6 +32,7 @@ const VOLUME_KEY_MAP: Record<OnboardingLevel, 'beginner' | 'N5' | 'N4' | 'N3' | 
 }
 
 export default function LevelPage(): React.JSX.Element {
+  useOnboardingLevelDevState()
   const router            = useRouter()
   const level             = useOnboardingStore((s) => s.level)
   const setLevel          = useOnboardingStore((s) => s.actions.setLevel)

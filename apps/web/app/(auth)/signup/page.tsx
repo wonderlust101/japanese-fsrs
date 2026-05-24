@@ -18,6 +18,7 @@ import { verifyOtpAction, resendOtpAction } from '@/lib/actions/auth.actions'
 import { env } from '@/lib/env'
 import { useUserStore } from '@/stores/user.store'
 import { signupSchema } from '@fsrs-japanese/shared-types'
+import { useSignupDevState } from '@/dev/panels/auth-signup'
 
 const OTP_RESEND_COOLDOWN = 60
 
@@ -48,6 +49,7 @@ type SignupViewState =
 // ── Page ─────────────────────────────────────────────────────────────────
 
 export default function SignupPage(): React.JSX.Element {
+  useSignupDevState()
   const [viewState, setViewState] = useState<SignupViewState>({ view: 'signup' })
   const [email, setEmail]         = useState('')
   // Inner-CardStack direction (form ↔ verify). Forward when entering verify,
@@ -190,7 +192,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
       <div className="flex flex-col gap-8">
         <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
-          <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1] mt-2">
+          <h1 className="font-display text-3xl font-semibold text-sumi-ink leading-[1.1] mt-2">
             Create your account.
           </h1>
           <p className="text-base text-faded-sumi leading-relaxed">
@@ -228,7 +230,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             error={errors.displayName}
           />
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Input
               label="Password"
               type="password"
@@ -355,7 +357,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
       <div className="flex flex-col gap-8">
         <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
-          <h1 className="font-display text-3xl font-bold text-sumi-ink leading-[1.1] mt-2">
+          <h1 className="font-display text-3xl font-semibold text-sumi-ink leading-[1.1] mt-2">
             Quick check.
           </h1>
           <p className="text-base text-faded-sumi leading-relaxed">

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { TopBar } from '@/app/(app)/_components/top-bar';
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title';
 
 import { SettingsTabBar } from './_components/settings-rail';
 
@@ -28,18 +29,16 @@ export default function SettingsLayout({
     return (
         <>
             <TopBar>
-                <h1 className="flex-1 font-display text-xl font-medium text-sumi-ink">
-                    Settings
-                </h1>
+                <TopBarTitle kanji="設" label="Settings" />
             </TopBar>
 
             <SettingsTabBar/>
 
-            <main className="mx-auto w-full max-w-[1440px] py-8 lg:py-12">
+            <section aria-label="Settings" className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-12 lg:px-16 lg:py-12">
                 <div className="flex gap-10 xl:gap-14">
                     {children}
                 </div>
-            </main>
+            </section>
         </>
     );
 }

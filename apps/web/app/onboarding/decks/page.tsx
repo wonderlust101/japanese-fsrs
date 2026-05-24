@@ -13,6 +13,7 @@ import { useOnboardingStore, type OnboardingLevel } from '@/stores/onboarding.st
 import { useCopyPremadeDeck, usePremadeDecks } from '@/lib/api/premade'
 import { updateProfileAction } from '@/lib/actions/profile.actions'
 import type { JlptPillLevel } from '@/components/ui/Pill'
+import { useOnboardingDecksDevState } from '@/dev/panels/onboarding-decks'
 
 import { StepCard, StepChild } from '../_components/step-card'
 import { StepFooter } from '../_components/step-footer'
@@ -123,6 +124,7 @@ function rankRecommendations(rows: ReadonlyArray<ApiPremadeDeck>): ApiPremadeDec
 }
 
 export default function DecksPage(): React.JSX.Element {
+  useOnboardingDecksDevState()
   const router           = useRouter()
   const level            = useOnboardingStore((s) => s.level)
   const schedule         = useOnboardingStore((s) => s.schedule)
@@ -293,7 +295,7 @@ export default function DecksPage(): React.JSX.Element {
 
         <StepChild>
           <div className="flex items-center justify-between gap-4 pt-3 mt-1 border-t border-soft-hairline">
-            <p className="text-xs uppercase tracking-[0.08em] text-faded-sumi font-medium">
+            <p className="text-xs text-faded-sumi font-medium">
               {subscribedCount} {subscribedCount === 1 ? 'deck' : 'decks'} selected
             </p>
             <p className="text-xs text-faded-sumi font-mono tabular-nums">
@@ -328,7 +330,7 @@ function RecommendedDeckRowSkeletons(): React.JSX.Element {
             aria-hidden="true"
           >
             <Skeleton className="h-5 w-10" />
-            <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex-1 min-w-0 flex flex-col gap-y-2">
               <Skeleton className="h-4 w-2/3" />
               <Skeleton className="h-3 w-5/6" />
             </div>

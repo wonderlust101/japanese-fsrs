@@ -6,6 +6,7 @@ import { NEXT_STEP, useOnboardingStore, type OnboardingSchedule } from '@/stores
 import { SelectionCard } from '@/components/ui/SelectionCard'
 import { DailyQuotaChart } from '@/components/srs/DailyQuotaChart'
 import { PaceIntensive, PaceLight, PaceSteady } from '@/components/icons/study-marks'
+import { useOnboardingScheduleDevState } from '@/dev/panels/onboarding-schedule'
 import { StepCard, StepChild } from '../_components/step-card'
 import { StepFooter } from '../_components/step-footer'
 import { useNumberKey } from '../_components/use-number-key'
@@ -28,6 +29,7 @@ const OPTIONS: ReadonlyArray<ScheduleOption> = [
 ]
 
 export default function SchedulePage(): React.JSX.Element {
+  useOnboardingScheduleDevState()
   const router            = useRouter()
   const schedule          = useOnboardingStore((s) => s.schedule)
   const setSchedule       = useOnboardingStore((s) => s.actions.setSchedule)

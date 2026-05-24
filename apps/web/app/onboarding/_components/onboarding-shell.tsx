@@ -103,7 +103,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
                   reads as a muted divider; both digits sit in the same
                   faded-sumi color family so the chip feels unified. */}
               <p
-                className="text-sm font-mono tabular-nums uppercase tracking-[0.12em] text-faded-sumi"
+                className="text-sm font-mono tabular-nums text-faded-sumi"
                 aria-hidden="true"
               >
                 {(stepIndex + 1).toString().padStart(2, '0')}

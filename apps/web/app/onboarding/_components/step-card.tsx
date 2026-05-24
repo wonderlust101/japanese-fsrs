@@ -60,7 +60,7 @@ export function StepCard({
         {/* SRS preview pane (left on md, top on mobile) */}
         <aside          className="flex flex-col items-stretch gap-3"
         >
-          <p className="text-xs font-mono uppercase tracking-[0.1em] text-faded-sumi">
+          <p className="text-xs font-mono text-faded-sumi">
             preview
           </p>
           <div className="flex-1">{previewPane}</div>
@@ -73,7 +73,7 @@ export function StepCard({
             <h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1]">
               {heading}
             </h1>
-            <p className="text-base text-faded-sumi leading-relaxed max-w-[52ch]">
+            <p className="text-base text-faded-sumi leading-relaxed max-w-measure">
               {subhead}
             </p>
           </header>

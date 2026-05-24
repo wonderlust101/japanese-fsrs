@@ -24,14 +24,14 @@ export function ContextNote({
   children,
 }: ContextNoteProps): React.JSX.Element {
   return (
-    <div className="space-y-2">
-      <p className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-faded-sumi">
+    <div className="flex flex-col gap-y-2">
+      <p className="font-mono text-sm text-faded-sumi">
         {eyebrow}
       </p>
       {title !== undefined && (
         <p className="text-sm font-medium text-sumi-ink">{title}</p>
       )}
-      <div className="text-xs leading-relaxed text-faded-sumi space-y-2">
+      <div className="text-xs leading-relaxed text-faded-sumi flex flex-col gap-y-2">
         {children}
       </div>
     </div>
@@ -50,7 +50,7 @@ export function ContextStrip({
       aria-label="Section context"
       className="hidden xl:block w-[300px] shrink-0"
     >
-      <div className="sticky top-24 space-y-6">
+      <div className="sticky top-24 flex flex-col gap-y-6">
         {children}
       </div>
     </aside>
@@ -61,7 +61,7 @@ export function ContextStrip({
 
 export function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <kbd className="inline-flex items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-[0.625rem] text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
+    <kbd className="inline-flex items-center rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-sm text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
       {children}
     </kbd>
   )

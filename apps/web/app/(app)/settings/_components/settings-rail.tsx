@@ -59,7 +59,7 @@ export function SettingsTabBar(): React.JSX.Element {
       <div
         ref={containerRef}
         className={[
-          'mx-auto flex max-w-[1440px] gap-1 overflow-x-auto',
+          'mx-auto flex max-w-[1440px] gap-1 overflow-x-auto px-4 md:px-12 lg:px-16',
           '[scrollbar-width:none] [-ms-overflow-style:none]',
           '[&::-webkit-scrollbar]:hidden',
         ].join(' ')}

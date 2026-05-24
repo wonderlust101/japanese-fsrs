@@ -13,6 +13,7 @@ import { Logo }              from '@/components/ui/Logo'
 import { ArrowGlyph }        from '@/components/icons/arrow-glyph'
 import { loginAction }       from '@/lib/actions/auth.actions'
 import { getJapaneseGreeting } from '@/lib/japanese-greeting'
+import { useLoginDevState }  from '@/dev/panels/auth-login'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': "That didn't match. Try again, or reset your password.",
@@ -28,6 +29,7 @@ function friendlyError(message: string): string {
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function LoginPage(): React.JSX.Element {
+  useLoginDevState()
   const router                                          = useRouter()
   const [email, setEmail]                               = useState('')
   const [password, setPassword]                         = useState('')
@@ -116,7 +118,7 @@ export default function LoginPage(): React.JSX.Element {
             error={emailError}
           />
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Input
               label="Password"
               type="password"

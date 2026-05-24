@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { NEXT_STEP, useOnboardingStore } from '@/stores/onboarding.store'
 import { Pill } from '@/components/ui/Pill'
 import { SampleSentence } from '@/components/srs/SampleSentence'
+import { useOnboardingInterestsDevState } from '@/dev/panels/onboarding-interests'
 import { StepCard, StepChild } from '../_components/step-card'
 import { StepFooter } from '../_components/step-footer'
 
@@ -168,6 +169,7 @@ const PLACEHOLDER_SENTENCE: SentenceVariant = {
 }
 
 export default function InterestsPage(): React.JSX.Element {
+  useOnboardingInterestsDevState()
   const router         = useRouter()
   const interests      = useOnboardingStore((s) => s.interests)
   const toggleInterest = useOnboardingStore((s) => s.actions.toggleInterest)

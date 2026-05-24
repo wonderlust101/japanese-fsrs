@@ -3,14 +3,17 @@
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 import { TomoSelect } from '@/components/ui/TomoSelect'
 import { updateProfileAction }         from '@/lib/actions/profile.actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { useSettingsProfileDevState } from '@/dev/panels/settings-profile'
 import { ContextNote, ContextStrip } from './context-strip'
 import { SectionShell } from './section-shell'
-import { SETTINGS_INPUT_CLASS, SettingsField } from './settings-field'
+import { SettingsField } from './settings-field'
 import { useFieldFeedback } from './use-field-feedback'
 
 const LANGUAGES = [
@@ -56,6 +59,7 @@ export function ProfileSection({
   initialTimezone,
   initialStudyGoal,
 }: Props): React.JSX.Element {
+  useSettingsProfileDevState()
   const feedback = useFieldFeedback()
 
   const [emailValue,  setEmailValue]  = useState(email)
@@ -257,7 +261,7 @@ export function ProfileSection({
       description="How you appear inside Tomo, and the locale your day runs on."
       variant="compact"
     >
-      <div className="space-y-5">
+      <div className="flex flex-col gap-y-6">
         <SettingsField
           label="Email"
           hint={pendingEmailNotice ?? undefined}
@@ -266,7 +270,7 @@ export function ProfileSection({
           error={feedback.getError('email')}
           htmlFor="settings-email"
         >
-          <input
+          <Input
             id="settings-email"
             type="email"
             value={emailValue}
@@ -274,7 +278,6 @@ export function ProfileSection({
             onKeyDown={handleEnterCommit}
             maxLength={254}
             autoComplete="email"
-            className={SETTINGS_INPUT_CLASS}
           />
         </SettingsField>
 
@@ -285,7 +288,7 @@ export function ProfileSection({
           error={feedback.getError('display-name')}
           htmlFor="settings-display-name"
         >
-          <input
+          <Input
             id="settings-display-name"
             type="text"
             value={displayName}
@@ -293,7 +296,6 @@ export function ProfileSection({
             onKeyDown={handleEnterCommit}
             maxLength={80}
             autoComplete="name"
-            className={SETTINGS_INPUT_CLASS}
           />
         </SettingsField>
 
@@ -321,7 +323,7 @@ export function ProfileSection({
           error={feedback.getError('timezone')}
           htmlFor="settings-timezone"
         >
-          <input
+          <Input
             id="settings-timezone"
             type="text"
             value={timezone}
@@ -330,7 +332,6 @@ export function ProfileSection({
             maxLength={100}
             placeholder="e.g. America/New_York"
             autoComplete="off"
-            className={SETTINGS_INPUT_CLASS}
           />
         </SettingsField>
 
@@ -342,19 +343,19 @@ export function ProfileSection({
           error={feedback.getError('study-goal')}
           htmlFor="settings-study-goal"
         >
-          <textarea
+          <Textarea
             id="settings-study-goal"
             value={studyGoal}
             onChange={(e) => handleStudyGoalChange(e.target.value)}
             maxLength={500}
             rows={3}
             placeholder="e.g. Reading novels by next spring."
-            className={`${SETTINGS_INPUT_CLASS} resize-none leading-relaxed`}
+            className="resize-none leading-relaxed"
           />
         </SettingsField>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3 pl-3">
+      <div className="mt-6 flex flex-wrap items-center gap-2 pl-3">
         <Button
           type="button"
           variant="primary"
@@ -366,7 +367,7 @@ export function ProfileSection({
           Save changes
         </Button>
         {formDirty && !submitting && (
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+          <p className="font-mono text-sm text-faded-sumi">
             Press Enter or click to commit
           </p>
         )}
