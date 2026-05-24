@@ -11,6 +11,7 @@ import { Toast, useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button, ButtonLink } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ModuleError } from '@/components/ui/ModuleError'
 import { PageLoader } from '@/components/ui/TomoLoader'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
@@ -501,6 +502,24 @@ export function CardsBrowserView(): React.JSX.Element {
   const firstRunEmpty = usingFixture
     ? devState.simulateFirstRun
     : (totalCount === 0 && !filtersActive && !liveQuery.isFetching)
+
+  // Cold-boot fetch failure: the list never loaded, so there is no prior data
+  // to fall back on (keepPreviousData only retains a *previous* success). Show a
+  // retryable error rather than the "No cards yet" empty state, which would
+  // falsely claim the account has no cards. A refetch error *after* a success
+  // leaves `data` defined, so this never blanks already-visible rows.
+  if (!usingFixture && liveQuery.isError && liveQuery.data === undefined) {
+    return (
+      <>
+        <TopBar>
+          <TopBarTitle kanji="札" label="Cards" />
+        </TopBar>
+        <div className="mx-auto w-full max-w-[1440px] px-4 pt-6 md:px-12 lg:px-16">
+          <ModuleError label="your cards" onRetry={() => void liveQuery.refetch()} />
+        </div>
+      </>
+    )
+  }
 
   if (coldBoot) {
     return (
