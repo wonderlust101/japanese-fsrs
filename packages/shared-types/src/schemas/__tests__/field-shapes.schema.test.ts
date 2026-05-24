@@ -17,15 +17,14 @@ import {
 // response. See packages/shared-types/src/schemas/field-shapes.schema.ts.
 
 describe('WordFieldsSchema — Lapis-style fields', () => {
-  it('admits and round-trips picture, expressionAudio, pitchPosition, nuance', () => {
+  it('admits and round-trips picture, pitchPosition, nuance', () => {
     const input = {
-      word:            '猫',
-      reading:         'ねこ',
-      meaning:         'cat',
-      picture:         'https://cdn.example.test/neko.jpg',
-      expressionAudio: 'https://cdn.example.test/neko.mp3',
-      pitchPosition:   0,
-      nuance:          'Casual register; covers domestic and stray cats alike.',
+      word:          '猫',
+      reading:       'ねこ',
+      meaning:       'cat',
+      picture:       'https://cdn.example.test/neko.jpg',
+      pitchPosition: 0,
+      nuance:        'Casual register; covers domestic and stray cats alike.',
     }
     const parsed = WordFieldsSchema.parse(input)
     expect(parsed).toEqual(input)
@@ -33,16 +32,14 @@ describe('WordFieldsSchema — Lapis-style fields', () => {
 
   it('accepts the new fields as null (explicit "no signal")', () => {
     const parsed = WordFieldsSchema.parse({
-      word:            '犬',
-      reading:         'いぬ',
-      meaning:         'dog',
-      picture:         null,
-      expressionAudio: null,
-      pitchPosition:   null,
-      nuance:          null,
+      word:          '犬',
+      reading:       'いぬ',
+      meaning:       'dog',
+      picture:       null,
+      pitchPosition: null,
+      nuance:        null,
     })
     expect(parsed.picture).toBeNull()
-    expect(parsed.expressionAudio).toBeNull()
     expect(parsed.pitchPosition).toBeNull()
     expect(parsed.nuance).toBeNull()
   })
@@ -54,10 +51,21 @@ describe('WordFieldsSchema — Lapis-style fields', () => {
       meaning: 'bird',
     })
     // Omitted optional fields stay omitted — not coerced to null/undefined keys.
-    expect('picture'         in parsed).toBe(false)
+    expect('picture'       in parsed).toBe(false)
+    expect('pitchPosition' in parsed).toBe(false)
+    expect('nuance'        in parsed).toBe(false)
+  })
+
+  it('drops a removed expressionAudio key rather than retaining it', () => {
+    // expressionAudio was removed from the card model; the schema strips
+    // unknown keys, so an old payload carrying it parses without the key.
+    const parsed = WordFieldsSchema.parse({
+      word:            '猫',
+      reading:         'ねこ',
+      meaning:         'cat',
+      expressionAudio: 'https://cdn.example.test/neko.mp3',
+    })
     expect('expressionAudio' in parsed).toBe(false)
-    expect('pitchPosition'   in parsed).toBe(false)
-    expect('nuance'          in parsed).toBe(false)
   })
 
   it('rejects a negative pitchPosition', () => {
@@ -81,54 +89,44 @@ describe('WordFieldsSchema — Lapis-style fields', () => {
   })
 })
 
-describe('ExampleSentenceSchema — Lapis-style sentenceAudio', () => {
-  it('admits and round-trips sentenceAudio', () => {
+describe('ExampleSentenceSchema — canonical ja/en/furigana shape', () => {
+  it('round-trips the three-key shape', () => {
     const input = {
-      ja:            '猫が好きです。',
-      en:            'I like cats.',
-      furigana:      'ねこがすきです。',
-      sentenceAudio: 'https://cdn.example.test/sentence-001.mp3',
+      ja:       '猫が好きです。',
+      en:       'I like cats.',
+      furigana: 'ねこがすきです。',
     }
     const parsed = ExampleSentenceSchema.parse(input)
     expect(parsed).toEqual(input)
   })
 
-  it('accepts sentenceAudio as null', () => {
+  it('drops a removed sentenceAudio key rather than retaining it', () => {
+    // sentenceAudio was removed from the card model; the schema strips
+    // unknown keys, so an old payload carrying it parses without the key.
     const parsed = ExampleSentenceSchema.parse({
       ja:            'これは本です。',
       en:            'This is a book.',
       furigana:      'これはほんです。',
-      sentenceAudio: null,
-    })
-    expect(parsed.sentenceAudio).toBeNull()
-  })
-
-  it('accepts the legacy three-key shape unchanged', () => {
-    const parsed = ExampleSentenceSchema.parse({
-      ja:       'これは本です。',
-      en:       'This is a book.',
-      furigana: 'これはほんです。',
+      sentenceAudio: 'https://cdn.example.test/sentence-001.mp3',
     })
     expect('sentenceAudio' in parsed).toBe(false)
   })
 })
 
 describe('VocabularyFieldsDataSchema — composition with Lapis fields', () => {
-  it('round-trips a fully populated vocabulary card with nested sentenceAudio', () => {
+  it('round-trips a fully populated vocabulary card', () => {
     const input = {
-      word:            '空',
-      reading:         'そら',
-      meaning:         'sky',
-      pitchPosition:   1,
-      nuance:          'The visible sky; for "outer space" use 宇宙.',
-      picture:         'https://cdn.example.test/sora.jpg',
-      expressionAudio: 'https://cdn.example.test/sora.mp3',
+      word:          '空',
+      reading:       'そら',
+      meaning:       'sky',
+      pitchPosition: 1,
+      nuance:        'The visible sky; for "outer space" use 宇宙.',
+      picture:       'https://cdn.example.test/sora.jpg',
       exampleSentences: [
         {
-          ja:            '空が青いです。',
-          en:            'The sky is blue.',
-          furigana:      'そらがあおいです。',
-          sentenceAudio: 'https://cdn.example.test/sora-blue.mp3',
+          ja:       '空が青いです。',
+          en:       'The sky is blue.',
+          furigana: 'そらがあおいです。',
         },
       ],
       pitchAccent: '[1]',
@@ -178,7 +176,7 @@ const parsed = SentenceFieldsDataSchema.parse({
     expect(parsed.furigana).toBe('ねこがすきです。')
   })
 
-  it('admits and round-trips optional breakdown / audio / nuance', () => {
+  it('admits and round-trips optional breakdown / nuance', () => {
 const input = {
       ja:       '猫が好きです。',
       en:       'I like cats.',
@@ -190,7 +188,6 @@ const input = {
         { token: 'です' },
         { token: '。' },
       ],
-      audio:  'https://cdn.example.test/sentence-001.mp3',
       nuance: 'Casual but polite — the です keeps it appropriate for most contexts.',
     }
     const parsed = SentenceFieldsDataSchema.parse(input)

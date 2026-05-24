@@ -11,10 +11,6 @@ export const ExampleSentenceSchema = z.object({
   ja:            z.string(),
   en:            z.string(),
   furigana:      z.string(),
-  // Lapis-style sentence-level asset. URL to a hosted audio clip of the
-  // sentence; left as a plain string (not z.string().url()) so authoring
-  // tools and frontends can use relative paths or data URIs during dev.
-  sentenceAudio: z.string().nullable().optional(),
 })
 
 export const KanjiBreakdownSchema = z.object({
@@ -44,8 +40,6 @@ export const WordFieldsSchema = z.object({
   //
   // URL to a hosted image illustrating the word.
   picture:         z.string().nullable().optional(),
-  // URL to a hosted audio clip of the expression itself.
-  expressionAudio: z.string().nullable().optional(),
   // Integer mora position (0 = heiban / flat; 1..N = drop after Nth mora).
   // Drives the mora-line pitch graph. Coexists with the free-form
   // `pitchAccent` string on VocabularyFieldsDataSchema.
@@ -59,8 +53,6 @@ export const VocabularyFieldsDataSchema = WordFieldsSchema.extend({
   exampleSentences: z.array(ExampleSentenceSchema).optional(),
   kanjiBreakdown:   z.array(KanjiBreakdownSchema).optional(),
   pitchAccent:      z.string().nullable().optional(),
-  collocations:     z.array(z.string()).optional(),
-  homophones:       z.array(z.string()).optional(),
 })
 
 export const GrammarFieldsDataSchema = WordFieldsSchema.extend({
@@ -96,8 +88,6 @@ export const SentenceFieldsDataSchema = z.object({
   furigana:  z.string(),
   /** Optional per-token annotation strip for word-by-word breakdown UIs. */
   breakdown: z.array(SentenceBreakdownTokenSchema).nullable().optional(),
-  /** Optional URL to a hosted audio clip of the sentence. */
-  audio:     z.string().nullable().optional(),
   /**
    * Optional AI-authored prose on register, pragmatics, or what makes the
    * sentence noteworthy. Mirrors `WordFieldsSchema.nuance` so the v4

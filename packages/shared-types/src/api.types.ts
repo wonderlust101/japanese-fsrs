@@ -20,9 +20,13 @@ import type {
   ApiCopyPremadeDeckResultSchema,
   ApiCopyDeckResultSchema,
   ApiTomoNoteSchema,
+  ApiDayReflectionSchema,
+  ApiBatchDiagnoseResultSchema,
   ApiCardQualityIssueSchema,
   ApiMaturitySnapshotSchema,
   ApiForecastDaySchema,
+  ApiRatingPreviewSchema,
+  ApiRatingsPreviewSchema,
   ApiHeatmapDaySchema,
   ApiLayoutAccuracySchema,
   ApiJlptGapSchema,
@@ -88,6 +92,15 @@ export type ApiCopyDeckResult         = z.infer<typeof ApiCopyDeckResultSchema>
  *  frontend consumer. Kept for the API service's response shape. */
 export type ApiTomoNote               = z.infer<typeof ApiTomoNoteSchema>
 
+/** Returned by `GET /api/v1/reviews/day-reflection/:sessionId`. AI-generated
+ *  post-session reflection over the user's local-day aggregate of reviews,
+ *  with a deterministic rule-based fallback when the AI path is degraded. */
+export type ApiDayReflection          = z.infer<typeof ApiDayReflectionSchema>
+
+/** Returned by `POST /api/v1/reviews/sessions/:sessionId/diagnose-weak-spots`.
+ *  Tally of weak spots that were freshly AI-diagnosed in the batch. */
+export type ApiBatchDiagnoseResult    = z.infer<typeof ApiBatchDiagnoseResultSchema>
+
 /**
  * Backend Completion Plan Stage 8. One element of the array returned by
  * `GET /api/v1/insights/card-quality`. Six entries are always present
@@ -102,6 +115,11 @@ export type ApiCardQualityIssue       = z.infer<typeof ApiCardQualityIssueSchema
 export type ApiMaturitySnapshot       = z.infer<typeof ApiMaturitySnapshotSchema>
 
 export type ApiForecastDay = z.infer<typeof ApiForecastDaySchema>
+
+/** Single-rating outcome of `previewNextStates`. */
+export type ApiRatingPreview  = z.infer<typeof ApiRatingPreviewSchema>
+/** Four-rating preview returned by `GET /reviews/:cardId/preview`. */
+export type ApiRatingsPreview = z.infer<typeof ApiRatingsPreviewSchema>
 
 /**
  * Generic batch result. Hand-written because Zod can't cleanly produce a

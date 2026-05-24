@@ -31,7 +31,6 @@ export const ApiCardSchema = z.object({
   layoutType:     layoutTypeSchema,
   fieldsData:     FieldsDataSchema,
   parentCardId:   z.string().nullable(),
-  tags:           z.array(z.string()),
   jlptLevel:      jlptLevelSchema.nullable(),
   state:          stateSchema,
   isSuspended:    z.boolean(),
@@ -70,7 +69,6 @@ export const ApiCardListItemSchema = ApiCardSchema.pick({
   state:       true,
   isSuspended: true,
   due:         true,
-  tags:        true,
 })
 
 // ─── Cross-deck card list ─────────────────────────────────────────────────────
@@ -106,7 +104,6 @@ export const ApiSimilarCardSchema = z.object({
   deckId:     z.string(),
   layoutType: layoutTypeSchema,
   fieldsData: FieldsDataSchema,
-  tags:       z.array(z.string()),
   jlptLevel:  jlptLevelSchema.nullable(),
   similarity: z.number(),
 })
@@ -230,6 +227,10 @@ export const ApiMaturitySnapshotSchema = z.object({
   reviewCount:     z.number().int().nonnegative(),
   relearningCount: z.number().int().nonnegative(),
   matureCount:     z.number().int().nonnegative(),
+  /** Suspended cards (not in the pipeline). Historical rows predate this and
+   *  read 0; today's row is computed live. Powers the maturity-flow bar's
+   *  "Suspended" segment on the Statistics page. */
+  suspendedCount:  z.number().int().nonnegative(),
 })
 
 // ─── Insights — card-quality issue counts (Stage 8) ──────────────────────────
@@ -275,7 +276,43 @@ export const ApiTomoNoteSchema = z.object({
   dateKey: z.string(),
 })
 
+// ─── Day reflection (post-session AI note) ───────────────────────────────────
+//
+// `GET /api/v1/reviews/day-reflection/:sessionId` returns one Tomo-voice
+// reflection on the user's entire review work for the day that contains the
+// given session. Aggregates across all sessions on the user's local date;
+// regenerates on each new same-day session via session-id fingerprinting.
+// `source` tells the client whether the body came from the AI generator or
+// from the rule-based fallback (when the AI path is unavailable).
+
+export const ApiDayReflectionSourceSchema = z.enum(['ai', 'fallback'])
+
+export const ApiDayReflectionSchema = z.object({
+  body:         z.string(),
+  source:      ApiDayReflectionSourceSchema,
+  dateKey:     z.string(),
+  sessionCount: z.number().int().nonnegative(),
+})
+
 // ─── Reviews ──────────────────────────────────────────────────────────────────
+
+/**
+ * One outcome of `previewNextStates` for a single rating. `scheduledDays` is
+ * the FSRS-computed interval and can be < 1 for fractional days (learning
+ * steps). Frontend formats it for display.
+ */
+export const ApiRatingPreviewSchema = z.object({
+  scheduledDays: z.number(),
+  due:           z.string(),
+})
+
+/** Anki-style "what happens if I rate this?" preview for the four ratings. */
+export const ApiRatingsPreviewSchema = z.object({
+  again: ApiRatingPreviewSchema,
+  hard:  ApiRatingPreviewSchema,
+  good:  ApiRatingPreviewSchema,
+  easy:  ApiRatingPreviewSchema,
+})
 
 export const ApiForecastDaySchema = z.object({
   date:         z.string(),
@@ -463,6 +500,16 @@ export const SessionWeakSpotSchema = z.object({
   prescription: z.string().nullable(),
   resolved:     z.boolean(),
   createdAt:    z.string(),
+  // Lapse count from the parent card. Optional so legacy summary payloads
+  // (and the backend until it ships the join) keep parsing. When present,
+  // the summary surface renders a HealthBadge-style chip showing the
+  // count, matching the cards-table treatment.
+  lapses:       z.number().int().nonnegative().optional(),
+  // ISO timestamp of the most recent lapse on the parent card. Optional
+  // for the same backwards-compat reason as `lapses`. Surfaced in the
+  // summary's weak-spots list as a relative "Nd ago" date so a learner
+  // can see at a glance whether each weak spot is fresh or stale.
+  lastLapseAt:  z.string().optional(),
 })
 
 export const SessionSummarySchema = z.object({
@@ -478,6 +525,30 @@ export const SessionSummarySchema = z.object({
     easy:  z.number(),
   }),
   weakSpots: z.array(SessionWeakSpotSchema),
+  // User's total session count, capped at 2 by the RPC. 1 = first session
+  // ever (drives the "First session" copy variant); ≥2 = returning user.
+  // Optional for backwards-compat with payloads emitted before migration
+  // 2026MMDDHHMMSS_session_summary_extend; once that migration ships and
+  // any in-flight responses age out, this becomes effectively required.
+  userTotalSessions: z.number().int().nonnegative().optional(),
+  // DISTINCT session_id count for the user-local day containing this
+  // session. The closure card pluralizes its label ("Today's sessions
+  // (N)") when this is > 1. Optional for the same backwards-compat
+  // reason as `userTotalSessions`.
+  sessionsToday:     z.number().int().nonnegative().optional(),
+})
+
+// ─── Batch diagnose result ──────────────────────────────────────────────────
+//
+// `POST /api/v1/reviews/sessions/:sessionId/diagnose-weak-spots` returns a
+// summary tally of how many weak spots were freshly diagnosed, skipped
+// (already had a diagnosis), or failed (AI path error). The frontend
+// re-fetches the session summary on success to pick up the new prose.
+
+export const ApiBatchDiagnoseResultSchema = z.object({
+  diagnosed: z.number().int().nonnegative(),
+  skipped:   z.number().int().nonnegative(),
+  failed:    z.number().int().nonnegative(),
 })
 
 // ─── WeakSpots list (read-only feature surface) ─────────────────────────────────
@@ -516,8 +587,14 @@ export const ApiWeakSpotListItemSchema = z.object({
 
 export const ApiWeakSpotListResponseSchema = z.object({
   items:      z.array(ApiWeakSpotListItemSchema),
-  nextCursor: z.string().nullable(),
-  hasMore:    z.boolean(),
+  // Offset pagination (aligned with the cross-deck cards list). `totalCount`
+  // is the full count of rows matching the active filters, independent of the
+  // current page window, so the client can render numbered pages and a
+  // "Showing X–Y of N" footer. The historic cursor model (`nextCursor` /
+  // `hasMore`) was dropped: two of the four sort orders sort on a joined card
+  // column and never supported keyset cursors anyway, so a single offset path
+  // is both simpler and more capable.
+  totalCount: z.number().int().nonnegative(),
 })
 
 // ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────

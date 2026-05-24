@@ -8,26 +8,28 @@ import {
 } from '../card.schema.ts'
 
 describe('card.schema — cardMissingFieldEnum', () => {
-  it('admits the legacy six tokens plus the new pitch / audio tokens', () => {
-    for (const token of ['reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance', 'pitch', 'audio']) {
+  it('admits the supported missing-field tokens', () => {
+    for (const token of ['reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance', 'pitch']) {
       expect(cardMissingFieldEnum.safeParse(token).success).toBe(true)
     }
   })
 
-  it('rejects unknown missing-field tokens', () => {
+  it('rejects unknown missing-field tokens, including the removed audio dimension', () => {
+    expect(cardMissingFieldEnum.safeParse('audio').success).toBe(false)
     expect(cardMissingFieldEnum.safeParse('audio_url').success).toBe(false)
     expect(cardMissingFieldEnum.safeParse('').success).toBe(false)
   })
 })
 
 describe('card.schema — cardPresentFieldEnum', () => {
-  it('admits only picture / pitch / audio', () => {
-    for (const token of ['picture', 'pitch', 'audio']) {
+  it('admits only picture / pitch', () => {
+    for (const token of ['picture', 'pitch']) {
       expect(cardPresentFieldEnum.safeParse(token).success).toBe(true)
     }
     // These would be silly for the positive direction — reading/meaning
     // are virtually always populated. Enum stays tight to keep the wire
-    // contract small.
+    // contract small. `audio` was removed alongside the audio fields.
+    expect(cardPresentFieldEnum.safeParse('audio').success).toBe(false)
     expect(cardPresentFieldEnum.safeParse('reading').success).toBe(false)
     expect(cardPresentFieldEnum.safeParse('mnemonic').success).toBe(false)
   })
@@ -48,7 +50,7 @@ describe('card.schema — pitchPatternEnum', () => {
 
 describe('card.schema — crossDeckListCardsQuerySchema', () => {
   it('accepts each new presence + pattern field individually', () => {
-    expect(crossDeckListCardsQuerySchema.safeParse({ presentField: 'audio' }).success).toBe(true)
+    expect(crossDeckListCardsQuerySchema.safeParse({ presentField: 'picture' }).success).toBe(true)
     expect(crossDeckListCardsQuerySchema.safeParse({ missingField: 'pitch' }).success).toBe(true)
     expect(crossDeckListCardsQuerySchema.safeParse({ pitchPattern: 'atamadaka' }).success).toBe(true)
   })
@@ -70,14 +72,14 @@ describe('card.schema — crossDeckListCardsQuerySchema', () => {
     // on the client (single segmented control per dimension).
     const result = crossDeckListCardsQuerySchema.safeParse({
       presentField: 'picture',
-      missingField: 'audio',
+      missingField: 'mnemonic',
     })
     expect(result.success).toBe(true)
   })
 
   it('still rejects unknown top-level keys (.strict() is preserved)', () => {
     const result = crossDeckListCardsQuerySchema.safeParse({
-      missingField: 'audio',
+      missingField: 'pitch',
       bogusKey:     'x',
     })
     expect(result.success).toBe(false)

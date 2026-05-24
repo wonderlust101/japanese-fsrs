@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { stripMarkupTransform } from '../sanitize.ts'
+import { partOfSpeechEnum, pitchPatternEnum } from './card.schema.ts'
 
 // Strip markup from any LLM-produced string before it's persisted or returned.
 // Defence-in-depth: the prompts are JSON-mode and shouldn't yield HTML, but a
@@ -15,16 +16,15 @@ export const GeneratedCardDataSchema = z.object({
   word:             safeStr,
   reading:          safeStr,
   meaning:          safeStr,
-  partOfSpeech:     safeStr.optional(),
+  // Constrained to the closed POS vocabulary. `.catch(undefined)` drops an
+  // off-enum model response (field omitted) rather than failing the whole
+  // card, so the prompt enforces the enum and this is the safety net.
+  partOfSpeech:     partOfSpeechEnum.optional().catch(undefined),
   exampleSentences: z.array(
     z.object({
       ja:            safeStr,
       en:            safeStr,
       furigana:      safeStr,
-      // Mirrors the additive key on `ExampleSentenceSchema` admitted in
-      // Stage 1. Not requested by the current prompt — see the Lapis-fields
-      // block below for the asset-hosting rationale.
-      sentenceAudio: safeStr.optional(),
     }),
   ).optional(),
   // Widened in Backend Completion Plan Stage 3 (CARD_PROMPT_VERSION='v3') to
@@ -41,34 +41,39 @@ export const GeneratedCardDataSchema = z.object({
       reading: safeStr.optional(),
     }),
   ).optional(),
-  pitchAccent:      safeStr.optional(),
+  // Constrained to the four pitch-accent pattern classes (same safety-net
+  // pattern as partOfSpeech). Coexists with the numeric `pitchPosition`.
+  pitchAccent:      pitchPatternEnum.optional().catch(undefined),
   mnemonic:         safeStr.optional(),
-  // Stage 3 (CARD_PROMPT_VERSION='v3'): admit the two vocabulary-only
-  // discrimination fields the review surface renders as standalone tabs.
-  // Empty arrays are allowed; the prompt instructs the model to omit
-  // entirely when nothing distinctive is available rather than fabricate.
-  collocations:     z.array(safeStr).optional(),
-  homophones:       z.array(safeStr).optional(),
   // ─── Lapis-style fields (Backend Completion Plan, Stage 2) ──────────────
   // These mirror the additive keys admitted on `WordFieldsSchema` in Stage 1.
   // The schema admits them so the structured-output validation passes when
   // the model populates them; the `generateCard` prompt only requests
-  // `pitchPosition` + `nuance` for now. `picture` / `expressionAudio` /
-  // `sentenceAudio` stay unmapped at the prompt layer until an asset-hosting
-  // story exists — asking the model for a URL it can't fulfill produces
-  // hallucinated 404s, which is worse than no field. The schema admits them
-  // anyway so a future prompt-version bump or out-of-band populator can land
-  // without a second schema change.
+  // `pitchPosition` + `nuance` for now. `picture` stays unmapped at the
+  // prompt layer until an asset-hosting story exists — asking the model for
+  // a URL it can't fulfill produces hallucinated 404s, which is worse than
+  // no field. The schema admits it anyway so a future prompt-version bump or
+  // out-of-band populator can land without a second schema change.
   pitchPosition:    z.number().int().nonnegative().optional(),
   nuance:           safeStr.optional(),
   picture:          safeStr.optional(),
-  expressionAudio:  safeStr.optional(),
 })
 
+// Sentence generation accepts EITHER a saved card (`cardId`, word looked up
+// server-side + deck-active guard) OR a raw `word` (the /add/review pre-save
+// path, where no card exists yet). `avoid` lists sentences already on the
+// card so the model produces fresh, non-duplicate output; it also joins the
+// Redis cache key server-side so repeated "generate more" calls vary instead
+// of replaying the same cached batch.
 export const generateSentencesInputSchema = z.object({
-  cardId: z.string().uuid('Invalid card ID'),
+  cardId: z.string().uuid('Invalid card ID').optional(),
+  word:   z.string().trim().min(1, 'Word is required').max(50, 'Word must be at most 50 characters').optional(),
   count:  z.number().int().min(1).max(5).optional(),
-}).strict()
+  avoid:  z.array(z.string()).max(20).optional(),
+}).strict().refine(
+  (v) => (v.cardId !== undefined) !== (v.word !== undefined),
+  { message: 'Provide exactly one of cardId or word' },
+)
 
 export const GeneratedSentencesSchema = z.object({
   sentences: z.array(
@@ -76,10 +81,6 @@ export const GeneratedSentencesSchema = z.object({
       ja:            safeStr,
       en:            safeStr,
       furigana:      safeStr,
-      // Optional Lapis-style asset URL; see GeneratedCardDataSchema's
-      // exampleSentences entry for the asset-hosting rationale. Admitted
-      // so a future prompt-version bump doesn't fail validation.
-      sentenceAudio: safeStr.optional(),
     }),
   ),
 })
@@ -118,12 +119,8 @@ export const GeneratedTomoNoteSchema = z.object({
 
 /**
  * Structured-output shape for the sentence-layout AI generator (Backend
- * Completion Plan Stage 13). Mirrors `SentenceFieldsDataSchema` admitted
- * by Stage 12 — the model returns ja/en/furigana plus optional breakdown
- * and nuance. The `audio` field stays unmapped at the prompt layer for the
- * same asset-hosting reason that keeps `picture` / `expressionAudio` out
- * of the vocabulary prompt — asking the model for a URL it cannot host
- * yields hallucinated 404s.
+ * Completion Plan Stage 13). Mirrors `SentenceFieldsDataSchema` — the model
+ * returns ja/en/furigana plus optional breakdown and nuance.
  */
 export const GeneratedSentenceCardSchema = z.object({
   ja:        safeStr,
@@ -135,9 +132,6 @@ export const GeneratedSentenceCardSchema = z.object({
     meaning: safeStr.optional(),
   })).optional(),
   nuance:    safeStr.optional(),
-  // Schema admits `audio` for forward compatibility with a future
-  // sentence-audio asset story; the current prompt does not request it.
-  audio:     safeStr.optional(),
 })
 
 export type GenerateCardInput        = z.infer<typeof generateCardInputSchema>

@@ -8,6 +8,16 @@ export { DeckType, isDeckType } from './deck.types.ts'
 export { ReviewRating } from './review.types.ts'
 export type { SessionWeakSpot, SessionSummary } from './review.types.ts'
 
+export {
+  classifySession,
+  NO_PATTERN_MIN_CARDS,
+  WEAK_SPOT_MIN_COUNT,
+  DIFFICULT_MAX_ACCURACY,
+  DIFFICULT_MAX_AGAIN_RATIO,
+  STRONG_MIN_ACCURACY,
+} from './review/classify-session.ts'
+export type { SessionPattern, PatternInputs } from './review/classify-session.ts'
+
 export type {
   ApiWeakSpotListItem,
   ApiWeakSpotListResponse,
@@ -34,10 +44,14 @@ export type {
   ApiCopyPremadeDeckResult,
   ApiCopyDeckResult,
   ApiTomoNote,
+  ApiDayReflection,
+  ApiBatchDiagnoseResult,
   ApiSimilarCard,
   ApiCardQualityIssue,
   ApiMaturitySnapshot,
   ApiForecastDay,
+  ApiRatingPreview,
+  ApiRatingsPreview,
   ApiBatchResult,
   ApiList,
   ApiHeatmapDay,
@@ -84,9 +98,12 @@ export {
   ApiPremadeDeckSchema, ApiCopyPremadeDeckResultSchema,
   ApiCopyDeckResultSchema,
   ApiTomoNoteSchema, ApiTomoNoteKindSchema,
+  ApiDayReflectionSchema, ApiDayReflectionSourceSchema,
+  ApiBatchDiagnoseResultSchema,
   ApiCardQualityIssueSchema, ApiCardQualityIssueTypeSchema,
   ApiMaturitySnapshotSchema, ApiMaturityHistoryDaysSchema,
-  ApiForecastDaySchema, ApiBatchResultSchema, apiListEnvelope,
+  ApiForecastDaySchema, ApiRatingPreviewSchema, ApiRatingsPreviewSchema,
+  ApiBatchResultSchema, apiListEnvelope,
   ApiHeatmapDaySchema, ApiLayoutAccuracySchema,
   ApiJlptGapSchema, ApiMilestoneForecastSchema, ApiAnalyticsDashboardSchema,
   ApiAnswerRatingDistributionSchema, ApiHistogramBucketSchema, ApiInsightsDistributionsSchema,
@@ -110,22 +127,21 @@ export {
   cardIdParamSchema, nestedDeckIdParamSchema,
   listCardsQuerySchema,
   crossDeckListCardsQuerySchema, crossDeckJlptFilterEnum,
-  cardMissingFieldEnum, cardPresentFieldEnum, pitchPatternEnum, cardSortFieldEnum,
+  cardMissingFieldEnum, cardPresentFieldEnum, pitchPatternEnum, partOfSpeechEnum, cardSortFieldEnum,
+  cardSortDirEnum,
   moveCardBodySchema, copyCardBodySchema, suspendCardBodySchema,
   bulkMoveCardsBodySchema, bulkSuspendCardsBodySchema,
   bulkUnsuspendCardsBodySchema, bulkDeleteCardsBodySchema,
-  bulkTagCardsBodySchema,
 } from './schemas/card.schema.ts'
 export type {
   CreateCardPayload,
   UpdateCardInput, UpdateCardPayload,
   CardStatusFilter,
   CrossDeckListCardsQuery, CrossDeckJlptFilter,
-  CardMissingField, CardPresentField, PitchPattern, CardSortField,
+  CardMissingField, CardPresentField, PitchPattern, PartOfSpeech, CardSortField, CardSortDir,
   MoveCardBody, CopyCardBody, SuspendCardBody,
   BulkMoveCardsBody, BulkSuspendCardsBody,
   BulkUnsuspendCardsBody, BulkDeleteCardsBody,
-  BulkTagCardsBody,
 } from './schemas/card.schema.ts'
 
 export {
@@ -157,7 +173,7 @@ export type { UpdateProfileInput } from './schemas/profile.schema.ts'
 
 export {
   reviewRatingEnum, submitReviewSchema, batchReviewSchema, sessionSummaryParamsSchema,
-  rollbackReviewParamSchema, forgetCardBodySchema,
+  rollbackReviewParamSchema, previewRatingsParamSchema, forgetCardBodySchema,
 } from './schemas/review.schema.ts'
 export type {
   SubmitReviewInput, UserRating,

@@ -39,6 +39,11 @@ export const rollbackReviewParamSchema = z.object({
   reviewLogId: z.string().uuid('Invalid review log ID'),
 }).strict()
 
+/** URL param schema for `GET /api/v1/reviews/:cardId/preview`. */
+export const previewRatingsParamSchema = z.object({
+  cardId: z.string().uuid('Invalid card ID'),
+}).strict()
+
 /** Body schema for `POST /api/v1/cards/:id/forget`.
  *
  *  Stage 8 exposes the service's `resetCount` option as an optional body

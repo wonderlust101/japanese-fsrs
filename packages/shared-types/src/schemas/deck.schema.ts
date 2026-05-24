@@ -34,7 +34,11 @@ export const decksViewEnum = z.enum(['active', 'archived', 'all'])
 // Cursor pagination for GET /api/v1/decks. Mirrors the cards-list query shape.
 // Opaque cursor — see lib/http.ts:encodeCursor.
 export const listDecksQuerySchema = z.object({
-  limit:  z.coerce.number().int().min(1).max(100).default(50),
+  // Review setup pulls the whole library in one shot (inclusion list + per-deck
+  // due-count mapping must cover every deck, not the first page). 500 is well
+  // above any realistic personal library and keeps the RPC's user_id-indexed
+  // scan cheap; cursor pagination still applies above that.
+  limit:  z.coerce.number().int().min(1).max(500).default(50),
   cursor: z.string().min(1).max(512).optional(),
   view:   decksViewEnum.default('active'),
 }).strict()

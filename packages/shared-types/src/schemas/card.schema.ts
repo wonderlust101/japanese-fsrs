@@ -21,13 +21,10 @@ const fieldsDataSchema = z.record(z.string().min(1).max(50), z.unknown())
   .refine((v) => !deepHasMarkup(v), 'Field values cannot contain HTML or script-like content')
   .refine((v) => !deepHasOversizedString(v, 2000), 'Field values must each be at most 2000 characters')
 
-const tagsSchema = z.array(safeShortText(50, 1)).max(20)
-
 // ─── Shared metadata fields ───────────────────────────────────────────────────
 
 const cardMetaFields = {
   layoutType:   layoutTypeEnum.default('vocabulary'),
-  tags:         tagsSchema.optional(),
   jlptLevel:    jlptLevelEnum.optional(),
   parentCardId: z.string().uuid('Invalid parent card ID').optional(),
 }
@@ -65,7 +62,6 @@ export const createCardSchema = z.discriminatedUnion('mode', [
 export const updateCardSchema = z.object({
   fieldsData: fieldsDataSchema.optional(),
   layoutType: layoutTypeEnum.optional(),
-  tags:       tagsSchema.optional(),
   jlptLevel:  jlptLevelEnum.nullable().optional(),
 }).strict()
 
@@ -97,22 +93,22 @@ export const crossDeckJlptFilterEnum = z.enum([
   'all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond',
 ])
 
-// Negative-direction presence filter: "find cards MISSING X". Extended in
-// 20260624 to cover pitch + audio so the cross-deck browser can sweep for
-// gaps in the same fields the AI generator produces.
+// Negative-direction presence filter: "find cards MISSING X". Covers the
+// fields the AI generator produces so the cross-deck browser can sweep for
+// gaps. (The `audio` dimension was removed alongside the audio fields.)
 export const cardMissingFieldEnum = z.enum([
   'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
-  'pitch', 'audio',
+  'pitch',
 ])
 
 // Positive-direction presence filter: "find cards that HAVE X". Sibling
 // of `cardMissingFieldEnum`. Both may be set simultaneously to express
-// cross-dimension combinations like "has picture AND missing audio";
+// cross-dimension combinations like "has picture AND missing pitch";
 // same-dimension contradictions are impossible by widget design on the
 // client (single segmented control per dimension). Limited to the
 // dimensions the UI surfaces — adding `reading` / `meaning` here makes no
 // sense since those are virtually always populated.
-export const cardPresentFieldEnum = z.enum(['picture', 'pitch', 'audio'])
+export const cardPresentFieldEnum = z.enum(['picture', 'pitch'])
 
 // Pitch-accent pattern classes derived from `pitchPosition` + mora count
 // of the reading. See `count_moras` SQL helper in migration 20260624 for
@@ -120,11 +116,37 @@ export const cardPresentFieldEnum = z.enum(['picture', 'pitch', 'audio'])
 // cards without it are excluded silently from any pattern result.
 export const pitchPatternEnum = z.enum(['heiban', 'atamadaka', 'nakadaka', 'odaka'])
 
+// Closed vocabulary for a card's part of speech. Stored verbatim in
+// `fields_data.partOfSpeech` and surfaced as a selector on /add/review, so
+// the AI generator and the manual form agree on one set of values. Verb and
+// adjective classes use the hiragana convention learners recognise (る verb,
+// う verb, い adjective, な adjective) rather than romaji.
+export const partOfSpeechEnum = z.enum([
+  'Noun',
+  'る verb',
+  'う verb',
+  'Irregular verb',
+  'い adjective',
+  'な adjective',
+  'Adverb',
+  'Particle',
+  'Conjunction',
+  'Expression',
+  'Counter',
+])
+
 export const cardSortFieldEnum = z.enum(['recent', 'due', 'lapses'])
+// Sort direction. Optional on the wire: when omitted, the RPC applies
+// the per-axis natural default ('recent' DESC, 'due' ASC, 'lapses' DESC).
+// Callers only set this when the user explicitly toggles direction.
+export const cardSortDirEnum = z.enum(['asc', 'desc'])
 
 export const crossDeckListCardsQuerySchema = z.object({
   limit:        z.coerce.number().int().min(1).max(100).default(50),
-  cursor:       z.string().min(1).max(512).optional(),
+  // Offset pagination (was cursor pagination until 20260630000003).
+  // The change enabled clickable numbered page buttons on /cards; the
+  // cards page is the sole consumer of this endpoint.
+  offset:       z.coerce.number().int().min(0).optional(),
   search:       z.string().min(1).max(100).optional(),
   deckId:       z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:    crossDeckJlptFilterEnum.optional(),
@@ -133,6 +155,7 @@ export const crossDeckListCardsQuerySchema = z.object({
   presentField: cardPresentFieldEnum.optional(),
   pitchPattern: pitchPatternEnum.optional(),
   sort:         cardSortFieldEnum.optional(),
+  sortDir:      cardSortDirEnum.optional(),
 }).strict()
 // NOTE: previous revision (20260624) attached a .refine here that
 // rejected payloads with both missingField and presentField set. The
@@ -176,15 +199,6 @@ export const bulkUnsuspendCardsBodySchema = bulkSuspendCardsBodySchema
 
 export const bulkDeleteCardsBodySchema = bulkSuspendCardsBodySchema
 
-export const bulkTagCardsBodySchema = z.object({
-  ids:        bulkIdsField,
-  addTags:    z.array(safeShortText(50, 1)).max(20).optional(),
-  removeTags: z.array(safeShortText(50, 1)).max(20).optional(),
-}).strict().refine(
-  (v) => (v.addTags && v.addTags.length > 0) || (v.removeTags && v.removeTags.length > 0),
-  { message: 'At least one of addTags or removeTags must be non-empty' },
-)
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 //
 // `*Input` is `z.infer` (post-parse) — defaults are filled, required fields all present.
@@ -205,7 +219,9 @@ export type CrossDeckJlptFilter     = z.infer<typeof crossDeckJlptFilterEnum>
 export type CardMissingField        = z.infer<typeof cardMissingFieldEnum>
 export type CardPresentField        = z.infer<typeof cardPresentFieldEnum>
 export type PitchPattern            = z.infer<typeof pitchPatternEnum>
+export type PartOfSpeech            = z.infer<typeof partOfSpeechEnum>
 export type CardSortField           = z.infer<typeof cardSortFieldEnum>
+export type CardSortDir             = z.infer<typeof cardSortDirEnum>
 
 export type MoveCardBody             = z.infer<typeof moveCardBodySchema>
 export type CopyCardBody             = z.infer<typeof copyCardBodySchema>
@@ -214,4 +230,3 @@ export type BulkMoveCardsBody        = z.infer<typeof bulkMoveCardsBodySchema>
 export type BulkSuspendCardsBody     = z.infer<typeof bulkSuspendCardsBodySchema>
 export type BulkUnsuspendCardsBody   = z.infer<typeof bulkUnsuspendCardsBodySchema>
 export type BulkDeleteCardsBody      = z.infer<typeof bulkDeleteCardsBodySchema>
-export type BulkTagCardsBody         = z.infer<typeof bulkTagCardsBodySchema>
