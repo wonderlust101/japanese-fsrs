@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 
-import { getCardByIdAction } from '@/lib/actions/cards.actions'
-import { getDeckAction, listDecksAction } from '@/lib/actions/decks.actions'
+import { listDecksAction } from '@/lib/actions/decks.actions'
+import { getCardByIdCached, getDeckCached } from '@/lib/data/route-reads'
 import { getWordFields } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '../../../_components/top-bar'
@@ -12,14 +12,14 @@ interface Props { params: Promise<{ cardId: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { cardId } = await params
-  const card = await getCardByIdAction(cardId)
+  const card = await getCardByIdCached(cardId)
   const wordFields = card === null ? null : getWordFields(card)
   return { title: wordFields !== null ? `Edit — ${wordFields.word}` : 'Edit card' }
 }
 
 export default async function EditCardPage({ params }: Props): Promise<React.JSX.Element> {
   const { cardId } = await params
-  const card = await getCardByIdAction(cardId)
+  const card = await getCardByIdCached(cardId)
 
   // Guard rails, mirroring the card detail page plus the edit-specific limits:
   //  - no card / no deck → nothing meaningful to edit, back to the decks list.
@@ -36,7 +36,7 @@ export default async function EditCardPage({ params }: Props): Promise<React.JSX
   // includes premade sources (those are user_id NULL), so it's exactly the set
   // a card may be moved into.
   const [deck, decksPage] = await Promise.all([
-    getDeckAction(card.deckId),
+    getDeckCached(card.deckId),
     listDecksAction(),
   ])
 

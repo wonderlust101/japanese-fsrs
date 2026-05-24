@@ -1,7 +1,7 @@
 import { redirect }    from 'next/navigation'
 import type { Metadata } from 'next'
 
-import { getDeckAction }   from '@/lib/actions/decks.actions'
+import { getDeckCached }   from '@/lib/data/route-reads'
 import { DeckDetailView }  from './_components/deck-detail-view'
 
 interface Props {
@@ -10,13 +10,13 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
-  const deck   = await getDeckAction(id)
+  const deck   = await getDeckCached(id)
   return { title: deck?.name ?? 'Deck' }
 }
 
 export default async function DeckDetailPage({ params }: Props): Promise<React.JSX.Element> {
   const { id: deckId } = await params
-  const deck           = await getDeckAction(deckId)
+  const deck           = await getDeckCached(deckId)
   if (deck === null) redirect('/decks')
 
   return <DeckDetailView deckId={deckId} deckName={deck.name} />
