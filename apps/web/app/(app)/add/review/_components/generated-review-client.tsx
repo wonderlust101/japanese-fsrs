@@ -221,9 +221,15 @@ export function GeneratedReviewClient(): React.JSX.Element {
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null)
   const [regenMnemonic,   setRegenMnemonic]   = useState<boolean>(false)
 
-  const [saving,    setSaving]    = useState<boolean>(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [saved,     setSaved]     = useState<{ count: number; deckName: string } | null>(null)
+  // The save flow as one discriminated union: impossible combinations (saving
+  // *and* saved, or error *and* saving) are unrepresentable, and each terminal
+  // state carries exactly the data it needs.
+  type SaveState =
+    | { status: 'idle' }
+    | { status: 'saving' }
+    | { status: 'error';  message: string }
+    | { status: 'saved';  count: number; deckName: string }
+  const [save, setSave] = useState<SaveState>({ status: 'idle' })
   // Flips true the first time the user attempts a save while a blocker is
   // still unmet. Until then, unmet requirements read as calm guidance
   // (faded-sumi); after a blocked attempt they escalate to error tone. Reset
@@ -312,7 +318,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // The Save button stays clickable whenever the form isn't mid-flight, even
   // with blockers present: a disabled button can't explain itself, so a
   // blocked click is what surfaces the (now escalated) requirement copy.
-  const busy = generating || saving
+  const busy = generating || save.status === 'saving'
 
   const updateField = useCallback(
     <K extends keyof CardFields>(key: K, value: CardFields[K]): void => {
@@ -423,10 +429,10 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // requirement copy escalates from calm guidance to error tone, then bails. A
   // clean attempt POSTs via saveCardAction and shows the success screen.
   const onSave = useCallback(async (): Promise<void> => {
-    if (saving || generating) return
+    if (save.status === 'saving' || generating) return
     if (blockers.length > 0) { setAttemptedSave(true); return }
     if (deckId === null) return
-    setSaving(true); setSaveError(null)
+    setSave({ status: 'saving' })
     try {
       await saveCardAction(deckId, {
         mode: 'manual',
@@ -434,18 +440,18 @@ export function GeneratedReviewClient(): React.JSX.Element {
         layoutType: 'vocabulary',
         ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
       })
-      setSaved({ count: 1, deckName: deckName ?? 'your deck' })
       // Flip *before* resetting the draft so the noDraft → redirect effect
       // sees `hasSavedRef.current === true` on the very next render (refs are
       // synchronous; state is not).
       hasSavedRef.current = true
       captureActions.reset()
+      setSave({ status: 'saved', count: 1, deckName: deckName ?? 'your deck' })
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
-    } finally {
-      setSaving(false)
+      // 'saved' and 'error' are both terminal (not 'saving'), so no finally
+      // is needed to clear an in-flight flag — the union does that by shape.
+      setSave({ status: 'error', message: err instanceof Error ? err.message : 'Could not save the card.' })
     }
-  }, [saving, generating, blockers, deckId, fields, deckName, captureActions])
+  }, [save.status, generating, blockers, deckId, fields, deckName, captureActions])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
@@ -462,7 +468,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // Only short-circuit on noDraft *before* a save has happened. After save,
   // captureActions.reset() empties the draft intentionally — letting the
   // loading stub steal the render would hide the SuccessBlock entirely.
-  if (noDraft && saved === null) {
+  if (noDraft && save.status !== 'saved') {
     return (
       <PageLoader
         stageLabels={[
@@ -492,14 +498,14 @@ export function GeneratedReviewClient(): React.JSX.Element {
   }
 
   // SuccessBlock is the terminal celebratory state once a card is saved.
-  if (saved !== null) {
+  if (save.status === 'saved') {
     return (
       // Short closure screen: vertically centered (desktopCentered) rather
       // than top-anchored like the long form.
       <PageFrame desktopCentered>
         <SuccessBlock
-          count={saved.count}
-          deckName={saved.deckName}
+          count={save.count}
+          deckName={save.deckName}
           onAddAnother={() => startNav(() => router.push('/add'))}
           onReturnToToday={() => startNav(() => router.push('/today'))}
         />
@@ -753,11 +759,11 @@ export function GeneratedReviewClient(): React.JSX.Element {
               without scrolling the full form. */}
           <div className="hidden lg:block">
             <SaveBlock
-              saving={saving}
+              saving={save.status === 'saving'}
               busy={busy}
               blockers={blockers}
               attemptedSave={attemptedSave}
-              saveError={saveError}
+              saveError={save.status === 'error' ? save.message : null}
               onSave={onSave}
             />
           </div>
@@ -769,11 +775,11 @@ export function GeneratedReviewClient(): React.JSX.Element {
           at lg, where the Save block rides the sticky preview column instead. */}
       <MobileStickyActionBar ariaLabel="Save card">
         <SaveBlock
-          saving={saving}
+          saving={save.status === 'saving'}
           busy={busy}
           blockers={blockers}
           attemptedSave={attemptedSave}
-          saveError={saveError}
+          saveError={save.status === 'error' ? save.message : null}
           onSave={onSave}
         />
       </MobileStickyActionBar>
