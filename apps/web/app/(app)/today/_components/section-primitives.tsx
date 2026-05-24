@@ -9,13 +9,14 @@
 //   Internal: PreviewStage and tone tokens → visual previews (Shelf, Forecast,
 //             Focus, WeakSpots, Recent) → NoticeFrame → ErrorSignalPreview.
 
+import { KanjiLabel } from '@/components/ui/KanjiLabel'
 import { StatusPill } from '@/components/ui/Pill'
 import { QuietLink } from '@/components/ui/QuietLink'
 
 import { formatExactCount } from './today-format'
 
-// Re-export for in-folder callers (today, staging) that already import from here.
-export { Skeleton as SkeletonBlock } from '@/components/ui/Skeleton'
+// SkeletonBlock re-export retired with the rest of the per-component
+// skeletons; loading is handled at the route level by <PageLoader/>.
 
 // ── CardHeader (kanji ornament + small-caps mono + right action + rule) ──────
 
@@ -42,6 +43,21 @@ interface CardHeaderProps {
    * fixed at text-xl regardless of variant; this prop only affects margins.
    */
   variant?: 'default' | 'compact' | 'chart'
+  /**
+   * Kanji ornament color. Defaults to `'brand'` (Inari Vermillion) — the
+   * canonical Tomo module accent. Use `'aizome'` (indigo) for surfaces that
+   * carry a non-brand stripe tone so the kanji reads as deliberate, not as
+   * an oversight against the stripe color.
+   */
+  kanjiTone?: 'brand' | 'aizome' | 'error'
+  /**
+   * Quiet metadata flag rendered inline after the label, separated by a
+   * faded middot. Mirrors today-hero's HeroKicker `flag` idiom — used for
+   * trust signals about the module's payload (e.g. "Showing the last saved
+   * queue" when data is stale). Stays in the same typographic register as
+   * the label, just tinted aizome.
+   */
+  flag?: string
 }
 
 export function CardHeader({
@@ -52,11 +68,9 @@ export function CardHeader({
   description,
   rightContent,
   variant = 'default',
+  kanjiTone = 'brand',
+  flag,
 }: CardHeaderProps): React.JSX.Element {
-  // Kanji ornament always renders at text-xl. Earlier iterations varied size
-  // by variant + compound length; that was retired in favor of one
-  // consistent ornament across all surfaces (dashboard, profile, settings).
-  const kanjiSizeClass = 'text-xl'
   const hasDescription = description !== undefined
   const headerMargin = hasDescription ? 'mb-5' :
     variant === 'chart'    ? 'mb-3' :
@@ -64,19 +78,26 @@ export function CardHeader({
                               'mb-5'
   const title = (
     <h2 id={id} className={`flex min-w-0 flex-wrap items-baseline gap-3`}>
-      <span
-        lang="ja"
-        aria-hidden="true"
-        className={`shrink-0 whitespace-nowrap font-display ${kanjiSizeClass} text-inari-vermillion leading-none translate-y-[0.05em] select-none`}
-      >
-        {kanji}
-      </span>
-      <span className="min-w-0 break-words font-mono text-sm font-medium uppercase tracking-normal text-sumi-ink/80">
-        {label}
-        {count !== undefined && (
-          <span className="ml-1.5 text-faded-sumi">· {formatExactCount(count)}</span>
-        )}
-      </span>
+      <KanjiLabel
+        kanji={kanji}
+        tone={kanjiTone}
+        label={
+          <>
+            {label}
+            {count !== undefined && (
+              <span className="ml-1.5 text-faded-sumi">· {formatExactCount(count)}</span>
+            )}
+          </>
+        }
+      />
+      {flag !== undefined && flag.trim().length > 0 && (
+        <>
+          <span aria-hidden="true" className="font-mono text-sm leading-none text-faded-sumi/70">·</span>
+          <span className="font-mono text-sm uppercase tracking-normal text-aizome-indigo/85">
+            {flag.trim()}
+          </span>
+        </>
+      )}
     </h2>
   )
 
@@ -86,7 +107,7 @@ export function CardHeader({
         <div className="grid min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:content-center">
           <div className="min-w-0">
             {title}
-            <p className="mt-2 max-w-[58ch] break-words text-[0.8125rem] leading-[1.55] text-faded-sumi">
+            <p className="mt-2 max-w-measure break-words text-sm leading-[1.55] text-faded-sumi">
               {description}
             </p>
           </div>
@@ -177,12 +198,12 @@ export function EmptyState({
 
   return (
     <div className={`min-w-0 py-6 ${className}`}>
-      <div className="grid w-full min-w-0 gap-5">
+      <div className="grid w-full min-w-0 gap-6">
         <div className={`min-w-0 w-full ${contentClassName}`}>
           <p className="break-words font-display text-lg leading-tight text-sumi-ink">
             {title}
           </p>
-          <p className="mt-2 max-w-[58ch] break-words text-sm leading-relaxed text-faded-sumi">
+          <p className="mt-2 max-w-measure break-words text-sm leading-relaxed text-faded-sumi">
             {body}
           </p>
           {action !== undefined && (
@@ -377,7 +398,7 @@ function ForecastPreview(): React.JSX.Element {
 
   return (
     <PreviewStage tone="forecast">
-      <div className="relative z-10 flex h-20 items-end gap-1.5 pt-3">
+      <div className="relative z-10 flex h-20 items-end gap-2 pt-3">
         {bars.map((bar, index) => (
           <span
             key={index}
@@ -386,13 +407,13 @@ function ForecastPreview(): React.JSX.Element {
           />
         ))}
       </div>
-      <div className="relative z-10 mt-3 grid grid-cols-7 gap-1.5">
+      <div className="relative z-10 mt-3 grid grid-cols-7 gap-2">
         {['今', '火', '水', '木', '金', '土', '日'].map((label, index) => (
           <span
             key={label}
             lang="ja"
             className={[
-              'text-center font-mono text-[0.625rem] leading-none',
+              'text-center font-mono text-sm leading-none',
               index === 0 ? 'text-inari-vermillion' : 'text-faded-sumi',
             ].join(' ')}
           >
@@ -415,10 +436,10 @@ function FocusPreview(): React.JSX.Element {
         要
       </span>
       <div className="relative z-10 pt-4">
-        <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-faded-sumi">
+        <p className="font-mono text-sm text-faded-sumi">
           pattern to watch
         </p>
-        <div className="mt-4 flex flex-wrap items-baseline gap-2.5">
+        <div className="mt-4 flex flex-wrap items-baseline gap-3">
           <span lang="ja" className="font-display text-2xl leading-none text-sumi-ink/85">
             払う
           </span>
@@ -426,7 +447,7 @@ function FocusPreview(): React.JSX.Element {
             はらう
           </span>
         </div>
-        <div className="mt-5 space-y-2.5">
+        <div className="mt-5 flex flex-col gap-y-3">
           <span className="block h-1.5 w-11/12 rounded-[1px] bg-soft-hairline/80" />
           <span className="today-empty-preview-accent block h-1.5 w-7/12 rounded-[1px] bg-inari-vermillion/[0.16]" />
           <span className="today-empty-preview-accent block h-1.5 w-9/12 rounded-[1px] bg-inari-vermillion/[0.28] [transition-delay:40ms]" />
@@ -474,7 +495,7 @@ function WeakSpotsPreview(): React.JSX.Element {
             ].join(' ')}
           >
             <span className={`today-empty-preview-accent absolute inset-x-0 top-0 h-[2px] ${card.marker}`} />
-            <span className="absolute left-3 top-3 font-mono text-[0.625rem] font-medium uppercase tracking-[0.08em] text-faded-sumi">
+            <span className="absolute left-3 top-3 font-mono text-sm font-medium text-faded-sumi">
               {card.label}
             </span>
             <div className="absolute inset-x-3 top-[3.15rem] flex items-center justify-center">
@@ -482,7 +503,7 @@ function WeakSpotsPreview(): React.JSX.Element {
                 {card.word}
               </span>
             </div>
-            <span className="absolute bottom-3 left-3 right-3 text-center font-mono text-[0.625rem] font-medium uppercase tracking-[0.06em] text-inari-vermillion-deep">
+            <span className="absolute bottom-3 left-3 right-3 text-center font-mono text-sm font-medium text-inari-vermillion-deep">
               <span className="today-empty-preview-glyph inline-block">
                 {card.misses}
               </span>
@@ -522,7 +543,7 @@ function RecentPreview(): React.JSX.Element {
             <span
               lang="ja"
               className={[
-                'font-mono text-[0.625rem] leading-none',
+                'font-mono text-sm leading-none',
                 day.label === '今' ? 'text-inari-vermillion' : 'text-faded-sumi',
               ].join(' ')}
             >
@@ -584,7 +605,7 @@ function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): React.JSX
     case 'forecast':
       return (
         <ErrorPreviewStage label="route gap">
-          <div className="relative z-10 flex h-20 items-end gap-1.5 pt-5">
+          <div className="relative z-10 flex h-20 items-end gap-2 pt-5">
             {[26, 40, 18, 54, 24, 36, 12].map((height, index) => (
               <span
                 key={index}
@@ -613,10 +634,10 @@ function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): React.JSX
             要
           </span>
           <div className="relative z-10 pt-8">
-            <span className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-error-deep/70">
+            <span className="font-mono text-sm text-error-deep/70">
               signal unavailable
             </span>
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 flex flex-col gap-y-3">
               <span className="block h-1.5 w-11/12 rounded-[1px] bg-error/20" />
               <span className="block h-1.5 w-7/12 rounded-[1px] bg-error/20" />
               <span className="block h-1.5 w-9/12 rounded-[1px] bg-error/45" />
@@ -697,10 +718,10 @@ function ErrorPreviewStage({
     >
       <span className="today-motion-colors absolute inset-x-4 top-4 h-px bg-error/25 group-hover/error:bg-error/35" />
       <span className="today-motion-colors absolute inset-x-6 bottom-4 h-px bg-error/20 group-hover/error:bg-error/30" />
-      <span className="today-motion-preview absolute left-4 top-5 flex h-5 w-5 items-center justify-center rounded-full border border-error/35 bg-error-tint font-mono text-[0.625rem] font-semibold text-error-deep group-hover/error:-translate-y-0.5 group-hover/error:border-error/50">
+      <span className="today-motion-preview absolute left-4 top-5 flex h-5 w-5 items-center justify-center rounded-full border border-error/35 bg-error-tint font-mono text-sm font-semibold text-error-deep group-hover/error:-translate-y-0.5 group-hover/error:border-error/50">
         !
       </span>
-      <span className="today-motion-preview absolute right-4 top-5 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-error-deep/65 group-hover/error:text-error-deep">
+      <span className="today-motion-preview absolute right-4 top-5 font-mono text-sm text-error-deep/65 group-hover/error:text-error-deep">
         {label}
       </span>
       {children}
@@ -741,7 +762,7 @@ function NoticeFrame({
           <p className="mt-3 break-words text-sm font-semibold leading-relaxed text-error-deep">
             {title ?? content.title}
           </p>
-          <p className="mt-1.5 max-w-[58ch] break-words text-sm leading-relaxed text-sumi-ink/80">
+          <p className="mt-1.5 max-w-measure break-words text-sm leading-relaxed text-sumi-ink/80">
             {message ?? body ?? content.body}
           </p>
           {staleFallback !== undefined && (

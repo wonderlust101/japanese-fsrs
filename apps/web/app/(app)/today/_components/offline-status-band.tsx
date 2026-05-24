@@ -50,14 +50,14 @@ export function OfflineStatusBand(): React.JSX.Element | null {
           className="absolute inset-x-0 top-0 h-[2px] bg-aizome-indigo"
         />
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
           <KanjiSeal kanji={content.kanji} />
 
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-aizome-indigo">
+            <p className="font-mono text-xs text-aizome-indigo">
               {content.eyebrow}
             </p>
-            <p className="mt-1.5 max-w-[60ch] text-balance text-sm leading-relaxed text-sumi-ink/85">
+            <p className="mt-1.5 max-w-measure text-balance text-sm leading-relaxed text-sumi-ink/85">
               {content.body}
             </p>
           </div>
@@ -66,7 +66,7 @@ export function OfflineStatusBand(): React.JSX.Element | null {
         </div>
 
         {kind === 'stuck' && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-aizome-indigo/15 pt-3.5">
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-aizome-indigo/15 pt-3.5">
             <button
               type="button"
               onClick={() => { queue.retryNow() }}
@@ -75,7 +75,7 @@ export function OfflineStatusBand(): React.JSX.Element | null {
                 'border border-aizome-indigo/30 bg-warm-paper-raised px-3',
                 'font-mono text-xs tracking-wide text-aizome-indigo',
                 'today-motion-colors hover:bg-aizome-indigo/[0.06]',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aizome-indigo/45',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
               ].join(' ')}
             >
               Try sending again
@@ -93,7 +93,7 @@ export function OfflineStatusBand(): React.JSX.Element | null {
                 'inline-flex min-h-11 items-center rounded-[2px] px-2 py-1',
                 'font-mono text-xs tracking-wide text-faded-sumi',
                 'today-motion-colors hover:text-sumi-ink hover:underline underline-offset-4',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion/45',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
               ].join(' ')}
             >
               Let them go

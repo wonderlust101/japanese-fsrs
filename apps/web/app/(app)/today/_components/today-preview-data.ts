@@ -1,7 +1,6 @@
 import { addDaysToDateKey } from './today-calendar'
 import type { DashboardHeroVariant, DueQueue, HeroDeckPreview } from './today-hero'
-import type { HeroDevControls } from './today-hero-dev-toolbar'
-import type { WeekRhythmPattern } from './today-modules-dev-toolbar'
+import type { HeroDevControls, WeekRhythmPattern } from '@/dev/panels/today'
 
 interface QueueShape {
   total:   number
@@ -26,8 +25,6 @@ export function buildPreviewHeroVariant(controls: HeroDevControls): DashboardHer
     case 'due':         return { kind: 'due', queue: buildPreviewQueue(controls) }
     case 'caught-up':   return { kind: 'caught-up' }
     case 'first-time':  return { kind: 'first-time' }
-    case 'loading':     return { kind: 'loading' }
-    case 'error':       return { kind: 'error' }
     case 'resume':      return { kind: 'resume', context: { remaining: previewResumeRemaining(controls) } }
   }
 }

@@ -5,7 +5,6 @@ import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { Skeleton } from '@/components/ui/Skeleton'
 
 import {
   addDaysToDateKey,
@@ -28,7 +27,7 @@ const CHART_HEIGHT        = 168
 // ── Segment tokens ───────────────────────────────────────────────────────────
 // Same three segments, sorted differently for stacking vs legend display.
 
-export type WeekRhythmState = 'default' | 'loading' | 'error'
+export type WeekRhythmState = 'default' | 'error'
 
 type SegmentKey = 'backlog' | 'review' | 'new'
 
@@ -120,23 +119,6 @@ export function WeekRhythmStrip({
   todayKey,
   apiDays,
 }: WeekRhythmStripProps): React.JSX.Element {
-  if (state === 'loading') {
-    return (
-      <SectionCard
-        id="week-rhythm"
-        kanji="週"
-        label="The week ahead"
-        description="Your review queue, day by day."
-        variant="chart"
-        chrome="chart"
-        ariaBusy
-        rightContent={<QuietLink href="/insights/forecast">See the next two weeks →</QuietLink>}
-      >
-        <SkeletonChart />
-      </SectionCard>
-    )
-  }
-
   if (state === 'error') {
     return (
       <SectionCard
@@ -192,7 +174,7 @@ export function WeekRhythmStrip({
     >
       <div className="mt-5">
         <ol
-          className="flex items-end gap-1.5 sm:gap-2 lg:gap-3"
+          className="flex items-end gap-2 sm:gap-2 lg:gap-3"
           style={{ height: `${CHART_HEIGHT}px` }}
           aria-label="Review forecast for the week ahead"
         >
@@ -209,20 +191,20 @@ export function WeekRhythmStrip({
 
         <hr aria-hidden="true" className="border-0 border-t border-soft-hairline" />
 
-        <ol aria-hidden="true" className="mt-3 flex items-start gap-1.5 sm:gap-2 lg:gap-3">
+        <ol aria-hidden="true" className="mt-3 flex items-start gap-2 sm:gap-2 lg:gap-3">
           {days.map((day, i) => (
             <li
               key={day.key}
               className={[
                 'flex-1 text-center',
-                day.isToday ? 'text-sumi-ink font-semibold' : 'text-faded-sumi/60',
+                day.isToday ? 'text-sumi-ink font-semibold' : 'text-faded-sumi',
                 i >= MOBILE_VISIBLE_DAYS ? 'hidden sm:block' : '',
               ].join(' ')}
             >
-              <div className="font-mono uppercase tracking-[0.06em] tabular-nums text-xs">
+              <div className="font-mono tabular-nums text-xs">
                 {day.isToday ? 'Today' : day.label}
               </div>
-              <div className="mt-0.5 font-mono tabular-nums text-[0.625rem] text-faded-sumi/60">
+              <div className="mt-0.5 hidden font-mono tabular-nums text-sm text-faded-sumi sm:block">
                 {day.isToday ? <span className="text-sumi-ink">{day.dateNum}</span> : day.dateNum}
               </div>
             </li>
@@ -268,7 +250,7 @@ function BarColumn({ day, dayIndex, scaleMax, mobileHidden = false }: BarColumnP
           'mb-1 max-w-full truncate font-mono tabular-nums leading-none',
           day.isToday
             ? 'text-xs font-semibold text-sumi-ink'
-            : 'text-[0.625rem] text-faded-sumi/60',
+            : 'text-sm text-faded-sumi',
         ].join(' ')}
       >
         {formatCompactCount(day.total)}
@@ -329,32 +311,9 @@ function StackedBar({ day, height }: StackedBarProps): React.JSX.Element {
   )
 }
 
-function SkeletonChart(): React.JSX.Element {
-  const heights = [46, 72, 34, 88, 58, 26, 64]
-  return (
-    <div className="mt-5">
-      <div className="flex items-end gap-1.5 sm:gap-2 lg:gap-3" style={{ height: `${CHART_HEIGHT}px` }}>
-        {heights.map((height, i) => (
-          <div key={i} className="flex h-full min-w-0 flex-1 items-end justify-center">
-            <Skeleton width="72%" height={height} className="rounded-t-[1px]" />
-          </div>
-        ))}
-      </div>
-      <hr aria-hidden="true" className="mt-0 border-0 border-t border-soft-hairline" />
-      <div className="mt-3 flex items-start gap-1.5 sm:gap-2 lg:gap-3">
-        {heights.map((_, i) => (
-          <div key={i} className="flex-1 text-center">
-            <Skeleton width="60%" height={11} className="mx-auto" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function Legend(): React.JSX.Element {
   return (
-    <ul aria-label="Bar segments" className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+    <ul aria-label="Bar segments" className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
       {LEGEND_SEGMENTS.map((segment) => (
         <li key={segment.key} className="inline-flex items-center gap-2">
           <span
@@ -362,7 +321,7 @@ function Legend(): React.JSX.Element {
             className="block h-2 w-2 rounded-[1px]"
             style={{ backgroundColor: segment.color }}
           />
-          <span className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi">
+          <span className="font-mono text-xs text-faded-sumi">
             {segment.label}
           </span>
         </li>
@@ -377,11 +336,11 @@ function EmptyForecast(): React.JSX.Element {
   // No top divider here — SectionCard's CardHeader already draws the hairline
   // rule directly above this content.
   return (
-    <div className="mt-4 flex flex-col items-start gap-y-1.5">
-      <p className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi">
+    <div className="mt-4 flex flex-col items-start gap-y-2">
+      <p className="font-mono text-xs text-faded-sumi">
         Quiet week
       </p>
-      <p className="max-w-[58ch] text-sm leading-relaxed text-faded-sumi">
+      <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
         Nothing is scheduled for the next seven days. Cards return when they are close to fading.
       </p>
     </div>
@@ -414,7 +373,7 @@ function Glossary(): React.JSX.Element {
     >
       <div>
         <dt
-          className="font-mono text-xs uppercase tracking-[0.12em]"
+          className="font-mono text-xs"
           style={{ color: 'var(--color-queue-new-mark)' }}
         >
           New
@@ -425,7 +384,7 @@ function Glossary(): React.JSX.Element {
       </div>
       <div>
         <dt
-          className="font-mono text-xs uppercase tracking-[0.12em]"
+          className="font-mono text-xs"
           style={{ color: 'var(--color-queue-review-mark)' }}
         >
           Due
@@ -436,7 +395,7 @@ function Glossary(): React.JSX.Element {
       </div>
       <div>
         <dt
-          className="font-mono text-xs uppercase tracking-[0.12em]"
+          className="font-mono text-xs"
           style={{ color: 'var(--color-queue-backlog-mark)' }}
         >
           Overdue
