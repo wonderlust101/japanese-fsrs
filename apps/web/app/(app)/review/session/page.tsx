@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter }                            from 'next/navigation'
 import { useShallow }                           from 'zustand/react/shallow'
+import { useQuery }                             from '@tanstack/react-query'
 
 import { ReviewCard }                      from '@/components/review/ReviewCard'
 import { Button }                          from '@/components/ui/Button'
@@ -11,6 +12,7 @@ import { PageLoader }                      from '@/components/ui/TomoLoader'
 import { EndSessionConfirmDialog }         from './_components/end-session-confirm-dialog'
 import { useSubmitReview, useOfflineSync, useDueCards } from '@/lib/api/reviews'
 import { useDecks }                        from '@/lib/api/decks'
+import { queryKeys }                       from '@/lib/api/queryKeys'
 import { getProfileAction }                from '@/lib/actions/profile.actions'
 import { buildDashboardCalendarContext }   from '@/app/(app)/today/_components/today-calendar'
 import { useSessionTuningStore }           from '@/stores/useSessionTuningStore'
@@ -77,26 +79,22 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   const dueQuery   = useDueCards()
   const decksQuery = useDecks(50)
 
-  // We need the calendar context for backlog classification. The session page
-  // is a client component, so we resolve timezone lazily; SSR-good defaults
-  // are fine because classification only matters once dueQuery resolves.
-  const [tz, setTz] = useState<string | undefined>(undefined)
-  const [todayKey, setTodayKey] = useState<string | undefined>(undefined)
-  // Ref guard so StrictMode's double-mount (dev) doesn't fire getProfileAction
-  // twice; the ref persists across the remount where `cancelled` does not.
-  const profileFetchedRef = useRef(false)
-  useEffect(() => {
-    if (profileFetchedRef.current) return
-    profileFetchedRef.current = true
-    let cancelled = false
-    void getProfileAction().then((profile) => {
-      if (cancelled) return
-      const cal = buildDashboardCalendarContext(new Date(), profile?.timezone)
-      setTz(cal.timeZone)
-      setTodayKey(cal.todayKey)
-    })
-    return () => { cancelled = true }
-  }, [])
+  // Calendar context for backlog classification needs the learner's timezone.
+  // Read it through the shared profile query — the same cache entry the insights
+  // pages use — so it dedupes across surfaces, retries, and survives StrictMode's
+  // double-mount without a manual ref guard. tz/todayKey derive during render and
+  // stay undefined until the query resolves, so `queuedCards` holds off
+  // classifying until then (preserving the prior lazy-resolve behavior).
+  const profileQuery = useQuery({
+    queryKey:  queryKeys.profile.me(),
+    queryFn:   getProfileAction,
+    staleTime: 1000 * 60 * 60,
+  })
+  const { tz, todayKey } = useMemo<{ tz: string | undefined; todayKey: string | undefined }>(() => {
+    if (!profileQuery.isSuccess) return { tz: undefined, todayKey: undefined }
+    const cal = buildDashboardCalendarContext(new Date(), profileQuery.data?.timezone)
+    return { tz: cal.timeZone, todayKey: cal.todayKey }
+  }, [profileQuery.isSuccess, profileQuery.data])
 
   // useShallow: fresh object literal would otherwise cause an infinite render
   // loop via useSyncExternalStore.
