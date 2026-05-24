@@ -12,6 +12,7 @@ import { PageLoader } from '@/components/ui/TomoLoader'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import { SessionTopBar } from '@/app/(app)/review/session/_components/session-top-bar'
+import { SessionOverlay } from '@/app/(app)/_components/session-overlay'
 import {
   useDrillSessionQuery,
   useFinishDrillSessionMutation,
@@ -441,7 +442,7 @@ interface DrillFrameProps {
 
 function DrillFrame({ percentage, onExit, children }: DrillFrameProps): React.JSX.Element {
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto">
+    <SessionOverlay>
       <SessionTopBar
         eyebrowLabel="Drill · Practice only"
         endLabel="End drill"
@@ -453,7 +454,7 @@ function DrillFrame({ percentage, onExit, children }: DrillFrameProps): React.JS
       <div className="flex flex-1 flex-col items-stretch justify-center pt-14 pb-32 px-4 sm:px-6 lg:pt-14">
         {children}
       </div>
-    </div>
+    </SessionOverlay>
   )
 }
 

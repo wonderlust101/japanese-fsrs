@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { HelpDialog } from '@/components/help/HelpDialog'
 import { getAuthUser } from '@/lib/supabase/get-auth-user'
 import { GlobalHelpKeybind } from './_components/global-help-keybind'
+import { RouteFocusManager } from './_components/route-focus-manager'
 import { Sidebar } from './_components/sidebar'
 import { MobileDrawer } from './_components/mobile-drawer'
 
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Opened from the sidebar/drawer HelpRow or the ? shortcut. */}
       <HelpDialog />
       <GlobalHelpKeybind />
+      <RouteFocusManager />
     </div>
   )
 }

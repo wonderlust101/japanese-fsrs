@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import type {
@@ -13,6 +13,7 @@ import type {
 
 import { Button } from '@/components/ui/Button'
 import { TomoSelect, type TomoSelectOption } from '@/components/ui/TomoSelect'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 
 import type { DeckOption } from './cards-toolbar'
 import {
@@ -50,19 +51,17 @@ export function CardsFilterSheet({
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
-  // Escape closes. The native <dialog> we replaced gave this for
-  // free; here we wire it manually.
-  useEffect(() => {
-    if (!open) return undefined
-    function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // Focus management. The native <dialog>/showModal() we replaced (for an iOS
+  // WebKit layout bug) gave focus trap + initial focus + Escape + focus-restore
+  // for free; useFocusTrap re-implements all of it for this portal-based sheet
+  // so `aria-modal` is honoured for keyboard users.
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(sheetRef, {
+    active:       open && mounted,
+    autoFocus:    true,
+    onEscape:     onClose,
+    restoreFocus: true,
+  })
 
   // Body scroll lock while the sheet is open so iOS doesn't let the
   // page scroll underneath. We restore the prior value on close so
@@ -89,10 +88,12 @@ export function CardsFilterSheet({
   // predictable across all WebKit/Blink builds.
   return createPortal(
     <div
+      ref={sheetRef}
       role="dialog"
       aria-modal="true"
       aria-label="Filter cards"
-      className="fixed inset-0 z-[var(--z-overlay)] flex flex-col items-stretch justify-end"
+      tabIndex={-1}
+      className="fixed inset-0 z-[var(--z-overlay)] flex flex-col items-stretch justify-end outline-none"
     >
       {/* Dim backdrop. Tap dismisses. Sits BEHIND the sheet via DOM
           order; the sheet's higher z within this stacking context

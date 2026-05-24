@@ -198,7 +198,7 @@ export function TomoSlider({
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
       className={[
-        'relative h-10 w-full touch-none select-none',
+        'group relative h-10 w-full touch-none select-none',
         disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
         'focus-visible:outline-none',
         className ?? '',
@@ -234,7 +234,7 @@ export function TomoSlider({
           // Hover halo only when not dragging (avoid the ring competing with
           // the pressed state)
           !isDragging && !disabled
-            ? 'group-hover:ring-4 group-hover:ring-vermillion-wash'
+            ? 'group-hover:ring-4 group-hover:ring-vermillion-wash group-focus-visible:ring-4 group-focus-visible:ring-vermillion-wash'
             : '',
           'transition-shadow duration-150 ease-out',
         ].join(' ')}

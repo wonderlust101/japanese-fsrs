@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 
+import { SessionOverlay } from '@/app/(app)/_components/session-overlay'
+
 export const metadata: Metadata = { title: 'Review session' }
 
 // Fixed-overlay zen layout. The session page mounts a fixed top bar
@@ -9,7 +11,7 @@ export const metadata: Metadata = { title: 'Review session' }
 
 export default function ReviewSessionLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto">
+    <SessionOverlay>
       {/* The page is free to mount its own fixed top bar; the main area
           reserves vertical space so the card centers between the bar above
           and the bar below. Padding-top accounts for the fixed top bar
@@ -17,6 +19,6 @@ export default function ReviewSessionLayout({ children }: { children: React.Reac
       <div className="flex-1 flex flex-col items-stretch justify-center pt-14 md:pt-14">
         {children}
       </div>
-    </div>
+    </SessionOverlay>
   )
 }

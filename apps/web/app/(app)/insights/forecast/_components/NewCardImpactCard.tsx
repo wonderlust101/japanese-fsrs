@@ -340,7 +340,7 @@ export function NewCardImpactCard({
                 className={cn(
                   'w-[3.5ch] cursor-text bg-transparent text-right',
                   'font-mono text-2xl font-semibold leading-none tabular-nums text-inari-vermillion-deep',
-                  'focus:outline-none',
+                  'rounded-xs outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-inari-vermillion-deep',
                   '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
                 )}
               />
