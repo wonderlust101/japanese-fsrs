@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -17,7 +18,6 @@ import {
   bulkDeleteCardsAction,
   bulkMoveCardsAction,
   bulkSuspendCardsAction,
-  bulkTagCardsAction,
   bulkUnsuspendCardsAction,
   copyCardAction,
   deleteCardAction,
@@ -52,6 +52,14 @@ export function useCardsCrossDeckQuery(
     queryKey:  queryKeys.cards.crossDeck(opts),
     queryFn:   () => listCardsCrossDeckAction(opts),
     staleTime: staleTimes.cardsList,
+    // Keep the previous result visible during a refetch under a new
+    // queryKey (filter/sort/search change). Without this, TanStack's
+    // cache lookup misses on the new key, `data` becomes undefined,
+    // `isLoading` flips true, and the consumer treats it as a cold
+    // boot. With this, the prior rows stay on screen and only
+    // `isFetching` flips — letting the cards page show a table-level
+    // skeleton while keeping the toolbar and chip strip interactive.
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -177,18 +185,3 @@ export function useBulkDeleteCardsMutation(): UseMutationResult<ApiBulkCardMutat
   })
 }
 
-export interface BulkTagVariables {
-  ids:         readonly string[]
-  addTags?:    readonly string[]
-  removeTags?: readonly string[]
-}
-export function useBulkTagCardsMutation(): UseMutationResult<ApiBulkCardMutationResult, Error, BulkTagVariables> {
-  const invalidate = useCardCachesInvalidator()
-  return useMutation({
-    mutationFn: (v) => bulkTagCardsAction(v.ids, {
-      ...(v.addTags    !== undefined ? { addTags:    v.addTags }    : {}),
-      ...(v.removeTags !== undefined ? { removeTags: v.removeTags } : {}),
-    }),
-    onSuccess:  () => invalidate(),
-  })
-}

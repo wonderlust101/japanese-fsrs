@@ -32,14 +32,18 @@ export interface ListLeechesOptions {
   jlptLevel?: string
   diagnosis?: WeakSpotDiagnosisFilter
   sort?:      WeakSpotSortOrder
+  /** Overrides the sort mode's natural direction. Omit for the default. */
+  sortDir?:   'asc' | 'desc'
+  /** Free-text query matched against the card's word / reading / meaning. */
+  search?:    string
   limit?:     number
-  cursor?:    string
+  /** 0-indexed row offset for the current page (page * limit). */
+  offset?:    number
 }
 
 const EMPTY_LIST: ApiWeakSpotListResponse = {
   items:      [],
-  nextCursor: null,
-  hasMore:    false,
+  totalCount: 0,
 }
 
 // ─── List ─────────────────────────────────────────────────────────────────────
@@ -56,11 +60,13 @@ export async function listWeakSpotsAction(
   const params = new URLSearchParams()
   params.set('status', opts.status ?? 'unresolved')
   params.set('sort',   opts.sort   ?? 'mostRecent')
+  if (opts.sortDir !== undefined) params.set('sortDir', opts.sortDir)
   params.set('limit',  String(opts.limit ?? 50))
   if (opts.deckId    !== undefined) params.set('deckId',    opts.deckId)
   if (opts.jlptLevel !== undefined) params.set('jlptLevel', opts.jlptLevel)
   if (opts.diagnosis !== undefined) params.set('diagnosis', opts.diagnosis)
-  if (opts.cursor    !== undefined) params.set('cursor',    opts.cursor)
+  if (opts.search    !== undefined && opts.search.trim().length > 0) params.set('search', opts.search.trim())
+  if (opts.offset    !== undefined && opts.offset > 0) params.set('offset', String(opts.offset))
 
   return apiCallSafe<ApiWeakSpotListResponse>(
     `/api/v1/weak-spots?${params.toString()}`,

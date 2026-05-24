@@ -10,6 +10,7 @@ import {
 import type {
   ApiCopyDeckResult,
   ApiDeck,
+  ApiDeckWithStats,
   ApiList,
 } from '@fsrs-japanese/shared-types'
 
@@ -17,6 +18,7 @@ import {
   archiveDeckAction,
   copyDeckAction,
   listDecksAction,
+  listDecksWithStatsAction,
   unarchiveDeckAction,
   type DeckListView,
 } from '../actions/decks.actions'
@@ -36,6 +38,24 @@ export function useDecks(
   return useQuery({
     queryKey:  [...queryKeys.decks.list(), { limit, view }] as const,
     queryFn:   () => listDecksAction({ limit, view }),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+/**
+ * Lists decks with their server-rolled-up stats (due / new / mature counts).
+ * Same endpoint and cache family as {@link useDecks}, but typed and parsed as
+ * `ApiDeckWithStats` so consumers can read `dueCount` without a per-deck
+ * `getDeck` fanout. The query key carries a `withStats` discriminator so the
+ * richer payload doesn't collide with the slim `useDecks` cache entry.
+ */
+export function useDecksWithStats(
+  limit: number = 8,
+  view:  DeckListView = 'active',
+): UseQueryResult<ApiList<ApiDeckWithStats>, Error> {
+  return useQuery({
+    queryKey:  [...queryKeys.decks.list(), { limit, view, withStats: true }] as const,
+    queryFn:   () => listDecksWithStatsAction({ limit, view }),
     staleTime: 1000 * 60 * 5,
   })
 }

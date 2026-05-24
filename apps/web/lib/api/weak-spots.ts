@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -37,19 +38,26 @@ import { queryKeys }  from './queryKeys'
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 /**
- * Paginated weakSpot list. The filter object is included in the cache key so
- * different filter combinations are fetched and cached independently. Stale
- * time matches analytics — the list is mutated by reviews (server side) and
- * resolve/reopen/diagnose (client side); all three invalidate via the
- * mutations below.
+ * Paginated weakSpot list. The filter object (including `offset`) is part of
+ * the cache key so every page + filter combination is fetched and cached
+ * independently. Stale time matches analytics: the list is mutated by reviews
+ * (server side) and resolve/reopen/diagnose (client side); all three
+ * invalidate via the mutations below.
+ *
+ * `placeholderData: keepPreviousData` keeps the prior page on screen during a
+ * page/filter/sort refetch (mirrors the cross-deck cards browser), so the
+ * toolbar and rows stay interactive instead of flashing the page loader. The
+ * view distinguishes the cold first paint (`isLoading`) from a subsequent
+ * refetch (`isFetching`) to drive its pagination-busy affordance.
  */
 export function useWeakSpotsQuery(
   opts: ListLeechesOptions = {},
 ): UseQueryResult<ApiWeakSpotListResponse, Error> {
   return useQuery({
-    queryKey:  queryKeys.weakSpots.list(opts),
-    queryFn:   () => listWeakSpotsAction(opts),
-    staleTime: staleTimes.analytics,
+    queryKey:       queryKeys.weakSpots.list(opts),
+    queryFn:        () => listWeakSpotsAction(opts),
+    staleTime:      staleTimes.analytics,
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -79,16 +87,21 @@ export function useWeakSpotDetailQuery(
  * other `status=unresolved` list view of the same shape.
  *
  * Returned shape:
- *   - `count`     : number of unresolved weakSpots the server returned (≤ 50).
- *   - `hasMore`   : true if the server signalled more pages exist; the sidebar
- *                   uses this to render a `50+` overflow chip rather than the
- *                   raw `count` (which would visually undercount).
+ *   - `count`     : exact number of unresolved weakSpots (full `totalCount`,
+ *                   not the page window length).
+ *   - `hasMore`   : true when the count exceeds the chip cap (50); the sidebar
+ *                   renders a `50+` overflow chip rather than the raw count.
  *   - `isLoading` : true on the very first hydration. Sidebar callers render
  *                   no badge during initial load — the chip is decoration,
  *                   not navigation, so a shimmer would be noise.
  *
- * Caps follow the spec: the count chip caps at 50 with a `+` overflow.
+ * Caps follow the spec: the count chip caps at 50 with a `+` overflow. We ask
+ * for `limit: 1` because the offset contract returns the full `totalCount`
+ * independent of the page window, so a single row is enough to learn the
+ * count without over-fetching.
  */
+const WEAK_SPOT_COUNT_CAP = 50
+
 export function useUnresolvedWeakSpotCount(): {
   count:     number
   hasMore:   boolean
@@ -96,12 +109,15 @@ export function useUnresolvedWeakSpotCount(): {
 } {
   const query = useWeakSpotsQuery({
     status: 'unresolved',
-    limit:  50,
+    limit:  1,
     sort:   'mostRecent',
   })
+  const total = query.data?.totalCount ?? 0
+  // `count` is pre-capped at the chip cap so the badge renderer can append a
+  // `+` when `hasMore` (e.g. 218 unresolved → chip reads "50+", never "218+").
   return {
-    count:     query.data?.items.length ?? 0,
-    hasMore:   query.data?.hasMore      ?? false,
+    count:     Math.min(total, WEAK_SPOT_COUNT_CAP),
+    hasMore:   total > WEAK_SPOT_COUNT_CAP,
     isLoading: query.isLoading,
   }
 }

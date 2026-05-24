@@ -16,6 +16,7 @@ import {
 } from '@fsrs-japanese/shared-types'
 
 const EMPTY_DECKS_PAGE: ApiList<ApiDeck> = { items: [], nextCursor: null, hasMore: false }
+const EMPTY_DECKS_STATS_PAGE: ApiList<ApiDeckWithStats> = { items: [], nextCursor: null, hasMore: false }
 
 /** Server-side filter forwarded to `GET /api/v1/decks?view=`. Matches the
  *  backend contract introduced in migration 20260622000000_deck_archive.sql:
@@ -36,6 +37,53 @@ export async function listDecksAction(
     apiListEnvelope(ApiDeckSchema),
     {},
     EMPTY_DECKS_PAGE,
+  )
+}
+
+/**
+ * Stats-bearing variant of {@link listDecksAction}. `GET /api/v1/decks` is
+ * backed by `list_decks_paginated`, which already rolls up per-deck
+ * due/new/mature counts (Backend Completion Plan Stage 3) — the plain
+ * `listDecksAction` parses through `ApiDeckSchema` and drops them. This
+ * variant parses through `ApiDeckWithStatsSchema` so callers that need
+ * `dueCount` (e.g. the forecast's Deck Contributors module) read it from the
+ * single list round-trip instead of firing one `getDeck` per deck.
+ *
+ * Fail-open like `listDecksAction`: an unreachable API yields an empty page
+ * rather than throwing, so a dashboard module degrades to "no decks" instead
+ * of an error boundary.
+ */
+export async function listDecksWithStatsAction(
+  options: { limit?: number; cursor?: string; view?: DeckListView } = {},
+): Promise<ApiList<ApiDeckWithStats>> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 50))
+  if (options.cursor !== undefined) params.set('cursor', options.cursor)
+  if (options.view   !== undefined) params.set('view',   options.view)
+
+  return apiCallSafe<ApiList<ApiDeckWithStats>>(
+    `/api/v1/decks?${params.toString()}`,
+    apiListEnvelope(ApiDeckWithStatsSchema),
+    {},
+    EMPTY_DECKS_STATS_PAGE,
+  )
+}
+
+/**
+ * Throwing variant for the Statistics deep-dive, which opts into real error
+ * visibility (so its cards-by-deck module can show a retry distinct from
+ * "no decks"). Other consumers keep the fail-open `listDecksAction` above.
+ */
+export async function listDecksStrictAction(
+  options: { limit?: number } = {},
+): Promise<ApiList<ApiDeck>> {
+  const params = new URLSearchParams()
+  params.set('limit', String(options.limit ?? 50))
+  return apiCall<ApiList<ApiDeck>>(
+    `/api/v1/decks?${params.toString()}`,
+    apiListEnvelope(ApiDeckSchema),
+    {},
+    'Failed to fetch decks',
   )
 }
 

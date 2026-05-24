@@ -1,6 +1,6 @@
 'use server'
 
-import { apiCall, apiCallSafe, ApiHttpError } from '@/lib/api/client'
+import { apiCall, apiCallSafe } from '@/lib/api/client'
 import { z } from 'zod'
 import {
   ApiCardSchema,
@@ -23,10 +23,11 @@ import {
   type CardPresentField,
   type PitchPattern,
   type CardSortField,
+  type CardSortDir,
   type CardStatusFilter,
   type CreateCardPayload,
-  type CrossDeckJlptFilter,
   type UpdateCardPayload,
+  type CrossDeckJlptFilter,
   type GeneratedCardData,
   type GeneratedSentences,
   type GeneratedMnemonic,
@@ -125,53 +126,74 @@ export async function getCardByIdAction(cardId: string): Promise<ApiCard | null>
 }
 
 /**
- * Result type for `updateCardAction`. The 412 If-Match conflict is a *normal*
- * outcome of optimistic concurrency — not an exceptional one — so it surfaces
- * as a discriminated result rather than a thrown error. This crosses the
- * Server-Action boundary cleanly (Next.js can't carry a typed error class
- * from server to client). All other failures still throw via `apiCall`.
+ * Updates a card's content fields. PATCH semantics: only the keys present in
+ * `payload` are written. Optimistic concurrency is enforced via the
+ * `If-Match: <version>` header — pass the `version` read from the card being
+ * edited. A stale version surfaces as an `ApiHttpError` with status 412 so
+ * the editor can prompt the user to reload, distinct from a 5xx.
+ *
+ * Returns the freshly-updated `ApiCard` (with a bumped `version`).
  */
-export type UpdateCardResult =
-  | { ok: true;  card: ApiCard }
-  | { ok: false; conflict: true }
-
 export async function updateCardAction(
   cardId:  string,
   version: number,
   payload: UpdateCardPayload,
-): Promise<UpdateCardResult> {
-  try {
-    const card = await apiCall<ApiCard>(
-      `/api/v1/cards/${cardId}`,
-      ApiCardSchema,
-      {
-        method:  'PATCH',
-        headers: { 'If-Match': String(version) },
-        body:    JSON.stringify(payload),
-      },
-      'Failed to update card',
-    )
-    return { ok: true, card }
-  } catch (err: unknown) {
-    if (err instanceof ApiHttpError && err.status === 412) {
-      return { ok: false, conflict: true }
-    }
-    throw err
-  }
+): Promise<ApiCard> {
+  return apiCall<ApiCard>(
+    `/api/v1/cards/${cardId}`,
+    ApiCardSchema,
+    {
+      method:  'PATCH',
+      headers: { 'If-Match': String(version) },
+      body:    JSON.stringify(payload),
+    },
+    'Failed to update card',
+  )
 }
 
+/** Generate sentences for a saved card. `avoid` lists existing sentences so
+ *  the server prompts for fresh, non-duplicate output (and caches per-context). */
 export async function generateSentencesAction(
   cardId: string,
   count?: number,
+  avoid?: string[],
 ): Promise<GeneratedSentences> {
   return apiCall<GeneratedSentences>(
     '/api/v1/ai/generate-sentences',
     GeneratedSentencesSchema,
     {
       method: 'POST',
-      body:   JSON.stringify(count !== undefined ? { cardId, count } : { cardId }),
+      body:   JSON.stringify({
+        cardId,
+        ...(count !== undefined ? { count } : {}),
+        ...(avoid !== undefined && avoid.length > 0 ? { avoid } : {}),
+      }),
     },
     'Failed to regenerate sentences',
+  )
+}
+
+/** Pre-save variant: generate sentences from a raw `word` before any card
+ *  exists. Routes through the same endpoint's `word` branch (no cardId lookup,
+ *  no deck guard), so the /add/review preview can produce real, varied
+ *  sentences instead of abusing the full card generator. */
+export async function generateSentencesByWordAction(
+  word:   string,
+  count?: number,
+  avoid?: string[],
+): Promise<GeneratedSentences> {
+  return apiCall<GeneratedSentences>(
+    '/api/v1/ai/generate-sentences',
+    GeneratedSentencesSchema,
+    {
+      method: 'POST',
+      body:   JSON.stringify({
+        word,
+        ...(count !== undefined ? { count } : {}),
+        ...(avoid !== undefined && avoid.length > 0 ? { avoid } : {}),
+      }),
+    },
+    'Failed to generate sentences',
   )
 }
 
@@ -216,7 +238,13 @@ export async function moveCardAction(cardId: string, targetDeckId: string): Prom
 /** Query params for the cross-deck list. Mirrors the backend Zod schema. */
 export interface CrossDeckCardsActionOptions {
   limit?:        number
-  cursor?:       string
+  /**
+   * Zero-based row offset for pagination. Replaces the cursor field
+   * that existed until 20260630000003 — the cross-deck endpoint
+   * switched to offset pagination so the cards page can support
+   * clickable numbered page buttons.
+   */
+  offset?:       number
   search?:       string
   deckId?:       string
   jlptLevel?:    CrossDeckJlptFilter
@@ -225,15 +253,15 @@ export interface CrossDeckCardsActionOptions {
   presentField?: CardPresentField
   pitchPattern?: PitchPattern
   sort?:         CardSortField
+  sortDir?:      CardSortDir
 }
 
-const EMPTY_CROSS_DECK_PAGE: ApiList<ApiCrossDeckCardListItem> & { totalCount: number } = {
-  items: [], nextCursor: null, hasMore: false, totalCount: 0,
+const EMPTY_CROSS_DECK_PAGE: { items: ApiCrossDeckCardListItem[]; hasMore: boolean; totalCount: number } = {
+  items: [], hasMore: false, totalCount: 0,
 }
 
 const CrossDeckListResultSchema = z.object({
   items:      z.array(ApiCrossDeckCardListItemSchema),
-  nextCursor: z.string().nullable(),
   hasMore:    z.boolean(),
   totalCount: z.number().int().nonnegative(),
 })
@@ -245,7 +273,7 @@ export async function listCardsCrossDeckAction(
 ): Promise<CrossDeckListResult> {
   const params = new URLSearchParams()
   params.set('limit', String(options.limit ?? 25))
-  if (options.cursor       !== undefined)                                       params.set('cursor',       options.cursor)
+  if (options.offset       !== undefined && options.offset > 0)                 params.set('offset',       String(options.offset))
   if (options.search       !== undefined && options.search.length > 0)          params.set('search',       options.search)
   if (options.deckId       !== undefined)                                       params.set('deckId',       options.deckId)
   if (options.jlptLevel    !== undefined && options.jlptLevel    !== 'all')     params.set('jlptLevel',    options.jlptLevel)
@@ -254,6 +282,7 @@ export async function listCardsCrossDeckAction(
   if (options.presentField !== undefined)                                       params.set('presentField', options.presentField)
   if (options.pitchPattern !== undefined)                                       params.set('pitchPattern', options.pitchPattern)
   if (options.sort         !== undefined)                                       params.set('sort',         options.sort)
+  if (options.sortDir      !== undefined)                                       params.set('sortDir',      options.sortDir)
 
   return apiCallSafe<CrossDeckListResult>(
     `/api/v1/cards/cross-deck?${params.toString()}`,
@@ -411,22 +440,3 @@ export async function bulkDeleteCardsAction(
   )
 }
 
-export async function bulkTagCardsAction(
-  ids: readonly string[],
-  options: { addTags?: readonly string[]; removeTags?: readonly string[] },
-): Promise<ApiBulkCardMutationResult> {
-  const body: Record<string, unknown> = { ids }
-  if (options.addTags    !== undefined && options.addTags.length > 0)    body['addTags']    = options.addTags
-  if (options.removeTags !== undefined && options.removeTags.length > 0) body['removeTags'] = options.removeTags
-
-  return apiCall<ApiBulkCardMutationResult>(
-    '/api/v1/cards/bulk/tag',
-    ApiBulkCardMutationResultSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': crypto.randomUUID() },
-      body:    JSON.stringify(body),
-    },
-    'Failed to tag cards',
-  )
-}

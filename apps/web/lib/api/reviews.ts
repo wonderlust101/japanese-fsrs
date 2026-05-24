@@ -10,13 +10,16 @@ import {
   submitReviewAction,
   submitBatchAction,
   getDueCardsAction,
+  getRatingsPreviewAction,
   getReviewForecastAction,
   getSessionSummaryAction,
+  batchDiagnoseSessionWeakSpotsAction,
   rollbackReviewAction,
 } from '../actions/reviews.actions'
 import type {
   SessionSummary,
-  ApiDueCard, ApiForecastDay, ApiList, ApiReviewedCard,
+  ApiDueCard, ApiForecastDay, ApiList, ApiRatingsPreview, ApiReviewedCard,
+  ApiBatchDiagnoseResult,
   SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
 
@@ -52,6 +55,24 @@ export function useDueCards(): UseQueryResult<ApiList<ApiDueCard>> {
   return useQuery({
     queryKey: queryKeys.reviews.due(),
     queryFn:  getDueCardsAction,
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
+/**
+ * Anki-style next-interval preview for a single card. Used to render the
+ * "what happens if I rate this?" labels above each rating button when the
+ * answer is revealed. Disabled when `cardId` is null (no active card).
+ *
+ * Stable per (cardId, FSRS-state) — since FSRS state only changes after a
+ * rating is submitted, we cache aggressively here; `useSubmitReview` already
+ * invalidates `reviews.due` which forces the next card view to refetch.
+ */
+export function useRatingsPreview(cardId: string | null): UseQueryResult<ApiRatingsPreview> {
+  return useQuery({
+    queryKey: queryKeys.reviews.preview(cardId ?? ''),
+    queryFn:  () => getRatingsPreviewAction(cardId as string),
+    enabled:  cardId !== null,
     staleTime: 1000 * 60 * 5,
   })
 }
@@ -102,6 +123,30 @@ export function useSessionSummary(sessionId: string | null): UseQueryResult<Sess
     // backoff before the page can render its forgiving empty state.
     // Single-shot read; if it failed once it will fail again the same way.
     retry: false,
+  })
+}
+
+// Batch diagnose mutation. On success, invalidate the session-summary
+// query so the freshly-populated diagnoses re-render inline on the
+// weak-spot rows.
+export function useBatchDiagnoseSessionWeakSpots(
+  sessionId: string | null,
+): UseMutationResult<ApiBatchDiagnoseResult, Error, void> {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => {
+      if (sessionId === null) {
+        return Promise.reject(new Error('No session ID for batch diagnose'))
+      }
+      return batchDiagnoseSessionWeakSpotsAction(sessionId)
+    },
+    onSuccess: () => {
+      if (sessionId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.reviews.summary(sessionId),
+        })
+      }
+    },
   })
 }
 

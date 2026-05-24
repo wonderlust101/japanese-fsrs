@@ -16,9 +16,16 @@ export const queryKeys = {
     qualityIssues: ()                => [...queryKeys.cards.all(), 'qualityIssues']      as const,
   },
   reviews: {
-    due:      ()           => ['reviews', 'due']            as const,
-    forecast: ()           => ['reviews', 'forecast']       as const,
-    summary:  (id: string) => ['reviews', 'summary', id]   as const,
+    due:      ()                 => ['reviews', 'due']                as const,
+    forecast: ()                 => ['reviews', 'forecast']           as const,
+    summary:  (id: string)       => ['reviews', 'summary', id]        as const,
+    preview:  (cardId: string)   => ['reviews', 'preview', cardId]    as const,
+    // Session-scoped post-session day reflection. The backend keys cache
+    // by the day's session-IDs fingerprint, so a new same-day session
+    // naturally bypasses the previous response. Using sessionId in the
+    // client key is correct because the URL path is sessionId-scoped.
+    dayReflection: (sessionId: string) =>
+      ['reviews', 'day-reflection', sessionId] as const,
   },
   analytics: {
     dashboard:  () => ['analytics', 'dashboard']  as const,

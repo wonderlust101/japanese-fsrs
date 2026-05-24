@@ -5,8 +5,10 @@ import {
   ApiBatchResultSchema,
   ApiDueCardSchema,
   ApiForecastDaySchema,
+  ApiRatingsPreviewSchema,
   ApiReviewSubmitResponseSchema,
   ApiReviewedCardSchema,
+  ApiBatchDiagnoseResultSchema,
   SessionSummarySchema,
   apiListEnvelope,
   voidResponseSchema,
@@ -15,6 +17,8 @@ import {
   type ApiForecastDay,
   type ApiList,
   type ApiBatchResult,
+  type ApiBatchDiagnoseResult,
+  type ApiRatingsPreview,
   type ApiReviewedCard,
   type SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
@@ -60,6 +64,26 @@ export async function getSessionSummaryAction(sessionId: string): Promise<Sessio
   )
 }
 
+// Batch diagnose all undiagnosed weak spots for a session. Returns a tally.
+// Uses `apiCall` (not safe) because the caller needs to know whether the
+// mutation succeeded so it can decide to invalidate the session-summary
+// query. Per-row failures are absorbed server-side; the wire response is
+// always 200 with the tally unless the auth/rate-limit gate fails.
+export async function batchDiagnoseSessionWeakSpotsAction(
+  sessionId: string,
+): Promise<ApiBatchDiagnoseResult> {
+  return apiCall<ApiBatchDiagnoseResult>(
+    `/api/v1/reviews/sessions/${encodeURIComponent(sessionId)}/diagnose-weak-spots`,
+    ApiBatchDiagnoseResultSchema,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify({}),
+    },
+    'Failed to diagnose session weak spots',
+  )
+}
+
 export async function submitBatchAction(
   reviews:         SubmitReviewInput[],
   idempotencyKey?: string,
@@ -95,6 +119,15 @@ export async function rollbackReviewAction(reviewLogId: string): Promise<void> {
       body:    JSON.stringify({}),
     },
     'Failed to roll back review',
+  )
+}
+
+export async function getRatingsPreviewAction(cardId: string): Promise<ApiRatingsPreview> {
+  return apiCall<ApiRatingsPreview>(
+    `/api/v1/reviews/${encodeURIComponent(cardId)}/preview`,
+    ApiRatingsPreviewSchema,
+    {},
+    'Failed to fetch ratings preview',
   )
 }
 

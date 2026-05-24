@@ -1,30 +1,19 @@
-import type { SessionSummary } from '@fsrs-japanese/shared-types'
+import {
+  classifySession,
+  type PatternInputs,
+  type SessionPattern,
+  type SessionSummary,
+} from '@fsrs-japanese/shared-types'
 
-// Six session-pattern keys, matching the Review Summary IA brief's
-// "Primary Action Logic" table. The classifier reads the SessionSummary
-// payload plus an out-of-band `endedEarly` signal (passed via query param
-// from the session page when the learner taps "End session") and picks
-// the pattern that best describes the session. State drives content
-// (hero copy, diagnosis, recommended action) but never layout.
+// Pattern-to-prose mapping for the review summary UI. The classifier
+// itself lives in shared-types/review/classify-session.ts so the backend
+// fallback (apps/api/src/services/day-reflection.service.ts) can reuse
+// the exact same predicate ladder without drift. Per-pattern prose stays
+// here because the UI copy and the backend fallback copy are allowed to
+// diverge intentionally.
 
-export type SessionPattern =
-  | 'strong'
-  | 'mixed'
-  | 'difficult'
-  | 'weakSpot'
-  | 'ended-early'
-  | 'no-pattern'
-
-export interface PatternInputs {
-  totalCards:  number
-  accuracyPct: number
-  again:       number
-  hard:        number
-  good:        number
-  easy:        number
-  leechCount:  number
-  endedEarly:  boolean
-}
+export type { SessionPattern, PatternInputs }
+export { classifySession }
 
 export function inputsFromSummary(
   summary: SessionSummary,
@@ -40,21 +29,6 @@ export function inputsFromSummary(
     leechCount:  summary.weakSpots.length,
     endedEarly,
   }
-}
-
-// Ordered most-specific-first; first matching predicate wins.
-export function classifySession(i: PatternInputs): SessionPattern {
-  if (i.totalCards < 5)             return 'no-pattern'
-  if (i.endedEarly)                 return 'ended-early'
-  if (i.leechCount >= 3)            return 'weakSpot'
-  if (i.accuracyPct < 65)           return 'difficult'
-  if (i.again / i.totalCards > 0.25) return 'difficult'
-  if (
-    i.accuracyPct >= 90 &&
-    i.leechCount === 0 &&
-    i.again === 0
-  )                                 return 'strong'
-  return 'mixed'
 }
 
 // ── Content mapping ──────────────────────────────────────────────────────────
@@ -116,12 +90,12 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'strong':
       return {
         pattern,
-        kicker:         { kanji: '終', label: 'Session closed' },
-        heroHeadline:   'Session closed. Nice rhythm today.',
-        heroSubcopy:    undefined,
+        kicker:         { kanji: '済', label: 'All done' },
+        heroHeadline:   'Beautifully done.',
+        heroSubcopy:    'That was a clean run. Enjoy the rest of your morning.',
         diagnosisLead:  'No clear weak spot today.',
         diagnosisAside: null,
-        rationale:      'Today reads as a strong session. Leave for today is fine.',
+        rationale:      'Today reads as a strong session. The deck is settled; leave the rest for tomorrow.',
         primary:        { label: 'Leave for today', route: { kind: 'today' } },
         secondary:      undefined,
         showProblemCards:   false,
@@ -131,8 +105,9 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'mixed':
       return {
         pattern,
-        kicker:         { kanji: '終', label: 'Session closed' },
-        heroHeadline:   'Session closed.',
+        kicker:         { kanji: '済', label: 'Session wrapped' },
+        heroHeadline:   'Nicely wrapped.',
+        heroSubcopy:    'A few rough spots, nothing alarming.',
         diagnosisLead:  'A few rough spots, nothing alarming.',
         diagnosisAside: specifics,
         rationale:      'Most of the session held together. The few rough spots can wait until tomorrow.',
@@ -146,8 +121,9 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'difficult':
       return {
         pattern,
-        kicker:         { kanji: '終', label: 'Session closed' },
-        heroHeadline:   'Session closed. That was a heavy one.',
+        kicker:         { kanji: '済', label: 'Session wrapped' },
+        heroHeadline:   'You stayed with it.',
+        heroSubcopy:    'That was a heavy one. The effort still counts.',
         diagnosisLead:  'Recall sat lower than usual. A short focused drill will help.',
         diagnosisAside: specifics,
         rationale:      'A short drill on the cards below settles the rough spots without restarting the day.',
@@ -161,9 +137,10 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'weakSpot':
       return {
         pattern,
-        kicker:         { kanji: '終', label: 'Session closed' },
-        heroHeadline:   'Session closed.',
-        diagnosisLead:  'A handful of cards keep slipping. They look like weakSpots.',
+        kicker:         { kanji: '済', label: 'Session wrapped' },
+        heroHeadline:   'Practice done.',
+        heroSubcopy:    'A handful of cards keep slipping. Worth a closer look.',
+        diagnosisLead:  'A handful of cards keep slipping. They look like weak spots.',
         diagnosisAside: specifics,
         rationale:      'Repairing the cards below once is usually enough to break the loop.',
         primary:        { label: 'Improve weak spots', route: { kind: 'repair' } },
@@ -174,8 +151,8 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'ended-early':
       return {
         pattern,
-        kicker:         { kanji: '中', label: 'Session paused' },
-        heroHeadline:   'Session closed. Picked up where it fit.',
+        kicker:         { kanji: '中', label: 'Paused for now' },
+        heroHeadline:   'Stopped at a good spot.',
         heroSubcopy:    'Partial sessions still count.',
         diagnosisLead:  inputs.leechCount > 0
           ? 'A short stop is fine; the rough spots will come back around.'
@@ -192,11 +169,12 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
     case 'no-pattern':
       return {
         pattern,
-        kicker:         { kanji: '終', label: 'Session closed' },
-        heroHeadline:   'Session closed.',
+        kicker:         { kanji: '済', label: 'Short and sweet' },
+        heroHeadline:   'Short and sweet.',
+        heroSubcopy:    'A brief one today. Every pass keeps the rhythm.',
         diagnosisLead:  'Short session today.',
         diagnosisAside: 'Not enough cards to call a pattern.',
-        rationale:      'Nothing requires action. Leave for today.',
+        rationale:      'Nothing requires action. Leave the rest for tomorrow.',
         primary:        { label: 'Leave for today', route: { kind: 'today' } },
         secondary:      undefined,
         showProblemCards:   inputs.leechCount > 0,
