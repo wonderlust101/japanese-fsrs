@@ -17,6 +17,7 @@
     "@fsrs-japanese/shared-types": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
+    "compression": "^1.7.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@fsrs-japanese/tsconfig": "workspace:*",
+    "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/supertest": "^7.2.0",
