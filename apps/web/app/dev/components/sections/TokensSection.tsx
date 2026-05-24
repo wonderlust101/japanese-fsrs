@@ -98,7 +98,7 @@ function SwatchGroup({
 }): React.JSX.Element {
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">{title}</h3>
+      <h3 className="text-xs text-faded-sumi mb-3">{title}</h3>
       <ShowcaseGrid minColumnWidth={180}>
         {tokens.map(token => (
           <ShowcaseItem key={token.name} label={token.name} caption={token.value || '—'}>
@@ -117,7 +117,7 @@ function SwatchGroup({
 function FontGroup({ title }: { title: string }): React.JSX.Element {
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">{title}</h3>
+      <h3 className="text-xs text-faded-sumi mb-3">{title}</h3>
       <ShowcaseGrid minColumnWidth={280}>
         {FONT_SAMPLES.map(sample => (
           <ShowcaseItem key={sample.token} label={sample.family} caption={sample.token} fill>

@@ -8,7 +8,7 @@ export function SideNav({ sections }: SideNavProps): React.JSX.Element {
       aria-label="Component categories"
       className="hidden lg:block self-start sticky top-10"
     >
-      <p className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3 px-2">Categories</p>
+      <p className="text-xs text-faded-sumi mb-3 px-2">Categories</p>
       <ul className="flex flex-col">
         {sections.map(section => (
           <li key={section.id}>

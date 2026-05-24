@@ -33,8 +33,6 @@ const HERO_STATE_OPTIONS: Array<{ value: HeroKind; label: string }> = [
   { value: 'due',        label: 'Due' },
   { value: 'caught-up',  label: 'Caught up' },
   { value: 'first-time', label: 'First time' },
-  { value: 'loading',    label: 'Loading' },
-  { value: 'error',      label: 'Error' },
 ]
 
 type HeroDeckPreviewMode = 'stack' | 'single'
@@ -132,7 +130,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       description="Composed visualizations and previews from the onboarding and dashboard flows."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">DashboardHero</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">DashboardHero</h3>
         <div className="rounded-[2px] border border-soft-hairline bg-cool-paper-base p-3 sm:p-4">
           <div className="mb-2 flex flex-wrap gap-2">
             {HERO_STATE_OPTIONS.map(option => (
@@ -173,7 +171,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">SampleCard / SampleSentence</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">SampleCard / SampleSentence</h3>
         <ShowcaseGrid minColumnWidth={320}>
           <ShowcaseItem label="SampleCard" caption='word/reading/meaning/caption' fill>
             <SampleCard
@@ -194,7 +192,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">DailyQuotaChart</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">DailyQuotaChart</h3>
         <ShowcaseGrid minColumnWidth={420}>
           <ShowcaseItem label="DailyQuotaChart" caption={`pace="${pace ?? 'null'}"`} fill>
             <div className="flex flex-col gap-3">
@@ -222,7 +220,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">DeckSummary</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">DeckSummary</h3>
         <ShowcaseGrid minColumnWidth={420}>
           <ShowcaseItem label="DeckSummary" caption="allDecks / subscribedIds / paceNewPerDay" fill>
             <div className="flex flex-col gap-3">
@@ -250,7 +248,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">ForgettingCurve / ScheduleHorizon</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">ForgettingCurve / ScheduleHorizon</h3>
         <ShowcaseGrid minColumnWidth={420}>
           <ShowcaseItem label="ForgettingCurve" caption="(no required props)" fill>
             <ForgettingCurve />
@@ -262,7 +260,7 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">VolumeBar</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">VolumeBar</h3>
         <ShowcaseGrid minColumnWidth={320}>
           <ShowcaseItem label="VolumeBar" caption={`selected="${volume ?? 'null'}"`} fill>
             <div className="flex flex-col gap-3">

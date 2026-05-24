@@ -14,7 +14,7 @@ export function ButtonsSection(): React.JSX.Element {
       description="Five variants × three sizes, plus loading, disabled, icon-only, and leading/trailing icon states."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Variants × sizes</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Variants × sizes</h3>
         <ShowcaseGrid minColumnWidth={200}>
           {VARIANTS.flatMap(variant =>
             SIZES.map(size => (
@@ -33,7 +33,7 @@ export function ButtonsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">States</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">States</h3>
         <ShowcaseGrid minColumnWidth={200}>
           <ShowcaseItem label="Loading"  caption='loading'>
             <Button loading>Saving</Button>

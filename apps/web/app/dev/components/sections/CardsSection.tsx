@@ -23,7 +23,7 @@ export function CardsSection(): React.JSX.Element {
       description="Card primitive (with variants), SelectionCard, RecommendedDeckCard, CardStack."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Card variants</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Card variants</h3>
         <ShowcaseGrid minColumnWidth={320}>
           {CARD_VARIANTS.map(variant => (
             <ShowcaseItem
@@ -56,7 +56,7 @@ export function CardsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">SelectionCard</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">SelectionCard</h3>
         <ShowcaseGrid minColumnWidth={260}>
           <ShowcaseItem label="stack / unselected" caption='layout="stack" selected={false}' fill>
             <SelectionCard
@@ -93,7 +93,7 @@ export function CardsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">RecommendedDeckCard</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">RecommendedDeckCard</h3>
         <ShowcaseGrid minColumnWidth={360}>
           <ShowcaseItem
             label="RecommendedDeckCard"
@@ -114,7 +114,7 @@ export function CardsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">CardStack</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">CardStack</h3>
         <ShowcaseGrid minColumnWidth={360}>
           <ShowcaseItem
             label="CardStack"

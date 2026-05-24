@@ -27,10 +27,10 @@ export function ShowcaseSection({
           {title}
         </h2>
         {description !== undefined && (
-          <p className="mt-1 text-sm text-faded-sumi max-w-prose">{description}</p>
+          <p className="mt-1 text-sm text-faded-sumi max-w-measure">{description}</p>
         )}
       </header>
-      <div className="space-y-6">{children}</div>
+      <div className="flex flex-col gap-y-6">{children}</div>
     </section>
   )
 }

@@ -31,7 +31,7 @@ export function ShowcaseItem({
       <div className="flex flex-col gap-0.5 px-1">
         <span className="text-xs font-medium text-sumi-ink">{label}</span>
         {caption !== undefined && (
-          <code className="font-mono text-[11px] text-faded-sumi leading-tight break-words">
+          <code className="font-mono text-sm text-faded-sumi leading-tight break-words">
             {caption}
           </code>
         )}
@@ -49,7 +49,7 @@ interface ShowcaseGridProps {
 export function ShowcaseGrid({ minColumnWidth = 220, children }: ShowcaseGridProps): React.JSX.Element {
   return (
     <div
-      className="grid gap-5"
+      className="grid gap-6"
       style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${minColumnWidth}px, 1fr))` }}
     >
       {children}

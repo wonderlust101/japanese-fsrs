@@ -13,7 +13,7 @@ export function ReviewComponentsSection(): React.JSX.Element {
       description="Composed views from the review flow. RatingBreakdown stands alone; ReviewCard depends on the live session store and is documented as a placeholder. The production rating row lives in RatingBar — preview it in context at /review/session."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">RatingBreakdown</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">RatingBreakdown</h3>
         <ShowcaseGrid minColumnWidth={320}>
           <ShowcaseItem
             label="Typical session"
@@ -29,7 +29,7 @@ export function ReviewComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">ReviewCard</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">ReviewCard</h3>
         <ShowcaseGrid minColumnWidth={520}>
           <ShowcaseItem label="ReviewCard" caption="depends on useReviewSessionStore" fill>
             <div className="flex flex-col gap-3 p-6 bg-cream-inset border border-soft-hairline rounded-[2px] text-sm text-faded-sumi">

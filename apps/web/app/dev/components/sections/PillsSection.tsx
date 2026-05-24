@@ -32,7 +32,7 @@ export function PillsSection(): React.JSX.Element {
       description="Semantic pills use text-first micro-syntax so level, status, and content type never rely on color alone."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">JLPT</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">JLPT</h3>
         <ShowcaseGrid minColumnWidth={160}>
           {LEVEL_TONES.map(tone => (
             <ShowcaseItem
@@ -47,7 +47,7 @@ export function PillsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Status</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Status</h3>
         <ShowcaseGrid minColumnWidth={180}>
           {STATUS_TONES.map(tone => (
             <ShowcaseItem
@@ -62,7 +62,7 @@ export function PillsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Content Type</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Content Type</h3>
         <ShowcaseGrid minColumnWidth={180}>
           {CONTENT_TONES.map(tone => (
             <ShowcaseItem
@@ -77,7 +77,7 @@ export function PillsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Groups · Keyboard · Interactive · Sizes</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Groups · Keyboard · Interactive · Sizes</h3>
         <ShowcaseGrid minColumnWidth={200}>
           <ShowcaseItem label="pill group" caption="maxVisible={2}">
             <PillGroup maxVisible={2} compact>

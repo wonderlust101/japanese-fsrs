@@ -13,7 +13,7 @@ export function TextSection(): React.JSX.Element {
       description="FuriganaText (Japanese reading annotations) and the Logo / wordmark composition."
     >
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">FuriganaText</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">FuriganaText</h3>
         <ShowcaseGrid minColumnWidth={240}>
           <ShowcaseItem label="Single word" caption='text="日本語" reading="にほんご"'>
             <FuriganaText text="日本語" reading="にほんご" className="text-2xl" />
@@ -28,7 +28,7 @@ export function TextSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs uppercase tracking-[0.18em] text-faded-sumi mb-3">Logo</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">Logo</h3>
         <ShowcaseGrid minColumnWidth={260}>
           {WORDMARK_SIZES.map(wordmarkSize => (
             <ShowcaseItem

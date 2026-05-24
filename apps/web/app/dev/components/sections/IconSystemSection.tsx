@@ -46,7 +46,7 @@ function ColorTierStrip(): React.JSX.Element {
   return (
     <div className="border border-soft-hairline rounded-[2px] bg-warm-paper-raised">
       <div className="px-5 py-3 border-b border-soft-hairline">
-        <p className="text-xs uppercase tracking-[0.18em] text-faded-sumi">Color tiers</p>
+        <p className="text-xs text-faded-sumi">Color tiers</p>
         <h3 className="font-display text-base text-sumi-ink mt-0.5">
           Three saturation levels via `currentColor` inheritance.
         </h3>
@@ -78,9 +78,9 @@ function Tier({
         style={{ backgroundColor: swatch }}
       />
       <div className="flex flex-col">
-        <span className="text-xs uppercase tracking-[0.08em] text-faded-sumi font-medium">{label}</span>
+        <span className="text-xs text-faded-sumi font-medium">{label}</span>
         <span className="text-sm text-sumi-ink leading-tight">{name}</span>
-        <span className="text-[11px] text-faded-sumi leading-snug mt-0.5">{detail}</span>
+        <span className="text-sm text-faded-sumi leading-snug mt-0.5">{detail}</span>
       </div>
     </div>
   )
@@ -104,15 +104,15 @@ const GROUP_ORDER: ReadonlyArray<{ group: ChromeMarkEntry['group']; label: strin
 
 function IconGroups(): React.JSX.Element {
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-y-8">
       {GROUP_ORDER.map(({ group, label, note }) => {
         const entries = CHROME_MARKS.filter(e => e.group === group)
         return (
           <div key={group}>
             <div className="mb-4 flex items-baseline gap-3 border-b border-soft-hairline pb-2">
               <h3 className="font-display text-base text-sumi-ink">{label}</h3>
-              <p className="text-[11px] text-faded-sumi">{note}</p>
-              <span className="text-[11px] text-faded-sumi/70 ml-auto font-mono">{entries.length}</span>
+              <p className="text-sm text-faded-sumi">{note}</p>
+              <span className="text-sm text-faded-sumi/70 ml-auto font-mono">{entries.length}</span>
             </div>
             <div
               className="grid gap-3"
@@ -136,7 +136,7 @@ function IconGroups(): React.JSX.Element {
                     </div>
                     <div className="flex flex-col gap-0.5">
                       <span className="text-xs font-medium leading-tight">{entry.name}</span>
-                      <span className="text-[11px] opacity-70 leading-snug">{entry.reference}</span>
+                      <span className="text-sm opacity-70 leading-snug">{entry.reference}</span>
                     </div>
                   </div>
                 )
@@ -156,7 +156,7 @@ function StatesPanel(): React.JSX.Element {
   return (
     <div className="border border-soft-hairline rounded-[2px] bg-warm-paper-raised">
       <div className="px-5 py-3 border-b border-soft-hairline">
-        <p className="text-xs uppercase tracking-[0.18em] text-faded-sumi">States</p>
+        <p className="text-xs text-faded-sumi">States</p>
         <h3 className="font-display text-base text-sumi-ink mt-0.5">
           Color tiers pinned side-by-side.
         </h3>
@@ -207,7 +207,7 @@ function StateCell({
       <div className="flex-1 flex items-center justify-center min-h-[64px]">{children}</div>
       <div className="text-center">
         <p className="text-xs font-medium text-sumi-ink">{label}</p>
-        <p className="text-[11px] text-faded-sumi mt-0.5 leading-snug max-w-[180px]">{caption}</p>
+        <p className="text-sm text-faded-sumi mt-0.5 leading-snug max-w-[180px]">{caption}</p>
       </div>
     </div>
   )

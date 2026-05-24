@@ -11,25 +11,33 @@ import { useShallow } from 'zustand/react/shallow'
 export type FuriganaMode = 'hover' | 'always' | 'off'
 
 export interface SessionPreferences {
-  audioMuted:   boolean
-  furiganaMode: FuriganaMode
+  audioMuted:             boolean
+  furiganaMode:           FuriganaMode
+  /** When true, the sentence translation on the back of the card shows
+   *  unblurred from the moment the card flips. When false (default), the
+   *  translation is blurred until the user taps/clicks it. Defaulting to
+   *  blurred preserves the recall rep: read the Japanese first, guess the
+   *  meaning, then reveal. */
+  autoRevealTranslation:  boolean
   // Definition panel tab the learner most recently used. Resets per card by
   // the ReviewCard orchestrator so each card opens on the primary definition.
-  activeDefTab: string
+  activeDefTab:           string
 }
 
 interface SessionPreferencesActions {
-  setAudioMuted:   (v: boolean) => void
-  setFuriganaMode: (v: FuriganaMode) => void
-  setActiveDefTab: (v: string) => void
+  setAudioMuted:             (v: boolean) => void
+  setFuriganaMode:           (v: FuriganaMode) => void
+  setAutoRevealTranslation:  (v: boolean) => void
+  setActiveDefTab:           (v: string) => void
 }
 
 type Store = SessionPreferences & { actions: SessionPreferencesActions }
 
 const DEFAULTS: SessionPreferences = {
-  audioMuted:   false,
-  furiganaMode: 'hover',
-  activeDefTab: 'definition',
+  audioMuted:            false,
+  furiganaMode:          'hover',
+  autoRevealTranslation: false,
+  activeDefTab:          'definition',
 }
 
 export const useSessionPreferencesStore = create<Store>()(
@@ -37,24 +45,30 @@ export const useSessionPreferencesStore = create<Store>()(
     (set) => ({
       ...DEFAULTS,
       actions: {
-        setAudioMuted:   (v) => set({ audioMuted: v }),
-        setFuriganaMode: (v) => set({ furiganaMode: v }),
-        setActiveDefTab: (v) => set({ activeDefTab: v }),
+        setAudioMuted:            (v) => set({ audioMuted: v }),
+        setFuriganaMode:          (v) => set({ furiganaMode: v }),
+        setAutoRevealTranslation: (v) => set({ autoRevealTranslation: v }),
+        setActiveDefTab:          (v) => set({ activeDefTab: v }),
       },
     }),
     {
       name: 'tomo.session.preferences',
       // Don't persist activeDefTab; it's a session-local concern.
-      partialize: (s) => ({ audioMuted: s.audioMuted, furiganaMode: s.furiganaMode }),
+      partialize: (s) => ({
+        audioMuted:            s.audioMuted,
+        furiganaMode:          s.furiganaMode,
+        autoRevealTranslation: s.autoRevealTranslation,
+      }),
     },
   ),
 )
 
 export const useSessionPreferences = (): SessionPreferences =>
   useSessionPreferencesStore(useShallow((s) => ({
-    audioMuted:   s.audioMuted,
-    furiganaMode: s.furiganaMode,
-    activeDefTab: s.activeDefTab,
+    audioMuted:            s.audioMuted,
+    furiganaMode:          s.furiganaMode,
+    autoRevealTranslation: s.autoRevealTranslation,
+    activeDefTab:          s.activeDefTab,
   })))
 
 export const useSessionPreferencesActions = (): SessionPreferencesActions =>

@@ -75,6 +75,9 @@ export function tuningIsModified(t: SessionTuning): boolean {
 interface SessionTuningActions {
   set:   <K extends keyof SessionTuning>(key: K, value: SessionTuning[K]) => void
   reset: () => void
+  /** Replace all tuning values at once. Used to reset to a user-saved baseline
+   *  (see useTuningDefaultsStore) instead of the hardcoded DEFAULT_TUNING. */
+  applyTuning: (tuning: SessionTuning) => void
 }
 
 type SessionTuningStore = SessionTuning & { actions: SessionTuningActions }
@@ -85,8 +88,9 @@ export const useSessionTuningStore = create<SessionTuningStore>()(
       (set, get) => ({
         ...DEFAULT_TUNING,
         actions: {
-          set:   (key, value) => set({ ...get(), [key]: value }),
-          reset: () => set({ ...get(), ...DEFAULT_TUNING }),
+          set:         (key, value) => set({ ...get(), [key]: value }),
+          reset:       () => set({ ...get(), ...DEFAULT_TUNING }),
+          applyTuning: (tuning)     => set({ ...get(), ...tuning }),
         },
       }),
       {

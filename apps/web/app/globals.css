@@ -11,9 +11,15 @@
   --color-inari-vermillion:      #B03646;
   --color-inari-vermillion-deep: #7E1F2A;
   --color-vermillion-wash:       #F8E5E5;
+  /* Space-separated channels for alpha compositing via `rgb(var(--token) / <a>)`.
+     Mirrors #7E1F2A above. Use when a fill needs per-instance opacity without
+     the CSS `opacity` property (e.g. a tinted bar whose child must stay opaque). */
+  --color-inari-vermillion-deep-rgb: 126 31 42;
 
   /* ── Brand palette: Aizome Indigo (deep navy ink, not Default Tech Indigo) ─ */
   --color-aizome-indigo:         #1B3A6B;
+  --color-aizome-indigo-deep:    #112548;
+  --color-aizome-wash:           #E3E8F2;
 
   /* ── Cool tinted neutrals: page surface (the SRS-tool register) ────
      These read as a tool surface, not a paper substrate. Cards live on
@@ -135,6 +141,16 @@
   --color-error-tint:      var(--color-jlpt-n1-bg);
   --color-error-deep:      #7F1D1D;
 
+  /* ── Warning (mid-tier between healthy and error) ───────────────────
+   * Used by the lapse-tier system in cards-results-table HealthBadge
+   * and review-summary WeakSpotRow's Drift tier (4..7 lapses). OKLCH
+   * tuned so the chroma stays warm enough to read against the
+   * warm-paper surfaces rather than the cool cast of vanilla Tailwind
+   * amber. Lightness sits between sumi-ink and inari-vermillion so the
+   * tier reads as "elevated attention" without crossing into alert red. */
+  --color-warning:         oklch(0.45 0.10 65);   /* deep mustard-amber */
+  --color-warning-soft:    oklch(0.96 0.025 75);  /* very pale warm tint */
+
   /* ── Border radius (preserved) ───────────────────────────────────── */
   --radius-sm:   6px;
   --radius-md:   10px;
@@ -148,8 +164,23 @@
   --shadow-lg:    0 8px 24px rgba(70, 30, 35, 0.10);
   --shadow-focus: 0 0 0 3px var(--color-vermillion-wash);
 
+  /* Row-level lift for the dragged deck row. Tighter spread than
+     --shadow-lg so the row reads as "picked up", not "floating". */
+  --shadow-deck-lift: 0 8px 22px rgba(70, 30, 35, 0.10);
+
+  /* Soft halo around the drop-target indicator bar. Brand vermillion at
+     low opacity so it punches against cream paper without bleeding. */
+  --glow-vermillion-soft: 0 0 8px rgba(176, 54, 70, 0.45);
+
+  /* Exponential ease-out for transform/opacity transitions. Project default
+     where ease-out-quint is wanted (mature progress fill, drop indicator). */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* ── Type scale (Tailwind v4 syntax: font-size + matched line-height per token) ─ */
-  --text-xs:   0.6875rem;
+  /* 12px is the type-system floor: no UI text renders smaller. `text-xs` is
+     the floor token (was 11px). Exceptions live outside Tailwind: furigana
+     ruby (0.4em) and chart axis sub-labels (SVG fontSize). */
+  --text-xs:   0.75rem;
   --text-xs--line-height: 1rem;
   --text-sm:   0.8125rem;
   --text-sm--line-height: 1.25rem;
@@ -169,6 +200,14 @@
   --text-4xl--line-height: 4.5rem;
   --text-5xl:  4.5rem;
   --text-5xl--line-height: 5rem;
+
+  /* ── Reading measure (enables max-w-measure-tight | max-w-measure |
+     max-w-measure-wide via Tailwind v4's --container-* namespace). One small
+     scale so body/description line lengths stop being eyeballed per site
+     (previously 15 distinct ch caps + max-w-measure). */
+  --container-measure-tight: 44ch;
+  --container-measure:       62ch;
+  --container-measure-wide:  72ch;
 
   /* ── Onboarding page transition (preserved) ──────────────────────── */
   --animate-page-enter: page-enter 250ms cubic-bezier(0, 0, 0.2, 1) both;
@@ -212,6 +251,24 @@
     50%      { opacity: 1; }
   }
 
+  /* ── Memory-curve draw: the card-detail history curve inks itself in
+       like a sumi brush stroke when the panel opens. Path uses
+       pathLength="1" so the dash math is geometry-independent. ── */
+  --animate-memory-curve-draw: memory-curve-draw 1000ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes memory-curve-draw {
+    from { stroke-dashoffset: 1; }
+    to   { stroke-dashoffset: 0; }
+  }
+
+  /* Curve markers + labels fade in just behind the stroke. */
+  --animate-memory-fade-in: memory-fade-in 420ms ease-out both;
+
+  @keyframes memory-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   /* ── Card slide-up: foreground card exits on Continue ────────────── */
   --animate-card-slide-up: card-slide-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 
@@ -234,24 +291,47 @@
     }
   }
 
-  /* ── Dashboard skeleton sweep: quiet active fetch signal ─ */
-  --animate-dashboard-skeleton-sweep: dashboard-skeleton-sweep 1800ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  /* ── Tomo loader: a card draws from the deck, holds, returns.
+     Two-phase loop on a 1600ms cycle. Lift uses ease-out-expo
+     (a deliberate, weighted exhale); settle uses ease-in-quart
+     (a quiet return). Only transform + opacity are animated. ── */
+  --animate-tomo-card-draw:
+    tomo-card-draw 1600ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
 
-  @keyframes dashboard-skeleton-sweep {
-    0% {
-      opacity: 0;
-      transform: translateX(-145%) skewX(-10deg);
-    }
-    18% {
-      opacity: 0.22;
-    }
-    62% {
-      opacity: 0.18;
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(145%) skewX(-10deg);
-    }
+  @keyframes tomo-card-draw {
+    0%   { transform: translateY(0)     rotate(0deg); opacity: 1; }
+    38%  { transform: translateY(-46%)  rotate(-1.4deg); opacity: 1; }
+    62%  { transform: translateY(-46%)  rotate(-1.4deg); opacity: 1; }
+    100% { transform: translateY(0)     rotate(0deg); opacity: 1; }
+  }
+
+  /* Secondary card sits just behind the lead; brightens slightly
+     while the lead is held aloft, then recedes. */
+  --animate-tomo-card-reveal:
+    tomo-card-reveal 1600ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+
+  @keyframes tomo-card-reveal {
+    0%, 100% { opacity: 0.74; }
+    50%      { opacity: 0.94; }
+  }
+
+  /* Stage label crossfade for AI waits. 1800ms hold, 220ms fade. */
+  --animate-tomo-stage-fade:
+    tomo-stage-fade 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes tomo-stage-fade {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Reduced-motion fallback: a slow opacity breath on the lead card.
+     Replaces all translate/rotate with a single 2.4s pulse. */
+  --animate-tomo-card-breath:
+    tomo-card-breath 2400ms ease-in-out infinite;
+
+  @keyframes tomo-card-breath {
+    0%, 100% { opacity: 0.62; }
+    50%      { opacity: 1; }
   }
 
   /* ── Nav route-change settle (4-beat sequence) ───────────────────────
@@ -279,6 +359,37 @@
   @keyframes nav-label-fade-in {
     from { color: var(--color-sumi-ink); }
     to   { color: var(--color-inari-vermillion); }
+  }
+
+  /* ── Session top bar: sumi-bloom (mount) ─────────────────────────────
+     One-shot calligraphic arrival as the review (or drill) session
+     opens. The 復 kanji blooms outward like a brush touching paper, then
+     the eyebrow label inks in beneath it. Fires once per mount; no loop.
+     -------------------------------------------------------------------- */
+
+  --animate-eyebrow-kanji-bloom: eyebrow-kanji-bloom 580ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+  --animate-eyebrow-label-ink:   eyebrow-label-ink   360ms cubic-bezier(0.165, 0.84, 0.44, 1) 180ms both;
+
+  @keyframes eyebrow-kanji-bloom {
+    from {
+      opacity:   0;
+      transform: scale(0.72);
+    }
+    to {
+      opacity:   1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes eyebrow-label-ink {
+    from {
+      opacity:   0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity:   1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -315,11 +426,6 @@ body {
     opacity: 1;
   }
 
-  .dashboard-skeleton::after {
-    animation: none !important;
-    opacity: 0;
-  }
-
   .today-empty-preview-card,
   .today-empty-preview-meter,
   .today-empty-preview-accent,
@@ -351,6 +457,42 @@ body {
   }
 }
 
+/* ── Reading measure utilities (one line-length scale; values in @theme) ── */
+@utility max-w-measure {
+  max-width: var(--container-measure);
+}
+@utility max-w-measure-tight {
+  max-width: var(--container-measure-tight);
+}
+@utility max-w-measure-wide {
+  max-width: var(--container-measure-wide);
+}
+
+/* ── Heading roles ───────────────────────────────────────────────────────
+   Inherently-responsive display type: one class scales mobile -> tablet
+   (40rem / sm) -> desktop (64rem / lg). Replaces ~22 ad-hoc heading sizes
+   and their drifting ladders; line-height is baked in so heading leading
+   stops being set per-call. Use the role alone (no breakpoint prefixes). */
+@layer components {
+  .text-section { font-size: 1.375rem; line-height: 1.2;  }
+  .text-title   { font-size: 1.625rem; line-height: 1.15; }
+  .text-display { font-size: 2rem;     line-height: 1.05; }
+  .text-hero    { font-size: 2.5rem;   line-height: 1.0;  }
+
+  @media (width >= 40rem) {
+    .text-section { font-size: 1.5rem;   }
+    .text-title   { font-size: 1.875rem; }
+    .text-display { font-size: 2.5rem;   }
+    .text-hero    { font-size: 3rem;     }
+  }
+  @media (width >= 64rem) {
+    .text-section { font-size: 1.625rem; }
+    .text-title   { font-size: 2.25rem;  }
+    .text-display { font-size: 2.875rem; }
+    .text-hero    { font-size: 3.55rem;  }
+  }
+}
+
 /* ── Review utilities ────────────────────────────────────────────────── */
 @utility font-japanese {
   font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
@@ -363,6 +505,23 @@ body {
 
 @utility animate-card-reveal {
   animation: var(--animate-card-reveal);
+}
+
+@utility animate-memory-curve-draw {
+  animation: var(--animate-memory-curve-draw);
+}
+
+@utility animate-memory-fade-in {
+  animation: var(--animate-memory-fade-in);
+}
+
+/* Sentence-swap cue: re-keyed onto the example sentence each time the pager
+   steps to another one (card-detail / edit / add-review previews). Reuses the
+   card's own stage-entrance motion so the swap reads as a small echo of how
+   the card first arrived, not a new vocabulary of motion. Reduced-motion is
+   handled globally (animation collapses to ~0ms). */
+@utility animate-sentence-swap {
+  animation: tomo-stage-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .ui-motion-colors {
@@ -379,18 +538,10 @@ body {
 
 .ui-motion-pressable {
   transform: translateZ(0);
-  transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+  cursor: pointer;
+  transition-property: color, background-color, border-color, box-shadow, opacity;
   transition-duration: 260ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ui-motion-pressable:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.ui-motion-pressable:active:not(:disabled) {
-  transform: translateY(0) scale(0.992);
-  transition-duration: 120ms;
 }
 
 .ui-motion-soft {
@@ -441,6 +592,50 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .today-fade-in {
     animation: none;
+  }
+}
+
+/* ── Cards pagination sweep ──────────────────────────────────────────────
+   Indeterminate progress sliver that rides the cards-table top stripe
+   during a page-to-page refetch. A 38%-wide vermillion bar travels from
+   left to right, easing out, with a brief hold before looping. Pairs
+   with rows dropped to opacity-70 so reading context survives the swap. */
+@keyframes cards-pagination-sweep {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(165%); }
+  100% { transform: translateX(165%); }
+}
+
+.cards-pagination-sweep {
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  background-color: var(--color-inari-vermillion);
+  animation: cards-pagination-sweep 1100ms cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+  will-change: transform;
+}
+
+@keyframes cards-pagination-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cards-pagination-spin {
+  animation: cards-pagination-spin 720ms linear infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The global reduced-motion rule already kills the keyframes; pin the
+     sliver to a static 32% segment so users still see a "busy" state
+     without horizontal motion. */
+  .cards-pagination-sweep {
+    animation: none !important;
+    width: 32%;
+    transform: translateX(28%);
+    opacity: 0.75;
+  }
+  .cards-pagination-spin {
+    animation: none !important;
   }
 }
 
@@ -659,33 +854,33 @@ body {
   opacity: 0.46;
 }
 
-/* Dashboard data skeletons use a low-contrast warm sweep instead of a plain
-   pulse, so loading reads as active without flashing over the paper surface. */
-.dashboard-skeleton {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background-color: color-mix(in srgb, var(--color-cream-inset) 62%, var(--color-soft-hairline));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-soft-hairline) 56%, transparent);
-}
+/* Retired: `.dashboard-skeleton` had inline-shimmer styling for per-block
+   placeholders. All per-component loading visuals were removed in favor
+   of the page-level <PageLoader/>. The class is intentionally absent;
+   any stale `className="dashboard-skeleton"` left in the codebase is a
+   no-op and renders as an empty 0×0 inline. */
 
-.dashboard-skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  transform: translateX(-145%) skewX(-10deg);
-  background:
-    linear-gradient(
-      100deg,
-      transparent 0%,
-      color-mix(in srgb, var(--color-soft-hairline) 14%, transparent) 30%,
-      color-mix(in srgb, var(--color-vermillion-wash) 36%, transparent) 46%,
-      color-mix(in srgb, var(--color-inari-vermillion) 7%, transparent) 53%,
-      color-mix(in srgb, var(--color-cream-inset) 22%, transparent) 60%,
-      transparent 100%
-    );
-  animation: var(--animate-dashboard-skeleton-sweep);
-  pointer-events: none;
-  will-change: transform, opacity;
+/* Tomo loader card faces. These style SVG <rect>s, so they paint with
+   fill + stroke (SVG geometry ignores background-color / box-shadow). The
+   component (components/ui/TomoLoader.tsx) composes these with the keyframe
+   vars above. */
+.tomo-card {
+  fill:         var(--color-warm-paper-raised);
+  stroke:       color-mix(in srgb, var(--color-soft-hairline) 75%, transparent);
+  stroke-width: 1px;
+}
+.tomo-card-lead {
+  fill:         var(--color-warm-paper-raised);
+  stroke:       var(--color-soft-hairline);
+  stroke-width: 1px;
+  /* Warm-tinted lift shadow (Warm-Tint Shadow Rule): a state shadow while
+     the card is drawn aloft, hue ~25 toward the warm-paper neutrals rather
+     than a cold neutral-black. drop-shadow works on SVG geometry; box-shadow
+     would not. */
+  filter: drop-shadow(0 2px 5px rgba(70, 30, 35, 0.16));
+}
+/* Canonical 2px Inari Vermillion top-edge stripe on the lead card. The one
+   place the brand red is spent on this surface (Vermillion Tax). */
+.tomo-card-stripe {
+  fill: var(--color-inari-vermillion);
 }
