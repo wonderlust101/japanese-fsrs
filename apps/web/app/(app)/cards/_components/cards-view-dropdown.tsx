@@ -151,7 +151,7 @@ export function CardsViewDropdown({
                         <span
                           className={[
                             'shrink-0 font-mono text-sm tabular-nums',
-                            count === 0 ? 'text-faded-sumi/60' : 'text-faded-sumi',
+                            'text-faded-sumi',
                           ].join(' ')}
                         >
                           {count}

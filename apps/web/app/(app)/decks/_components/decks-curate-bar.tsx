@@ -50,7 +50,7 @@ export function DecksCurateBar({
         <span className="font-mono text-xs tabular-nums text-faded-sumi">
           <span className="text-sumi-ink">{selectedCount}</span>
           {' selected '}
-          <span className="text-faded-sumi/70">of</span>
+          <span className="text-faded-sumi">of</span>
           {' '}
           <span className="text-sumi-ink/85">{totalCount}</span>
         </span>

@@ -269,7 +269,7 @@ function StageLabels({ labels, slowLabel, slowAfterMs }: StageLabelsProps): Reac
         {labels[idx]}
       </div>
       {slow && slowLabel ? (
-        <div className="text-faded-sumi/70 text-xs">{slowLabel}</div>
+        <div className="text-faded-sumi text-xs">{slowLabel}</div>
       ) : null}
     </div>
   )

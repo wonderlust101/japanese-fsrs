@@ -277,9 +277,9 @@ export function DeckCard(props: DeckCardProps): React.JSX.Element {
                   </div>
                   <span className="font-mono text-sm tabular-nums leading-none text-faded-sumi">
                     <span className="text-sumi-ink/80">{matureCount}</span>
-                    <span className="text-faded-sumi/70">{' / '}</span>
+                    <span className="text-faded-sumi">{' / '}</span>
                     <span className="text-sumi-ink/80">{cardCount}</span>
-                    <span className="text-faded-sumi/60">{' mature'}</span>
+                    <span className="text-faded-sumi">{' mature'}</span>
                   </span>
                 </div>
               )}

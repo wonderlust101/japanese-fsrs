@@ -149,7 +149,7 @@ function TabButton({
       <span
         className={[
           'font-mono text-xs tabular-nums',
-          active ? 'text-sumi-ink/70' : 'text-faded-sumi/70',
+          active ? 'text-sumi-ink' : 'text-faded-sumi',
         ].join(' ')}
       >
         {count}

@@ -38,7 +38,7 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
     <div className={['flex flex-col gap-3', className].join(' ')}>
       <div className="flex items-baseline justify-between text-sm font-mono text-faded-sumi">
         <span>Estimated cards to learn</span>
-        <span className="text-faded-sumi/70">total</span>
+        <span className="text-faded-sumi">total</span>
       </div>
 
       <div className="flex items-stretch gap-4">
@@ -78,7 +78,7 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
                 <span
                   className={[
                     'text-xs font-mono tabular-nums whitespace-nowrap',
-                    isCurrent ? 'text-sumi-ink font-medium' : 'text-faded-sumi/70',
+                    isCurrent ? 'text-sumi-ink font-medium' : 'text-faded-sumi',
                   ].join(' ')}
                 >
                   {level.cards.toLocaleString()}

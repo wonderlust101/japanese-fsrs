@@ -123,7 +123,7 @@ export function SetupDeckList({
                       'ml-auto shrink-0 font-mono text-sm tabular-nums',
                       'min-w-[5.5rem] text-right',
                       empty
-                        ? 'text-faded-sumi/70'
+                        ? 'text-faded-sumi'
                         : included
                           ? 'text-inari-vermillion-deep'
                           : 'text-faded-sumi',
