@@ -50,9 +50,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user && !isAuthPage) {
-    // Unauthenticated user hitting a protected route → send to login.
+    // Unauthenticated user hitting a protected route → send to login, carrying
+    // the original path+query as `next` so login can return them there after
+    // authenticating (instead of always dropping them on /today).
+    const next = request.nextUrl.pathname + request.nextUrl.search
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.search = ''
+    url.searchParams.set('next', next)
     return NextResponse.redirect(url)
   }
 

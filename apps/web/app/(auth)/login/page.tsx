@@ -28,6 +28,16 @@ function friendlyError(message: string): string {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/**
+ * Returns `raw` only if it's an app-internal path (single leading slash, not a
+ * protocol-relative `//host` or absolute URL). Guards the post-login redirect
+ * against open-redirect via a crafted `?next=`.
+ */
+function safeNextPath(raw: string | null): string | null {
+  if (raw === null || !raw.startsWith('/') || raw.startsWith('//')) return null
+  return raw
+}
+
 export default function LoginPage(): React.JSX.Element {
   useLoginDevState()
   const router                                          = useRouter()
@@ -49,7 +59,11 @@ export default function LoginPage(): React.JSX.Element {
   const { mutate, isPending, error } = useMutation({
     mutationFn: () => loginAction(email, password),
     onSuccess:  () => {
-      router.push('/today')
+      // Return to the page the user was sent here from (middleware sets `next`);
+      // fall back to /today. Read at event time to avoid a useSearchParams
+      // Suspense boundary; validated against open-redirect.
+      const next = safeNextPath(new URLSearchParams(window.location.search).get('next'))
+      router.push(next ?? '/today')
       router.refresh()
     },
   })
