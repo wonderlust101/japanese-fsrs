@@ -26,6 +26,9 @@ export function useCountdown(initialSeconds: number): { remaining: number; resta
   useEffect(() => {
     start()
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    // Mount-once timer: `start` only touches the ref and updates state via the
+    // functional setRemaining, so it reads nothing reactive. Re-running on every
+    // render would needlessly tear down and recreate the interval.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

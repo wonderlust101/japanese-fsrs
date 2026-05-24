@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 
 /**
  * SSR-safe boolean preference backed by localStorage. Seeds the initial
@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react'
 export function useLocalStorageBoolean(
   key: string,
   initial: boolean,
-): [boolean, (value: boolean) => void] {
+): [boolean, Dispatch<SetStateAction<boolean>>] {
   const [value, setValue] = useState<boolean>(initial)
   const [hydrated, setHydrated] = useState<boolean>(false)
 

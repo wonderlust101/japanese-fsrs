@@ -85,11 +85,13 @@ export function Sidebar({ user }: Props): React.JSX.Element {
         if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return
       }
       e.preventDefault()
-      setWidthCollapsed(!widthCollapsed)
+      // Functional update so the handler doesn't close over `widthCollapsed`;
+      // lets the listener attach once instead of re-subscribing every toggle.
+      setWidthCollapsed((c) => !c)
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [widthCollapsed, setWidthCollapsed])
+  }, [setWidthCollapsed])
 
   // Reviews row microcopy: derived from the real due-cards query.
   const dueCardsQuery = useDueCards()

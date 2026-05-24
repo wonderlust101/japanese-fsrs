@@ -22,13 +22,17 @@ interface Props {
  */
 export function CardsSearchBar({ value, onChange, placeholder }: Props): React.JSX.Element {
   const [draft, setDraft] = useState(value)
+  // Mirror parent-driven resets (e.g. a saved view applies its own filter set)
+  // into the draft *during render* via a previous-value sentinel — the React
+  // pattern for "adjust state when a prop changes." Cheaper than an effect (no
+  // extra commit) and it can't clobber an in-flight keystroke.
+  const [prevValue, setPrevValue] = useState(value)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  // Keep the local draft in sync when the parent resets the search
-  // externally (e.g., a saved view applies its own filter set).
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value)
     setDraft(value)
-  }, [value])
+  }
 
   // 250ms debounce → parent.
   useEffect(() => {
