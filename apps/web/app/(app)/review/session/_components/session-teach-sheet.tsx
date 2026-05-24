@@ -104,7 +104,7 @@ export function SessionTeachSheet({
           mode === 'auto' && 'pointer-events-none',
         )}
       >
-        <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi">
+        <p className="font-mono text-sm text-faded-sumi">
           {mode === 'auto' ? 'A few keys, then we step out of the way' : 'Keyboard shortcuts'}
         </p>
         <h2 id="teach-sheet-title" className="mt-1.5 font-display text-xl font-medium text-sumi-ink">
@@ -130,7 +130,7 @@ export function SessionTeachSheet({
         </ul>
 
         {mode === 'auto' ? (
-          <p className="mt-6 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi/85">
+          <p className="mt-6 font-mono text-sm text-faded-sumi/85">
             Press anything to begin.
           </p>
         ) : (

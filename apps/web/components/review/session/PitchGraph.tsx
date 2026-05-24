@@ -113,7 +113,7 @@ export function PitchGraph({
       role="img"
       aria-label={`Pitch accent ${CATEGORY_LABEL[category]} ${pitchPosition}`}
       className={cn(
-        'inline-flex flex-col items-center gap-1.5 select-none',
+        'inline-flex flex-col items-center gap-2 select-none',
         CATEGORY_COLOR[category],
       )}
     >
@@ -145,7 +145,7 @@ export function PitchGraph({
               {/* Mora kana */}
               <span
                 lang="ja"
-                className="pt-1.5 font-japanese text-[1.05rem] md:text-[1.25rem] text-sumi-ink/85 leading-none tabular-nums"
+                className="pt-1.5 font-japanese text-md md:text-lg text-sumi-ink/85 leading-none tabular-nums"
               >
                 {m.text}
               </span>
@@ -153,7 +153,7 @@ export function PitchGraph({
           )
         })}
       </div>
-      <span className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-current/80">
+      <span className="font-mono text-sm text-current/80">
         {CATEGORY_LABEL[category]} · {pitchPosition}
       </span>
     </div>

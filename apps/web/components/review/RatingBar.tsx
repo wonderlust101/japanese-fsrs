@@ -29,10 +29,10 @@ interface Spec {
   value: UserRating
   label: string
   key:   string
-  // Inline style values keep the saturated tokens off Tailwind's arbitrary
-  // class scanner (which can't see custom CSS vars).
-  fill:  string
-  // Icon node, sized in the component below.
+  /** Static Tailwind classes derived from the --color-rating-{kind} tokens
+   *  in globals.css. Static strings so Tailwind's class scanner picks them
+   *  up at build time, no inline style runtime work needed. */
+  tone:  string
   icon:  React.ReactNode
 }
 
@@ -85,11 +85,26 @@ function framedInterval(s: string): string {
   return `~${s}`
 }
 
+/**
+ * Format an FSRS `scheduledDays` value into a compact Anki-style label.
+ * Exported so the orchestrator (ReviewCard) can map the four-rating preview
+ * coming back from `GET /reviews/:cardId/preview` without duplicating the
+ * unit thresholds.
+ */
+export function formatInterval(days: number): string {
+  if (days < 1 / 1440) return '<1m'                            // under a minute
+  if (days < 1 / 24)   return `${Math.round(days * 1440)}m`    // 1m–59m
+  if (days < 1)        return `${Math.round(days * 24)}h`      // 1h–23h
+  if (days < 30)       return `${Math.round(days)}d`           // 1d–29d
+  if (days < 365)      return `${Math.round(days / 30)}mo`     // 1mo–11mo
+  return `${(days / 365).toFixed(1)}y`                         // 1.0y+
+}
+
 const RATINGS: readonly Spec[] = [
-  { value: 'again', label: 'Again', key: '1', fill: 'var(--color-rating-again)', icon: <AgainIcon /> },
-  { value: 'hard',  label: 'Hard',  key: '2', fill: 'var(--color-rating-hard)',  icon: <HardIcon /> },
-  { value: 'good',  label: 'Good',  key: '3', fill: 'var(--color-rating-good)',  icon: <GoodIcon /> },
-  { value: 'easy',  label: 'Easy',  key: '4', fill: 'var(--color-rating-easy)',  icon: <EasyIcon /> },
+  { value: 'again', label: 'Again', key: '1', tone: 'bg-rating-again border-rating-again', icon: <AgainIcon /> },
+  { value: 'hard',  label: 'Hard',  key: '2', tone: 'bg-rating-hard border-rating-hard',   icon: <HardIcon /> },
+  { value: 'good',  label: 'Good',  key: '3', tone: 'bg-rating-good border-rating-good',   icon: <GoodIcon /> },
+  { value: 'easy',  label: 'Easy',  key: '4', tone: 'bg-rating-easy border-rating-easy',   icon: <EasyIcon /> },
 ] as const
 
 export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.Element {
@@ -103,61 +118,62 @@ export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.
         'px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]',
       )}
     >
-      <div className="mx-auto grid max-w-[560px] grid-cols-4 gap-2">
-        {RATINGS.map((spec) => {
-          const interval = nextIntervals?.[spec.value]
-          return (
-            <button
-              key={spec.value}
-              type="button"
-              onClick={() => onRate(spec.value)}
-              aria-label={`${spec.label} (press ${spec.key})`}
-              aria-keyshortcuts={spec.key}
-              style={{ backgroundColor: spec.fill, borderColor: spec.fill }}
-              className={cn(
-                // Three-row column per DESIGN.md §Rating Buttons:
-                // glyph (top), label (middle), key hint (bottom at 70%).
-                // The visible key is the fourth channel of the Four-Channel
-                // Rating Rule — color-blind / glyph-blind users still know
-                // which button is which. aria-keyshortcuts handles SR.
-                'group relative flex flex-col items-center justify-center gap-0.5',
-                'h-16 rounded-md border px-3',
-                'text-warm-paper-raised',
-                'transition-[filter,transform] duration-200 ease-out',
-                'cursor-pointer hover:brightness-95 active:translate-y-[1px]',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-              )}
-            >
-              {interval !== undefined && (
+      <div className="mx-auto max-w-[560px]">
+        {nextIntervals !== undefined && (
+          <div className="mb-1.5 grid grid-cols-4 gap-2" aria-hidden="true">
+            {RATINGS.map((spec) => {
+              const interval = nextIntervals[spec.value]
+              return (
                 <span
-                  aria-label={`Next review: approximately ${interval}`}
-                  className={cn(
-                    'absolute right-2 top-1.5',
-                    'font-mono text-[0.6875rem] tabular-nums leading-none font-medium',
-                    'text-warm-paper-raised/90',
-                  )}
+                  key={spec.value}
+                  className="text-center font-mono text-sm tabular-nums leading-none text-faded-sumi"
                 >
                   {framedInterval(interval)}
                 </span>
-              )}
+              )
+            })}
+          </div>
+        )}
 
-              <span className="text-warm-paper-raised/95 leading-none inline-flex">
-                {spec.icon}
-              </span>
-
-              <span className="font-medium text-sm md:text-[0.9375rem] leading-none tracking-tight">
-                {spec.label}
-              </span>
-
-              <span
-                aria-hidden="true"
-                className="font-mono text-[0.625rem] tabular-nums leading-none text-warm-paper-raised/70"
+        <div className="grid grid-cols-4 gap-2">
+          {RATINGS.map((spec) => {
+            const interval = nextIntervals?.[spec.value]
+            return (
+              <button
+                key={spec.value}
+                type="button"
+                onClick={() => onRate(spec.value)}
+                aria-label={
+                  interval !== undefined
+                    ? `${spec.label} (press ${spec.key}). Next review approximately ${interval}.`
+                    : `${spec.label} (press ${spec.key})`
+                }
+                aria-keyshortcuts={spec.key}
+                className={cn(
+                  // Two-row column: glyph (top), label (bottom). The keyboard
+                  // shortcut is still wired via `aria-keyshortcuts` + the
+                  // aria-label so SR/keyboard users keep the affordance; the
+                  // visible numeral is gone for a slimmer touch chrome.
+                  'group relative flex flex-col items-center justify-center gap-0.5',
+                  'h-14 rounded-md border px-3',
+                  'text-warm-paper-raised',
+                  spec.tone,
+                  'transition-[filter,transform] duration-200 ease-out',
+                  'cursor-pointer hover:brightness-95 active:translate-y-[1px]',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
+                )}
               >
-                {spec.key}
-              </span>
-            </button>
-          )
-        })}
+                <span className="text-warm-paper-raised/95 leading-none inline-flex">
+                  {spec.icon}
+                </span>
+
+                <span className="font-medium text-sm md:text-base leading-none tracking-tight">
+                  {spec.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

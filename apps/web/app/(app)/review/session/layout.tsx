@@ -14,9 +14,9 @@ export default function ReviewSessionLayout({ children }: { children: React.Reac
           reserves vertical space so the card centers between the bar above
           and the bar below. Padding-top accounts for the fixed top bar
           (~56px). The bottom space is reserved by the page wrapper's pb. */}
-      <main className="flex-1 flex flex-col items-stretch justify-center pt-14 md:pt-14">
+      <div className="flex-1 flex flex-col items-stretch justify-center pt-14 md:pt-14">
         {children}
-      </main>
+      </div>
     </div>
   )
 }

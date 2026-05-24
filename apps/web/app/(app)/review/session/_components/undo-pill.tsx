@@ -43,17 +43,25 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
       role="status"
       aria-live="polite"
       className={cn(
-        'fixed left-4 z-30',
+        // `inset-x-0 mx-auto w-fit` centers horizontally without using a
+        // transform — leaves the transform channel free for the entry
+        // animation below.
+        'fixed inset-x-0 mx-auto w-fit z-30',
         // Sit just above the rating bar so the two never collide. On small
         // viewports the rating bar reserves ~76px from the bottom; we add
-        // 12px of breathing room.
-        'bottom-[max(env(safe-area-inset-bottom),0.75rem)] mb-[5.5rem] md:mb-[6rem]',
+        // 12px of breathing room. Centered horizontally so it lands in the
+        // user's natural eye-line after rating instead of the left edge.
+        'bottom-[max(env(safe-area-inset-bottom),0.75rem)] mb-22 md:mb-24',
+        // Subtle mount fade-up so the pill enters with intention rather
+        // than blinking into existence. The countdown hairline below
+        // carries the rest of the temporal feedback.
+        'animate-page-enter',
       )}
     >
       <Button
         type="button"
         variant="secondary"
-        size="sm"
+        size="md"
         onClick={onUndo}
         className="overflow-hidden gap-2"
       >
@@ -65,11 +73,16 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
           style={{ width: `${progress * 100}%` }}
           className="absolute left-0 bottom-0 h-px bg-inari-vermillion/70"
         />
-        <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
+        {/* Mobile: plain sentence-case button label. */}
+        <span className="md:hidden text-sm font-medium text-sumi-ink">
           Undo
         </span>
-        <span aria-hidden="true" className="text-faded-sumi/60 text-xs">·</span>
-        <KbdChip size="xs" className="inline-flex">U</KbdChip>
+        {/* md+: keyboard-chrome register (mono uppercase + separator + kbd chip). */}
+        <span className="max-md:hidden font-mono text-xs text-faded-sumi">
+          Undo
+        </span>
+        <span aria-hidden="true" className="max-md:hidden text-faded-sumi/60 text-xs">·</span>
+        <KbdChip size="sm" className="inline-flex max-md:hidden">U</KbdChip>
       </Button>
     </div>
   )

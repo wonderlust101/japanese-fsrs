@@ -19,8 +19,16 @@ interface DefinitionPanelProps {
   nuance?:         string | null
   mnemonic?:       string | null
   kanjiBreakdown?: KanjiBreakdownEntry[]
-  collocations?:   string[]
-  homophones?:     string[]
+  /**
+   * When true, the panel installs its own keydown listener so the per-tab
+   * shortcut hints (N / M / K) actually switch tabs. Default false:
+   * during a review session, `ReviewCard` owns the keyboard (rating, flip,
+   * undo, teach sheet) and drives the same tabs, so the panel must NOT also
+   * listen or the keys would double-fire. On standalone surfaces that render
+   * `CardBack` without `ReviewCard` (e.g. the card-detail page), there is no
+   * external authority, so the panel takes the keys itself.
+   */
+  manageShortcuts?: boolean
 }
 
 interface Tab {
@@ -43,8 +51,7 @@ export function DefinitionPanel({
   nuance,
   mnemonic,
   kanjiBreakdown,
-  collocations,
-  homophones,
+  manageShortcuts = false,
 }: DefinitionPanelProps): React.JSX.Element | null {
   const prefs   = useSessionPreferences()
   const actions = useSessionPreferencesActions()
@@ -55,8 +62,9 @@ export function DefinitionPanel({
     tabs.push({
       id:    'nuance',
       label: 'Nuance',
+      shortcut: 'N',
       render: () => (
-        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
+        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-measure">
           {nuance}
         </p>
       ),
@@ -69,7 +77,7 @@ export function DefinitionPanel({
       label: 'Mnemonic',
       shortcut: 'M',
       render: () => (
-        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-[65ch]">
+        <p className="text-base md:text-lg leading-relaxed text-sumi-ink max-w-measure">
           {mnemonic}
         </p>
       ),
@@ -84,7 +92,7 @@ export function DefinitionPanel({
       render: () => (
         <ul className="flex flex-col gap-3">
           {kanjiBreakdown.map((k, i) => (
-            <li key={`${k.kanji}-${i}`} className="flex items-baseline gap-4 max-w-[65ch]">
+            <li key={`${k.kanji}-${i}`} className="flex items-baseline gap-4 max-w-measure">
               <span lang="ja" className="font-japanese text-2xl text-sumi-ink leading-none w-10 shrink-0">{k.kanji}</span>
               <div className="flex-1 leading-relaxed">
                 {k.reading !== undefined && k.reading !== '' && (
@@ -94,43 +102,11 @@ export function DefinitionPanel({
                   <span className="text-sumi-ink">{k.meaning}</span>
                 )}
                 {k.radical !== '' && (
-                  <span className="block font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi/80 mt-0.5">
+                  <span className="block font-mono text-sm text-faded-sumi/80 mt-0.5">
                     Radical · {k.radical}
                   </span>
                 )}
               </div>
-            </li>
-          ))}
-        </ul>
-      ),
-    })
-  }
-
-  if (collocations !== undefined && collocations.length > 0) {
-    tabs.push({
-      id:    'collocations',
-      label: 'Collocations',
-      render: () => (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1.5 max-w-[65ch]">
-          {collocations.map((c, i) => (
-            <li key={`${c}-${i}`} lang="ja" className="font-japanese text-sumi-ink/90 text-base md:text-lg">
-              {c}
-            </li>
-          ))}
-        </ul>
-      ),
-    })
-  }
-
-  if (homophones !== undefined && homophones.length > 0) {
-    tabs.push({
-      id:    'homophones',
-      label: 'Homophones',
-      render: () => (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1.5 max-w-[65ch]">
-          {homophones.map((h, i) => (
-            <li key={`${h}-${i}`} lang="ja" className="font-japanese text-sumi-ink/90 text-base md:text-lg">
-              {h}
             </li>
           ))}
         </ul>
@@ -152,23 +128,63 @@ export function DefinitionPanel({
     }
   }, [tabsFingerprint, prefs.activeDefTab, actions, tabs])
 
+  // ── Tab-switching shortcuts (opt-in via `manageShortcuts`). ──────────
+  // Built from the live `tabs` array, so only tabs that actually rendered
+  // respond and the binding can never drift from the displayed hints. A
+  // letter selects its tab; pressing the active tab's letter again toggles
+  // back to the first tab (matching the in-review "press to dismiss" feel).
+  useEffect(() => {
+    if (!manageShortcuts || tabs.length === 0) return
+
+    const letterToId = new Map<string, string>()
+    for (const t of tabs) {
+      if (t.shortcut !== undefined) letterToId.set(t.shortcut.toLowerCase(), t.id)
+    }
+    const firstId = tabs[0]?.id
+
+    function handleKey(e: KeyboardEvent): void {
+      // Ignore shifted keys too: Shift+letter is reserved for page-level
+      // shortcuts (e.g. the card-detail page's Shift+M opens the memory
+      // popup), so a bare-letter tab toggle must not also fire.
+      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      // A confirm/move dialog (native <dialog>) is open above the card: let
+      // it own the keyboard rather than switching tabs behind the backdrop.
+      if (typeof document !== 'undefined' && document.querySelector('dialog[open]') !== null) return
+
+      const targetId = letterToId.get(e.key.toLowerCase())
+      if (targetId === undefined) return
+      e.preventDefault()
+      const next = prefs.activeDefTab === targetId && firstId !== undefined ? firstId : targetId
+      actions.setActiveDefTab(next)
+    }
+
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [manageShortcuts, tabsFingerprint, prefs.activeDefTab, actions, tabs])
+
   if (tabs.length === 0 || activeTab === undefined) return null
 
   return (
     <section aria-label="Study notes" className="flex w-full flex-col gap-4">
-      <div role="tablist" aria-label="Study notes tabs" className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-soft-hairline/55 pb-2">
+      <div role="tablist" aria-label="Study notes tabs" className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-soft-hairline/55 pb-2">
         {tabs.map((t) => {
           const selected = t.id === activeId
           return (
             <button
               key={t.id}
+              id={`def-tab-${t.id}`}
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-controls={`def-panel-${t.id}`}
+              {...(t.shortcut !== undefined ? { 'aria-keyshortcuts': t.shortcut.toLowerCase() } : {})}
+              tabIndex={selected ? 0 : -1}
               onClick={() => actions.setActiveDefTab(t.id)}
               className={cn(
                 'inline-flex items-baseline gap-2 py-1 cursor-pointer',
-                'font-mono text-[0.6875rem] uppercase tracking-[0.16em]',
+                'font-display text-sm font-medium',
                 'transition-colors duration-100',
                 selected
                   ? 'text-sumi-ink relative after:absolute after:inset-x-0 after:-bottom-[9px] after:h-px after:bg-sumi-ink'
@@ -179,7 +195,8 @@ export function DefinitionPanel({
               {t.label}
               {t.shortcut !== undefined && (
                 <kbd className={cn(
-                  'font-mono text-[0.55rem] uppercase tracking-[0.12em] px-1 py-px rounded border border-soft-hairline',
+                  'font-mono text-sm px-1 py-px rounded border border-soft-hairline',
+                  'max-md:hidden',
                   selected ? 'text-faded-sumi border-sumi-ink/25' : 'text-faded-sumi/65',
                 )}>
                   {t.shortcut}
@@ -190,7 +207,15 @@ export function DefinitionPanel({
         })}
       </div>
 
-      <div className="pt-1">{activeTab.render()}</div>
+      <div
+        role="tabpanel"
+        id={`def-panel-${activeId}`}
+        aria-labelledby={`def-tab-${activeId}`}
+        tabIndex={0}
+        className="pt-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+      >
+        {activeTab.render()}
+      </div>
     </section>
   )
 }

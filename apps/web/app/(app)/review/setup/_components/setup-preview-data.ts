@@ -3,7 +3,7 @@ import type { QueueBreakdown } from '@/lib/review/queue-classify'
 import type {
   SetupPreviewState,
   SetupPreviewQueueShape,
-} from './setup-dev-toolbar'
+} from '@/dev/panels/review-setup'
 import type { DeckRow } from './setup-deck-list'
 
 export interface SetupPreviewSnapshot {
@@ -16,7 +16,6 @@ export interface SetupPreviewSnapshot {
   isError:    boolean
   isFirstTime: boolean
   isCaughtUp: boolean
-  isCatchUp:  boolean
 }
 
 const QUEUE_SHAPES: Record<SetupPreviewQueueShape, QueueBreakdown> = {
@@ -50,7 +49,6 @@ export function buildPreviewSnapshot(
       isError:     false,
       isFirstTime: false,
       isCaughtUp:  false,
-      isCatchUp:   false,
     }
   }
   if (state === 'error') {
@@ -64,7 +62,6 @@ export function buildPreviewSnapshot(
       isError:     true,
       isFirstTime: false,
       isCaughtUp:  false,
-      isCatchUp:   false,
     }
   }
   if (state === 'first-time') {
@@ -78,7 +75,6 @@ export function buildPreviewSnapshot(
       isError:     false,
       isFirstTime: true,
       isCaughtUp:  false,
-      isCatchUp:   false,
     }
   }
   if (state === 'no-reviews') {
@@ -92,18 +88,11 @@ export function buildPreviewSnapshot(
       isError:     false,
       isFirstTime: false,
       isCaughtUp:  true,
-      isCatchUp:   false,
     }
   }
 
   const breakdown = QUEUE_SHAPES[queueShape]
   const totalDue  = breakdown.reviewCount + breakdown.newCount + breakdown.backlogCount
-
-  // Backlog detection mirrors the staging client's heuristic.
-  const isCatchUp = state === 'catch-up' || (
-    breakdown.backlogCount >= 20 ||
-    (breakdown.backlogCount > 0 && breakdown.backlogCount / Math.max(1, totalDue) >= 0.6)
-  )
 
   return {
     state,
@@ -115,6 +104,5 @@ export function buildPreviewSnapshot(
     isError:     false,
     isFirstTime: false,
     isCaughtUp:  false,
-    isCatchUp,
   }
 }

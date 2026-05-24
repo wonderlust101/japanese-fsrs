@@ -31,7 +31,10 @@ export function VocabHero({
     return (
       <span
         lang="ja"
-        className={cn('font-japanese font-medium leading-[1.05] text-sumi-ink')}
+        // max-w-full + overflow-wrap so a long headword wraps within the card
+        // on narrow viewports instead of overflowing into the card's
+        // overflow-hidden clip. Japanese has no spaces, so wrap anywhere.
+        className={cn('font-japanese font-medium leading-[1.05] text-sumi-ink', 'max-w-full [overflow-wrap:anywhere]')}
         style={{ fontSize }}
       >
         {word}

@@ -17,7 +17,7 @@ export function RatingBreakdown({ breakdown, total }: Props): React.JSX.Element 
         const count = breakdown[key]
         const pct   = total > 0 ? (count / total) * 100 : 0
         return (
-          <div key={key} className="flex items-center gap-3">
+          <div key={key} className="flex items-center gap-2">
             <span className="w-10 text-right text-xs text-faded-sumi shrink-0">{label}</span>
             <div className="flex-1 h-2.5 rounded-full bg-cream-inset overflow-hidden">
               <div

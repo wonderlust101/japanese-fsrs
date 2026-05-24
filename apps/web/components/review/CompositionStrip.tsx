@@ -119,10 +119,10 @@ function Tick({
         style={{ backgroundColor: muted ? 'var(--color-soft-hairline)' : segment.color }}
       />
       <div className="min-w-0">
-        <div className="font-display text-[1.125rem] tabular-nums leading-none text-sumi-ink">
+        <div className="font-display text-md tabular-nums leading-none text-sumi-ink">
           {segment.count}
         </div>
-        <div className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
+        <div className="mt-1 font-mono text-sm text-faded-sumi">
           {segment.label}
         </div>
       </div>

@@ -29,9 +29,9 @@ export function MoreDisclosure({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          'group inline-flex items-center gap-1.5 text-sm text-faded-sumi',
+          'group inline-flex items-center gap-2 text-sm text-faded-sumi',
           'hover:text-sumi-ink transition-colors duration-150',
-          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-sm',
+          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-[2px]',
         )}
       >
         <IconChevronDown
@@ -41,13 +41,13 @@ export function MoreDisclosure({
             open ? 'rotate-180' : 'rotate-0',
           )}
         />
-        <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em]">
+        <span className="font-mono text-sm">
           {open ? `Less ${label.toLowerCase() === 'more' ? '' : label}`.trim() : label}
         </span>
       </button>
 
       {open && (
-        <div className="mt-4 space-y-3 text-sumi-ink animate-card-reveal">
+        <div className="mt-4 flex flex-col gap-y-3 text-sumi-ink animate-card-reveal">
           {children}
         </div>
       )}

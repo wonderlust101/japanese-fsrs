@@ -36,49 +36,65 @@ export interface ResolvedCardFields {
   frequencyRank:   number | null
   pitchPosition:   number | null
   pitchAccent:     string | null
-  expressionAudio: string | null
   picture:         string | null
-  collocations:    string[]
-  homophones:      string[]
   kanjiBreakdown:  Array<{ kanji: string; radical: string; meaning?: string; reading?: string }>
   exampleSentence: {
     ja:        string
     en:        string
     furigana:  string
-    audio:     string | null
   } | null
   jlptLevel:       string | null
 }
 
-export function resolveCardFields(card: ApiDueCard): ResolvedCardFields {
+// FNV-1a string hash → unsigned 32-bit. Deterministic and dependency-free.
+// Drives example-sentence rotation: seeding from `card.id + card.due` gives a
+// stable pick within a single review (id + due don't change mid-review) that
+// varies across reviews (FSRS rewrites `due` after each rating), with no
+// server round-trip and identical results across devices.
+function hashString(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return h >>> 0
+}
+
+/**
+ * @param sentenceIndex Optional explicit example-sentence index. When
+ *   provided (e.g. the /add/review preview pager), it overrides rotation and
+ *   shows exactly that sentence. When omitted, the back rotates: one sentence
+ *   per review, picked stable-randomly from `card.id + card.due`.
+ */
+export function resolveCardFields(card: ApiDueCard, sentenceIndex?: number): ResolvedCardFields {
   const word     = getWordFields(card)
   const vocab    = getVocabularyFields(card)
   const sentence = getSentenceFields(card)
 
-  // Prefer the first example sentence on a vocabulary card; fall back to the
-  // sentence-layout shape (different shape entirely — top-level ja/en/furigana
-  // rather than a nested exampleSentences[] array).
-  const example = vocab?.exampleSentences?.[0]
+  // Rotate across the vocabulary card's example sentences (fall back to the
+  // sentence-layout shape, which is a single top-level ja/en/furigana rather
+  // than a nested array). With N sentences the back shows one per review;
+  // an explicit `sentenceIndex` overrides the rotation for preview surfaces.
+  const sentences = vocab?.exampleSentences ?? []
+  const rotated   = sentences.length === 0
+    ? undefined
+    : sentences[
+        sentenceIndex !== undefined
+          ? Math.min(Math.max(sentenceIndex, 0), sentences.length - 1)
+          : hashString(`${card.id}|${card.due}`) % sentences.length
+      ]
+  const example = rotated
   const exampleSentence = example !== undefined
     ? {
         ja:       example.ja,
         en:       example.en,
         furigana: example.furigana,
-        // ExampleSentenceSchema's audio key is `sentenceAudio`. The previous
-        // implementation read `.audio` here (the sentence-layout's key name)
-        // and silently returned null; see the audit trail in the kanban Done
-        // entry for Stage 3.
-        audio:    example.sentenceAudio ?? null,
       }
     : sentence !== null
     ? {
         ja:       sentence.ja,
         en:       sentence.en,
         furigana: sentence.furigana,
-        // SentenceFieldsDataSchema uses `audio` (not `sentenceAudio`) — the
-        // two shapes are intentionally distinct: example-sentences are
-        // nested inside vocabulary cards, sentence-layout is the card.
-        audio:    sentence.audio ?? null,
       }
     : null
 
@@ -92,10 +108,7 @@ export function resolveCardFields(card: ApiDueCard): ResolvedCardFields {
     frequencyRank:   word?.frequencyRank   ?? null,
     pitchPosition:   word?.pitchPosition   ?? null,
     pitchAccent:     vocab?.pitchAccent    ?? null,
-    expressionAudio: word?.expressionAudio ?? null,
     picture:         word?.picture         ?? null,
-    collocations:    vocab?.collocations   ?? [],
-    homophones:      vocab?.homophones     ?? [],
     kanjiBreakdown:  vocab?.kanjiBreakdown ?? [],
     exampleSentence,
     jlptLevel:       card.jlptLevel,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useQuery }            from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { IconMore }            from '@/components/icons/chrome-marks'
 
@@ -10,10 +10,12 @@ import { CardBack }   from './session/CardBack'
 import { CardFront }  from './session/CardFront'
 import { FrequencyBadge } from './session/FrequencyBadge'
 import { resolveCardFields } from './session/card-fields'
-import { RatingBar } from './RatingBar'
+import { RatingBar, formatInterval } from './RatingBar'
+import { RevealBar }                from './RevealBar'
 import { OverflowMenu }     from '@/app/(app)/review/session/_components/overflow-menu'
 import { SessionTopBar }    from '@/app/(app)/review/session/_components/session-top-bar'
 import { SessionTeachSheet } from '@/app/(app)/review/session/_components/session-teach-sheet'
+import { SuspendConfirmDialog } from '@/app/(app)/review/session/_components/suspend-confirm-dialog'
 import {
   useCurrentCard,
   useCurrentIndex,
@@ -27,7 +29,10 @@ import {
   useSessionPreferencesActions,
 } from '@/stores/useSessionPreferencesStore'
 import { queryKeys }     from '@/lib/api/queryKeys'
+import { useRatingsPreview } from '@/lib/api/reviews'
+import { useSuspendCardMutation } from '@/lib/api/cards'
 import { getDeckAction } from '@/lib/actions/decks.actions'
+import { Toast, useToast } from '@/components/ui/Toast'
 import { cn }            from '@/lib/utils'
 import type { UserRating } from '@fsrs-japanese/shared-types'
 import type { FuriganaMode } from '@/stores/useSessionPreferencesStore'
@@ -54,11 +59,14 @@ interface ReviewCardProps {
   /** Lifted to the page so end-session can flush any pending review before
    *  navigating away. */
   onEndSession: () => void
+  /** Mobile-only confirm escalation: ask the page to open a confirm dialog
+   *  before ending. Unset on the drill session (no confirm needed there). */
+  onEndSessionRequest?: () => void
 }
 
 const TEACH_FLAG_KEY = 'tomo.session.hasSeenTeach'
 
-export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onEndSession }: ReviewCardProps): React.JSX.Element | null {
+export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onEndSession, onEndSessionRequest }: ReviewCardProps): React.JSX.Element | null {
   const card              = useCurrentCard()
   const queue             = useReviewQueue()
   const currentIndex      = useCurrentIndex()
@@ -67,6 +75,21 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
   const prefs             = useSessionPreferences()
   const prefsActions      = useSessionPreferencesActions()
   const { flipCard, submitRating } = useSessionActions()
+  const queryClient    = useQueryClient()
+
+  const suspendMutation  = useSuspendCardMutation()
+  const { toast, showToast, dismissToast } = useToast()
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false)
+
+  // Anki-style "what happens if I rate this?" preview. Fetched eagerly while
+  // the front is shown so the labels are ready by the time the user flips.
+  const ratingsPreviewQuery = useRatingsPreview(card?.id ?? null)
+  const nextIntervals = ratingsPreviewQuery.data === undefined ? undefined : {
+    again: formatInterval(ratingsPreviewQuery.data.again.scheduledDays),
+    hard:  formatInterval(ratingsPreviewQuery.data.hard.scheduledDays),
+    good:  formatInterval(ratingsPreviewQuery.data.good.scheduledDays),
+    easy:  formatInterval(ratingsPreviewQuery.data.easy.scheduledDays),
+  }
 
   const showAnswer = storeShowAnswer || overrides.forceShowAnswer
 
@@ -141,14 +164,22 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
         return
       }
 
-      if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault()
-        prefsActions.setActiveDefTab(prefs.activeDefTab === 'mnemonic' ? 'nuance' : 'mnemonic')
-        return
+      // Tab toggles: each non-nuance tab cycles back to nuance on re-press.
+      // `n` jumps to nuance from anywhere; no toggle target.
+      const tabToggleMap: Record<string, string> = {
+        n: 'nuance',
+        m: 'mnemonic',
+        k: 'kanji',
       }
-      if (e.key === 'k' || e.key === 'K') {
+      const tabKey = e.key.toLowerCase()
+      const tabTarget = tabToggleMap[tabKey]
+      if (tabTarget !== undefined) {
         e.preventDefault()
-        prefsActions.setActiveDefTab(prefs.activeDefTab === 'kanji' ? 'nuance' : 'kanji')
+        if (tabTarget === 'nuance') {
+          prefsActions.setActiveDefTab('nuance')
+        } else {
+          prefsActions.setActiveDefTab(prefs.activeDefTab === tabTarget ? 'nuance' : tabTarget)
+        }
       }
     }
     document.addEventListener('keydown', handleKey)
@@ -161,6 +192,29 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
     const order: FuriganaMode[] = ['hover', 'always', 'off']
     const next = order[(order.indexOf(prefs.furiganaMode) + 1) % order.length] ?? 'hover'
     prefsActions.setFuriganaMode(next)
+  }
+
+  function handleRequestSuspend(): void {
+    setSuspendDialogOpen(true)
+  }
+
+  function handleConfirmSuspend(): void {
+    if (card === undefined) return
+    suspendMutation.mutate(card.id, {
+      onSuccess: () => {
+        setSuspendDialogOpen(false)
+        // Card cache invalidator inside the mutation hook only clears
+        // cards.* + decks.*; the live review queue lives under reviews.due
+        // and needs explicit invalidation so the suspended card disappears
+        // on the next fetch.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+        showToast('Card suspended. Won’t appear in reviews until you unsuspend it.', 'info')
+      },
+      onError: () => {
+        setSuspendDialogOpen(false)
+        showToast('Couldn’t suspend that card. Try again?', 'error')
+      },
+    })
   }
 
   const total      = queue.length
@@ -181,9 +235,12 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
     <>
       <SessionTopBar
         percentage={percentage}
+        positionIndex={currentIndex + 1}
+        totalCount={total}
         offline={overrides.forceOffline}
         syncError={liveOrForcedSyncError}
         onEndSession={onEndSession}
+        {...(onEndSessionRequest !== undefined ? { onEndSessionRequest } : {})}
         onOpenTeach={handleOpenTeach}
       />
 
@@ -196,46 +253,101 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
           // Reserve room below for the fixed rating bar (so the card never
           // hides behind it). The pb here pairs with the layout's overflow-y
           // so the inner card scroll behaves predictably.
-          'pb-[6rem] md:pb-[7rem]',
+          'pb-24 md:pb-28',
+          // On mobile, claim the remaining vertical space so the card
+          // front fills the viewport between the top bar and the RevealBar.
+          // Desktop keeps content-height + parent's justify-center.
+          'max-md:flex-1',
         )}
       >
-        <SectionCard kanji="" label="" stripeTone="brand" omitTitle>
+        <SectionCard
+          kanji=""
+          label=""
+          stripeTone="brand"
+          omitTitle
+          className="max-md:flex max-md:flex-col max-md:flex-1"
+        >
           {/* Bonded top row: Frequency badge on the left, ⋯ on the right,
               directly under the vermillion stripe. Replaces the previous
               absolute-positioned ⋯ float so the card has a real chrome
               row anchoring the top edge. FrequencyBadge returns null when
               no rank is present; the ⋯ keeps the row's right anchor in
               either case. */}
-          <div className="flex items-center justify-between gap-3 px-1 pt-3 pb-2 md:px-2 md:pt-4 md:pb-2 border-b border-soft-hairline/40">
+          {(showAnswer || fields.frequencyRank !== null) && (
+          <div className="flex items-center gap-2 px-1 pt-3 pb-2 md:px-2 md:pt-4 md:pb-2">
             <FrequencyBadge rank={fields.frequencyRank} />
-            <OverflowMenu
-              deckName={deck?.name ?? null}
-              audioMuted={prefs.audioMuted}
-              onToggleAudio={() => prefsActions.setAudioMuted(!prefs.audioMuted)}
-              furiganaMode={prefs.furiganaMode}
-              onCycleFurigana={cycleFurigana}
-              trigger={
-                <span
-                  className={cn(
-                    'inline-flex h-8 w-8 items-center justify-center rounded-md text-faded-sumi',
-                    'hover:bg-cream-inset/60 hover:text-sumi-ink transition-colors duration-150',
-                    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-                  )}
-                >
-                  <IconMore aria-hidden="true" className="w-[17px] h-[17px]" />
-                </span>
-              }
-            />
+            {showAnswer && (
+              <div className="ml-auto">
+                <OverflowMenu
+                  cardId={card.id}
+                  deckName={deck?.name ?? null}
+                  audioMuted={prefs.audioMuted}
+                  onToggleAudio={() => prefsActions.setAudioMuted(!prefs.audioMuted)}
+                  furiganaMode={prefs.furiganaMode}
+                  onCycleFurigana={cycleFurigana}
+                  autoRevealTranslation={prefs.autoRevealTranslation}
+                  onToggleAutoRevealTranslation={() => prefsActions.setAutoRevealTranslation(!prefs.autoRevealTranslation)}
+                  onSuspendCard={handleRequestSuspend}
+                  trigger={
+                    <span
+                      className={cn(
+                        'inline-flex h-8 w-8 items-center justify-center rounded-[2px] text-faded-sumi',
+                        'hover:bg-cream-inset/60 hover:text-sumi-ink transition-colors duration-150',
+                        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+                      )}
+                    >
+                      <IconMore aria-hidden="true" className="w-[17px] h-[17px]" />
+                    </span>
+                  }
+                />
+              </div>
+            )}
           </div>
-          <div className="px-1 pt-5 pb-2 md:px-2 md:pt-7 md:pb-3">
+          )}
+          <div
+            className={cn(
+              'px-1 pt-5 pb-2 md:px-2 md:pt-7 md:pb-3',
+              // On mobile, take the remaining height inside the SectionCard.
+              // For the front, also center the (short) content vertically.
+              // For the back, leave default top-anchored flow so long content
+              // doesn't get its top cut off by justify-center.
+              'max-md:flex-1 max-md:flex max-md:flex-col',
+              !showAnswer && 'max-md:items-center max-md:justify-center',
+            )}
+          >
             {showAnswer ? <CardBack card={card} /> : <CardFront card={card} />}
           </div>
         </SectionCard>
       </div>
 
-      {showAnswer && <RatingBar onRate={submitRating} />}
+      {showAnswer ? (
+        <RatingBar
+          onRate={submitRating}
+          {...(nextIntervals !== undefined ? { nextIntervals } : {})}
+        />
+      ) : (
+        <RevealBar onReveal={flipCard} />
+      )}
 
       <SessionTeachSheet open={teachOpen} mode={teachMode} onClose={handleTeachClose} />
+
+      <SuspendConfirmDialog
+        open={suspendDialogOpen}
+        word={fields.word}
+        loading={suspendMutation.isPending}
+        onClose={() => { if (!suspendMutation.isPending) setSuspendDialogOpen(false) }}
+        onConfirm={handleConfirmSuspend}
+      />
+
+      {toast !== null && (
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          kind={toast.kind}
+          onDismiss={dismissToast}
+          offset="above-bar"
+        />
+      )}
     </>
   )
 }

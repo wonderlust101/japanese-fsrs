@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useShallow } from 'zustand/react/shallow'
@@ -12,17 +12,25 @@ import { Logo } from '@/components/ui/Logo'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
+import { PageFrame } from '@/app/(app)/_components/page-frame'
+import { QueueErrorPane } from '@/components/ui/QueueErrorPane'
 import { cn } from '@/lib/utils'
 import { inferDeckLevel } from '@/lib/deck-level'
 import { useDecks } from '@/lib/api/decks'
 import { useDueCards } from '@/lib/api/reviews'
+import { useOnlineStatus } from '@/lib/hooks/use-online-status'
 import { useSessionActions } from '@/stores/useReviewSessionStore'
 import {
   useSessionTuningStore,
-  tuningIsModified,
   type SessionTuning,
 } from '@/stores/useSessionTuningStore'
+import {
+  useTuningDefaultsStore,
+  activeBaseline,
+  tuningDiffersFromBaseline,
+} from '@/stores/useTuningDefaultsStore'
 
 import {
   classifyCard,
@@ -35,18 +43,13 @@ import {
   formatSessionEstimate,
 } from '@/lib/review/estimate-time'
 
+import { useReviewSetupDevState } from '@/dev/panels/review-setup'
+
 import { SetupSummary } from './setup-summary'
 import { SetupControls } from './setup-controls'
+import { ConfirmPopover } from './confirm-popover'
 import type { DeckRow } from './setup-deck-list'
-import {
-  SetupDevToolbar,
-  DEFAULT_SETUP_DEV_CONTROLS,
-  type SetupDevControls,
-} from './setup-dev-toolbar'
 import { buildPreviewSnapshot } from './setup-preview-data'
-
-const REVIEW_DEV_TOOLS_TOGGLE_EVENT = 'tomo:review-dev-tools:toggle'
-const PREVIEW_ENABLED = process.env.NODE_ENV !== 'production'
 
 interface SetupClientProps {
   initialTodayKey: string
@@ -72,47 +75,35 @@ export function SetupClient({
     buryRelated:     s.buryRelated,
   })))
   const tuningActions = useSessionTuningStore((s) => s.actions)
-  const modified      = tuningIsModified(tuning)
 
-  // ── Dev toolbar ──────────────────────────────────────────────────────────
-  const [devControls, setDevControls]   = useState<SetupDevControls>(DEFAULT_SETUP_DEV_CONTROLS)
-  const [devToolsOpen, setDevToolsOpen] = useState<boolean>(false)
-  useEffect(() => {
-    if (!PREVIEW_ENABLED) return
-    function handleToggle(): void { setDevToolsOpen((o) => !o) }
-    window.addEventListener(REVIEW_DEV_TOOLS_TOGGLE_EVENT, handleToggle)
-    return () => window.removeEventListener(REVIEW_DEV_TOOLS_TOGGLE_EVENT, handleToggle)
-  }, [])
-  useEffect(() => {
-    if (!devToolsOpen) return
-    function onKey(event: KeyboardEvent): void {
-      if (event.key === 'Escape') setDevToolsOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [devToolsOpen])
-  const previewActive   = PREVIEW_ENABLED && devToolsOpen
+  // ── User-saved default tuning (localStorage) ─────────────────────────────
+  // When set, becomes the active baseline for "modified" comparisons and the
+  // target of Reset (instead of hardcoded DEFAULT_TUNING).
+  const userDefault         = useTuningDefaultsStore((s) => s.userDefault)
+  const tuningDefaultsActions = useTuningDefaultsStore((s) => s.actions)
+  const baseline            = useMemo(() => activeBaseline(userDefault), [userDefault])
+  const modified            = useMemo(
+    () => tuningDiffersFromBaseline(tuning, baseline),
+    [tuning, baseline],
+  )
+
+  // ── Dev toolbar (registered with the global dev dock) ────────────────────
+  const { controls: devControls, previewActive } = useReviewSetupDevState()
   const previewSnapshot = useMemo(
     () => previewActive ? buildPreviewSnapshot(devControls.state, devControls.queueShape) : null,
     [previewActive, devControls.state, devControls.queueShape],
   )
 
-  // ── Online detection ─────────────────────────────────────────────────────
-  const [isOnline, setIsOnline] = useState<boolean>(true)
-  useEffect(() => {
-    function update(): void { setIsOnline(navigator.onLine) }
-    update()
-    window.addEventListener('online',  update)
-    window.addEventListener('offline', update)
-    return () => {
-      window.removeEventListener('online',  update)
-      window.removeEventListener('offline', update)
-    }
-  }, [])
+  // ── Connectivity ─────────────────────────────────────────────────────────
+  const isOnline = useOnlineStatus()
 
   // ── Live data ────────────────────────────────────────────────────────────
   const dueQuery   = useDueCards()
-  const decksQuery = useDecks(50)
+  // Setup needs every deck so the inclusion list and per-deck due-count
+  // mapping cover the whole library, not just the first page. 500 is well
+  // above any realistic personal library and below any server-side DoS
+  // ceiling.
+  const decksQuery = useDecks(500)
 
   const dueItems: ReadonlyArray<ApiDueCard> = dueQuery.data?.items   ?? []
   const allDecks: ReadonlyArray<ApiDeck>    = decksQuery.data?.items ?? []
@@ -138,32 +129,43 @@ export function SetupClient({
 
   // ── Effective state ──────────────────────────────────────────────────────
   const isLoading   = previewSnapshot?.isLoading   ?? (dueQuery.isLoading || decksQuery.isLoading)
-  const isError     = previewSnapshot?.isError     ?? dueQuery.isError
-  const isFirstTime = previewSnapshot?.isFirstTime ?? (!isLoading && !isError && allDecks.length === 0)
+  const isError     = previewSnapshot?.isError     ?? (dueQuery.isError || decksQuery.isError)
+  // First-time = truly empty library. Requires both no decks AND no due cards,
+  // so a transient empty `decksQuery` (network blip, swallowed error, archived-
+  // filter race) doesn't misclassify an active learner as brand-new.
+  const isFirstTime = previewSnapshot?.isFirstTime ?? (
+    !isLoading && !isError && allDecks.length === 0 && dueItems.length === 0
+  )
+
+  // Stale-data flag: quiet inline aizome label rendered after the
+  // "Today's session" card label. Mirrors today-hero's HeroKicker flag
+  // pattern. The dev preview's 'offline' state forces it on; otherwise
+  // it tracks real network status via useOnlineStatus.
   const effectiveOnline = previewSnapshot !== null ? previewSnapshot.isOnline : isOnline
+  const staleFlag: string | undefined =
+    !effectiveOnline ? 'Showing the last saved queue' : undefined
 
   const breakdown: QueueBreakdown = previewSnapshot?.breakdown ?? liveBreakdown
   const deckRows: ReadonlyArray<DeckRow> = previewSnapshot?.decks ?? liveDeckRows
   const totalDue = breakdown.reviewCount + breakdown.newCount + breakdown.backlogCount
-
-  const isCatchUp = previewSnapshot?.isCatchUp ?? (
-    !isLoading && !isError && totalDue > 0 && (
-      breakdown.backlogCount >= 20 ||
-      (breakdown.backlogCount > 0 && breakdown.backlogCount / Math.max(1, totalDue) >= 0.6)
-    )
-  )
 
   const isNoReviews = previewSnapshot?.isCaughtUp ?? (
     !isLoading && !isError && !isFirstTime && deckRows.length > 0 && totalDue === 0
   )
 
   // ── Filter preview ───────────────────────────────────────────────────────
+  // Shuffle seed is stable per mount, so toggling an unrelated tuning
+  // (e.g. session size) doesn't re-randomize the shuffled order on every
+  // recompute. The seed is regenerated only when the consumer explicitly
+  // remounts the page.
+  const shuffleSeedRef = useRef<number>(Math.floor(Math.random() * 2 ** 31))
   const previewCards = useMemo<ApiDueCard[]>(() => {
     if (previewSnapshot !== null) return []
     return filterCardsForSession(dueItems, tuning, {
-      todayKey: initialTodayKey,
-      timeZone: initialTimeZone,
-      decks:    allDecks,
+      todayKey:     initialTodayKey,
+      timeZone:     initialTimeZone,
+      decks:        allDecks,
+      shuffleSeed:  shuffleSeedRef.current,
     })
   }, [dueItems, tuning, initialTodayKey, initialTimeZone, allDecks, previewSnapshot])
 
@@ -185,10 +187,6 @@ export function SetupClient({
     return formatSessionEstimate(estimateSessionSeconds(previewCards))
   }, [previewSnapshot, previewBreakdown, previewCards])
 
-  const includedDeckCount = tuning.includedDeckIds === null
-    ? deckRows.length
-    : deckRows.filter((d) => tuning.includedDeckIds?.includes(d.id) === true).length
-
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleStart = useCallback((): void => {
     if (previewActive) return
@@ -197,12 +195,84 @@ export function SetupClient({
     router.push('/review/session')
   }, [previewActive, previewCards, startSession, router])
 
-  const handleRefresh = useCallback((): void => {
-    void dueQuery.refetch()
-    void decksQuery.refetch()
-  }, [dueQuery, decksQuery])
+  const [refreshing, setRefreshing] = useState(false)
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await Promise.allSettled([dueQuery.refetch(), decksQuery.refetch()])
+    } finally {
+      setRefreshing(false)
+    }
+  }, [dueQuery, decksQuery, refreshing])
 
-  const showOffline = !effectiveOnline && !isFirstTime && !isError
+  // ── Action handlers ───────────────────────────────────────────────────────
+  const handleResetToBaseline = useCallback((): void => {
+    tuningActions.applyTuning(baseline)
+  }, [tuningActions, baseline])
+
+  const handleSaveAsDefault = useCallback((): void => {
+    tuningDefaultsActions.save(tuning)
+  }, [tuningDefaultsActions, tuning])
+
+  // Power-user keyboard parity with /today:
+  //   R / Enter — start the session (when previewable cards exist)
+  //   S         — save current tuning as the user's default (when modified)
+  // Suppressed when focus is inside a form control or a modifier key is held,
+  // so segmented controls, checkboxes, and the deck list keep their behavior.
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent): void {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      const target = event.target as HTMLElement | null
+      if (target !== null) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+        if (target.isContentEditable) return
+      }
+      const key = event.key.toLowerCase()
+      if (key === 'r' || key === 'enter') {
+        if (isLoading || previewActive || previewTotal === 0) return
+        event.preventDefault()
+        handleStart()
+        return
+      }
+      if (key === 's') {
+        if (!modified || previewActive) return
+        event.preventDefault()
+        handleSaveAsDefault()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [
+    handleStart, handleSaveAsDefault,
+    isLoading, previewActive, previewTotal, modified,
+  ])
+
+  // ── Zero-state recovery hint ────────────────────────────────────────────
+  // The user has decks and the underlying queue has cards (so this isn't
+  // the celebrated NoReviewsState), but their current tuning produces an
+  // empty preview. Tell them *which* filter to release. Each branch is
+  // mutually exclusive in practice; we pick the most likely cause.
+  const noReviewsHint: string | undefined = useMemo(() => {
+    if (isFirstTime || isNoReviews || previewActive) return undefined
+    if (previewTotal > 0 || totalDue === 0) return undefined
+    if (tuning.includedDeckIds !== null && tuning.includedDeckIds.length === 0) {
+      return 'Every deck is off. Toggle one back on, or use the All bulk action above.'
+    }
+    if (tuning.overdueFirst && breakdown.backlogCount === 0) {
+      return 'No overdue cards in your queue. Uncheck "Overdue first" to study today’s reviews.'
+    }
+    if (!tuning.includeNewCards && breakdown.reviewCount === 0 && breakdown.backlogCount === 0) {
+      return 'Only new cards are due today. Turn on "Include new cards" to begin.'
+    }
+    return 'Try widening your filters above.'
+  }, [
+    isFirstTime, isNoReviews, previewActive,
+    previewTotal, totalDue,
+    tuning.includedDeckIds, tuning.overdueFirst, tuning.includeNewCards,
+    breakdown.backlogCount, breakdown.reviewCount,
+  ])
 
   // ── Action area (shared between desktop summary and mobile sticky bar) ──
   const actions = (
@@ -211,85 +281,77 @@ export function SetupClient({
       canStart={!isLoading && previewTotal > 0 && !previewActive}
       startLabel={
         isNoReviews
-          ? 'Practice ahead'
+          ? 'Add Japanese'
           : previewTotal === 0
             ? 'Nothing to start'
             : `Start session · ${previewTotal} ${previewTotal === 1 ? 'card' : 'cards'}`
       }
-      startHref={isNoReviews ? '/today' : undefined}
+      startHref={isNoReviews ? '/add' : undefined}
       onStart={handleStart}
-      onReset={tuningActions.reset}
+      onReset={handleResetToBaseline}
+      onSaveAsDefault={handleSaveAsDefault}
+      {...(noReviewsHint !== undefined && { hint: noReviewsHint })}
     />
   )
 
-  return (
-    <div className="relative isolate flex flex-1 flex-col">
-      <div className="relative z-10 grid flex-1 grid-cols-1 content-center gap-y-8 mx-auto w-full max-w-[1440px] px-6 pt-8 md:px-12 md:pt-10 lg:px-16 lg:pt-12">
-      {/* Header */}
-      <PageHeader
-        kanji="備"
-        label="Review setup"
-        title="Tune today's session."
-        subtitle="Your deck defaults stay the same. These choices only apply today."
-      />
+  if (isLoading) {
+    return <PageLoader />
+  }
 
-      {/* Offline banner */}
-      {showOffline && <OfflineBanner />}
-
-      {/* Error */}
-      {isError && <ErrorState onRetry={handleRefresh} />}
-
-      {/* First-time */}
-      {!isError && isFirstTime && <FirstTimeState />}
-
-      {/* No reviews */}
-      {!isError && !isFirstTime && isNoReviews && <NoReviewsState />}
-
-      {/* Normal layout */}
-      {!isError && !isFirstTime && !isNoReviews && (
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
-          {/* Left column: summary (sticky) */}
-          <aside className="lg:col-span-5 lg:sticky lg:top-10 lg:self-start">
-            <SetupSummary
-              tone={isLoading ? 'loading' : isCatchUp ? 'catch-up' : 'default'}
-              breakdown={previewBreakdown}
-              timeLabel={timeEstimate.label}
-              deckCount={includedDeckCount}
-              totalDeckCount={deckRows.length}
-              modified={modified}
-              actions={actions}
-            />
-          </aside>
-
-          {/* Right column: control SectionCards */}
-          <div className="lg:col-span-7">
-            <SetupControls
-              tuning={tuning}
-              onChange={tuningActions.set}
-              decks={deckRows}
-              totalDue={totalDue}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-      )}
+  if (isError) {
+    return (
+      <div className="relative isolate flex flex-1 flex-col">
+        <QueueErrorPane
+          onRefresh={() => void handleRefresh()}
+          refreshing={refreshing}
+        />
       </div>
+    )
+  }
 
-      {/* Mobile sticky action bar */}
-      {!isError && !isFirstTime && (
+  return (
+    <PageFrame desktopCentered>
+        <PageHeader
+          kanji="備"
+          label="Review setup"
+          title="Tune today's session."
+          subtitle="Your deck defaults stay the same. These choices only apply today."
+        />
+
+        {isFirstTime && <FirstTimeState />}
+
+        {!isFirstTime && isNoReviews && <NoReviewsState />}
+
+        {!isFirstTime && !isNoReviews && (
+          <SetupSummary
+            tone={isLoading ? 'loading' : 'default'}
+            breakdown={previewBreakdown}
+            timeLabel={timeEstimate.label}
+            actions={actions}
+            {...(staleFlag !== undefined && { flag: staleFlag })}
+          />
+        )}
+
+        {!isFirstTime && !isNoReviews && (
+          <SetupControls
+            tuning={tuning}
+            onChange={tuningActions.set}
+            decks={deckRows}
+            totalDue={totalDue}
+            disabled={isLoading}
+          />
+        )}
+
+      {/* Mobile sticky action bar. Hidden at lg+ (its default) — at lg the
+          summary's internal actions appear at the bottom of the stacked
+          summary card; at min-[1180px]+ the summary becomes the sticky
+          sidebar and parks the start button there. */}
+      {!isFirstTime && (
         <MobileStickyActionBar ariaLabel="Start review session">
           {actions}
         </MobileStickyActionBar>
       )}
-
-      {previewActive && (
-        <SetupDevToolbar
-          controls={devControls}
-          onChange={setDevControls}
-          onClose={() => setDevToolsOpen(false)}
-        />
-      )}
-    </div>
+    </PageFrame>
   )
 }
 
@@ -302,76 +364,154 @@ function ActionArea({
   startHref,
   onStart,
   onReset,
+  onSaveAsDefault,
+  hint,
 }: {
-  modified:   boolean
-  canStart:   boolean
-  startLabel: string
-  startHref?: string | undefined
-  onStart:    () => void
-  onReset:    () => void
+  modified:        boolean
+  canStart:        boolean
+  startLabel:      string
+  startHref?:      string | undefined
+  onStart:         () => void
+  onReset:         () => void
+  onSaveAsDefault: () => void
+  /** Quiet one-line hint below the CTA when the user has tuned themselves
+   *  into a zero-card preview. */
+  hint?:           string
 }): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-3">
-      {/* Always-visible microcopy near the action */}
-      <p className="text-sm text-faded-sumi">
-        {modified ? (
-          <>
-            <span className="text-sumi-ink">Tuning just for this session.</span>{' '}
-            <button
-              type="button"
-              onClick={onReset}
-              className="text-faded-sumi underline decoration-soft-hairline underline-offset-4 hover:text-sumi-ink"
-            >
-              Reset to defaults
-            </button>
-            .
-          </>
-        ) : (
-          <>Starts today's session. Your deck defaults stay the same.</>
-        )}
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        {startHref !== undefined ? (
-          <Link
-            href={startHref}
-            className="inline-flex h-12 flex-1 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-6 text-base font-semibold text-warm-paper-raised hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:flex-none"
-          >
-            {startLabel}
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={onStart}
-            disabled={!canStart}
-            className={cn(
-              'inline-flex h-12 flex-1 items-center justify-center rounded-[2px] px-6 text-base font-semibold sm:flex-none',
-              'transition-colors duration-150 ease-out',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-              canStart
-                ? 'bg-inari-vermillion-deep text-warm-paper-raised hover:bg-inari-vermillion'
-                : 'bg-cream-inset text-faded-sumi cursor-not-allowed',
-            )}
-          >
-            {startLabel}
-          </button>
-        )}
-        <QuietLink href="/today">Cancel</QuietLink>
-      </div>
-    </div>
-  )
-}
+  // Local UI state for the confirm-reset popover and the "Saved" success
+  // microcopy that briefly replaces the Save-as-default link.
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [savedFlash,  setSavedFlash]  = useState(false)
+  // The Reset trigger anchors the floating confirm popover; the popover
+  // measures this element's bounding rect to position itself.
+  const resetButtonRef = useRef<HTMLButtonElement | null>(null)
+  // Holds the active "Saved" flash timer so unmount can clear it. Without
+  // this, navigating away within 2s leaves a pending state-setter that
+  // fires against a stale closure.
+  const savedFlashTimerRef = useRef<number | null>(null)
 
-function OfflineBanner(): React.JSX.Element {
+  useEffect(() => () => {
+    if (savedFlashTimerRef.current !== null) {
+      window.clearTimeout(savedFlashTimerRef.current)
+    }
+  }, [])
+
+  function handleSaveClick(): void {
+    onSaveAsDefault()
+    setSavedFlash(true)
+    if (savedFlashTimerRef.current !== null) {
+      window.clearTimeout(savedFlashTimerRef.current)
+    }
+    savedFlashTimerRef.current = window.setTimeout(() => {
+      setSavedFlash(false)
+      savedFlashTimerRef.current = null
+    }, 2000)
+  }
+
+  function handleResetConfirm(): void {
+    onReset()
+    setConfirmOpen(false)
+  }
+
   return (
-    <div
-      role="status"
-      className={cn(
-        'mb-6 rounded-[2px] border border-soft-hairline bg-cream-inset/60',
-        'px-4 py-3 text-sm text-faded-sumi',
+    <div className="flex flex-col gap-2">
+    {/* Single wrap-row: primary CTA on the left, secondary Save/Reset cluster
+        sits to its right on widths where both fit. On narrow viewports the
+        start button takes the whole row (flex-1) and the cluster wraps below. */}
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+      {startHref !== undefined ? (
+        // Link variant mirrors Button's `primary` palette per DESIGN.md
+        // (bg-inari-vermillion → hover deepens). No transforms; flat CTA.
+        <Link
+          href={startHref}
+          className={cn(
+            'inline-flex h-12 flex-1 items-center justify-center rounded-[2px] px-6 text-base font-semibold sm:flex-none',
+            'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
+            'transition-colors duration-150 ease-out',
+            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+          )}
+        >
+          {startLabel}
+        </Link>
+      ) : (
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={onStart}
+          disabled={!canStart}
+          className="flex-1 sm:flex-none"
+        >
+          {startLabel}
+        </Button>
       )}
-    >
-      <p className="text-sumi-ink">Offline, using your cached decks.</p>
-      <p className="mt-1">New decks and freshly-due cards won't appear until you reconnect.</p>
+
+      {/* Modifications cluster: Save-as-default + Reset.
+          Mobile: `order-first` + `w-full` lifts the cluster above the
+          Start CTA so the affirmative button stays the thumb-zone anchor
+          while Save/Reset sit on a quieter row above. Desktop (sm+):
+          `sm:order-none` + `sm:w-auto` restores the original "beside
+          the CTA" inline layout. Hidden when tuning matches the active
+          baseline. The confirm popover is portaled out of this subtree
+          entirely, so opening it cannot shift any surrounding layout. */}
+      {modified && (
+        <div className="order-first w-full sm:order-none sm:w-auto flex flex-wrap items-center gap-2 text-sm">
+          {/* aria-live wraps the swap so screen-reader users hear "Saved"
+              when the link briefly replaces itself with the confirmation
+              microcopy. Polite (not assertive) — this is a quiet success
+              signal, not a warning. */}
+          <span aria-live="polite" className="inline-flex items-center">
+            {savedFlash ? (
+              <span className="inline-flex items-center pointer-coarse:min-h-[44px] font-mono text-sm text-inari-vermillion-deep">
+                Saved
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSaveClick}
+                className={cn(
+                  'inline-flex items-center rounded-[2px] px-2.5 py-1.5 text-sumi-ink pointer-coarse:min-h-[44px]',
+                  'border border-soft-hairline bg-warm-paper-raised',
+                  'hover:border-faded-sumi hover:bg-cream-inset/60 cursor-pointer',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+                  'transition-colors duration-150 ease-out',
+                )}
+              >
+                Save as default
+              </button>
+            )}
+          </span>
+          <span aria-hidden="true" className="text-soft-hairline">·</span>
+          <button
+            ref={resetButtonRef}
+            type="button"
+            onClick={() => setConfirmOpen((v) => !v)}
+            className="inline-flex items-center pointer-coarse:min-h-[44px] text-faded-sumi underline decoration-soft-hairline underline-offset-4 hover:text-sumi-ink cursor-pointer"
+          >
+            Reset
+          </button>
+          <ConfirmPopover
+            open={confirmOpen}
+            anchorRef={resetButtonRef}
+            headline="Reset tuning?"
+            description="Returns every setting to your defaults for this session."
+            confirmLabel="Reset"
+            onConfirm={handleResetConfirm}
+            onCancel={() => setConfirmOpen(false)}
+          />
+        </div>
+      )}
+    </div>
+
+    {/* Zero-state recovery hint. Live so the line is announced the
+        moment the user tunes themselves into a no-card state. */}
+    {hint !== undefined && (
+      <p
+        aria-live="polite"
+        className="text-sm leading-relaxed text-faded-sumi"
+      >
+        {hint}
+      </p>
+    )}
     </div>
   )
 }
@@ -383,29 +523,30 @@ function NoReviewsState(): React.JSX.Element {
         <Logo size={80} showWordmark={false} />
         <h2
           id="setup-no-reviews-headline"
-          className="break-words font-display text-[2.35rem] sm:text-[3rem] lg:text-[3.55rem] leading-[1] text-sumi-ink"
+          className="break-words font-display text-hero leading-none text-sumi-ink"
         >
           Nothing scheduled.
-          <span className="block text-faded-sumi font-normal">Practice ahead, or add new Japanese.</span>
+          <span className="block text-faded-sumi font-normal">Add new Japanese, or rest for today.</span>
         </h2>
       </div>
 
-      <p className="mt-5 max-w-[54ch] break-words text-base text-faded-sumi leading-relaxed">
+      <p className="mt-5 max-w-measure break-words text-base text-faded-sumi leading-relaxed">
         Your queue is empty for today. Cards return when they are close to fading.
       </p>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
         <Link
-          href="/today"
+          href="/add"
           className={cn(
-            'inline-flex h-12 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-6 text-base font-semibold text-warm-paper-raised',
-            'transition-colors duration-150 ease-out hover:bg-inari-vermillion',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+            'inline-flex h-12 items-center justify-center rounded-[2px] px-6 text-base font-semibold',
+            'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
+            'transition-colors duration-150 ease-out',
+            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           )}
         >
-          Practice ahead
+          Add Japanese
         </Link>
-        <QuietLink href="/add">Add Japanese</QuietLink>
+        <QuietLink href="/today">Back to Today</QuietLink>
       </div>
     </SectionCard>
   )
@@ -413,31 +554,45 @@ function NoReviewsState(): React.JSX.Element {
 
 function FirstTimeState(): React.JSX.Element {
   return (
-    <SectionCard kanji="初" label="Welcome" description="No decks yet.">
-      <p className="text-sm leading-relaxed text-faded-sumi">
-        Subscribe to a premade deck or add your own Japanese to start practicing.
+    <SectionCard kanji="始" label="Begin">
+      <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
+        <Logo size={80} showWordmark={false} />
+        <div>
+          <p
+            lang="ja"
+            className="font-display text-md leading-none text-faded-sumi sm:text-lg"
+          >
+            始めましょう。
+          </p>
+          <h2
+            id="setup-first-time-headline"
+            className="mt-2 break-words font-display text-hero leading-none text-sumi-ink"
+          >
+            Let&rsquo;s begin.
+            <span className="block text-faded-sumi font-normal">
+              Your first session is a few choices away.
+            </span>
+          </h2>
+        </div>
+      </div>
+
+      <p className="mt-6 max-w-measure break-words text-base leading-relaxed text-faded-sumi">
+        Pick a deck Tomo prepared for you, or bring the Japanese you&rsquo;re already studying. Either path opens the same way: calm, considered, no rush.
       </p>
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
         <Link
           href="/decks"
-          className="inline-flex h-10 items-center justify-center rounded-[2px] bg-inari-vermillion-deep px-4 text-sm font-semibold text-warm-paper-raised hover:bg-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          className={cn(
+            'inline-flex h-12 items-center justify-center rounded-[2px] px-6 text-base font-semibold',
+            'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep',
+            'transition-colors duration-150 ease-out',
+            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+          )}
         >
-          Browse decks
+          Browse premade decks
         </Link>
-        <QuietLink href="/add">Or add your own</QuietLink>
-      </div>
-    </SectionCard>
-  )
-}
-
-function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
-  return (
-    <SectionCard kanji="失" label="Couldn't load" description="Something interrupted the request." stripeTone="error">
-      <p className="text-sm leading-relaxed text-faded-sumi">
-        Check your connection and try again.
-      </p>
-      <div className="mt-5">
-        <Button variant="primary" size="md" onClick={onRetry}>Retry</Button>
+        <QuietLink href="/add">Or add your own Japanese</QuietLink>
       </div>
     </SectionCard>
   )
@@ -448,7 +603,12 @@ function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
 function filterCardsForSession(
   items:  ReadonlyArray<ApiDueCard>,
   tuning: SessionTuning,
-  ctx:    { todayKey: string; timeZone: string; decks: ReadonlyArray<ApiDeck> },
+  ctx:    {
+    todayKey:     string
+    timeZone:     string
+    decks:        ReadonlyArray<ApiDeck>
+    shuffleSeed:  number
+  },
 ): ApiDueCard[] {
   const allowedDeckIds = tuning.includedDeckIds === null
     ? new Set<string>(ctx.decks.map((d) => d.id))
@@ -466,7 +626,7 @@ function filterCardsForSession(
   }
 
   if (tuning.reviewOrder === 'shuffle') {
-    pool = shuffle(pool)
+    pool = shuffle(pool, ctx.shuffleSeed)
   } else {
     pool = [...pool].sort((a, b) => {
       const ka = classifyCard(a, ctx.todayKey, ctx.timeZone)
@@ -478,7 +638,8 @@ function filterCardsForSession(
   if (tuning.newCardOrder === 'shuffle' && tuning.includeNewCards) {
     const news    = pool.filter((c) => c.state === FSRS_NEW)
     const nonNews = pool.filter((c) => c.state !== FSRS_NEW)
-    pool = [...nonNews, ...shuffle(news)]
+    // Offset seed so the new-card shuffle doesn't echo the review shuffle.
+    pool = [...nonNews, ...shuffle(news, ctx.shuffleSeed ^ 0x9e3779b1)]
   }
 
   if (tuning.sessionSize > 0) {
@@ -501,10 +662,25 @@ function filterCardsForSession(
   return pool
 }
 
-function shuffle<T>(arr: ReadonlyArray<T>): T[] {
+// Mulberry32: a tiny seeded PRNG. Deterministic for a given seed so the
+// shuffle preview stays stable across unrelated tuning recomputes; the
+// caller varies the seed only when a fresh randomization is intended.
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state + 0x6D2B79F5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffle<T>(arr: ReadonlyArray<T>, seed: number): T[] {
   const result = [...arr]
+  const rand = mulberry32(seed)
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rand() * (i + 1))
     ;[result[i], result[j]] = [result[j] as T, result[i] as T]
   }
   return result

@@ -5,7 +5,10 @@ import { useRouter }                            from 'next/navigation'
 import { useShallow }                           from 'zustand/react/shallow'
 
 import { ReviewCard }                      from '@/components/review/ReviewCard'
+import { Button }                          from '@/components/ui/Button'
 import { SectionCard }                     from '@/components/ui/SectionCard'
+import { PageLoader }                      from '@/components/ui/TomoLoader'
+import { EndSessionConfirmDialog }         from './_components/end-session-confirm-dialog'
 import { useSubmitReview, useOfflineSync, useDueCards } from '@/lib/api/reviews'
 import { useDecks }                        from '@/lib/api/decks'
 import { getProfileAction }                from '@/lib/actions/profile.actions'
@@ -23,7 +26,8 @@ import { useSessionDevOverrides } from '@/stores/useSessionDevOverridesStore'
 import { classifyCard, priorityForKind } from '@/lib/review/queue-classify'
 import { rememberLastFinishedSession } from '@/lib/review/last-finished-session'
 
-import { SessionDevToolsDock } from './_components/session-dev-tools-dock'
+import { useReviewSessionDevState } from '@/dev/panels/review-session'
+
 import { UndoPill }            from './_components/undo-pill'
 
 import type { SubmitReviewInput } from '@fsrs-japanese/shared-types'
@@ -47,6 +51,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   const { mutate: submitReview, isError } = useSubmitReview()
   const [hasSyncError, setHasSyncError] = useState(false)
   const [bootstrapFailed, setBootstrapFailed] = useState(false)
+  const [endDialogOpen, setEndDialogOpen] = useState(false)
   const processedRef   = useRef(0)
   const cardShownAtRef = useRef<number>(Date.now())
 
@@ -58,6 +63,10 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   const pendingTimerRef   = useRef<number | null>(null)
 
   const overrides = useSessionDevOverrides()
+
+  // Register the session dev panel with the global dock. No render needed —
+  // the dock owns the chrome and the panel body wires to Zustand directly.
+  useReviewSessionDevState()
 
   useOfflineSync()
 
@@ -269,6 +278,22 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
     navigateToSummary()
   }, [submitReview, endSession, router, sessionId, sessionHistory.length, attachReviewLogId])
 
+  // Mobile-only confirm escalation: tapping the icon-only End button on
+  // mobile routes through a confirm dialog unless the session has no rated
+  // cards yet (nothing to lose, no need for friction).
+  const handleEndSessionRequest = useCallback((): void => {
+    if (sessionHistory.length === 0) {
+      handleEndSession()
+      return
+    }
+    setEndDialogOpen(true)
+  }, [sessionHistory.length, handleEndSession])
+
+  const handleConfirmEndSession = useCallback((): void => {
+    setEndDialogOpen(false)
+    handleEndSession()
+  }, [handleEndSession])
+
   // ① When sessionHistory grows, defer the API mutation by UNDO_WINDOW_MS.
   // If a previous deferred submission is still pending, flush it first so
   // submissions stay in order and the queue is bounded at one entry.
@@ -325,35 +350,67 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 
   if (showBootstrapFailed) {
     return (
+      <StateCard
+        stripeTone="error"
+        kanji="止"
+        label="Couldn't load"
+        headline="Something interrupted the session."
+        body="Check your connection and try again when you're ready."
+        actionLabel="Back to setup"
+        onAction={() => router.push('/review/setup')}
+      />
+    )
+  }
+
+  // Bootstrap-in-flight: due/decks queries still resolving, or learner-day
+  // calendar values not computed yet. Loader sits in for the otherwise-blank
+  // surface so cold loads on a slow connection don't show a stripped page.
+  const isBootstrapping =
+    overrides.forceBootstrapping ||
+    (!isStarted &&
+     (dueQuery.isLoading ||
+      decksQuery.isLoading ||
+      todayKey === undefined ||
+      tz       === undefined))
+
+  // End-of-session window: the last card was just rated, queue index has
+  // advanced past the end (currentCard undefined), but the deferred submit
+  // and route change haven't fired yet. UndoPill still renders so the user
+  // keeps the 3s rewind window during the wrap-up.
+  const isEndingSession =
+    overrides.forceEndingSession ||
+    (isStarted && currentCard === undefined && sessionHistory.length > 0)
+
+  if (isBootstrapping) {
+    return <PageLoader stageLabels={['Preparing your reviews.']} />
+  }
+
+  if (isEndingSession) {
+    return (
       <>
-        <StateCard
-          stripeTone="error"
-          kanji="止"
-          label="Couldn't load"
-          headline="Something interrupted the session."
-          body="Check your connection and try again when you're ready."
-          actionLabel="Back to setup"
-          onAction={() => router.push('/review/setup')}
-        />
-        {isDev && <SessionDevToolsDock />}
+        <PageLoader stageLabels={['Wrapping up.']} />
+        {canUndo && (
+          <UndoPill
+            generation={pendingGeneration}
+            windowMs={UNDO_WINDOW_MS}
+            onUndo={handleUndo}
+          />
+        )}
       </>
     )
   }
 
   if (!isStarted || currentCard === undefined) {
-    // In dev we still mount the dock so engineers can seed a fixture on a
-    // cold page. In production this state is invisible because we redirect.
+    // Dev-only empty state — fixture not seeded yet. In production the
+    // bootstrap effect redirects to /review/setup before we land here.
     return isDev ? (
-      <>
-        <StateCard
-          stripeTone="aizome"
-          kanji="空"
-          label="Dev preview"
-          headline="No queued cards."
-          body="Open the dev dock and seed a fixture queue (Comprehension / Production / Listening) to preview the surface."
-        />
-        <SessionDevToolsDock />
-      </>
+      <StateCard
+        stripeTone="aizome"
+        kanji="空"
+        label="Dev preview"
+        headline="No queued cards."
+        body="Open the dev dock and seed a fixture queue from Review · Session to preview the surface."
+      />
     ) : null
   }
 
@@ -364,6 +421,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
         canUndo={canUndo}
         onUndo={handleUndo}
         onEndSession={handleEndSession}
+        onEndSessionRequest={handleEndSessionRequest}
       />
       {canUndo && (
         <UndoPill
@@ -372,7 +430,12 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
           onUndo={handleUndo}
         />
       )}
-      {isDev && <SessionDevToolsDock />}
+      <EndSessionConfirmDialog
+        open={endDialogOpen}
+        ratedCount={sessionHistory.length}
+        onClose={() => setEndDialogOpen(false)}
+        onConfirm={handleConfirmEndSession}
+      />
     </>
   )
 }
@@ -401,17 +464,18 @@ function StateCard({
       <SectionCard kanji={kanji} label={label} stripeTone={stripeTone}>
         <div className="px-1 py-4 md:px-2 md:py-6 text-center">
           <h1 className="font-display text-2xl md:text-3xl font-medium text-sumi-ink">{headline}</h1>
-          <p className="mt-3 text-sm md:text-base text-faded-sumi leading-relaxed max-w-[50ch] mx-auto">
+          <p className="mt-3 text-sm md:text-base text-faded-sumi leading-relaxed max-w-measure mx-auto">
             {body}
           </p>
           {actionLabel !== undefined && onAction !== undefined && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               onClick={onAction}
-              className="mt-6 inline-flex items-center justify-center rounded-md border border-soft-hairline bg-warm-paper-raised px-4 py-2 text-sm text-sumi-ink hover:border-sumi-ink/35 hover:bg-cream-inset/60 cursor-pointer transition-colors duration-150"
+              className="mt-6"
             >
               {actionLabel}
-            </button>
+            </Button>
           )}
         </div>
       </SectionCard>

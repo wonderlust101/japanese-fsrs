@@ -1,8 +1,10 @@
-// One stacked horizontal bar keyed to the rating-button palette
-// (Sumi / Amber / Fresh-Leaf / Aizome). Segments below ~5% of the bar
-// width are clamped to a minimum so even a single Again read is visible;
-// per-segment counts render inline only when the segment is wide enough,
-// so the bar stays calm with one or two dominant ratings.
+// One stacked horizontal bar keyed to the review-session rating palette
+// (`--color-rating-{again,hard,good,easy}` in globals.css — the same tokens
+// the in-session RatingBar uses). Closing the session in the same color
+// language the learner just rated in means a glance at the bar maps
+// directly to their muscle memory from the past 5 minutes. Segments below
+// ~5% of the bar width are clamped to a minimum so even a single Again
+// read stays visible.
 
 interface Breakdown {
   again: number
@@ -14,17 +16,16 @@ interface Breakdown {
 interface Props {
   breakdown: Breakdown
   total:     number
-  takeaway:  string
 }
 
 const SEGMENTS = [
-  { key: 'again', label: 'Again', bg: 'bg-sumi-ink' },
-  { key: 'hard',  label: 'Hard',  bg: 'bg-jlpt-beyond-amber-warn' },
-  { key: 'good',  label: 'Good',  bg: 'bg-jlpt-n5-fresh-leaf' },
-  { key: 'easy',  label: 'Easy',  bg: 'bg-aizome-indigo' },
+  { key: 'again', label: 'Again', bg: 'bg-rating-again' },
+  { key: 'hard',  label: 'Hard',  bg: 'bg-rating-hard'  },
+  { key: 'good',  label: 'Good',  bg: 'bg-rating-good'  },
+  { key: 'easy',  label: 'Easy',  bg: 'bg-rating-easy'  },
 ] as const
 
-export function RatingDistributionBar({ breakdown, total, takeaway }: Props): React.JSX.Element {
+export function RatingDistributionBar({ breakdown, total }: Props): React.JSX.Element {
   const safeTotal = Math.max(total, 1)
   const segments = SEGMENTS.map((s) => {
     const count = breakdown[s.key]
@@ -44,7 +45,7 @@ export function RatingDistributionBar({ breakdown, total, takeaway }: Props): Re
       <div
         role="img"
         aria-label={ariaLabel}
-        className="flex w-full h-3 overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset"
+        className="flex w-full h-7 overflow-hidden rounded-[2px] border border-soft-hairline bg-cream-inset"
       >
         {segments.map((s) => {
           if (s.count === 0) return null
@@ -57,7 +58,6 @@ export function RatingDistributionBar({ breakdown, total, takeaway }: Props): Re
               key={s.key}
               className={`${s.bg} h-full first:rounded-l-[1px] last:rounded-r-[1px]`}
               style={{ width: `${displayPct}%` }}
-              title={`${s.label}: ${s.count}`}
             />
           )
         })}
@@ -65,7 +65,7 @@ export function RatingDistributionBar({ breakdown, total, takeaway }: Props): Re
 
       <div className="flex items-center justify-between gap-4 text-xs text-faded-sumi font-mono">
         {segments.map((s) => (
-          <span key={s.key} className="inline-flex items-center gap-1.5">
+          <span key={s.key} className="inline-flex items-center gap-2">
             <span
               aria-hidden="true"
               className={`inline-block h-2 w-2 rounded-[1px] ${s.bg}`}
@@ -75,8 +75,6 @@ export function RatingDistributionBar({ breakdown, total, takeaway }: Props): Re
           </span>
         ))}
       </div>
-
-      <p className="text-sm text-sumi-ink leading-relaxed max-w-[60ch]">{takeaway}</p>
     </div>
   )
 }

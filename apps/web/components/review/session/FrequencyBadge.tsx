@@ -54,9 +54,9 @@ export function FrequencyBadge({ rank, sources }: FrequencyBadgeProps): React.JS
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center gap-1.5 px-2 py-1 rounded-sm',
+          'inline-flex items-center gap-2 px-2 py-1 rounded-[2px]',
           'border border-soft-hairline bg-warm-paper-raised',
-          'font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi',
+          'font-mono text-xs text-faded-sumi',
           'hover:border-sumi-ink/35 hover:text-sumi-ink cursor-pointer transition-colors duration-150',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         )}
@@ -76,11 +76,11 @@ export function FrequencyBadge({ rank, sources }: FrequencyBadgeProps): React.JS
             // (z-40) so the dropdown is never visually clipped by chrome
             // when the badge is near the card's edges.
             'absolute left-0 top-full mt-1 z-50 min-w-[14rem]',
-            'rounded-sm border border-soft-hairline bg-warm-paper-raised shadow-card',
+            'rounded-[2px] border border-soft-hairline bg-warm-paper-raised shadow-card',
             'py-2',
           )}
         >
-          <p className="px-3 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
+          <p className="px-3 pb-1 font-display text-xs font-medium text-faded-sumi">
             Frequency
           </p>
           <ul>

@@ -1,153 +1,135 @@
 'use client'
 
 import { SectionCard } from '@/components/ui/SectionCard'
-import { Skeleton } from '@/components/ui/Skeleton'
 import { CompositionStrip } from '@/components/review/CompositionStrip'
 import { cn } from '@/lib/utils'
 
 import type { QueueBreakdown } from '@/lib/review/queue-classify'
 import { totalFromBreakdown } from '@/lib/review/queue-classify'
 
-export type SummaryTone = 'default' | 'catch-up' | 'empty' | 'loading'
+export type SummaryTone = 'default' | 'empty' | 'loading'
 
 interface SetupSummaryProps {
-  tone:           SummaryTone
-  breakdown:      QueueBreakdown
-  timeLabel:      string
-  deckCount:      number
-  totalDeckCount: number
-  modified:       boolean
+  tone:      SummaryTone
+  breakdown: QueueBreakdown
+  timeLabel: string
   /** Sticky action area: composed by the orchestrator (Start button, reset link). */
-  actions:        React.ReactNode
+  actions:   React.ReactNode
+  /** Quiet inline flag rendered after the section label (e.g. offline /
+   *  stale-data signal). Forwarded to SectionCard. */
+  flag?:     string
 }
 
 // The summary lives inside a SectionCard so it inherits the Today module
-// chrome (2px vermillion stripe + kanji ornament + small-caps mono label +
-// hairline rule beneath header). The CompositionStrip carries the chart;
-// meta counts and the action area follow.
+// chrome. CompositionStrip carries the chart; meta counts and the action
+// area follow. The 'loading' tone is now a no-op — wait-then-reveal is
+// handled at the route level by <PageLoader/>.
 
 export function SetupSummary({
   tone,
   breakdown,
   timeLabel,
-  deckCount,
-  totalDeckCount,
-  modified,
   actions,
-}: SetupSummaryProps): React.JSX.Element {
+  flag,
+}: SetupSummaryProps): React.JSX.Element | null {
+  if (tone === 'loading') return null
+
   const total = totalFromBreakdown(breakdown)
 
-  const description =
-    tone === 'empty'
-      ? 'Nothing scheduled today.'
-      : tone === 'catch-up'
-        ? `Heavier day than usual. ${breakdown.backlogCount} overdue.`
-        : undefined
+  const description = tone === 'empty'
+    ? 'Nothing scheduled today.'
+    : 'Your queue for right now.'
 
   return (
     <SectionCard
       id="review-setup-summary"
-      kanji={tone === 'catch-up' ? '催' : '今'}
-      label={tone === 'catch-up' ? "Today's session, catch-up" : "Today's session"}
-      {...(description !== undefined && { description })}
-      stripeTone={modified ? 'aizome' : 'brand'}
+      kanji="今"
+      label="Today's session"
+      description={description}
+      stripeTone="brand"
+      {...(flag !== undefined && { flag })}
     >
-      {tone === 'loading' ? (
-        <SummarySkeleton />
-      ) : (
-        <>
-          <CompositionStrip
-            breakdown={breakdown}
-            tone={tone === 'catch-up' ? 'catch-up' : tone === 'empty' ? 'muted' : 'default'}
-            className="mt-1"
-          />
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-sm text-faded-sumi">
+          Review breakdown
+        </p>
+        <CompositionStrip
+          breakdown={breakdown}
+          tone={tone === 'empty' ? 'muted' : 'default'}
+        />
+      </div>
 
-          <dl
-            className="mt-6 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-soft-hairline/70 pt-5"
-            aria-live="polite"
-          >
-            <StatPair label="Total cards" value={total === 0 ? '0' : String(total)} />
-            <StatPair
-              label="Est. time"
-              value={total === 0 ? 'none' : timeLabel.replace('≈ ', '')}
-            />
-            <StatPair
-              label="Decks included"
-              value={
-                deckCount === totalDeckCount
-                  ? `${totalDeckCount}`
-                  : `${deckCount} of ${totalDeckCount}`
-              }
-            />
-            <StatPair
-              label="Scope"
-              value={modified ? 'Tuned' : 'Defaults'}
-              valueTone={modified ? 'aizome' : 'default'}
-            />
-          </dl>
+      {/* Polite SR summary. One condensed line announces session state
+          on tuning changes, mirroring the two visible stats. */}
+      <p className="sr-only" aria-live="polite">
+        {`${total} ${total === 1 ? 'card' : 'cards'}, ${
+          total === 0 ? 'no time' : timeLabel.replace('≈ ', '')
+        }.`}
+      </p>
 
-          {modified && (
-            <p
-              className={cn(
-                'mt-5 flex items-baseline gap-2 border-t border-aizome-indigo/20 pt-4',
-                'font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-aizome-indigo',
-              )}
-            >
-              <span aria-hidden="true">·</span>
-              <span>Tuning just for this session.</span>
-            </p>
-          )}
+      {/* Total + Time evenly spread across the card. Two-column grid
+          with each stat centered inside its half, so the pair sits at
+          ~25% / ~75% of the card width — symmetric breathing room on
+          both edges and through the middle. Collapses to a single
+          stacked column under sm for phone reading. */}
+      <dl
+        className={cn(
+          'mt-6',
+          'grid grid-cols-1 sm:grid-cols-2',
+          'gap-x-6 gap-y-4',
+        )}
+      >
+        <PrimaryStat
+          label="Total"
+          value={total === 0 ? '0' : String(total)}
+          suffix={total === 1 ? 'card' : 'cards'}
+        />
+        <PrimaryStat
+          label="Time"
+          value={total === 0 ? '0 min' : timeLabel.replace('≈ ', '')}
+        />
+      </dl>
 
-          <div className="mt-6 hidden lg:block">
-            {actions}
-          </div>
-        </>
-      )}
+      {/* Internal actions appear from lg upward. The "Tuning just for this
+          session" banner was removed: the action area's "Save as default"
+          affordance + the per-row modified-dot indicators carry the same
+          information without competing for space inside the summary card. */}
+      <div className="mt-6 hidden lg:block">
+        {actions}
+      </div>
     </SectionCard>
   )
 }
 
-function StatPair({
+function PrimaryStat({
   label,
   value,
-  valueTone = 'default',
+  suffix,
 }: {
-  label:     string
-  value:     string
-  valueTone?: 'default' | 'aizome'
+  label:   string
+  value:   string
+  suffix?: string
 }): React.JSX.Element {
+  // Each stat anchors to the left edge of its grid cell. With the dl's
+  // two equal columns, Total sits at 0% and Time at 50% of the card
+  // width — left-aligned individually, evenly spread across the row.
+  // On mobile the grid is single-column and the stat reads start-to-end
+  // down the page.
   return (
-    <div className="flex flex-col">
-      <dt className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
+    <div className="flex items-baseline gap-2 min-w-0 sm:justify-self-start">
+      <dt className="font-mono text-sm text-faded-sumi">
         {label}
       </dt>
-      <dd
-        className={cn(
-          'mt-1 font-display text-[1.25rem] leading-none tabular-nums',
-          valueTone === 'aizome' ? 'text-aizome-indigo' : 'text-sumi-ink',
+      <dd className="flex items-baseline gap-2 min-w-0">
+        <span className="font-display text-[1.625rem] leading-none tabular-nums text-sumi-ink sm:text-[1.875rem]">
+          {value}
+        </span>
+        {suffix !== undefined && (
+          <span className="font-display text-sm text-faded-sumi">
+            {suffix}
+          </span>
         )}
-      >
-        {value}
       </dd>
-    </div>
-  )
-}
-
-function SummarySkeleton(): React.JSX.Element {
-  return (
-    <div>
-      <Skeleton className="h-7 w-full" />
-      <div className="mt-3 grid grid-cols-3 gap-3">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </div>
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-      </div>
     </div>
   )
 }

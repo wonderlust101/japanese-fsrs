@@ -14,6 +14,28 @@ import { cn } from '@/lib/utils'
 
 interface CardBackProps {
   card: ApiDueCard
+  /**
+   * Forwarded to `DefinitionPanel`. Enable on surfaces that render the card
+   * back without `ReviewCard` (e.g. the card-detail page) so the tab-shortcut
+   * hints become functional. Leave off inside a review session, where
+   * `ReviewCard` already owns those keys. Defaults to off.
+   */
+  manageTabShortcuts?: boolean
+  /**
+   * Force the example-sentence translation to render unblurred regardless of
+   * the learner's `autoRevealTranslation` session pref. The blur is a recall
+   * affordance for the review back; on a static preview (card-detail page)
+   * there is no rep to protect, so the full sentence should always show.
+   * Defaults to off.
+   */
+  revealTranslation?: boolean
+  /**
+   * Pin which example sentence renders, bypassing the per-review rotation.
+   * Used by the /add/review preview pager so the author can step through
+   * every sentence. Omitted in a real review session, where the back rotates
+   * stable-randomly across the card's example sentences.
+   */
+  exampleSentenceIndex?: number
 }
 
 // One composition for every card type (v4): the WordStack carries the
@@ -24,8 +46,13 @@ interface CardBackProps {
 // The card frame is static (the SectionCard handles edges); the body
 // content lands in three staggered waves.
 
-export function CardBack({ card }: CardBackProps): React.JSX.Element {
-  const fields    = resolveCardFields(card)
+export function CardBack({
+  card,
+  manageTabShortcuts = false,
+  revealTranslation  = false,
+  exampleSentenceIndex,
+}: CardBackProps): React.JSX.Element {
+  const fields    = resolveCardFields(card, exampleSentenceIndex)
   const prefs     = useSessionPreferences()
   const overrides = useSessionDevOverrides()
   const [stage, setStage] = useState(0)
@@ -73,8 +100,6 @@ export function CardBack({ card }: CardBackProps): React.JSX.Element {
               partOfSpeech={fields.partOfSpeech}
               jlptLevel={fields.jlptLevel}
               pitchPosition={fields.pitchPosition}
-              expressionAudio={fields.expressionAudio}
-              audioMuted={prefs.audioMuted}
             />
           </div>
         </div>
@@ -83,17 +108,19 @@ export function CardBack({ card }: CardBackProps): React.JSX.Element {
       {fields.exampleSentence !== null && (
         <Stage at={2} active={stage}>
           <div className="pt-2">
-            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi mb-2">
+            <p className="font-display text-sm font-medium text-faded-sumi mb-2">
               Sentence
             </p>
             <SentenceBand
               ja={fields.exampleSentence.ja}
               furigana={fields.exampleSentence.furigana}
               en={fields.exampleSentence.en}
-              audioSrc={fields.exampleSentence.audio}
               furiganaMode={prefs.furiganaMode}
-              audioMuted={prefs.audioMuted}
-              autoplay
+              autoRevealTranslation={prefs.autoRevealTranslation || revealTranslation}
+              // Pager-driven index: when a preview steps to another example,
+              // SentenceBand replays its entrance as a switch cue. Undefined in
+              // a review session (no pager), so the cue stays out of practice.
+              swapToken={exampleSentenceIndex}
             />
           </div>
         </Stage>
@@ -104,8 +131,7 @@ export function CardBack({ card }: CardBackProps): React.JSX.Element {
           nuance={fields.nuance}
           mnemonic={fields.mnemonic}
           kanjiBreakdown={fields.kanjiBreakdown}
-          collocations={fields.collocations}
-          homophones={fields.homophones}
+          manageShortcuts={manageTabShortcuts}
         />
       </Stage>
     </article>
@@ -144,7 +170,7 @@ function Picture({ src, alt }: { src: string; alt: string }): React.JSX.Element 
         src={src}
         alt={alt}
         loading="lazy"
-        className="max-h-[260px] md:max-h-[300px] w-auto rounded-md border border-soft-hairline bg-cream-inset/30 object-contain"
+        className="max-h-[260px] md:max-h-[300px] w-auto rounded-[2px] border border-soft-hairline bg-cream-inset/30 object-contain"
       />
     </div>
   )

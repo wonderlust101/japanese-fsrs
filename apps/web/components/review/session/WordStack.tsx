@@ -1,6 +1,5 @@
 'use client'
 
-import { AudioButton } from './AudioButton'
 import { PitchGraph } from './PitchGraph'
 import { cn } from '@/lib/utils'
 
@@ -11,8 +10,6 @@ interface WordStackProps {
   partOfSpeech:    string | null
   jlptLevel:       string | null
   pitchPosition:   number | null
-  expressionAudio: string | null
-  audioMuted:      boolean
 }
 
 // The dictionary-headword stack (v4): pitch staff hovers above the kanji
@@ -22,6 +19,9 @@ interface WordStackProps {
 //
 // The block is tightly bonded: no labels, no hairlines between the three
 // headword lines. They read as one dictionary entry.
+//
+// The inline meta row beneath carries part-of-speech and JLPT level; it only
+// renders when at least one of those is present.
 
 export function WordStack({
   word,
@@ -30,10 +30,10 @@ export function WordStack({
   partOfSpeech,
   jlptLevel,
   pitchPosition,
-  expressionAudio,
-  audioMuted,
 }: WordStackProps): React.JSX.Element {
   const hasPitch = pitchPosition !== null && reading !== null && reading !== ''
+  const hasPos   = partOfSpeech !== null && partOfSpeech !== ''
+  const hasJlpt  = jlptLevel !== null && jlptLevel !== ''
 
   return (
     <div className="flex w-full flex-col items-center gap-2 text-center">
@@ -71,32 +71,27 @@ export function WordStack({
 
       {/* Definition: third line. Tight bond, no label. */}
       <p
-        className="text-sumi-ink leading-snug max-w-[44ch]"
+        className="text-sumi-ink leading-snug max-w-measure-tight"
         style={{ fontSize: 'clamp(1.125rem, 1.5vw, 1.375rem)' }}
       >
         {meaning}
       </p>
 
-      {/* Inline meta row beneath the headword. POS · JLPT · audio. */}
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-        {partOfSpeech !== null && partOfSpeech !== '' && (
-          <span className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-faded-sumi">
-            {partOfSpeech}
-          </span>
-        )}
-        {jlptLevel !== null && jlptLevel !== '' && (
-          <span className="font-mono text-[0.625rem] uppercase tracking-[0.18em] text-aizome-indigo/80">
-            {jlptLevel}
-          </span>
-        )}
-        <AudioButton
-          src={expressionAudio}
-          label="Play word audio"
-          size="sm"
-          autoplay
-          muted={audioMuted}
-        />
-      </div>
+      {/* Inline meta row beneath the headword. POS · JLPT. */}
+      {(hasPos || hasJlpt) && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+          {hasPos && (
+            <span className="font-mono text-sm text-faded-sumi">
+              {partOfSpeech}
+            </span>
+          )}
+          {hasJlpt && (
+            <span className="font-mono text-sm text-aizome-indigo/80">
+              {jlptLevel}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -2,11 +2,10 @@ import type { ApiDueCard } from '@fsrs-japanese/shared-types'
 
 // Synthetic cards used only by the session dev tools dock. They satisfy the
 // `ApiDueCard` wire shape — every field exercised here (`picture`,
-// `expressionAudio`, `sentenceAudio`, `pitchPosition`, `collocations`,
-// `homophones`, full `kanjiBreakdown` with `radical` + `reading`) is admitted
-// by the corresponding schema in
+// `pitchPosition`, full `kanjiBreakdown` with `radical` + `reading`) is
+// admitted by the corresponding schema in
 // `packages/shared-types/src/schemas/field-shapes.schema.ts`. Today's AI
-// generator only populates a subset of these (the asset URLs stay deferred
+// generator only populates a subset of these (`picture` stays deferred
 // until hosting exists; see `CARD_PROMPT_VERSION` in `apps/api/src/services/
 // ai.service.ts` for the rationale). Production cards will see those slots
 // as undefined and `card-fields.ts` degrades gracefully via null fallbacks.
@@ -31,7 +30,7 @@ const COMP_FIXTURES: Fixture[] = [
   {
     kind:  'comprehension',
     label: '食べる · full back',
-    note:  'Everything present: picture, audio, pitch, mnemonic, kanji breakdown, frequency.',
+    note:  'Everything present: picture, pitch, mnemonic, kanji breakdown, frequency.',
     card: {
       id:         id('comp-taberu'),
       deckId:     'fixture-deck',
@@ -49,16 +48,12 @@ const COMP_FIXTURES: Fixture[] = [
         nuance:         '食べる is the everyday ru-verb for human eating, slightly more polite and self-aware than 食う (kuu, casual/masculine). For animal subjects use 食う or domain-specific verbs (魚を食む for fish nibbling). 召し上がる is its respectful equivalent when offering food to a guest or speaking about someone of higher status.',
         pitchPosition:  2,
         pitchAccent:    'たべ\\る',
-        picture:         'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
-        expressionAudio: 'https://audio.tatoeba.org/sentences/jpn/97.mp3',
+        picture:        'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
         exampleSentences: [{
-          ja:            '毎朝パンを食べます。',
-          en:            'I eat bread every morning.',
-          furigana:      '毎朝[まいあさ]パンを食[た]べます。',
-          sentenceAudio: 'https://audio.tatoeba.org/sentences/jpn/115.mp3',
+          ja:       '毎朝パンを食べます。',
+          en:       'I eat bread every morning.',
+          furigana: '毎朝[まいあさ]パンを食[た]べます。',
         }],
-        collocations: ['ご飯を食べる', 'パンを食べる', '外で食べる'],
-        homophones:   [],
         kanjiBreakdown: [
           { kanji: '食', radical: '⻟ (eat)', meaning: 'eat, food', reading: 'しょく / た（べる）' },
         ],
@@ -119,8 +114,8 @@ const COMP_FIXTURES: Fixture[] = [
   },
   {
     kind:  'comprehension',
-    label: '橋 vs 箸 · pitch matters (homophones)',
-    note:  'Demonstrates the pitch graph + homophones tab.',
+    label: '橋 · pitch matters',
+    note:  'Demonstrates the pitch graph on an odaka word.',
     card: {
       id:         id('comp-hashi'),
       deckId:     'fixture-deck',
@@ -140,14 +135,13 @@ const COMP_FIXTURES: Fixture[] = [
           en:       'This bridge is old.',
           furigana: 'この橋[はし]は古[ふる]いです。',
         }],
-        homophones: ['箸 (chopsticks, atamadaka)', '端 (edge, heiban)'],
       },
     },
   },
   {
     kind:  'comprehension',
     label: '言葉 · long content (scroll test)',
-    note:  'Every tab populated with verbose content; exercises the in-card scroll inside the centered SectionCard.',
+    note:  'Nuance, mnemonic, and kanji tabs populated with verbose content; exercises the in-card scroll inside the centered SectionCard.',
     card: {
       id:         id('comp-long-kotoba'),
       deckId:     'fixture-deck',
@@ -162,18 +156,14 @@ const COMP_FIXTURES: Fixture[] = [
         partOfSpeech:   'noun',
         frequencyRank:  214,
         pitchPosition:  3,
-        picture:         'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=400&h=300&fit=crop',
-        expressionAudio: 'https://audio.tatoeba.org/sentences/jpn/97.mp3',
+        picture:        'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=400&h=300&fit=crop',
         mnemonic:       '言 (say) + 葉 (leaf). A word is a leaf that comes from speaking: small, alive, falling into the listener\'s ear. The image is older than literacy itself; the same kanji compound has carried the meaning since Old Japanese poetry.',
         nuance:         '言葉 covers a broad range of meanings centered on \"language as a vehicle for thought\": individual words, phrases, expressions, and language as a whole. It is more abstract and reflective than 単語 (tango, a vocabulary word as a unit) and more universal than 文 (bun, a written sentence). In careful speech it carries a slight literary or thoughtful weight, the kind of register a teacher uses when discussing how something was *said* rather than what was said. Near-synonyms: 表現 (hyōgen, expression, more formal), 発言 (hatsugen, an utterance in a meeting or interview), 名言 (meigen, a famous quotable saying). Antonyms in context: 沈黙 (chinmoku, silence) and 行動 (kōdō, action) when the speaker draws a contrast between speaking and doing.',
         exampleSentences: [{
-          ja:            'その言葉は彼の心に深く残った。',
-          en:            'Those words remained deeply in his heart.',
-          furigana:      'その言葉[ことば]は彼[かれ]の心[こころ]に深[ふか]く残[のこ]った。',
-          sentenceAudio: 'https://audio.tatoeba.org/sentences/jpn/115.mp3',
+          ja:       'その言葉は彼の心に深く残った。',
+          en:       'Those words remained deeply in his heart.',
+          furigana: 'その言葉[ことば]は彼[かれ]の心[こころ]に深[ふか]く残[のこ]った。',
         }],
-        collocations: ['言葉を交わす', '言葉を選ぶ', '言葉に詰まる', '優しい言葉', '心に響く言葉', '言葉では言い表せない'],
-        homophones:   [],
         kanjiBreakdown: [
           { kanji: '言', radical: '言 (speech)', meaning: 'say, word, speech', reading: 'げん / ごん / い(う) / こと' },
           { kanji: '葉', radical: '艹 (grass)',  meaning: 'leaf, foliage',     reading: 'よう / は' },
