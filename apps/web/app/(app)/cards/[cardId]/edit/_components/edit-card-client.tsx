@@ -10,6 +10,8 @@ import {
 import { useRouter } from 'next/navigation'
 import { IconUndo, IconChevronDown, IconEdit } from '@/components/icons/chrome-marks'
 
+import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning'
+
 import {
   getVocabularyFields,
   getWordFields,
@@ -232,6 +234,9 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
   // on the next field edit so the form returns to calm once the user
   // re-engages — the same "status reflects current truth" pattern used below.
   const [attemptedSave, setAttemptedSave] = useState<boolean>(false)
+  // Flips true on the first user edit (all field/sentence/kanji changes route
+  // through updateField). Drives the unsaved-changes guard below.
+  const [dirty, setDirty] = useState<boolean>(false)
 
   // ── Derived ───────────────────────────────────────────────────────────
   const previewCard = useMemo(() => buildPreviewCard(fields, card.layoutType), [fields, card.layoutType])
@@ -258,8 +263,14 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
   // blocked click is what surfaces the (now escalated) requirement copy.
   const busy = saving
 
+  // Warn before a hard navigation / tab close drops unsaved edits. Suppressed
+  // while a save is in flight (on success the page navigates away and unmounts
+  // this guard). Soft in-app navigation isn't guarded (App Router limitation).
+  useUnsavedChangesWarning(dirty && !saving)
+
   const updateField = useCallback(
     <K extends keyof CardFields>(key: K, value: CardFields[K]): void => {
+      setDirty(true)
       setFields((prev) => ({ ...prev, [key]: value }))
       // Re-engaging clears a prior blocked-save escalation, so unmet
       // requirements fall back to calm guidance rather than staying red.

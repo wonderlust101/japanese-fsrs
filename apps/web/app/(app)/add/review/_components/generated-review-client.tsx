@@ -10,6 +10,8 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useRouter } from 'next/navigation'
+
+import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning'
 import { IconUndo, IconChevronDown, IconEdit } from '@/components/icons/chrome-marks'
 
 import {
@@ -245,6 +247,11 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // on the next field/deck edit so the form returns to calm once the user
   // re-engages — the same "status reflects current truth" pattern used below.
   const [attemptedSave, setAttemptedSave] = useState<boolean>(false)
+  // Flips true on the first user edit (any field, sentence, or kanji change all
+  // route through updateField). Drives the unsaved-changes guard below. The AI
+  // seed/batch/regen paths write fields directly, not via updateField, so a
+  // freshly-generated but untouched card never trips the warning.
+  const [dirty, setDirty] = useState<boolean>(false)
 
   // ── Decks ─────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
@@ -329,8 +336,14 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // blocked click is what surfaces the (now escalated) requirement copy.
   const busy = generating || save.status === 'saving'
 
+  // Warn before a hard navigation / tab close drops unsaved edits. Suppressed
+  // once a save is in flight or has landed (the success screen then replaces
+  // the form). Soft in-app navigation isn't guarded (App Router limitation).
+  useUnsavedChangesWarning(dirty && save.status !== 'saving' && save.status !== 'saved')
+
   const updateField = useCallback(
     <K extends keyof CardFields>(key: K, value: CardFields[K]): void => {
+      setDirty(true)
       setFields((prev) => ({ ...prev, [key]: value }))
       // Re-engaging clears a prior blocked-save escalation, so unmet
       // requirements fall back to calm guidance rather than staying red.
