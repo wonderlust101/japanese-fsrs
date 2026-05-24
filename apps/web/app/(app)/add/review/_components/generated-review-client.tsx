@@ -51,13 +51,16 @@ import { cn } from '@/lib/utils'
 // preview card reads identically to a persisted one, and the save payload is
 // already shaped correctly.
 
-interface KanjiEntry { kanji: string; meaning: string; reading: string }
+// `id` is a client-only stable key for the editor lists — never persisted
+// (buildFieldsData strips it). It keeps row identity (focus / IME composition /
+// open state) pinned to the sentence, not its index, across add/remove.
+interface KanjiEntry { id: string; kanji: string; meaning: string; reading: string }
 
 // One authored example sentence. Mirrors `ExampleSentenceSchema`
 // (packages/shared-types). A card holds an ordered list; the review back
 // shows one per review (rotated stable-randomly), so list order is the
 // author's browsing order, not a display priority.
-interface SentenceEntry { ja: string; en: string; furigana: string }
+interface SentenceEntry { id: string; ja: string; en: string; furigana: string }
 
 // Cap on authored example sentences. Keeps the editor bounded and storage
 // sane; the rotation cycles through whatever is present.
@@ -66,6 +69,12 @@ const MAX_SENTENCES = 10
 // How many sentences one "Generate examples" click fetches (clamped to the
 // remaining headroom under MAX_SENTENCES).
 const SENTENCE_BATCH = 3
+
+// Stable per-row id for the editor list keys. A monotonic module counter is
+// sufficient — keys only need to be unique and stable within a session — and
+// avoids a crypto dependency. These ids are client-only and never persisted.
+let rowKeySeq = 0
+const nextRowKey = (): string => `row-${rowKeySeq++}`
 
 interface CardFields {
   word:            string
@@ -145,7 +154,7 @@ function buildFieldsData(fields: CardFields): Record<string, unknown> {
   }
   if (examples.length > 0)                fieldsData.exampleSentences = examples
   if (fields.picture !== null)            fieldsData.picture = fields.picture
-  if (fields.kanjiBreakdown.length > 0)   fieldsData.kanjiBreakdown = fields.kanjiBreakdown.filter((k) => k.kanji.trim().length > 0)
+  if (fields.kanjiBreakdown.length > 0)   fieldsData.kanjiBreakdown = fields.kanjiBreakdown.filter((k) => k.kanji.trim().length > 0).map((k) => ({ kanji: k.kanji, meaning: k.meaning, reading: k.reading }))
   const freq = Number(fields.frequencyRank);   if (Number.isFinite(freq) && freq > 0) fieldsData.frequencyRank = freq
   const pos  = Number(fields.pitchPosition);   if (Number.isFinite(pos))              fieldsData.pitchPosition  = pos
 
@@ -199,7 +208,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
     meaning:   draft.meaning,
     mnemonic:  draft.mnemonic,
     sentences: draft.sentence.trim().length > 0
-      ? [{ ja: draft.sentence, en: '', furigana: '' }]
+      ? [{ id: nextRowKey(), ja: draft.sentence, en: '', furigana: '' }]
       : [],
     picture:   draft.imageDataUrl,
   }))
@@ -217,8 +226,8 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // rows so the author sees how many sentences are inbound.
   const [generatingBatch, setGeneratingBatch] = useState<boolean>(false)
   const [pendingCount,    setPendingCount]    = useState<number>(0)
-  // Index of the single row being regenerated in place (null = none).
-  const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null)
+  // Id of the single row being regenerated in place (null = none).
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [regenMnemonic,   setRegenMnemonic]   = useState<boolean>(false)
 
   // The save flow as one discriminated union: impossible combinations (saving
@@ -271,7 +280,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
         // already typed their own; never clobber an in-progress edit.
         const generated = (data.exampleSentences ?? [])
           .slice(0, MAX_SENTENCES)
-          .map((s) => ({ ja: s.ja, en: s.en, furigana: s.furigana }))
+          .map((s) => ({ id: nextRowKey(), ja: s.ja, en: s.en, furigana: s.furigana }))
         setFields((prev) => ({
           ...prev,
           reading:      data.reading,
@@ -282,7 +291,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
           sentences:    prev.sentences.length > 0 ? prev.sentences : generated,
           kanjiBreakdown: prev.kanjiBreakdown.length > 0
             ? prev.kanjiBreakdown
-            : (data.kanjiBreakdown ?? []).map((k) => ({ kanji: k.kanji, meaning: k.meaning, reading: '' })),
+            : (data.kanjiBreakdown ?? []).map((k) => ({ id: nextRowKey(), kanji: k.kanji, meaning: k.meaning, reading: '' })),
         }))
       })
       .catch((err: unknown) => {
@@ -371,7 +380,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
           const ja = s.ja.trim()
           if (ja.length === 0 || seen.has(ja)) continue
           seen.add(ja)
-          fresh.push({ ja: s.ja, en: s.en, furigana: s.furigana })
+          fresh.push({ id: nextRowKey(), ja: s.ja, en: s.en, furigana: s.furigana })
         }
         if (fresh.length > 0) {
           setFields((prev) => ({
@@ -386,28 +395,29 @@ export function GeneratedReviewClient(): React.JSX.Element {
 
   // Replace a single sentence in place with a fresh AI generation, telling the
   // model to avoid every current sentence so it doesn't echo what's there.
-  const onRegenerateRow = useCallback((index: number): void => {
-    if (regeneratingIdx !== null || generating) return
+  const onRegenerateRow = useCallback((id: string): void => {
+    if (regeneratingId !== null || generating) return
     const word = fields.word.trim()
     if (word.length === 0) return
 
     const avoid = existingJa()
-    setRegeneratingIdx(index); setAiError(null)
+    setRegeneratingId(id); setAiError(null)
 
     void generateSentencesByWordAction(word, 1, avoid)
       .then((data) => {
         const first = data.sentences[0]
         if (first !== undefined) {
+          // Match by id and spread the old entry so the row keeps its key.
           setFields((prev) => ({
             ...prev,
-            sentences: prev.sentences.map((s, i) =>
-              i === index ? { ja: first.ja, en: first.en, furigana: first.furigana } : s),
+            sentences: prev.sentences.map((s) =>
+              s.id === id ? { ...s, ja: first.ja, en: first.en, furigana: first.furigana } : s),
           }))
         }
       })
       .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
-      .finally(() => setRegeneratingIdx(null))
-  }, [regeneratingIdx, generating, fields.word, existingJa])
+      .finally(() => setRegeneratingId(null))
+  }, [regeneratingId, generating, fields.word, existingJa])
 
   const onRegenMnemonic = useCallback((): void => {
     if (regenMnemonic || generating) return
@@ -594,7 +604,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 entries={fields.sentences}
                 word={fields.word}
                 onChange={(next) => updateField('sentences', next)}
-                regeneratingIndex={regeneratingIdx}
+                regeneratingId={regeneratingId}
                 pendingCount={pendingCount}
                 {...(isAiPath ? { onRegenerateRow } : {})}
               />
@@ -1079,7 +1089,7 @@ function KanjiEditor({ entries, onChange }: KanjiEditorProps): React.JSX.Element
     onChange(next)
   }
   const remove = (i: number): void => onChange(entries.filter((_, idx) => idx !== i))
-  const add    = (): void => onChange([...entries, { kanji: '', meaning: '', reading: '' }])
+  const add    = (): void => onChange([...entries, { id: nextRowKey(), kanji: '', meaning: '', reading: '' }])
 
   return (
     <div className="flex flex-col gap-4 pt-1">
@@ -1087,7 +1097,7 @@ function KanjiEditor({ entries, onChange }: KanjiEditorProps): React.JSX.Element
         <p className="text-sm text-faded-sumi">No kanji listed. Add one if it helps learners see the parts.</p>
       )}
       {entries.map((entry, i) => (
-        <div key={i} className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+        <div key={entry.id} className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
           <Input
             label="Kanji"
             value={entry.kanji}
@@ -1135,31 +1145,30 @@ interface SentenceEditorProps {
   word:               string
   onChange:           (next: SentenceEntry[]) => void
   /** AI per-row regenerate; omitted on the manual path. */
-  onRegenerateRow?:   (i: number) => void
-  regeneratingIndex?: number | null
+  onRegenerateRow?:   (id: string) => void
+  regeneratingId?:    string | null
   /** Skeleton placeholder rows for an in-flight batch generation, appended
    *  to the bottom of the list. */
   pendingCount?:      number
 }
 
 function SentenceEditor({
-  entries, word, onChange, onRegenerateRow, regeneratingIndex = null, pendingCount = 0,
+  entries, word, onChange, onRegenerateRow, regeneratingId = null, pendingCount = 0,
 }: SentenceEditorProps): React.JSX.Element {
-  // One row open at a time. Manual adds open immediately (you need to type);
-  // AI-appended rows stay collapsed because they already carry content.
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  // One row open at a time, tracked by id so the open row follows its sentence
+  // across add/remove without index bookkeeping.
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const update = (i: number, patch: Partial<SentenceEntry>): void =>
     onChange(entries.map((e, idx) => idx === i ? { ...e, ...patch } : e))
-  const remove = (i: number): void => {
-    onChange(entries.filter((_, idx) => idx !== i))
-    // Keep the open row pointing at the same sentence after the splice.
-    setEditingIndex((cur) =>
-      cur === null ? null : cur === i ? null : cur > i ? cur - 1 : cur)
-  }
+  // Removing by index is fine — the array is the source of truth. editingId
+  // self-corrects: if the open row is the one removed, its id no longer matches
+  // and the accordion collapses; otherwise the open row stays open.
+  const remove = (i: number): void => onChange(entries.filter((_, idx) => idx !== i))
   const add = (): void => {
-    onChange([...entries, { ja: '', en: '', furigana: '' }])
-    setEditingIndex(entries.length)  // index of the row just appended
+    const entry: SentenceEntry = { id: nextRowKey(), ja: '', en: '', furigana: '' }
+    onChange([...entries, entry])
+    setEditingId(entry.id)
   }
 
   const trimmedWord = word.trim()
@@ -1175,16 +1184,16 @@ function SentenceEditor({
       {entries.map((entry, i) => {
         const ja          = entry.ja.trim()
         const missingWord = ja.length > 0 && trimmedWord.length > 0 && !ja.includes(trimmedWord)
-        const open        = editingIndex === i
-        const regenning   = regeneratingIndex === i
+        const open        = editingId === entry.id
+        const regenning   = regeneratingId === entry.id
         return (
-          <div key={i} className={cn(i > 0 && 'border-t border-soft-hairline')}>
+          <div key={entry.id} className={cn(i > 0 && 'border-t border-soft-hairline')}>
             {/* Summary row: expand toggle + Remove sit as siblings (no nested
                 interactive elements). */}
             <div className="flex items-center gap-2 py-2.5">
               <button
                 type="button"
-                onClick={() => setEditingIndex(open ? null : i)}
+                onClick={() => setEditingId(open ? null : entry.id)}
                 aria-expanded={open}
                 className={cn(
                   'flex min-w-0 flex-1 items-center gap-2 rounded-[2px] text-left',
@@ -1253,7 +1262,7 @@ function SentenceEditor({
                 {onRegenerateRow !== undefined && (
                   <div>
                     <QuietLink
-                      onClick={() => onRegenerateRow(i)}
+                      onClick={() => onRegenerateRow(entry.id)}
                       tone="sumi"
                       size="sm"
                       ariaLabel={`Regenerate sentence ${i + 1} with AI`}
