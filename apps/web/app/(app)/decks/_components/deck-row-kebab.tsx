@@ -58,8 +58,11 @@ export function DeckRowKebab({
           aria-expanded={ariaExpanded}
           aria-label="Deck options"
           className={[
-            'ui-motion-colors -mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px]',
-            'text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink',
+            // h-11 w-11 mobile / h-7 w-7 desktop = WCAG 2.5.5 AAA touch
+            // target on phones, compact glyph on pointer devices.
+            // `active:bg-cream-inset` gives iOS Safari/Chrome tap feedback.
+            'ui-motion-colors -mr-1 flex h-11 w-11 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-[2px]',
+            'text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink active:bg-cream-inset',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           ].join(' ')}
         >

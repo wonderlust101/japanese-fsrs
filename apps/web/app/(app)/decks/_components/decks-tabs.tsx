@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef } from 'react'
+
 import type { DecksViewTab } from './use-deck-prefs'
 
 /**
@@ -11,8 +13,10 @@ import type { DecksViewTab } from './use-deck-prefs'
  *                you've fully internalised.
  *   - Archived — decks the user has set aside.
  *
- * The tabs hide the older "Show archived" toggle from the curate bar — there's
- * now exactly one place to switch between active and archived views.
+ * Implements the full ARIA tab pattern: each tab carries `role=tab`,
+ * `aria-controls` pointing at the deck-list panel, and arrow-key /
+ * Home / End navigation between tabs. The matching `role=tabpanel` and
+ * `aria-labelledby` live in `deck-list.tsx`.
  */
 
 export interface TabCounts {
@@ -21,47 +25,120 @@ export interface TabCounts {
   archived: number
 }
 
+const TAB_ORDER: ReadonlyArray<DecksViewTab> = ['active', 'mature', 'archived']
+const TAB_LABEL: Record<DecksViewTab, string> = {
+  active:   'Active',
+  mature:   'Mature',
+  archived: 'Archived',
+}
+
 export function DecksTabs({
   view,
   counts,
+  panelId,
   onChange,
 }: {
-  view:    DecksViewTab
-  counts:  TabCounts
+  view:     DecksViewTab
+  counts:   TabCounts
+  panelId:  string
   onChange: (next: DecksViewTab) => void
 }): React.JSX.Element {
+  const refs = useRef<Map<DecksViewTab, HTMLButtonElement | null>>(new Map())
+
+  function focusTab(next: DecksViewTab): void {
+    onChange(next)
+    // Move focus to the now-selected tab so SRs announce the change and
+    // keyboard users stay anchored in the tablist.
+    requestAnimationFrame(() => {
+      refs.current.get(next)?.focus()
+    })
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLButtonElement>): void {
+    const idx = TAB_ORDER.indexOf(view)
+    if (idx === -1) return
+    let next: DecksViewTab | null = null
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        next = TAB_ORDER[(idx + 1) % TAB_ORDER.length] ?? null
+        break
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        next = TAB_ORDER[(idx - 1 + TAB_ORDER.length) % TAB_ORDER.length] ?? null
+        break
+      case 'Home':
+        next = TAB_ORDER[0] ?? null
+        break
+      case 'End':
+        next = TAB_ORDER[TAB_ORDER.length - 1] ?? null
+        break
+    }
+    if (next !== null) {
+      event.preventDefault()
+      focusTab(next)
+    }
+  }
+
   return (
     <div
       role="tablist"
       aria-label="Deck view"
       className="flex items-center gap-1 border-b border-soft-hairline"
     >
-      <TabButton label="Active"   count={counts.active}   active={view === 'active'}   onClick={() => onChange('active')} />
-      <TabButton label="Mature"   count={counts.mature}   active={view === 'mature'}   onClick={() => onChange('mature')} />
-      <TabButton label="Archived" count={counts.archived} active={view === 'archived'} onClick={() => onChange('archived')} />
+      {TAB_ORDER.map((key) => (
+        <TabButton
+          key={key}
+          tabKey={key}
+          label={TAB_LABEL[key]}
+          count={counts[key]}
+          active={view === key}
+          panelId={panelId}
+          onClick={() => onChange(key)}
+          onKeyDown={onKeyDown}
+          registerRef={(el) => refs.current.set(key, el)}
+        />
+      ))}
     </div>
   )
 }
 
 function TabButton({
+  tabKey,
   label,
   count,
   active,
+  panelId,
   onClick,
+  onKeyDown,
+  registerRef,
 }: {
-  label:   string
-  count:   number
-  active:  boolean
-  onClick: () => void
+  tabKey:      DecksViewTab
+  label:       string
+  count:       number
+  active:      boolean
+  panelId:     string
+  onClick:     () => void
+  onKeyDown:   (event: React.KeyboardEvent<HTMLButtonElement>) => void
+  registerRef: (el: HTMLButtonElement | null) => void
 }): React.JSX.Element {
   return (
     <button
+      ref={registerRef}
+      id={`decks-tab-${tabKey}`}
       type="button"
       role="tab"
       aria-selected={active}
+      aria-controls={panelId}
+      // Roving tabindex: only the selected tab is tabbable, arrow keys move
+      // between the others. Standard ARIA tab pattern.
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={[
-        'ui-motion-colors relative inline-flex items-center gap-1.5 px-3 py-2.5 text-sm',
+        // 44px touch target on mobile, release on desktop. Matches the
+        // toolbar chip sizing pattern used in DecksUtilityRow.
+        'ui-motion-colors relative inline-flex min-h-[44px] items-center gap-2 px-3 py-2.5 text-sm sm:min-h-0',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         active
           ? 'text-sumi-ink font-medium'
@@ -77,8 +154,6 @@ function TabButton({
       >
         {count}
       </span>
-      {/* Active-tab underline: 2px vermillion rule that pulls each tab into
-          the same brand vocabulary as SectionCard / DeckCard's top stripes. */}
       {active && (
         <span
           aria-hidden="true"

@@ -4,6 +4,14 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 
+import { MenuItem } from '@/components/ui/MenuItem'
+
+// Re-export so the existing decks-menu import path keeps working for the
+// six call sites that already pulled MenuItem/MenuSeparator from here. The
+// underlying primitive lives in components/ui/MenuItem.tsx.
+export { MenuItem }
+export const MenuSeparator = MenuItem.Separator
+
 /**
  * A small headless menu primitive used by the Library page's filter dropdowns
  * (Sort, Type) and the per-row kebab. Keyboard-navigable, click-outside-to-
@@ -71,6 +79,7 @@ export function DecksMenu({
   const [open, setOpen] = useState(false)
   const [direction, setDirection] = useState<'down' | 'up'>('down')
   const [triggerPos, setTriggerPos] = useState<TriggerPosition | null>(null)
+  const [menuWidth, setMenuWidth] = useState<number | null>(null)
   const menuId = useId()
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -157,6 +166,20 @@ export function DecksMenu({
     }
   }, [open])
 
+  // Measure the rendered panel width once it mounts, so the horizontal clamp
+  // in `panelStyle` can keep the far edge inside the viewport (the panel can be
+  // wider than the trigger, e.g. a kebab near the screen edge on mobile). Reset
+  // on close so the next open re-measures in case the content changed.
+  useEffect(() => {
+    if (!open) {
+      setMenuWidth(null)
+      return
+    }
+    if (triggerPos === null) return
+    const el = menuRef.current
+    if (el !== null) setMenuWidth(el.offsetWidth)
+  }, [open, triggerPos])
+
   // After open, move focus into the menu so keyboard users can navigate.
   useEffect(() => {
     if (!open) return
@@ -201,19 +224,36 @@ export function DecksMenu({
     }
   }
 
-  // Position style for the portaled panel. Computed from the captured
-  // trigger rect — left/right give horizontal alignment, top/bottom give
-  // vertical placement. The 6px gap matches the prior `mt-1.5 / mb-1.5`.
+  // Position style for the portaled panel. Computed from the captured trigger
+  // rect — top/bottom give vertical placement, left gives horizontal. The 6px
+  // gap matches the prior `mt-1.5 / mb-1.5`.
+  //
+  // Horizontal: anchor by `align` (start = trigger's left edge, end = trigger's
+  // right edge), then clamp the result so neither edge of the panel runs off the
+  // viewport — `maxWidth` caps it on narrow screens, the `left` clamp keeps it
+  // within the `MARGIN` gutter. The clamp needs the measured width, so the panel
+  // stays hidden for the first paint until `menuWidth` is known (avoids a flash
+  // at the unclamped position).
   const panelStyle: React.CSSProperties = (() => {
     if (triggerPos === null) return { visibility: 'hidden' }
     const VERTICAL_GAP = 6
-    const horizontal: React.CSSProperties = align === 'end'
-      ? { right: Math.max(0, window.innerWidth - triggerPos.right) }
-      : { left:  Math.max(0, triggerPos.left) }
+    const MARGIN = 8
     const vertical: React.CSSProperties = direction === 'down'
       ? { top: triggerPos.bottom + VERTICAL_GAP }
       : { bottom: window.innerHeight - triggerPos.top + VERTICAL_GAP }
-    return { position: 'fixed', ...horizontal, ...vertical }
+    const maxWidth = `calc(100vw - ${MARGIN * 2}px)`
+
+    if (menuWidth === null) {
+      // Pre-measure pass: render at the rough anchor (hidden) so the panel has
+      // layout to measure, capped to maxWidth so the measured width is final.
+      const left = align === 'end' ? triggerPos.right : triggerPos.left
+      return { position: 'fixed', visibility: 'hidden', left: Math.max(MARGIN, left), maxWidth, ...vertical }
+    }
+
+    const desiredLeft = align === 'end' ? triggerPos.right - menuWidth : triggerPos.left
+    const maxLeft = window.innerWidth - menuWidth - MARGIN
+    const left = Math.min(Math.max(MARGIN, desiredLeft), Math.max(MARGIN, maxLeft))
+    return { position: 'fixed', left, maxWidth, ...vertical }
   })()
 
   // Defer rendering the portal until the document is available — typescript
@@ -242,7 +282,7 @@ export function DecksMenu({
           style={panelStyle}
           className={[
             'z-30 min-w-[10rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised py-1.5',
-            'shadow-[var(--shadow-card)]',
+            'shadow-card',
             menuClassName,
           ].join(' ')}
         >
@@ -254,65 +294,3 @@ export function DecksMenu({
   )
 }
 
-/**
- * Standard menu item: a real button so screen readers and keyboard users get
- * native semantics. Includes a leading-glyph slot and an optional trailing
- * check-mark (for radio-like selection states).
- */
-interface MenuItemProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  leading?:  ReactNode
-  selected?: boolean
-  danger?:   boolean
-}
-
-export function MenuItem({
-  leading,
-  selected,
-  danger,
-  className = '',
-  children,
-  ...rest
-}: MenuItemProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className={[
-        'group flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm',
-        'ui-motion-colors',
-        'focus:outline-none focus:bg-cream-inset',
-        'hover:bg-cream-inset',
-        'disabled:opacity-50 disabled:pointer-events-none',
-        danger
-          ? 'text-inari-vermillion-deep hover:bg-vermillion-wash focus:bg-vermillion-wash'
-          : 'text-sumi-ink',
-        className,
-      ].join(' ')}
-      {...rest}
-    >
-      {leading !== undefined && (
-        <span
-          aria-hidden="true"
-          className={[
-            'inline-flex h-4 w-4 shrink-0 items-center justify-center',
-            danger ? 'text-inari-vermillion-deep' : 'text-faded-sumi group-hover:text-sumi-ink',
-          ].join(' ')}
-        >
-          {leading}
-        </span>
-      )}
-      <span className="flex-1 truncate">{children}</span>
-      {selected === true && (
-        <span aria-hidden="true" className="text-inari-vermillion">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6.5 L5 9 L10 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      )}
-    </button>
-  )
-}
-
-export function MenuSeparator(): React.JSX.Element {
-  return <div aria-hidden="true" className="my-1 h-px bg-soft-hairline" />
-}

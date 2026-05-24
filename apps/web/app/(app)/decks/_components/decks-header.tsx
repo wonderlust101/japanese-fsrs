@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PAGE_HEADER_PADDING } from '@/components/ui/PageHeader'
 
 /**
  * Canonical Tomo page header for the Decks page.
@@ -34,7 +34,7 @@ export function DecksHeader({ variant }: DecksHeaderProps): React.JSX.Element {
   const subtitle = buildSubtitleText(variant)
 
   return (
-    <div className="pt-6 pb-4 sm:pt-8 sm:pb-5 lg:pt-10 lg:pb-6">
+    <div className={PAGE_HEADER_PADDING}>
       <PageHeader
         kanji="棚"
         label="Decks"

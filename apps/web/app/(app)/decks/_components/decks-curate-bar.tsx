@@ -23,7 +23,7 @@ interface DecksCurateBarProps {
 /**
  * Bottom-anchored bulk action band that appears in Curate mode. Spans the full
  * viewport width and aligns its inner content to the page's 1440px container
- * (matching the same `px-4 sm:px-6 lg:px-12 xl:px-16` gutters used by the
+ * (matching the same `px-6 md:px-12 lg:px-16` gutters used by the
  * deck list above). A 2px Inari Vermillion top rule pulls the bar into the
  * same brand vocabulary as `SectionCard` and the deck rows — the band reads as
  * a continuation of the page, not a floating widget on top of it.
@@ -42,7 +42,7 @@ export function DecksCurateBar({
 
   return (
     <StickyActionBar ariaLabel="Bulk deck actions" brandStripe>
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 sm:py-3.5 lg:px-12 xl:px-16">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:py-3.5 md:px-12 lg:px-16">
         <ToolbarChip onClick={onDone}>Done</ToolbarChip>
 
         {/* Selection count — same mono small-caps treatment as the
@@ -56,18 +56,24 @@ export function DecksCurateBar({
         </span>
 
         {!canReorder && (
-          <span className="hidden truncate font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi md:inline">
-            Sort by Study order to reorder
-          </span>
+          <>
+            <span className="hidden truncate font-mono text-sm text-faded-sumi md:inline">
+              Sort by Study order to reorder
+            </span>
+            {/* Always available to assistive tech, regardless of viewport. */}
+            <span id="decks-reorder-hint-sr" className="sr-only">
+              Sort by Study order to reorder
+            </span>
+          </>
         )}
 
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <BarAction
             onClick={onMoveToTop}
             disabled={noSelection || !canReorder}
             icon={<IconFlag className="h-3.5 w-3.5" />}
             label="Move to top"
-            hint={!canReorder ? 'Sort by Study order to reorder' : undefined}
+            describedById={!canReorder ? 'decks-reorder-hint-sr' : undefined}
           />
           <BarAction
             onClick={onArchive}
@@ -99,24 +105,24 @@ function BarAction({
   disabled,
   icon,
   label,
-  hint,
+  describedById,
   danger,
 }: {
-  onClick:    () => void
-  disabled:   boolean
-  icon:       React.ReactNode
-  label:      string
-  hint?:      string | undefined
-  danger?:    boolean | undefined
+  onClick:        () => void
+  disabled:       boolean
+  icon:           React.ReactNode
+  label:          string
+  describedById?: string | undefined
+  danger?:        boolean | undefined
 }): React.JSX.Element {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={hint ?? label}
+      aria-describedby={describedById}
       className={[
-        'ui-motion-colors inline-flex h-9 items-center gap-1.5 rounded-[2px] px-2.5 text-sm font-medium',
+        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] px-2.5 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         'disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none',
         danger

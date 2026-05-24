@@ -1,7 +1,7 @@
 'use client'
 
 import { Pill, PillGroup } from '@/components/ui/Pill'
-import { IconSearch } from '@/components/icons/chrome-marks'
+import { SearchInput } from '@/components/ui/SearchInput'
 
 export type StatusFilter = 'all' | 'new' | 'learning' | 'review' | 'suspended'
 
@@ -29,13 +29,11 @@ const STATUS_MARK: Record<StatusFilter, string> = {
 }
 
 /**
- * Mini-toolbar above the card list. Status tabs on the left, search input on
- * the right. Sort and filter affordances are a follow-up — they need API
- * support that doesn't exist yet (see brief).
- *
- * The search input is intentionally labelled to indicate that it filters the
- * currently-loaded card pages, not the full deck. This avoids implying the
- * server can be queried while the list API has no `q` parameter.
+ * Mini-toolbar above the card list: status tabs on the left, deck-scoped
+ * search on the right. Both drive the backend query — status is a server-side
+ * filter and the search box queries the whole deck (word, reading, meaning)
+ * through the cross-deck list endpoint, not just the loaded pages. Sort lives
+ * one row down in `CardsCountLine`, shared with the Cards browser.
  */
 export function DeckCardToolbar({
   status,
@@ -64,26 +62,12 @@ export function DeckCardToolbar({
         ))}
       </PillGroup>
 
-      <div className="relative flex-1 sm:max-w-[20rem] sm:ml-auto">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faded-sumi"
-        >
-          <IconSearch className="h-3.5 w-3.5" />
-        </span>
-        <input
-          type="search"
+      <div className="flex-1 sm:max-w-[20rem] sm:ml-auto">
+        <SearchInput
           value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={onSearchChange}
           placeholder="Search this deck"
-          aria-label="Search this deck by word, reading, or meaning"
-          className={[
-            'ui-motion-colors w-full h-9 rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
-            'hover:border-faded-sumi',
-            'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
-            '[&::-webkit-search-cancel-button]:appearance-none',
-            '[&::-webkit-search-decoration]:appearance-none',
-          ].join(' ')}
+          ariaLabel="Search this deck by word, reading, or meaning"
         />
       </div>
     </section>

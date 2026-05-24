@@ -1,14 +1,14 @@
 'use client'
 
-import { forwardRef, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import {
   IconEdit,
   IconFilter,
-  IconSearch,
   IconSort,
 } from '@/components/icons/chrome-marks'
 import { KbdChip } from '@/components/ui/KbdChip'
+import { SearchInput } from '@/components/ui/SearchInput'
 import { ToolbarChip } from '@/components/ui/ToolbarChip'
 
 import { DecksMenu, MenuItem } from './decks-menu'
@@ -94,11 +94,20 @@ export function DecksUtilityRow({
       {/* Right cluster: search + curate. min-w-0 prevents the search from
           pushing the row off-screen on narrow desktop windows. */}
       <div className="flex flex-1 items-center justify-end gap-2 sm:min-w-[18rem]">
-        <SearchInput
-          ref={searchRef}
-          value={searchQuery}
-          onChange={onSearchQuery}
-        />
+        <div className="relative flex-1 sm:max-w-[20rem]">
+          <SearchInput
+            ref={searchRef}
+            value={searchQuery}
+            onChange={onSearchQuery}
+            placeholder="Find a deck"
+            ariaLabel="Find a deck"
+            trailing={
+              <KbdChip size="xs" placement="floating" className="hidden sm:inline-flex">
+                ⌘K
+              </KbdChip>
+            }
+          />
+        </div>
         <CurateButton active={curateActive} onClick={onCurate} />
       </div>
     </section>
@@ -127,6 +136,10 @@ function SortDropdown({
           aria-expanded={ariaExpanded}
           leadingNode={<IconSort className="h-3.5 w-3.5 text-faded-sumi" />}
           trailingNode={<Chevron />}
+          // Sibling-consistency with the cards page: 44px touch target
+          // on mobile, release on desktop. Same `min-h-[44px] sm:min-h-0`
+          // pattern used across the cards toolbar primitives.
+          className="min-h-[44px] sm:min-h-0 active:bg-cream-inset"
         >
           <span className="hidden text-faded-sumi sm:inline">Sort </span>
           <span className="text-sumi-ink">{SORT_LABEL[current]}</span>
@@ -171,6 +184,7 @@ function TypeDropdown({
           aria-expanded={ariaExpanded}
           leadingNode={<IconFilter className="h-3.5 w-3.5 text-faded-sumi" />}
           trailingNode={<Chevron />}
+          className="min-h-[44px] sm:min-h-0 active:bg-cream-inset"
         >
           {TYPE_LABEL[current]}
         </ToolbarChip>
@@ -192,50 +206,6 @@ function TypeDropdown({
   )
 }
 
-// ── Search ───────────────────────────────────────────────────────────────
-
-interface SearchInputProps {
-  value:    string
-  onChange: (next: string) => void
-}
-
-const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  function SearchInput({ value, onChange }, ref) {
-    return (
-      <div className="relative flex-1 sm:max-w-[20rem]">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faded-sumi"
-        >
-          <IconSearch className="h-3.5 w-3.5" />
-        </span>
-        <input
-          ref={ref}
-          type="search"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Find a deck"
-          aria-label="Find a deck"
-          className={[
-            'ui-motion-colors w-full h-9 rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-16 text-sm text-sumi-ink placeholder:text-faded-sumi',
-            'hover:border-faded-sumi',
-            'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
-            '[&::-webkit-search-cancel-button]:appearance-none',
-            '[&::-webkit-search-decoration]:appearance-none',
-          ].join(' ')}
-        />
-        <KbdChip
-          size="xs"
-          placement="floating"
-          className="absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex"
-        >
-          ⌘K
-        </KbdChip>
-      </div>
-    )
-  },
-)
-
 // ── Curate ───────────────────────────────────────────────────────────────
 
 function CurateButton({
@@ -250,16 +220,23 @@ function CurateButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      aria-label={active ? 'Done curating' : 'Curate decks'}
       className={[
-        'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-[2px] pl-2.5 pr-3 text-sm font-medium',
+        // h-9 desktop / min-h-[44px] mobile = same touch-sizing pattern
+        // as cards toolbar primitives. active: gives iOS tap feedback.
+        // shrink-0 keeps the button at its natural width so it never compresses
+        // the flex-1 search field sharing its row. On mobile it goes icon-only
+        // and holds a full 44x44 touch target (min-w + min-h + centered icon);
+        // at sm it relaxes to the inline h-9 label button. label returns at sm.
+        'ui-motion-colors inline-flex h-9 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 shrink-0 items-center justify-center sm:justify-start gap-2 rounded-[2px] px-2.5 sm:pr-3 text-sm font-medium',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         active
-          ? 'bg-sumi-ink text-warm-paper-raised hover:bg-sumi-ink/95'
-          : 'border border-soft-hairline bg-warm-paper-raised text-sumi-ink hover:border-faded-sumi hover:bg-cream-inset',
+          ? 'bg-sumi-ink text-warm-paper-raised hover:bg-sumi-ink/95 active:bg-sumi-ink/85'
+          : 'border border-soft-hairline bg-warm-paper-raised text-sumi-ink hover:border-faded-sumi hover:bg-cream-inset active:bg-cream-inset',
       ].join(' ')}
     >
       <IconEdit className="h-3.5 w-3.5" />
-      <span>{active ? 'Done' : 'Curate'}</span>
+      <span className="hidden sm:inline">{active ? 'Done' : 'Curate'}</span>
     </button>
   )
 }

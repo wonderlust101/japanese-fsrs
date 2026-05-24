@@ -56,9 +56,9 @@ export function CardListPagination({
       aria-label="Card list pagination"
       className="mt-6 flex flex-col items-stretch gap-3 border-t border-soft-hairline pt-4 pb-2 sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi">
+          <span className="font-mono text-sm text-faded-sumi">
             Per page
           </span>
           <TomoSelect

@@ -100,7 +100,7 @@ export function CardListItem({ card, onAdd, onMove, onDelete }: Props): React.JS
               >
                 {chip.glyph}
               </span>
-              <span className="font-mono text-[0.625rem] uppercase tracking-[0.08em] text-faded-sumi">
+              <span className="font-mono text-sm text-faded-sumi">
                 {chip.label}
               </span>
             </div>

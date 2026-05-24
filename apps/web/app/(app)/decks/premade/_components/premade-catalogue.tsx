@@ -7,11 +7,12 @@ import type { ApiDeck, ApiPremadeDeck, DeckType, JLPTLevel } from '@fsrs-japanes
 import { Button } from '@/components/ui/Button'
 import { ContentTypePill, JlptPill, StatusPill, type ContentTypeTone } from '@/components/ui/Pill'
 import { QuietLink } from '@/components/ui/QuietLink'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { useDecks } from '@/lib/api/decks'
 import { useCopyPremadeDeck, usePremadeDecks } from '@/lib/api/premade'
+import { useDecksPremadeDevState } from '@/dev/panels/decks-premade'
 
 // ── Filter dimensions ────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ const TYPE_PILL_TONE: Record<DeckType, ContentTypeTone> = {
  * is a low-frequency surface, so a fresh visit shows the full view.
  */
 export function PremadeCatalogue(): React.JSX.Element {
+  useDecksPremadeDevState()
   const { toast, showToast, dismissToast } = useToast()
 
   const [jlpt, setJlpt] = useState<JlptFilter>('all')
@@ -139,6 +141,10 @@ export function PremadeCatalogue(): React.JSX.Element {
     )
   }
 
+  if (decksQuery.isLoading) {
+    return <PageLoader />
+  }
+
   return (
     <>
       <FilterBar
@@ -146,27 +152,24 @@ export function PremadeCatalogue(): React.JSX.Element {
         type={type}
         onJlptChange={setJlpt}
         onTypeChange={setType}
-        resultCount={decksQuery.isLoading ? null : filteredDecks.length}
+        resultCount={filteredDecks.length}
         totalCount={allDecks.length}
       />
 
       <section
         aria-label="Premade decks"
-        aria-busy={decksQuery.isLoading ? true : undefined}
-        className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6"
+        className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-6"
       >
-        {decksQuery.isLoading
-          ? Array.from({ length: 6 }, (_, i) => <CatalogueCardSkeleton key={i} />)
-          : filteredDecks.map((deck) => (
-              <CatalogueCard
-                key={deck.id}
-                deck={deck}
-                copiedDeck={userDeckByPremadeId.get(deck.id) ?? null}
-                onCopy={() => handleCopy(deck)}
-                pending={pendingId === deck.id}
-                disabled={pendingId !== null && pendingId !== deck.id}
-              />
-            ))}
+        {filteredDecks.map((deck) => (
+          <CatalogueCard
+            key={deck.id}
+            deck={deck}
+            copiedDeck={userDeckByPremadeId.get(deck.id) ?? null}
+            onCopy={() => handleCopy(deck)}
+            pending={pendingId === deck.id}
+            disabled={pendingId !== null && pendingId !== deck.id}
+          />
+        ))}
       </section>
 
       {!decksQuery.isLoading && filteredDecks.length === 0 && (
@@ -227,7 +230,7 @@ function FilterBar({
         options={TYPE_OPTIONS.map((v) => ({ value: v, label: TYPE_LABEL[v] }))}
       />
 
-      <div className="ml-auto flex items-center gap-x-3 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi tabular-nums">
+      <div className="ml-auto flex items-center gap-x-3 font-mono text-sm text-faded-sumi tabular-nums">
         <span aria-live="polite">
           {resultCount === null
             ? 'Loading'
@@ -261,7 +264,7 @@ function FilterSelect({ id, label, value, onChange, options }: FilterSelectProps
     <div className="flex items-center gap-x-2">
       <label
         htmlFor={id}
-        className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi"
+        className="font-mono text-sm text-faded-sumi"
       >
         {label}
       </label>
@@ -269,7 +272,7 @@ function FilterSelect({ id, label, value, onChange, options }: FilterSelectProps
         id={id}
         value={value}
         onChange={(e) => onChange(e.currentTarget.value)}
-        className="rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.75rem] uppercase tracking-[0.14em] text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+        className="rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -343,14 +346,14 @@ function CatalogueCard({
               />
             )}
           </div>
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi tabular-nums">
+          <p className="font-mono text-sm text-faded-sumi tabular-nums">
             <span className="text-sumi-ink">{deck.cardCount.toLocaleString()}</span>
             {' '}{deck.cardCount === 1 ? 'card' : 'cards'}
           </p>
         </div>
 
         {/* Metadata pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {deck.jlptLevel !== null && (
             <JlptPill level={deck.jlptLevel} size="sm" />
           )}
@@ -364,13 +367,13 @@ function CatalogueCard({
 
         {/* Description */}
         {deck.description !== null && deck.description.trim().length > 0 && (
-          <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+          <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
             {deck.description}
           </p>
         )}
 
         {/* Actions */}
-        <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-soft-hairline pt-4">
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-soft-hairline pt-4">
           {isCopied && copiedDeck !== null ? (
             <>
               <Link href={`/decks/${copiedDeck.id}/preview`}>
@@ -411,27 +414,6 @@ function CatalogueCard({
   )
 }
 
-function CatalogueCardSkeleton(): React.JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-5 py-5 sm:px-6 sm:py-6"
-    >
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion/40" />
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-3 w-[6rem]" />
-        <div className="flex gap-2">
-          <Skeleton className="h-5 w-12" />
-          <Skeleton className="h-5 w-20" />
-        </div>
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="mt-4 h-8 w-40" />
-      </div>
-    </div>
-  )
-}
 
 // ── Empty + error ───────────────────────────────────────────────────────────
 
@@ -442,10 +424,20 @@ interface EmptyStateProps {
 
 function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.Element {
   if (hasFilter) {
+    // Same kanji eyebrow vocabulary as cards's filtered-zero state
+    // (空, "kara"). Carries the sibling-consistency rule across both
+    // pages: filtered-to-nothing reads the same way everywhere.
     return (
       <div className="mt-8 rounded-[2px] border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
-        <p className="text-sm font-medium text-sumi-ink">No decks match these filters.</p>
-        <p className="mx-auto mt-1.5 max-w-[42ch] text-sm text-faded-sumi">
+        <span
+          lang="ja"
+          aria-hidden="true"
+          className="font-display text-[1.75rem] leading-none text-inari-vermillion/75"
+        >
+          空
+        </span>
+        <p className="mt-3 text-sm font-medium text-sumi-ink">No decks match these filters.</p>
+        <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">
           Try a different combination of JLPT level and content type.
         </p>
         <div className="mt-5">
@@ -460,7 +452,7 @@ function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.El
   return (
     <div className="mt-8 rounded-[2px] border border-soft-hairline bg-cream-inset/55 px-6 py-10 text-center">
       <p className="text-sm font-medium text-sumi-ink">No premade decks yet.</p>
-      <p className="mx-auto mt-1.5 max-w-[48ch] text-sm text-faded-sumi">
+      <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">
         Curated decks land here as Tomo&rsquo;s catalogue grows. In the
         meantime, build your own from a word or sentence.
       </p>

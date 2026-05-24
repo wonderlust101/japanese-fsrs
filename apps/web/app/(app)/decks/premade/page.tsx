@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { TopBarBackLink } from '@/app/(app)/_components/top-bar-back-link'
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
+import { PageHeader, PAGE_HEADER_PADDING } from '@/components/ui/PageHeader'
 
 import { PremadeCatalogue } from './_components/premade-catalogue'
 
@@ -12,22 +13,13 @@ export default function PremadeDecksPage(): React.JSX.Element {
   return (
     <>
       <TopBar>
-        <Link
-          href="/decks"
-          className="flex shrink-0 items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-        >
-          <span aria-hidden="true">←</span>
-          <span>Decks</span>
-        </Link>
-        <span aria-hidden="true" className="shrink-0 text-faded-sumi">·</span>
-        <h1 className="flex-1 truncate text-base font-semibold text-sumi-ink">
-          Premade decks
-        </h1>
+        <TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
+        <TopBarTitle kanji="集" label="Premade decks" />
       </TopBar>
 
       <div className="min-h-screen bg-cool-paper-base pb-32">
-        <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16">
-          <div className="pt-6 pb-4 sm:pt-8 sm:pb-5 lg:pt-10 lg:pb-6">
+        <div className="relative mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+          <div className={PAGE_HEADER_PADDING}>
             <PageHeader
               kanji="集"
               label="Premade decks · curated by Tomo"

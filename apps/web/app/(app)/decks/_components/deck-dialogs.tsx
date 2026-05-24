@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { Toggle } from '@/components/ui/Toggle'
 import { deleteDeckAction, updateDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
 
@@ -84,7 +85,7 @@ export function RenameDeckDialog({
     >
       <form
         onSubmit={(e) => { e.preventDefault(); if (!submitDisabled) mutation.mutate() }}
-        className="space-y-4"
+        className="flex flex-col gap-y-4"
       >
         <Input
           label="Deck name"
@@ -160,7 +161,7 @@ export function DeleteDeckDialog({
       onClose={() => { mutation.reset(); onClose() }}
       title={`Delete "${truncate(deck?.name ?? '', 28)}"?`}
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-y-4">
         <p className="text-sm text-sumi-ink/85">
           Its{' '}
           <span className="font-mono tabular-nums">{cardCount}</span>{' '}
@@ -277,7 +278,7 @@ export function EditDeckOptionsDialog({
     >
       <form
         onSubmit={(e) => { e.preventDefault(); if (!submitDisabled) mutation.mutate() }}
-        className="space-y-4"
+        className="flex flex-col gap-y-4"
       >
         <Input
           label="Name"
@@ -345,27 +346,14 @@ function ArchiveToggle({
 }): React.JSX.Element {
   return (
     <div className="flex items-start gap-3 rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={archived}
-        onClick={() => !disabled && onToggle(!archived)}
-        disabled={disabled}
-        className={[
-          'ui-motion-colors mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full px-0.5',
-          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-          archived ? 'bg-sumi-ink' : 'bg-soft-hairline',
-          disabled ? 'opacity-60 cursor-not-allowed' : '',
-        ].join(' ')}
-      >
-        <span
-          aria-hidden="true"
-          className={[
-            'h-4 w-4 rounded-full bg-warm-paper-raised transition-transform duration-200 ease-out',
-            archived ? 'translate-x-4' : 'translate-x-0',
-          ].join(' ')}
+      <span className="mt-0.5 shrink-0">
+        <Toggle
+          checked={archived}
+          onChange={onToggle}
+          ariaLabel={archived ? 'Restore deck (currently archived)' : 'Archive deck (currently active)'}
+          disabled={disabled}
         />
-      </button>
+      </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-sumi-ink">
           {archived ? 'Archived' : 'Active'}

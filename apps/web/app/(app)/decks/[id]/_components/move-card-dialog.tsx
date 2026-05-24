@@ -6,6 +6,7 @@ import { getWordFields, getSentenceFrontBack, type ApiCardListItem, type ApiDeck
 
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
+import { Radio } from '@/components/ui/Radio'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
 
@@ -117,7 +118,7 @@ export function MoveCardDialog({
       </p>
 
       {isLoading && (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-y-2">
           {[0, 1, 2].map((i) => (
             <span
               key={i}
@@ -137,7 +138,7 @@ export function MoveCardDialog({
       {!isLoading && !noOtherDecks && (
         <>
           {visibleDeckCount > 0 && (
-            <p className="mb-2 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-faded-sumi">
+            <p className="mb-2 font-mono text-sm text-faded-sumi">
               {visibleDeckCount} {visibleDeckCount === 1 ? 'deck' : 'decks'} available
             </p>
           )}
@@ -159,6 +160,7 @@ export function MoveCardDialog({
                   key={deck.id}
                   className={[
                     'ui-motion-colors group/option flex cursor-pointer items-start gap-3 px-4 py-3 text-sm',
+                    'has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-sumi-ink has-[:focus-visible]:outline-offset-[-2px]',
                     i > 0 ? 'border-t border-soft-hairline' : '',
                     checked
                       ? 'bg-vermillion-wash text-sumi-ink'
@@ -166,7 +168,10 @@ export function MoveCardDialog({
                   ].join(' ')}
                 >
                   <span className="mt-1 shrink-0">
-                    <RadioMark checked={checked} />
+                    <Radio
+                      checked={checked}
+                      className="group-hover/option:border-faded-sumi"
+                    />
                   </span>
                   <input
                     type="radio"
@@ -189,7 +194,7 @@ export function MoveCardDialog({
                     >
                       {deck.name}
                     </span>
-                    <p className="mt-0.5 truncate font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-faded-sumi">
+                    <p className="mt-0.5 truncate font-mono text-sm text-faded-sumi">
                       Updated <span className="text-sumi-ink/70">{updated}</span>
                     </p>
                   </div>
@@ -199,7 +204,7 @@ export function MoveCardDialog({
                     <span className="font-mono text-xl font-semibold tabular-nums text-sumi-ink">
                       {deck.cardCount}
                     </span>
-                    <span className="mt-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-faded-sumi">
+                    <span className="mt-1 font-mono text-sm text-faded-sumi">
                       {deck.cardCount === 1 ? 'card' : 'cards'}
                     </span>
                   </div>
@@ -237,13 +242,6 @@ export function MoveCardDialog({
 }
 
 /**
- * Custom radio glyph matching the brand: a 14px square with a 2px
- * inner vermillion fill when selected. Drawn entirely with Tailwind so
- * the dot inherits brand tones instead of the browser's default accent.
- * The actual <input type="radio"> is sr-only — accessibility comes from
- * the wrapping <label> + keyboard radio-group semantics.
- */
-/**
  * Compact "x ago" formatter for the row's metadata line. Falls back to a
  * short month/day when the difference exceeds about a month.
  */
@@ -266,20 +264,3 @@ function formatRelativeUpdate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function RadioMark({ checked }: { checked: boolean }): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      className={[
-        'ui-motion-colors flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[2px] border',
-        checked
-          ? 'border-inari-vermillion bg-warm-paper-raised'
-          : 'border-soft-hairline bg-warm-paper-raised group-hover/option:border-faded-sumi',
-      ].join(' ')}
-    >
-      {checked && (
-        <span className="block h-1.5 w-1.5 bg-inari-vermillion" />
-      )}
-    </span>
-  )
-}

@@ -9,7 +9,7 @@ import { Select }           from '@/components/ui/Select'
 import { Button }           from '@/components/ui/Button'
 import { createDeckAction } from '@/lib/actions/decks.actions'
 import { queryKeys }        from '@/lib/api/queryKeys'
-import { isDeckType, type DeckType } from '@fsrs-japanese/shared-types'
+import { isDeckType, type ApiDeck, type DeckType } from '@fsrs-japanese/shared-types'
 
 const TYPE_OPTIONS = [
   { value: 'vocabulary', label: 'Vocabulary' },
@@ -21,9 +21,16 @@ const TYPE_OPTIONS = [
 interface Props {
   open:    boolean
   onClose: () => void
+  /**
+   * Optional. Fired with the freshly-created deck after the cache is
+   * invalidated, before the dialog closes. Lets callers react to the new
+   * deck — e.g. the /add capture flow selects it in the deck picker so the
+   * user never leaves the page to make a deck.
+   */
+  onCreated?: (deck: ApiDeck) => void
 }
 
-export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
+export function CreateDeckDialog({ open, onClose, onCreated }: Props): React.JSX.Element {
   const queryClient = useQueryClient()
 
   const [name,        setName]        = useState('')
@@ -36,8 +43,9 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
       description: description.trim() || undefined,
       deckType,
     }),
-    onSuccess: () => {
+    onSuccess: (deck) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
+      onCreated?.(deck)
       handleClose()
     },
   })
@@ -54,7 +62,7 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
     <Dialog open={open} onClose={handleClose} title="New Deck">
       <form
         onSubmit={(e) => { e.preventDefault(); mutation.mutate() }}
-        className="space-y-4"
+        className="flex flex-col gap-y-4"
       >
         <Input
           label="Name"
@@ -66,7 +74,7 @@ export function CreateDeckDialog({ open, onClose }: Props): React.JSX.Element {
         />
         <Input
           label="Description"
-          placeholder="Optional — what this deck covers"
+          placeholder="Optional. What this deck covers"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={mutation.isPending}

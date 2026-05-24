@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   getWordFields,
   getSentenceFrontBack,
@@ -11,15 +10,19 @@ import {
 } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
+import { TopBarBackLink } from '@/app/(app)/_components/top-bar-back-link'
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
 import { Button } from '@/components/ui/Button'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { PageHeader, PAGE_HEADER_PADDING } from '@/components/ui/PageHeader'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { Toast, useToast } from '@/components/ui/Toast'
-import { IconSearch } from '@/components/icons/chrome-marks'
+import { SearchInput } from '@/components/ui/SearchInput'
 import { CardsResultsTable, type CardsResultRow } from '@/app/(app)/cards/_components/cards-results-table'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getDeckWithStatsAction } from '@/lib/actions/decks.actions'
 import { listCardsCrossDeckAction } from '@/lib/actions/cards.actions'
 import { useCopyPremadeDeck } from '@/lib/api/premade'
+import { useDeckPreviewDevState } from '@/dev/panels/deck-preview'
 
 import {
   CardListPagination,
@@ -46,6 +49,7 @@ interface Props {
  * entry the user has already copied. Routed at `/decks/[id]/preview`.
  */
 export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element {
+  useDeckPreviewDevState()
   const router = useRouter()
   const { toast, showToast, dismissToast } = useToast()
   const copyMutation = useCopyPremadeDeck()
@@ -70,46 +74,34 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
   const trimmedSearch = searchValue.trim()
   const {
     data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading: cardsLoading,
-    isError:   cardsError,
-  } = useInfiniteQuery({
-    queryKey: [...queryKeys.cards.byDeck(deckId), 'preview', pageSize, trimmedSearch],
-    queryFn:  ({ pageParam }) => listCardsCrossDeckAction({
+    refetch,
+    isFetching: isCardsFetching,
+    isLoading:  cardsLoading,
+    isError:    cardsError,
+  } = useQuery({
+    queryKey: [...queryKeys.cards.byDeck(deckId), 'preview', pageSize, trimmedSearch, pageIndex],
+    queryFn:  () => listCardsCrossDeckAction({
       deckId,
       limit:  pageSize,
-      ...(pageParam      !== undefined ? { cursor: pageParam }     : {}),
+      ...(pageIndex > 0                ? { offset: pageIndex * pageSize } : {}),
       ...(trimmedSearch.length > 0     ? { search: trimmedSearch } : {}),
     }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   })
 
-  const allLoadedCards = data?.pages.flatMap((p) => p.items) ?? []
-
   const searchActive = trimmedSearch.length > 0
-  const visibleCards = useMemo(() => {
-    const start = pageIndex * pageSize
-    return allLoadedCards.slice(start, start + pageSize)
-  }, [allLoadedCards, pageIndex, pageSize])
+  const visibleCards = data?.items ?? []
 
-  const hasPrev          = pageIndex > 0
-  const canGoNextLocally = (pageIndex + 1) * pageSize < allLoadedCards.length
-  const hasNext          = canGoNextLocally || hasNextPage
+  const hasPrev = pageIndex > 0
+  const hasNext = (data?.hasMore ?? false) === true
   const cardCount        = deck?.cardCount ?? 0
   const isCardListEmpty  = !cardsLoading && cardCount === 0
   const filteredEmpty    = !cardsLoading && cardCount > 0 && visibleCards.length === 0
   const sourcePremadeId  = deck?.sourcePremadeId ?? null
 
   function handleNextPage(): void {
-    if (canGoNextLocally) {
+    if (hasNext && !isCardsFetching) {
       setPageIndex((i) => i + 1)
-      return
-    }
-    if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage().then(() => setPageIndex((i) => i + 1))
     }
   }
 
@@ -140,25 +132,27 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
     })
   }
 
+  if (cardsLoading) {
+    return (
+      <>
+        <TopBar>
+          <TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
+        </TopBar>
+        <PageLoader />
+      </>
+    )
+  }
+
   return (
     <>
       <TopBar>
-        <Link
-          href="/decks"
-          className="flex shrink-0 items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-        >
-          <span aria-hidden="true">←</span>
-          <span className="max-w-32 truncate">Decks</span>
-        </Link>
-        <span aria-hidden="true" className="shrink-0 text-faded-sumi">·</span>
-        <span className="flex-1 truncate text-base font-semibold text-sumi-ink">
-          {deckName}
-        </span>
+        <TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
+        <TopBarTitle kanji="棚" label={deckName} />
       </TopBar>
 
       <div className="min-h-screen bg-cool-paper-base pb-32">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16">
-          <div className="pt-6 pb-4 sm:pt-8 sm:pb-5 lg:pt-10 lg:pb-6">
+        <div className="mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+          <div className={PAGE_HEADER_PADDING}>
             <PageHeader
               kanji="棚"
               label="Deck preview"
@@ -183,8 +177,8 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
             />
           </div>
 
-          <div className="space-y-6">
-            <main className="min-w-0">
+          <div className="flex flex-col gap-y-6">
+            <section aria-label="Cards in this deck" className="min-w-0">
               <SearchOnlyToolbar
                 value={searchValue}
                 onChange={setSearchValue}
@@ -196,7 +190,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                     title="Couldn't load this deck's cards."
                     body="The list tried to read from the server and didn't get a reply. Try again in a moment."
                     action={
-                      <Button size="sm" variant="secondary" onClick={() => void fetchNextPage()}>
+                      <Button size="sm" variant="secondary" onClick={() => void refetch()}>
                         Try again
                       </Button>
                     }
@@ -237,8 +231,8 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                   pageItemCount={visibleCards.length}
                   hasPrev={hasPrev}
                   hasNext={hasNext}
-                  isFetchingNext={isFetchingNextPage}
-                  totalCount={data?.pages[0]?.totalCount}
+                  isFetchingNext={isCardsFetching && !cardsLoading}
+                  totalCount={data?.totalCount}
                   onPrev={handlePrevPage}
                   onNext={handleNextPage}
                   onPageSizeChange={(next) => {
@@ -247,7 +241,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
                   }}
                 />
               )}
-            </main>
+            </section>
           </div>
         </div>
       </div>
@@ -287,26 +281,12 @@ function SearchOnlyToolbar({
       aria-label="Card filters"
       className="flex flex-col gap-3 border-b border-soft-hairline pb-4 sm:flex-row sm:items-center sm:justify-end"
     >
-      <div className="relative w-full sm:max-w-[20rem]">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faded-sumi"
-        >
-          <IconSearch className="h-3.5 w-3.5" />
-        </span>
-        <input
-          type="search"
+      <div className="w-full sm:max-w-[20rem]">
+        <SearchInput
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={onChange}
           placeholder="Search this deck"
-          aria-label="Search this deck by word, reading, or meaning"
-          className={[
-            'ui-motion-colors h-9 w-full rounded-[2px] border border-soft-hairline bg-cream-inset pl-8 pr-3 text-sm text-sumi-ink placeholder:text-faded-sumi',
-            'hover:border-faded-sumi',
-            'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
-            '[&::-webkit-search-cancel-button]:appearance-none',
-            '[&::-webkit-search-decoration]:appearance-none',
-          ].join(' ')}
+          ariaLabel="Search this deck by word, reading, or meaning"
         />
       </div>
     </section>
@@ -326,7 +306,7 @@ function PreviewMessage({ title, body, action }: PreviewMessageProps): React.JSX
       className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 p-6 text-center sm:p-8"
     >
       <p className="text-sm font-medium text-sumi-ink">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-[42ch] text-sm text-faded-sumi">{body}</p>
+      <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">{body}</p>
       {action !== undefined && <div className="mt-4">{action}</div>}
     </div>
   )
@@ -346,7 +326,6 @@ function apiCardToRow(card: ApiCardListItem, deckId: string, deckName: string): 
     deckName,
     jlptLevel:    card.jlptLevel,
     partOfSpeech: wordFields?.partOfSpeech ?? null,
-    tags:         card.tags,
     state:        card.state,
     isSuspended:  card.isSuspended,
     lapses:       0,
