@@ -20,8 +20,6 @@ export interface CardsResultRow {
    *  (noun / verb / i-adj / na-adj / adv / etc.). Optional because the
    *  schema marks it nullable. */
   partOfSpeech: string | null
-  /** Personal organization tags applied to the card. */
-  tags:      readonly string[]
   state:     State
   isSuspended: boolean
   /** Lifetime count of failed reviews. ≥ 8 highlights as a weakSpot. */
@@ -43,38 +41,36 @@ const LAPSE_WEAK_SPOT_THRESHOLD   = 8
 /**
  * Shared grid template applied to both the header and each row so columns
  * line up under their labels. Reading now lives inline beside the word
- * inside the Word/Reading cell, so the grid drops a column. Column
- * reveal stages by viewport:
+ * inside the Word/Reading cell. Column reveal stages by viewport:
  *
  *   md  (≥768px)  — checkbox · Word/Reading · Meaning · Status · Due
  *   lg  (≥1024px) — adds Type (part of speech)
- *   xl  (≥1280px) — adds Tags
  */
 /*
  * Column-width tuning notes:
  *   - Word/Reading and Meaning hold roughly equal weight (2fr : 2.2fr).
  *     The slight bias toward Meaning gives long English glosses room to
  *     breathe without truncating mid-phrase.
- *   - Type bumps to 6.5rem so "irreg verb" fits without truncation.
+ *   - Type sits at 11rem so two-word POS tokens ("verb (ichidan)",
+ *     "verb (godan)", "na-adjective", "irreg verb") render with
+ *     breathing room rather than at the truncation threshold. Single
+ *     tokens like "noun" / "る-verb" read fine — `truncate` is a no-op
+ *     when content fits.
  *   - Status bumps to 6rem so the StatusPill never crowds the cell edge.
- *   - Tags grows to a full 1fr lane so two chips + overflow fit by default.
  *   - Due stays compact (4.5rem) — its content is at most "Xmo" or a date.
  */
 const GRID_CLASS = [
   // Base (md): Word · Meaning · Status · Due · Actions
   'md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6rem_4.5rem_2.25rem]',
   // lg: + Type
-  'lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem_6rem_4.5rem_2.25rem]',
-  // xl: + Tags
-  'xl:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem_minmax(0,1fr)_6rem_4.5rem_2.25rem]',
+  'lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_11rem_6rem_4.5rem_2.25rem]',
 ].join(' ')
 
-// Read-only grid: Word · Meaning · (Type) · (Tags). No status, no due, no
-// kebab — keeps the read-only catalogue preview as content-only.
+// Read-only grid: Word · Meaning · (Type). No status, no due, no kebab —
+// keeps the read-only catalogue preview as content-only.
 const GRID_CLASS_READ_ONLY = [
   'md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)]',
-  'lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem]',
-  'xl:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_6.5rem_minmax(0,1fr)]',
+  'lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_11rem]',
 ].join(' ')
 
 interface Props {
@@ -85,6 +81,13 @@ interface Props {
    */
   onRowAction?: (cardId: string, action: CardRowAction) => void
   loading?:    boolean
+  /**
+   * True while the *next* page is being fetched but the current rows are
+   * still on screen. Drives an indeterminate vermillion sweep across the
+   * top stripe and dims existing rows to preserve reading context. Distinct
+   * from `loading` (cold state, no rows yet).
+   */
+  paginating?: boolean
   /**
    * Optional suffix (including the leading `?` or `&`) appended to each
    * row's `/cards/[id]` link. Use to encode the source section so the
@@ -123,6 +126,7 @@ export function CardsResultsTable({
   rows,
   onRowAction,
   loading = false,
+  paginating = false,
   cardHrefSuffix = '',
   readOnly = false,
   selectedIds,
@@ -139,11 +143,33 @@ export function CardsResultsTable({
     && visibleIds.some((id) => selectedIds.has(id))
 
   return (
-    <div className="overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised">
-      <span
+    <div
+      className="overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised"
+      aria-busy={paginating || undefined}
+    >
+      {/* Top stripe doubles as the pagination progress channel. The static
+          vermillion bar is always present; during a paginating refetch a
+          narrower opaque sliver sweeps across it. */}
+      <div
         aria-hidden="true"
-        className="pointer-events-none block h-[2px] w-full bg-inari-vermillion"
-      />
+        className="pointer-events-none relative block h-[2px] w-full overflow-hidden bg-inari-vermillion/35"
+      >
+        {/* Resting brand stripe (full-width). Fades out while the sweep
+            runs so the moving sliver reads cleanly without doubling up. */}
+        <span
+          className={[
+            'absolute inset-0 bg-inari-vermillion transition-opacity duration-200',
+            paginating ? 'opacity-0' : 'opacity-100',
+          ].join(' ')}
+        />
+        {paginating && (
+          <span
+            role="progressbar"
+            aria-label="Loading next page of cards"
+            className="cards-pagination-sweep"
+          />
+        )}
+      </div>
 
       {/* Header. Right padding matches the row's `<Link>` (`pr-12` interactive
           mode; `pr-4` read-only) so both grids compute against the same
@@ -152,7 +178,7 @@ export function CardsResultsTable({
           it doesn't disturb the column grid. */}
       <div
         className={[
-          'hidden md:flex items-center gap-3 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi',
+          'hidden md:flex items-center gap-2 border-b border-soft-hairline bg-cream-inset/45 px-4 py-2.5 font-mono text-sm text-faded-sumi',
           readOnly ? 'pr-4' : 'pr-12',
         ].join(' ')}
       >
@@ -163,19 +189,18 @@ export function CardsResultsTable({
             checked={allSelected}
             ref={(el) => { if (el !== null) el.indeterminate = someSelected }}
             onChange={onToggleAllVisible}
-            className="h-4 w-4 shrink-0 rounded-[1px] border-soft-hairline text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="h-4 w-4 shrink-0 rounded-[1px] border-soft-hairline accent-inari-vermillion text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           />
         )}
         <div
           className={[
-            'grid flex-1 items-center gap-3',
+            'grid flex-1 items-center gap-2',
             readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
           ].join(' ')}
         >
           <span>Word</span>
           <span>Meaning</span>
           <span className="hidden lg:block">Type</span>
-          <span className="hidden xl:block">Tags</span>
           {!readOnly && (
             <>
               <span>Status</span>
@@ -189,7 +214,7 @@ export function CardsResultsTable({
       {loading && (
         <div className="divide-y divide-soft-hairline">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3">
+            <div key={i} className="flex items-center gap-2 px-4 py-3">
               <span className="dashboard-skeleton h-5 w-24 rounded-[1px]" />
               <span className="dashboard-skeleton h-4 w-16 rounded-[1px]" />
               <span className="dashboard-skeleton h-4 w-40 rounded-[1px]" />
@@ -200,15 +225,32 @@ export function CardsResultsTable({
 
       {!loading && rows.length === 0 && (
         <div className="px-6 py-12 text-center">
-          <p className="text-sm font-medium text-sumi-ink">No cards match.</p>
-          <p className="mx-auto mt-1.5 max-w-[40ch] text-sm text-faded-sumi">
+          {/* Kanji eyebrow — 空 (kara, "empty") — gives the filtered-
+              zero state the same visual language as the first-run
+              empty state (始) and the page header (字). One consistent
+              brand device across every state of the surface. */}
+          <span
+            lang="ja"
+            aria-hidden="true"
+            className="font-display text-[1.75rem] leading-none text-inari-vermillion/75"
+          >
+            空
+          </span>
+          <p className="mt-3 text-sm font-medium text-sumi-ink">No cards match.</p>
+          <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">
             Try broadening the search or clearing some filters.
           </p>
         </div>
       )}
 
       {!loading && rows.length > 0 && (
-        <ul className="divide-y divide-soft-hairline" aria-label="Card results">
+        <ul
+          className={[
+            'divide-y divide-soft-hairline transition-opacity duration-200',
+            paginating ? 'pointer-events-none opacity-65' : 'opacity-100',
+          ].join(' ')}
+          aria-label="Card results"
+        >
           {rows.map((row) => (
             <ResultRow
               key={row.id}
@@ -249,7 +291,6 @@ function ResultRow({
   // In read-only mode the lapse-tier signals are suppressed — the row reads
   // as neutral catalogue content rather than a personal-state diagnostic.
   const lapseTier = readOnly ? 'ok' : lapseTierFor(row.lapses)
-  const firstTag = row.tags[0]
   const selectionMode = onToggleSelected !== undefined
 
   return (
@@ -261,16 +302,18 @@ function ResultRow({
       ].join(' ')}
     >
       {/* Selection checkbox sits absolutely at the left edge so it's a peer
-          of the Link (not a descendant); the Link adds `pl-12` when in
-          selection mode to clear the checkbox area. */}
+          of the Link (not a descendant); the Link adds `pl-11` when in
+          selection mode to clear the checkbox area.
+          `left-4` (16px) matches the header's `px-4` so the row checkbox
+          and the header "select all" checkbox share the same left edge. */}
       {selectionMode && (
-        <div className="absolute left-2 top-1/2 z-10 -translate-y-1/2">
+        <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2">
           <input
             type="checkbox"
             aria-label={`Select ${row.word}`}
             checked={selected === true}
             onChange={onToggleSelected}
-            className="h-4 w-4 rounded-[1px] border-soft-hairline text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            className="h-4 w-4 rounded-[1px] border-soft-hairline accent-inari-vermillion text-inari-vermillion focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
           />
         </div>
       )}
@@ -289,7 +332,10 @@ function ResultRow({
         href={`/cards/${row.id}${hrefSuffix}`}
         className={[
           'block py-4 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]',
-          selectionMode ? 'pl-12' : 'pl-4',
+          // `pl-11` in selection mode mirrors the header's
+          //   px-4 (16px) + checkbox (16px) + gap-3 (12px) = 44px
+          // so the row's column grid starts on the same x-axis as the header's.
+          selectionMode ? 'pl-11' : 'pl-4',
           readOnly ? 'pr-4' : 'pr-12',
         ].join(' ')}
       >
@@ -299,7 +345,7 @@ function ResultRow({
         <div className={[
           'hidden md:grid',
           readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
-          'items-center gap-3',
+          'items-center gap-2',
         ].join(' ')}>
           {/* Word + reading share one cell. The word truncates first
               if the cell narrows; the reading stays inline as a quiet
@@ -321,11 +367,8 @@ function ResultRow({
           <span className="min-w-0 truncate text-sm text-sumi-ink/85">
             {row.meaning || '—'}
           </span>
-          <span className="hidden min-w-0 truncate font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-faded-sumi lg:block">
+          <span className="hidden min-w-0 truncate font-mono text-sm text-faded-sumi lg:block">
             {row.partOfSpeech ?? '—'}
-          </span>
-          <span className="hidden min-w-0 xl:block">
-            <TagStrip tags={row.tags} />
           </span>
           {!readOnly && (
             <>
@@ -362,17 +405,9 @@ function ResultRow({
             )}
           </div>
           <span className="min-w-0 truncate text-sm text-sumi-ink/80">{row.meaning || '—'}</span>
-          <div className="flex items-baseline gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.08em] text-faded-sumi">
+          <div className="flex items-baseline gap-2 font-mono text-sm text-faded-sumi">
             {row.partOfSpeech !== null && row.partOfSpeech !== undefined && (
               <span className="shrink-0">{row.partOfSpeech}</span>
-            )}
-            {firstTag !== undefined && (
-              <>
-                {row.partOfSpeech !== null && row.partOfSpeech !== undefined && (
-                  <span aria-hidden="true" className="text-faded-sumi/55">·</span>
-                )}
-                <span className="truncate">{firstTag}</span>
-              </>
             )}
             {!readOnly && (
               <span className="ml-auto shrink-0 truncate">
@@ -427,7 +462,7 @@ function HealthBadge({ tier }: { tier: LapseTier }): React.JSX.Element | null {
   if (tier === 'ok') return null
   const isLeech = tier === 'weakSpot'
   const label = isLeech ? 'Weak spot' : 'Drifting'
-  const toneClass = isLeech ? 'text-inari-vermillion-deep' : 'text-amber-900'
+  const toneClass = isLeech ? 'text-inari-vermillion-deep' : 'text-warning'
   return (
     <span
       role="img"
@@ -436,39 +471,11 @@ function HealthBadge({ tier }: { tier: LapseTier }): React.JSX.Element | null {
         ? 'Weak spot: this card has 8 or more lapses and is failing repeatedly.'
         : 'Drifting: this card has been failed 4 or more times.'}
       className={[
-        'ml-3 shrink-0 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em]',
+        'ml-3 shrink-0 font-mono text-sm font-semibold',
         toneClass,
       ].join(' ')}
     >
       {label}
-    </span>
-  )
-}
-
-/**
- * Renders the first two tags as compact chips, with "+N" overflow when
- * there are more. Returns an em-dash when the card has no tags.
- */
-function TagStrip({ tags }: { tags: readonly string[] }): React.JSX.Element {
-  if (tags.length === 0) {
-    return <span className="font-mono text-xs text-faded-sumi/70">—</span>
-  }
-  const visible  = tags.slice(0, 2)
-  const overflow = tags.length - visible.length
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      {visible.map((tag) => (
-        <span
-          key={tag}
-          className="truncate rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-faded-sumi"
-          title={tag}
-        >
-          {tag}
-        </span>
-      ))}
-      {overflow > 0 && (
-        <span className="font-mono text-[0.625rem] text-faded-sumi/80 tabular-nums">+{overflow}</span>
-      )}
     </span>
   )
 }

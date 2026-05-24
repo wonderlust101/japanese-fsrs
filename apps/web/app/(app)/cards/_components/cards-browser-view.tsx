@@ -1,15 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-// useCallback used by wireItemById
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
-import { PageHeader } from '@/components/ui/PageHeader'
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
+import { PageHeader, PAGE_HEADER_PADDING } from '@/components/ui/PageHeader'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { Dialog } from '@/components/ui/Dialog'
-import { Button } from '@/components/ui/Button'
+import { Button, ButtonLink } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
 import {
@@ -27,248 +29,273 @@ import {
   getWordFields,
   type ApiCardListItem,
   type ApiCrossDeckCardListItem,
-  type CardMissingField,
-  type CardSortField,
-  type PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
-import { CardsSearchBar } from './cards-search-bar'
-import { SavedViewPills } from './saved-view-pills'
-import { useSavedViews } from './saved-views-storage'
+import { CardsToolbar, type DeckOption } from './cards-toolbar'
+import { CardsActiveChips } from './cards-active-chips'
+import { CardsCountLine } from './cards-count-line'
+import { CardsFilterSheet } from './cards-filter-sheet'
+import {
+  DEFAULT_FILTER_STATE,
+  chipsFromState,
+  effectiveSortDir,
+  hasAnyFilter,
+  mergeViewRecipe,
+  naturalSortDirFor,
+  parseFiltersFromURL,
+  serializeFiltersToURL,
+  stateMatchesRecipe,
+  type CardsFilterState,
+} from './cards-filter-state'
+import {
+  findViewById,
+  useSavedViewPersistence,
+} from './saved-views-storage'
+import type { CardQualityIssue, CardQualityIssueKind } from './cards-quality-data'
 import { CardsBulkBar } from './cards-bulk-bar'
 import { MoveCardDialog } from '@/app/(app)/decks/[id]/_components/move-card-dialog'
-import {
-  CardsFilterRow,
-  type CardsFilters,
-  type DeckOption,
-} from './cards-filter-row'
 import {
   CardsResultsTable,
   type CardsResultRow,
   type CardRowAction,
 } from './cards-results-table'
 import { CardsPagination, type CardsPageSize } from './cards-pagination'
-import { CardsQualityBars, type CardQualityIssue, type CardQualityIssueKind } from './cards-quality-bars'
-import {
-  MoreFiltersPopover,
-  DEFAULT_MORE_FILTERS,
-  countMoreFilters,
-  type MoreFiltersValue,
-} from './more-filters-popover'
-import { useCardsDevState } from './cards-dev-panel'
-
-const DEFAULT_FILTERS: CardsFilters = {
-  deckId: 'all',
-  jlpt:   'all',
-  status: 'all',
-}
+import { useCardsDevState } from '@/dev/panels/cards'
 
 const DEFAULT_PAGE_SIZE: CardsPageSize = 25
-
-// URL `?missing=` accepts the bare field name (matches the quality-bar
-// links — `ROUTE_BY_KIND` in cards-quality-bars.tsx). Migration 20260624
-// added the 'pitch' and 'audio' tokens; the set is kept in sync here.
-const MISSING_FIELDS: ReadonlySet<CardMissingField> = new Set([
-  'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
-  'pitch', 'audio',
-])
-
-function parseMissingFromQuery(raw: string | null): CardMissingField | undefined {
-  if (raw === null) return undefined
-  return MISSING_FIELDS.has(raw as CardMissingField) ? (raw as CardMissingField) : undefined
-}
-
-// URL `?present=` and `?pitchPattern=` seed the More-filters popover on
-// mount only — same one-way pattern as `?missing=`. Unknown values are
-// silently dropped (tolerant parse).
-const PRESENT_TOKENS: ReadonlySet<'picture' | 'pitch' | 'audio'> = new Set([
-  'picture', 'pitch', 'audio',
-])
-const PATTERN_TOKENS: ReadonlySet<PitchPattern> = new Set([
-  'heiban', 'atamadaka', 'nakadaka', 'odaka',
-])
-
-function parseMoreFromQuery(
-  presentRaw: string | null,
-  patternRaw: string | null,
-): MoreFiltersValue {
-  const next: MoreFiltersValue = { ...DEFAULT_MORE_FILTERS }
-  if (presentRaw !== null && PRESENT_TOKENS.has(presentRaw as 'picture' | 'pitch' | 'audio')) {
-    if (presentRaw === 'pitch')   next.pitch = 'has'
-    if (presentRaw === 'picture') next.image = 'has'
-    if (presentRaw === 'audio')   next.audio = 'has'
-  }
-  if (patternRaw !== null && PATTERN_TOKENS.has(patternRaw as PitchPattern)) {
-    next.pitch = 'has'           // pattern requires has-pitch
-    next.pitchPattern = patternRaw as PitchPattern
-  }
-  return next
-}
-
-// Translate the popover's tri-state UI shape into the action's
-// positive/negative params.
-//
-// As of migration 20260624000001 the backend accepts both `missingField`
-// and `presentField` simultaneously (cross-dimension combinations like
-// "has picture AND missing audio" are legitimate). The two params still
-// each carry a single token, so within a direction the popover's
-// vertical precedence (pitch > audio > image) picks the winning token
-// when multiple dimensions sit on the same side.
-//
-// The URL-seeded `existingMissing` (from ?missing=) is the fallback
-// only when the popover's negative direction is at defaults — i.e. no
-// in-popover override on any missing dimension.
-function presenceToActionParams(
-  more: MoreFiltersValue,
-  existingMissing: CardMissingField | undefined,
-): {
-  missingField?: CardMissingField
-  presentField?: 'picture' | 'pitch' | 'audio'
-  pitchPattern?: PitchPattern
-} {
-  let presentField: 'picture' | 'pitch' | 'audio' | undefined
-  if (more.image === 'has') presentField = 'picture'
-  if (more.audio === 'has') presentField = 'audio'
-  if (more.pitch === 'has') presentField = 'pitch'
-
-  let missingField: CardMissingField | undefined
-  if (more.image === 'missing') missingField = 'picture'
-  if (more.audio === 'missing') missingField = 'audio'
-  if (more.pitch === 'missing') missingField = 'pitch'
-
-  // Fall back to the URL-seeded `?missing=` value only when the popover
-  // hasn't picked a missing direction. Suppress the seed if it would
-  // contradict a positive selection on the same dimension (the popover
-  // is the more recent user signal).
-  if (missingField === undefined && existingMissing !== undefined) {
-    const contradiction =
-      (presentField === 'picture' && existingMissing === 'picture') ||
-      (presentField === 'audio'   && existingMissing === 'audio')   ||
-      (presentField === 'pitch'   && existingMissing === 'pitch')
-    if (!contradiction) missingField = existingMissing
-  }
-
-  const out: { missingField?: CardMissingField; presentField?: 'picture' | 'pitch' | 'audio'; pitchPattern?: PitchPattern } = {}
-  if (missingField !== undefined) out.missingField = missingField
-  if (presentField !== undefined) out.presentField = presentField
-  if (presentField === 'pitch' && more.pitchPattern !== null) out.pitchPattern = more.pitchPattern
-  return out
-}
 
 export function CardsBrowserView(): React.JSX.Element {
   const router       = useRouter()
   const searchParams = useSearchParams()
 
-  const [search,    setSearch]    = useState('')
-  const [filters,   setFilters]   = useState<CardsFilters>(DEFAULT_FILTERS)
+  // ── URL-canonical filter state. ──────────────────────────────────────
+  // The URL is the single source of truth. Filter state is DERIVED from
+  // `searchParams` via useMemo, not stored in a separate React state.
+  // Previously we kept both a local useState and a useEffect that
+  // re-parsed from URL on change — that pattern raced with
+  // `router.replace()` and caused symptoms like "sort dropdown changes
+  // visually but table doesn't refetch until you reload." With a single
+  // source, the chain is: user picks sort → router.replace → searchParams
+  // updates → useMemo recomputes → queryOpts recomputes → TanStack
+  // refetches. No race, no dual write.
+  const state = useMemo<CardsFilterState>(
+    () => parseFiltersFromURL((k) => searchParams.get(k)),
+    [searchParams],
+  )
+
+  // Persist last-picked view id so a cold visit lands on the user's
+  // preferred starting point when the URL is otherwise clean.
+  const { remember: rememberView, lastActiveId } = useSavedViewPersistence()
+  const hydratedOnceRef = useRef(false)
+  useEffect(() => {
+    if (hydratedOnceRef.current) return
+    hydratedOnceRef.current = true
+    if (state.viewId !== null) return
+    if (lastActiveId === null) return
+    if (hasAnyFilter(state)) return       // user already filtered via URL
+    const view = findViewById(lastActiveId)
+    if (view === undefined) return
+    // Push the persisted view into the URL on hydration so the URL
+    // remains the canonical state source. Avoids the previous
+    // setState-based approach which fought the URL-derived state.
+    const next = mergeViewRecipe({ ...state, viewId: view.id }, view.recipe)
+    const params = serializeFiltersToURL(next)
+    const qs = params.toString()
+    router.replace(qs.length > 0 ? `/cards?${qs}` : '/cards', { scroll: false })
+  }, [lastActiveId, state, router])
+
+  const updateState = useCallback((next: CardsFilterState) => {
+    // Auto-reset to page 1 whenever any field OTHER than `page`
+    // changed. Filter children (toolbar pickers, chip editors) call
+    // updateState with `{ ...state, jlpt: 'N3' }` patterns and would
+    // otherwise keep the user pinned on a stale page index that
+    // doesn't make sense against the new result set. Page-navigation
+    // handlers (handlePrev/Next/PickPage) explicitly change ONLY
+    // `page` and pass through unchanged.
+    const onlyPageChanged =
+      next.search       === state.search       &&
+      next.deckId       === state.deckId       &&
+      next.jlpt         === state.jlpt         &&
+      next.status       === state.status       &&
+      next.sort         === state.sort         &&
+      next.sortDir      === state.sortDir      &&
+      next.viewId       === state.viewId       &&
+      next.missingField === state.missingField &&
+      next.presentField === state.presentField &&
+      next.pitchPattern === state.pitchPattern
+    const finalNext: CardsFilterState = onlyPageChanged ? next : { ...next, page: 1 }
+    // Update via the URL — searchParams change triggers the useMemo
+    // above, which re-derives `state`. No local React state to keep
+    // in sync separately. Single source of truth.
+    const params = serializeFiltersToURL(finalNext)
+    const qs = params.toString()
+    router.replace(qs.length > 0 ? `/cards?${qs}` : '/cards', { scroll: false })
+  }, [state, router])
+
+  const handleSearchChange = useCallback((nextSearch: string) => {
+    updateState({ ...state, search: nextSearch })
+  }, [state, updateState])
+
+  const handlePickView = useCallback((nextViewId: string | null) => {
+    const view = findViewById(nextViewId)
+    rememberView(nextViewId)
+    if (view === undefined) {
+      updateState({ ...DEFAULT_FILTER_STATE })
+      return
+    }
+    // Picking a view resets all dimensions to the view's defaults so
+    // moving between views feels like a clean transition rather than
+    // accreting filters across them. Search is preserved if the user
+    // already typed something on the previous view.
+    const seed: CardsFilterState = {
+      ...DEFAULT_FILTER_STATE,
+      search: state.search,
+      viewId: view.id,
+    }
+    updateState(mergeViewRecipe(seed, view.recipe))
+  }, [state.search, updateState, rememberView])
+
+  const handleClearAll = useCallback(() => {
+    rememberView(null)
+    updateState({ ...DEFAULT_FILTER_STATE })
+  }, [updateState, rememberView])
+
+  // ── Pagination + selection state. ────────────────────────────────────
+  // `state.page` is the source of truth for the current page (lives in
+  // URL via cards-filter-state). The cursor stack is gone since the
+  // backend switched to offset pagination in 20260630000003.
   const [pageSize,  setPageSize]  = useState<CardsPageSize>(DEFAULT_PAGE_SIZE)
-  const [pageIndex, setPageIndex] = useState(0)
-  const [qualityOpen, setQualityOpen] = useState(false)
-  const [selected, setSelected]   = useState<ReadonlySet<string>>(() => new Set())
+  const [selected,  setSelected]  = useState<ReadonlySet<string>>(() => new Set())
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
+  const pageIndex = state.page - 1  // 0-indexed internal use only
+  // Add-filter popover state lives here (lifted from CardsToolbar) so a
+  // page-level F-keybinding can open the menu without prop-drilling a
+  // ref through the toolbar.
+  const [addFilterOpen, setAddFilterOpen] = useState(false)
+  // View dropdown imperative open. The DecksMenu primitive that wraps
+  // the View chip already manages its own open state, but we expose a
+  // setter via a small synthetic ref so V can route a click. The
+  // simplest portable approach: a ref to a hidden button-shaped trigger
+  // exposed by CardsViewDropdown.
+  const viewTriggerClickRef = useRef<(() => void) | null>(null)
 
-  // URL-derived missing-field filter — read once on mount. The quality bars
-  // deep-link with `?missing=audio` etc.; persisting bidirectionally would
-  // tangle browser history with filter state. The `searchParams` reference
-  // is intentionally captured at first render — subsequent navigation
-  // wouldn't change the relevant query key in this view.
-  const [missingField, setMissingField] = useState<CardMissingField | undefined>(undefined)
+  // ── Cards-page keyboard shortcuts (F: add filter, V: view picker).
+  // Guard against inputs so typing 'f' or 'v' inside the search field
+  // doesn't trip the shortcut. The HelpDialog at apps/web/components/
+  // help/HelpDialog.tsx documents these bindings.
   useEffect(() => {
-    setMissingField(parseMissingFromQuery(searchParams.get('missing')))
-  }, [searchParams])
-
-  // More-filters popover state. URL-seeded once on mount (mirroring the
-  // ?missing= read-once pattern at line 89). Subsequent in-popover edits
-  // do not push to the URL.
-  const [moreFilters,     setMoreFilters]     = useState<MoreFiltersValue>(DEFAULT_MORE_FILTERS)
-  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false)
-  const moreTriggerRef = useRef<HTMLButtonElement | null>(null)
-  useEffect(() => {
-    setMoreFilters(parseMoreFromQuery(
-      searchParams.get('present'),
-      searchParams.get('pitchPattern'),
-    ))
-  }, [searchParams])
+    function onKey(e: KeyboardEvent): void {
+      // Ignore modified keys (Cmd-F should still trigger browser find).
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const active = document.activeElement
+      if (active instanceof HTMLElement) {
+        const tag = active.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return
+        if (active.isContentEditable) return
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        setAddFilterOpen(true)
+        return
+      }
+      if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault()
+        viewTriggerClickRef.current?.()
+        return
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const { toast, showToast, dismissToast } = useToast()
-  const { views: savedViews, activeId: activeViewId, setActiveId: setActiveViewId, byId: viewById } = useSavedViews()
-
-  // Sort follows the active view's recipe, default 'recent'.
-  const sortFromActiveView: CardSortField = useMemo(() => {
-    if (activeViewId === null) return 'recent'
-    return viewById(activeViewId)?.recipe.sort ?? 'recent'
-  }, [activeViewId, viewById])
 
   // ── Decks list (for the deck filter picker). ─────────────────────────
   const { data: decksList } = useQuery({
     queryKey: queryKeys.decks.list(),
     queryFn:  () => listDecksAction(),
   })
-  const liveDecks: readonly DeckOption[] = useMemo(
+  const liveDecks: ReadonlyArray<DeckOption> = useMemo(
     () => (decksList?.items ?? []).map((d) => ({ id: d.id, name: d.name })),
     [decksList],
   )
 
-  // ── Dev panel + fixture rows (dev affordance only). ──────────────────
-  const { state: devState, panel: devPanel } = useCardsDevState()
+  // ── Dev panel + fixture rows. ────────────────────────────────────────
+  const devState = useCardsDevState()
   const usingFixture = devState.fixture !== 'off'
-  const decks: readonly DeckOption[] = usingFixture ? devState.decks : liveDecks
+  const decks: ReadonlyArray<DeckOption> = usingFixture ? devState.decks : liveDecks
 
-  // ── Cross-deck list query. ───────────────────────────────────────────
+  // ── Cross-deck list query options derived from URL state. ────────────
   const queryOpts = useMemo<CrossDeckCardsActionOptions>(() => {
     const opts: CrossDeckCardsActionOptions = {
       limit: pageSize,
-      sort:  sortFromActiveView,
+      sort:  state.sort,
+      // sortDir omitted when null (means "natural default for this
+      // axis"); the action layer skips the URL param too so the
+      // backend uses its per-axis default.
+      ...(state.sortDir !== null ? { sortDir: state.sortDir } : {}),
     }
-    if (search.trim().length > 0)    opts.search    = search.trim()
-    if (filters.deckId !== 'all')    opts.deckId    = filters.deckId
-    if (filters.jlpt !== 'all')      opts.jlptLevel = filters.jlpt as NonNullable<CrossDeckCardsActionOptions['jlptLevel']>
-    if (filters.status !== 'all')    opts.status    = filters.status as NonNullable<CrossDeckCardsActionOptions['status']>
-
-    // Translate popover state + URL-seeded ?missing= into the action's
-    // mutually-exclusive missing/present split. The popover's explicit
-    // state takes precedence over the URL seed for the same dimension.
-    const morePart = presenceToActionParams(moreFilters, missingField)
-    if (morePart.missingField !== undefined) opts.missingField = morePart.missingField
-    if (morePart.presentField !== undefined) opts.presentField = morePart.presentField
-    if (morePart.pitchPattern !== undefined) opts.pitchPattern = morePart.pitchPattern
-
-    // Apply the active view's recipe on top of the filter row — but the
-    // user's explicit filter row takes precedence over the view recipe so
-    // a saved view doesn't lock the user out of overriding it.
-    if (activeViewId !== null) {
-      const recipe = viewById(activeViewId)?.recipe
-      if (recipe !== undefined) {
-        if (recipe.status       !== undefined && filters.status === 'all')                       opts.status       = recipe.status
-        if (recipe.missingField !== undefined && opts.missingField === undefined)                opts.missingField = recipe.missingField
-        if (recipe.presentField !== undefined && opts.presentField === undefined)                opts.presentField = recipe.presentField
-        if (recipe.pitchPattern !== undefined && opts.pitchPattern === undefined && opts.presentField === 'pitch') opts.pitchPattern = recipe.pitchPattern
-        if (recipe.search       !== undefined && search.trim().length === 0)                     opts.search       = recipe.search
-      }
+    // Offset pagination (replaces the cursor stack as of 20260630000003).
+    // `state.page` is 1-indexed; we translate to 0-based offset rows.
+    const offset = pageIndex * pageSize
+    if (offset > 0) opts.offset = offset
+    if (state.search.trim().length > 0)     opts.search    = state.search.trim()
+    if (state.deckId !== 'all')             opts.deckId    = state.deckId
+    if (state.jlpt !== 'all')               opts.jlptLevel = state.jlpt as NonNullable<CrossDeckCardsActionOptions['jlptLevel']>
+    if (state.status !== 'all')             opts.status    = state.status as NonNullable<CrossDeckCardsActionOptions['status']>
+    if (state.missingField !== null)        opts.missingField = state.missingField
+    if (state.presentField !== null)        opts.presentField = state.presentField
+    if (state.pitchPattern !== null && state.presentField === 'pitch') {
+      opts.pitchPattern = state.pitchPattern
     }
     return opts
-  }, [search, filters, pageSize, sortFromActiveView, missingField, moreFilters, activeViewId, viewById])
+  }, [state, pageSize, pageIndex])
 
-  const liveQuery       = useCardsCrossDeckQuery(queryOpts)
-  const qualityQuery    = useCardQualityIssuesQuery()
+  const liveQuery    = useCardsCrossDeckQuery(queryOpts)
+  const qualityQuery = useCardQualityIssuesQuery()
 
   // ── Data sources: live or fixtures. ──────────────────────────────────
-  const rows: readonly CardsResultRow[] = useMemo(() => {
-    if (usingFixture) return devState.rows
-
+  const rows: ReadonlyArray<CardsResultRow> = useMemo(() => {
+    if (usingFixture) {
+      const start = pageIndex * pageSize
+      return devState.rows.slice(start, start + pageSize)
+    }
     const items = liveQuery.data?.items ?? []
     return items.map(toResultRow)
-  }, [usingFixture, devState.rows, liveQuery.data])
+  }, [usingFixture, devState.rows, liveQuery.data, pageIndex, pageSize])
 
-  const totalCount = usingFixture ? devState.rows.length : (liveQuery.data?.totalCount ?? 0)
-  const loading    = usingFixture ? devState.loading    : liveQuery.isLoading
+  const totalCount  = usingFixture ? devState.rows.length : (liveQuery.data?.totalCount ?? 0)
+  // Cold boot only: no data has ever loaded. With `placeholderData:
+  // keepPreviousData` on the underlying hook, this stays true only on
+  // the very first paint. Subsequent refetches (filter, sort, search,
+  // page change) keep the prior data on screen and flip `isFetching`,
+  // not `isLoading`, so the toolbar/chrome stays interactive and the
+  // table shows a row-level skeleton via `isPaginating`.
+  const coldBoot     = usingFixture ? devState.loading : liveQuery.isLoading
+  const tableLoading = coldBoot
+  // Fixture mode has no asynchronous fetch, so it never paginates
+  // visibly — the table just swaps. The fixture-paging timer that
+  // used to simulate a network delay was removed alongside the cursor
+  // stack since the live path now uses keepPreviousData for the same
+  // visual continuity.
+  const isPaginating = usingFixture
+    ? false
+    : (liveQuery.isFetching && !liveQuery.isLoading)
 
-  // Reset selection + page when the search / filter set changes.
+  // Clear selection whenever any filter or page-size change happens.
+  // Page itself is intentionally NOT in the dep list — flipping pages
+  // shouldn't drop the current selection on screen (selection is
+  // tracked by id, not row position). State.page changes drop into
+  // the selection-stability bucket.
   useEffect(() => {
     setSelected(new Set())
-    setPageIndex(0)
-  }, [search, filters, pageSize, activeViewId, missingField, moreFilters])
+  }, [
+    state.search, state.deckId, state.jlpt, state.status,
+    state.missingField, state.presentField, state.pitchPattern,
+    state.viewId, state.sort, state.sortDir, pageSize,
+  ])
 
-  // ── Quality issues — map snake_case backend kinds to the bar component's enum. ─
+  // ── Quality issues — maps backend kinds to the view-count enum. ──────
   const qualityIssues: ReadonlyArray<CardQualityIssue> = useMemo(() => {
     if (qualityQuery.data === undefined) return []
     return qualityQuery.data.map((i) => ({
@@ -277,7 +304,14 @@ export function CardsBrowserView(): React.JSX.Element {
     }))
   }, [qualityQuery.data])
 
-  // ── Row action wiring. ───────────────────────────────────────────────
+  // ── Active-view "modified" indicator. ────────────────────────────────
+  const activeView = findViewById(state.viewId)
+  const activeViewModified = useMemo(() => {
+    if (activeView === undefined) return false
+    return !stateMatchesRecipe(state, activeView.recipe)
+  }, [activeView, state])
+
+  // ── Row action wiring (unchanged behavior). ──────────────────────────
   const deleteMutation     = useDeleteCardMutation()
   const moveMutation       = useMoveCardMutation()
   const copyMutation       = useCopyCardMutation()
@@ -291,8 +325,6 @@ export function CardsBrowserView(): React.JSX.Element {
   const [bulkMoveOpen,   setBulkMoveOpen]   = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
-  // Lookup the original wire item by id. Falls back to undefined for the
-  // dev fixture path (no wire item exists for synthetic rows).
   const wireItemById = useCallback(
     (cardId: string): ApiCrossDeckCardListItem | undefined => {
       const items = liveQuery.data?.items
@@ -309,8 +341,6 @@ export function CardsBrowserView(): React.JSX.Element {
       return
     }
     if (item === undefined) {
-      // Dev fixture rows have no backing wire item — surface a hint
-      // instead of attempting a mutation against a fake id.
       showToast('Dev-fixture row: real actions require live data.', 'info')
       return
     }
@@ -331,9 +361,7 @@ export function CardsBrowserView(): React.JSX.Element {
         showToast(`Deleted ${label}.`, 'info')
         setConfirmDelete(null)
       },
-      onError: (err) => {
-        showToast(err.message || 'Failed to delete card.', 'error')
-      },
+      onError: (err) => showToast(err.message || 'Failed to delete card.', 'error'),
     })
   }
 
@@ -424,181 +452,243 @@ export function CardsBrowserView(): React.JSX.Element {
     })
   }
 
-  // ── Pagination. ──────────────────────────────────────────────────────
+  // ── Pagination handlers. ─────────────────────────────────────────────
+  // All three handlers mutate `state.page` via `updateState`, which
+  // pushes the new page into the URL. Bounds enforcement happens here
+  // so the pagination component can call them naively.
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  function handlePickPage(nextPage: number): void {
+    const clamped = Math.min(Math.max(1, Math.floor(nextPage)), totalPages)
+    if (clamped === state.page) return
+    updateState({ ...state, page: clamped })
+  }
   function handlePrev(): void {
-    setPageIndex((i) => Math.max(0, i - 1))
+    if (state.page <= 1) return
+    updateState({ ...state, page: state.page - 1 })
   }
   function handleNext(): void {
-    if (liveQuery.data?.hasMore === true || usingFixture) {
-      setPageIndex((i) => i + 1)
-    }
+    if (state.page >= totalPages) return
+    updateState({ ...state, page: state.page + 1 })
   }
 
-  function handleSavedView(next: string | null): void {
-    setActiveViewId(next)
-  }
-  function handleFilterChange(next: CardsFilters): void {
-    setFilters(next)
-    setActiveViewId(null)
-  }
-  function handleMoreFilters(): void {
-    setMoreFiltersOpen((v) => !v)
-  }
-  function handleMoreFiltersApply(next: MoreFiltersValue): void {
-    setMoreFilters(next)
-    setActiveViewId(null)
-    setMoreFiltersOpen(false)
-  }
-
-  const moreFilterCount = countMoreFilters(moreFilters)
-  const filtersActive = search.length > 0
-    || filters.deckId !== 'all' || filters.jlpt !== 'all' || filters.status !== 'all'
-    || missingField !== undefined
-    || moreFilterCount > 0
-    || activeViewId !== null
-
-  // First-deck-id helper for the bulk Move dialog ("current deck" prop).
-  // For a cross-deck bulk, "current deck" is meaningless; pass the first
-  // selected card's deck so the picker excludes at least one realistic
-  // destination. Empty selection → empty string (dialog renders normally).
+  // First-deck-id helper for the bulk Move dialog.
   const bulkMoveCurrentDeckId = useMemo(() => {
     const firstId = [...selected][0]
     if (firstId === undefined) return ''
     return rows.find((r) => r.id === firstId)?.deckId ?? ''
   }, [selected, rows])
 
+  const chips           = chipsFromState(state)
+  const filtersActive   = hasAnyFilter(state)
+  const mobileChipCount = chips.length + (state.deckId !== 'all' ? 1 : 0)
+  // First-run empty state. Distinct from "filters narrowed to zero":
+  // brand-new users land here with literally no cards in any deck, and
+  // need orientation, not a "no results" message.
+  //
+  // Two ways to enter this branch:
+  //   1. Live mode with literally zero cards and no filters applied.
+  //   2. The dev panel's `first-run` fixture, which explicitly tests
+  //      this surface without needing a real account at totalCount=0.
+  // Other fixtures (`few`, `many`, etc.) continue to render the table
+  // chrome since QA review wants the table for that case.
+  //
+  // CRITICAL: live-mode also guards against `liveQuery.isFetching`.
+  // A sort-direction toggle (or any state change that invalidates
+  // pagination) briefly fires a query with the new opts but the
+  // pre-reset cursor; that query can return zero rows transiently
+  // before the pagination-reset effect re-fetches cleanly. Without
+  // this guard, the empty state mistakenly flashes during that gap.
+  const firstRunEmpty = usingFixture
+    ? devState.simulateFirstRun
+    : (totalCount === 0 && !filtersActive && !liveQuery.isFetching)
+
+  if (coldBoot) {
+    return (
+      <>
+        <TopBar>
+          <TopBarTitle kanji="札" label="Cards" />
+        </TopBar>
+        <PageLoader />
+      </>
+    )
+  }
+
   return (
     <>
       <TopBar>
-        <h1 className="flex-1 text-base font-semibold text-sumi-ink">Cards</h1>
+        <TopBarTitle kanji="札" label="Cards" />
       </TopBar>
 
-      <div className="min-h-screen bg-cool-paper-base pb-16">
-        <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16">
+      {/* Outer wrapper is a flex column so the bulk bar always sits at
+          the very bottom of the page regardless of content height.
+          - On a short page (e.g. 22 cards), the inner content column
+            takes flex-1 and grows to fill, pushing the bar to the
+            viewport bottom.
+          - On a long page, content overflows and the bar sticks to
+            the viewport's bottom via `position: sticky bottom-0`.
+          - At absolute end of scroll, the bar's natural position IS
+            the viewport bottom (because there's no padding below it).
+          The previous `pb-16` is gone for the same reason: dead space
+          below the bar prevented it from staying pinned at full
+          scroll. The inner content column keeps its own `pb-20` for
+          spacing between the table and the bar. */}
+      <div className="flex min-h-screen flex-col bg-cool-paper-base">
+        <div className="mx-auto w-full max-w-[1440px] flex-1 px-4 pt-4 pb-20 md:px-12 lg:px-16">
 
           {/* ── Page header ───────────────────────────────────────── */}
-          <div className="pt-6 pb-5 sm:pt-8 sm:pb-6 lg:pt-10 lg:pb-8">
+          <div className={PAGE_HEADER_PADDING}>
             <PageHeader
               kanji="字"
               label="Cards"
               title="All cards"
-              subtitle="Search every card across every deck. Filter, select, and tag in bulk."
+              subtitle="Every card across every deck. Pick a view, refine with chips."
             />
           </div>
 
-          {/* ── Controls cluster: search + saved views + filters ── */}
-          <div className="space-y-4">
-            <CardsSearchBar value={search} onChange={setSearch} />
-            <SavedViewPills active={activeViewId} onSelect={handleSavedView} views={savedViews} />
-            <CardsFilterRow
-              filters={filters}
-              decks={decks}
-              onChange={handleFilterChange}
-              onMoreClick={handleMoreFilters}
-              moreTriggerRef={moreTriggerRef}
-              moreFilterCount={moreFilterCount}
-              moreOpen={moreFiltersOpen}
-            />
-            <MoreFiltersPopover
-              open={moreFiltersOpen}
-              anchorRef={moreTriggerRef}
-              value={moreFilters}
-              onApply={handleMoreFiltersApply}
-              onClose={() => setMoreFiltersOpen(false)}
-            />
-          </div>
+          {/* ── Toolbar (one row on desktop) ──────────────────────── */}
+          <CardsToolbar
+            state={state}
+            decks={decks}
+            qualityIssues={qualityIssues}
+            activeViewModified={activeViewModified}
+            onSearchChange={handleSearchChange}
+            onStateChange={updateState}
+            onPickView={handlePickView}
+            addFilterOpen={addFilterOpen}
+            onAddFilterOpenChange={setAddFilterOpen}
+            viewTriggerRef={viewTriggerClickRef}
+            onOpenMobileSheet={() => setMobileSheetOpen(true)}
+            mobileChipCount={mobileChipCount}
+          />
 
-          {/* ── Card quality (toggle) ─────────────────────────────── */}
-          <div className="mt-5">
-            <button
-              type="button"
-              onClick={() => setQualityOpen((v) => !v)}
-              aria-expanded={qualityOpen}
-              aria-controls="cards-quality-panel"
-              className="inline-flex items-center gap-2 rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi transition-colors hover:border-sumi-ink hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-            >
-              <span
-                lang="ja"
-                aria-hidden="true"
-                className="font-display text-sm leading-none translate-y-[0.05em] text-inari-vermillion"
-              >
-                欠
-              </span>
-              <span>{qualityOpen ? 'Hide card quality' : 'Card quality'}</span>
-            </button>
-            {qualityOpen && (
-              <div id="cards-quality-panel" className="mt-3">
-                <CardsQualityBars issues={qualityIssues} />
+          {/* ── Active filter chips ─────────────────────────────────
+              Desktop: full interactive chip strip (click body to edit,
+              ✕ to remove). Wraps to multiple lines when needed.
+
+              Mobile: separate horizontal-scroll rail with tap-to-remove
+              only. Body taps do nothing; editing routes through the
+              filter sheet. The two variants share the same component
+              file so the chip projection logic stays single-sourced. */}
+          {chips.length > 0 && (
+            <>
+              <div className="mt-3 hidden sm:block">
+                <CardsActiveChips
+                  state={state}
+                  onChange={updateState}
+                  onClearAll={handleClearAll}
+                  variant="desktop"
+                />
               </div>
-            )}
-          </div>
+              <div className="mt-3 sm:hidden">
+                <CardsActiveChips
+                  state={state}
+                  onChange={updateState}
+                  onClearAll={handleClearAll}
+                  variant="mobile"
+                />
+              </div>
+            </>
+          )}
 
-          {/* ── Result count + clear ──────────────────────────────── */}
-          <div className="mt-6 flex items-baseline justify-between gap-3">
-            <p className="font-mono text-xs text-faded-sumi tabular-nums">
-              <span className="text-sumi-ink">{totalCount}</span>
-              {' '}{totalCount === 1 ? 'card' : 'cards'}
-              {missingField !== undefined && (
-                <>
-                  {' '}
-                  <span className="rounded-[1px] bg-cream-inset px-1.5 py-0.5 text-faded-sumi">missing {missingField}</span>
-                </>
-              )}
-              {filtersActive && (
-                <>
-                  {' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch('')
-                      setFilters(DEFAULT_FILTERS)
-                      setActiveViewId(null)
-                      setMissingField(undefined)
-                    }}
-                    className="ml-2 underline-offset-2 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-                  >
-                    Clear all filters
-                  </button>
-                </>
-              )}
-            </p>
-          </div>
+          {firstRunEmpty ? (
+            <FirstRunEmptyState />
+          ) : (
+            <>
+              {/* ── Result count + Sort dropdown ───────────────────────
+                  Sort moved here from the toolbar's Row 2 because it isn't
+                  a filter; pairing it with the count it actually affects
+                  matches the Linear / Vercel pattern. The "Clear all"
+                  affordance lives only inside the chip strip now to avoid
+                  the duplicate-control noise the critique flagged. */}
+              <div className="mt-4">
+                <CardsCountLine
+                  totalCount={totalCount}
+                  sort={state.sort}
+                  sortDir={state.sortDir}
+                  // Changing the sort axis resets sortDir to the per-axis
+                  // natural default (encoded as null) so the user doesn't
+                  // get a confusing "I picked Sort by Due but it's still
+                  // descending from when I had Lapses" state.
+                  onPickSort={(sort) => updateState({ ...state, sort, sortDir: null })}
+                  onToggleSortDir={() => {
+                    const current = effectiveSortDir(state)
+                    const flipped: 'asc' | 'desc' = current === 'asc' ? 'desc' : 'asc'
+                    // If the toggle lands back on the natural default,
+                    // clear sortDir (so the URL stays clean and the
+                    // state shows "I haven't overridden anything").
+                    const natural = naturalSortDirFor(state.sort)
+                    updateState({
+                      ...state,
+                      sortDir: flipped === natural ? null : flipped,
+                    })
+                  }}
+                  trailingNote={
+                    filtersActive && chips.length === 0 && state.search.length > 0
+                      ? (
+                        <>
+                          {' matching '}
+                          <span className="text-sumi-ink">“{state.search}”</span>
+                        </>
+                      )
+                      : undefined
+                  }
+                />
+              </div>
 
-          {/* ── Results ──────────────────────────────────────────── */}
-          <div className="mt-3">
-            <CardsResultsTable
-              rows={rows}
-              onRowAction={handleRowAction}
-              loading={loading}
-              selectedIds={selected}
-              onToggleSelection={toggleSelection}
-              onToggleAllVisible={toggleAllVisible}
-            />
-            {!loading && totalCount > 0 && (
-              <CardsPagination
-                pageIndex={pageIndex}
-                pageSize={pageSize}
-                totalCount={totalCount}
-                onPrev={handlePrev}
-                onNext={handleNext}
-                onPageSizeChange={setPageSize}
-              />
-            )}
-          </div>
+              {/* ── Results ──────────────────────────────────────────── */}
+              <div className="mt-3">
+                <CardsResultsTable
+                  rows={rows}
+                  onRowAction={handleRowAction}
+                  loading={tableLoading}
+                  paginating={isPaginating}
+                  selectedIds={selected}
+                  onToggleSelection={toggleSelection}
+                  onToggleAllVisible={toggleAllVisible}
+                />
+                {!tableLoading && totalCount > 0 && (
+                  <CardsPagination
+                    pageIndex={pageIndex}
+                    pageSize={pageSize}
+                    totalCount={totalCount}
+                    onPickPage={handlePickPage}
+                    onPrev={handlePrev}
+                    onNext={handleNext}
+                    onPageSizeChange={setPageSize}
+                    isPaginating={isPaginating}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </div>
+
+        {/* ── Sticky bulk-actions bar. ─────────────────────────────────
+            Rendered inside the main content column wrapper (not as a
+            top-level sibling) so its `position: sticky` finds the
+            correct scroll container and the bar's width matches the
+            column. This is what keeps the bar from bleeding across
+            the sidebar on desktop. */}
+        {selected.size > 0 && (
+          <CardsBulkBar
+            selectedCount={selected.size}
+            onMove={() => setBulkMoveOpen(true)}
+            onSuspend={handleBulkSuspend}
+            onDelete={() => setBulkDeleteOpen(true)}
+            onClear={clearSelection}
+          />
+        )}
       </div>
 
-      {/* ── Sticky bulk-actions bar. ──────────────────────────────────── */}
-      {selected.size > 0 && (
-        <CardsBulkBar
-          selectedCount={selected.size}
-          onAddTag={() => showToast('Inline tag editor lands in the next pass; use the kebab for now.', 'info')}
-          onMove={() => setBulkMoveOpen(true)}
-          onSuspend={handleBulkSuspend}
-          onDelete={() => setBulkDeleteOpen(true)}
-          onClear={clearSelection}
-        />
-      )}
+      {/* ── Mobile filter sheet ──────────────────────────────────────── */}
+      <CardsFilterSheet
+        open={mobileSheetOpen}
+        state={state}
+        decks={decks}
+        onChange={updateState}
+        onClearAll={handleClearAll}
+        onClose={() => setMobileSheetOpen(false)}
+      />
 
       {/* ── Dialogs ──────────────────────────────────────────────────── */}
       <MoveCardDialog
@@ -620,7 +710,6 @@ export function CardsBrowserView(): React.JSX.Element {
         onConfirm={(card, targetDeckId) => handleCopyConfirm(card, targetDeckId)}
       />
 
-      {/* Bulk move uses the same dialog with a synthetic card placeholder. */}
       <MoveCardDialog
         card={bulkMoveOpen ? bulkMoveSyntheticCard(selected.size) : null}
         currentDeckId={bulkMoveCurrentDeckId}
@@ -661,19 +750,31 @@ export function CardsBrowserView(): React.JSX.Element {
           maxWidth="max-w-[32rem]"
         />
       )}
-
-      {devPanel}
     </>
+  )
+}
+
+// ─── First-run empty state ──────────────────────────────────────────────
+
+function FirstRunEmptyState(): React.JSX.Element {
+  return (
+    <EmptyState kanji="始" title="No cards yet" className="mt-10">
+      <p className="max-w-measure-tight text-sm text-faded-sumi">
+        Add your first card to start practicing across every deck.
+      </p>
+      {/* Vermillion CTA: the empty state is one of the few surfaces on /cards
+          where Tomo's brand accent is justified on a large affordance. The
+          page is otherwise restrained sumi-on-paper; the red reads as a
+          deliberate "first step" without breaking the neutral surface budget. */}
+      <ButtonLink href="/add" variant="primary" size="md">
+        Add a card
+      </ButtonLink>
+    </EmptyState>
   )
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
-/**
- * Maps a wire-format cross-deck card into the shape the results table renders.
- * Word / reading / meaning / partOfSpeech are projected out of `fieldsData`
- * via the shared-types narrowing helper.
- */
 function toResultRow(item: ApiCrossDeckCardListItem): CardsResultRow {
   const wf = getWordFields(item)
   return {
@@ -685,7 +786,6 @@ function toResultRow(item: ApiCrossDeckCardListItem): CardsResultRow {
     deckName:     item.deckName,
     jlptLevel:    item.jlptLevel,
     partOfSpeech: wf?.partOfSpeech ?? null,
-    tags:         item.tags,
     state:        item.state,
     isSuspended:  item.isSuspended,
     lapses:       item.lapses,
@@ -693,8 +793,6 @@ function toResultRow(item: ApiCrossDeckCardListItem): CardsResultRow {
   }
 }
 
-/** Minimal `ApiCardListItem`-shaped placeholder for the bulk-move dialog so
- *  it shows a sensible header without needing a real card. */
 function bulkMoveSyntheticCard(count: number): ApiCardListItem {
   return {
     id:          'bulk',
@@ -704,19 +802,11 @@ function bulkMoveSyntheticCard(count: number): ApiCardListItem {
     state:       0 as ApiCardListItem['state'],
     isSuspended: false,
     due:         new Date().toISOString(),
-    tags:        [],
   }
 }
 
-// ─── Confirm-delete dialog (local; mirrors BulkDeleteDecksDialog pattern) ───
-
 function ConfirmDeleteDialog({
-  open,
-  title,
-  description,
-  isSubmitting,
-  onCancel,
-  onConfirm,
+  open, title, description, isSubmitting, onCancel, onConfirm,
 }: {
   open:         boolean
   title:        string

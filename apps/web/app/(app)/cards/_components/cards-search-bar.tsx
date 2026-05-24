@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-import { IconSearch } from '@/components/icons/chrome-marks'
 import { KbdChip } from '@/components/ui/KbdChip'
+import { SearchInput } from '@/components/ui/SearchInput'
 
 interface Props {
   /** Submitted search string (post-debounce). */
@@ -55,35 +55,21 @@ export function CardsSearchBar({ value, onChange, placeholder }: Props): React.J
   }, [])
 
   return (
-    <div className="relative">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-faded-sumi"
-      >
-        <IconSearch className="h-4 w-4" />
-      </span>
-      <input
-        ref={inputRef}
-        type="search"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder={placeholder ?? 'Search by word, reading, meaning, sentence, tag…'}
-        aria-label="Search cards"
-        className={[
-          'ui-motion-colors block h-11 w-full rounded-[2px] border border-soft-hairline bg-cream-inset pl-10 pr-16 text-base text-sumi-ink placeholder:text-faded-sumi',
-          'hover:border-faded-sumi',
-          'focus:outline focus:outline-1 focus:outline-sumi-ink focus:outline-offset-2',
-          '[&::-webkit-search-cancel-button]:appearance-none',
-          '[&::-webkit-search-decoration]:appearance-none',
-        ].join(' ')}
-      />
-      <KbdChip
-        placement="floating"
-        className="absolute right-3 top-1/2 hidden -translate-y-1/2 sm:inline-flex"
-        ariaLabel="Press Cmd K to focus search"
-      >
-        ⌘K
-      </KbdChip>
-    </div>
+    <SearchInput
+      ref={inputRef}
+      value={draft}
+      onChange={setDraft}
+      placeholder={placeholder ?? 'Search by word, reading, meaning, sentence, tag…'}
+      ariaLabel="Search cards"
+      trailing={
+        <KbdChip
+          placement="floating"
+          className="hidden sm:inline-flex"
+          ariaLabel="Press Cmd K to focus search"
+        >
+          ⌘K
+        </KbdChip>
+      }
+    />
   )
 }

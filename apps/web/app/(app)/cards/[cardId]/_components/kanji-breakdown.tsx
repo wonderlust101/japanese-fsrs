@@ -34,7 +34,7 @@ export function KanjiBreakdown({ breakdown }: Props): React.JSX.Element {
                 </span>
               )}
             </div>
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-faded-sumi">
+            <p className="font-mono text-sm text-faded-sumi">
               <span className="text-sumi-ink/70">{entry.radical}</span>
             </p>
             {entry.meaning !== undefined && entry.meaning.length > 0 && (

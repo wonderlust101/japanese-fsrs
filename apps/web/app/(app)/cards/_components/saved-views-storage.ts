@@ -10,14 +10,17 @@ import type {
   PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
+import type { CardQualityIssue, CardQualityIssueKind } from './cards-quality-data'
+
 /**
- * Saved views for /cards. Curated presets ship hard-coded as filter
- * recipes that map onto the cross-deck list endpoint; the active preset
- * key persists in localStorage so the user's choice survives a reload.
+ * Saved views for /cards. A "view" is a named filter recipe; picking one
+ * seeds the toolbar + chips. Built-in views ship hard-coded; the storage
+ * shape is ready for user-defined views as a follow-up.
  *
- * A "view" here is a named filter recipe — picking one populates the
- * filter row. Custom (user-named) views are a follow-up; the localStorage
- * surface already supports them shape-wise.
+ * The redesign promotes the old "Card Quality" panel into first-class
+ * views (Missing pitch, Needs attention) so the entire
+ * maintenance funnel lives under a single mental model: pick a view,
+ * refine with chips.
  */
 
 export interface SavedViewRecipe {
@@ -30,30 +33,49 @@ export interface SavedViewRecipe {
   sort?:         CardSortField
 }
 
+export type SavedViewGroup = 'core' | 'attention' | 'maintenance'
+
 export interface SavedView {
   id:          string
   label:       string
   description: string
   recipe:      SavedViewRecipe
   builtin:     boolean
+  group:       SavedViewGroup
+  /**
+   * How the live count for this view is derived. Most maintenance views
+   * map cleanly to one missing-field kind in `useCardQualityIssuesQuery`;
+   * a few derive from the underlying list query and resolve at call time
+   * via `deriveViewCount` below.
+   */
+  countSource?:
+    | { kind: 'quality'; issueKind: CardQualityIssueKind }
+    | { kind: 'qualityTotal' }
+    | { kind: 'none' }
 }
 
-/** Curated presets that ship with the app — every one of these maps to a
- *  filter combination the cross-deck list endpoint actually supports. */
+/**
+ * Curated presets that ship with the app. Order here drives display order
+ * inside each group of the View dropdown.
+ */
 export const BUILTIN_VIEWS: ReadonlyArray<SavedView> = [
+  {
+    id:          'all',
+    label:       'All cards',
+    description: 'Every card across every deck.',
+    recipe:      {},
+    builtin:     true,
+    group:       'core',
+    countSource: { kind: 'none' },
+  },
   {
     id:          'recent',
     label:       'Recently added',
-    description: 'Newest cards across every deck.',
+    description: 'Newest cards first.',
     recipe:      { sort: 'recent' },
     builtin:     true,
-  },
-  {
-    id:          'low-mastery',
-    label:       'Low mastery',
-    description: 'Cards with the most lapses first.',
-    recipe:      { sort: 'lapses' },
-    builtin:     true,
+    group:       'core',
+    countSource: { kind: 'none' },
   },
   {
     id:          'suspended',
@@ -61,20 +83,38 @@ export const BUILTIN_VIEWS: ReadonlyArray<SavedView> = [
     description: 'Cards paused from the review queue.',
     recipe:      { status: 'suspended' },
     builtin:     true,
+    group:       'core',
+    countSource: { kind: 'none' },
+  },
+  // ── Attention: a single composite that surfaces the quality funnel.
+  {
+    id:          'needs-attention',
+    label:       'Needs attention',
+    description: 'Cards missing a field the system would normally fill.',
+    recipe:      { sort: 'recent' },
+    builtin:     true,
+    group:       'attention',
+    countSource: { kind: 'qualityTotal' },
   },
   {
-    id:          'missing-mnemonic',
-    label:       'Missing mnemonics',
-    description: 'Cards without a memory hook.',
-    recipe:      { missingField: 'mnemonic' },
+    id:          'low-mastery',
+    label:       'Low mastery',
+    description: 'Most lapses first.',
+    recipe:      { sort: 'lapses' },
     builtin:     true,
+    group:       'attention',
+    countSource: { kind: 'none' },
   },
+  // ── Maintenance: per-quality-issue shortcuts. Counts live-bind.
   {
-    id:          'missing-example',
-    label:       'Missing example',
-    description: 'Cards with no example sentence yet.',
-    recipe:      { missingField: 'example' },
+    id:          'missing-pitch',
+    label:       'Missing pitch',
+    description: 'Cards without a pitch annotation.',
+    recipe:      { missingField: 'pitch' },
     builtin:     true,
+    group:       'maintenance',
+    // Pitch counts aren't yet returned by the card-quality endpoint.
+    countSource: { kind: 'none' },
   },
   {
     id:          'missing-picture',
@@ -82,10 +122,30 @@ export const BUILTIN_VIEWS: ReadonlyArray<SavedView> = [
     description: 'Cards without a picture field.',
     recipe:      { missingField: 'picture' },
     builtin:     true,
+    group:       'maintenance',
+    countSource: { kind: 'quality', issueKind: 'missing_picture' },
+  },
+  {
+    id:          'missing-mnemonic',
+    label:       'Missing mnemonic',
+    description: 'Cards without a memory hook.',
+    recipe:      { missingField: 'mnemonic' },
+    builtin:     true,
+    group:       'maintenance',
+    countSource: { kind: 'quality', issueKind: 'missing_mnemonic' },
+  },
+  {
+    id:          'missing-example',
+    label:       'Missing example',
+    description: 'Cards with no example sentence yet.',
+    recipe:      { missingField: 'example' },
+    builtin:     true,
+    group:       'maintenance',
+    countSource: { kind: 'quality', issueKind: 'missing_example' },
   },
 ]
 
-const ACTIVE_KEY = 'tomo.cards.activeView.v1'
+const ACTIVE_KEY = 'tomo.cards.activeView.v2'
 
 function safeRead<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
@@ -103,41 +163,63 @@ function safeWrite<T>(key: string, value: T): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // Quota / privacy mode — silently no-op; the active view stays in memory.
+    // Quota / privacy mode — silently no-op; active view stays in memory.
   }
 }
 
+/** Lookup helper. Returns undefined for unknown ids (e.g. stale localStorage). */
+export function findViewById(id: string | null): SavedView | undefined {
+  if (id === null) return undefined
+  return BUILTIN_VIEWS.find((v) => v.id === id)
+}
+
 /**
- * Resolved set of saved views (built-in only for now) plus persistence for
- * the active view id. Custom user-defined views are a follow-up — the
- * shape is ready for them.
+ * Derive the live count for a view from the available quality data.
+ * Returns null when the view has no count source (e.g. "All cards") so
+ * the dropdown can choose to render nothing rather than a "0".
  */
-export function useSavedViews(): {
-  views:        ReadonlyArray<SavedView>
-  activeId:     string | null
-  setActiveId:  (id: string | null) => void
-  byId:         (id: string) => SavedView | undefined
+export function deriveViewCount(
+  view: SavedView,
+  qualityIssues: ReadonlyArray<CardQualityIssue> | undefined,
+): number | null {
+  const src = view.countSource
+  if (src === undefined || src.kind === 'none') return null
+  if (qualityIssues === undefined) return null
+
+  if (src.kind === 'qualityTotal') {
+    return qualityIssues.reduce((sum, i) => sum + i.count, 0)
+  }
+  if (src.kind === 'quality') {
+    const row = qualityIssues.find((i) => i.kind === src.issueKind)
+    return row?.count ?? 0
+  }
+  return null
+}
+
+/**
+ * Persisted active-view-id selection. Hook reads from localStorage on
+ * mount; writes back on every change. Returns the resolved view object
+ * for ergonomics.
+ *
+ * NOTE: The URL is the canonical source for active filters in the new
+ * design, but the active-view id is also persisted here so a fresh visit
+ * to /cards (no URL params) lands on the user's last-picked view.
+ */
+export function useSavedViewPersistence(): {
+  views:           ReadonlyArray<SavedView>
+  lastActiveId:    string | null
+  remember:        (id: string | null) => void
 } {
-  const [activeId, setActiveIdState] = useState<string | null>(null)
+  const [lastActiveId, setLastActiveId] = useState<string | null>(null)
 
   useEffect(() => {
-    setActiveIdState(safeRead<string | null>(ACTIVE_KEY, null))
+    setLastActiveId(safeRead<string | null>(ACTIVE_KEY, null))
   }, [])
 
-  const setActiveId = useCallback((next: string | null) => {
-    setActiveIdState(next)
+  const remember = useCallback((next: string | null) => {
+    setLastActiveId(next)
     safeWrite(ACTIVE_KEY, next)
   }, [])
 
-  const byId = useCallback(
-    (id: string): SavedView | undefined => BUILTIN_VIEWS.find((v) => v.id === id),
-    [],
-  )
-
-  return {
-    views: BUILTIN_VIEWS,
-    activeId,
-    setActiveId,
-    byId,
-  }
+  return { views: BUILTIN_VIEWS, lastActiveId, remember }
 }
