@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Logo } from '@/components/ui/Logo'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { PageLoader } from '@/components/ui/TomoLoader'
+import { PageFrame } from '@/app/(app)/_components/page-frame'
 import { cn } from '@/lib/utils'
 import { useDrillSessionQuery } from '@/lib/api/weak-spots'
 import {
@@ -17,6 +19,8 @@ import {
   useWeakSpotDrillSessionStore,
   type DrillAttemptRecord,
 } from '@/stores/useWeakSpotDrillSessionStore'
+
+import { useWeakSpotDrillSummaryDevState } from '@/dev/panels/weak-spot-drill-summary'
 
 import {
   buildDevAttempts,
@@ -44,6 +48,7 @@ interface DrillSummaryClientProps {
 export function DrillSummaryClient({
   sessionId,
 }: DrillSummaryClientProps): React.JSX.Element {
+  useWeakSpotDrillSummaryDevState()
   const router       = useRouter()
   const isDev        = isDevSessionId(sessionId)
   const isFinished   = useDrillIsFinished()
@@ -85,7 +90,7 @@ export function DrillSummaryClient({
 
   // ── States: loading / error / empty ──────────────────────────────────────
   if (!isFinished && detailQuery.isLoading) {
-    return <SummaryFrame><SummarySkeleton /></SummaryFrame>
+    return <SummaryFrame><PageLoader /></SummaryFrame>
   }
   if (!isFinished && (detailQuery.isError || detailQuery.data === undefined)) {
     return (
@@ -95,7 +100,7 @@ export function DrillSummaryClient({
             Open the weak spots page to start a fresh drill, or refresh to try again.
           </p>
           <div className="mt-5">
-            <Button variant="primary" onClick={() => router.push('/insights/weak-spots')}>
+            <Button variant="primary" onClick={() => router.push('/weak-spots')}>
               Back to Weak spots
             </Button>
           </div>
@@ -113,8 +118,8 @@ export function DrillSummaryClient({
           subcopy="Nothing was answered, so there's nothing to read. The schedule is untouched."
           receipt={null}
           rationale="Open Weak spots to start a fresh drill, or head back to Today."
-          primary={{ label: 'Start a new drill', onClick: () => router.push('/insights/weak-spots/drill/setup') }}
-          secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/insights/weak-spots') }}
+          primary={{ label: 'Start a new drill', onClick: () => router.push('/weak-spots/drill/setup') }}
+          secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/weak-spots') }}
         />
       </SummaryFrame>
     )
@@ -131,8 +136,8 @@ export function DrillSummaryClient({
         {...(closure.subcopy !== undefined && { subcopy: closure.subcopy })}
         receipt={{ practiced: metrics.practiced, medianRtMs: metrics.medianRtMs, exitedEarly }}
         rationale={closure.rationale}
-        primary={{ label: 'Start another drill', onClick: () => router.push('/insights/weak-spots/drill/setup') }}
-        secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/insights/weak-spots') }}
+        primary={{ label: 'Start another drill', onClick: () => router.push('/weak-spots/drill/setup') }}
+        secondary={{ label: 'Back to Weak spots', onClick: () => router.push('/weak-spots') }}
       />
 
       <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
@@ -144,20 +149,13 @@ export function DrillSummaryClient({
 }
 
 // ── Frame ───────────────────────────────────────────────────────────────────
-// Lifted from /review/summary so the two surfaces share the exact outer
-// scaffolding: outer flex column, inner content-centered grid with
-// breath-room padding.
+// Thin alias over the shared PageFrame so this file's existing references
+// to <SummaryFrame> keep working while the actual chrome lives in the
+// canonical component. Closure-style surface: vertically centered on
+// desktop, top-aligned on mobile.
 
 function SummaryFrame({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div className="flex min-h-full flex-col">
-      <div className="relative isolate flex flex-1 flex-col">
-        <div className="relative z-10 mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 content-center gap-y-8 px-6 pb-12 pt-8 md:px-12 md:pb-16 md:pt-10 lg:gap-y-10 lg:px-16 lg:pb-20 lg:pt-12">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
+  return <PageFrame desktopCentered>{children}</PageFrame>
 }
 
 // ── Closure card ────────────────────────────────────────────────────────────
@@ -200,12 +198,12 @@ function ClosureCard({
     <SectionCard id="drill-summary-closure" kanji={kanji} label={label}>
       <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <h1 className="break-words font-display text-[2rem] sm:text-[2.5rem] lg:text-[2.875rem] leading-[1.05] text-sumi-ink">
+          <h1 className="break-words font-display text-display leading-[1.05] text-sumi-ink">
             {headline}
           </h1>
 
           {subcopy !== undefined && (
-            <p className="mt-3 max-w-[55ch] text-base text-faded-sumi leading-relaxed">
+            <p className="mt-3 max-w-measure text-base text-faded-sumi leading-relaxed">
               {subcopy}
             </p>
           )}
@@ -225,7 +223,7 @@ function ClosureCard({
           )}
 
           <div className="mt-7 flex flex-col gap-4">
-            <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+            <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
               {rationale}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -267,14 +265,14 @@ function SessionDetailsCard({
   return (
     <SectionCard id="drill-summary-details" kanji="詳" label="Session details">
       <div className="flex flex-col gap-3">
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+        <p className="font-mono text-sm text-faded-sumi">
           What to notice
         </p>
-        <p className="max-w-[62ch] text-base leading-relaxed text-sumi-ink">
+        <p className="max-w-measure text-base leading-relaxed text-sumi-ink">
           {diagnosis.lead}
         </p>
         {diagnosis.aside !== null && (
-          <p className="max-w-[62ch] text-sm leading-relaxed text-faded-sumi">
+          <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
             {diagnosis.aside}
           </p>
         )}
@@ -283,7 +281,7 @@ function SessionDetailsCard({
       <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
 
       <div className="flex flex-col gap-3">
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.14em] text-faded-sumi">
+        <p className="font-mono text-sm text-faded-sumi">
           Rating breakdown
         </p>
         <DrillResultBar
@@ -328,7 +326,7 @@ function CardsListCard({
             <p className="text-sm text-sumi-ink">
               <span
                 className={cn(
-                  'font-mono text-[0.6875rem] uppercase tracking-[0.16em]',
+                  'font-mono text-sm',
                   attempt.result === 'missed'    && 'text-inari-vermillion-deep',
                   attempt.result === 'hesitated' && 'text-jlpt-beyond-amber-warn',
                   attempt.result === 'remembered'&& 'text-jlpt-n5-fresh-leaf',
@@ -337,11 +335,11 @@ function CardsListCard({
                 {attempt.result === 'missed' ? 'Missed' : attempt.result === 'hesitated' ? 'Hesitated' : 'Remembered'}
               </span>
               <span aria-hidden="true" className="mx-2 text-faded-sumi">·</span>
-              <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+              <span className="font-mono text-sm text-faded-sumi">
                 {formatResponseTime(attempt.responseTimeMs)}
               </span>
             </p>
-            <p className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-faded-sumi">
+            <p className="font-mono text-sm text-faded-sumi">
               {new Date(attempt.answeredAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
             </p>
           </li>
@@ -389,7 +387,7 @@ function DrillResultBar({
       <dl className="grid grid-cols-3 gap-x-3 text-center">
         {segments.map((seg) => (
           <div key={seg.label} className="flex flex-col gap-0.5">
-            <dt className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
+            <dt className="font-mono text-sm text-faded-sumi">
               {seg.label}
             </dt>
             <dd className="font-display text-lg leading-none tabular-nums text-sumi-ink">
@@ -399,49 +397,6 @@ function DrillResultBar({
         ))}
       </dl>
     </div>
-  )
-}
-
-// ── Skeleton ────────────────────────────────────────────────────────────────
-
-function SummarySkeleton(): React.JSX.Element {
-  return (
-    <>
-      <SectionCard kanji="畢" label="Drill closed" ariaBusy>
-        <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="min-w-0 space-y-4">
-            <div className="h-10 w-3/4 animate-pulse rounded-[2px] bg-cream-inset" />
-            <div className="h-4 w-1/2 animate-pulse rounded-[2px] bg-cream-inset" />
-            <div className="h-3 w-44 animate-pulse rounded-[2px] bg-cream-inset" />
-            <div className="h-10 w-40 animate-pulse rounded-[2px] bg-cream-inset" />
-          </div>
-          <div className="flex items-center justify-center lg:pl-4" aria-hidden="true">
-            <div className="h-24 w-24 animate-pulse rounded-full bg-cream-inset lg:h-36 lg:w-36" />
-          </div>
-        </div>
-      </SectionCard>
-      <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-        <SectionCard kanji="詳" label="Session details" ariaBusy>
-          <div className="space-y-3">
-            <div className="h-2 w-24 animate-pulse rounded-[1px] bg-cream-inset" />
-            <div className="h-4 w-full animate-pulse rounded-[2px] bg-cream-inset" />
-            <div className="h-4 w-2/3 animate-pulse rounded-[2px] bg-cream-inset" />
-          </div>
-          <hr aria-hidden="true" className="my-6 border-0 border-t border-soft-hairline" />
-          <div className="space-y-3">
-            <div className="h-2 w-32 animate-pulse rounded-[1px] bg-cream-inset" />
-            <div className="h-3 w-full animate-pulse rounded-[2px] bg-cream-inset" />
-          </div>
-        </SectionCard>
-        <SectionCard kanji="札" label="Cards" ariaBusy>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-3 w-full animate-pulse rounded-[2px] bg-cream-inset" />
-            ))}
-          </div>
-        </SectionCard>
-      </div>
-    </>
   )
 }
 

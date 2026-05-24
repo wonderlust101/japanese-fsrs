@@ -49,7 +49,7 @@ export function WeakSpotDiagnosisPanel({
       aria-labelledby="weakSpot-diagnosis-heading"
       className="rounded-[2px] border border-dashed border-inari-vermillion bg-vermillion-wash/40 px-4 py-4 sm:px-5 sm:py-5"
     >
-      <header className="mb-3 flex items-baseline gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
+      <header className="mb-3 flex items-baseline gap-2 font-mono text-sm text-inari-vermillion-deep">
         <span
           lang="ja"
           aria-hidden="true"
@@ -62,17 +62,17 @@ export function WeakSpotDiagnosisPanel({
 
       {hasContent ? (
         <div className="flex flex-col gap-3">
-          <p className="text-[0.9375rem] leading-relaxed text-sumi-ink">
+          <p className="text-base leading-relaxed text-sumi-ink">
             {diagnosis}
           </p>
           {prescription !== null && prescription.length > 0 && (
-            <p className="border-l-2 border-inari-vermillion/40 pl-3 text-[0.875rem] italic leading-relaxed text-sumi-ink/85">
+            <p className="rounded-[2px] bg-vermillion-wash/50 px-3 py-2 text-base italic leading-relaxed text-sumi-ink/85">
               {prescription}
             </p>
           )}
           <div className="pt-1">
             <MoreDisclosure label="About this read">
-              <p className="max-w-[60ch] text-sm leading-relaxed text-faded-sumi">
+              <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
                 Tomo&rsquo;s read is generated from this card&rsquo;s recent lapse
                 pattern and review history. It doesn&rsquo;t change your schedule.
               </p>
@@ -89,6 +89,7 @@ export function WeakSpotDiagnosisPanel({
               type="button"
               variant="ghost"
               size="sm"
+              className="min-h-[44px] sm:min-h-0"
               onClick={onRetry}
               loading={isLoading}
             >
@@ -106,6 +107,7 @@ export function WeakSpotDiagnosisPanel({
               type="button"
               variant="primary"
               size="sm"
+              className="min-h-[44px] sm:min-h-0"
               onClick={onDiagnose}
               loading={isLoading}
             >

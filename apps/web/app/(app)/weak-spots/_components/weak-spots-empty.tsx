@@ -30,15 +30,15 @@ export function WeakSpotsEmpty({ variant }: WeakSpotsEmptyProps): React.JSX.Elem
   return (
     <section
       aria-label={variant === 'unresolved' ? 'No unresolved weak spots' : 'No resolved weak spots'}
-      className="mx-auto mt-12 flex flex-col items-center gap-y-7 py-6 text-center lg:mt-20"
+      className="mx-auto mt-12 flex flex-col items-center gap-y-6 py-6 text-center lg:mt-20"
     >
       <Logo size={112} showWordmark={false} priority />
 
-      <p className="max-w-[36ch] font-display text-[1.25rem] leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
+      <p className="max-w-measure-tight font-display text-lg leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
         {headline}
       </p>
 
-      <p className="max-w-[48ch] text-sm leading-relaxed text-faded-sumi">
+      <p className="max-w-measure-tight text-sm leading-relaxed text-faded-sumi">
         {body}
       </p>
 

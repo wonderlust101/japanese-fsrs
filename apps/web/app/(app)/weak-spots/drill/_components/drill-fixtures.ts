@@ -12,7 +12,7 @@ import type { DrillAttemptRecord } from '@/stores/useWeakSpotDrillSessionStore'
  * the same shape the network would, so the consumer code path is identical.
  *
  * Wired only in development. The setup page exposes a dev panel that routes
- * to `/insights/weak-spots/drill/dev-<key>`; the session client recognizes
+ * to `/weak-spots/drill/dev-<key>`; the session client recognizes
  * the `dev-` prefix and bypasses TanStack Query, seeding the Zustand store
  * directly from the fixture. The summary client recognizes the same prefix
  * and (optionally) seeds attempt records via `?seed=<attemptsKey>` so the
@@ -240,7 +240,7 @@ export function buildDevSessionDetail(
 }
 
 export function devSessionHref(key: DrillSessionFixtureKey): string {
-  return `/insights/weak-spots/drill/${DEV_SESSION_PREFIX}${key}`
+  return `/weak-spots/drill/${DEV_SESSION_PREFIX}${key}`
 }
 
 // ── Attempt fixtures (for summary preview) ───────────────────────────────────

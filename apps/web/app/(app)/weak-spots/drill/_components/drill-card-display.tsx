@@ -119,7 +119,7 @@ function renderCardBody(
       {showAnswer && (
         <div className="flex flex-col gap-3 border-t border-soft-hairline pt-5 text-center">
           {word.reading !== '' && (
-            <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+            <p className="font-mono text-sm text-faded-sumi">
               {word.reading}
             </p>
           )}

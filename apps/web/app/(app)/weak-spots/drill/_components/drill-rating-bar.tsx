@@ -91,12 +91,12 @@ export function DrillRatingBar({ onRate }: DrillRatingBarProps): React.JSX.Eleme
             <span className="text-warm-paper-raised/95 leading-none inline-flex">
               {spec.icon}
             </span>
-            <span className="font-medium text-sm md:text-[0.9375rem] leading-none tracking-tight">
+            <span className="font-medium text-sm md:text-base leading-none tracking-tight">
               {spec.label}
             </span>
             <span
               aria-hidden="true"
-              className="font-mono text-[0.625rem] tabular-nums leading-none text-warm-paper-raised/70"
+              className="font-mono text-sm tabular-nums leading-none text-warm-paper-raised/70"
             >
               {spec.key}
             </span>

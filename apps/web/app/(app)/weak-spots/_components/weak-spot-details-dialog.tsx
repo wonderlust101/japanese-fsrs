@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import type { ApiWeakSpotListItem } from '@fsrs-japanese/shared-types'
 
 import { WeakSpotDiagnosisPanel } from './weak-spot-diagnosis-panel'
+import { WEAK_SPOT_DRILL_ENABLED } from './weak-spots-types'
 
 interface WeakSpotDetailsDialogProps {
   open:          boolean
@@ -59,7 +60,9 @@ export function WeakSpotDetailsDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={weakSpot?.word ?? 'Weak spot'}
+      // `title` omitted on purpose: the eyebrow is promoted to the heading, so
+      // the word isn't repeated in the chrome and again in the card facsimile
+      // below. The card facsimile is the single place the word appears.
       eyebrow={{ kanji: '弱', label: 'Weak spot' }}
       size="xl"
     >
@@ -77,46 +80,58 @@ export function WeakSpotDetailsDialog({
         </div>
       ) : (
         <div className="flex flex-col gap-y-6">
-          {/* Hero card body */}
+          {/* Hero card facsimile: the only place the word appears. Carries the
+              word + reading, JLPT pill, and the Status pill (top-right), with
+              meaning and deck as supporting context — Deck and Status leave the
+              stats grid and live here as card identity. */}
           <section
             aria-label="Card content"
             className="rounded-[2px] border border-soft-hairline bg-cream-inset/45 px-4 py-4 sm:px-5 sm:py-5"
           >
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
-              <span className="font-display text-2xl text-sumi-ink sm:text-[1.625rem]">
-                {weakSpot.word !== null && weakSpot.reading !== null ? (
-                  <FuriganaText text={weakSpot.word} reading={weakSpot.reading} />
-                ) : (
-                  <span className="italic text-faded-sumi">Card no longer exists</span>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+                <span className="font-display text-2xl text-sumi-ink sm:text-[1.625rem]">
+                  {weakSpot.word !== null && weakSpot.reading !== null ? (
+                    <FuriganaText text={weakSpot.word} reading={weakSpot.reading} />
+                  ) : (
+                    <span className="italic text-faded-sumi">Card no longer exists</span>
+                  )}
+                </span>
+                {weakSpot.jlptLevel !== null && (
+                  <Pill variant="level" tone={jlptPillTone(weakSpot.jlptLevel)} size="sm">
+                    {weakSpot.jlptLevel === 'beyond_jlpt' ? 'Beyond' : weakSpot.jlptLevel}
+                  </Pill>
                 )}
-              </span>
-              {weakSpot.jlptLevel !== null && (
-                <Pill variant="level" tone={jlptPillTone(weakSpot.jlptLevel)} size="sm">
-                  {weakSpot.jlptLevel === 'beyond_jlpt' ? 'Beyond' : weakSpot.jlptLevel}
-                </Pill>
-              )}
+              </div>
+              <StatusPill resolved={weakSpot.resolved} />
             </div>
             {weakSpot.meaning !== null && (
               <p className="mt-2 text-base text-sumi-ink/85">{weakSpot.meaning}</p>
             )}
+            {weakSpot.deckName !== null && (
+              <p className="mt-2 font-mono text-sm normal-case tracking-normal text-faded-sumi">
+                {weakSpot.deckName}
+              </p>
+            )}
           </section>
 
-          {/* FSRS state strip */}
-          <section
-            aria-label="Card state"
-            className="grid grid-cols-2 gap-y-3 gap-x-4 border-y border-soft-hairline py-4 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi sm:grid-cols-4"
-          >
-            <StateCell label="Lapses" value={weakSpot.lapses === null ? '—' : String(weakSpot.lapses)} />
-            <StateCell label="Reps"   value={weakSpot.reps   === null ? '—' : String(weakSpot.reps)}   />
-            <StateCell label="Last review" value={formatDate(weakSpot.lastReview)} />
-            <StateCell label="Due"   value={formatDate(weakSpot.due)} />
-            <StateCell label="Deck"  value={weakSpot.deckName ?? '—'} normalCase />
-            <StateCell label="Flagged" value={formatDate(weakSpot.createdAt)} />
-            <StateCell
-              label="Status"
-              value={weakSpot.resolved ? 'Resolved' : 'Unresolved'}
-              tone={weakSpot.resolved ? 'aizome' : 'sumi'}
-            />
+          {/* Card state, grouped into two labeled clusters so the seven equal
+              cells gain hierarchy (severity-tinted lapses lead) and rhythm
+              (generous gap between clusters, tighter within). */}
+          <section aria-label="Card state" className="flex flex-col gap-5 border-y border-soft-hairline py-5">
+            <StatCluster title="Progress">
+              <Stat
+                label="Lapses"
+                value={weakSpot.lapses === null ? '—' : String(weakSpot.lapses)}
+                tone={!weakSpot.resolved && (weakSpot.lapses ?? 0) >= LEECH_THRESHOLD ? 'severe' : 'default'}
+              />
+              <Stat label="Reps" value={weakSpot.reps === null ? '—' : String(weakSpot.reps)} />
+            </StatCluster>
+            <StatCluster title="Schedule">
+              <Stat label="Last review" value={formatDate(weakSpot.lastReview)} />
+              <Stat label="Due"     value={formatDate(weakSpot.due)} />
+              <Stat label="Flagged" value={formatDate(weakSpot.createdAt)} />
+            </StatCluster>
           </section>
 
           {/* Diagnosis */}
@@ -133,13 +148,14 @@ export function WeakSpotDetailsDialog({
           {/* Footer actions */}
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-soft-hairline pt-5">
             <div className="flex flex-wrap items-center gap-2">
-              {!weakSpot.resolved && weakSpot.cardId !== null && (
+              {WEAK_SPOT_DRILL_ENABLED && !weakSpot.resolved && weakSpot.cardId !== null && (
                 <Button
                   type="button"
                   variant="primary"
                   size="sm"
+                  className="min-h-[44px] sm:min-h-0"
                   onClick={() =>
-                    router.push(`/insights/weak-spots/drill/setup?cardId=${weakSpot.cardId}`)
+                    router.push(`/weak-spots/drill/setup?cardId=${weakSpot.cardId}`)
                   }
                 >
                   Drill this card
@@ -150,6 +166,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="secondary"
                   size="sm"
+                  className="min-h-[44px] sm:min-h-0"
                   onClick={() => router.push(`/cards/${weakSpot.cardId}`)}
                 >
                   Open card
@@ -162,6 +179,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="min-h-[44px] sm:min-h-0"
                   onClick={() => onResolve(weakSpot.id)}
                   loading={isResolving}
                   disabled={weakSpot.cardId === null}
@@ -173,6 +191,7 @@ export function WeakSpotDetailsDialog({
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="min-h-[44px] sm:min-h-0"
                   onClick={() => onReopen(weakSpot.id)}
                   loading={isReopening}
                 >
@@ -187,28 +206,42 @@ export function WeakSpotDetailsDialog({
   )
 }
 
-// ─── State cells / skeleton / helpers ────────────────────────────────────────
+// ─── Clusters / stats / status / skeleton / helpers ──────────────────────────
 
-interface StateCellProps {
-  label:     string
-  value:     string
-  tone?:     'sumi' | 'aizome'
+// Lapse-count threshold treated as a leech; mirrors the backend
+// `LEECH_THRESHOLD` default (8). Used only to tint the lapse value.
+const LEECH_THRESHOLD = 8
+
+/**
+ * A labeled group of stats. The small uppercase subhead gives the section
+ * typographic hierarchy; stats lay out in a wrapping row with generous
+ * column spacing.
+ */
+function StatCluster({ title, children }: { title: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div>
+      <p className="font-mono text-xs uppercase tracking-[0.12em] text-faded-sumi/80">{title}</p>
+      <div className="mt-2 flex flex-wrap gap-x-8 gap-y-3">{children}</div>
+    </div>
+  )
+}
+
+interface StatProps {
+  label: string
+  value: string
+  /** 'severe' tints the value vermillion for at/over-threshold lapses. */
+  tone?: 'default' | 'severe'
   normalCase?: boolean
 }
 
-function StateCell({
-  label,
-  value,
-  tone = 'sumi',
-  normalCase = false,
-}: StateCellProps): React.JSX.Element {
+function Stat({ label, value, tone = 'default', normalCase = false }: StatProps): React.JSX.Element {
   return (
     <div>
-      <p className="text-[0.625rem]">{label}</p>
+      <p className="text-sm text-faded-sumi">{label}</p>
       <p
         className={[
-          'mt-1 font-mono text-[0.875rem]',
-          tone === 'aizome' ? 'text-aizome-indigo' : 'text-sumi-ink',
+          'mt-1 font-mono text-base',
+          tone === 'severe' ? 'text-inari-vermillion-deep' : 'text-sumi-ink',
           normalCase ? 'tracking-normal normal-case' : 'tabular-nums',
         ].join(' ')}
       >
@@ -218,14 +251,40 @@ function StateCell({
   )
 }
 
+/**
+ * Status as a colored pill: amber while unresolved (needs attention), indigo
+ * once resolved. The indigo matches the list row's Resolved badge so the two
+ * surfaces agree.
+ */
+function StatusPill({ resolved }: { resolved: boolean }): React.JSX.Element {
+  return (
+    <span
+      className={[
+        'inline-flex shrink-0 items-center rounded-[2px] border px-2 py-0.5 font-mono text-sm',
+        resolved
+          ? 'border-aizome-indigo/30 bg-aizome-indigo/10 text-aizome-indigo'
+          : 'border-deck-beyond-mark/30 bg-deck-beyond-wash text-deck-beyond-mark',
+      ].join(' ')}
+    >
+      {resolved ? 'Resolved' : 'Unresolved'}
+    </span>
+  )
+}
+
 function DetailSkeleton(): React.JSX.Element {
   return (
     <div aria-busy="true" aria-label="Loading weak spot" className="flex flex-col gap-y-6">
-      <Skeleton className="h-24 w-full" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <Skeleton key={i} className="h-10" />
-        ))}
+      <Skeleton className="h-28 w-full" />
+      <div className="flex flex-col gap-5 py-1">
+        <div className="flex gap-8">
+          <Skeleton className="h-10 w-16" />
+          <Skeleton className="h-10 w-16" />
+        </div>
+        <div className="flex gap-8">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
       </div>
       <Skeleton className="h-28 w-full" />
     </div>

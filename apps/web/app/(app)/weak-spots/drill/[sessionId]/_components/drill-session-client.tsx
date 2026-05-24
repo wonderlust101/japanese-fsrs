@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
-import { Skeleton } from '@/components/ui/Skeleton'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { Toast, useToast } from '@/components/ui/Toast'
 import { cn } from '@/lib/utils'
 import { SessionTopBar } from '@/app/(app)/review/session/_components/session-top-bar'
@@ -33,6 +33,7 @@ import type {
   ApiWeakSpotDrillAttemptResult,
   SubmitReviewInput,
 } from '@fsrs-japanese/shared-types'
+import { useWeakSpotDrillSessionDevState } from '@/dev/panels/weak-spot-drill-session'
 
 import { DrillCardDisplay } from '../../_components/drill-card-display'
 import { DrillRatingBar } from '../../_components/drill-rating-bar'
@@ -77,6 +78,7 @@ interface DrillSessionClientProps {
 export function DrillSessionClient({
   sessionId,
 }: DrillSessionClientProps): React.JSX.Element {
+  useWeakSpotDrillSessionDevState()
   const router = useRouter()
   const isDev = isDevSessionId(sessionId)
 
@@ -119,7 +121,7 @@ export function DrillSessionClient({
     if (detail === undefined || detail === null) return
     if (localSessionId === detail.sessionId && isActive) return
     if (detail.status !== 'active') {
-      router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
+      router.replace(`/weak-spots/drill/${sessionId}/summary`)
       return
     }
     actions.startSession(detail.sessionId, [...detail.cards])
@@ -131,13 +133,13 @@ export function DrillSessionClient({
     finishedRef.current = true
     if (isDev) {
       actions.endSession(false)
-      router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
+      router.replace(`/weak-spots/drill/${sessionId}/summary`)
       return
     }
     finishMutation.mutate(sessionId, {
       onSettled: () => {
         actions.endSession(false)
-        router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
+        router.replace(`/weak-spots/drill/${sessionId}/summary`)
       },
     })
   }, [isActive, reachedEnd, sessionId, finishMutation, actions, router, isDev])
@@ -293,18 +295,18 @@ export function DrillSessionClient({
   // ── End-drill exit ────────────────────────────────────────────────────────
   function handleExit(): void {
     if (!isActive) {
-      router.replace('/insights/weak-spots')
+      router.replace('/weak-spots')
       return
     }
     if (isDev) {
       actions.endSession(true)
-      router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
+      router.replace(`/weak-spots/drill/${sessionId}/summary`)
       return
     }
     abortMutation.mutate(sessionId, {
       onSettled: () => {
         actions.endSession(true)
-        router.replace(`/insights/weak-spots/drill/${sessionId}/summary`)
+        router.replace(`/weak-spots/drill/${sessionId}/summary`)
       },
     })
   }
@@ -315,9 +317,7 @@ export function DrillSessionClient({
   if (sessionQuery.isLoading || (!isActive && sessionQuery.data === undefined && devDetail === null)) {
     return (
       <DrillFrame percentage={0} onExit={handleExit}>
-        <CenteredCard>
-          <Skeleton className="h-64 w-full" />
-        </CenteredCard>
+        <PageLoader />
       </DrillFrame>
     )
   }
@@ -330,8 +330,8 @@ export function DrillSessionClient({
           <p className="mt-2 text-sm text-faded-sumi">{sessionQuery.error.message}</p>
           <div className="mt-5">
             <Link
-              href="/insights/weak-spots"
-              className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sumi-ink underline-offset-2 hover:underline"
+              href="/weak-spots"
+              className="font-mono text-sm text-sumi-ink underline-offset-2 hover:underline"
             >
               Back to Weak spots →
             </Link>
@@ -350,8 +350,8 @@ export function DrillSessionClient({
           </p>
           <div className="mt-5">
             <Link
-              href="/insights/weak-spots"
-              className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sumi-ink underline-offset-2 hover:underline"
+              href="/weak-spots"
+              className="font-mono text-sm text-sumi-ink underline-offset-2 hover:underline"
             >
               Back to Weak spots →
             </Link>
@@ -390,7 +390,7 @@ export function DrillSessionClient({
               a fixed-position strip rather than inline flow so the link
               tracks the rating bar at the bottom of the viewport on
               short screens too. */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-[5.5rem] z-30 flex justify-center px-4">
+          <div className="pointer-events-none fixed inset-x-0 bottom-22 z-30 flex justify-center px-4">
             <span className="pointer-events-auto">
               <QuietLink
                 tone="sumi"
@@ -450,9 +450,9 @@ function DrillFrame({ percentage, onExit, children }: DrillFrameProps): React.JS
         offline={false}
         syncError={false}
       />
-      <main className="flex flex-1 flex-col items-stretch justify-center pt-14 pb-32 px-4 sm:px-6 lg:pt-14">
+      <div className="flex flex-1 flex-col items-stretch justify-center pt-14 pb-32 px-4 sm:px-6 lg:pt-14">
         {children}
-      </main>
+      </div>
     </div>
   )
 }
@@ -532,7 +532,7 @@ function RealReviewConfirmBar({
     >
       <div className="mx-auto flex max-w-[640px] flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+          <p className="font-mono text-sm text-faded-sumi">
             Counts as a real review — updates your schedule
           </p>
           <QuietLink
@@ -564,12 +564,12 @@ function RealReviewConfirmBar({
                 'disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:brightness-100 disabled:active:translate-y-0',
               )}
             >
-              <span className="font-medium text-sm md:text-[0.9375rem] leading-none tracking-tight">
+              <span className="font-medium text-sm md:text-base leading-none tracking-tight">
                 {spec.label}
               </span>
               <span
                 aria-hidden="true"
-                className="font-mono text-[0.625rem] tabular-nums leading-none text-warm-paper-raised/70"
+                className="font-mono text-sm tabular-nums leading-none text-warm-paper-raised/70"
               >
                 {spec.key}
               </span>

@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { QuietLink } from '@/components/ui/QuietLink'
+import { Radio } from '@/components/ui/Radio'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
+import { PageFrame } from '@/app/(app)/_components/page-frame'
 import { cn } from '@/lib/utils'
 import { useDecks } from '@/lib/api/decks'
 import {
@@ -17,11 +18,7 @@ import {
 } from '@/lib/api/weak-spots'
 import type { CreateDrillSessionInput } from '@/lib/actions/weak-spots.actions'
 
-import {
-  DRILL_ATTEMPT_FIXTURES,
-  DRILL_SESSION_FIXTURES,
-  devSessionHref,
-} from '../../_components/drill-fixtures'
+import { useWeakSpotDrillSetupDevState } from '@/dev/panels/weak-spot-drill-setup'
 
 // ── Source picker shapes ──────────────────────────────────────────────────────
 
@@ -64,18 +61,20 @@ export function DrillSetupClient(): React.JSX.Element {
   )
   const [limit, setLimit] = useState<LimitOption>(10)
 
+  useWeakSpotDrillSetupDevState()
+
   const decksQuery = useDecks(50)
   const decks      = decksQuery.data?.items ?? []
 
-  const weakSpotsQuery   = useWeakSpotsQuery({ status: 'unresolved', limit: 50 })
-  const unresolvedCount   = weakSpotsQuery.data?.items.length ?? 0
-  const unresolvedHasMore = weakSpotsQuery.data?.hasMore ?? false
+  // The offset contract returns the full `totalCount` independent of the page
+  // window, so a `limit: 1` probe is enough to learn the exact pile size — no
+  // need to fetch 50 rows just to count them, and no `N+` overflow label.
+  const weakSpotsQuery  = useWeakSpotsQuery({ status: 'unresolved', limit: 1 })
+  const unresolvedCount = weakSpotsQuery.data?.totalCount ?? 0
   const unresolvedLabel =
-    unresolvedHasMore
-      ? `${unresolvedCount}+ unresolved weak spots in your pile`
-      : unresolvedCount === 0
-        ? 'No unresolved weak spots right now'
-        : `${unresolvedCount} unresolved ${unresolvedCount === 1 ? 'weak spot' : 'weak spots'} in your pile`
+    unresolvedCount === 0
+      ? 'No unresolved weak spots right now'
+      : `${unresolvedCount} unresolved ${unresolvedCount === 1 ? 'weak spot' : 'weak spots'} in your pile`
 
   const createMutation = useCreateDrillSessionMutation()
 
@@ -86,12 +85,11 @@ export function DrillSetupClient(): React.JSX.Element {
     const input = buildPayload(source, limit)
     createMutation.mutate(input, {
       onSuccess: (session) => {
-        router.push(`/insights/weak-spots/drill/${session.sessionId}`)
+        router.push(`/weak-spots/drill/${session.sessionId}`)
       },
     })
   }
 
-  const sourceLabel = describeSource(source, decks)
   const startLabel  = estimatedCards === 0
     ? 'Nothing to drill'
     : `Start drill · up to ${Math.min(limit, estimatedCards)} ${Math.min(limit, estimatedCards) === 1 ? 'card' : 'cards'}`
@@ -109,8 +107,7 @@ export function DrillSetupClient(): React.JSX.Element {
   )
 
   return (
-    <div className="relative isolate flex flex-1 flex-col">
-      <div className="relative z-10 grid flex-1 grid-cols-1 content-center gap-y-8 mx-auto w-full max-w-[1440px] px-6 pt-8 md:px-12 md:pt-10 lg:px-16 lg:pt-12">
+    <PageFrame desktopCentered>
         <PageHeader
           kanji="弱"
           label="Drill setup"
@@ -118,14 +115,11 @@ export function DrillSetupClient(): React.JSX.Element {
           subtitle="A focused, schedule-safe drill. Your review timing stays exactly as it is."
         />
 
-        {process.env.NODE_ENV === 'development' && <DevFixtureLauncher />}
-
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
           <aside className="lg:col-span-5 lg:sticky lg:top-10 lg:self-start">
             <DrillSetupSummary
               estimated={estimatedCards}
               limit={limit}
-              sourceLabel={sourceLabel}
               actions={actions}
             />
           </aside>
@@ -166,7 +160,7 @@ export function DrillSetupClient(): React.JSX.Element {
                         onChange={(e) =>
                           setSource({ kind: 'deckScoped', deckId: e.currentTarget.value })
                         }
-                        className="mt-3 w-full max-w-[20rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.75rem] uppercase tracking-[0.14em] text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+                        className="mt-3 w-full max-w-[20rem] rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
                       >
                         {decks.length === 0 && (
                           <option value="">No decks yet</option>
@@ -188,7 +182,7 @@ export function DrillSetupClient(): React.JSX.Element {
                     description="Cards near the weak-spot threshold, even if not flagged yet"
                   >
                     {source.kind === 'highLapseCandidates' && (
-                      <div className="mt-3 flex items-center gap-3 font-mono text-[0.75rem] uppercase tracking-[0.14em] text-faded-sumi">
+                      <div className="mt-3 flex items-center gap-2 font-mono text-sm text-faded-sumi">
                         <span>Minimum lapses</span>
                         <input
                           type="number"
@@ -239,7 +233,7 @@ export function DrillSetupClient(): React.JSX.Element {
                         onClick={() => setLimit(opt)}
                         className={cn(
                           'min-w-[5rem] rounded-[2px] border px-4 py-2',
-                          'font-mono text-[0.75rem] uppercase tracking-[0.14em]',
+                          'font-mono text-sm',
                           'transition-colors',
                           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
                           active
@@ -252,19 +246,18 @@ export function DrillSetupClient(): React.JSX.Element {
                     )
                   })}
                 </div>
-                <p className="mt-3 max-w-prose text-sm leading-relaxed text-faded-sumi">
+                <p className="mt-3 max-w-measure text-sm leading-relaxed text-faded-sumi">
                   Missed cards return later in the same session after a small lag.
                 </p>
               </SectionCard>
             </div>
           </div>
         </div>
-      </div>
 
       <MobileStickyActionBar ariaLabel="Start drill session">
         {actions}
       </MobileStickyActionBar>
-    </div>
+    </PageFrame>
   )
 }
 
@@ -273,19 +266,17 @@ export function DrillSetupClient(): React.JSX.Element {
 interface DrillSetupSummaryProps {
   estimated:   number
   limit:       LimitOption
-  sourceLabel: string
   actions:     React.ReactNode
 }
 
-// Mirrors `SetupSummary`'s SectionCard chrome (vermillion stripe, kanji
-// ornament, small-caps mono label, hairline-separated stat grid, action area
-// at the bottom that's hidden on mobile because the MobileStickyActionBar
-// owns it). Drill-flavored stats: estimated cards, source, limit.
+// Mirrors `SetupSummary`'s SectionCard chrome and rhythm — description in
+// the card header (not a body paragraph), two PrimaryStats on a baseline,
+// then the desktop action area. The picked source is already obvious from
+// the radio selection in the right column, so it isn't restated here.
 
 function DrillSetupSummary({
   estimated,
   limit,
-  sourceLabel,
   actions,
 }: DrillSetupSummaryProps): React.JSX.Element {
   return (
@@ -293,24 +284,22 @@ function DrillSetupSummary({
       id="drill-setup-summary"
       kanji="弱"
       label="This drill"
+      description="Practice only. Your review schedule stays exactly as it is."
     >
-      <p className="text-sm leading-relaxed text-faded-sumi">
-        <span className="text-sumi-ink">Practice only.</span>{' '}
-        Your review schedule stays exactly as it is.
-      </p>
-
       <dl
-        className="mt-6 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-soft-hairline/70 pt-5"
+        className={cn(
+          'mt-6',
+          'grid grid-cols-1 sm:grid-cols-2',
+          'gap-x-6 gap-y-4',
+        )}
         aria-live="polite"
       >
-        <StatPair label="Cards" value={estimated === 0 ? '0' : String(estimated)} />
-        <StatPair label="Limit" value={`${limit}`} />
-        <div className="col-span-2 flex flex-col">
-          <dt className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
-            Source
-          </dt>
-          <dd className="mt-1 text-sm text-sumi-ink">{sourceLabel}</dd>
-        </div>
+        <PrimaryStat
+          label="Cards"
+          value={estimated === 0 ? '0' : String(estimated)}
+          suffix={estimated === 1 ? 'card' : 'cards'}
+        />
+        <PrimaryStat label="Limit" value={String(limit)} />
       </dl>
 
       <div className="mt-6 hidden lg:block">
@@ -320,20 +309,29 @@ function DrillSetupSummary({
   )
 }
 
-function StatPair({
+function PrimaryStat({
   label,
   value,
+  suffix,
 }: {
-  label: string
-  value: string
+  label:   string
+  value:   string
+  suffix?: string
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col">
-      <dt className="font-mono text-[0.625rem] uppercase tracking-[0.14em] text-faded-sumi">
+    <div className="flex items-baseline gap-2 min-w-0 sm:justify-self-start">
+      <dt className="font-mono text-sm text-faded-sumi">
         {label}
       </dt>
-      <dd className="mt-1 font-display text-[1.25rem] leading-none tabular-nums text-sumi-ink">
-        {value}
+      <dd className="flex items-baseline gap-2 min-w-0">
+        <span className="font-display text-[1.625rem] leading-none tabular-nums text-sumi-ink sm:text-[1.875rem]">
+          {value}
+        </span>
+        {suffix !== undefined && (
+          <span className="font-display text-sm text-faded-sumi">
+            {suffix}
+          </span>
+        )}
       </dd>
     </div>
   )
@@ -358,7 +356,7 @@ function ActionArea({
 }: ActionAreaProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="primary"
@@ -369,7 +367,7 @@ function ActionArea({
         >
           {startLabel}
         </Button>
-        <QuietLink href="/insights/weak-spots" tone="sumi" size="sm">
+        <QuietLink href="/weak-spots" tone="sumi" size="sm">
           Cancel
         </QuietLink>
       </div>
@@ -400,10 +398,11 @@ function SourceOption({
   return (
     <label
       className={cn(
-        'flex cursor-pointer flex-col rounded-[2px] border px-4 py-3 transition-colors',
+        'group flex cursor-pointer flex-col rounded-[2px] border px-4 py-3 transition-colors',
+        'has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-sumi-ink has-[:focus-visible]:outline-offset-2',
         checked
           ? 'border-inari-vermillion bg-vermillion-wash/40'
-          : 'border-soft-hairline hover:border-sumi-ink',
+          : 'border-soft-hairline hover:border-faded-sumi',
       )}
     >
       <span className="flex items-start gap-3">
@@ -412,59 +411,20 @@ function SourceOption({
           name="drill-source"
           checked={checked}
           onChange={onSelect}
-          className="mt-1 h-3.5 w-3.5 accent-inari-vermillion"
+          className="sr-only"
         />
+        <span className="mt-1">
+          <Radio checked={checked} className="group-hover:border-faded-sumi" />
+        </span>
         <span className="flex-1">
           <span className="block text-sm font-medium text-sumi-ink">{label}</span>
-          <span className="mt-0.5 block text-[0.8125rem] leading-snug text-faded-sumi">
+          <span className="mt-0.5 block text-sm leading-snug text-faded-sumi">
             {description}
           </span>
         </span>
       </span>
       {checked && children !== undefined && <div className="ml-7">{children}</div>}
     </label>
-  )
-}
-
-// ── Dev fixture launcher (development only) ──────────────────────────────────
-
-function DevFixtureLauncher(): React.JSX.Element {
-  return (
-    <div className="rounded-[2px] border border-dashed border-sumi-ink/35 bg-cream-inset/40 px-4 py-3">
-      <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sumi-ink/70">
-        Dev · Drill fixtures
-      </p>
-      <p className="mt-1 text-[0.8125rem] leading-snug text-faded-sumi">
-        Skip the API and jump straight into a fixture-backed drill (or summary). Renders only in development.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {DRILL_SESSION_FIXTURES.map((f) => (
-          <Link
-            key={f.key}
-            href={devSessionHref(f.key)}
-            title={f.description}
-            className="rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-sumi-ink transition-colors hover:border-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            {f.label}
-          </Link>
-        ))}
-      </div>
-      <p className="mt-4 font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-sumi-ink/70">
-        Or jump to a pre-baked summary:
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {DRILL_ATTEMPT_FIXTURES.map((f) => (
-          <Link
-            key={f.key}
-            href={`${devSessionHref('mixed')}/summary?seed=${f.key}`}
-            title={f.description}
-            className="rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-sumi-ink transition-colors hover:border-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            Summary · {f.label}
-          </Link>
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -510,13 +470,3 @@ function estimateSize(
   return limit
 }
 
-function describeSource(
-  source: DrillSource,
-  decks:  ReadonlyArray<{ id: string; name: string }>,
-): string {
-  if (source.kind === 'unresolvedLeeches')   return 'Unresolved weak spots'
-  if (source.kind === 'highLapseCandidates') return `High-lapse (≥ ${source.minLapses} lapses)`
-  if (source.kind === 'currentCard')         return 'A single card'
-  const deck = decks.find((d) => d.id === source.deckId)
-  return deck !== undefined ? `Deck: ${deck.name}` : 'Deck: unselected'
-}

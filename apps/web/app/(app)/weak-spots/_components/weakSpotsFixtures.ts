@@ -48,7 +48,9 @@ function weakSpot(
 }
 
 function envelope(items: ApiWeakSpotListItem[]): ApiWeakSpotListResponse {
-  return { items, nextCursor: null, hasMore: false }
+  // Fixtures live entirely on one page, so `totalCount` is just the item
+  // count. The view renders no pagination footer when totalCount ≤ page size.
+  return { items, totalCount: items.length }
 }
 
 export function buildCleanFixture(): ApiWeakSpotListResponse {
