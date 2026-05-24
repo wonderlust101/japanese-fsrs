@@ -47,13 +47,44 @@ export interface NavSectionConfig {
   items:    NavItemConfig[]
 }
 
+/**
+ * Hrefs that are strict path-prefixes of any other nav href in the config.
+ * Those hrefs must use exact-equality matching for active state — otherwise
+ * a parent-ish row like `/insights` would light up alongside its more-
+ * specific sibling rows (`/insights/progress`, `/weak-spots`, …)
+ * whenever the user lands on one of them.
+ *
+ * Derived at module load by flattening the tree and checking, for each
+ * href, whether any *other* href in the set starts with `href + '/'`.
+ * Adding a new prefix-sharing pair never needs a manual flag.
+ */
+function collectHrefs(items: NavItemConfig[]): string[] {
+  const out: string[] = []
+  for (const item of items) {
+    out.push(item.href)
+    if (item.children !== undefined) out.push(...collectHrefs(item.children))
+  }
+  return out
+}
+
+function buildExactMatchSet(sections: NavSectionConfig[]): Set<string> {
+  const hrefs = sections.flatMap((s) => collectHrefs(s.items))
+  const exact = new Set<string>()
+  for (const a of hrefs) {
+    if (hrefs.some((b) => b !== a && b.startsWith(a + '/'))) {
+      exact.add(a)
+    }
+  }
+  return exact
+}
+
 export const NAV_SECTIONS: NavSectionConfig[] = [
   {
     label: 'Study',
     kanji: '練',
     items: [
       { href: '/today',            iconKey: 'reviews', label: 'Reviews', hasDueCount: true   },
-      { href: '/insights/weak-spots', iconKey: 'weakSpots', label: 'Weak spots', hasWeakSpotCount: true },
+      { href: '/weak-spots', iconKey: 'weakSpots', label: 'Weak spots', hasWeakSpotCount: true },
     ],
   },
   {
@@ -75,3 +106,5 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
     ],
   },
 ]
+
+export const EXACT_MATCH_HREFS: ReadonlySet<string> = buildExactMatchSet(NAV_SECTIONS)

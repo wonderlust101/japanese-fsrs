@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import { IconChevronLeft, IconChevronRight } from '@/components/icons/chrome-marks'
 import { Logo }                  from '@/components/ui/Logo'
@@ -163,17 +164,18 @@ export function Sidebar({ user }: Props): React.JSX.Element {
           </div>
         ) : (
           <div className="relative flex items-center justify-between h-16 px-4 border-b border-soft-hairline shrink-0">
-            <div className="relative">
+            <Link
+              href="/today"
+              aria-label="Go to Reviews"
+              className="relative rounded-[2px] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+            >
               <Logo size={48} wordmarkSize="lg" priority />
-              {/* Wordmark underline. left:3.375rem = 48px mark + 6px gap;
-                  right:0 anchors to the end of the inline-flex Logo span,
-                  making the line trace exactly the TOMO text width. */}
               <span
                 aria-hidden="true"
-                className="absolute h-px bg-inari-vermillion"
+                className="absolute h-px bg-inari-vermillion/75"
                 style={{ left: '3.375rem', right: 0, bottom: '0.6rem' }}
               />
-            </div>
+            </Link>
             <CollapseToggle
               collapsed={widthCollapsed}
               onClick={() => setWidthCollapsed(!widthCollapsed)}
@@ -241,7 +243,7 @@ function CollapseToggle({
       aria-expanded={!collapsed}
       aria-keyshortcuts="["
       title={(collapsed ? 'Expand sidebar' : 'Collapse sidebar') + ' · ['}
-      className="relative z-[2] flex items-center justify-center w-11 h-11 rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash"
+      className="relative z-[2] flex items-center justify-center w-11 h-11 rounded-[2px] text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
     >
       {collapsed
         ? <IconChevronRight aria-hidden="true" className="w-4 h-4" />

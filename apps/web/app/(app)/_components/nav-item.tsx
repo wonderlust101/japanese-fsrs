@@ -16,6 +16,7 @@ import {
 }                                           from '@/components/icons/chrome-marks'
 import { useUnresolvedWeakSpotCount }          from '@/lib/api/weak-spots'
 import { OfflineQueueBadge }                from './offline-queue-badge'
+import { EXACT_MATCH_HREFS }                from './nav-config'
 import type { NavIconKey, NavItemConfig }   from './nav-config'
 
 /**
@@ -70,6 +71,12 @@ interface NavItemProps {
 }
 
 function isMatch(pathname: string, href: string): boolean {
+  // Hrefs that are strict prefixes of another nav href (e.g. `/insights`
+  // vs `/insights/progress`) must match exactly — otherwise the shorter
+  // row would light up alongside the more-specific one when the user is
+  // on a sub-page. EXACT_MATCH_HREFS is derived from the nav config so
+  // this rule auto-extends to new prefix-sharing pairs.
+  if (EXACT_MATCH_HREFS.has(href)) return pathname === href
   return pathname === href || pathname.startsWith(href + '/')
 }
 
@@ -203,7 +210,7 @@ export function NavItem({
             'text-sumi-ink transition-colors duration-[200ms]',
             'hover:bg-cream-inset',
             'data-[active=true]:bg-vermillion-wash',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           ].join(' ')}
         >
           <span
@@ -228,13 +235,13 @@ export function NavItem({
   // --- Expanded rendering: leaf or parent ------------------------------------
   const linkBase = [
     'nav-row group relative overflow-hidden',
-    'flex items-center gap-3',
+    'flex items-center gap-2',
     'min-h-[44px]',
     'rounded-[2px]',
     'text-base font-medium text-sumi-ink',
     'transition-colors duration-[200ms] delay-[50ms]',
     'hover:bg-cream-inset',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash',
+    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
     'data-[active=true]:bg-vermillion-wash',
     'data-[active=true]:text-inari-vermillion',
     'data-[active=true]:font-semibold',
@@ -303,7 +310,7 @@ export function NavItem({
             isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
           }`}
         >
-          <ul className="overflow-hidden min-h-0 pt-1.5 space-y-0.5">
+          <ul className="overflow-hidden min-h-0 pt-1.5 flex flex-col gap-y-0.5">
             {children.map((child) => {
               const Renderer = child.hasWeakSpotCount === true ? WeakSpotCountNavItem : NavItem
               return (
@@ -399,7 +406,7 @@ export function NavItem({
               'relative z-[1] ml-auto shrink-0 inline-flex items-center justify-center',
               'min-w-[1.25rem] px-1.5 py-px',
               'rounded-[2px] border border-inari-vermillion/35 bg-warm-paper-raised',
-              'font-mono text-[0.625rem] uppercase tracking-[0.04em] tabular-nums leading-none',
+              'font-mono text-sm tabular-nums leading-none',
               'text-inari-vermillion-deep',
               // When the row is active, the row background shifts to
               // vermillion-wash; the chip's paper-raised background then

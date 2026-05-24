@@ -26,17 +26,20 @@ export function NavSection({
 }: NavSectionProps): React.JSX.Element {
   if (collapsed) {
     // Collapsed rail: kanji-only heading (centered) + icon-only rows below.
-    // pt-5 pb-2 matches the expanded SectionHeading's vertical metrics so
-    // the section header doesn't shift at the collapse swap.
+    // Sections after the first are separated by an inset hairline with
+    // generous vertical breathing so the previous section's last row
+    // doesn't crowd the rule. mx-2 keeps the rule visibly recessed from
+    // the rail edges; my-3 (12px above + below) prevents the section
+    // boundary from feeling cramped at the 64px rail width.
     return (
       <div>
-        {!isFirst && <div aria-hidden="true" className="mx-3 mt-3 h-px bg-soft-hairline" />}
+        {!isFirst && <div aria-hidden="true" className="mx-2 my-3 h-px bg-soft-hairline" />}
         <div
           role="heading"
           aria-level={2}
           aria-label={label}
           title={label}
-          className="flex items-center justify-center pt-5 pb-2 select-none cursor-help"
+          className={`flex items-center justify-center pb-2 select-none cursor-help ${isFirst ? 'pt-5' : 'pt-2'}`}
         >
           <span
             lang="ja"
@@ -55,8 +58,8 @@ export function NavSection({
 
   return (
     <div className="px-2">
-      {!isFirst && <div aria-hidden="true" className="mx-3 mt-3 h-px bg-soft-hairline" />}
-      <h2 className="relative flex items-center gap-2 px-3 pt-5 pb-2">
+      {!isFirst && <div aria-hidden="true" className="mx-3 my-3 h-px bg-soft-hairline" />}
+      <h2 className={`relative flex items-center gap-2 px-3 pb-2 pt-2`}>
         <span
           lang="ja"
           aria-hidden="true"
@@ -65,11 +68,11 @@ export function NavSection({
         >
           {kanji}
         </span>
-        <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] font-medium text-faded-sumi">
+        <span className="font-mono text-sm font-medium text-faded-sumi">
           {label}
         </span>
       </h2>
-      <ul className="space-y-1">
+      <ul className="flex flex-col gap-y-1">
         {children}
       </ul>
     </div>

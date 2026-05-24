@@ -43,15 +43,15 @@ export function TodayStripExpanded(): React.JSX.Element {
   return (
     <div className="h-[60px] px-4 pb-3 pt-2 border-b border-soft-hairline shrink-0 relative z-[1] bg-warm-paper-raised">
       <div className="flex items-baseline gap-x-2">
-        <span lang="ja" className="font-mono text-[11px] tabular-nums text-sumi-ink">
+        <span lang="ja" className="font-mono text-sm tabular-nums text-sumi-ink">
           {parts.month}<span title="month">月</span>{parts.day}<span title="day">日</span>
         </span>
         <span aria-hidden="true" className="text-faded-sumi/45">·</span>
-        <span lang="ja" title={enWeekday} className="font-display text-xs leading-none text-inari-vermillion/65">
+        <span lang="ja" title={enWeekday} className="font-display text-xs leading-none text-inari-vermillion/75">
           {jaWeekday}
         </span>
       </div>
-      <div className="mt-0.5 font-mono text-[10px] tabular-nums text-faded-sumi/85 leading-tight">
+      <div className="mt-0.5 font-mono text-sm tabular-nums text-faded-sumi/85 leading-tight">
         {enMonth} {parts.day} · {enWeekday}
       </div>
     </div>
@@ -76,13 +76,13 @@ export function TodayStripCollapsed(): React.JSX.Element {
 
   return (
     <div className="h-[60px] px-1 pb-2 pt-2 border-b border-soft-hairline shrink-0 relative z-[1] bg-warm-paper-raised flex flex-col items-center justify-center gap-1">
-      <span lang="ja" className="font-mono text-[10px] tabular-nums text-sumi-ink leading-none">
+      <span lang="ja" className="font-mono text-sm tabular-nums text-sumi-ink leading-none">
         {parts.month}<span title="month">月</span>{parts.day}<span title="day">日</span>
       </span>
-      <span lang="ja" title={enWeekday} className="font-display text-[11px] leading-none text-inari-vermillion/85">
+      <span lang="ja" title={enWeekday} className="font-display text-sm leading-none text-inari-vermillion/75">
         {jaWeekdayShort}
       </span>
-      <span className="font-mono text-[9px] tabular-nums text-faded-sumi/85 leading-none">
+      <span className="font-mono text-sm tabular-nums text-faded-sumi/85 leading-none">
         {enWeekdayShort}
       </span>
     </div>

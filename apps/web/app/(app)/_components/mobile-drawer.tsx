@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 
 import { IconClose } from '@/components/icons/chrome-marks'
@@ -10,11 +11,9 @@ import { useDueCards }       from '@/lib/api/reviews'
 import { useMobileNavStore } from '@/stores/useMobileNavStore'
 
 import { AddCardCta }           from './add-card-cta'
-import { HelpRow }              from './help-row'
 import { NAV_SECTIONS }         from './nav-config'
 import { NavItem, WeakSpotCountNavItem } from './nav-item'
 import { NavSection }           from './nav-section'
-import { TodayStripExpanded }   from './today-strip'
 import { UserMenu }             from './user-menu'
 
 interface Props {
@@ -33,9 +32,10 @@ const MIN_PER_CARD = 0.5
  * route change).
  */
 export function MobileDrawer({ user }: Props): React.JSX.Element {
-  const isOpen    = useMobileNavStore((s) => s.isOpen)
-  const close     = useMobileNavStore((s) => s.close)
-  const drawerRef = useRef<HTMLDivElement>(null)
+  const isOpen         = useMobileNavStore((s) => s.isOpen)
+  const close          = useMobileNavStore((s) => s.close)
+  const drawerRef      = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   // Body scroll lock while open.
   useEffect(() => {
@@ -60,8 +60,16 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         ),
       )
 
-    const items = focusable()
-    items[0]?.focus()
+    // Land initial focus on the close button rather than the first focusable
+    // element. The first focusable is the brand link (which navigates to
+    // /today on Enter); auto-focusing it means a user who opens the drawer
+    // intending to browse navigation could accidentally route away with a
+    // single Enter keystroke. The close button is the safe default.
+    if (closeButtonRef.current !== null) {
+      closeButtonRef.current.focus()
+    } else {
+      focusable()[0]?.focus()
+    }
 
     function handleKeyDown(e: KeyboardEvent): void {
       if (e.key === 'Escape') {
@@ -111,7 +119,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Main navigation"
+        aria-label="Menu"
         aria-hidden={!isOpen}
         className={[
           'lg:hidden fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
@@ -128,21 +136,28 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 
         {/* Drawer header */}
         <div className="relative flex items-center justify-between h-16 px-4 border-b border-soft-hairline shrink-0">
-          <Logo size={48} wordmarkSize="lg" priority />
+          <Link
+            href="/today"
+            aria-label="Go to Reviews"
+            onClick={close}
+            className="rounded-[2px] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          >
+            <Logo size={48} wordmarkSize="lg" priority />
+          </Link>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={close}
             aria-label="Close menu"
-            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion-wash transition-colors"
+            className="flex items-center justify-center w-11 h-11 -mr-2 rounded-[2px] text-sumi-ink hover:bg-cream-inset focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 transition-colors"
           >
             <IconClose aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Today strip */}
-        <TodayStripExpanded />
-
-        {/* Primary CTA — sits between daily context and section nav. */}
+        {/* Primary CTA — sits between brand bar and section nav. The
+            today strip is desktop-only; on tablet and mobile the date
+            wasn't earning its vertical real estate inside the drawer. */}
         <div className="shrink-0 border-b border-soft-hairline">
           <AddCardCta onNavigate={close} />
         </div>
@@ -175,12 +190,8 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
           ))}
         </nav>
 
-        {/* Help row (mobile variant: just "Help", no kbd chip) */}
-        <div className="shrink-0 border-t border-soft-hairline py-1 px-2 relative z-[1] bg-warm-paper-raised">
-          <HelpRow mobile />
-        </div>
-
-        {/* Account strip */}
+        {/* Account strip — Help moved into this menu so the drawer keeps
+            only navigation + account, with secondary actions tucked away. */}
         <div className="px-2 py-3 border-t border-soft-hairline shrink-0">
           <UserMenu user={user} onItemSelect={close} />
         </div>

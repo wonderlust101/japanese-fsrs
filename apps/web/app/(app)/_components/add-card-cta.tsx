@@ -39,7 +39,7 @@ export function AddCardCta({
     'rounded-[2px] bg-inari-vermillion text-warm-paper-raised',
     'transition-colors duration-[200ms]',
     'hover:bg-inari-vermillion-deep',
-    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.18)]',
+    'active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)]',
     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
   ].join(' ')
 
