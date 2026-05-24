@@ -248,8 +248,15 @@ export function GeneratedReviewClient(): React.JSX.Element {
   }, [deckId, decksQuery.data])
 
   // ── Seed once on mount in AI path ─────────────────────────────────────
+  // StrictMode (dev) and any future remount run this effect more than once.
+  // The cancelled flag below guards the async setState, but not the call
+  // itself — so without a persistent guard the billable generateCardPreviewAction
+  // fires twice on first mount. A ref survives the remount, pinning the request
+  // to exactly one dispatch.
+  const seedFiredRef = useRef(false)
   useEffect(() => {
-    if (!generating) return
+    if (!generating || seedFiredRef.current) return
+    seedFiredRef.current = true
     let cancelled = false
     void generateCardPreviewAction(draft.word.trim())
       .then((data) => {

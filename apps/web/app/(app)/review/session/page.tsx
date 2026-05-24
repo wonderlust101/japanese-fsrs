@@ -82,7 +82,12 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
   // are fine because classification only matters once dueQuery resolves.
   const [tz, setTz] = useState<string | undefined>(undefined)
   const [todayKey, setTodayKey] = useState<string | undefined>(undefined)
+  // Ref guard so StrictMode's double-mount (dev) doesn't fire getProfileAction
+  // twice; the ref persists across the remount where `cancelled` does not.
+  const profileFetchedRef = useRef(false)
   useEffect(() => {
+    if (profileFetchedRef.current) return
+    profileFetchedRef.current = true
     let cancelled = false
     void getProfileAction().then((profile) => {
       if (cancelled) return
