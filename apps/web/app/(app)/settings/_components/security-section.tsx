@@ -40,15 +40,27 @@ export function SecuritySection(): React.JSX.Element {
   const [newPwd,        setNewPwd]        = useState('')
   const [confirmPwd,    setConfirmPwd]    = useState('')
   const [pwdSubmitting, setPwdSubmitting] = useState(false)
-  const [pwdFormError,  setPwdFormError]  = useState<string | null>(null)
+  // Per-field errors (mirrors the signup form) + a form-level slot for server
+  // rejections. Each field's error clears as the user edits that field.
+  // Fields are `string | undefined` (not bare optional) so error clearing can
+  // assign `undefined` under exactOptionalPropertyTypes.
+  const [pwdErrors, setPwdErrors] = useState<{
+    currentPwd?: string | undefined
+    newPwd?:     string | undefined
+    confirmPwd?: string | undefined
+    form?:       string | undefined
+  }>({})
 
   async function submitChangePassword(e: React.FormEvent): Promise<void> {
     e.preventDefault()
-    setPwdFormError(null)
-    if (currentPwd.length === 0) { setPwdFormError('Enter your current password to continue.'); return }
-    if (newPwd.length < 8)        { setPwdFormError('New password must be at least 8 characters.'); return }
-    if (newPwd !== confirmPwd)    { setPwdFormError('The new password and confirmation do not match.'); return }
+    const fieldErrors: { currentPwd?: string; newPwd?: string; confirmPwd?: string } = {}
+    if (currentPwd.length === 0)    fieldErrors.currentPwd = 'Enter your current password to continue.'
+    if (newPwd.length < 8)          fieldErrors.newPwd     = 'New password must be at least 8 characters.'
+    if (confirmPwd.length === 0)    fieldErrors.confirmPwd = 'Confirm your new password.'
+    else if (newPwd !== confirmPwd) fieldErrors.confirmPwd = 'The new password and confirmation do not match.'
+    if (Object.keys(fieldErrors).length > 0) { setPwdErrors(fieldErrors); return }
 
+    setPwdErrors({})
     setPwdSubmitting(true)
     try {
       await changePasswordAction(currentPwd, newPwd)
@@ -57,7 +69,7 @@ export function SecuritySection(): React.JSX.Element {
       setNewPwd('')
       setConfirmPwd('')
     } catch (err) {
-      setPwdFormError(err instanceof Error ? err.message : 'Could not change password.')
+      setPwdErrors({ form: err instanceof Error ? err.message : 'Could not change password.' })
     } finally {
       setPwdSubmitting(false)
     }
@@ -156,29 +168,41 @@ export function SecuritySection(): React.JSX.Element {
             label="Current password"
             type="password"
             value={currentPwd}
-            onChange={(e) => setCurrentPwd(e.target.value)}
+            onChange={(e) => {
+              setCurrentPwd(e.target.value)
+              if (pwdErrors.currentPwd !== undefined) setPwdErrors((p) => ({ ...p, currentPwd: undefined }))
+            }}
             autoComplete="current-password"
             placeholder="••••••••"
+            error={pwdErrors.currentPwd}
           />
           <Input
             label="New password"
             type="password"
             value={newPwd}
-            onChange={(e) => setNewPwd(e.target.value)}
+            onChange={(e) => {
+              setNewPwd(e.target.value)
+              if (pwdErrors.newPwd !== undefined) setPwdErrors((p) => ({ ...p, newPwd: undefined }))
+            }}
             autoComplete="new-password"
             placeholder="••••••••"
             hint="At least 8 characters."
+            error={pwdErrors.newPwd}
           />
           <Input
             label="Confirm new password"
             type="password"
             value={confirmPwd}
-            onChange={(e) => setConfirmPwd(e.target.value)}
+            onChange={(e) => {
+              setConfirmPwd(e.target.value)
+              if (pwdErrors.confirmPwd !== undefined) setPwdErrors((p) => ({ ...p, confirmPwd: undefined }))
+            }}
             autoComplete="new-password"
             placeholder="••••••••"
+            error={pwdErrors.confirmPwd}
           />
-          {pwdFormError !== null && (
-            <p role="alert" className="text-xs text-error">{pwdFormError}</p>
+          {pwdErrors.form !== undefined && (
+            <p role="alert" className="text-xs text-error">{pwdErrors.form}</p>
           )}
           <Button
             type="submit"
