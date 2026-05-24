@@ -133,7 +133,7 @@ Suggestions should be practical and actionable.
 ## Interaction Notes
 
 - Edit opens editable fields or an edit mode.
-- Repair opens the Weak spot repair flow focused on this card.
+- Forget and Reschedule are scheduling-repair actions in the card actions strip. Each opens a confirmation dialog and acts on this card in place (no separate route); the preview and history refresh without navigating away. Forget resets FSRS state and re-queues the card as new, with an opt-in to also zero lifetime counters; Reschedule replays the review log and recomputes the schedule. Both keep the review log.
 - Open in Cards returns to the current filter/search context if available.
 - Change deck should preserve review history unless the system behavior differs, in which case explain it.
 - Suspend should require confirmation only if the impact is significant.
@@ -145,7 +145,7 @@ The Cards page is for search and bulk management. Card Detail is for deep unders
 
 ## Relationship to Weak spot repair
 
-Weak spot repair can be launched from Card Detail. Card Detail should show enough diagnostic information to explain why repair is recommended.
+Scheduling repair (Forget / Reschedule) lives inline on Card Detail, not on a separate route. The broader Weak spot repair flow (diagnosis and content suggestions) remains an insights-driven surface; Card Detail surfaces a prominent inline prompt to reset scheduling when a card is repeatedly failing, and should show enough diagnostic information to explain why a reset is recommended.
 
 ## States
 

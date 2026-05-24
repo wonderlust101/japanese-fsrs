@@ -75,7 +75,6 @@ Recommended Japanese-specific filters:
 - JLPT level.
 - Part of speech.
 - Transitive or intransitive.
-- Has audio.
 - Has image.
 - Has sentence.
 - Has nuance note.
@@ -93,7 +92,6 @@ Recommended default views:
 - Weak spots.
 - Weak spots.
 - Missing images.
-- Missing audio.
 - Missing mnemonic.
 - Recently added.
 - Suspended.
