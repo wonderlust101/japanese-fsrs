@@ -52,8 +52,8 @@ type SemanticTone = {
 
 const sizeClasses: Record<PillSize, string> = {
   sm: 'min-h-5 px-2 py-0.5 text-xs gap-1',
-  md: 'min-h-6 px-2.5 py-0.5 text-xs gap-1.5',
-  lg: 'min-h-7 px-3 py-1 text-sm gap-1.5',
+  md: 'min-h-6 px-2.5 py-0.5 text-xs gap-2',
+  lg: 'min-h-7 px-3 py-1 text-sm gap-2',
 }
 
 const labelClasses: Record<PillSize, string> = {
@@ -142,7 +142,7 @@ function renderMark(mark: ReactNode): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex shrink-0 items-center font-mono text-[0.88em] font-semibold leading-none opacity-80"
+      className="inline-flex shrink-0 items-center font-mono text-sm font-semibold leading-none opacity-80"
     >
       {mark}
     </span>
@@ -358,7 +358,7 @@ export function PillGroup({
       className={cn(
         'flex min-w-0 items-center',
         wrap ? 'flex-wrap' : 'overflow-hidden',
-        compact ? 'gap-1' : 'gap-1.5',
+        compact ? 'gap-1' : 'gap-2',
         className,
       )}
     >

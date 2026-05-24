@@ -33,7 +33,7 @@ export function CapsLockHint(): React.JSX.Element {
   return (
     <p
       role="status"
-      className="flex items-center gap-1.5 text-sm font-medium text-inari-vermillion-deep"
+      className="flex items-center gap-2 text-sm font-medium text-inari-vermillion-deep"
     >
       <CapsLockGlyph />
       <span>Caps Lock is on</span>

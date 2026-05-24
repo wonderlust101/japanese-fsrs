@@ -5,7 +5,11 @@ import { forwardRef, useId } from 'react'
 type TextareaScript = 'latin' | 'kana' | 'kanji' | 'mixed'
 
 interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'rows'> {
-  label:        string
+  /** Visible label rendered above the control. Omit when the control is
+   *  rendered inside a wrapper that already provides its own label (e.g.
+   *  `<SettingsField>`); the wrapper's label should reference the textarea
+   *  via `htmlFor` + the `id` prop. */
+  label?:       string
   /** Visual height in rows. Defaults to 4. */
   rows?:        number
   error?:       string | undefined
@@ -75,10 +79,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const padding = block ? 'px-4 py-3.5 leading-7' : 'px-3 py-2 leading-6'
 
     return (
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className="text-sm font-medium text-sumi-ink/85">
-          {label}
-        </label>
+      <div className="flex flex-col gap-2">
+        {label !== undefined && (
+          <label htmlFor={id} className="text-sm font-medium text-sumi-ink/85">
+            {label}
+          </label>
+        )}
 
         <textarea
           ref={ref}
@@ -113,7 +119,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
 
         {error && (
-          <p id={errorId} role="alert" className="flex items-center gap-1.5 text-sm text-error">
+          <p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
             <ErrorGlyph />
             <span>{error}</span>
           </p>

@@ -45,7 +45,7 @@ export function ScheduleHorizon({
   return (
     <div className={['w-full', className].join(' ')}>
       <div className="flex items-center justify-between gap-4 mb-3 text-xs">
-        <span className="font-mono uppercase tracking-[0.08em] text-faded-sumi">
+        <span className="font-mono text-faded-sumi">
           14-DAY HORIZON
         </span>
         <span className="font-mono tabular-nums text-sumi-ink">
@@ -77,21 +77,21 @@ export function ScheduleHorizon({
       </div>
 
       <div className="flex items-center justify-between gap-2 mt-2">
-        <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-faded-sumi">
+        <span className="text-sm font-mono text-faded-sumi">
           today
         </span>
-        <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-faded-sumi">
+        <span className="text-sm font-mono text-faded-sumi">
           +14d
         </span>
       </div>
 
       <div className="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-soft-hairline">
         <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 text-xs text-faded-sumi">
+          <span className="inline-flex items-center gap-2 text-xs text-faded-sumi">
             <span className="inline-block w-2 h-2 bg-inari-vermillion" aria-hidden="true" />
             new today
           </span>
-          <span className="inline-flex items-center gap-1.5 text-xs text-faded-sumi">
+          <span className="inline-flex items-center gap-2 text-xs text-faded-sumi">
             <span className="inline-block w-2 h-2 bg-sumi-ink/60" aria-hidden="true" />
             reviews
           </span>

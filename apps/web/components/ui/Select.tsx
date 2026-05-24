@@ -20,7 +20,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const describedBy  = [error ? errId : '', hint ? hintId : ''].filter(Boolean).join(' ') || undefined
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         <label htmlFor={id} className="text-sm font-medium text-sumi-ink">{label}</label>
         <div className="relative">
           <select
@@ -29,12 +29,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
             className={[
-              'peer w-full h-10 pl-3 pr-8 text-base text-sumi-ink bg-cream-inset border rounded-[var(--radius-md)]',
+              'peer w-full h-10 pl-3 pr-8 text-sm text-sumi-ink bg-cream-inset border rounded-[2px]',
               'ui-motion-colors appearance-none',
-              'focus:outline-none focus:border-inari-vermillion focus:ring-[3px] focus:ring-vermillion-wash',
+              'focus:outline focus:outline-1 focus:outline-offset-2',
               error
-                ? 'border-error focus:border-error focus:ring-error-tint'
-                : 'border-soft-hairline hover:border-faded-sumi',
+                ? 'border-error focus:outline-error-deep'
+                : 'border-soft-hairline hover:border-faded-sumi focus:outline-sumi-ink',
               className,
             ].join(' ')}
             {...rest}
@@ -42,7 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <svg
-            className="ui-motion-icon pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi peer-hover:text-sumi-ink/75 peer-focus:text-inari-vermillion"
+            className="ui-motion-icon pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faded-sumi peer-hover:text-sumi-ink/75 peer-focus:text-sumi-ink"
             width="12" height="12" viewBox="0 0 12 12"
             fill="none" stroke="currentColor" strokeWidth="1.5"
             strokeLinecap="round" strokeLinejoin="round"

@@ -18,8 +18,8 @@ interface KbdChipProps {
 }
 
 const SIZE_CLASS: Record<KbdSize, string> = {
-  xs: 'h-5 px-1.5 text-[0.5625rem]',
-  sm: 'h-6 px-1.5 text-[0.625rem]',
+  xs: 'h-5 px-1.5 text-sm',
+  sm: 'h-6 px-1.5 text-sm',
 }
 
 /**

@@ -253,7 +253,7 @@ export function TomoSlider({
           // the thumb's hover halo.
           'top-[-1.25rem]',
           'inline-flex items-center rounded-full border border-soft-hairline bg-warm-paper-raised px-2 py-0.5',
-          'font-mono text-[0.625rem] tabular-nums uppercase tracking-[0.04em] text-sumi-ink',
+          'font-mono text-sm tabular-nums text-sumi-ink',
           'transition-opacity duration-300 ease-out',
           interacting ? 'opacity-100' : 'opacity-0',
         ].join(' ')}

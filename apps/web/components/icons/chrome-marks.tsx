@@ -336,6 +336,20 @@ export function IconHelp({ className = '' }: IconProps): React.JSX.Element {
   )
 }
 
+/** Keyboard. Rounded frame, one row of focal-dot keys, prominent spacebar. */
+export function IconKeyboard({ className = '' }: IconProps): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
+      <rect x="5" y="13" width="30" height="16" rx="3" {...COMMON_PROPS} />
+      <circle cx="11" cy="20" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="20" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="23" cy="20" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="29" cy="20" r="1.2" fill="currentColor" stroke="none" />
+      <line x1="13" y1="25" x2="27" y2="25" {...COMMON_PROPS} strokeWidth={STROKE * 1.2} />
+    </svg>
+  )
+}
+
 /** Plus. 十 kanji with calligraphic terminal taper. */
 export function IconPlus({ className = '' }: IconProps): React.JSX.Element {
   return (

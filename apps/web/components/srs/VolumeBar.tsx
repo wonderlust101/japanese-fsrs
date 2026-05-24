@@ -36,7 +36,7 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
 
   return (
     <div className={['flex flex-col gap-3', className].join(' ')}>
-      <div className="flex items-baseline justify-between text-[10px] font-mono uppercase tracking-[0.1em] text-faded-sumi">
+      <div className="flex items-baseline justify-between text-sm font-mono text-faded-sumi">
         <span>Estimated cards to learn</span>
         <span className="text-faded-sumi/70">total</span>
       </div>
@@ -69,7 +69,7 @@ export function VolumeBar({ selected, className = '' }: VolumeBarProps): React.J
                 <span
                   className={[
                     'text-xs font-mono whitespace-nowrap',
-                    isCurrent ? 'text-inari-vermillion font-bold' : 'text-faded-sumi',
+                    isCurrent ? 'text-inari-vermillion font-semibold' : 'text-faded-sumi',
                   ].join(' ')}
                 >
                   {level.label}

@@ -9,6 +9,19 @@ export interface TabItem<V extends string> {
   label: string
   /** Optional count rendered as `(n)` after the label. Omit or pass 0 to hide. */
   badge?: number
+  /**
+   * Accessible description for the badge, used in the badge's aria-label.
+   * The count is prepended automatically, so pass only the noun
+   * (e.g. 'modified', 'included'). Defaults to 'modified' to preserve the
+   * legacy meaning when callers haven't opted in.
+   */
+  badgeLabel?: string
+  /**
+   * Custom display string for the badge (e.g. "3/12"). When set, replaces
+   * the numeric `badge` rendering but the `badge` count still controls
+   * visibility (>0 to show) and feeds the aria-label count.
+   */
+  badgeText?: string
 }
 
 interface TabsProps<V extends string> {
@@ -17,6 +30,21 @@ interface TabsProps<V extends string> {
   onChange:  (next: V) => void
   ariaLabel: string
   className?: string
+  /**
+   * Shared id namespace for the tab triggers and their matching panels. Pass
+   * the same `idBase` (typically from `useId()`) to every `TabPanel` so
+   * `aria-controls` / `aria-labelledby` resolve to real nodes. When omitted,
+   * a private id is used and panels lose their explicit binding.
+   */
+  idBase?: string
+}
+
+export function tabTriggerId(idBase: string, value: string): string {
+  return `${idBase}-tab-${value}`
+}
+
+export function tabPanelId(idBase: string, value: string): string {
+  return `${idBase}-panel-${value}`
 }
 
 // Tab nav primitive. Mono uppercase labels, hairline rail underneath, a 2px
@@ -32,8 +60,10 @@ export function Tabs<V extends string>({
   onChange,
   ariaLabel,
   className,
+  idBase,
 }: TabsProps<V>): React.JSX.Element {
-  const idBase = useId()
+  const fallbackId = useId()
+  const ns = idBase ?? fallbackId
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const handleKey = useCallback((event: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -65,14 +95,14 @@ export function Tabs<V extends string>({
     >
       {items.map((item, i) => {
         const selected = item.value === value
-        const tabId    = `${idBase}-tab-${item.value}`
-        const panelId  = `${idBase}-panel-${item.value}`
+        const triggerId = tabTriggerId(ns, item.value)
+        const panelId   = tabPanelId(ns, item.value)
         const showBadge = item.badge !== undefined && item.badge > 0
         return (
           <button
             key={item.value}
             ref={(el) => { tabRefs.current[i] = el }}
-            id={tabId}
+            id={triggerId}
             type="button"
             role="tab"
             aria-selected={selected}
@@ -80,7 +110,7 @@ export function Tabs<V extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(item.value)}
             className={cn(
-              'relative -mb-px py-3 font-mono text-[0.6875rem] uppercase tracking-[0.16em]',
+              'relative -mb-px py-3 pointer-coarse:min-h-[44px] font-mono text-sm',
               'transition-colors duration-150 ease-out',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
               selected
@@ -88,20 +118,20 @@ export function Tabs<V extends string>({
                 : 'text-faded-sumi hover:text-sumi-ink',
             )}
           >
-            <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-2">
               <span>{item.label}</span>
               {showBadge && (
                 <span
-                  aria-label={`${item.badge} modified`}
+                  aria-label={`${item.badge} ${item.badgeLabel ?? 'modified'}`}
                   className={cn(
                     'inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full px-1.5',
-                    'font-mono text-[0.625rem] tabular-nums tracking-normal',
+                    'font-mono text-sm tabular-nums tracking-normal',
                     selected
                       ? 'bg-inari-vermillion text-warm-paper-raised'
                       : 'bg-vermillion-wash text-inari-vermillion-deep',
                   )}
                 >
-                  {item.badge}
+                  {item.badgeText ?? item.badge}
                 </span>
               )}
             </span>
@@ -121,25 +151,28 @@ export function Tabs<V extends string>({
 // TabPanel wraps the active panel. Use one per panel; show/hide is the
 // caller's responsibility (we don't render hidden panels to save DOM and
 // avoid accidental focus traps).
+//
+// Pass the same `idBase` you gave to `Tabs` plus this panel's `value` so the
+// rendered `id` / `aria-labelledby` match the trigger's `aria-controls`.
 
 interface TabPanelProps {
-  id?:        string
-  ariaLabelledBy?: string
+  idBase:     string
+  value:      string
   className?: string
   children:   React.ReactNode
 }
 
 export function TabPanel({
-  id,
-  ariaLabelledBy,
+  idBase,
+  value,
   className,
   children,
 }: TabPanelProps): React.JSX.Element {
   return (
     <div
-      {...(id !== undefined && { id })}
+      id={tabPanelId(idBase, value)}
       role="tabpanel"
-      {...(ariaLabelledBy !== undefined && { 'aria-labelledby': ariaLabelledBy })}
+      aria-labelledby={tabTriggerId(idBase, value)}
       className={cn('pt-6', className)}
     >
       {children}

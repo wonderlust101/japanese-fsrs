@@ -19,8 +19,8 @@ interface SectionKickerProps {
 }
 
 const SIZE_CLASS: Record<KickerSize, string> = {
-  xs: 'text-[0.625rem]',
-  sm: 'text-[0.6875rem]',
+  xs: 'text-sm',
+  sm: 'text-sm',
   md: 'text-xs',
 }
 
@@ -36,12 +36,12 @@ const TONE_CLASS: Record<KickerTone, string> = {
  *
  * Renders as:
  * ```
- * <p class="font-mono uppercase tracking-[0.16em] text-faded-sumi text-[0.6875rem]">
+ * <p class="font-mono text-faded-sumi text-sm">
  *   {children}
  * </p>
  * ```
  *
- * Replaces ad-hoc `font-mono text-[0.625rem|0.6875rem] uppercase tracking-[0.16em] text-faded-sumi`
+ * Replaces ad-hoc `font-mono text-sm text-faded-sumi`
  * combos with one named primitive so the kicker stays consistent across
  * Today, Insights, Settings, Cards, Decks, and the dev panels.
  */

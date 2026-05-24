@@ -24,9 +24,15 @@ interface StickyActionBarProps {
   brandStripe?: boolean
 }
 
+// Sticky positioning lets the bar inherit its container's width
+// instead of escaping to the viewport. The closest scrolling ancestor
+// (in the app shell that's `<main className="overflow-y-auto">`)
+// becomes the sticky context, so the bar naturally sits at the bottom
+// of the viewport but only across the main column — excluding the
+// desktop sidebar. Consumers render it inside the content tree.
 const EDGE_CLASS = {
-  bottom: 'inset-x-0 bottom-0 border-t',
-  top:    'inset-x-0 top-0 border-b',
+  bottom: 'bottom-0 border-t',
+  top:    'top-0 border-b',
 } as const
 
 const STRIPE_POSITION = {
@@ -63,7 +69,7 @@ export function StickyActionBar({
       role={role}
       aria-label={ariaLabel}
       className={cn(
-        'fixed z-20 border-soft-hairline bg-warm-paper-raised',
+        'sticky z-20 border-soft-hairline bg-warm-paper-raised',
         EDGE_CLASS[edge],
         className,
       )}

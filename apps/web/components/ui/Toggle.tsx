@@ -91,7 +91,10 @@ export function Segmented<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'rounded-full px-3 py-1 text-sm transition-colors duration-200 ease-out',
+              // Inner buttons at py-1.5 = ~32px each + outer p-0.5 + border
+              // brings each segment close to the WCAG 2.5.8 floor (24×24)
+              // without making the segmented bar visually heavy.
+              'rounded-full px-3 py-1.5 text-sm transition-colors duration-200 ease-out',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
               selected
                 ? 'bg-warm-paper-raised text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]'

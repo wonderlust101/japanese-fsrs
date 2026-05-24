@@ -55,7 +55,7 @@ export function Logo({
   const wordmarkColor = tone === 'inverted' ? 'text-warm-paper-raised' : 'text-sumi-ink'
 
   return (
-    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+    <span className={`inline-flex items-center gap-2 ${className}`}>
       <Image
         src={src}
         alt={showWordmark ? '' : 'TOMO'}
@@ -73,7 +73,7 @@ export function Logo({
       />
       {showWordmark && (
         <span
-          className={`font-display font-bold uppercase tracking-wide leading-none ${wordmarkColor} ${wordmarkClass[wordmarkSize]}`}
+          className={`font-display font-semibold uppercase tracking-wide leading-none ${wordmarkColor} ${wordmarkClass[wordmarkSize]}`}
         >
           TOMO
         </span>

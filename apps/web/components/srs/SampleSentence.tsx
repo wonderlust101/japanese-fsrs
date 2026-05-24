@@ -61,7 +61,7 @@ export function SampleSentence({
           </p>
           <p className="mt-2 text-sm text-faded-sumi italic">{translation}</p>
           {caption !== undefined && (
-            <p className="mt-3 pt-3 border-t border-soft-hairline text-xs text-faded-sumi font-mono uppercase tracking-[0.06em]">
+            <p className="mt-3 pt-3 border-t border-soft-hairline text-xs text-faded-sumi font-mono">
               {caption}
             </p>
           )}

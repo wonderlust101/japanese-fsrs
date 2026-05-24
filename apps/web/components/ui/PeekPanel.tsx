@@ -82,7 +82,7 @@ export function PeekPanel({
       className={cn(
         'ui-motion-colors fixed z-30 rounded-[2px] border border-soft-hairline',
         'bg-warm-paper-raised px-3.5 py-2.5 text-sm text-sumi-ink',
-        'shadow-[var(--shadow-card)] animate-page-enter',
+        'shadow-card animate-page-enter',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
         POSITION_CLASS[position],
         OFFSET_CLASS[offset],

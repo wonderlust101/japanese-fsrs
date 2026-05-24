@@ -14,8 +14,8 @@ interface CopyButtonProps {
 }
 
 const SIZE_CLASS: Record<CopySize, string> = {
-  xs: 'h-6 px-2 text-[0.625rem]',
-  sm: 'h-7 px-2 text-[0.6875rem]',
+  xs: 'h-6 px-2 text-sm',
+  sm: 'h-7 px-2 text-sm',
 }
 
 /**
@@ -42,7 +42,7 @@ export function CopyButton({
       aria-live="polite"
       aria-label={ariaLabel ?? label}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-[2px] border font-mono uppercase tracking-[0.12em] transition-colors',
+        'inline-flex items-center gap-2 rounded-[2px] border font-mono transition-colors',
         SIZE_CLASS[size],
         copied
           ? 'border-deck-n5-mark/30 bg-deck-n5-wash text-deck-n5-mark'

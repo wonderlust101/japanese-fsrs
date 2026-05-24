@@ -6,7 +6,11 @@ type InputSize   = 'sm' | 'md' | 'lg'
 type InputScript = 'latin' | 'kana' | 'kanji' | 'mixed'
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  label:         string
+  /** Visible label rendered above the control. Omit when the control is
+   *  rendered inside a wrapper that already provides its own label (e.g.
+   *  `<SettingsField>`); the wrapper's label should reference the input via
+   *  `htmlFor` + the `id` prop. */
+  label?:        string
   size?:         InputSize
   error?:        string | undefined
   hint?:         string | undefined
@@ -51,7 +55,7 @@ function PasswordToggle({
       onClick={onToggle}
       tabIndex={-1}
       aria-label={visible ? 'Hide password' : 'Show password'}
-      className="ui-motion-colors inline-flex items-center text-xs font-medium uppercase tracking-[0.08em] text-faded-sumi hover:text-sumi-ink"
+      className="ui-motion-colors inline-flex items-center text-xs font-medium text-faded-sumi hover:text-sumi-ink"
     >
       {visible ? 'Hide' : 'Show'}
     </button>
@@ -128,10 +132,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputPR   = resolvedTrailingNode !== undefined ? 'pr-9' : sizePaddingRight[size]
 
     return (
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={id} className={`${sizeStyle.labelSize} font-medium text-sumi-ink/85`}>
-          {label}
-        </label>
+      <div className="flex flex-col gap-2">
+        {label !== undefined && (
+          <label htmlFor={id} className={`${sizeStyle.labelSize} font-medium text-sumi-ink/85`}>
+            {label}
+          </label>
+        )}
 
         <div className="relative">
           {leadingNode !== undefined && (
@@ -185,7 +191,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
 
         {error && (
-          <p id={errorId} role="alert" className="flex items-center gap-1.5 text-sm text-error">
+          <p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
             <ErrorGlyph />
             <span>{error}</span>
           </p>

@@ -82,7 +82,7 @@ export const SelectionCard = forwardRef<HTMLButtonElement, SelectionCardProps>(
           </>
         ) : (
           <>
-            <span className="flex items-center gap-3 min-w-0">
+            <span className="flex items-center gap-2 min-w-0">
               {glyph !== undefined && (
                   <span className="ui-motion-icon inline-flex items-center justify-center shrink-0 text-sumi-ink/85 group-hover:text-sumi-ink">
                   {glyph}

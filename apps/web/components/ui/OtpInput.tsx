@@ -79,7 +79,7 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
       role="group"
       aria-label="One-time password"
       className={cn(
-        'flex items-center gap-2',
+        'flex items-center gap-1.5 sm:gap-2',
         // Shake plays on mount when the parent remounts this component on error.
         hasError && 'animate-otp-shake',
         className,
@@ -105,7 +105,11 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           className={cn(
-            'w-11 h-14 sm:w-[52px] sm:h-[60px]',
+            // Fluid width: the six boxes divide the row equally (flex-1) and
+            // cap at 52px, so they reach the original fixed size on sm+ while
+            // shrinking to fit narrow phones (down to 320px) instead of being
+            // clipped by the card's overflow-hidden. min-w-0 permits the shrink.
+            'flex-1 min-w-0 max-w-[52px] h-14 sm:h-[60px]',
             'font-mono text-2xl font-semibold text-center text-sumi-ink',
             'bg-cream-inset rounded-[var(--radius-md)]',
             'ui-motion-colors outline-none',

@@ -37,6 +37,20 @@ const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: ['U'],             label: 'Undo the last rating (3-second window)' },
     ],
   },
+  {
+    kicker: 'On the cards page',
+    shortcuts: [
+      { keys: ['F'], label: 'Open the Add filter menu' },
+      { keys: ['V'], label: 'Open the View picker' },
+    ],
+  },
+  {
+    kicker: 'On a card',
+    shortcuts: [
+      { keys: ['E'],          label: 'Edit this card' },
+      { keys: ['Shift', 'M'], label: 'Open the memory popup', joiner: 'chord' },
+    ],
+  },
 ]
 
 export function HelpDialog(): React.JSX.Element {
@@ -68,7 +82,7 @@ export function HelpDialog(): React.JSX.Element {
 
         <section className="flex flex-col gap-3">
           <SectionKicker>How Tomo works</SectionKicker>
-          <p className="max-w-[60ch] text-sm leading-relaxed text-sumi-ink/85">
+          <p className="max-w-measure text-sm leading-relaxed text-sumi-ink/85">
             Tomo schedules each card by how well you know it. Rate honestly after
             you reveal the answer; cards you find hard come back sooner, cards
             you find easy wait longer. The morning ritual matters more than the
@@ -78,7 +92,7 @@ export function HelpDialog(): React.JSX.Element {
 
         <section className="flex flex-col gap-2">
           <SectionKicker>Settings and account</SectionKicker>
-          <ul className="flex flex-col gap-1.5 text-sm">
+          <ul className="flex flex-col gap-2 text-sm">
             <li><DialogLink href="/settings/learning" onNavigate={closeHelp}>Learning preferences</DialogLink></li>
             <li><DialogLink href="/settings/profile"  onNavigate={closeHelp}>Profile</DialogLink></li>
             <li><DialogLink href="/settings/security" onNavigate={closeHelp}>Security</DialogLink></li>

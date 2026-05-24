@@ -1,4 +1,5 @@
 import { forwardRef } from 'react'
+import Link from 'next/link'
 
 type ButtonVariant = 'primary' | 'secondary' | 'editorial' | 'ghost' | 'danger'
 type ButtonSize    = 'sm' | 'md' | 'lg'
@@ -75,9 +76,38 @@ const iconOnlySizeClasses: Record<ButtonSize, string> = {
 }
 
 const gapClasses: Record<ButtonSize, string> = {
-  sm: 'gap-1.5',
+  sm: 'gap-2',
   md: 'gap-2',
   lg: 'gap-2',
+}
+
+const BUTTON_BASE = [
+  'ui-motion-pressable relative inline-flex items-center justify-center font-medium rounded-[2px]',
+  'disabled:opacity-60 disabled:pointer-events-none disabled:cursor-not-allowed',
+].join(' ')
+
+interface ButtonClassOptions {
+  variant?:  ButtonVariant
+  size?:     ButtonSize
+  iconOnly?: boolean
+  className?: string
+}
+
+/**
+ * Canonical button styling, shared by <Button> and <ButtonLink> so a
+ * vermillion CTA renders identically whether it's an action or a navigation.
+ * Reach for this (or the components) instead of re-typing the variant classes
+ * inline — that inline duplication is exactly what drifts on focus color,
+ * press depth, and height.
+ */
+export function buttonClasses({
+  variant   = 'primary',
+  size      = 'md',
+  iconOnly  = false,
+  className = '',
+}: ButtonClassOptions = {}): string {
+  const sizeStyle = iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]
+  return [BUTTON_BASE, variantClasses[variant], sizeStyle, className].join(' ')
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -111,21 +141,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ? <DefaultDangerIcon />
         : leadingIcon
 
-    const sizeStyle = iconOnly ? iconOnlySizeClasses[size] : sizeClasses[size]
-
     return (
       <button
         ref={ref}
         type={type}
         disabled={disabled || loading}
         aria-busy={loading ? true : undefined}
-        className={[
-          'ui-motion-pressable relative inline-flex items-center justify-center font-medium rounded-[2px]',
-          'disabled:opacity-60 disabled:pointer-events-none disabled:cursor-not-allowed',
-          variantClasses[variant],
-          sizeStyle,
-          className,
-        ].join(' ')}
+        className={buttonClasses({ variant, size, iconOnly, className })}
         {...rest}
       >
         <span
@@ -163,3 +185,46 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 )
 
 Button.displayName = 'Button'
+
+interface ButtonLinkProps
+  extends Omit<React.ComponentProps<typeof Link>, 'className'> {
+  variant?:      ButtonVariant
+  size?:         ButtonSize
+  leadingIcon?:  React.ReactNode
+  trailingIcon?: React.ReactNode
+  className?:    string
+}
+
+/**
+ * A navigational CTA that looks exactly like a <Button>. Use this instead of
+ * styling a <Link> by hand: it shares `buttonClasses`, so primary links stay in
+ * lockstep with primary buttons. For real actions (onClick, submit), use
+ * <Button>; this is only for hrefs.
+ */
+export function ButtonLink({
+  variant      = 'primary',
+  size         = 'md',
+  leadingIcon,
+  trailingIcon,
+  className    = '',
+  children,
+  ...rest
+}: ButtonLinkProps): React.JSX.Element {
+  return (
+    <Link className={buttonClasses({ variant, size, className })} {...rest}>
+      <span className={['ui-motion-soft inline-flex items-center justify-center', gapClasses[size]].join(' ')}>
+        {leadingIcon !== undefined && (
+          <span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
+            {leadingIcon}
+          </span>
+        )}
+        {children}
+        {trailingIcon !== undefined && (
+          <span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
+            {trailingIcon}
+          </span>
+        )}
+      </span>
+    </Link>
+  )
+}

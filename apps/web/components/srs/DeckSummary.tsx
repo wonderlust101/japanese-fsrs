@@ -49,13 +49,13 @@ export function DeckSummary({
   })()
 
   return (
-    <div className={['flex flex-col gap-5', className].join(' ')}>
+    <div className={['flex flex-col gap-6', className].join(' ')}>
       {/* Total card count. Big number, small label, no chart. */}
       <div className="flex flex-col gap-1">
-        <p className="text-[10px] font-mono uppercase tracking-[0.1em] text-faded-sumi">
+        <p className="text-sm font-mono text-faded-sumi">
           Cards selected
         </p>
-        <p className="ui-motion-colors font-display text-3xl font-semibold text-sumi-ink tabular-nums leading-[1]">
+        <p className="ui-motion-colors font-display text-3xl font-semibold text-sumi-ink tabular-nums leading-none">
           {totalCards.toLocaleString()}
         </p>
         <p className="text-xs text-faded-sumi tabular-nums">
@@ -67,7 +67,7 @@ export function DeckSummary({
 
       {/* Time estimate. Concrete days → weeks → months. */}
       <div className="flex flex-col gap-1 pt-4 border-t border-soft-hairline">
-        <p className="text-[10px] font-mono uppercase tracking-[0.1em] text-faded-sumi">
+        <p className="text-sm font-mono text-faded-sumi">
           Time to learn at {paceNewPerDay} / day
         </p>
         <p className="font-display text-xl font-semibold text-sumi-ink tabular-nums leading-[1.1]">
@@ -83,7 +83,7 @@ export function DeckSummary({
           redistributes when decks toggle on or off. Empty state is visible
           (cream rail) so the bar always reads as "your composition lives here." */}
       <div className="flex flex-col gap-2 pt-4 border-t border-soft-hairline">
-        <p className="text-[10px] font-mono uppercase tracking-[0.1em] text-faded-sumi">
+        <p className="text-sm font-mono text-faded-sumi">
           What's in your set
         </p>
 

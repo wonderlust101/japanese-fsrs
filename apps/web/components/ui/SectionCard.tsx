@@ -55,6 +55,17 @@ interface SectionCardProps {
    */
   stripeTone?:   StripeTone
   /**
+   * Kanji ornament color. Defaults to `'brand'`. Set to `'aizome'` on
+   * surfaces that pair a non-brand stripe so the kanji follows the stripe.
+   */
+  kanjiTone?:    'brand' | 'aizome' | 'error'
+  /**
+   * Quiet inline flag rendered after the label (with middot separator) in
+   * aizome-indigo. Used for trust signals like "Showing the last saved
+   * queue" when data is stale. Mirrors today-hero's HeroKicker idiom.
+   */
+  flag?:         string
+  /**
    * When true, the CardHeader is not rendered. Only the stripe + body +
    * (optionally) a floated `rightContent` slot remain. Used by surfaces that
    * provide their own title chrome elsewhere (Review Session v4: the session
@@ -99,7 +110,7 @@ interface SectionCardProps {
  */
 export function SectionCard({
   id, kanji, label, count, description, rightContent, variant,
-  chrome = 'list', stripeTone = 'brand', omitTitle = false, ariaBusy, className = '', children,
+  chrome = 'list', stripeTone = 'brand', kanjiTone, flag, omitTitle = false, ariaBusy, className = '', children,
 }: SectionCardProps): React.JSX.Element {
   const baseChrome = chrome === 'chart' ? CHART_MODULE_CHROME : LIST_MODULE_CHROME
   // Inject `relative overflow-hidden` so the stripe positions to the card's
@@ -147,6 +158,8 @@ export function SectionCard({
           {...(description  !== undefined && { description })}
           {...(rightContent !== undefined && { rightContent })}
           {...(variant      !== undefined && { variant })}
+          {...(kanjiTone    !== undefined && { kanjiTone })}
+          {...(flag         !== undefined && { flag })}
         />
       )}
       {children}

@@ -3,7 +3,11 @@ import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
 
-type ChipSize  = 'sm' | 'md'
+// 'lg' is the touch-comfortable size: 44px tall, which meets WCAG 2.5.5
+// (AAA target size) and Apple HIG / Material Design 44pt / 48dp baselines.
+// Callers that render at the `sm:` breakpoint and below should pass
+// `size="lg"` so coarse-pointer users can hit chips without mistapping.
+type ChipSize  = 'sm' | 'md' | 'lg'
 type ChipState = 'default' | 'selected' | 'inactive'
 
 interface ToolbarChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -19,6 +23,7 @@ interface ToolbarChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 const SIZE_CLASS: Record<ChipSize, string> = {
   sm: 'h-8 text-sm',
   md: 'h-9 text-sm',
+  lg: 'h-11 text-sm',
 }
 
 const STATE_CLASS: Record<ChipState, string> = {

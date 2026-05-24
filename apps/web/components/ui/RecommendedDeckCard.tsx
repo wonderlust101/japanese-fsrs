@@ -86,7 +86,7 @@ export function RecommendedDeckCard({
         onClick={onToggle}
         aria-pressed={subscribed}
         className={[
-          'ui-motion-pressable shrink-0 inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-[2px] text-xs font-medium',
+          'ui-motion-pressable shrink-0 inline-flex items-center justify-center gap-2 h-8 px-3 rounded-[2px] text-xs font-medium',
           'border',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           subscribed

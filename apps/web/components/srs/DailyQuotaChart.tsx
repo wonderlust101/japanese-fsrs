@@ -74,7 +74,7 @@ export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps):
         {DAY_LABELS.map((day) => (
           <span
             key={day}
-            className="flex-1 text-center text-[10px] font-mono uppercase tracking-[0.08em] text-faded-sumi max-w-[32px]"
+            className="flex-1 text-center text-sm font-mono text-faded-sumi max-w-[32px]"
           >
             {day}
           </span>
@@ -84,11 +84,11 @@ export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps):
       {/* Legend + totals */}
       <div className="flex items-center justify-between gap-4 mt-5 pt-4 border-t border-soft-hairline">
         <div className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5 text-xs text-faded-sumi">
+          <span className="inline-flex items-center gap-2 text-xs text-faded-sumi">
             <span className="inline-block w-2 h-2 bg-inari-vermillion" aria-hidden="true" />
             new
           </span>
-          <span className="inline-flex items-center gap-1.5 text-xs text-faded-sumi">
+          <span className="inline-flex items-center gap-2 text-xs text-faded-sumi">
             <span className="inline-block w-2 h-2 bg-sumi-ink/60" aria-hidden="true" />
             reviews
           </span>

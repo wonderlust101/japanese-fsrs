@@ -15,6 +15,11 @@ interface TomoSelectProps<T extends string> {
   id?:             string
   ariaLabel?:      string
   ariaLabelledBy?: string
+  /** Space-separated id list for the trigger's `aria-describedby`. Use to
+   *  associate an external hint/error paragraph (mirrors `Input`). The
+   *  `| undefined` admits an explicit-undefined caller under
+   *  `exactOptionalPropertyTypes`, matching `Input`'s `error` prop. */
+  ariaDescribedBy?: string | undefined
   placeholder?:    string
   disabled?:       boolean
   className?:      string
@@ -57,7 +62,7 @@ interface TomoSelectProps<T extends string> {
  */
 export function TomoSelect<T extends string>({
   value, options, onValueChange,
-  id, ariaLabel, ariaLabelledBy,
+  id, ariaLabel, ariaLabelledBy, ariaDescribedBy,
   placeholder, disabled = false,
   className,
 }: TomoSelectProps<T>): React.JSX.Element {
@@ -241,17 +246,20 @@ export function TomoSelect<T extends string>({
         aria-activedescendant={activeOptionId}
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
         aria-disabled={disabled ? true : undefined}
         disabled={disabled}
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
         className={[
-          'group relative inline-flex h-10 w-full items-center justify-between gap-3 rounded-[2px]',
+          // 44px touch target on mobile (WCAG 2.5.5), 40px at pointer-precision
+          // widths — mirrors the option-row sizing inside the popover.
+          'group relative inline-flex h-11 sm:h-10 w-full items-center justify-between gap-3 rounded-[2px]',
           'border border-soft-hairline bg-cream-inset px-3 text-left text-sm text-sumi-ink',
           'ui-motion-colors hover:border-faded-sumi',
-          'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-vermillion-wash focus-visible:border-faded-sumi',
+          'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           'disabled:opacity-60 disabled:cursor-not-allowed',
-          isOpen ? 'border-faded-sumi ring-3 ring-vermillion-wash' : '',
+          isOpen ? 'border-faded-sumi' : '',
           className ?? '',
         ].join(' ')}
       >
@@ -294,7 +302,12 @@ export function TomoSelect<T extends string>({
                 onPointerEnter={() => setFocusedIndex(index)}
                 onClick={() => commit(index)}
                 className={[
-                  'flex h-9 cursor-pointer items-center gap-2.5 px-3 text-sm ui-motion-colors',
+                  // 44px touch target on mobile (WCAG 2.5.5 AAA); h-9
+                  // (36px) on desktop keeps the popover dense at
+                  // pointer-precision widths. Mirrors the same pattern
+                  // applied to MenuItem and the cards-page chips so the
+                  // entire app speaks one touch-sizing dialect.
+                  'flex h-11 sm:h-9 cursor-pointer items-center gap-2 px-3 text-sm ui-motion-colors',
                   isSelected
                     ? 'bg-vermillion-wash text-inari-vermillion-deep'
                     : isFocused

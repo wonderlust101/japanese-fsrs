@@ -17,6 +17,10 @@ interface ToastProps {
   offset?:     'edge' | 'above-bar'
   /** Max-width override (e.g. 'max-w-[32rem]'). Default 'max-w-[28rem]'. */
   maxWidth?:   string
+  /** Optional trailing action (e.g. "Undo" after a reversible mutation).
+   *  When present, renders as a quiet inline button right of the message.
+   *  Click dismisses the toast and invokes the handler. */
+  action?:     { label: string; onClick: () => void }
 }
 
 const TONE_CLASS: Record<ToastKind, string> = {
@@ -31,6 +35,7 @@ export function Toast({
   durationMs,
   offset       = 'edge',
   maxWidth,
+  action,
 }: ToastProps): React.JSX.Element {
   const effectiveDuration = durationMs ?? (kind === 'info' ? 3200 : 0)
 
@@ -47,7 +52,18 @@ export function Toast({
       {...(maxWidth !== undefined ? { maxWidth } : {})}
       className={cn(TONE_CLASS[kind])}
     >
-      {message}
+      <span className="flex items-center gap-2">
+        <span className="flex-1">{message}</span>
+        {action !== undefined && (
+          <button
+            type="button"
+            onClick={() => { action.onClick(); onDismiss() }}
+            className="shrink-0 rounded-[2px] px-2 py-1 font-mono text-sm font-semibold uppercase tracking-[0.06em] text-inari-vermillion underline-offset-2 hover:bg-cream-inset/70 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+          >
+            {action.label}
+          </button>
+        )}
+      </span>
     </PeekPanel>
   )
 }
@@ -56,18 +72,29 @@ export interface ToastState {
   message: string
   kind:    ToastKind
   key:     number
+  /** Optional trailing action propagated through to the rendered Toast. */
+  action?: { label: string; onClick: () => void }
 }
 
 export function useToast(): {
   toast:        ToastState | null
-  showToast:    (message: string, kind?: ToastKind) => void
+  showToast:    (
+    message: string,
+    kind?:   ToastKind,
+    action?: { label: string; onClick: () => void },
+  ) => void
   dismissToast: () => void
 } {
   const [toast, setToast] = useState<ToastState | null>(null)
 
   return {
     toast,
-    showToast:    (message, kind = 'info') => setToast({ message, kind, key: Date.now() }),
+    showToast: (message, kind = 'info', action) => setToast({
+      message,
+      kind,
+      key: Date.now(),
+      ...(action !== undefined && { action }),
+    }),
     dismissToast: () => setToast(null),
   }
 }

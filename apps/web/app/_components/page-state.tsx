@@ -129,7 +129,7 @@ export function HeroKicker({
 
   return (
     <header className="mt-6 w-full">
-      <p className="flex items-baseline justify-center gap-3.5">
+      <p className="flex items-baseline justify-center gap-4">
         <span
           lang="ja"
           aria-hidden="true"
@@ -142,7 +142,7 @@ export function HeroKicker({
         </span>
         <span
           className={[
-            'font-mono text-sm font-medium uppercase tracking-[0.08em]',
+            'font-mono text-sm font-medium',
             isError ? 'text-error-deep/85' : 'text-sumi-ink/80',
           ].join(' ')}
         >
@@ -224,7 +224,7 @@ export function EmptyPathVisual({
         </p>
         <p
           className={[
-            'mt-4 text-center font-mono text-[0.625rem] uppercase tracking-[0.18em]',
+            'mt-4 text-center font-mono text-sm',
             isError ? 'text-error-deep' : 'text-faded-sumi',
           ].join(' ')}
         >
@@ -252,7 +252,7 @@ export function PageHeadline({
     <h1
       id="page-state-headline"
       className={[
-        'mt-7 font-display text-[1.65rem] sm:text-[2.05rem] leading-[1.1]',
+        'mt-7 font-display text-title',
         tone === 'error' ? 'text-error-deep' : 'text-sumi-ink',
       ].join(' ')}
     >
@@ -268,7 +268,7 @@ export function PageHeadline({
  */
 export function PageBody({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <p className="mt-3 max-w-[44ch] text-base leading-relaxed text-faded-sumi">
+    <p className="mt-3 max-w-measure-tight text-base leading-relaxed text-faded-sumi">
       {children}
     </p>
   )
@@ -301,13 +301,13 @@ export function PrimaryAction({
   // deep variant on hover. Same direction (lighter → darker on interaction)
   // for both tones, so the button reads consistently regardless of register.
   const className = [
-    'inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-2.5',
+    'inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-3',
     'rounded-[2px] px-8 py-3 text-base font-semibold',
     'today-motion-transform',
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2',
     isError
-      ? 'bg-error text-warm-paper-raised hover:-translate-y-0.5 hover:bg-error-deep active:translate-y-0 focus-visible:outline-error-deep'
-      : 'bg-inari-vermillion text-warm-paper-raised hover:-translate-y-0.5 hover:bg-inari-vermillion-deep active:translate-y-0 focus-visible:outline-sumi-ink',
+      ? 'bg-error text-warm-paper-raised hover:bg-error-deep active:bg-error-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)] focus-visible:outline-error-deep'
+      : 'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-[inset_0_1px_2px_rgba(31,26,24,0.12)] focus-visible:outline-sumi-ink',
   ].join(' ')
 
   const inner = (
@@ -347,7 +347,7 @@ interface InlinePathsRowProps {
  */
 export function InlinePathsRow({ children }: InlinePathsRowProps): React.JSX.Element {
   return (
-    <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-faded-sumi">
+    <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-faded-sumi">
       {children}
     </ul>
   )
@@ -370,7 +370,7 @@ interface InlinePathProps {
  */
 export function InlinePath({ children, href, onClick }: InlinePathProps): React.JSX.Element {
   const className = [
-    'inline-flex items-center gap-1.5 rounded-[2px] px-1 py-1',
+    'inline-flex items-center gap-2 rounded-[2px] px-1 py-1',
     'text-sm text-faded-sumi transition-colors',
     'hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
   ].join(' ')
@@ -404,7 +404,7 @@ export function FullReloadHint({ onClick }: { onClick: () => void }): React.JSX.
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1.5 rounded-[2px] px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+        className="inline-flex items-center gap-2 rounded-[2px] px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
       >
         Still stuck? Full reload
         <ArrowGlyph direction="right" className="opacity-60" />
@@ -502,10 +502,10 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
       ].join(' ')}
     >
       <header className="flex items-center justify-between gap-3 border-b border-soft-hairline px-4 py-2.5">
-        <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+        <p className="font-mono text-sm text-faded-sumi">
           Development info
         </p>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <CopyButton
             onClick={() => copyAll(markdownPayload)}
             copied={copiedAll}
@@ -542,7 +542,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
           {error?.stack !== undefined && (
             <div className="mt-4 border-t border-soft-hairline pt-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+                <p className="font-mono text-sm text-faded-sumi">
                   Stack
                 </p>
                 <CopyButton
@@ -554,7 +554,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
               <pre
                 className={[
                   'mt-2 max-h-80 overflow-auto rounded-[2px] bg-warm-paper-raised',
-                  'p-3 font-mono text-[0.6875rem] leading-relaxed text-sumi-ink',
+                  'p-3 font-mono text-sm leading-relaxed text-sumi-ink',
                   'whitespace-pre',
                 ].join(' ')}
               >
@@ -571,7 +571,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
 function DevField({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <>
-      <dt className="text-[0.6875rem] uppercase tracking-[0.12em] text-faded-sumi">
+      <dt className="text-sm text-faded-sumi">
         {label}
       </dt>
       <dd className="min-w-0 break-words text-sumi-ink">
