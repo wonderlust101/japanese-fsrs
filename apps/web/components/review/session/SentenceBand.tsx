@@ -98,9 +98,25 @@ export function SentenceBand({
     >
       <div
         onClick={handleClick}
+        {...(furiganaMode === 'hover'
+          ? {
+              role: 'button' as const,
+              tabIndex: 0,
+              'aria-expanded': revealed,
+              'aria-label': 'Toggle reading',
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setRevealed((r) => !r)
+                }
+              },
+            }
+          : {})}
         className={cn(
           'flex min-w-0 flex-col gap-0.5',
-          furiganaMode === 'hover' ? 'cursor-pointer group' : '',
+          furiganaMode === 'hover'
+            ? 'cursor-pointer group rounded-xs focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink'
+            : '',
         )}
         data-furigana-mode={furiganaMode}
         data-revealed={revealed ? 'true' : 'false'}

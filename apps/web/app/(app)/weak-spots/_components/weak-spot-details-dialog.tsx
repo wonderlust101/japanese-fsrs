@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { FuriganaText } from '@/components/ui/FuriganaText'
 import { Pill, type JlptPillLevel } from '@/components/ui/Pill'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Time } from '@/components/ui/Time'
 import type { ApiWeakSpotListItem } from '@fsrs-japanese/shared-types'
 
 import { WeakSpotDiagnosisPanel } from './weak-spot-diagnosis-panel'
@@ -128,9 +129,9 @@ export function WeakSpotDetailsDialog({
               <Stat label="Reps" value={weakSpot.reps === null ? '—' : String(weakSpot.reps)} />
             </StatCluster>
             <StatCluster title="Schedule">
-              <Stat label="Last review" value={formatDate(weakSpot.lastReview)} />
-              <Stat label="Due"     value={formatDate(weakSpot.due)} />
-              <Stat label="Flagged" value={formatDate(weakSpot.createdAt)} />
+              <Stat label="Last review" value={formatDate(weakSpot.lastReview)} dateTime={weakSpot.lastReview} />
+              <Stat label="Due"     value={formatDate(weakSpot.due)} dateTime={weakSpot.due} />
+              <Stat label="Flagged" value={formatDate(weakSpot.createdAt)} dateTime={weakSpot.createdAt} />
             </StatCluster>
           </section>
 
@@ -229,12 +230,14 @@ function StatCluster({ title, children }: { title: string; children: React.React
 interface StatProps {
   label: string
   value: string
+  /** When set, the value is wrapped in a semantic <time datetime> element. */
+  dateTime?: string | null
   /** 'severe' tints the value vermillion for at/over-threshold lapses. */
   tone?: 'default' | 'severe'
   normalCase?: boolean
 }
 
-function Stat({ label, value, tone = 'default', normalCase = false }: StatProps): React.JSX.Element {
+function Stat({ label, value, dateTime, tone = 'default', normalCase = false }: StatProps): React.JSX.Element {
   return (
     <div>
       <p className="text-sm text-faded-sumi">{label}</p>
@@ -245,7 +248,7 @@ function Stat({ label, value, tone = 'default', normalCase = false }: StatProps)
           normalCase ? 'tracking-normal normal-case' : 'tabular-nums',
         ].join(' ')}
       >
-        {value}
+        {dateTime != null ? <Time value={dateTime}>{value}</Time> : value}
       </p>
     </div>
   )

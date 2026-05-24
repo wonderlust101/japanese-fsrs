@@ -7,6 +7,7 @@ import { getWordFields, getSentenceFrontBack, type ApiCardListItem, type ApiDeck
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Radio } from '@/components/ui/Radio'
+import { Time } from '@/components/ui/Time'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
 
@@ -195,7 +196,7 @@ export function MoveCardDialog({
                       {deck.name}
                     </span>
                     <p className="mt-0.5 truncate font-mono text-sm text-faded-sumi">
-                      Updated <span className="text-sumi-ink/70">{updated}</span>
+                      Updated <Time value={deck.updatedAt} className="text-sumi-ink/70">{updated}</Time>
                     </p>
                   </div>
 

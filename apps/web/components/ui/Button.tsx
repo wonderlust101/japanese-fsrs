@@ -136,6 +136,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       console.warn('[Button] variant="danger" should be passed a `leadingIcon` prop. Falling back to default seal-mark glyph.')
     }
 
+    if (
+      process.env.NODE_ENV === 'development' &&
+      iconOnly &&
+      rest['aria-label'] === undefined &&
+      rest['aria-labelledby'] === undefined
+    ) {
+      console.warn('[Button] iconOnly buttons need an `aria-label` (or `aria-labelledby`); the icon is `aria-hidden`, so there is otherwise no accessible name.')
+    }
+
     const resolvedLeadingIcon =
       variant === 'danger' && leadingIcon === undefined
         ? <DefaultDangerIcon />

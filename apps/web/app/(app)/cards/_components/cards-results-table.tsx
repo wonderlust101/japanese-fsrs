@@ -3,6 +3,7 @@
 import Link from 'next/link'
 
 import { StatusPill, type StatusTone } from '@/components/ui/Pill'
+import { Time } from '@/components/ui/Time'
 import { DecksMenu, MenuItem, MenuSeparator } from '@/app/(app)/decks/_components/decks-menu'
 import { State } from '@fsrs-japanese/shared-types'
 
@@ -376,7 +377,7 @@ function ResultRow({
                 <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
               </span>
               <span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
-                {dueLabel}
+                {row.due === null ? dueLabel : <Time value={row.due}>{dueLabel}</Time>}
               </span>
               <span aria-hidden="true" />
             </>
@@ -411,7 +412,7 @@ function ResultRow({
             )}
             {!readOnly && (
               <span className="ml-auto shrink-0 truncate">
-                {dueLabel === '—' ? 'Not due' : `Due ${dueLabel}`}
+                {dueLabel === '—' ? 'Not due' : <>Due <Time value={row.due as string}>{dueLabel}</Time></>}
               </span>
             )}
           </div>

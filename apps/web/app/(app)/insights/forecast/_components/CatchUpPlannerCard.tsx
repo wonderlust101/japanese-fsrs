@@ -151,9 +151,9 @@ function AllClearMoment(): React.JSX.Element {
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <p className="font-display text-section text-sumi-ink">
+          <h2 className="font-display text-section text-sumi-ink">
             All clear.
-          </p>
+          </h2>
           <p className="max-w-measure-tight text-base leading-relaxed text-faded-sumi">
             No overdue cards waiting. The schedule is yours to set today, with nothing pulling at you from yesterday.
           </p>

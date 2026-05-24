@@ -19,11 +19,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-cool-paper-base overflow-hidden">
+      {/* Skip link: first focusable element so keyboard users can bypass the
+          sidebar nav. Visually hidden until focused; --z-toast keeps it above
+          all chrome when it appears. Targets the <main> below. */}
+      <a
+        href="#main-content"
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-[var(--z-toast)] focus-visible:rounded-xs focus-visible:border focus-visible:border-soft-hairline focus-visible:bg-warm-paper-raised focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-sumi-ink focus-visible:shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+      >
+        Skip to main content
+      </a>
       <Sidebar user={user} />
 
       {/* Main content column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <main className="flex-1 overflow-y-auto">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto outline-none">
           {children}
         </main>
       </div>

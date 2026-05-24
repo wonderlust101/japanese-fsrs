@@ -7,6 +7,7 @@ import { TopBar } from '@/app/(app)/_components/top-bar'
 import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { PageLoader } from '@/components/ui/TomoLoader'
+import { Time } from '@/components/ui/Time'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
 import { useReviewForecast } from '@/lib/api/reviews'
 import { queryKeys } from '@/lib/api/queryKeys'
@@ -173,7 +174,7 @@ export function StatisticsView(): React.JSX.Element {
 
         {updatedAt !== null && updatedAt > 0 && (
           <p className="mt-3 text-right font-mono text-sm text-faded-sumi">
-            Updated {formatRelative(updatedAt)}
+            Updated <Time value={updatedAt}>{formatRelative(updatedAt)}</Time>
           </p>
         )}
 

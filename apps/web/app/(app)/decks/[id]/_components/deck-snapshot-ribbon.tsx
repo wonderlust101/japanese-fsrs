@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 
 import type { ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 
+import { Time } from '@/components/ui/Time'
+
 interface Props {
   deck:    ApiDeckWithStats | null | undefined
   loading: boolean
@@ -101,7 +103,7 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
           <div className="flex items-baseline gap-3">
             {deck?.lastReviewedAt != null ? (
               <span className="text-[1.375rem] font-medium leading-none text-sumi-ink/90">
-                {formatRelativeDay(deck.lastReviewedAt)}
+                <Time value={deck.lastReviewedAt}>{formatRelativeDay(deck.lastReviewedAt)}</Time>
               </span>
             ) : (
               <span className="text-[1.375rem] font-medium leading-none text-faded-sumi">
@@ -109,7 +111,7 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
               </span>
             )}
             <span className="text-xs text-faded-sumi">
-              created {deck?.createdAt ? formatMonthYear(deck.createdAt) : '—'}
+              created {deck?.createdAt ? <Time value={deck.createdAt}>{formatMonthYear(deck.createdAt)}</Time> : '—'}
             </span>
           </div>
         )}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Logo } from '@/components/ui/Logo'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { PageLoader } from '@/components/ui/TomoLoader'
+import { Time } from '@/components/ui/Time'
 import { PageFrame } from '@/app/(app)/_components/page-frame'
 import { cn } from '@/lib/utils'
 import { useDrillSessionQuery } from '@/lib/api/weak-spots'
@@ -340,7 +341,7 @@ function CardsListCard({
               </span>
             </p>
             <p className="font-mono text-sm text-faded-sumi">
-              {new Date(attempt.answeredAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+              <Time value={attempt.answeredAt}>{new Date(attempt.answeredAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</Time>
             </p>
           </li>
         ))}
