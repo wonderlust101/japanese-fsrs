@@ -1,11 +1,39 @@
 import { createHash } from 'node:crypto'
 import type { User } from '@supabase/supabase-js'
 import type { RequestHandler } from 'express'
+import { z } from 'zod'
 
+import { redis } from '../db/redis.ts'
 import { supabaseAdmin } from '../db/supabase.ts'
+import { env } from '../lib/env.ts'
+import { componentLogger } from '../lib/logger.ts'
 import { AppError } from './errorHandler.ts'
 
+const log = componentLogger('auth.middleware')
+
 interface CacheEntry { user: User; expiresAt: number }
+
+// ─── L2 (Redis) token cache ───────────────────────────────────────────────────
+// L1 (the in-process Map below) handles same-pod repeat auth in <1ms. L2
+// extends the same 30s staleness contract across pods: when pod A verifies a
+// token and pod B serves the user's next request before either L1 entry
+// refreshes, B reads from Redis instead of hitting Supabase auth again.
+//
+// Gated by NODE_ENV !== 'test' so the existing auth.middleware.test.ts suite
+// (which mocks supabaseAdmin but not redis) keeps passing without changes.
+// Mirrors the RATE_LIMITING_ENABLED pattern at middleware/rateLimit.ts.
+//
+// Version prefix gives a manual invalidation lever — bump if the cached
+// shape stops being a User-compatible object.
+const TOKEN_L2_TTL_SECONDS = 30
+const TOKEN_L2_VERSION     = 'v1'
+const L2_ENABLED           = env.NODE_ENV !== 'test'
+
+const l2Key = (tokenHash: string): string => `auth:${TOKEN_L2_VERSION}:${tokenHash}`
+
+// Permissive shape: require `id` so downstream req.user.id is always safe;
+// allow Supabase to add fields without invalidating cached entries.
+const CachedUserSchema = z.looseObject({ id: z.string() })
 
 /**
  * Per-process in-memory cache for verified bearer tokens. Keyed by SHA-256 of
@@ -77,6 +105,20 @@ export const authMiddleware: RequestHandler = async (req, _res, next): Promise<v
       return
     }
 
+    // ── L2 (Redis) lookup on L1 miss ─────────────────────────────────────────
+    // Any failure (network, breaker open, corrupt entry) falls through to the
+    // Supabase call below — L2 only ever speeds things up, never gates them.
+    if (L2_ENABLED) {
+      const l2User = await readL2Token(tokenHash)
+      if (l2User !== null) {
+        tokenCache.set(tokenHash, { user: l2User, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS })
+        pruneIfTooLarge()
+        req.user = l2User
+        next()
+        return
+      }
+    }
+
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
 
     if (error !== null || user === null) {
@@ -85,9 +127,65 @@ export const authMiddleware: RequestHandler = async (req, _res, next): Promise<v
 
     tokenCache.set(tokenHash, { user, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS })
     pruneIfTooLarge()
+    if (L2_ENABLED) {
+      // Fire-and-forget: the response must not wait on Redis. A failed write
+      // just means the next cross-pod request will pay one more Supabase call.
+      void writeL2Token(tokenHash, user)
+    }
     req.user = user
     next()
   } catch (err) {
     next(err)
+  }
+}
+
+/**
+ * Read a cached User from L2 (Redis). Returns null on miss, on Redis failure
+ * (network, upstash breaker open), or on a corrupt entry (shape drift). On
+ * corrupt entries the bad key is best-effort deleted.
+ */
+async function readL2Token(tokenHash: string): Promise<User | null> {
+  const key = l2Key(tokenHash)
+  let raw: unknown
+  try {
+    raw = await redis.get<unknown>(key)
+  } catch (err) {
+    log.warn({
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'L2 token cache read failed; treating as miss')
+    return null
+  }
+  if (raw === null) return null
+
+  try {
+    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
+    const result = CachedUserSchema.safeParse(parsed)
+    if (!result.success) throw new Error('cached user failed shape check')
+    // Cast back to the SDK User type: the loose schema preserves all fields,
+    // so downstream `req.user.id`/`.email` access continues to work. If the
+    // Supabase User type ever drifts in a breaking way, the version prefix
+    // is the manual invalidation lever.
+    return result.data as unknown as User
+  } catch (err) {
+    log.warn({
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'corrupt L2 token cache entry; treating as miss')
+    void redis.del(key).catch(() => { /* swallow — entry will TTL out */ })
+    return null
+  }
+}
+
+/**
+ * Write a freshly verified User to L2. Fire-and-forget: any failure is
+ * logged but never propagates — the L1 Map remains the same-process source
+ * of truth, and the next cross-pod miss falls back to Supabase auth.
+ */
+async function writeL2Token(tokenHash: string, user: User): Promise<void> {
+  try {
+    await redis.set(l2Key(tokenHash), JSON.stringify(user), { ex: TOKEN_L2_TTL_SECONDS })
+  } catch (err) {
+    log.warn({
+      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+    }, 'L2 token cache write failed')
   }
 }

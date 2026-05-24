@@ -71,6 +71,7 @@ const apiLog = componentLogger('api')
  *   422 Unprocessable Entity
  *     CARD_FIELDS_INSUFFICIENT             AI-generation target card lacks `word`
  *     DB_CHECK_VIOLATION                   Database CHECK constraint failed (SQLSTATE 23514)
+ *     DECK_ARCHIVED                        Review/write attempted on a card in an archived deck
  *     IDEMPOTENCY_KEY_CONFLICT             Same key + different body
  *     WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH  Body cardId/weakSpotId disagrees with the session card
  *

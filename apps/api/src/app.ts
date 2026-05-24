@@ -1,4 +1,5 @@
 import express from 'express'
+import compression from 'compression'
 import cors from 'cors'
 import helmet from 'helmet'
 
@@ -35,6 +36,11 @@ app.use(helmet({
   // No legitimate self-framing for a JSON API.
   frameguard: { action: 'deny' },
 }))
+// gzip JSON responses >1KB when the client advertises Accept-Encoding: gzip.
+// Tomo's card/deck/analytics payloads are text-heavy (Japanese + meanings +
+// sentences) and compress 70–85%. Below 1KB the middleware skips compression,
+// which is the correct trade-off — small payloads aren't worth the CPU.
+app.use(compression())
 app.use(cors({
   origin: allowedOrigins,
   allowedHeaders: ['Content-Type', 'Authorization'],
