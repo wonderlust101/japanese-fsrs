@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import type {
   ApiForecastDay,
@@ -9,9 +9,9 @@ import type {
   ApiLayoutAccuracy,
 } from '@fsrs-japanese/shared-types'
 
-import { FixtureOption, FixtureOptionList, FixturePanel } from '@/components/dev/FixturePanel'
+import { useDevStatePanel, type DevFixtureSpec } from '@/dev'
 
-import type { WeeklyReportInputs } from './weekly-report'
+import type { WeeklyReportInputs } from '@/app/(app)/insights/_components/weekly-report'
 
 // ── Public hook ──────────────────────────────────────────────────────────────
 
@@ -32,15 +32,13 @@ export interface InsightsDevState {
   seed:          string | null
   /** Force a loading or error state regardless of live query state. */
   forcedState:   'loading' | 'error' | null
-  /** Dev-only floating panel. Null outside development. */
-  panel:         React.ReactNode
 }
 
 const FIXTURE_TODAY = '2026-05-16'
 
-const FIXTURES: { key: InsightsFixtureKey; label: string; description: string }[] = [
+const FIXTURES: ReadonlyArray<DevFixtureSpec<InsightsFixtureKey>> = [
   { key: 'off',       label: 'Off',                 description: 'Live data — render the real report.' },
-  { key: 'attention', label: 'Attention week',      description: 'Accuracy has slipped to 72%. Mistakes leads.' },
+  { key: 'attention', label: 'Attention week',      description: 'Accuracy slipped to 72%. Mistakes leads.' },
   { key: 'calm',      label: 'Celebratory week',    description: 'Retention stepped up to 91%. Progress leads.' },
   { key: 'low-data',  label: 'New user · low data', description: 'Two active days. Empty state with kitsune.' },
   { key: 'loading',   label: 'Loading skeleton',    description: 'Show the full-page skeleton.' },
@@ -48,83 +46,39 @@ const FIXTURES: { key: InsightsFixtureKey; label: string; description: string }[
 ]
 
 /**
- * Dev-only state controller for the Insights Overview. Outside development
- * this returns `{ fixtureInputs: null, panel: null, … }` and is a no-op.
- * Inside development it renders a fixed bottom-left panel that cycles the
- * page through every documented state without leaving the route.
+ * Insights Overview dev state. Outside development the hook still runs but
+ * the dock never mounts, so `fixtureInputs` stays null and the page renders
+ * live data exclusively.
  */
 export function useInsightsDevState(): InsightsDevState {
-  const [fixture, setFixture] = useState<InsightsFixtureKey>('off')
-  const isDev = process.env.NODE_ENV === 'development'
+  const { fixture } = useDevStatePanel({
+    id:             'insights.overview',
+    title:          'Insights · Overview',
+    fixtures:       FIXTURES,
+    defaultFixture: 'off',
+  })
 
   const fixtureInputs = useMemo<WeeklyReportInputs | null>(() => {
-    if (!isDev) return null
     if (fixture === 'attention') return buildAttentionWeekInputs(FIXTURE_TODAY)
     if (fixture === 'calm')      return buildCalmWeekInputs(FIXTURE_TODAY)
     if (fixture === 'low-data')  return buildLowDataInputs(FIXTURE_TODAY)
     return null
-  }, [isDev, fixture])
+  }, [fixture])
 
   const forcedState: 'loading' | 'error' | null =
-    !isDev ? null
-    : fixture === 'loading' ? 'loading'
-    : fixture === 'error'   ? 'error'
-    : null
-
-  const todayIso = fixtureInputs !== null ? FIXTURE_TODAY : null
-  const seed     = fixtureInputs !== null ? fixture       : null
+    fixture === 'loading' ? 'loading' :
+    fixture === 'error'   ? 'error'   :
+    null
 
   return {
     fixtureInputs,
-    todayIso,
-    seed,
+    todayIso: fixtureInputs !== null ? FIXTURE_TODAY : null,
+    seed:     fixtureInputs !== null ? fixture       : null,
     forcedState,
-    panel: isDev ? <InsightsDevPanel fixture={fixture} onChange={setFixture} /> : null,
   }
 }
 
-// ── Panel UI ─────────────────────────────────────────────────────────────────
-
-interface InsightsDevPanelProps {
-  fixture:  InsightsFixtureKey
-  onChange: (next: InsightsFixtureKey) => void
-}
-
-export function InsightsDevPanel({
-  fixture,
-  onChange,
-}: InsightsDevPanelProps): React.JSX.Element {
-  const active = FIXTURES.find((f) => f.key === fixture) ?? FIXTURES[0] ?? { label: 'Off' }
-
-  return (
-    <FixturePanel
-      title="Dev · Insights state"
-      summary={active.label}
-      ariaLabel="Insights page dev state panel"
-      footer={
-        <p className="px-1 font-mono text-[0.5625rem] uppercase tracking-[0.16em] text-faded-sumi/80">
-          Fixture today · {FIXTURE_TODAY}
-        </p>
-      }
-    >
-      <FixtureOptionList ariaLabel="Insights fixtures">
-        {FIXTURES.map((f) => (
-          <FixtureOption
-            key={f.key}
-            name="insights-fixture"
-            value={f.key}
-            checked={f.key === fixture}
-            onChange={() => onChange(f.key)}
-            label={f.label}
-            description={f.description}
-          />
-        ))}
-      </FixtureOptionList>
-    </FixturePanel>
-  )
-}
-
-// ── Fixtures (relocated from /app/dev/insights-overview/fixtures.ts) ─────────
+// ── Fixture builders (preserved verbatim from the original dev panel) ────────
 
 function parseIso(iso: string): Date {
   return new Date(`${iso}T00:00:00Z`)
@@ -145,8 +99,7 @@ function generateHeatmap(
   for (let i = days - 1; i >= 0; i -= 1) {
     const date = addDays(todayIso, -i)
     const { retention, count } = shape(i)
-    // Dev fixture rows zero-fill totalSeconds; designers don't need real
-    // duration data to preview the chart. The real wire shape carries
+    // Dev fixture rows zero-fill totalSeconds; the real wire shape carries
     // SUM(review_time_ms)/1000 per heatmap day.
     out.push({ date, retention, count, totalSeconds: 0 })
   }

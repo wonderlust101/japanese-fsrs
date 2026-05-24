@@ -1,5 +1,9 @@
 'use client'
 
+import { useCallback } from 'react'
+
+import { useDevPanel } from '@/dev'
+
 import { useReviewSessionStore } from '@/stores/useReviewSessionStore'
 import {
   useSessionDevOverrides,
@@ -11,11 +15,15 @@ import {
   type FuriganaMode,
 } from '@/stores/useSessionPreferencesStore'
 
-import { SESSION_FIXTURES, fixtureQueueOf, type FixtureKind } from './session-fixtures'
+import {
+  SESSION_FIXTURES,
+  fixtureQueueOf,
+  type FixtureKind,
+} from '@/app/(app)/review/session/_components/session-fixtures'
 import {
   SUMMARY_FIXTURE_KEYS,
   summaryFixtureLabel,
-} from '../../summary/_components/summary-fixtures'
+} from '@/app/(app)/review/summary/_components/summary-fixtures'
 
 const KIND_OPTIONS: Array<{ value: FixtureKind; label: string }> = [
   { value: 'comprehension', label: 'Comprehension' },
@@ -26,12 +34,15 @@ const BOOLEAN_OVERRIDES: Array<{
   label: string
   hint:  string
 }> = [
-  { key: 'forceShowAnswer',      label: 'Reveal answer',       hint: 'Show the back of the card inside the SectionCard.' },
-  { key: 'prefersReducedMotion', label: 'Reduced motion',      hint: 'Collapse the three-stage reveal stagger to instant.' },
-  { key: 'forceOffline',         label: 'Offline pill',        hint: 'Render the offline pill in the SectionCard header right-slot.' },
-  { key: 'forceSyncError',       label: 'Sync-error pill',     hint: 'Render the saved-locally pill in the SectionCard header right-slot.' },
-  { key: 'forceBootstrapFailed', label: 'Bootstrap failed',    hint: 'Switch the surface to the error-stripe StateCard (Couldn’t load).' },
+  { key: 'forceShowAnswer',      label: 'Reveal answer',     hint: 'Show the back of the card inside the SectionCard.' },
+  { key: 'prefersReducedMotion', label: 'Reduced motion',    hint: 'Collapse the three-stage reveal stagger to instant.' },
+  { key: 'forceOffline',         label: 'Offline pill',      hint: 'Render the offline pill in the SectionCard header right-slot.' },
+  { key: 'forceSyncError',       label: 'Sync-error pill',   hint: 'Render the saved-locally pill in the SectionCard header right-slot.' },
+  { key: 'forceBootstrapFailed', label: 'Bootstrap failed',  hint: 'Switch the surface to the error-stripe StateCard (Couldn’t load).' },
+  { key: 'forceBootstrapping',   label: 'Bootstrap loader',  hint: 'Pin the brushy “Preparing your reviews” PageLoader.' },
+  { key: 'forceEndingSession',   label: 'Wrap-up loader',    hint: 'Pin the “Wrapping up” PageLoader (end-of-session transition).' },
 ]
+
 
 const FURIGANA_OPTIONS: Array<{ value: FuriganaMode; label: string }> = [
   { value: 'hover',  label: 'Hover' },
@@ -39,10 +50,26 @@ const FURIGANA_OPTIONS: Array<{ value: FuriganaMode; label: string }> = [
   { value: 'off',    label: 'Off' },
 ]
 
-export function SessionDevToolbar(): React.JSX.Element {
-  const overrides   = useSessionDevOverrides()
-  const devActions  = useSessionDevOverridesActions()
-  const prefs       = useSessionPreferences()
+/**
+ * Register the rich Review Session control panel. Returns nothing — all
+ * state lives in Zustand stores the panel manipulates directly.
+ */
+export function useReviewSessionDevState(): void {
+  const render = useCallback(() => <SessionDevBody />, [])
+
+  useDevPanel({
+    id:    'review.session',
+    title: 'Review · Session',
+    render,
+  })
+}
+
+// ── Body ────────────────────────────────────────────────────────────────────
+
+function SessionDevBody(): React.JSX.Element {
+  const overrides    = useSessionDevOverrides()
+  const devActions   = useSessionDevOverridesActions()
+  const prefs        = useSessionPreferences()
   const prefsActions = useSessionPreferencesActions()
 
   function seedFixture(kind: FixtureKind, fixtureId: string): void {
@@ -72,7 +99,7 @@ export function SessionDevToolbar(): React.JSX.Element {
     <div className="flex flex-col gap-3">
       <Section title="v4 state matrix">
         <p className="text-[0.65rem] text-warm-paper-raised/60 leading-snug">
-          Top bar (page-scope) + centered SectionCard (omitTitle) + fixed bottom rating bar. Stripe tones: <span className="text-warm-paper-raised">brand</span> for live · <span className="text-warm-paper-raised">aizome</span> for empty · <span className="text-warm-paper-raised">error</span> for bootstrap-failed. Seed the long-content fixture below to exercise in-card scroll.
+          Top bar (page-scope) + centered SectionCard (omitTitle) + fixed bottom rating bar. Stripe tones: <span className="text-warm-paper-raised">brand</span> for live · <span className="text-warm-paper-raised">aizome</span> for empty · <span className="text-warm-paper-raised">error</span> for bootstrap-failed.
         </p>
       </Section>
 
@@ -163,7 +190,22 @@ export function SessionDevToolbar(): React.JSX.Element {
           <span>
             Mute audio
             <span className="block text-[0.625rem] text-warm-paper-raised/45">
-              Disables autoplay on both word + sentence audio.
+              Disables autoplay on word and sentence audio.
+            </span>
+          </span>
+        </label>
+
+        <label className="mt-1.5 flex items-start gap-2 text-[0.7rem] leading-snug text-warm-paper-raised/85 cursor-pointer hover:text-warm-paper-raised">
+          <input
+            type="checkbox"
+            checked={prefs.autoRevealTranslation}
+            onChange={(e) => prefsActions.setAutoRevealTranslation(e.target.checked)}
+            className="mt-[0.18rem] accent-warm-paper-raised cursor-pointer"
+          />
+          <span>
+            Auto-reveal translation
+            <span className="block text-[0.625rem] text-warm-paper-raised/45">
+              Skip the blur-to-reveal step on the back-of-card sentence translation.
             </span>
           </span>
         </label>
@@ -194,7 +236,7 @@ export function SessionDevToolbar(): React.JSX.Element {
 
       <Section title="Summary states">
         <p className="text-[0.625rem] leading-snug text-warm-paper-raised/55 mb-1.5">
-          Opens the redesigned Review Summary with fixture data for the named pattern. Dev-only; production strips the `?fixture` route.
+          Opens the Review Summary with fixture data for the named pattern. Dev-only; production strips the `?fixture` route.
         </p>
         <div className="grid grid-cols-2 gap-1.5">
           {SUMMARY_FIXTURE_KEYS.map((key) => (

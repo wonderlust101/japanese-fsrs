@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, DM_Sans, JetBrains_Mono, Noto_Sans_JP } from 'next/font/google'
-import { FloatingLauncher } from '@/components/dev/FloatingLauncher'
+import { DevDockProvider } from '@/dev'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { env } from '@/lib/env'
 import './globals.css'
@@ -107,8 +107,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }):
     >
       <body>
         <QueryProvider>
-          {children}
-          <FloatingLauncher />
+          <DevDockProvider>
+            {children}
+          </DevDockProvider>
         </QueryProvider>
 </body>
     </html>

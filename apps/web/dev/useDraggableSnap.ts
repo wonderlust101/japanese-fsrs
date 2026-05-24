@@ -33,7 +33,7 @@ function readStoredCorner(key: string, fallback: Corner): Corner {
     const raw = window.localStorage.getItem(key)
     if (raw !== null && CORNERS.includes(raw as Corner)) return raw as Corner
   } catch {
-    // localStorage may throw in private mode / quota exceeded — fall through
+    // localStorage may throw in private mode / quota exceeded; fall through.
   }
   return fallback
 }
@@ -74,8 +74,8 @@ export function useDraggableSnap({
   const dragStateRef = useRef<DragState | null>(null)
   const wasDragRef   = useRef(false)
 
-  // Hydrate corner from localStorage after mount. Avoiding this in useState's
-  // initializer keeps the SSR markup deterministic — the server has no localStorage.
+  // Hydrate corner from localStorage after mount. Keeping this out of useState's
+  // initializer keeps SSR markup deterministic — the server has no localStorage.
   useEffect(() => {
     setCorner(readStoredCorner(storageKey, defaultCorner))
   }, [storageKey, defaultCorner])
@@ -118,7 +118,7 @@ export function useDraggableSnap({
   }, [handlePointerMove, storageKey])
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLElement>): void => {
-    // Mouse: primary button only. Touch/pen: any button is fine.
+    // Mouse: primary button only. Touch / pen: any button is fine.
     if (event.pointerType === 'mouse' && event.button !== 0) return
 
     dragStateRef.current = {
@@ -134,7 +134,7 @@ export function useDraggableSnap({
   }, [handlePointerMove, handlePointerUp])
 
   // The click event always fires after pointerup; the launcher uses this flag
-  // to suppress the click when the gesture was actually a drag.
+  // to suppress the synthetic click when the gesture was actually a drag.
   const consumeDragSuppress = useCallback((): boolean => {
     const was = wasDragRef.current
     wasDragRef.current = false

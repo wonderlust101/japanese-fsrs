@@ -1,49 +1,61 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { State } from '@fsrs-japanese/shared-types'
 
-import { FixtureOption, FixtureOptionList, FixturePanel } from '@/components/dev/FixturePanel'
+import { useDevStatePanel, type DevFixtureSpec } from '@/dev'
 
-import type { CardsResultRow } from './cards-results-table'
+import type { CardsResultRow } from '@/app/(app)/cards/_components/cards-results-table'
 
-export type CardsFixtureKey = 'off' | 'empty' | 'few' | 'many' | 'loading'
+export type CardsFixtureKey =
+  | 'off'
+  | 'first-run'
+  | 'empty'
+  | 'few'
+  | 'many'
+  | 'loading'
 
 export interface CardsDevState {
   fixture: CardsFixtureKey
   rows:    readonly CardsResultRow[]
   /** Decks present in the fixture rows; used to populate the deck filter
-   *  dropdown so the filter actually maps to fixture data. Empty when
-   *  fixture is off. */
+   *  dropdown so the filter actually maps to fixture data. */
   decks:   readonly { id: string; name: string }[]
   loading: boolean
+  /**
+   * When true, the orchestrator should render the brand-new-user empty
+   * state (kanji eyebrow + "No cards yet" + Add-a-card CTA) instead of
+   * the table chrome. Lets the dev panel exercise that branch without
+   * needing a real account with zero cards.
+   */
+  simulateFirstRun: boolean
 }
 
-const FIXTURES: { key: CardsFixtureKey; label: string; description: string }[] = [
-  { key: 'off',     label: 'Off',     description: 'Default empty-state shell (live data, none yet).' },
-  { key: 'empty',   label: 'Empty',   description: 'Filters / saved view exclude every fixture row.' },
-  { key: 'few',     label: 'Few',     description: 'Eight varied cards across four decks.' },
-  { key: 'many',    label: 'Many',    description: '120 cards across eight decks. Filters wired against this set.' },
-  { key: 'loading', label: 'Loading', description: 'Skeleton rows.' },
+const FIXTURES: ReadonlyArray<DevFixtureSpec<CardsFixtureKey>> = [
+  { key: 'off',       label: 'Off',       description: 'Default empty-state shell (live data, none yet).' },
+  { key: 'first-run', label: 'First-run', description: 'Brand-new user: zero cards, no filters. Shows the onboarding empty state with the Add-a-card CTA.' },
+  { key: 'empty',     label: 'Empty',     description: 'Filters / saved view exclude every fixture row.' },
+  { key: 'few',       label: 'Few',       description: 'Eight varied cards across four decks.' },
+  { key: 'many',      label: 'Many',      description: '120 cards across eight decks. Filters wired against this set.' },
+  { key: 'loading',   label: 'Loading',   description: 'Skeleton rows.' },
 ]
 
-/**
- * Dev-only fixture switcher for the Cards browser. Renders only in
- * development. Now exposes a `decks` list alongside `rows` so the deck
- * filter dropdown matches the fixture data.
- */
-export function useCardsDevState(): { state: CardsDevState; panel: React.ReactNode } {
-  const [fixture, setFixture] = useState<CardsFixtureKey>('off')
-  const isDev = process.env.NODE_ENV === 'development'
+export function useCardsDevState(): CardsDevState {
+  const { fixture } = useDevStatePanel({
+    id:             'cards.browser',
+    title:          'Cards · Browser',
+    fixtures:       FIXTURES,
+    defaultFixture: 'off',
+  })
 
   const rows: readonly CardsResultRow[] =
     fixture === 'few'  ? FEW_ROWS  :
     fixture === 'many' ? MANY_ROWS :
     []
 
-  // Derive the fixture decks from the rows themselves so the filter
-  // dropdown is always consistent with what's renderable.
+  // Derive the fixture decks from the rows themselves so the filter dropdown
+  // is always consistent with what's renderable.
   const decks = useMemo(() => {
     if (rows.length === 0) return []
     const map = new Map<string, string>()
@@ -52,52 +64,15 @@ export function useCardsDevState(): { state: CardsDevState; panel: React.ReactNo
   }, [rows])
 
   return {
-    state: {
-      fixture,
-      rows,
-      decks,
-      loading: fixture === 'loading',
-    },
-    panel: isDev ? <DevPanel fixture={fixture} onChange={setFixture} /> : null,
+    fixture,
+    rows,
+    decks,
+    loading:          fixture === 'loading',
+    simulateFirstRun: fixture === 'first-run',
   }
 }
 
-// ─── Panel UI ───────────────────────────────────────────────────────────
-
-function DevPanel({
-  fixture,
-  onChange,
-}: {
-  fixture:  CardsFixtureKey
-  onChange: (next: CardsFixtureKey) => void
-}): React.JSX.Element {
-  const active = FIXTURES.find((f) => f.key === fixture) ?? FIXTURES[0] ?? { label: 'Off' }
-
-  return (
-    <FixturePanel
-      title="Dev · Cards state"
-      summary={active.label}
-      ariaLabel="Cards page dev state panel"
-      widthClass="max-w-[18rem]"
-    >
-      <FixtureOptionList ariaLabel="Cards fixtures">
-        {FIXTURES.map((f) => (
-          <FixtureOption
-            key={f.key}
-            name="cards-fixture"
-            value={f.key}
-            checked={f.key === fixture}
-            onChange={() => onChange(f.key)}
-            label={f.label}
-            description={f.description}
-          />
-        ))}
-      </FixtureOptionList>
-    </FixturePanel>
-  )
-}
-
-// ─── Fixture vocabulary ─────────────────────────────────────────────────
+// ── Fixture vocabulary ──────────────────────────────────────────────────────
 
 interface VocabEntry {
   word:         string
@@ -107,9 +82,6 @@ interface VocabEntry {
   partOfSpeech: string
 }
 
-// A spread of common JLPT vocab across N5–N1 plus a handful of Beyond-JLPT
-// items. Each entry carries a part-of-speech label so the Type column has
-// meaningful data to render.
 const VOCAB: readonly VocabEntry[] = [
   // ── N5
   { word: '食べる',  reading: 'たべる',     meaning: 'to eat',                jlpt: 'N5', partOfSpeech: 'る-verb' },
@@ -181,19 +153,16 @@ const VOCAB: readonly VocabEntry[] = [
   { word: '物の哀れ', reading: 'もののあわれ', meaning: 'pathos of things',    jlpt: null, partOfSpeech: 'noun' },
 ]
 
-interface DeckSpec {
-  id:   string
-  name: string
-}
+interface DeckSpec { id: string; name: string }
 
-const DECK_N5:      DeckSpec = { id: 'deck-n5',      name: 'N5 Vocab' }
-const DECK_N4:      DeckSpec = { id: 'deck-n4',      name: 'N4 Vocab' }
-const DECK_N3:      DeckSpec = { id: 'deck-n3-core', name: 'N3 Vocab Core' }
-const DECK_N2:      DeckSpec = { id: 'deck-n2',      name: 'N2 Vocab' }
-const DECK_N1:      DeckSpec = { id: 'deck-n1',      name: 'N1 Vocab' }
-const DECK_GENKI:   DeckSpec = { id: 'deck-genki-1', name: 'Genki I 5-8' }
-const DECK_KANJI:   DeckSpec = { id: 'deck-kanji',   name: 'Kanji Radicals' }
-const DECK_BEYOND:  DeckSpec = { id: 'deck-beyond',  name: 'Beyond JLPT' }
+const DECK_N5:     DeckSpec = { id: 'deck-n5',      name: 'N5 Vocab' }
+const DECK_N4:     DeckSpec = { id: 'deck-n4',      name: 'N4 Vocab' }
+const DECK_N3:     DeckSpec = { id: 'deck-n3-core', name: 'N3 Vocab Core' }
+const DECK_N2:     DeckSpec = { id: 'deck-n2',      name: 'N2 Vocab' }
+const DECK_N1:     DeckSpec = { id: 'deck-n1',      name: 'N1 Vocab' }
+const DECK_GENKI:  DeckSpec = { id: 'deck-genki-1', name: 'Genki I 5-8' }
+const DECK_KANJI:  DeckSpec = { id: 'deck-kanji',   name: 'Kanji Radicals' }
+const DECK_BEYOND: DeckSpec = { id: 'deck-beyond',  name: 'Beyond JLPT' }
 
 const DECKS: readonly DeckSpec[] = [
   DECK_N5, DECK_N4, DECK_N3, DECK_N2, DECK_N1, DECK_GENKI, DECK_KANJI, DECK_BEYOND,
@@ -207,22 +176,6 @@ const STATES: readonly { state: State; isSuspended: boolean; weight: number }[] 
   { state: State.Review,     isSuspended: true,  weight: 1 },
 ]
 
-/** Tag vocabulary the fixture draws from. */
-const TAG_POOL: readonly string[] = [
-  'daily',
-  'reading',
-  'speaking',
-  'kanji',
-  'verb',
-  'noun',
-  'adj',
-  'food',
-  'travel',
-  'work',
-  'weakSpot',
-]
-
-/** Lapse buckets for a realistic spread. ≥ 8 is "weakSpot" territory. */
 const LAPSE_BUCKETS: readonly { lapses: number; weight: number }[] = [
   { lapses: 0,  weight: 8 },
   { lapses: 1,  weight: 5 },
@@ -261,7 +214,6 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
   for (let i = 0; i < count; i++) {
     const vocab = VOCAB[i % VOCAB.length] ?? VOCAB[0]
     if (vocab === undefined) continue
-    // Cycle decks by JLPT for a believable distribution, with some variety.
     const jlptDeck =
       vocab.jlpt === 'N5' ? DECK_N5 :
       vocab.jlpt === 'N4' ? (rng() < 0.5 ? DECK_N4 : DECK_GENKI) :
@@ -278,28 +230,15 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
       { state: State.Review, isSuspended: false },
     )
 
-    // Due date: New cards no due; otherwise spread 0–60 days from now.
     const due = state === State.New
       ? null
       : new Date(Date.now() + Math.floor(rng() * 60) * 24 * 60 * 60 * 1000).toISOString()
 
-    // Tags: 0–3 randomly picked from the pool. Cards with ≥ 8 lapses
-    // also get the 'weakSpot' tag automatically (matches what the weakSpot
-    // service would do in production).
     const lapses = pickWeighted(
       rng,
       LAPSE_BUCKETS.map((b) => ({ weight: b.weight, value: b.lapses })),
       0,
     )
-    const tagCount = Math.floor(rng() * 3) + (rng() < 0.5 ? 1 : 0) // 0–3
-    const drawnTags: string[] = []
-    const drawableTags = TAG_POOL.filter((t) => t !== 'weakSpot')
-    for (let t = 0; t < tagCount; t++) {
-      const idx = Math.floor(rng() * drawableTags.length)
-      const tag = drawableTags[idx]
-      if (tag !== undefined && !drawnTags.includes(tag)) drawnTags.push(tag)
-    }
-    if (lapses >= 8) drawnTags.push('weakSpot')
 
     rows.push({
       id:           `fixture-${seed}-${i}`,
@@ -310,7 +249,6 @@ function buildRows(count: number, seed: number): readonly CardsResultRow[] {
       deckName:     deck.name,
       jlptLevel:    vocab.jlpt,
       partOfSpeech: vocab.partOfSpeech,
-      tags:         drawnTags,
       state,
       isSuspended,
       lapses,
