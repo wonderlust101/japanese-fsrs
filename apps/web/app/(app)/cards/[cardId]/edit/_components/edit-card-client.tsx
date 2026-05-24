@@ -367,6 +367,13 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
   // requirement copy escalates from calm guidance to error tone, then bails. A
   // clean attempt PATCHes via updateCardAction (If-Match: card.version for
   // optimistic concurrency) and returns to the page the user came from.
+  // router.back() is a no-op when there's no in-app history (deep-link entry,
+  // reload). Fall back to the card detail so Save/Cancel always lands somewhere.
+  const goBackOrDetail = useCallback((): void => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push(`/cards/${card.id}`)
+  }, [router, card.id])
+
   const onSave = useCallback(async (): Promise<void> => {
     if (saving) return
     if (blockers.length > 0) { setAttemptedSave(true); return }
@@ -392,7 +399,7 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
       // replays the pre-edit render and the save looks like a no-op. Refresh
       // first so the cache is stale before the back-navigation resolves it.
       router.refresh()
-      router.back()
+      goBackOrDetail()
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : 'Could not save your changes.')
       setSaving(false)
@@ -400,12 +407,12 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
     // No finally → setSaving(false): on success we navigate away, so leaving
     // the button in its loading state avoids a flash of the enabled form
     // during the route transition.
-  }, [saving, blockers, fields, card.id, card.version, card.deckId, card.layoutType, router])
+  }, [saving, blockers, fields, card.id, card.version, card.deckId, card.layoutType, router, goBackOrDetail])
 
   const onCancel = useCallback((): void => {
     if (saving) return
-    router.back()
-  }, [saving, router])
+    goBackOrDetail()
+  }, [saving, goBackOrDetail])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
