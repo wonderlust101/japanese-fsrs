@@ -157,7 +157,6 @@ export function buildStrongFixture(): ProgressData {
   })
   return {
     state: 'strong',
-    firstReviewDate: addDays(TODAY_ISO, -365),
     summary: {
       matureCount:         624,
       retention30d:        0.89,
@@ -233,7 +232,6 @@ export function buildLimitedFixture(): ProgressData {
   })
   return {
     state: 'limited',
-    firstReviewDate: addDays(TODAY_ISO, -9),
     summary: {
       matureCount:         0,
       retention30d:        0.86,

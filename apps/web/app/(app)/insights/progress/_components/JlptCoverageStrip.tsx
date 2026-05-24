@@ -15,7 +15,7 @@ interface JlptCoverageStripProps {
  * with the encountered tint as the soft base and the owned fill in the
  * saturated mark color on top.
  *
- * Above the bar: an italic interpretation line. Below: a per-level
+ * Above the bar: a quiet interpretation line. Below: a per-level
  * legend with the colored level pill, owned/total count, and percent.
  * The bar itself is intentionally label-free so it reads as pure
  * data — identity from color, scale from width, coverage from fill.
@@ -43,8 +43,8 @@ export function JlptCoverageStrip({ data }: JlptCoverageStripProps): React.JSX.E
   const totalAll = jlpt.reduce((acc, j) => acc + j.total, 0)
 
   return (
-    <div className="flex flex-col gap-y-5">
-      <p className="max-w-prose text-sm italic leading-relaxed text-sumi-ink/85">
+    <div className="flex flex-col gap-y-6">
+      <p className="max-w-measure text-sm leading-[1.55] text-faded-sumi">
         {buildJlptLine(data)}
       </p>
 
@@ -61,19 +61,19 @@ export function JlptCoverageStrip({ data }: JlptCoverageStripProps): React.JSX.E
         })}
       </div>
 
-      <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-5">
+      <ul className="flex flex-col gap-y-3">
         {jlpt.map((level) => {
           const pct = level.total > 0 ? Math.round((level.owned / level.total) * 100) : 0
           const styles = LEVEL_STYLES[level.level]
           return (
-            <li key={level.level} className="flex flex-col gap-y-1.5">
+            <li key={level.level} className="flex items-center justify-between gap-x-3">
               <span
-                className="inline-flex w-fit items-center rounded-[2px] px-2 py-0.5 font-mono text-[0.6875rem] uppercase tracking-[0.16em]"
+                className="inline-flex w-fit shrink-0 items-center rounded-[2px] px-2 py-0.5 font-mono text-sm"
                 style={{ backgroundColor: styles.washVar, color: styles.textVar }}
               >
                 {level.level}
               </span>
-              <span className="flex items-baseline gap-x-1.5 font-mono text-[0.8125rem] tabular-nums">
+              <span className="flex items-baseline gap-x-2 font-mono text-sm tabular-nums">
                 <span className="text-sumi-ink">{level.owned.toLocaleString('en-US')}</span>
                 <span className="text-faded-sumi">/ {level.total.toLocaleString('en-US')}</span>
                 <span className="text-faded-sumi">({pct}%)</span>

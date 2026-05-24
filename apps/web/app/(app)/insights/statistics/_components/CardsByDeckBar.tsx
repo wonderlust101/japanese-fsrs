@@ -12,11 +12,15 @@ interface CardsByDeckBarProps {
   decks: ReadonlyArray<DeckCardCount>
 }
 
-const VERMILLION_DEEP_RGB = '126, 31, 42'
+/** Vermillion-deep at a given alpha, kept token-driven so the ramp follows
+ *  the brand color rather than a duplicated literal. */
+function vermillionAlpha(alpha: number): string {
+  return `color-mix(in oklch, var(--color-inari-vermillion-deep) ${Math.round(alpha * 100)}%, transparent)`
+}
 
 function segmentBg(rank: number): string {
   const opacity = Math.max(0.32, 1 - rank * 0.14)
-  return `rgba(${VERMILLION_DEEP_RGB}, ${opacity})`
+  return vermillionAlpha(opacity)
 }
 
 /**
@@ -35,15 +39,15 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
 
   if (sorted.length === 0) {
     return (
-      <p className="text-[0.9375rem] italic leading-relaxed text-faded-sumi">
+      <p className="text-sm leading-[1.55] text-faded-sumi">
         No decks yet.
       </p>
     )
   }
 
   return (
-    <figure className="flex flex-col gap-y-5">
-      <div className="flex flex-col gap-y-2.5">
+    <figure className="flex flex-col gap-y-6">
+      <div className="flex flex-col gap-y-3">
         <div
           role="group"
           aria-label={`Proportional bar of card counts across ${sorted.length} decks. Total ${total} cards.`}
@@ -55,7 +59,7 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
             const isActive  = hoveredId === d.id
             const baseAlpha = Math.max(0.32, 1 - i * 0.14)
             const segOpacity = isActive ? Math.min(1, baseAlpha + 0.18) : baseAlpha
-            const segBg = `rgba(${VERMILLION_DEEP_RGB}, ${segOpacity})`
+            const segBg = vermillionAlpha(segOpacity)
             return (
               <Link
                 key={d.id}
@@ -78,15 +82,15 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
                   className={cn(
                     'pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2',
                     'flex items-center gap-x-2 whitespace-nowrap rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
-                    'shadow-[var(--shadow-card)] transition-opacity duration-150',
+                    'shadow-card transition-opacity duration-150',
                     isActive ? 'opacity-100' : 'opacity-0',
                   )}
                 >
-                  <span className="text-[0.8125rem] font-medium text-sumi-ink">{d.name}</span>
+                  <span className="text-sm font-medium text-sumi-ink">{d.name}</span>
                   <span aria-hidden="true" className="text-faded-sumi">·</span>
-                  <span className="font-mono text-[0.75rem] tabular-nums text-sumi-ink/85">{d.totalCards}</span>
+                  <span className="font-mono text-sm tabular-nums text-sumi-ink/85">{d.totalCards}</span>
                   <span aria-hidden="true" className="text-faded-sumi">·</span>
-                  <span className="font-mono text-[0.75rem] font-medium tabular-nums text-inari-vermillion-deep">
+                  <span className="font-mono text-sm font-medium tabular-nums text-inari-vermillion-deep">
                     {share}%
                   </span>
                 </span>
@@ -94,7 +98,7 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
             )
           })}
         </div>
-        <p className="font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+        <p className="font-mono text-sm tabular-nums text-faded-sumi">
           {sorted.length} {sorted.length === 1 ? 'deck' : 'decks'}
           <span className="text-sumi-ink/70"> · </span>
           <span className="text-sumi-ink/85">{total} cards total</span>
@@ -123,9 +127,9 @@ export function CardsByDeckBar({ decks }: CardsByDeckBarProps): React.JSX.Elemen
               <QuietLink href={`/decks/${d.id}`} tone="sumi" trailingArrow size="sm">
                 {d.name}
               </QuietLink>
-              <span className="ml-auto shrink-0 font-mono text-[0.75rem] tabular-nums text-sumi-ink/85">
+              <span className="ml-auto shrink-0 font-mono text-sm tabular-nums text-sumi-ink/85">
                 {d.totalCards}
-                <span className="ml-1.5 text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+                <span className="ml-1.5 text-sm text-faded-sumi">
                   · {share}%
                 </span>
               </span>

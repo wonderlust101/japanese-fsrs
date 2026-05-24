@@ -14,7 +14,7 @@ interface FsrsHistogramProps {
 export function FsrsHistogram({ buckets, ariaLabel }: FsrsHistogramProps): React.JSX.Element {
   if (buckets.length === 0) {
     return (
-      <p className="text-[0.9375rem] italic leading-relaxed text-faded-sumi">
+      <p className="text-sm leading-[1.55] text-faded-sumi">
         No FSRS distribution data yet. Run a couple weeks of reviews to populate this view.
       </p>
     )
@@ -35,7 +35,7 @@ export function FsrsHistogram({ buckets, ariaLabel }: FsrsHistogramProps): React
     <figure
       role="img"
       aria-label={ariaLabel}
-      className="flex flex-col gap-y-2.5"
+      className="flex flex-col gap-y-3"
     >
       {buckets.map((bucket) => {
         const widthPct = (bucket.count / safe) * 100
@@ -43,8 +43,8 @@ export function FsrsHistogram({ buckets, ariaLabel }: FsrsHistogramProps): React
         const opacity = Math.max(0.35, 1 - rank * 0.12)
         const share = total > 0 ? Math.round((bucket.count / total) * 100) : 0
         return (
-          <div key={bucket.label} className="grid grid-cols-[8rem_1fr_auto] items-center gap-x-4">
-            <span className="font-mono text-[0.8125rem] uppercase tracking-[0.14em] text-sumi-ink/85">
+          <div key={bucket.label} className="grid grid-cols-[8rem_1fr_5rem] items-center gap-x-4">
+            <span className="font-mono text-sm text-sumi-ink/85">
               {bucket.label}
             </span>
             <div className="relative h-[10px] w-full overflow-hidden rounded-[2px] bg-soft-hairline/40">
@@ -58,9 +58,9 @@ export function FsrsHistogram({ buckets, ariaLabel }: FsrsHistogramProps): React
                 }}
               />
             </div>
-            <span className="font-mono text-[0.8125rem] tabular-nums text-sumi-ink/85">
+            <span className="text-right font-mono text-sm tabular-nums text-sumi-ink/85">
               {bucket.count}
-              <span className="ml-1.5 text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+              <span className="ml-1.5 text-sm text-faded-sumi">
                 · {share}%
               </span>
             </span>

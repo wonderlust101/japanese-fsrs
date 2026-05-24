@@ -1,16 +1,13 @@
 'use client'
 
 import { useMemo } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
-import { Logo } from '@/components/ui/Logo'
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
-import { useInsightsDistributions, useMaturityHistory } from '@/lib/api/insights'
-import { useDecks } from '@/lib/api/decks'
 import { useReviewForecast } from '@/lib/api/reviews'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { getProfileAction } from '@/lib/actions/profile.actions'
@@ -21,32 +18,30 @@ import { CardsSection } from './CardsSection'
 import { FsrsSection } from './FsrsSection'
 import { RetentionSection } from './RetentionSection'
 import { SchedulingSection } from './SchedulingSection'
+import { SectionCollapseProvider } from './section-collapse'
 import { StatisticsSectionTabs } from './StatisticsSectionTabs'
-import { useStatisticsDevState } from './StatisticsDevPanel'
+import {
+  useStatisticsDecks,
+  useStatisticsDistributions,
+  useStatisticsMaturityHistory,
+} from './statistics-queries'
+import { useStatisticsDevState } from '@/dev/panels/insights-statistics'
 
-const PAGE_SHELL_CLASS     = 'min-h-screen bg-cool-paper-base pb-16'
-const PAGE_CONTAINER_CLASS = 'mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16'
-const HEADER_PADDING_CLASS = 'pt-6 pb-5 sm:pt-8 sm:pb-6 lg:pt-10 lg:pb-8'
+import { InsightsPageShell, INSIGHTS_HEADER_PADDING_CLASS } from '../../_components/InsightsPageShell'
+import { InsightsErrorAlert } from '../../_components/InsightsErrorAlert'
+import { KitsuneEmptyState } from '@/components/ui/KitsuneEmptyState'
 
 function StatisticsTopBar(): React.JSX.Element {
   return (
     <TopBar>
-      <Link
-        href="/insights"
-        className="flex shrink-0 items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <span aria-hidden="true">←</span>
-        <span>Insights</span>
-      </Link>
-      <span aria-hidden="true" className="shrink-0 text-faded-sumi">·</span>
-      <h1 className="flex-1 truncate text-base font-semibold text-sumi-ink">Statistics</h1>
+      <TopBarTitle kanji="数" label="Statistics" />
     </TopBar>
   )
 }
 
 function StatisticsHeader(): React.JSX.Element {
   return (
-    <div className={HEADER_PADDING_CLASS}>
+    <div className={INSIGHTS_HEADER_PADDING_CLASS}>
       <PageHeader
         kanji="数"
         label="Statistics"
@@ -70,11 +65,14 @@ export function StatisticsView(): React.JSX.Element {
   const isDev = process.env.NODE_ENV === 'development'
 
   const dashboardQuery       = useAnalyticsDashboard()
-  const maturityHistoryQuery = useMaturityHistory('90')
-  const decksQuery           = useDecks(50)
+  // Statistics-scoped strict queries: these surface real errors (unlike the
+  // app-wide fail-open hooks) so each module can show a retry distinct from
+  // a genuine empty state.
+  const maturityHistoryQuery = useStatisticsMaturityHistory('90')
+  const decksQuery           = useStatisticsDecks(50)
   const forecastQuery        = useReviewForecast()
   // Bundled rating + interval + stability + difficulty histograms.
-  const distributionsQuery   = useInsightsDistributions()
+  const distributionsQuery   = useStatisticsDistributions()
   // Profile carries `retentionTarget` — the only piece of FSRS state we can
   // surface without a dedicated optimizer-state endpoint.
   const profileQuery = useQuery({
@@ -105,16 +103,14 @@ export function StatisticsView(): React.JSX.Element {
   if (dev.forcedState === 'error') {
     return (
       <PageShell>
-        <ErrorAlert />
-        {dev.panel}
+        <StatisticsErrorAlert onRetry={() => { void dashboardQuery.refetch() }} />
       </PageShell>
     )
   }
   if (dev.forcedState === 'loading') {
     return (
-      <PageShell>
-        <StatisticsSkeleton />
-        {dev.panel}
+      <PageShell header={null}>
+        <PageLoader />
       </PageShell>
     )
   }
@@ -130,17 +126,15 @@ export function StatisticsView(): React.JSX.Element {
   if (isError) {
     return (
       <PageShell>
-        <ErrorAlert />
-        {dev.panel}
+        <StatisticsErrorAlert onRetry={() => { void dashboardQuery.refetch() }} />
       </PageShell>
     )
   }
 
   if (isLoading) {
     return (
-      <PageShell>
-        <StatisticsSkeleton />
-        {dev.panel}
+      <PageShell header={null}>
+        <PageLoader />
       </PageShell>
     )
   }
@@ -151,129 +145,132 @@ export function StatisticsView(): React.JSX.Element {
     return (
       <PageShell>
         <StatisticsEmpty isDev={isDev} />
-        {dev.panel}
       </PageShell>
     )
   }
 
+  // Freshness reflects when the load-bearing query last resolved; suppressed
+  // for dev fixtures (no live fetch behind them).
+  const live      = dev.fixtureData === null
+  const updatedAt = live ? dashboardQuery.dataUpdatedAt : null
+
+  // Per-source failure flags (fixtures never error). Each maps to the modules
+  // it feeds, so a failed section shows a retry rather than looking empty.
+  const distError = live && distributionsQuery.isError
+  const matError  = live && maturityHistoryQuery.isError
+  const deckError = live && decksQuery.isError
+  const fcError   = live && forecastQuery.isError
+
+  const retryDist = (): void => { void distributionsQuery.refetch() }
+  const retryMat  = (): void => { void maturityHistoryQuery.refetch() }
+  const retryDeck = (): void => { void decksQuery.refetch() }
+  const retryFc   = (): void => { void forecastQuery.refetch() }
+
   return (
     <PageShell>
-      <StatisticsSectionTabs />
+      <SectionCollapseProvider>
+        <StatisticsSectionTabs />
 
-      <div className="mt-9 flex flex-col gap-y-14 lg:mt-12 lg:gap-y-16">
-        <ActivitySection
-          days={data.activity}
-          stats={data.activityStats}
-        />
-        <RetentionSection
-          days={data.retention}
-          answers={data.answerButtons}
-        />
-        <CardsSection
-          maturity={data.maturity}
-          decks={data.decks}
-        />
-        <SchedulingSection
-          intervals={data.intervals}
-          cumulative={data.cumulative}
-          overdue={data.overdue}
-        />
-        <FsrsSection
-          fsrs={data.fsrs}
-        />
-      </div>
+        {updatedAt !== null && updatedAt > 0 && (
+          <p className="mt-3 text-right font-mono text-sm text-faded-sumi">
+            Updated {formatRelative(updatedAt)}
+          </p>
+        )}
 
-      <footer className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-soft-hairline pt-6">
-        <QuietLink href="/insights" tone="sumi" trailingArrow size="sm">
-          Back to overview
-        </QuietLink>
-      </footer>
-      {dev.panel}
+        {/* Retention leads (the outcome), then effort, collection, schedule,
+            and the FSRS internals before the closing call to action. */}
+        <div className="mt-6 flex flex-col gap-y-14 lg:mt-8 lg:gap-y-16">
+          <RetentionSection
+            days={data.retention}
+            answers={data.answerButtons}
+            answersError={distError}
+            onRetryAnswers={retryDist}
+          />
+          <ActivitySection
+            days={data.activity}
+            stats={data.activityStats}
+          />
+          <CardsSection
+            maturity={data.maturity}
+            decks={data.decks}
+            maturityError={matError}
+            onRetryMaturity={retryMat}
+            decksError={deckError}
+            onRetryDecks={retryDeck}
+          />
+          <SchedulingSection
+            intervals={data.intervals}
+            cumulative={data.cumulative}
+            overdue={data.overdue}
+            intervalsError={distError}
+            onRetryIntervals={retryDist}
+            scheduleError={fcError}
+            onRetrySchedule={retryFc}
+          />
+          <FsrsSection
+            fsrs={data.fsrs}
+            histogramsError={distError}
+            onRetryHistograms={retryDist}
+          />
+        </div>
+
+      </SectionCollapseProvider>
     </PageShell>
   )
 }
 
-// ── Shared page shell ───────────────────────────────────────────────────────
-// Centralizes the TopBar + container + PageHeader so each return branch
-// doesn't repeat the chrome wiring.
+/** Compact relative time for the freshness cue. */
+function formatRelative(epochMs: number): string {
+  const diffSec = Math.max(0, Math.round((Date.now() - epochMs) / 1000))
+  if (diffSec < 45)   return 'just now'
+  const min = Math.round(diffSec / 60)
+  if (min < 60)       return `${min} min ago`
+  const hr = Math.round(min / 60)
+  if (hr < 24)        return `${hr} hr ago`
+  const days = Math.round(hr / 24)
+  return days === 1 ? 'yesterday' : `${days} days ago`
+}
 
-function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+// ── Shared page shell ───────────────────────────────────────────────────────
+// Wraps the shared <InsightsPageShell> with this page's TopBar + PageHeader so
+// each return branch doesn't repeat the chrome wiring.
+
+function PageShell({
+  header = <StatisticsHeader />,
+  children,
+}: {
+  /** Pass `null` to suppress the page header (e.g. while loading, so the
+   *  centered PageLoader owns the viewport instead of sitting below the
+   *  title + subtitle). */
+  header?:  React.ReactNode
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
-    <>
-      <StatisticsTopBar />
-      <div className={PAGE_SHELL_CLASS}>
-        <div className={PAGE_CONTAINER_CLASS}>
-          <StatisticsHeader />
-          {children}
-        </div>
-      </div>
-    </>
+    <InsightsPageShell topBar={<StatisticsTopBar />} header={header}>
+      {children}
+    </InsightsPageShell>
   )
 }
 
 // ── States ──────────────────────────────────────────────────────────────────
 
-function ErrorAlert(): React.JSX.Element {
-  return (
-    <div
-      role="alert"
-      className="mx-auto w-full max-w-[760px] rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
-    >
-      <p>Couldn&rsquo;t load your statistics right now.</p>
-      <p className="mt-1 text-error-deep/80">
-        Refresh the page, or try again in a moment.
-      </p>
-    </div>
-  )
+function StatisticsErrorAlert({ onRetry }: { onRetry: () => void }): React.JSX.Element {
+  return <InsightsErrorAlert label="your statistics" onRetry={onRetry} />
 }
 
 function StatisticsEmpty({ isDev }: { isDev: boolean }): React.JSX.Element {
   return (
-    <section
-      aria-label="Statistics needs data"
-      className="mx-auto mt-12 flex flex-col items-center gap-y-7 py-6 text-center lg:mt-20"
-    >
-      <Logo size={112} showWordmark={false} priority />
-
-      <p className="max-w-[40ch] font-display text-[1.25rem] leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
-        Statistics fills in after a few weeks of practice.
-      </p>
-
-      <p className="max-w-[52ch] text-sm leading-relaxed text-faded-sumi">
-        {isDev
+    <KitsuneEmptyState
+      ariaLabel="Statistics needs data"
+      headline="Statistics fills in after a few weeks of practice."
+      body={
+        isDev
           ? 'No reviews yet (or pick a fixture from the dev panel in the bottom-left to preview each section).'
-          : 'Come back when you have a couple weeks of reviews. The page will show your activity, retention, collection, scheduling, and FSRS state.'}
-      </p>
-
-      <div className="pt-2">
-        <QuietLink href="/today" tone="brand" trailingArrow size="md">
-          Start a review
-        </QuietLink>
-      </div>
-    </section>
+          : 'Come back when you have a couple weeks of reviews. The page will show your activity, retention, collection, scheduling, and FSRS state.'
+      }
+      ctaHref="/today"
+      ctaLabel="Start a review"
+    />
   )
 }
 
-function StatisticsSkeleton(): React.JSX.Element {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Loading your statistics"
-      className="mt-9 flex flex-col gap-y-14 lg:mt-12 lg:gap-y-16"
-    >
-      {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className="flex flex-col gap-y-5">
-          <div className="flex items-baseline gap-x-3 border-b border-soft-hairline pb-4">
-            <div className="dashboard-skeleton h-7 w-7 rounded-[2px]" />
-            <div className="dashboard-skeleton h-3 w-[6rem] rounded-[2px]" />
-          </div>
-          <div className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-5 py-5 sm:px-6 sm:py-6">
-            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion/40" />
-            <div className="dashboard-skeleton h-3 w-[8rem] rounded-[2px]" />
-            <div className="dashboard-skeleton mt-5 h-40 w-full rounded-[2px]" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}

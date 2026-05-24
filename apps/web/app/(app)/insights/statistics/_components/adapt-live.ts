@@ -68,9 +68,10 @@ export function adaptLiveStatistics(
   return {
     activity,
     activityStats,
-    // Retention chart only needs the trailing window; mirrors the fixture's
-    // `activity.slice(-90)` shape — last 90 days when available.
-    retention:     activity.slice(-90),
+    // Full activity history. The retention curve windows this itself (its
+    // 30/90/365 tab slices the trailing N days), so passing the complete
+    // array is what makes the 365d option real instead of capped at 90.
+    retention:     activity,
     answerButtons: distributions?.ratings ?? emptyAnswerButtons(),
     maturity:      adaptMaturity(matHist),
     decks:         adaptDecks(decks),
@@ -120,36 +121,20 @@ function adaptActivity(
 }
 
 function summarizeActivity(days: ReadonlyArray<ActivityDay>): ActivityStats {
-  let totalReviews  = 0
-  let totalSeconds  = 0
-  let activeDays    = 0
-  let currentStreak = 0
-  let bestStreak    = 0
-  let runStreak     = 0
+  let totalReviews = 0
+  let totalSeconds = 0
+  let activeDays   = 0
 
-  for (let i = 0; i < days.length; i += 1) {
-    const d = days[i]
+  for (const d of days) {
     if (d === undefined) continue
     if (d.count > 0) {
       totalReviews += d.count
       totalSeconds += d.seconds
       activeDays   += 1
-      runStreak    += 1
-      if (runStreak > bestStreak) bestStreak = runStreak
-    } else {
-      runStreak = 0
     }
   }
 
-  // Walk from the most recent day backward to compute the trailing streak.
-  // Stops at the first inactive day to match the fixture summarizer's intent.
-  for (let i = days.length - 1; i >= 0; i -= 1) {
-    const d = days[i]
-    if (d === undefined || d.count <= 0) break
-    currentStreak += 1
-  }
-
-  return { totalReviews, totalSeconds, activeDays, bestStreak, currentStreak }
+  return { totalReviews, totalSeconds, activeDays }
 }
 
 // ── Maturity ─────────────────────────────────────────────────────────────────
@@ -178,11 +163,10 @@ function adaptMaturity(
     learning:  latest.learningCount + latest.relearningCount,
     young:     Math.max(0, latest.reviewCount - latest.matureCount),
     mature:    latest.matureCount,
-    // The maturity-history endpoint excludes suspended cards by design
-    // (`suspended = FALSE` predicate on the snapshot RPC). No separate
-    // signal exists today; the bar collapses the suspended segment to 0
-    // until we either expose it on this endpoint or surface it elsewhere.
-    suspended: 0,
+    // Suspended cards sit outside the four pipeline buckets. The snapshot
+    // RPC reports them as a separate tally (today's row computed live); the
+    // flow bar renders them as its stepped-out grey segment.
+    suspended: latest.suspendedCount,
   }
 }
 

@@ -1,7 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
-import Link from 'next/link'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type {
   ApiAnalyticsDashboard,
@@ -9,20 +8,32 @@ import type {
 } from '@fsrs-japanese/shared-types'
 
 import { TopBar } from '@/app/(app)/_components/top-bar'
+import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { PageLoader } from '@/components/ui/TomoLoader'
+import { ModuleError } from '@/components/ui/ModuleError'
+import { InsightsPageShell, INSIGHTS_HEADER_PADDING_CLASS } from '../../_components/InsightsPageShell'
+import { InsightsErrorAlert } from '../../_components/InsightsErrorAlert'
 import { useAnalyticsDashboard } from '@/lib/api/analytics'
 import { useMaturityHistory } from '@/lib/api/insights'
 import { getProfileAction } from '@/lib/actions/profile.actions'
 import { queryKeys } from '@/lib/api/queryKeys'
+
+import { ChartRangeToggle } from '../../_components/ChartRangeToggle'
 
 import { JlptCoverageStrip } from './JlptCoverageStrip'
 import { MatureStackedArea } from './MatureStackedArea'
 import { ProgressEmpty } from './ProgressEmpty'
 import { ProgressSummaryStrip } from './ProgressSummaryStrip'
 import { RetentionRibbonChart } from './RetentionRibbonChart'
-import { YearHeatmap } from './YearHeatmap'
+import { YearHeatmap } from '@/components/charts'
+import {
+  DEFAULT_PROGRESS_RANGE,
+  PROGRESS_RANGES,
+  rangeLabel,
+  type ProgressRangeKey,
+} from './progressRange'
 import {
   buildHeaderLine,
   buildMatureLine,
@@ -40,7 +51,7 @@ import {
   type ProgressSummary,
   type RetentionPoint,
 } from './progressTypes'
-import { useProgressDevState } from './ProgressDevPanel'
+import { useProgressDevState } from '@/dev/panels/insights-progress'
 
 /**
  * Mature-card thresholds the Mature section marks with milestone dots. The
@@ -51,24 +62,12 @@ import { useProgressDevState } from './ProgressDevPanel'
  */
 const MATURE_MILESTONES: ReadonlyArray<number> = [100, 250, 500, 1000, 2500, 5000]
 
-const PAGE_SHELL_CLASS     = 'min-h-screen bg-cool-paper-base pb-16'
-const PAGE_CONTAINER_CLASS = 'mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12 xl:px-16'
-const HEADER_PADDING_CLASS = 'pt-6 pb-5 sm:pt-8 sm:pb-6 lg:pt-10 lg:pb-8'
-
 // ── Page chrome ─────────────────────────────────────────────────────────────
 
 function ProgressTopBar(): React.JSX.Element {
   return (
     <TopBar>
-      <Link
-        href="/insights"
-        className="flex shrink-0 items-center gap-1 text-sm text-faded-sumi transition-colors hover:text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <span aria-hidden="true">←</span>
-        <span>Insights</span>
-      </Link>
-      <span aria-hidden="true" className="shrink-0 text-faded-sumi">·</span>
-      <h1 className="flex-1 truncate text-base font-semibold text-sumi-ink">Progress</h1>
+      <TopBarTitle kanji="歩" label="Progress" />
     </TopBar>
   )
 }
@@ -79,7 +78,7 @@ interface ProgressHeaderProps {
 
 function ProgressHeader({ subtitle }: ProgressHeaderProps): React.JSX.Element {
   return (
-    <div className={HEADER_PADDING_CLASS}>
+    <div className={INSIGHTS_HEADER_PADDING_CLASS}>
       <PageHeader
         kanji="進"
         label="Progress"
@@ -154,9 +153,6 @@ function adaptDashboard(
     daysSinceStart:      heatmap.filter((d) => d.count > 0).length,
   }
 
-  const firstActive = heatmap.find((d) => d.count > 0)
-  const firstReviewDate = firstActive?.date ?? heatmap[0]?.date ?? new Date().toISOString().slice(0, 10)
-
   const state = classifyProgress({
     retention,
     mature,
@@ -166,7 +162,6 @@ function adaptDashboard(
 
   return {
     state,
-    firstReviewDate,
     summary,
     retention,
     mature,
@@ -231,6 +226,9 @@ function computeMilestones(series: ReadonlyArray<MaturePoint>): MatureMilestone[
 export function ProgressView(): React.JSX.Element {
   const dev = useProgressDevState()
   const isDev = process.env.NODE_ENV === 'development'
+  // One range drives both time-series charts. The control lives in the
+  // Retention card header; the Mature card echoes the value read-only.
+  const [range, setRange] = useState<ProgressRangeKey>(DEFAULT_PROGRESS_RANGE)
   const dashboardQuery       = useAnalyticsDashboard()
   // 365-day window so the Mature section's "All" range surfaces a full
   // year of pipeline history. Smaller ranges (30d/90d/6m/1y) inside the
@@ -257,72 +255,74 @@ export function ProgressView(): React.JSX.Element {
     )
   }, [dev.fixtureData, dashboardQuery.data, maturityHistoryQuery.data, profileQuery.data])
 
+  const defaultSubtitle = "What you've grown, where you stand, how you've been showing up."
+
   // Forced dev states win first.
   if (dev.forcedState === 'error') {
     return (
-      <PageShell>
-        <ProgressHeader subtitle="What you've grown, where you stand, how you've been showing up." />
-        <ErrorAlert />
-        {dev.panel}
+      <PageShell header={<ProgressHeader subtitle={defaultSubtitle} />}>
+        <InsightsErrorAlert
+          label="your progress"
+          onRetry={() => { void dashboardQuery.refetch() }}
+        />
       </PageShell>
     )
   }
   if (dev.forcedState === 'loading') {
+    // Header omitted while loading so the centered PageLoader owns the
+    // viewport instead of sitting below the title + subtitle.
     return (
-      <PageShell>
-        <ProgressHeader subtitle="What you've grown, where you stand, how you've been showing up." />
-        <ProgressSkeleton />
-        {dev.panel}
+      <PageShell header={null}>
+        <PageLoader />
       </PageShell>
     )
   }
 
   if (dev.fixtureData === null && dashboardQuery.isError) {
     return (
-      <PageShell>
-        <ProgressHeader subtitle="What you've grown, where you stand, how you've been showing up." />
-        <ErrorAlert />
-        {dev.panel}
+      <PageShell header={<ProgressHeader subtitle={defaultSubtitle} />}>
+        <InsightsErrorAlert
+          label="your progress"
+          onRetry={() => { void dashboardQuery.refetch() }}
+        />
       </PageShell>
     )
   }
 
-  if (dev.fixtureData === null && dashboardQuery.isLoading) {
+  if (dev.fixtureData === null && (dashboardQuery.isLoading || maturityHistoryQuery.isLoading)) {
     return (
-      <PageShell>
-        <ProgressHeader subtitle="What you've grown, where you stand, how you've been showing up." />
-        <ProgressSkeleton />
-        {dev.panel}
+      <PageShell header={null}>
+        <PageLoader />
       </PageShell>
     )
   }
 
   if (data === null || data.state === 'limited') {
     return (
-      <PageShell>
-        <ProgressHeader
-          subtitle={
-            data === null
-              ? "What you've grown, where you stand, how you've been showing up."
-              : buildHeaderLine(data)
-          }
-        />
+      <PageShell
+        header={
+          <ProgressHeader
+            subtitle={data === null ? defaultSubtitle : buildHeaderLine(data)}
+          />
+        }
+      >
         <ProgressEmpty
-          firstReviewDate={data?.firstReviewDate ?? null}
+          activeDays={data?.retention.length ?? null}
           isDev={isDev && dev.fixtureData !== null}
         />
-        {dev.panel}
       </PageShell>
     )
   }
 
   const headerLine = buildHeaderLine(data)
   const hasMature  = data.mature.length >= 14
+  // Surface a real maturity-history fetch failure instead of silently showing
+  // the "few more weeks" fallback, which would masquerade as an empty state.
+  const maturityError = dev.fixtureData === null && maturityHistoryQuery.isError
 
   return (
-    <PageShell>
-      <ProgressHeader subtitle={headerLine} />
-
+    <PageShell header={<ProgressHeader subtitle={headerLine} />}>
+      {/* Outcomes tier: the "are you on track" story, full-width and leading. */}
       <div className="flex flex-col gap-y-8 lg:gap-y-10">
         <SectionCard
           id="progress-summary"
@@ -342,10 +342,19 @@ export function ProgressView(): React.JSX.Element {
           description={buildRetentionLine(data)}
           chrome="chart"
           variant="chart"
+          rightContent={
+            <ChartRangeToggle
+              label="Time range for the retention and mature charts"
+              options={PROGRESS_RANGES}
+              value={range}
+              onChange={setRange}
+            />
+          }
         >
           <RetentionRibbonChart
             series={data.retention}
             desiredRetention={data.desiredRetention}
+            range={range}
           />
         </SectionCard>
 
@@ -354,23 +363,35 @@ export function ProgressView(): React.JSX.Element {
           kanji="熟"
           label="Mature growth"
           description={
-            hasMature
-              ? buildMatureLine(data)
-              : 'A few more weeks of practice will fill this chart.'
+            maturityError
+              ? 'The maturity history could not be loaded.'
+              : hasMature
+                ? buildMatureLine(data)
+                : 'A few more weeks of practice will fill this chart.'
           }
           chrome="chart"
           variant="chart"
+          rightContent={hasMature && !maturityError ? <RangeEcho rangeKey={range} /> : undefined}
         >
-          {hasMature ? (
+          {maturityError ? (
+            <ModuleError
+              label="the maturity history"
+              onRetry={() => { void maturityHistoryQuery.refetch() }}
+            />
+          ) : hasMature ? (
             <MatureStackedArea
               series={data.mature}
               milestones={data.milestones}
+              range={range}
             />
           ) : (
             <MatureFallbackNote />
           )}
         </SectionCard>
 
+        {/* Context tier: secondary read. JLPT coverage and the year heatmap
+            each take their own full-width row so neither chart is cramped,
+            matching the full-width rhythm of the outcomes tier above. */}
         <SectionCard
           id="progress-jlpt"
           kanji="級"
@@ -390,73 +411,40 @@ export function ProgressView(): React.JSX.Element {
           chrome="chart"
           variant="chart"
         >
-          <YearHeatmap cells={data.heatmap} />
+          <YearHeatmap days={data.heatmap} />
         </SectionCard>
       </div>
-
-      <footer className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-soft-hairline pt-6">
-        <QuietLink href="/insights" tone="sumi" trailingArrow size="sm">
-          Back to overview
-        </QuietLink>
-      </footer>
-      {dev.panel}
     </PageShell>
   )
 }
 
 // ── PageShell + auxiliary blocks ───────────────────────────────────────────
 
-function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+function PageShell({
+  header,
+  children,
+}: {
+  header:   React.ReactNode
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
-    <>
-      <ProgressTopBar />
-      <div className={PAGE_SHELL_CLASS}>
-        <div className={PAGE_CONTAINER_CLASS}>{children}</div>
-      </div>
-    </>
+    <InsightsPageShell topBar={<ProgressTopBar />} header={header}>
+      {children}
+    </InsightsPageShell>
   )
 }
 
-function ErrorAlert(): React.JSX.Element {
+/**
+ * Read-only echo of the active page range, shown in the Mature card header.
+ * The Mature chart follows the range set on the Retention card; this label
+ * makes that coupling visible so the control never feels like it's acting at
+ * a distance. Not a second control, just a mirror.
+ */
+function RangeEcho({ rangeKey }: { rangeKey: ProgressRangeKey }): React.JSX.Element {
   return (
-    <div
-      role="alert"
-      className="mx-auto w-full max-w-[760px] rounded-[2px] border border-error/30 bg-error-tint/40 px-5 py-6 text-sm text-error-deep"
-    >
-      <p>Couldn&rsquo;t load your progress right now.</p>
-      <p className="mt-1 text-error-deep/80">Refresh the page, or try again in a moment.</p>
-    </div>
-  )
-}
-
-function ProgressSkeleton(): React.JSX.Element {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Loading your progress"
-      className="flex flex-col gap-y-8 lg:gap-y-10"
-    >
-      {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          className="relative overflow-hidden rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-5 py-5 sm:px-6 sm:py-6"
-        >
-          <span
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-[2px] bg-inari-vermillion/40"
-          />
-          <div className="flex items-baseline gap-x-3 border-b border-soft-hairline pb-4">
-            <div className="dashboard-skeleton h-7 w-7 rounded-[2px]" />
-            <div className="dashboard-skeleton h-3 w-[8rem] rounded-[2px]" />
-          </div>
-          <div className="mt-5 flex flex-col gap-y-2">
-            <div className="dashboard-skeleton h-4 w-full rounded-[2px]" />
-            <div className="dashboard-skeleton h-4 w-3/4 rounded-[2px]" />
-          </div>
-          <div className="dashboard-skeleton mt-5 h-40 w-full rounded-[2px]" />
-        </div>
-      ))}
-    </div>
+    <span className="font-mono text-sm lowercase tracking-wide text-faded-sumi">
+      range · {rangeLabel(rangeKey).toLowerCase()}
+    </span>
   )
 }
 

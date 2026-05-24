@@ -46,7 +46,10 @@ export interface ReportRecommendation {
   headline: string
   /** Optional supporting sentence. */
   body?:    string
-  action:  { label: string; href: string }
+  /** Optional "do this next" CTA. Omitted for forward-looking states where
+   *  there's nothing to start yet (e.g. tomorrow's load), so the callout
+   *  stays a quiet statement rather than offering an action it can't fulfil. */
+  action?:  { label: string; href: string }
 }
 
 export interface ReportHeadline {
@@ -92,7 +95,16 @@ export function buildWeeklyReportInputs(
   forecast:  ReadonlyArray<ApiForecastDay> | undefined,
 ): WeeklyReportInputs {
   return {
-    heatmap:  dashboard?.heatmap.items  ?? [],
+    // Heatmap retention is 0–100 on the wire; the entire Overview module
+    // (narrative thresholds in `meanRetention`/`deriveSignals` and the
+    // `RetentionChart` percentage formatting) assumes a 0–1 fraction.
+    // Normalize once here, at the live ingestion boundary, exactly as the
+    // Statistics page does in `adapt-live.ts`. Dev fixtures already supply
+    // fractions and bypass this builder, so they are unaffected.
+    heatmap:  (dashboard?.heatmap.items ?? []).map((d) => ({
+      ...d,
+      retention: d.count > 0 ? d.retention / 100 : 0,
+    })),
     accuracy: dashboard?.accuracy.items ?? [],
     jlptGap:  dashboard?.jlptGap.items  ?? [],
     forecast: forecast                  ?? [],
@@ -314,7 +326,7 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
     kind:     'mistakes',
     kanji:    '弱',
     label:    "Where you're slipping",
-    deepLink: { label: 'Open weak spots', href: '/insights/weak-spots' },
+    deepLink: { label: 'Open weak spots', href: '/weak-spots' },
     figure:   'mistakes',
   }
 
@@ -324,7 +336,7 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
       ...base,
       tone:     'neutral',
       severity: 10,
-      body: `No clear pattern yet — your accuracy will take shape as the reviews compound.`,
+      body: `Not enough reviews yet to read a pattern. It will take shape as you practice.`,
     }
   }
 
@@ -335,7 +347,7 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
       ...base,
       tone:     'attention',
       severity: 90,
-      body: `Your reviews are landing at *${pct}%* across *${a.total} cards*. This is the most worthwhile place to spend a quiet ten minutes.`,
+      body: `Accuracy is *${pct}%* across ${a.total} reviews, so misses are running well over your 85% target. The chart marks each day that landed below the line; this is the most worthwhile place to spend a quiet ten minutes.`,
     }
   }
   if (pct < 75) {
@@ -343,7 +355,7 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
       ...base,
       tone:     'attention',
       severity: 65,
-      body: `Accuracy has slipped to *${pct}%* across *${a.total} reviews*. A short repair pass would lift the average.`,
+      body: `Accuracy is *${pct}%* across ${a.total} reviews, a little over your 85% target. The days below the line in the chart are where a short repair pass would help most.`,
     }
   }
   if (pct < 85) {
@@ -351,14 +363,14 @@ function buildMistakesNote(s: DerivedSignals): ReportNote {
       ...base,
       tone:     'neutral',
       severity: 30,
-      body: `Accuracy is *${pct}%* across ${a.total} reviews. Steady, with room to climb.`,
+      body: `Accuracy is *${pct}%* across ${a.total} reviews, tracking close to your 85% target. Steady, with room to climb.`,
     }
   }
   return {
     ...base,
     tone:     'celebratory',
     severity: 15,
-    body: `Accuracy is *${pct}%* across ${a.total} reviews. The collection is healthy.`,
+    body: `Accuracy is *${pct}%* across ${a.total} reviews. The chart tracks each day's misses against your 85% target; the collection is healthy.`,
   }
 }
 
@@ -416,7 +428,7 @@ function buildRecommendation(lead: ReportNote, s: DerivedSignals): ReportRecomme
       kanji:    '要',
       headline: 'Spend ten quiet minutes on your slipping cards.',
       body:     'A focused repair pass on what you\'re missing now lifts the whole average.',
-      action:   { label: 'Drill weak spots', href: '/insights/weak-spots' },
+      action:   { label: 'Drill weak spots', href: '/weak-spots' },
     }
   }
   if (lead.kind === 'progress' && lead.tone === 'attention') {
@@ -442,14 +454,12 @@ function buildRecommendation(lead: ReportNote, s: DerivedSignals): ReportRecomme
       tone:     'celebratory',
       kanji:    '続',
       headline: 'Keep the rhythm. Tomorrow looks like a manageable day.',
-      action:   { label: 'Start tomorrow\'s review', href: '/today' },
     }
   }
   return {
     tone:     'pacing',
     kanji:    '今',
     headline: `Tomorrow's review is ${s.forecast.tomorrow} card${s.forecast.tomorrow === 1 ? '' : 's'} — a steady start.`,
-    action:   { label: 'Start tomorrow\'s review', href: '/today' },
   }
 }
 
@@ -537,7 +547,7 @@ export function buildWeeklyReport(
       severity: 0,
       figure:   null,
       body:     'Mistake patterns surface once you have a handful of reviews behind you.',
-      deepLink: { label: 'Open weak spots', href: '/insights/weak-spots' },
+      deepLink: { label: 'Open weak spots', href: '/weak-spots' },
     }
     const placeholderPlanning: ReportNote = {
       kind:     'planning',
@@ -570,22 +580,23 @@ export function buildWeeklyReport(
   const mistakes = buildMistakesNote(signals)
   const planning = buildPlanningNote(signals)
 
-  const ranked = [progress, mistakes, planning].sort((a, b) => {
+  // The three notes always render in the same slots — progress leads, mistakes
+  // sits in the medium slot, planning closes in the compact slot — so the
+  // sections never swap positions between loads. Severity is used only to pick
+  // which note steers the headline and recommendation copy at the top of the
+  // page (a single fixed-position element), not to reorder the cards below.
+  const mostSevere = [progress, mistakes, planning].sort((a, b) => {
     if (a.severity !== b.severity) return b.severity - a.severity
     // Deterministic tiebreak: progress > mistakes > planning when severities tie.
     const order: Record<NoteKind, number> = { progress: 0, mistakes: 1, planning: 2 }
     return order[a.kind] - order[b.kind]
-  })
-
-  const lead   = ranked[0] as ReportNote
-  const second = ranked[1] as ReportNote
-  const third  = ranked[2] as ReportNote
+  })[0] as ReportNote
 
   return {
     window,
-    headline:       buildHeadline(lead, signals, seed),
-    recommendation: buildRecommendation(lead, signals),
-    notes:          { lead, second, third },
+    headline:       buildHeadline(mostSevere, signals, seed),
+    recommendation: buildRecommendation(mostSevere, signals),
+    notes:          { lead: progress, second: mistakes, third: planning },
     lowData:        false,
   }
 }

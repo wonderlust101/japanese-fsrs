@@ -34,14 +34,14 @@ export function InsightsMasthead({
   weekNumber,
 }: InsightsMastheadProps): React.JSX.Element {
   return (
-    <header className="flex flex-col gap-y-5">
-      <div className="flex items-center gap-x-4 sm:gap-x-5">
+    <header className="flex flex-col gap-y-6">
+      <div className="flex items-center gap-x-4 sm:gap-x-6">
         <Logo size={48} showWordmark={false} priority />
-        <div className="flex min-w-0 flex-col gap-y-1.5">
-          <p className="text-[0.8125rem] font-medium uppercase leading-none tracking-[0.28em] text-sumi-ink sm:text-[0.9375rem] sm:tracking-[0.34em]">
+        <div className="flex min-w-0 flex-col gap-y-2">
+          <p className="text-sm font-medium uppercase leading-none tracking-[0.28em] text-sumi-ink sm:text-base sm:tracking-[0.34em]">
             Tomo&nbsp;&nbsp;·&nbsp;&nbsp;Insights
           </p>
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi">
+          <p className="font-mono text-sm text-faded-sumi">
             Week {String(weekNumber).padStart(2, '0')} · {rangeLabel(weekStart, weekEnd)}
           </p>
         </div>

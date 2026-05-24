@@ -1,5 +1,4 @@
-import { Logo } from '@/components/ui/Logo'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { KitsuneEmptyState } from '@/components/ui/KitsuneEmptyState'
 
 /**
  * Empty / new-user state for the Insights Overview. The kitsune sits at
@@ -10,27 +9,12 @@ import { QuietLink } from '@/components/ui/QuietLink'
  */
 export function EmptyInsights(): React.JSX.Element {
   return (
-    <section
-      aria-label="Insights need a few more sessions"
-      className="mx-auto flex flex-col items-center gap-y-7 py-6 text-center"
-    >
-      <Logo size={112} showWordmark={false} priority />
-
-      <p className="max-w-[36ch] font-display text-[1.25rem] leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
-        Your report needs a few sessions to find its shape.
-      </p>
-
-      <p className="max-w-[44ch] text-sm leading-relaxed text-faded-sumi">
-        After three or four more reviews, the page will fill in with what
-        you&rsquo;re working on, where you&rsquo;re slipping, and what the
-        week ahead looks like.
-      </p>
-
-      <div className="pt-2">
-        <QuietLink href="/today" tone="brand" trailingArrow size="md">
-          Start a review
-        </QuietLink>
-      </div>
-    </section>
+    <KitsuneEmptyState
+      ariaLabel="Insights need a few more sessions"
+      headline="Your report needs a few sessions to find its shape."
+      body="After three or four more reviews, the page will fill in with what you’re working on, where you’re slipping, and what the week ahead looks like."
+      ctaHref="/today"
+      ctaLabel="Start a review"
+    />
   )
 }

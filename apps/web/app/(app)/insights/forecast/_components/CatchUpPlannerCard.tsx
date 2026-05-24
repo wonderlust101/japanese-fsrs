@@ -3,7 +3,6 @@ import Link from 'next/link'
 import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
-import { QuietLink } from '@/components/ui/QuietLink'
 import { cn } from '@/lib/utils'
 
 interface CatchUpPlannerCardProps {
@@ -51,7 +50,7 @@ export function CatchUpPlannerCard({
       label="Catch up"
       description={`${backlog} overdue ${backlog === 1 ? 'card is' : 'cards are'} waiting. Three ways to bring the queue back to current.`}
     >
-      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3 sm:gap-x-5">
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3 sm:gap-x-6">
         {scenarios.map((sc) => (
           <ScenarioTile key={sc.key} scenario={sc} />
         ))}
@@ -67,9 +66,9 @@ export function CatchUpPlannerCard({
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           )}
         >
-          Start a session
+          Start a review
         </Link>
-        <span className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+        <span className="font-mono text-sm text-faded-sumi">
           Moderate is the gentle middle.
         </span>
       </div>
@@ -84,23 +83,26 @@ function ScenarioTile({ scenario }: { scenario: Scenario }): React.JSX.Element {
   return (
     <div
       className={cn(
-        'flex flex-col gap-y-2 rounded-[2px] border px-4 py-4',
+        // Recommended is the only bordered/filled tile, so the border reads
+        // purely as a selection signal. The others carry a transparent border
+        // of the same width to keep all three boxes optically aligned.
+        'flex flex-col gap-y-2 rounded-[2px] border py-4',
         recommended
-          ? 'border-inari-vermillion bg-vermillion-wash/40'
-          : 'border-soft-hairline bg-cream-inset/55',
+          ? 'border-inari-vermillion bg-vermillion-wash/40 px-4'
+          : 'border-transparent px-1',
       )}
     >
       <div className="flex items-baseline justify-between gap-x-3">
         <span
           className={cn(
-            'font-mono text-[0.6875rem] uppercase tracking-[0.18em]',
+            'font-mono text-sm',
             recommended ? 'text-inari-vermillion-deep' : 'text-faded-sumi',
           )}
         >
           {label}
         </span>
         {recommended && (
-          <span className="font-mono text-[0.625rem] uppercase tracking-[0.16em] text-inari-vermillion-deep">
+          <span className="font-mono text-sm text-inari-vermillion-deep">
             Recommended
           </span>
         )}
@@ -109,9 +111,9 @@ function ScenarioTile({ scenario }: { scenario: Scenario }): React.JSX.Element {
         <span className="font-display text-[1.75rem] font-medium leading-none tabular-nums text-sumi-ink">
           {perDay}
         </span>
-        <span className="text-[0.8125rem] text-faded-sumi">/ day</span>
+        <span className="text-sm text-faded-sumi">/ day</span>
       </div>
-      <p className="text-[0.8125rem] leading-relaxed text-sumi-ink/85">
+      <p className="text-sm leading-relaxed text-sumi-ink/85">
         Clears the backlog in <span className="font-medium text-sumi-ink">{days} days</span>.
       </p>
     </div>
@@ -125,11 +127,13 @@ function AllClearMoment(): React.JSX.Element {
     <SectionCard kanji="整" label="Catch up" omitTitle>
       <div className="flex flex-col items-center gap-y-6 py-6 text-center">
         {/* Hi-no-maru disc with the 整 kanji reversed out in warm paper.
-            A small ✦ sits above as the brand's quiet "well done" glyph. */}
-        <div className="relative flex items-center justify-center">
+            A small ✦ sits above as the brand's quiet "well done" glyph,
+            stacked in-flow (not absolutely positioned) so its height counts
+            toward the group and the surrounding spacing stays balanced. */}
+        <div className="flex flex-col items-center gap-y-2">
           <span
             aria-hidden="true"
-            className="absolute -top-7 font-display text-[1.25rem] leading-none text-inari-vermillion-deep"
+            className="font-display text-lg leading-none text-inari-vermillion-deep"
           >
             ✦
           </span>
@@ -147,18 +151,12 @@ function AllClearMoment(): React.JSX.Element {
         </div>
 
         <div className="flex flex-col gap-y-2">
-          <p className="font-display text-[1.625rem] leading-[1.2] text-sumi-ink">
+          <p className="font-display text-section text-sumi-ink">
             All clear.
           </p>
-          <p className="max-w-[44ch] text-[0.9375rem] leading-relaxed text-faded-sumi">
+          <p className="max-w-measure-tight text-base leading-relaxed text-faded-sumi">
             No overdue cards waiting. The schedule is yours to set today, with nothing pulling at you from yesterday.
           </p>
-        </div>
-
-        <div className="pt-1">
-          <QuietLink href="/today" tone="brand" trailingArrow size="md">
-            Start today&rsquo;s review
-          </QuietLink>
         </div>
       </div>
     </SectionCard>

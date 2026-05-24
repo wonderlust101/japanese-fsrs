@@ -5,13 +5,25 @@ import { useMemo, useState } from 'react'
 import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { QuietLink } from '@/components/ui/QuietLink'
 import { cn } from '@/lib/utils'
+
+import { AxisText, DATA_INK } from '@/components/charts'
+import {
+  addDays,
+  dayLetter,
+  dayOfMonth,
+  isoFromDate,
+  isWeekEnd,
+  niceCeil,
+} from '@/components/charts'
+import { ScrollableChartFrame } from '@/components/charts'
 
 import {
   smoothAreaPath,
   smoothLinePath,
   type Pt,
-} from '../../_components/chartPaths'
+} from '@/components/charts'
 
 interface NewCardImpactCardProps {
   forecast: ReadonlyArray<ApiForecastDay>
@@ -38,40 +50,6 @@ const PAD_RIGHT  = 14
 const PAD_TOP    = 32
 const PAD_BOTTOM = 46
 const DAYS       = 7
-
-function parseIso(iso: string): Date {
-  return new Date(`${iso}T00:00:00Z`)
-}
-
-function isoFromDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function addDays(iso: string, n: number): string {
-  const d = parseIso(iso)
-  d.setUTCDate(d.getUTCDate() + n)
-  return isoFromDate(d)
-}
-
-function dayLetter(iso: string): string {
-  const dow = (parseIso(iso).getUTCDay() + 6) % 7
-  return ['M', 'T', 'W', 'T', 'F', 'S', 'S'][dow] as string
-}
-
-function dayOfMonth(iso: string): string {
-  return iso.slice(8, 10).replace(/^0/, '')
-}
-
-function niceCeil(n: number): number {
-  if (n <= 5)   return 5
-  if (n <= 10)  return 10
-  if (n <= 25)  return 25
-  if (n <= 50)  return 50
-  if (n <= 100) return 100
-  if (n <= 200) return 200
-  if (n <= 500) return 500
-  return Math.ceil(n / 250) * 250
-}
 
 interface DayPoint {
   date:      string
@@ -216,6 +194,7 @@ export function NewCardImpactCard({
       description="A rough estimate of how changing your new-card pace would shift the next seven days."
     >
       <div className="pb-1 lg:py-2 xl:py-3">
+        <ScrollableChartFrame minWidth={640}>
         <svg
           role="img"
           aria-label={
@@ -239,16 +218,9 @@ export function NewCardImpactCard({
                   strokeOpacity={idx === 0 ? 1 : 0.7}
                   strokeWidth={1}
                 />
-                <text
-                  x={PAD_LEFT - 10}
-                  y={y + 4}
-                  textAnchor="end"
-                  fontSize={13}
-                  fontFamily="ui-monospace, monospace"
-                  fill="var(--color-faded-sumi)"
-                >
+                <AxisText x={PAD_LEFT - 10} y={y + 4} anchor="end">
                   {Math.round(tick)}
-                </text>
+                </AxisText>
               </g>
             )
           })}
@@ -305,39 +277,29 @@ export function NewCardImpactCard({
 
           {/* X axis labels */}
           {dayPoints.map((d, i) => {
-            const showDate = (parseIso(d.date).getUTCDay() + 6) % 7 === 6
+            const showDate = isWeekEnd(d.date)
             return (
               <g key={`x-${d.date}`}>
-                <text
+                <AxisText
                   x={xFor(i)}
                   y={VIEW_H - PAD_BOTTOM + 20}
-                  textAnchor="middle"
-                  fontSize={13}
-                  fontFamily="ui-monospace, monospace"
-                  fontWeight={i === 0 ? 600 : 400}
-                  fill={i === 0 ? 'var(--color-inari-vermillion-deep)' : 'var(--color-faded-sumi)'}
+                  weight={i === 0 ? 600 : 400}
+                  fill={i === 0 ? DATA_INK : undefined}
                 >
                   {d.letter}
-                </text>
+                </AxisText>
                 {showDate && (
-                  <text
-                    x={xFor(i)}
-                    y={VIEW_H - PAD_BOTTOM + 34}
-                    textAnchor="middle"
-                    fontSize={10.5}
-                    fontFamily="ui-monospace, monospace"
-                    fill="var(--color-faded-sumi)"
-                    opacity={0.7}
-                  >
+                  <AxisText x={xFor(i)} y={VIEW_H - PAD_BOTTOM + 34} size={10.5}>
                     {dayOfMonth(d.date)}
-                  </text>
+                  </AxisText>
                 )}
               </g>
             )
           })}
         </svg>
+        </ScrollableChartFrame>
 
-        <figcaption className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+        <figcaption className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums text-faded-sumi">
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <LegendLine color="var(--color-sumi-ink)" opacity={0.7} label={`At current · ${baselineWeek}`} />
             <LegendLine color="var(--color-inari-vermillion-deep)" label={`At chosen · ${projectedWeek}`} bold />
@@ -350,7 +312,7 @@ export function NewCardImpactCard({
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <label
               htmlFor="newcard-pace-number"
-              className="font-mono text-[0.8125rem] uppercase tracking-[0.18em] text-faded-sumi"
+              className="font-mono text-sm text-faded-sumi"
             >
               Set your pace
             </label>
@@ -382,7 +344,7 @@ export function NewCardImpactCard({
                   '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
                 )}
               />
-              <span className="font-mono text-[0.8125rem] uppercase tracking-[0.14em] text-faded-sumi">
+              <span className="font-mono text-sm text-faded-sumi">
                 new / day
               </span>
             </label>
@@ -401,14 +363,14 @@ export function NewCardImpactCard({
               'block w-full appearance-none bg-transparent',
               '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-[2px] [&::-webkit-slider-runnable-track]:bg-soft-hairline',
               '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-[2px] [&::-moz-range-track]:bg-soft-hairline',
-              '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-[7px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-inari-vermillion-deep [&::-webkit-slider-thumb]:cursor-grab',
-              '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-inari-vermillion-deep [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab',
+              '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-[9px] [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-inari-vermillion-deep [&::-webkit-slider-thumb]:cursor-grab',
+              '[&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-inari-vermillion-deep [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
             )}
           />
 
-          <p className="text-[0.9375rem] leading-relaxed text-sumi-ink/90">
-            <span className="font-mono text-[0.8125rem] uppercase tracking-[0.18em] text-faded-sumi">
+          <p className="text-base leading-relaxed text-sumi-ink/90">
+            <span className="font-mono text-sm text-faded-sumi">
               Current pace · {currentPace} new / day
               {paceOverSliderMax && (
                 <span className="ml-2 text-inari-vermillion-deep">
@@ -416,8 +378,16 @@ export function NewCardImpactCard({
                 </span>
               )}
             </span>
-            <span className="block mt-1 italic text-sumi-ink/75">{deltaLabel}</span>
+            <span className="block mt-1 text-sumi-ink/75">{deltaLabel}</span>
           </p>
+
+          {/* Close the loop: the simulation estimates downstream load from a
+              pace, and the pace itself is set on the learning settings page. */}
+          <div className="pt-1">
+            <QuietLink href="/settings/learning#settings-daily-new" tone="sumi" trailingArrow size="sm">
+              Adjust new-card limit
+            </QuietLink>
+          </div>
         </div>
       </div>
     </SectionCard>
@@ -438,7 +408,7 @@ function LegendLine({
   label:    string
 }): React.JSX.Element {
   return (
-    <span className="flex items-center gap-x-1.5">
+    <span className="flex items-center gap-x-2">
       <span
         aria-hidden="true"
         className="inline-block h-[2px] w-4 rounded-[1px]"

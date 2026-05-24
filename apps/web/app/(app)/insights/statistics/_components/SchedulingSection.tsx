@@ -2,15 +2,20 @@ import { SectionCard } from '@/components/ui/SectionCard'
 
 import { CumulativeDueCurve } from './CumulativeDueCurve'
 import { IntervalHistogram } from './IntervalHistogram'
+import { ModuleError } from '@/components/ui/ModuleError'
 import { OverdueImpactCallout } from './OverdueImpactCallout'
 import { STATISTICS_SECTIONS_BY_ID } from './sections'
 import { StatisticsSection } from './StatisticsSection'
 import type { CumulativeDueDay, IntervalBucket, OverdueImpact } from './types'
 
 interface SchedulingSectionProps {
-  intervals:  ReadonlyArray<IntervalBucket>
-  cumulative: ReadonlyArray<CumulativeDueDay>
-  overdue:    OverdueImpact
+  intervals:         ReadonlyArray<IntervalBucket>
+  cumulative:        ReadonlyArray<CumulativeDueDay>
+  overdue:           OverdueImpact
+  intervalsError?:   boolean
+  onRetryIntervals?: () => void
+  scheduleError?:    boolean
+  onRetrySchedule?:  () => void
 }
 
 const SECTION = STATISTICS_SECTIONS_BY_ID.scheduling
@@ -19,25 +24,35 @@ export function SchedulingSection({
   intervals,
   cumulative,
   overdue,
+  intervalsError = false,
+  onRetryIntervals,
+  scheduleError = false,
+  onRetrySchedule,
 }: SchedulingSectionProps): React.JSX.Element {
   return (
     <StatisticsSection section={SECTION}>
-      <div className="flex flex-col gap-y-6 lg:gap-y-7">
+      <div className="flex flex-col gap-y-6 lg:gap-y-6">
         <SectionCard
           kanji="間"
           label="Interval distribution"
           description="How your collection is spread across review-interval buckets."
         >
-          <IntervalHistogram buckets={intervals} />
+          {intervalsError
+            ? <ModuleError label="the interval distribution" onRetry={onRetryIntervals ?? (() => {})} />
+            : <IntervalHistogram buckets={intervals} />}
         </SectionCard>
         <SectionCard
           kanji="積"
           label="Cumulative due"
-          description="Total cards becoming due as the next 90 days roll forward."
+          description={`Total cards becoming due as the next ${cumulative.length} days roll forward.`}
         >
-          <CumulativeDueCurve data={cumulative} />
+          {scheduleError
+            ? <ModuleError label="the due forecast" onRetry={onRetrySchedule ?? (() => {})} />
+            : <CumulativeDueCurve data={cumulative} />}
         </SectionCard>
-        <OverdueImpactCallout data={overdue} />
+        {scheduleError
+          ? <ModuleError label="overdue impact" onRetry={onRetrySchedule ?? (() => {})} />
+          : <OverdueImpactCallout data={overdue} />}
       </div>
     </StatisticsSection>
   )

@@ -21,8 +21,8 @@ interface SparklineProps {
 export function Sparkline({
   values,
   height = 56,
-  stroke = 'var(--color-inari-vermillion-deep, #b34634)',
-  fill   = 'var(--color-vermillion-wash, rgba(216, 90, 66, 0.08))',
+  stroke = 'var(--color-inari-vermillion-deep)',
+  fill   = 'var(--color-vermillion-wash)',
   ariaLabel,
   className,
 }: SparklineProps): React.JSX.Element {

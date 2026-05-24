@@ -87,10 +87,8 @@ export type ProgressState = 'strong' | 'plateau' | 'declining' | 'limited'
 // ── Aggregate page data ────────────────────────────────────────────────────
 
 export interface ProgressData {
-  /** Page-level trajectory classification, used to pick the italic line. */
+  /** Page-level trajectory classification, used to pick the header verdict. */
   state:      ProgressState
-  /** ISO date of the earliest review on record (for limited-data math). */
-  firstReviewDate: string
   summary:    ProgressSummary
   retention:  ReadonlyArray<RetentionPoint>
   mature:     ReadonlyArray<MaturePoint>

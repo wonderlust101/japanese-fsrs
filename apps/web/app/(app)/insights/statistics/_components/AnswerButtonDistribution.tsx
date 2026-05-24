@@ -70,7 +70,7 @@ export function AnswerButtonDistribution({
         {slices.map((s) => {
           const pct = Math.round((s.count / safeTotal) * 100)
           return (
-            <li key={s.key} className="flex items-baseline gap-x-2.5">
+            <li key={s.key} className="flex items-baseline gap-x-3">
               <span
                 aria-hidden="true"
                 className={cn(
@@ -78,12 +78,12 @@ export function AnswerButtonDistribution({
                   s.bg,
                 )}
               />
-              <span className="font-mono text-[0.8125rem] uppercase tracking-[0.14em] text-sumi-ink/85">
+              <span className="font-mono text-sm text-sumi-ink/85">
                 {s.label}
               </span>
-              <span className="ml-auto font-mono text-[0.8125rem] tabular-nums text-sumi-ink">
+              <span className="ml-auto font-mono text-sm tabular-nums text-sumi-ink">
                 {pct}%
-                <span className="ml-1.5 text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+                <span className="ml-1.5 text-sm text-faded-sumi">
                   · {s.count}
                 </span>
               </span>

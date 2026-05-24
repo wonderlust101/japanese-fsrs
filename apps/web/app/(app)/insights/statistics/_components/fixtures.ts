@@ -76,24 +76,15 @@ function summarizeActivity(days: ReadonlyArray<ActivityDay>): ActivityStats {
   let totalReviews = 0
   let totalSeconds = 0
   let activeDays   = 0
-  let currentStreak = 0
-  let bestStreak    = 0
-  let runStreak     = 0
-  for (let i = days.length - 1; i >= 0; i -= 1) {
-    const d = days[i]
+  for (const d of days) {
     if (d === undefined) continue
     if (d.count > 0) {
       totalReviews += d.count
       totalSeconds += d.seconds
       activeDays   += 1
-      runStreak    += 1
-      if (i === days.length - 1) currentStreak = runStreak
-      if (runStreak > bestStreak) bestStreak = runStreak
-    } else {
-      runStreak = 0
     }
   }
-  return { totalReviews, totalSeconds, activeDays, bestStreak, currentStreak }
+  return { totalReviews, totalSeconds, activeDays }
 }
 
 // ── Answer button distribution ──────────────────────────────────────────────
@@ -250,7 +241,7 @@ export function buildFullFixture(): StatisticsData {
   return {
     activity,
     activityStats: summarizeActivity(activity),
-    retention:     activity.slice(-90),
+    retention:     activity,
     answerButtons: ANSWER_BUTTONS_FULL,
     maturity:      MATURITY_FULL,
     decks:         DECKS_FULL,
@@ -267,7 +258,7 @@ export function buildLimitedFixture(): StatisticsData {
   return {
     activity,
     activityStats: summarizeActivity(activity),
-    retention:     activity.slice(-14),
+    retention:     activity,
     answerButtons: ANSWER_BUTTONS_LIMITED,
     maturity:      MATURITY_LIMITED,
     decks:         DECKS_LIMITED,

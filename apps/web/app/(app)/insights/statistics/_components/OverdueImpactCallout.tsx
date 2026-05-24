@@ -25,8 +25,8 @@ export function OverdueImpactCallout({
         hasBacklog ? 'bg-vermillion-wash/55' : 'bg-cream-inset',
       )}
     >
-      <div className="flex flex-col gap-y-1.5">
-        <p className="font-mono text-[0.75rem] uppercase tracking-[0.18em] text-faded-sumi">
+      <div className="flex flex-col gap-y-2">
+        <p className="font-mono text-sm text-faded-sumi">
           Overdue
         </p>
         <p
@@ -41,27 +41,27 @@ export function OverdueImpactCallout({
       <div className="flex flex-col gap-y-2">
         {hasBacklog ? (
           <>
-            <p className="text-[0.9375rem] leading-relaxed text-sumi-ink">
+            <p className="text-base leading-relaxed text-sumi-ink">
               <span className="font-medium text-inari-vermillion-deep">
                 {data.overduePercent.toFixed(1)}%
               </span>{' '}
               of this week&rsquo;s load is overdue.
             </p>
-            <p className="text-[0.875rem] leading-relaxed text-faded-sumi">
+            <p className="text-base leading-relaxed text-faded-sumi">
               Clearing overdue cards first will make the schedule feel lighter for the rest of the week.
             </p>
           </>
         ) : (
           <>
-            <p className="text-[0.9375rem] leading-relaxed text-sumi-ink">
+            <p className="text-base leading-relaxed text-sumi-ink">
               No overdue cards.
             </p>
-            <p className="text-[0.875rem] leading-relaxed text-faded-sumi">
+            <p className="text-base leading-relaxed text-faded-sumi">
               Your queue is current. Whatever&rsquo;s on the schedule is what&rsquo;s actually due today.
             </p>
           </>
         )}
-        <p className="mt-1 font-mono text-[0.75rem] uppercase tracking-[0.14em] text-faded-sumi">
+        <p className="mt-1 font-mono text-sm text-faded-sumi">
           {data.totalDueWeek} cards due this week
         </p>
       </div>

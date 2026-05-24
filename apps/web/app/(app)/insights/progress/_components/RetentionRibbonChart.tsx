@@ -1,24 +1,18 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
-import { smoothLinePath } from '../../_components/chartPaths'
+import { ScrollableChartFrame, smoothLinePath } from '@/components/charts'
 
+import { rangeDays, type ProgressRangeKey } from './progressRange'
 import type { RetentionPoint } from './progressTypes'
 
 interface RetentionRibbonChartProps {
   series:            ReadonlyArray<RetentionPoint>
   desiredRetention:  number
+  /** Page-level time range, shared with the Mature chart. */
+  range:             ProgressRangeKey
 }
-
-type RangeKey = '7d' | '30d' | '90d' | '1y'
-
-const RANGES: ReadonlyArray<{ key: RangeKey; label: string; days: number }> = [
-  { key: '7d',  label: '7d',  days: 7   },
-  { key: '30d', label: '30d', days: 30  },
-  { key: '90d', label: '90d', days: 90  },
-  { key: '1y',  label: '1y',  days: 365 },
-]
 
 // ── Chart geometry (canonical) ──────────────────────────────────────────────
 
@@ -148,16 +142,16 @@ function pickXTicks(dates: ReadonlyArray<string>, want: number): XTick[] {
 export function RetentionRibbonChart({
   series,
   desiredRetention,
+  range,
 }: RetentionRibbonChartProps): React.JSX.Element {
-  const [range, setRange] = useState<RangeKey>('30d')
-
   const view = useMemo(() => {
-    const rangeDays = (RANGES.find((r) => r.key === range)?.days) ?? 30
     // Defensive sort: ensure oldest-first regardless of how `series`
     // arrived (live API order isn't guaranteed). The chart's x-axis
     // assumes ascending dates.
     const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date))
-    return sorted.slice(-rangeDays)
+    const days = rangeDays(range)
+    // `null` (the "All" range) shows the full series.
+    return days === null ? sorted : sorted.slice(-days)
   }, [series, range])
 
   const stats = useMemo(() => rollingStats(view, pickWindowDays(view.length)), [view])
@@ -229,16 +223,13 @@ export function RetentionRibbonChart({
   const targetY = yOf(desiredRetention * 100)
 
   return (
-    <div className="flex flex-col gap-y-5">
-      {/* Range scrubber */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[0.75rem] uppercase tracking-[0.14em] text-faded-sumi">
-          Daily retention <span className="text-sumi-ink/70">·</span>{' '}
-          <span className="text-sumi-ink/85">{windowDays}-day rolling mean</span>
-        </p>
-        <RangeScrubber value={range} onChange={setRange} />
-      </div>
+    <div className="flex flex-col gap-y-6">
+      <p className="font-mono text-sm text-faded-sumi">
+        Daily retention <span className="text-sumi-ink/70">·</span>{' '}
+        <span className="text-sumi-ink/85">{windowDays}-day rolling mean</span>
+      </p>
 
+      <ScrollableChartFrame minWidth={640}>
       <svg
         role="img"
         aria-label="Retention over time with confidence ribbon"
@@ -339,9 +330,10 @@ export function RetentionRibbonChart({
           strokeWidth={1}
         />
       </svg>
+      </ScrollableChartFrame>
 
       {/* Legend */}
-      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-sm text-faded-sumi">
         <li className="flex items-center gap-x-2">
           <span aria-hidden="true" className="inline-block h-[2px] w-6 bg-inari-vermillion-deep" />
           {windowDays}-day mean
@@ -367,45 +359,6 @@ export function RetentionRibbonChart({
           target
         </li>
       </ul>
-    </div>
-  )
-}
-
-// ── Range scrubber ──────────────────────────────────────────────────────────
-
-interface RangeScrubberProps {
-  value:    RangeKey
-  onChange: (next: RangeKey) => void
-}
-
-function RangeScrubber({ value, onChange }: RangeScrubberProps): React.JSX.Element {
-  return (
-    <div
-      role="tablist"
-      aria-label="Retention time range"
-      className="flex items-center gap-0.5 rounded-[2px] border border-soft-hairline bg-cream-inset/40 p-0.5"
-    >
-      {RANGES.map((r) => {
-        const active = r.key === value
-        return (
-          <button
-            key={r.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(r.key)}
-            className={[
-              'rounded-[2px] px-2.5 py-1 font-mono text-[0.6875rem] uppercase tracking-[0.14em] transition-colors',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-              active
-                ? 'bg-sumi-ink text-warm-paper-base'
-                : 'text-faded-sumi hover:text-sumi-ink',
-            ].join(' ')}
-          >
-            {r.label}
-          </button>
-        )
-      })}
     </div>
   )
 }

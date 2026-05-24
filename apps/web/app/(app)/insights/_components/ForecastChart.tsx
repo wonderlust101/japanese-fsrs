@@ -1,5 +1,15 @@
 import type { ApiForecastDay, ApiHeatmapDay } from '@fsrs-japanese/shared-types'
 
+import {
+  AXIS_SUBLABEL_SIZE,
+  AxisText,
+  ChartFigcaption,
+  DATA_INK,
+  LegendSwatch,
+  REFERENCE_INK,
+} from '@/components/charts'
+import { ScrollableChartFrame } from '@/components/charts'
+
 interface ForecastChartProps {
   heatmap:  ReadonlyArray<ApiHeatmapDay>
   forecast: ReadonlyArray<ApiForecastDay>
@@ -103,6 +113,7 @@ export function ForecastChart({
 
   return (
     <figure className="flex flex-col gap-y-3">
+      <ScrollableChartFrame minWidth={640}>
       <svg
         role="img"
         aria-label={
@@ -126,16 +137,9 @@ export function ForecastChart({
                 strokeOpacity={idx === 0 ? 1 : 0.7}
                 strokeWidth={1}
               />
-              <text
-                x={PAD_LEFT - 10}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-              >
+              <AxisText x={PAD_LEFT - 10} y={y + 4} anchor="end">
                 {Math.round(tick)}
-              </text>
+              </AxisText>
             </g>
           )
         })}
@@ -153,29 +157,20 @@ export function ForecastChart({
               strokeWidth={1}
               strokeDasharray="2 3"
             />
-            <text
-              x={seamX - 8}
-              y={PAD_TOP - 6}
-              textAnchor="end"
-              fontSize={10}
-              fontFamily="ui-monospace, monospace"
-              letterSpacing="0.14em"
-              fill="var(--color-faded-sumi)"
-            >
+            <AxisText x={seamX - 8} y={PAD_TOP - 6} anchor="end" size={10} letterSpacing="0.14em">
               PAST
-            </text>
-            <text
+            </AxisText>
+            <AxisText
               x={seamX + 8}
               y={PAD_TOP - 6}
-              textAnchor="start"
-              fontSize={10}
-              fontFamily="ui-monospace, monospace"
+              anchor="start"
+              size={10}
               letterSpacing="0.14em"
-              fill="var(--color-inari-vermillion-deep)"
-              fontWeight={600}
+              fill={DATA_INK}
+              weight={600}
             >
               NEXT
-            </text>
+            </AxisText>
           </g>
         )}
 
@@ -207,17 +202,9 @@ export function ForecastChart({
                   vermillion X-axis letter already mark "today," so the
                   annotation only needs to carry the number. */}
               {bar.isToday && bar.count > 0 && (
-                <text
-                  x={x + barW / 2}
-                  y={y - 6}
-                  textAnchor="middle"
-                  fontSize={12}
-                  fontFamily="ui-monospace, monospace"
-                  fontWeight={700}
-                  fill="var(--color-inari-vermillion-deep)"
-                >
+                <AxisText x={x + barW / 2} y={y - 6} size={12} weight={700} fill={DATA_INK}>
                   {bar.count}
-                </text>
+                </AxisText>
               )}
             </g>
           )
@@ -229,74 +216,34 @@ export function ForecastChart({
           const x = xFor(i) + barW / 2
           return (
             <g key={`label-${bar.date}`}>
-              <text
+              <AxisText
                 x={x}
                 y={VIEW_H - PAD_BOTTOM + 20}
-                textAnchor="middle"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={bar.isToday ? 600 : 400}
-                fill={
-                  bar.isToday
-                    ? 'var(--color-inari-vermillion-deep)'
-                    : 'var(--color-faded-sumi)'
-                }
-                opacity={bar.isPast ? 0.7 : 1}
+                weight={bar.isToday ? 600 : 400}
+                fill={bar.isToday ? DATA_INK : undefined}
               >
                 {bar.letter}
-              </text>
+              </AxisText>
               {showDate && (
-                <text
-                  x={x}
-                  y={VIEW_H - PAD_BOTTOM + 34}
-                  textAnchor="middle"
-                  fontSize={10.5}
-                  fontFamily="ui-monospace, monospace"
-                  fill="var(--color-faded-sumi)"
-                  opacity={0.7}
-                >
+                <AxisText x={x} y={VIEW_H - PAD_BOTTOM + 34} size={AXIS_SUBLABEL_SIZE}>
                   {dayOfMonth(bar.date)}
-                </text>
+                </AxisText>
               )}
             </g>
           )
         })}
       </svg>
+      </ScrollableChartFrame>
 
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.6875rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+      <ChartFigcaption>
         <span>
           Daily review load <span className="text-sumi-ink/70">·</span> past 7 / next 7
         </span>
         <span className="flex items-center gap-x-4">
-          <LegendSwatch color="var(--color-sumi-ink)" opacity={0.7} label={`Past ${pastTotal}`} />
-          <LegendSwatch color="var(--color-inari-vermillion-deep)" label={`Next ${futureTotal}`} bold />
+          <LegendSwatch color={REFERENCE_INK} opacity={0.7} label={`Past ${pastTotal}`} />
+          <LegendSwatch color={DATA_INK} bold label={`Next ${futureTotal}`} />
         </span>
-      </figcaption>
+      </ChartFigcaption>
     </figure>
-  )
-}
-
-function LegendSwatch({
-  color,
-  opacity = 1,
-  bold = false,
-  label,
-}: {
-  color:    string
-  opacity?: number
-  bold?:    boolean
-  label:    string
-}): React.JSX.Element {
-  return (
-    <span className="flex items-center gap-x-1.5">
-      <span
-        aria-hidden="true"
-        className="inline-block h-[10px] w-[10px] rounded-[1px]"
-        style={{ backgroundColor: color, opacity }}
-      />
-      <span className={bold ? 'font-medium text-inari-vermillion-deep' : undefined}>
-        {label}
-      </span>
-    </span>
   )
 }

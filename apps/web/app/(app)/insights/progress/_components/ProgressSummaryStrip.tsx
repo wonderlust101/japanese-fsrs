@@ -1,5 +1,6 @@
 import type { ProgressData } from './progressTypes'
 import { buildSummaryLine } from './progressInterpretation'
+import { StatTile } from '@/components/ui/StatTile'
 
 interface ProgressSummaryStripProps {
   data: ProgressData
@@ -52,27 +53,18 @@ export function ProgressSummaryStrip({ data }: ProgressSummaryStripProps): React
 
   return (
     <div className="flex flex-col gap-y-6">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4 sm:gap-x-8">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:gap-x-8">
         {tiles.map((t) => (
-          <div key={t.label} className="flex flex-col gap-y-1.5">
-            <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
-              {t.label}
-            </dt>
-            <dd className="flex items-baseline gap-x-2">
-              <span className="font-display text-[1.5rem] font-medium leading-none tabular-nums text-sumi-ink sm:text-[1.625rem]">
-                {t.value}
-              </span>
-            </dd>
-            {t.hint !== undefined && (
-              <span className="font-mono text-[0.6875rem] tabular-nums text-faded-sumi">
-                {t.hint}
-              </span>
-            )}
-          </div>
+          <StatTile
+            key={t.label}
+            label={t.label}
+            value={t.value}
+            {...(t.hint !== undefined && { hint: t.hint })}
+          />
         ))}
       </dl>
 
-      <p className="max-w-prose text-sm italic leading-relaxed text-sumi-ink/85">
+      <p className="max-w-measure text-sm leading-[1.55] text-faded-sumi">
         {buildSummaryLine(data)}
       </p>
     </div>

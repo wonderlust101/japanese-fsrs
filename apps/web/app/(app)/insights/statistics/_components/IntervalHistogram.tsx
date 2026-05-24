@@ -1,3 +1,5 @@
+import { ScrollableChartFrame } from '@/components/charts'
+
 import type { IntervalBucket } from './types'
 
 interface IntervalHistogramProps {
@@ -66,21 +68,30 @@ export function IntervalHistogram({
 
   const total = buckets.reduce((acc, b) => acc + b.count, 0)
 
+  // Percent position within the viewBox, so HTML labels overlaid on the SVG
+  // stay crisp (real rem) at any container width instead of shrinking with
+  // the SVG's uniform downscale on narrow viewports.
+  const leftPct = (x: number): string => `${(x / VIEW_W) * 100}%`
+  const topPct  = (y: number): string => `${(y / VIEW_H) * 100}%`
+  const axisY   = VIEW_H - PAD_BOTTOM
+
   return (
     <figure className="flex flex-col gap-y-3">
-      <svg
-        role="img"
-        aria-label={`Histogram of cards across ${buckets.length} interval buckets. Total ${total} cards.`}
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="block h-auto w-full"
-      >
-        {/* Y gridlines + labels */}
-        {yTicks.map((tick, idx) => {
-          const y = yFor(tick)
-          return (
-            <g key={idx}>
+      <ScrollableChartFrame minWidth={640}>
+      <div className="relative w-full">
+        <svg
+          role="img"
+          aria-label={`Histogram of cards across ${buckets.length} interval buckets. Total ${total} cards.`}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="block h-auto w-full"
+        >
+          {/* Y gridlines */}
+          {yTicks.map((tick, idx) => {
+            const y = yFor(tick)
+            return (
               <line
+                key={idx}
                 x1={PAD_LEFT}
                 x2={VIEW_W - PAD_RIGHT}
                 y1={y}
@@ -89,84 +100,79 @@ export function IntervalHistogram({
                 strokeOpacity={idx === 0 ? 1 : 0.7}
                 strokeWidth={1}
               />
-              <text
-                x={PAD_LEFT - 10}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-              >
-                {Math.round(tick)}
-              </text>
-            </g>
-          )
-        })}
-
-        {/* Bars + count labels above */}
-        {buckets.map((bucket, i) => {
-          if (bucket.count === 0) {
-            return (
-              <text
-                key={bucket.label}
-                x={xFor(i) + barW / 2}
-                y={(VIEW_H - PAD_BOTTOM) - 4}
-                textAnchor="middle"
-                fontSize={11}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-                opacity={0.55}
-              >
-                0
-              </text>
             )
-          }
-          const x = xFor(i)
-          const y = yFor(bucket.count)
-          const h = (VIEW_H - PAD_BOTTOM) - y
-          return (
-            <g key={bucket.label}>
+          })}
+
+          {/* Bars */}
+          {buckets.map((bucket, i) => {
+            if (bucket.count === 0) return null
+            const x = xFor(i)
+            const y = yFor(bucket.count)
+            return (
               <rect
+                key={bucket.label}
                 x={x}
                 y={y}
                 width={barW}
-                height={h}
+                height={axisY - y}
                 rx={1}
                 fill="var(--color-inari-vermillion-deep)"
                 opacity={0.85}
               />
-              <text
-                x={x + barW / 2}
-                y={y - 6}
-                textAnchor="middle"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={600}
-                fill="var(--color-inari-vermillion-deep)"
+            )
+          })}
+        </svg>
+
+        {/* HTML label overlay — crisp at any width */}
+        <div className="pointer-events-none absolute inset-0 font-mono tabular-nums text-faded-sumi">
+          {yTicks.map((tick, idx) => (
+            <span
+              key={idx}
+              className="absolute -translate-x-full -translate-y-1/2 pr-2 text-right text-sm"
+              style={{ left: leftPct(PAD_LEFT), top: topPct(yFor(tick)) }}
+            >
+              {Math.round(tick)}
+            </span>
+          ))}
+
+          {buckets.map((bucket, i) => {
+            const cx = xFor(i) + barW / 2
+            if (bucket.count === 0) {
+              return (
+                <span
+                  key={bucket.label}
+                  className="absolute -translate-x-1/2 -translate-y-full text-sm text-faded-sumi"
+                  style={{ left: leftPct(cx), top: topPct(axisY - 4) }}
+                >
+                  0
+                </span>
+              )
+            }
+            return (
+              <span
+                key={bucket.label}
+                className="absolute -translate-x-1/2 -translate-y-full pb-1 text-sm font-semibold text-inari-vermillion-deep"
+                style={{ left: leftPct(cx), top: topPct(yFor(bucket.count)) }}
               >
                 {bucket.count}
-              </text>
-            </g>
-          )
-        })}
+              </span>
+            )
+          })}
 
-        {/* X-axis labels */}
-        {buckets.map((bucket, i) => (
-          <text
-            key={`x-${bucket.label}`}
-            x={xFor(i) + barW / 2}
-            y={VIEW_H - PAD_BOTTOM + 20}
-            textAnchor="middle"
-            fontSize={13}
-            fontFamily="ui-monospace, monospace"
-            fill="var(--color-faded-sumi)"
-          >
-            {bucket.label}
-          </text>
-        ))}
-      </svg>
+          {buckets.map((bucket, i) => (
+            <span
+              key={`x-${bucket.label}`}
+              className="absolute -translate-x-1/2 text-sm"
+              style={{ left: leftPct(xFor(i) + barW / 2), top: topPct(axisY + 8) }}
+            >
+              {bucket.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      </ScrollableChartFrame>
 
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums text-faded-sumi">
         <span>
           Interval distribution <span className="text-sumi-ink/70">·</span> cards in queue
         </span>

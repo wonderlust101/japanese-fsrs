@@ -2,15 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useQueries } from '@tanstack/react-query'
-import type { ApiDeck, ApiDeckWithStats } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { cn } from '@/lib/utils'
-import { useDecks } from '@/lib/api/decks'
-import { queryKeys } from '@/lib/api/queryKeys'
-import { getDeckAction } from '@/lib/actions/decks.actions'
+import { useDecksWithStats } from '@/lib/api/decks'
 
 const TOP_N = 6
 
@@ -21,64 +17,49 @@ interface DeckContribution {
 }
 
 /**
- * RGB triple for Inari Vermillion Deep (#7E1F2A), used to build rgba()
- * background fills so the alpha channel handles transparency instead of
- * the CSS `opacity` property — that way the tooltip inside each segment
- * doesn't inherit the segment's transparency.
- */
-const VERMILLION_DEEP_RGB = '126, 31, 42'
-
-/**
- * Single-hue Inari Vermillion Deep ramp stepped down in opacity by rank —
- * the largest contributor reads darkest. Returns the base opacity number
- * (used by the legend swatch with the cascading `opacity` style) and a
- * pre-built rgba background (used by the bar segment, which can't use
- * `opacity` because the tooltip child would inherit it).
+ * Builds a single-hue Inari Vermillion Deep ramp stepped down in opacity by
+ * rank, so the largest contributor reads darkest. Returns the base opacity
+ * (used by the legend swatch via the cascading `opacity` style) and a
+ * pre-composited background string. The background composites alpha directly
+ * via `rgb(var(--token) / a)` rather than the CSS `opacity` property, so the
+ * tooltip rendered inside each bar segment stays fully opaque instead of
+ * inheriting the segment's transparency. The channels come from the
+ * `--color-inari-vermillion-deep-rgb` token, not a hard-coded literal, so the
+ * ramp tracks the brand color if it's ever retuned.
  */
 function segmentStyle(rank: number): { baseOpacity: number; rgbaBg: string } {
   const opacity = Math.max(0.32, 1 - rank * 0.14)
   return {
     baseOpacity: opacity,
-    rgbaBg:      `rgba(${VERMILLION_DEEP_RGB}, ${opacity})`,
+    rgbaBg:      `rgb(var(--color-inari-vermillion-deep-rgb) / ${opacity})`,
   }
 }
 
 /**
  * Deck contributors as a proportional segments bar. Each segment is a
  * focusable link to its deck and reveals a hover/focus tooltip with
- * name + count + share. Segments alternate between vermillion and sumi
- * hues to stay distinguishable for viewers with reduced contrast
- * sensitivity. A two-column legend below mirrors the bar's colors and
- * cross-highlights when a segment is hovered.
+ * name + count + share. A single Inari Vermillion ramp, stepped down in
+ * opacity by rank (largest = darkest), keeps the segments distinguishable;
+ * a two-column legend below mirrors those tones and cross-highlights when a
+ * segment is hovered or focused.
+ *
+ * Data comes from the stats-bearing deck list (`list_decks_paginated`
+ * rollups), so the per-deck `dueCount` arrives in one round-trip — no
+ * per-deck `getDeck` fanout.
  */
 export function DeckContributorsCard(): React.JSX.Element {
-  const decksQuery = useDecks(24)
-  const allDecks: ApiDeck[] = useMemo(
-    () => decksQuery.data?.items ?? [],
-    [decksQuery.data],
-  )
-
-  const detailResults = useQueries({
-    queries: allDecks.map((deck) => ({
-      queryKey: queryKeys.decks.detail(deck.id),
-      queryFn:  () => getDeckAction(deck.id),
-    })),
-  })
+  const decksQuery = useDecksWithStats(24)
 
   const contributions = useMemo<DeckContribution[]>(() => {
-    const rows: DeckContribution[] = []
-    allDecks.forEach((deck, i) => {
-      const stats = detailResults[i]?.data as ApiDeckWithStats | null | undefined
-      if (stats === null || stats === undefined) return
-      if (stats.dueCount <= 0) return
-      rows.push({ id: deck.id, name: deck.name, dueCount: stats.dueCount })
-    })
+    const rows = (decksQuery.data?.items ?? [])
+      .filter((deck) => deck.dueCount > 0)
+      .map((deck) => ({ id: deck.id, name: deck.name, dueCount: deck.dueCount }))
     rows.sort((a, b) => b.dueCount - a.dueCount)
     return rows.slice(0, TOP_N)
-  }, [allDecks, detailResults])
+  }, [decksQuery.data])
 
   const totalDue  = contributions.reduce((acc, c) => acc + c.dueCount, 0)
-  const isLoading = decksQuery.isLoading || detailResults.some((r) => r.isLoading)
+  const isLoading = decksQuery.isLoading
 
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
@@ -91,11 +72,11 @@ export function DeckContributorsCard(): React.JSX.Element {
       {isLoading ? (
         <ContributorsSkeleton />
       ) : contributions.length === 0 ? (
-        <p className="text-[0.9375rem] italic leading-relaxed text-faded-sumi">
+        <p className="text-sm leading-[1.55] text-faded-sumi">
           No decks have due cards right now. Add new material or wait for the schedule to catch up.
         </p>
       ) : (
-        <div className="flex flex-col gap-y-5">
+        <div className="flex flex-col gap-y-6">
           <ProportionalBar
             contributions={contributions}
             totalDue={totalDue}
@@ -130,7 +111,7 @@ function ProportionalBar({
   onHover,
 }: ProportionalBarProps): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-y-2.5">
+    <div className="flex flex-col gap-y-3">
       <div
         className="relative flex h-11 w-full overflow-visible rounded-[2px] border border-soft-hairline"
         role="group"
@@ -141,11 +122,11 @@ function ProportionalBar({
           const share    = totalDue > 0 ? Math.round((c.dueCount / Math.max(1, totalDue)) * 100) : 0
           const { baseOpacity } = segmentStyle(i)
           const isActive = hoveredId === c.id
-          // Build the background as rgba directly so the tooltip child
-          // (which renders inside the Link) reads at full opacity instead
-          // of inheriting the segment's transparency.
+          // Composite the background alpha directly via the token so the
+          // tooltip child (rendered inside the Link) reads at full opacity
+          // instead of inheriting the segment's transparency.
           const segOpacity = isActive ? Math.min(1, baseOpacity + 0.18) : baseOpacity
-          const segBg = `rgba(${VERMILLION_DEEP_RGB}, ${segOpacity})`
+          const segBg = `rgb(var(--color-inari-vermillion-deep-rgb) / ${segOpacity})`
           return (
             <Link
               key={c.id}
@@ -177,7 +158,7 @@ function ProportionalBar({
           )
         })}
       </div>
-      <p className="flex items-baseline justify-between font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+      <p className="flex items-baseline justify-between font-mono text-sm tabular-nums text-faded-sumi">
         <span>
           {contributions.length} {contributions.length === 1 ? 'deck' : 'decks'}
           <span className="text-sumi-ink/70"> · </span>
@@ -211,15 +192,15 @@ function SegmentTooltip({
       className={cn(
         'pointer-events-none absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2',
         'flex items-center gap-x-2 whitespace-nowrap rounded-[2px] border border-soft-hairline bg-warm-paper-raised px-3 py-1.5',
-        'shadow-[var(--shadow-card)] transition-opacity duration-150',
+        'shadow-card transition-opacity duration-150',
         active ? 'opacity-100' : 'opacity-0',
       )}
     >
-      <span className="text-[0.8125rem] font-medium text-sumi-ink">{name}</span>
+      <span className="text-sm font-medium text-sumi-ink">{name}</span>
       <span aria-hidden="true" className="text-faded-sumi">·</span>
-      <span className="font-mono text-[0.75rem] tabular-nums text-sumi-ink/85">{count}</span>
+      <span className="font-mono text-sm tabular-nums text-sumi-ink/85">{count}</span>
       <span aria-hidden="true" className="text-faded-sumi">·</span>
-      <span className="font-mono text-[0.75rem] font-medium tabular-nums text-inari-vermillion-deep">
+      <span className="font-mono text-sm font-medium tabular-nums text-inari-vermillion-deep">
         {share}%
       </span>
     </span>
@@ -265,9 +246,9 @@ function DeckLegend({
             <QuietLink href={`/decks/${c.id}`} tone="sumi" trailingArrow size="sm">
               {c.name}
             </QuietLink>
-            <span className="ml-auto shrink-0 font-mono text-[0.75rem] tabular-nums text-sumi-ink/85">
+            <span className="ml-auto shrink-0 font-mono text-sm tabular-nums text-sumi-ink/85">
               {c.dueCount}
-              <span className="ml-1.5 text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+              <span className="ml-1.5 text-sm text-faded-sumi">
                 · {share}%
               </span>
             </span>
@@ -282,7 +263,7 @@ function DeckLegend({
 
 function ContributorsSkeleton(): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-y-5">
+    <div className="flex flex-col gap-y-6">
       <div className="dashboard-skeleton h-11 w-full rounded-[2px]" />
       <ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         {Array.from({ length: 6 }, (_, i) => (

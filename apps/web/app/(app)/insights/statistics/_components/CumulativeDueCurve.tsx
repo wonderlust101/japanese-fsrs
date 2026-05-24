@@ -1,4 +1,4 @@
-import { smoothAreaPath, smoothLinePath, type Pt } from '../../_components/chartPaths'
+import { ScrollableChartFrame, smoothAreaPath, smoothLinePath, type Pt } from '@/components/charts'
 
 import type { CumulativeDueDay } from './types'
 
@@ -75,21 +75,28 @@ export function CumulativeDueCurve({
     tickIndices.push(Math.round((data.length - 1) * (i / 4)))
   }
 
+  // Percent position within the viewBox so HTML labels overlaid on the SVG
+  // stay crisp at any container width.
+  const leftPct = (x: number): string => `${(x / VIEW_W) * 100}%`
+  const topPct  = (y: number): string => `${(y / VIEW_H) * 100}%`
+
   return (
     <figure className="flex flex-col gap-y-3">
-      <svg
-        role="img"
-        aria-label={`Cumulative due cards over the next ${data.length} days. Ending at ${max} cards.`}
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="block h-auto w-full"
-      >
-        {/* Y gridlines + labels */}
-        {yTicks.map((tick, idx) => {
-          const y = yFor(tick)
-          return (
-            <g key={idx}>
+      <ScrollableChartFrame minWidth={640}>
+      <div className="relative w-full">
+        <svg
+          role="img"
+          aria-label={`Cumulative due cards over the next ${data.length} days. Ending at ${max} cards.`}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="block h-auto w-full"
+        >
+          {/* Y gridlines */}
+          {yTicks.map((tick, idx) => {
+            const y = yFor(tick)
+            return (
               <line
+                key={idx}
                 x1={PAD_LEFT}
                 x2={VIEW_W - PAD_RIGHT}
                 y1={y}
@@ -98,61 +105,60 @@ export function CumulativeDueCurve({
                 strokeOpacity={idx === 0 ? 1 : 0.7}
                 strokeWidth={1}
               />
-              <text
-                x={PAD_LEFT - 10}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-              >
-                {Math.round(tick)}
-              </text>
-            </g>
-          )
-        })}
+            )
+          })}
 
-        {/* Gradient area fill */}
-        <defs>
-          <linearGradient id="cumulative-due-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="var(--color-inari-vermillion)"      stopOpacity={0.35} />
-            <stop offset="100%" stopColor="var(--color-inari-vermillion-deep)" stopOpacity={0.04} />
-          </linearGradient>
-        </defs>
-        <path d={areaPath} fill="url(#cumulative-due-area)" />
+          {/* Gradient area fill */}
+          <defs>
+            <linearGradient id="cumulative-due-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="var(--color-inari-vermillion)"      stopOpacity={0.35} />
+              <stop offset="100%" stopColor="var(--color-inari-vermillion-deep)" stopOpacity={0.04} />
+            </linearGradient>
+          </defs>
+          <path d={areaPath} fill="url(#cumulative-due-area)" />
 
-        {/* Curve */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke="var(--color-inari-vermillion-deep)"
-          strokeWidth={2.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
+          {/* Curve */}
+          <path
+            d={linePath}
+            fill="none"
+            stroke="var(--color-inari-vermillion-deep)"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
 
-        {/* X axis labels */}
-        {tickIndices.map((i, idx) => {
-          const d = data[i]
-          if (d === undefined) return null
-          return (
-            <text
-              key={`xt-${idx}`}
-              x={xFor(i)}
-              y={VIEW_H - PAD_BOTTOM + 20}
-              textAnchor="middle"
-              fontSize={12}
-              fontFamily="ui-monospace, monospace"
-              fill="var(--color-faded-sumi)"
+        {/* HTML label overlay — crisp at any width */}
+        <div className="pointer-events-none absolute inset-0 font-mono tabular-nums text-faded-sumi">
+          {yTicks.map((tick, idx) => (
+            <span
+              key={idx}
+              className="absolute -translate-x-full -translate-y-1/2 pr-2 text-right text-sm"
+              style={{ left: leftPct(PAD_LEFT), top: topPct(yFor(tick)) }}
             >
-              {shortMonth(d.date)} {dayOfMonth(d.date)}
-            </text>
-          )
-        })}
-      </svg>
+              {Math.round(tick)}
+            </span>
+          ))}
 
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+          {tickIndices.map((i, idx) => {
+            const d = data[i]
+            if (d === undefined) return null
+            return (
+              <span
+                key={`xt-${idx}`}
+                className="absolute -translate-x-1/2 text-sm"
+                style={{ left: leftPct(xFor(i)), top: topPct(VIEW_H - PAD_BOTTOM + 8) }}
+              >
+                {shortMonth(d.date)} {dayOfMonth(d.date)}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      </ScrollableChartFrame>
+
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums text-faded-sumi">
         <span>
           Cumulative due <span className="text-sumi-ink/70">·</span> next {data.length} days
         </span>

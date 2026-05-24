@@ -2,13 +2,16 @@ import { SectionCard } from '@/components/ui/SectionCard'
 
 import { DesiredRetentionDial } from './DesiredRetentionDial'
 import { FsrsHistogram } from './FsrsHistogram'
+import { ModuleError } from '@/components/ui/ModuleError'
 import { RetentionComparison } from './RetentionComparison'
 import { STATISTICS_SECTIONS_BY_ID } from './sections'
 import { StatisticsSection } from './StatisticsSection'
 import type { FsrsState } from './types'
 
 interface FsrsSectionProps {
-  fsrs: FsrsState
+  fsrs:               FsrsState
+  histogramsError?:   boolean
+  onRetryHistograms?: () => void
 }
 
 const SECTION = STATISTICS_SECTIONS_BY_ID.fsrs
@@ -22,17 +25,22 @@ const SECTION = STATISTICS_SECTIONS_BY_ID.fsrs
  *   3. Stability distribution (how durable cards are)
  *   4. Difficulty distribution (how hard cards feel)
  */
-export function FsrsSection({ fsrs }: FsrsSectionProps): React.JSX.Element {
+export function FsrsSection({
+  fsrs,
+  histogramsError = false,
+  onRetryHistograms,
+}: FsrsSectionProps): React.JSX.Element {
+  const retry = onRetryHistograms ?? (() => {})
   return (
     <StatisticsSection section={SECTION}>
-      <div className="flex flex-col gap-y-6 lg:gap-y-7">
+      <div className="flex flex-col gap-y-6 lg:gap-y-6">
         {/* Top: Dial + comparison side by side on lg+ */}
         <SectionCard
-          kanji="算"
+          kanji="標"
           label="Retention target"
-          description="The retention rate FSRS is scheduling for, alongside what your reviews actually show."
+          description="Your target retention next to your real recall. The dial reads the rates; the gap shows how far above or below target you land."
         >
-          <div className="grid grid-cols-1 items-center gap-x-12 gap-y-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="grid grid-cols-1 items-center gap-x-12 gap-y-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <DesiredRetentionDial
               desired={fsrs.desiredRetention}
               actual={fsrs.trueRetention}
@@ -49,10 +57,12 @@ export function FsrsSection({ fsrs }: FsrsSectionProps): React.JSX.Element {
           label="Stability distribution"
           description="How durably your cards stick. Longer-stability cards need fewer reviews to keep retained."
         >
-          <FsrsHistogram
-            buckets={fsrs.stability}
-            ariaLabel={`Stability distribution across ${fsrs.stability.length} buckets.`}
-          />
+          {histogramsError
+            ? <ModuleError label="the stability distribution" onRetry={retry} />
+            : <FsrsHistogram
+                buckets={fsrs.stability}
+                ariaLabel={`Stability distribution across ${fsrs.stability.length} buckets.`}
+              />}
         </SectionCard>
 
         <SectionCard
@@ -60,11 +70,20 @@ export function FsrsSection({ fsrs }: FsrsSectionProps): React.JSX.Element {
           label="Difficulty distribution"
           description="How hard your cards feel to recall. Higher difficulty means FSRS expects more lapses."
         >
-          <FsrsHistogram
-            buckets={fsrs.difficulty}
-            ariaLabel={`Difficulty distribution across ${fsrs.difficulty.length} buckets.`}
-          />
+          {histogramsError
+            ? <ModuleError label="the difficulty distribution" onRetry={retry} />
+            : <FsrsHistogram
+                buckets={fsrs.difficulty}
+                ariaLabel={`Difficulty distribution across ${fsrs.difficulty.length} buckets.`}
+              />}
         </SectionCard>
+
+        <p className="max-w-measure text-base leading-relaxed text-faded-sumi">
+          <span className="font-medium text-sumi-ink">What to do with this:</span>{' '}
+          if your actual retention runs below target, low-stability cards are where the
+          reps matter most. If it runs above, a lower target would trim your daily load
+          without much risk.
+        </p>
       </div>
     </StatisticsSection>
   )

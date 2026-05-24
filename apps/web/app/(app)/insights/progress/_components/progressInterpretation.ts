@@ -47,20 +47,20 @@ export function classifyProgress(data: Pick<ProgressData, 'retention' | 'mature'
 
 // ── Header italic line ─────────────────────────────────────────────────────
 
+/**
+ * Page header subtitle: the overall *state verdict*, in plain language. It
+ * deliberately avoids leading with the retention percentage or restating the
+ * mover, so the Summary line and the Retention chart each keep something to
+ * say. Header = "how are things, broadly"; the cards below carry the numbers.
+ */
 export function buildHeaderLine(data: ProgressData): string {
-  const { summary, retention } = data
-  const recentReviews = retention.slice(-30).filter((p) => p.retention !== null) as Array<{ retention: number }>
-  const r = recentReviews.length > 0
-    ? recentReviews.reduce((acc, p) => acc + p.retention, 0) / recentReviews.length
-    : summary.retention30d
-
   switch (data.state) {
     case 'strong':
-      return `Memory is holding at ${pct(r)}, and ${withCommas(summary.matureCount)} cards now live in long-term storage.`
+      return `Memory is holding, and your collection keeps maturing.`
     case 'plateau':
-      return `Retention is steady at ${pct(r)}, but the mature pile has been flat for the past month.`
+      return `Retention is steady, but mature growth has gone flat this month.`
     case 'declining':
-      return `Retention has slipped to ${pct(r)}, ${Math.round((data.desiredRetention - r) * 100)} points below your target.`
+      return `Retention has dipped below your target. Worth a closer look below.`
     case 'limited':
       return `Progress takes a beat to settle.`
   }
@@ -133,27 +133,37 @@ export function buildConsistencyLine(data: ProgressData): string {
 
 // ── Summary interpretation ────────────────────────────────────────────────
 
+/**
+ * Summary strip line: leads with whichever signal *moved most* this month,
+ * rather than always narrating retention (which the header verdict and the
+ * Retention chart already cover). The lead is chosen by state and by the
+ * mature-growth delta over the trailing ~30 snapshots, so the sentence
+ * surfaces the thing actually worth the learner's attention right now.
+ */
 export function buildSummaryLine(data: ProgressData): string {
   const { summary } = data
-  const weekly = Math.round(summary.cardsAddedThisMonth / 4)
   if (data.state === 'limited') {
     return `Early days. Once a couple more weeks of practice land, the chart shapes below will tell the story.`
   }
-  if (data.state === 'plateau') {
-    return `Mature cards are growing slowly, around ${weekly} per week. Retention is steady at ${pct(summary.retention30d)}.`
-  }
+
+  const series = data.mature
+  const matureDelta = series.length >= 2
+    ? (series[series.length - 1]?.mature ?? 0) - (series[Math.max(0, series.length - 30)]?.mature ?? 0)
+    : 0
+
   if (data.state === 'declining') {
-    return `Retention has slipped this month. The mature pile is still growing, but it's worth checking which cards are missing.`
+    return `The dip is recent; ${withCommas(summary.matureCount)} cards are still mature. Worth checking which ones are slipping.`
   }
-  return `Mature cards are growing at roughly ${weekly} per week. Retention has held inside its expected range for the past month.`
-}
-
-// ── Limited-data return-on-date ──────────────────────────────────────────
-
-export function limitedReturnDate(firstReviewIso: string): string {
-  const d = new Date(`${firstReviewIso}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + LIMITED_THRESHOLD_DAYS)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  if (data.state === 'plateau') {
+    return `Mature growth has nearly stalled this month. A few more new cards would get it moving again.`
+  }
+  if (matureDelta >= 20) {
+    return `Up ${withCommas(matureDelta)} mature cards this month, one of your strongest stretches yet.`
+  }
+  if (summary.activeDaysLast30 >= 24) {
+    return `You practiced ${summary.activeDaysLast30} of the last 30 days. Consistency is doing the quiet work.`
+  }
+  return `A steady month: ${withCommas(summary.matureCount)} cards mature and retention near its target.`
 }
 
 export { LIMITED_THRESHOLD_DAYS }

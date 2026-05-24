@@ -1,57 +1,52 @@
-import { Logo } from '@/components/ui/Logo'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { KitsuneEmptyState } from '@/components/ui/KitsuneEmptyState'
 
-import { LIMITED_THRESHOLD_DAYS, limitedReturnDate } from './progressInterpretation'
+import { LIMITED_THRESHOLD_DAYS } from './progressInterpretation'
 
 interface ProgressEmptyProps {
-  /** ISO date of the user's first review, or null if no reviews yet. */
-  firstReviewDate: string | null
+  /**
+   * Distinct days the learner has practiced so far (the heatmap returns one
+   * row per review-day), or null when no data has loaded yet. This is the
+   * exact quantity `classifyProgress` gates on, so the copy can count toward
+   * the real threshold rather than a calendar date.
+   */
+  activeDays: number | null
   /** Render the dev-flavored copy variant when we're previewing without data. */
-  isDev?:          boolean
+  isDev?:     boolean
 }
 
 /**
- * Limited-data state for the Progress page. The IA brief explicitly names
- * this as one of the four real states; we honor it with the same kitsune
- * mark used elsewhere in Insights, a one-line plain-language read, and a
- * concrete return date computed from the user's first review date.
+ * Limited-data state for the Progress page. The IA brief names this as one of
+ * the four real states; we honor it with the kitsune mark, a one-line read,
+ * and an honest count toward the threshold that actually lifts the limited
+ * state: {@link LIMITED_THRESHOLD_DAYS} distinct days of practice (see
+ * `classifyProgress`).
  *
- * Deliberately no skeleton charts. The IA says "Set expectations about
- * what can be shown" — a blank page with a date is more honest than a
- * grey scaffold pretending to load.
+ * The earlier "come back around <date>" copy was removed: it projected
+ * first-review + 14 *calendar* days, which drifts ahead of the real
+ * practice-day gate the moment a learner skips a day (so the date could pass
+ * while the page was still, correctly, limited).
+ *
+ * Deliberately no skeleton charts. The IA says "Set expectations about what
+ * can be shown" — an honest count is better than a grey scaffold pretending
+ * to load.
  */
 export function ProgressEmpty({
-  firstReviewDate,
+  activeDays,
   isDev = false,
 }: ProgressEmptyProps): React.JSX.Element {
-  const returnDate = firstReviewDate !== null
-    ? limitedReturnDate(firstReviewDate)
-    : null
+  const body = isDev
+    ? 'Limited-data fixture selected. After about two weeks of reviews, the page will fill with retention, mature growth, JLPT coverage, and cadence.'
+    : activeDays !== null && activeDays > 0
+      ? `You've practiced on ${activeDays} of the ${LIMITED_THRESHOLD_DAYS} days this page needs. Once you get there, it fills in with retention, mature growth, JLPT coverage, and cadence.`
+      : `After about ${LIMITED_THRESHOLD_DAYS} days of practice, this page will show retention, mature growth, JLPT coverage, and cadence.`
 
   return (
-    <section
-      aria-label="Progress takes a beat to settle"
-      className="mx-auto mt-12 flex flex-col items-center gap-y-7 py-6 text-center lg:mt-20"
-    >
-      <Logo size={112} showWordmark={false} priority />
-
-      <p className="max-w-[36ch] font-display text-[1.25rem] leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
-        Progress takes a beat to settle.
-      </p>
-
-      <p className="max-w-[48ch] text-sm leading-relaxed text-faded-sumi">
-        {isDev
-          ? 'Limited-data fixture selected. After about two weeks of reviews, the page will fill with retention, mature growth, JLPT coverage, and cadence.'
-          : returnDate !== null
-            ? `Come back around ${returnDate}, when you'll have enough history to see the shape.`
-            : `After about ${LIMITED_THRESHOLD_DAYS} days of reviews, this page will show retention, mature growth, JLPT coverage, and cadence.`}
-      </p>
-
-      <div className="pt-2">
-        <QuietLink href="/today" tone="brand" trailingArrow size="md">
-          Start a review
-        </QuietLink>
-      </div>
-    </section>
+    <KitsuneEmptyState
+      ariaLabel="Progress takes a beat to settle"
+      headline="Progress takes a beat to settle."
+      body={body}
+      ctaHref="/today"
+      ctaLabel="Start a review"
+    />
   )
 }

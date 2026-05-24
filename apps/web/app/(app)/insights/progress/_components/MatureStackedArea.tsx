@@ -1,25 +1,18 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
-import { smoothLinePath } from '../../_components/chartPaths'
+import { ScrollableChartFrame, smoothLinePath } from '@/components/charts'
 
+import { rangeDays, type ProgressRangeKey } from './progressRange'
 import type { MaturePoint, MatureMilestone } from './progressTypes'
 
 interface MatureStackedAreaProps {
   series:     ReadonlyArray<MaturePoint>
   milestones: ReadonlyArray<MatureMilestone>
+  /** Page-level time range, shared with the Retention chart. */
+  range:      ProgressRangeKey
 }
-
-type RangeKey = '30d' | '90d' | '6m' | '1y' | 'all'
-
-const RANGES: ReadonlyArray<{ key: RangeKey; label: string; days: number | null }> = [
-  { key: '30d', label: '30d', days: 30   },
-  { key: '90d', label: '90d', days: 90   },
-  { key: '6m',  label: '6m',  days: 182  },
-  { key: '1y',  label: '1y',  days: 365  },
-  { key: 'all', label: 'All', days: null },
-]
 
 const VB_W = 1200
 const VB_H = 240
@@ -30,11 +23,14 @@ const PAD_BOTTOM = 46
 const PLOT_W = VB_W - PAD_LEFT - PAD_RIGHT
 const PLOT_H = VB_H - PAD_TOP - PAD_BOTTOM
 
+// Maturity ramp: a single token (inari-vermillion-deep) faded across four
+// steps so "the deeper the red, the more durable the card." Token-driven so
+// the ramp tracks the brand color rather than a hardcoded literal.
 const STAGES = [
-  { key: 'new',      label: 'New',      fill: 'rgb(126 31 42 / 0.25)' },
-  { key: 'learning', label: 'Learning', fill: 'rgb(126 31 42 / 0.45)' },
-  { key: 'young',    label: 'Young',    fill: 'rgb(126 31 42 / 0.70)' },
-  { key: 'mature',   label: 'Mature',   fill: 'rgb(126 31 42)'        },
+  { key: 'new',      label: 'New',      fill: 'color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 75%)' },
+  { key: 'learning', label: 'Learning', fill: 'color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 55%)' },
+  { key: 'young',    label: 'Young',    fill: 'color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 30%)' },
+  { key: 'mature',   label: 'Mature',   fill: 'var(--color-inari-vermillion-deep)'                                       },
 ] as const
 
 type StageKey = (typeof STAGES)[number]['key']
@@ -93,11 +89,10 @@ function pickXTicks(dates: ReadonlyArray<string>, want: number): XTick[] {
 export function MatureStackedArea({
   series,
   milestones,
+  range,
 }: MatureStackedAreaProps): React.JSX.Element {
-  const [range, setRange] = useState<RangeKey>('90d')
-
   const view = useMemo<ReadonlyArray<MaturePoint>>(() => {
-    const days = RANGES.find((r) => r.key === range)?.days ?? null
+    const days = rangeDays(range)
     const sorted = [...series].sort((a, b) => a.date.localeCompare(b.date))
     if (days === null) return sorted
     return sorted.slice(-days)
@@ -123,12 +118,9 @@ export function MatureStackedArea({
       new: [], learning: [], young: [], mature: [],
     }
     for (const p of view) {
-      // Stack order bottom-to-top: mature → young → learning → new
-      // (so mature, the destination state, sits *under* the rest. This
-      // makes its boundary line the natural reading edge.)
-      // Actually we want mature *highest* (most prominent), so we stack
-      // it on top: new at bottom, learning, young, mature on top.
-      // Cumulative goes bottom-to-top:
+      // Stack order bottom-to-top: new, learning, young, mature. Mature
+      // sits on top so its cumulative edge is the chart's reading line
+      // (the one that carries the milestone dots).
       const cumNew      = p.new
       const cumLearning = cumNew + p.learning
       const cumYoung    = cumLearning + p.young
@@ -192,16 +184,13 @@ export function MatureStackedArea({
   const xTicks = useMemo(() => pickXTicks(view.map((p) => p.date), 5), [view])
 
   return (
-    <div className="flex flex-col gap-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-mono text-[0.75rem] uppercase tracking-[0.14em] text-faded-sumi">
-          Pipeline <span className="text-sumi-ink/70">·</span>{' '}
-          <span className="text-sumi-ink/85">cards by maturity over time</span>
-        </p>
-        <RangeScrubber value={range} onChange={setRange} />
-      </div>
+    <div className="flex flex-col gap-y-6">
+      <p className="font-mono text-sm text-faded-sumi">
+        Pipeline <span className="text-sumi-ink/70">·</span>{' '}
+        <span className="text-sumi-ink/85">cards by maturity over time</span>
+      </p>
 
+      <ScrollableChartFrame minWidth={640}>
       <svg
         role="img"
         aria-label="Card pipeline over time: new, learning, young, and mature counts stacked"
@@ -217,7 +206,7 @@ export function MatureStackedArea({
             x2={VB_W - PAD_RIGHT}
             y1={t.y}
             y2={t.y}
-            stroke="rgb(94 72 67 / 0.08)"
+            stroke="color-mix(in oklch, var(--color-retention-uncertainty), transparent 92%)"
             strokeWidth={1}
           />
         ))}
@@ -233,7 +222,7 @@ export function MatureStackedArea({
           <path
             d={matureLine}
             fill="none"
-            stroke="rgb(126 31 42)"
+            stroke="var(--color-inari-vermillion-deep)"
             strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -243,7 +232,7 @@ export function MatureStackedArea({
         {/* Milestone dots */}
         {dotPositions.map((d) => (
           <g key={d.count}>
-            <circle cx={d.x} cy={d.y} r={3.5} fill="rgb(126 31 42)" stroke="rgb(250 246 240)" strokeWidth={1.5} />
+            <circle cx={d.x} cy={d.y} r={3.5} fill="var(--color-inari-vermillion-deep)" stroke="var(--color-warm-paper-base)" strokeWidth={1.5} />
             <text
               x={d.x}
               y={d.y - 9}
@@ -291,13 +280,14 @@ export function MatureStackedArea({
           x2={VB_W - PAD_RIGHT}
           y1={VB_H - PAD_BOTTOM}
           y2={VB_H - PAD_BOTTOM}
-          stroke="rgb(94 72 67 / 0.25)"
+          stroke="color-mix(in oklch, var(--color-retention-uncertainty), transparent 75%)"
           strokeWidth={1}
         />
       </svg>
+      </ScrollableChartFrame>
 
       {/* Legend */}
-      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi">
+      <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-sm text-faded-sumi">
         {STAGES.map((s) => (
           <li key={s.key} className="flex items-center gap-x-2">
             <span
@@ -309,45 +299,6 @@ export function MatureStackedArea({
           </li>
         ))}
       </ul>
-    </div>
-  )
-}
-
-// ── Range scrubber ──────────────────────────────────────────────────────────
-
-interface RangeScrubberProps {
-  value:    RangeKey
-  onChange: (next: RangeKey) => void
-}
-
-function RangeScrubber({ value, onChange }: RangeScrubberProps): React.JSX.Element {
-  return (
-    <div
-      role="tablist"
-      aria-label="Mature growth time range"
-      className="flex items-center gap-0.5 rounded-[2px] border border-soft-hairline bg-cream-inset/40 p-0.5"
-    >
-      {RANGES.map((r) => {
-        const active = r.key === value
-        return (
-          <button
-            key={r.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(r.key)}
-            className={[
-              'rounded-[2px] px-2.5 py-1 font-mono text-[0.6875rem] uppercase tracking-[0.14em] transition-colors',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-              active
-                ? 'bg-sumi-ink text-warm-paper-base'
-                : 'text-faded-sumi hover:text-sumi-ink',
-            ].join(' ')}
-          >
-            {r.label}
-          </button>
-        )
-      })}
     </div>
   )
 }

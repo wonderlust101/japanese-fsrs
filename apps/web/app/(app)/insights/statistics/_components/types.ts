@@ -22,8 +22,6 @@ export interface ActivityStats {
   totalReviews: number
   totalSeconds: number
   activeDays:   number
-  bestStreak:   number
-  currentStreak: number
 }
 
 // ── Retention ───────────────────────────────────────────────────────────────

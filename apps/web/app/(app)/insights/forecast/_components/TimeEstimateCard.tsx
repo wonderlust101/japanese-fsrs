@@ -3,6 +3,8 @@ import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { estimateSessionFromCounts } from '@/lib/review/estimate-time'
 
+import { StatTile } from '@/components/ui/StatTile'
+
 interface TimeEstimateCardProps {
   forecast: ReadonlyArray<ApiForecastDay>
 }
@@ -67,7 +69,7 @@ export function TimeEstimateCard({
       label="Time estimate"
       description="At a steady review pace, here's roughly how much sitting time the next few days ask for."
     >
-      <dl className="grid grid-cols-1 gap-y-5 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-0">
+      <dl className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-0">
         <EstimateRow
           term="Tomorrow"
           estimate={tomorrowEst}
@@ -88,21 +90,14 @@ function EstimateRow({
   term:     string
   estimate: Estimate | null
 }): React.JSX.Element {
+  const trailing = estimate !== null && estimate.cards > 0
+    ? `· ${estimate.cards} ${estimate.cards === 1 ? 'card' : 'cards'}`
+    : undefined
   return (
-    <div className="flex flex-col gap-y-1.5">
-      <dt className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-faded-sumi">
-        {term}
-      </dt>
-      <dd className="flex items-baseline gap-x-3">
-        <span className="font-display text-[1.875rem] font-medium leading-none tabular-nums text-sumi-ink">
-          {estimate === null ? '—' : estimate.label}
-        </span>
-        {estimate !== null && estimate.cards > 0 && (
-          <span className="text-[0.875rem] text-faded-sumi">
-            · {estimate.cards} {estimate.cards === 1 ? 'card' : 'cards'}
-          </span>
-        )}
-      </dd>
-    </div>
+    <StatTile
+      label={term}
+      value={estimate === null ? '—' : estimate.label}
+      {...(trailing !== undefined && { trailing })}
+    />
   )
 }

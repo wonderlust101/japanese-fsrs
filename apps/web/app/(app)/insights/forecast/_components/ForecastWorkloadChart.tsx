@@ -1,6 +1,28 @@
 import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
+import { AxisText, DATA_INK } from '@/components/charts'
+import {
+  addDays,
+  dayLetter,
+  dayOfMonth,
+  isoFromDate,
+  isWeekEnd,
+  niceCeil,
+} from '@/components/charts'
+import { ScrollableChartFrame } from '@/components/charts'
+
 export type ForecastWindow = 7 | 14 | 28
+
+/**
+ * Stacked-workload fills, drawn from the same queue palette the Today page
+ * uses for its New / Due / Overdue stack (`week-rhythm-strip`): blue for new,
+ * inari-red for review, deep-red for backlog. Sharing those tokens keeps the
+ * status language consistent across Today and Forecast, and the blue-vs-red
+ * hue split reads as distinct by hue, not just lightness.
+ */
+export const NEW_FILL     = 'var(--color-queue-new-mark)'
+export const REVIEW_FILL  = 'var(--color-queue-review-mark)'
+export const BACKLOG_FILL = 'var(--color-queue-backlog-mark)'
 
 interface ForecastWorkloadChartProps {
   forecast:   ReadonlyArray<ApiForecastDay>
@@ -18,42 +40,8 @@ const PAD_RIGHT  = 14
 const PAD_TOP    = 32
 const PAD_BOTTOM = 46
 
-function parseIso(iso: string): Date {
-  return new Date(`${iso}T00:00:00Z`)
-}
-
-function isoFromDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
-
-function addDays(iso: string, n: number): string {
-  const d = parseIso(iso)
-  d.setUTCDate(d.getUTCDate() + n)
-  return isoFromDate(d)
-}
-
-function dayLetter(iso: string): string {
-  const dow = (parseIso(iso).getUTCDay() + 6) % 7
-  return ['M', 'T', 'W', 'T', 'F', 'S', 'S'][dow] as string
-}
-
-function dayOfMonth(iso: string): string {
-  return iso.slice(8, 10).replace(/^0/, '')
-}
-
 function sortAsc(xs: ReadonlyArray<ApiForecastDay>): ApiForecastDay[] {
   return [...xs].sort((a, b) => (a.date < b.date ? -1 : 1))
-}
-
-function niceCeil(n: number): number {
-  if (n <= 5)   return 5
-  if (n <= 10)  return 10
-  if (n <= 25)  return 25
-  if (n <= 50)  return 50
-  if (n <= 100) return 100
-  if (n <= 200) return 200
-  if (n <= 500) return 500
-  return Math.ceil(n / 250) * 250
 }
 
 interface Bar {
@@ -113,6 +101,7 @@ export function ForecastWorkloadChart({
   const yFor = (v: number): number => PAD_TOP + (1 - v / yMax) * innerH
 
   return (
+    <ScrollableChartFrame minWidth={640}>
     <svg
       role="img"
       aria-label={
@@ -136,16 +125,9 @@ export function ForecastWorkloadChart({
               strokeOpacity={idx === 0 ? 1 : 0.7}
               strokeWidth={1}
             />
-            <text
-              x={PAD_LEFT - 10}
-              y={y + 4}
-              textAnchor="end"
-              fontSize={13}
-              fontFamily="ui-monospace, monospace"
-              fill="var(--color-faded-sumi)"
-            >
+            <AxisText x={PAD_LEFT - 10} y={y + 4} anchor="end">
               {Math.round(tick)}
-            </text>
+            </AxisText>
           </g>
         )
       })}
@@ -175,17 +157,9 @@ export function ForecastWorkloadChart({
                 rx={1}
                 fill="var(--color-soft-hairline)"
               />
-              <text
-                x={x + barW / 2}
-                y={y - 5}
-                textAnchor="middle"
-                fontSize={11}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-                opacity={0.6}
-              >
+              <AxisText x={x + barW / 2} y={y - 5} size={11}>
                 0
-              </text>
+              </AxisText>
             </g>
           )
         }
@@ -205,8 +179,8 @@ export function ForecastWorkloadChart({
               return (
                 <rect
                   x={x} y={y} width={barW} height={segH}
-                  fill="var(--color-sumi-ink)"
-                  opacity={opacity * 0.8}
+                  fill={BACKLOG_FILL}
+                  opacity={opacity}
                 />
               )
             })()}
@@ -217,7 +191,7 @@ export function ForecastWorkloadChart({
               return (
                 <rect
                   x={x} y={y} width={barW} height={segH}
-                  fill="var(--color-inari-vermillion-deep)"
+                  fill={REVIEW_FILL}
                   opacity={opacity}
                 />
               )
@@ -230,23 +204,15 @@ export function ForecastWorkloadChart({
                 <rect
                   x={x} y={y} width={barW} height={segH}
                   rx={1}
-                  fill="var(--color-inari-vermillion)"
+                  fill={NEW_FILL}
                   opacity={opacity}
                 />
               )
             })()}
             {bar.isToday && bar.total > 0 && (
-              <text
-                x={x + barW / 2}
-                y={yFor(bar.total) - 6}
-                textAnchor="middle"
-                fontSize={12}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={700}
-                fill="var(--color-inari-vermillion-deep)"
-              >
+              <AxisText x={x + barW / 2} y={yFor(bar.total) - 6} size={12} weight={700} fill={DATA_INK}>
                 {bar.total}
-              </text>
+              </AxisText>
             )}
           </g>
         )
@@ -254,39 +220,29 @@ export function ForecastWorkloadChart({
 
       {/* X axis labels */}
       {bars.map((bar, i) => {
-        const showDate = (parseIso(bar.date).getUTCDay() + 6) % 7 === 6
+        const showDate = isWeekEnd(bar.date)
         const x = xFor(i) + barW / 2
         const showLabel = bars.length <= 14 || i % 2 === 0
         if (!showLabel) return null
         return (
           <g key={`label-${bar.date}`}>
-            <text
+            <AxisText
               x={x}
               y={VIEW_H - PAD_BOTTOM + 20}
-              textAnchor="middle"
-              fontSize={13}
-              fontFamily="ui-monospace, monospace"
-              fontWeight={bar.isToday ? 600 : 400}
-              fill={bar.isToday ? 'var(--color-inari-vermillion-deep)' : 'var(--color-faded-sumi)'}
+              weight={bar.isToday ? 600 : 400}
+              fill={bar.isToday ? DATA_INK : undefined}
             >
               {bar.letter}
-            </text>
+            </AxisText>
             {showDate && (
-              <text
-                x={x}
-                y={VIEW_H - PAD_BOTTOM + 34}
-                textAnchor="middle"
-                fontSize={10.5}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-                opacity={0.7}
-              >
+              <AxisText x={x} y={VIEW_H - PAD_BOTTOM + 34} size={10.5}>
                 {dayOfMonth(bar.date)}
-              </text>
+              </AxisText>
             )}
           </g>
         )
       })}
     </svg>
+    </ScrollableChartFrame>
   )
 }

@@ -1,4 +1,4 @@
-import { smoothAreaPath, smoothLinePath, type Pt } from '../../_components/chartPaths'
+import { ScrollableChartFrame, smoothAreaPath, smoothLinePath, type Pt } from '@/components/charts'
 
 import type { ActivityDay } from './types'
 
@@ -83,21 +83,28 @@ export function RetentionLongCurve({
     tickIndices.push(Math.round((sorted.length - 1) * (i / Math.max(1, tickCount - 1))))
   }
 
+  // Percent position within the viewBox so HTML labels overlaid on the SVG
+  // stay crisp at any container width.
+  const leftPct = (x: number): string => `${(x / VIEW_W) * 100}%`
+  const topPct  = (y: number): string => `${(y / VIEW_H) * 100}%`
+
   return (
     <figure className="flex flex-col gap-y-3">
-      <svg
-        role="img"
-        aria-label={`Retention over the last ${windowDays} days. Mean ${meanPct}%.`}
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="block h-auto w-full"
-      >
-        {/* Y gridlines + labels */}
-        {yTicks.map((tick, idx) => {
-          const y = yFor(tick)
-          return (
-            <g key={idx}>
+      <ScrollableChartFrame minWidth={640}>
+      <div className="relative w-full">
+        <svg
+          role="img"
+          aria-label={`Retention over the last ${windowDays} days. Mean ${meanPct}%.`}
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="block h-auto w-full"
+        >
+          {/* Y gridlines */}
+          {yTicks.map((tick, idx) => {
+            const y = yFor(tick)
+            return (
               <line
+                key={idx}
                 x1={PAD_LEFT}
                 x2={VIEW_W - PAD_RIGHT}
                 y1={y}
@@ -106,89 +113,81 @@ export function RetentionLongCurve({
                 strokeOpacity={idx === 0 ? 1 : 0.7}
                 strokeWidth={1}
               />
-              <text
-                x={PAD_LEFT - 10}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-              >
-                {Math.round(tick * 100)}%
-              </text>
-            </g>
-          )
-        })}
+            )
+          })}
 
-        {/* Vermillion area gradient */}
-        <defs>
-          <linearGradient id="retention-long-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="var(--color-inari-vermillion)"      stopOpacity={0.30} />
-            <stop offset="100%" stopColor="var(--color-inari-vermillion-deep)" stopOpacity={0.04} />
-          </linearGradient>
-        </defs>
-        {areaPath !== null && (
-          <path d={areaPath} fill="url(#retention-long-area)" />
-        )}
+          {/* Vermillion area gradient */}
+          <defs>
+            <linearGradient id="retention-long-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="var(--color-inari-vermillion)"      stopOpacity={0.30} />
+              <stop offset="100%" stopColor="var(--color-inari-vermillion-deep)" stopOpacity={0.04} />
+            </linearGradient>
+          </defs>
+          {areaPath !== null && (
+            <path d={areaPath} fill="url(#retention-long-area)" />
+          )}
 
-        {/* Curve */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke="var(--color-inari-vermillion-deep)"
-          strokeWidth={2.4}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
+          {/* Curve */}
+          <path
+            d={linePath}
+            fill="none"
+            stroke="var(--color-inari-vermillion-deep)"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
 
-        {/* Trailing mean reference */}
-        <line
-          x1={PAD_LEFT}
-          x2={VIEW_W - PAD_RIGHT}
-          y1={meanY}
-          y2={meanY}
-          stroke="var(--color-sumi-ink)"
-          strokeOpacity={0.55}
-          strokeWidth={1.2}
-          strokeDasharray="4 4"
-        />
-        <text
-          x={VIEW_W - PAD_RIGHT - 4}
-          y={meanY - 6}
-          textAnchor="end"
-          fontSize={11}
-          fontFamily="ui-monospace, monospace"
-          letterSpacing="0.08em"
-          fill="var(--color-sumi-ink)"
-          fillOpacity={0.75}
-        >
-          MEAN {meanPct}%
-        </text>
+          {/* Trailing mean reference */}
+          <line
+            x1={PAD_LEFT}
+            x2={VIEW_W - PAD_RIGHT}
+            y1={meanY}
+            y2={meanY}
+            stroke="var(--color-sumi-ink)"
+            strokeOpacity={0.55}
+            strokeWidth={1.2}
+            strokeDasharray="4 4"
+          />
+        </svg>
 
-        {/* X axis ticks: month + day */}
-        {tickIndices.map((i, idx) => {
-          const day = sorted[i]
-          if (day === undefined) return null
-          const x = xFor(i)
-          return (
-            <g key={`xt-${idx}`}>
-              <text
-                x={x}
-                y={VIEW_H - PAD_BOTTOM + 20}
-                textAnchor="middle"
-                fontSize={12}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
+        {/* HTML label overlay — crisp at any width */}
+        <div className="pointer-events-none absolute inset-0 font-mono tabular-nums">
+          {yTicks.map((tick, idx) => (
+            <span
+              key={idx}
+              className="absolute -translate-x-full -translate-y-1/2 pr-2 text-right text-sm text-faded-sumi"
+              style={{ left: leftPct(PAD_LEFT), top: topPct(yFor(tick)) }}
+            >
+              {Math.round(tick * 100)}%
+            </span>
+          ))}
+
+          <span
+            className="absolute -translate-x-full -translate-y-full pr-1 text-sm tracking-[0.08em] text-sumi-ink/75"
+            style={{ left: leftPct(VIEW_W - PAD_RIGHT - 4), top: topPct(meanY - 2) }}
+          >
+            MEAN {meanPct}%
+          </span>
+
+          {tickIndices.map((i, idx) => {
+            const day = sorted[i]
+            if (day === undefined) return null
+            return (
+              <span
+                key={`xt-${idx}`}
+                className="absolute -translate-x-1/2 text-sm text-faded-sumi"
+                style={{ left: leftPct(xFor(i)), top: topPct(VIEW_H - PAD_BOTTOM + 8) }}
               >
                 {shortMonth(day.date)} {dayOfMonth(day.date)}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      </ScrollableChartFrame>
 
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums text-faded-sumi">
         <span>
           Retention trend <span className="text-sumi-ink/70">·</span> last {windowDays} days
         </span>

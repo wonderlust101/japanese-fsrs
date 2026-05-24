@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { useExpandSection } from './section-collapse'
 import { STATISTICS_SECTIONS, STATISTICS_SECTIONS_BY_ID, type StatisticsSectionId } from './sections'
 
 /**
@@ -15,8 +16,9 @@ import { STATISTICS_SECTIONS, STATISTICS_SECTIONS_BY_ID, type StatisticsSectionI
  * scrolls horizontally to keep all five labels reachable.
  */
 export function StatisticsSectionTabs(): React.JSX.Element {
+  const expandSection = useExpandSection()
   const [activeId, setActiveId] = useState<StatisticsSectionId>(
-    STATISTICS_SECTIONS_BY_ID.activity.id,
+    STATISTICS_SECTIONS[0]?.id ?? STATISTICS_SECTIONS_BY_ID.retention.id,
   )
 
   useEffect(() => {
@@ -47,10 +49,12 @@ export function StatisticsSectionTabs(): React.JSX.Element {
   }, [])
 
   const handleClick = (id: StatisticsSectionId): void => {
+    // Expand first so navigating to a collapsed section reveals it. The
+    // scroll target is the section's top (carrying scroll-mt-32), which
+    // doesn't move when the body below it expands.
+    expandSection(id)
     const el = document.getElementById(id)
     if (el === null) return
-    // The section element carries `scroll-mt-32` so the browser respects
-    // the sticky TopBar + tab bar combined height automatically.
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     setActiveId(id)
   }
@@ -59,27 +63,27 @@ export function StatisticsSectionTabs(): React.JSX.Element {
     <nav
       aria-label="Statistics sections"
       className={cn(
-        'sticky top-16 z-10 -mx-4 sm:-mx-6 lg:-mx-12 xl:-mx-16',
+        // Negative margins exactly mirror the page container's padding
+        // (`px-4 md:px-12 lg:px-16`) so the bar bleeds to precisely the
+        // max-w-[1440px] container edge and never overshoots past it.
+        'sticky top-16 z-10 -mx-4 md:-mx-12 lg:-mx-16',
         'border-b border-soft-hairline bg-cool-paper-base',
       )}
     >
       <ul
-        role="tablist"
-        className="-mx-px flex items-stretch overflow-x-auto whitespace-nowrap px-4 sm:px-6 lg:px-12 xl:px-16"
+        className="-mx-px flex items-stretch overflow-x-auto whitespace-nowrap px-4 md:px-12 lg:px-16"
       >
         {STATISTICS_SECTIONS.map((section) => {
           const selected = section.id === activeId
           return (
-            <li key={section.id} role="presentation" className="flex">
+            <li key={section.id} className="flex">
               <button
                 type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-current={selected ? 'true' : undefined}
+                aria-current={selected ? 'location' : undefined}
                 onClick={() => handleClick(section.id)}
                 className={cn(
-                  'relative -mb-px flex items-baseline gap-x-2 px-4 py-3',
-                  'font-mono text-[0.75rem] uppercase tracking-[0.16em]',
+                  'relative -mb-px flex min-h-[44px] items-center gap-x-2 px-4 py-3',
+                  'font-mono text-sm',
                   'transition-colors duration-150 ease-out',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-4',
                   selected
@@ -91,7 +95,7 @@ export function StatisticsSectionTabs(): React.JSX.Element {
                   lang="ja"
                   aria-hidden="true"
                   className={cn(
-                    'font-display text-[1rem] leading-none',
+                    'font-display text-md leading-none',
                     selected ? 'text-inari-vermillion' : 'text-faded-sumi/70',
                   )}
                 >

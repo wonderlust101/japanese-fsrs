@@ -1,6 +1,17 @@
 import type { ApiHeatmapDay } from '@fsrs-japanese/shared-types'
 
-import { smoothAreaPath, smoothLinePath, type Pt } from './chartPaths'
+import { smoothAreaPath, smoothLinePath, type Pt } from '@/components/charts'
+import {
+  AXIS_SUBLABEL_SIZE,
+  AxisText,
+  ChartFigcaption,
+  DATA_INK,
+  FocalDot,
+  LegendSwatch,
+  REFERENCE_INK,
+  ReferenceLine,
+} from '@/components/charts'
+import { ScrollableChartFrame } from '@/components/charts'
 
 interface RetentionChartProps {
   /** Full heatmap; the chart will pick the most recent active days. */
@@ -89,6 +100,7 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
 
   return (
     <figure className="flex flex-col gap-y-3">
+      <ScrollableChartFrame minWidth={640}>
       <svg
         role="img"
         aria-label={
@@ -114,16 +126,9 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
                 strokeOpacity={idx === 0 ? 1 : 0.7}
                 strokeWidth={1}
               />
-              <text
-                x={PAD_LEFT - 10}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fill="var(--color-faded-sumi)"
-              >
+              <AxisText x={PAD_LEFT - 10} y={y + 4} anchor="end">
                 {Math.round(tick * 100)}%
-              </text>
+              </AxisText>
             </g>
           )
         })}
@@ -171,38 +176,35 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
           )
         })}
 
-        {/* Trailing mean reference — Sumi Ink dashed. It's the only sumi
-            mark on the chart, so the eye reads it as "reference," not "data." */}
-        <line
-          x1={PAD_LEFT}
-          x2={VIEW_W - PAD_RIGHT}
-          y1={meanY}
-          y2={meanY}
-          stroke="var(--color-sumi-ink)"
-          strokeOpacity={0.55}
-          strokeWidth={1.2}
-          strokeDasharray="4 4"
-        />
+        {/* Trailing mean reference — the shared sumi dashed baseline. It's the
+            only sumi mark on the chart, so the eye reads it as "reference." */}
+        <ReferenceLine x1={PAD_LEFT} x2={VIEW_W - PAD_RIGHT} y={meanY} />
+        {/* Mean value as a deliberate outlined callout: solid paper fill +
+            thin vermillion hairline so it reads as an intentional label on
+            the red fill, not an accidental gap in it. Parked just below the
+            dashed line to clear the curve and the "now" dot above-right. */}
         <rect
-          x={VIEW_W - PAD_RIGHT - 86}
-          y={meanY - 16}
-          width={84}
-          height={13}
-          rx={2}
+          x={VIEW_W - PAD_RIGHT - 80}
+          y={meanY + 3}
+          width={78}
+          height={17}
+          rx={3}
           fill="var(--color-warm-paper-raised)"
+          stroke="var(--color-inari-vermillion-deep)"
+          strokeOpacity={0.45}
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
         />
-        <text
-          x={VIEW_W - PAD_RIGHT - 4}
-          y={meanY - 6}
-          textAnchor="end"
-          fontSize={11}
-          fontFamily="ui-monospace, monospace"
+        <AxisText
+          x={VIEW_W - PAD_RIGHT - 8}
+          y={meanY + 15}
+          anchor="end"
+          size={11}
+          fill={REFERENCE_INK}
           letterSpacing="0.08em"
-          fill="var(--color-sumi-ink)"
-          fillOpacity={0.75}
         >
           MEAN {meanPct}%
-        </text>
+        </AxisText>
 
 
         {/* Most-recent annotated dot + dropline + label */}
@@ -218,33 +220,18 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
               strokeWidth={1}
               strokeDasharray="2 3"
             />
-            {/* Outer halo + inner ring give the focal dot a "target" feel
-                that reads clearly against the curve. */}
-            <circle
-              cx={xFor(recent.i)}
-              cy={yFor(recent.v)}
-              r={7}
-              fill="var(--color-warm-paper-raised)"
-              stroke="var(--color-inari-vermillion-deep)"
-              strokeWidth={1.5}
-            />
-            <circle
-              cx={xFor(recent.i)}
-              cy={yFor(recent.v)}
-              r={3.2}
-              fill="var(--color-inari-vermillion-deep)"
-            />
-            <text
+            {/* Shared focal marker: halo + ring + core, the "current value"
+                dot used across every chart. */}
+            <FocalDot cx={xFor(recent.i)} cy={yFor(recent.v)} />
+            <AxisText
               x={xFor(recent.i)}
               y={yFor(recent.v) - 14}
-              textAnchor="middle"
-              fontSize={11.5}
-              fontFamily="ui-monospace, monospace"
-              fontWeight={700}
-              fill="var(--color-inari-vermillion-deep)"
+              size={11.5}
+              weight={700}
+              fill={DATA_INK}
             >
               {recentPct}%
-            </text>
+            </AxisText>
           </g>
         )}
 
@@ -254,80 +241,37 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
           const isRecent = recent !== null && recent.i === i
           return (
             <g key={d.date}>
-              <text
+              <AxisText
                 x={xFor(i)}
                 y={VIEW_H - PAD_BOTTOM + 20}
-                textAnchor="middle"
-                fontSize={13}
-                fontFamily="ui-monospace, monospace"
-                fontWeight={isRecent ? 600 : 400}
-                fill={isRecent ? 'var(--color-inari-vermillion-deep)' : 'var(--color-faded-sumi)'}
+                weight={isRecent ? 600 : 400}
+                fill={isRecent ? DATA_INK : undefined}
               >
                 {dayLetter(d.date)}
-              </text>
+              </AxisText>
               {showDate && (
-                <text
-                  x={xFor(i)}
-                  y={VIEW_H - PAD_BOTTOM + 34}
-                  textAnchor="middle"
-                  fontSize={10.5}
-                  fontFamily="ui-monospace, monospace"
-                  fill="var(--color-faded-sumi)"
-                  opacity={0.7}
-                >
+                <AxisText x={xFor(i)} y={VIEW_H - PAD_BOTTOM + 34} size={AXIS_SUBLABEL_SIZE}>
                   {dayOfMonth(d.date)}
-                </text>
+                </AxisText>
               )}
             </g>
           )
         })}
       </svg>
+      </ScrollableChartFrame>
 
-      <figcaption className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.6875rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+      {/* Legend carries series identity only; the actual mean/now values live
+          on the chart as callouts, so they're not repeated here. */}
+      <ChartFigcaption>
         <span>Daily retention <span className="text-sumi-ink/70">·</span> last {days.length} days</span>
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <LegendSwatch color="var(--color-inari-vermillion-deep)" label="Daily" />
-          <LegendSwatch color="var(--color-sumi-ink)" opacity={0.6} dashed label={`Mean ${meanPct}%`} />
+          <LegendSwatch shape="line" color={DATA_INK} label="Daily" />
+          <LegendSwatch shape="line" color={REFERENCE_INK} opacity={0.6} dashed label="Mean" />
           {recentPct !== null && (
-            <LegendSwatch color="var(--color-inari-vermillion-deep)" label={`Now ${recentPct}%`} bold />
+            <LegendSwatch shape="line" color={DATA_INK} bold label="Now" />
           )}
         </span>
-      </figcaption>
+      </ChartFigcaption>
     </figure>
-  )
-}
-
-function LegendSwatch({
-  color,
-  opacity = 1,
-  dashed = false,
-  bold = false,
-  label,
-}: {
-  color:    string
-  opacity?: number
-  dashed?:  boolean
-  bold?:    boolean
-  label:    string
-}): React.JSX.Element {
-  return (
-    <span className="flex items-center gap-x-1.5">
-      <span
-        aria-hidden="true"
-        className="inline-block h-[2px] w-4"
-        style={{
-          backgroundColor: dashed ? 'transparent' : color,
-          opacity,
-          ...(dashed
-            ? {
-                backgroundImage: `repeating-linear-gradient(to right, ${color} 0, ${color} 3px, transparent 3px, transparent 6px)`,
-              }
-            : {}),
-        }}
-      />
-      <span className={bold ? 'font-medium text-inari-vermillion-deep' : undefined}>
-        {label}
-      </span>
-    </span>
   )
 }

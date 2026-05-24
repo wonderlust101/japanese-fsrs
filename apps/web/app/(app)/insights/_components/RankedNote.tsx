@@ -30,10 +30,11 @@ interface RankedNoteProps {
  *                2-col notes grid where each card is roughly half the page.
  *  - `compact` : smaller body type, compact header variant.
  *
- * The weight is set by severity rank, not by note kind. Progress can be
- * lead one week and compact the next. All weights render their assigned
- * sketch when one is available; the sketch is part of the card body, not
- * a standalone element.
+ * The weight is fixed by note kind, not by severity: progress always leads,
+ * mistakes takes the medium slot, planning the compact slot — so the sections
+ * never swap positions between loads. All weights render their assigned sketch
+ * when one is available; the sketch is part of the card body, not a standalone
+ * element.
  */
 export function RankedNote({
   weight,
@@ -49,10 +50,10 @@ export function RankedNote({
   const hasSketch = children !== undefined && children !== null
 
   const bodyTypeClass = isLead
-    ? 'text-[1.125rem] leading-relaxed sm:text-[1.1875rem] lg:text-[1.25rem]'
+    ? 'text-md leading-relaxed sm:text-lg lg:text-lg'
     : isCompact
-      ? 'text-[0.9375rem] leading-relaxed'
-      : 'text-[1rem] leading-relaxed'
+      ? 'text-base leading-relaxed'
+      : 'text-md leading-relaxed'
 
   return (
     <SectionCard
@@ -62,7 +63,7 @@ export function RankedNote({
       rightContent={
         <QuietLink
           href={deepLink.href}
-          tone={isLead ? 'brand' : 'sumi'}
+          tone="sumi"
           trailingArrow
           size="sm"
         >
@@ -71,8 +72,8 @@ export function RankedNote({
       }
     >
       {isLead && hasSketch ? (
-        <div className="grid grid-cols-1 gap-y-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-center lg:gap-x-12 xl:gap-x-16">
-          <p className={cn('max-w-[58ch] text-sumi-ink/90', bodyTypeClass)}>
+        <div className="grid grid-cols-1 gap-y-8 @4xl/insights:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] @4xl/insights:items-center @4xl/insights:gap-x-16">
+          <p className={cn('max-w-measure text-sumi-ink/90', bodyTypeClass)}>
             {renderEmphasis(body, tone)}
           </p>
           <div className="min-w-0 pb-1 lg:py-2 xl:py-3">
@@ -81,7 +82,7 @@ export function RankedNote({
         </div>
       ) : (
         <>
-          <p className={cn('max-w-[62ch] text-sumi-ink/90', bodyTypeClass)}>
+          <p className={cn('max-w-measure text-sumi-ink/90', bodyTypeClass)}>
             {renderEmphasis(body, tone)}
           </p>
           {hasSketch && (
@@ -97,17 +98,19 @@ export function RankedNote({
 
 function renderEmphasis(text: string, tone: NoteTone): React.ReactNode {
   const parts = splitEmphasis(text)
+  // Red emphasis uses the same vermillion-deep as the charts' data ink, so the
+  // numbers in prose and figures read as one palette. Neutral notes stay sumi.
   const emphasisClass =
-    tone === 'attention'
-      ? 'font-semibold text-inari-vermillion-deep'
-      : tone === 'celebratory'
-        ? 'font-semibold text-inari-vermillion'
-        : 'font-semibold text-sumi-ink'
+    tone === 'neutral'
+      ? 'font-semibold text-sumi-ink'
+      : 'font-semibold text-inari-vermillion-deep'
+  // Emphasis is visual color/weight only (a number or key word in the prose),
+  // not stress emphasis, so it renders as <span> rather than <em>.
   return parts.map((p, i) =>
     p.kind === 'em' ? (
-      <em key={i} className={cn('not-italic', emphasisClass)}>
+      <span key={i} className={emphasisClass}>
         {p.text}
-      </em>
+      </span>
     ) : (
       <span key={i}>{p.text}</span>
     ),

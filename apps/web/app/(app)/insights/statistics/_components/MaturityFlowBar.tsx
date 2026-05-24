@@ -43,11 +43,11 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
   const safeTotal = Math.max(1, totalCards)
 
   return (
-    <figure className="flex flex-col gap-y-5">
+    <figure className="flex flex-col gap-y-6">
       {/* The flow bar: every stage (including suspended) rendered as a
           proportional segment. Suspended sits at the right end in grey,
           visually stepped out of the vermillion ramp. */}
-      <div className="flex flex-col gap-y-2.5">
+      <div className="flex flex-col gap-y-3">
         <div
           role="img"
           aria-label={
@@ -73,7 +73,7 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
             )
           })}
         </div>
-        <p className="font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+        <p className="font-mono text-sm tabular-nums text-faded-sumi">
           Flow <span className="text-sumi-ink/70">·</span>{' '}
           <span className="text-sumi-ink/85">{activeTotal} active cards</span>
           {counts.suspended > 0 && (
@@ -102,7 +102,7 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
                     stage.bg,
                   )}
                 />
-                <span className="font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-faded-sumi">
+                <span className="font-mono text-sm text-faded-sumi">
                   {stage.label}
                 </span>
               </div>
@@ -110,7 +110,7 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
                 <span className="font-display text-[1.375rem] font-medium leading-none tabular-nums text-sumi-ink">
                   {value}
                 </span>
-                <span className="font-mono text-[0.6875rem] tabular-nums text-faded-sumi">
+                <span className="font-mono text-sm tabular-nums text-faded-sumi">
                   {pct}%
                 </span>
               </div>

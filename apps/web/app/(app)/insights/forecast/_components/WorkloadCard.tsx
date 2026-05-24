@@ -5,10 +5,15 @@ import { useMemo, useState } from 'react'
 import type { ApiForecastDay } from '@fsrs-japanese/shared-types'
 
 import { SectionCard } from '@/components/ui/SectionCard'
-import { cn } from '@/lib/utils'
+
+import { ChartRangeToggle } from '../../_components/ChartRangeToggle'
+import { ChartFigcaption, LegendSwatch } from '@/components/charts'
 
 import {
+  BACKLOG_FILL,
   ForecastWorkloadChart,
+  NEW_FILL,
+  REVIEW_FILL,
   type ForecastWindow,
 } from './ForecastWorkloadChart'
 
@@ -16,12 +21,18 @@ interface WorkloadCardProps {
   forecast: ReadonlyArray<ApiForecastDay>
 }
 
-const WINDOW_OPTIONS: ForecastWindow[] = [7, 14, 28]
+/** Window options for the shared ChartRangeToggle. Keys are stringified
+ *  ForecastWindow values; the card converts back to a number on change. */
+const WINDOW_OPTIONS = [
+  { key: '7',  label: '7d'  },
+  { key: '14', label: '14d' },
+  { key: '28', label: '28d' },
+] as const
 
 /**
  * Upcoming workload section. SectionCard wrapping the forward-only stacked
  * forecast chart, with a 7 / 14 / 28 tab control in the header's right slot
- * and an italic planning caption beneath the chart that interprets the
+ * and a quiet planning caption beneath the chart that interprets the
  * window's character (steady / heavy / light / backlog) for the learner.
  */
 export function WorkloadCard({ forecast }: WorkloadCardProps): React.JSX.Element {
@@ -35,94 +46,36 @@ export function WorkloadCard({ forecast }: WorkloadCardProps): React.JSX.Element
       kanji="次"
       label="Upcoming load"
       rightContent={
-        <WindowTabs value={windowDays} onChange={setWindowDays} />
+        <ChartRangeToggle
+          label="Forecast window"
+          options={WINDOW_OPTIONS}
+          value={String(windowDays)}
+          onChange={(k) => setWindowDays(Number(k) as ForecastWindow)}
+        />
       }
     >
       <div className="pb-1 lg:py-2 xl:py-3">
         <ForecastWorkloadChart forecast={forecast} windowDays={windowDays} />
-        <figcaption className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
+        <ChartFigcaption className="mt-4">
           <span>
             Daily load <span className="text-sumi-ink/70">·</span> next {windowDays} days
           </span>
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <LegendSwatch color="var(--color-inari-vermillion)" label={`New ${summary.newTotal}`} />
-            <LegendSwatch color="var(--color-inari-vermillion-deep)" label={`Review ${summary.reviewTotal}`} />
+            <LegendSwatch color={NEW_FILL} label={`New ${summary.newTotal}`} />
+            <LegendSwatch color={REVIEW_FILL} label={`Review ${summary.reviewTotal}`} />
             {summary.backlogTotal > 0 && (
-              <LegendSwatch color="var(--color-sumi-ink)" opacity={0.8} label={`Backlog ${summary.backlogTotal}`} />
+              <LegendSwatch color={BACKLOG_FILL} label={`Backlog ${summary.backlogTotal}`} />
             )}
             <span className="text-sumi-ink/85">
               <span className="font-medium">{summary.total}</span> total
             </span>
           </span>
-        </figcaption>
-        <p className="mt-5 max-w-[68ch] text-[0.9375rem] italic leading-relaxed text-sumi-ink/85">
+        </ChartFigcaption>
+        <p className="mt-5 max-w-measure-wide text-sm leading-[1.55] text-faded-sumi">
           {caption}
         </p>
       </div>
     </SectionCard>
-  )
-}
-
-// ── Window tabs (right-slot control) ────────────────────────────────────────
-
-interface WindowTabsProps {
-  value:    ForecastWindow
-  onChange: (next: ForecastWindow) => void
-}
-
-function WindowTabs({ value, onChange }: WindowTabsProps): React.JSX.Element {
-  return (
-    <div
-      role="tablist"
-      aria-label="Forecast window"
-      className="inline-flex items-center gap-x-1 rounded-[2px] border border-soft-hairline bg-cream-inset/60 p-0.5"
-    >
-      {WINDOW_OPTIONS.map((opt) => {
-        const active = opt === value
-        return (
-          <button
-            key={opt}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(opt)}
-            className={cn(
-              'inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-[2px] px-2',
-              'font-mono text-[0.6875rem] uppercase tracking-[0.16em] transition-colors',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-              active
-                ? 'bg-inari-vermillion text-warm-paper-raised'
-                : 'text-faded-sumi hover:text-sumi-ink',
-            )}
-          >
-            {opt}d
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Legend swatch ───────────────────────────────────────────────────────────
-
-function LegendSwatch({
-  color,
-  opacity = 1,
-  label,
-}: {
-  color:    string
-  opacity?: number
-  label:    string
-}): React.JSX.Element {
-  return (
-    <span className="flex items-center gap-x-1.5">
-      <span
-        aria-hidden="true"
-        className="inline-block h-[10px] w-[10px] rounded-[1px]"
-        style={{ backgroundColor: color, opacity }}
-      />
-      <span>{label}</span>
-    </span>
   )
 }
 

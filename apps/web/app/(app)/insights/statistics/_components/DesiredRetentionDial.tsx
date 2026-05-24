@@ -1,3 +1,5 @@
+import { AxisText, DATA_INK } from '@/components/charts'
+
 interface DesiredRetentionDialProps {
   desired: number  // 0-1
   actual:  number  // 0-1
@@ -89,31 +91,15 @@ export function DesiredRetentionDial({
           strokeLinecap="round"
         />
         {/* Center label */}
-        <text
-          x={CENTER}
-          y={CENTER - 6}
-          textAnchor="middle"
-          fontSize={36}
-          fontFamily="ui-monospace, monospace"
-          fontWeight={600}
-          fill="var(--color-inari-vermillion-deep)"
-        >
+        <AxisText x={CENTER} y={CENTER - 6} size={36} weight={600} fill={DATA_INK}>
           {Math.round(desiredPct * 100)}%
-        </text>
-        <text
-          x={CENTER}
-          y={CENTER + 16}
-          textAnchor="middle"
-          fontSize={11}
-          fontFamily="ui-monospace, monospace"
-          letterSpacing="0.16em"
-          fill="var(--color-faded-sumi)"
-        >
+        </AxisText>
+        <AxisText x={CENTER} y={CENTER + 16} size={11} letterSpacing="0.16em">
           DESIRED
-        </text>
+        </AxisText>
       </svg>
-      <figcaption className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-mono text-[0.8125rem] uppercase tracking-[0.14em] tabular-nums text-faded-sumi">
-        <span className="flex items-center gap-x-1.5">
+      <figcaption className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 font-mono text-sm tabular-nums text-faded-sumi">
+        <span className="flex items-center gap-x-2">
           <span
             aria-hidden="true"
             className="inline-block h-[2px] w-4 rounded-[1px] bg-inari-vermillion-deep"
@@ -122,7 +108,7 @@ export function DesiredRetentionDial({
             Target <span className="text-sumi-ink">{Math.round(desiredPct * 100)}%</span>
           </span>
         </span>
-        <span className="flex items-center gap-x-1.5">
+        <span className="flex items-center gap-x-2">
           <span
             aria-hidden="true"
             className="inline-block h-[2px] w-4 rounded-[1px] bg-sumi-ink opacity-85"
