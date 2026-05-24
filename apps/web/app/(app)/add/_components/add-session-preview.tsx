@@ -124,7 +124,7 @@ export function AddSessionPreview({
       {targetMissing && (
         <p
           role="status"
-          className="px-1 font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-faded-sumi"
+          className="px-1 font-mono text-xs text-faded-sumi"
         >
           Target not found in your sentence. Tomo will still try.
         </p>
@@ -136,7 +136,7 @@ export function AddSessionPreview({
 function EmptyPreview({ quote }: { quote: string }): React.JSX.Element {
   return (
     <div className="flex w-full flex-col items-center gap-6 md:gap-8 py-4 md:py-8 min-h-[180px] justify-center">
-      <p className="max-w-[28ch] text-center font-display text-lg leading-relaxed text-faded-sumi md:text-xl">
+      <p className="max-w-measure-tight text-center font-display text-lg leading-relaxed text-faded-sumi md:text-xl">
         “{quote}”
       </p>
     </div>

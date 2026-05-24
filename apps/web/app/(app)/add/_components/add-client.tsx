@@ -2,8 +2,10 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type ChangeEvent,
@@ -13,17 +15,22 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { PageFrame } from '@/app/(app)/_components/page-frame'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Textarea } from '@/components/ui/Textarea'
 import { TomoSelect, type TomoSelectOption } from '@/components/ui/TomoSelect'
+import { PageLoader } from '@/components/ui/TomoLoader'
 import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
+import { CreateDeckDialog } from '@/app/(app)/decks/_components/create-deck-dialog'
 import { useDecks } from '@/lib/api/decks'
+import type { ApiDeck } from '@fsrs-japanese/shared-types'
 import {
   useCaptureDraftActions,
   type CaptureDraft,
   type CaptureMode,
 } from '@/stores/useCaptureDraftStore'
+import { useAddDevState } from '@/dev/panels/add'
 
 import { AddSessionPreview, isTargetMissingFromSentence } from './add-session-preview'
 
@@ -34,12 +41,11 @@ import { AddSessionPreview, isTargetMissingFromSentence } from './add-session-pr
 // error so the user gets responsive feedback as they fix the form.
 
 interface FormErrors {
-  word:     string | null
-  sentence: string | null
-  deck:     string | null
+  word: string | null
+  deck: string | null
 }
 
-const NO_ERRORS: FormErrors = { word: null, sentence: null, deck: null }
+const NO_ERRORS: FormErrors = { word: null, deck: null }
 
 // ── Add client ────────────────────────────────────────────────────────────────
 
@@ -49,6 +55,7 @@ interface AddClientProps {
 }
 
 export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
+  useAddDevState()
   const router          = useRouter()
   const [, startNav]    = useTransition()
   const captureActions  = useCaptureDraftActions()
@@ -63,6 +70,11 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   const [submitting, setSubmitting] = useState<boolean>(false)
   const [submitMode, setSubmitMode] = useState<CaptureMode | null>(null)
 
+  // Ref + the pointer-gated autofocus effect live further down, after the
+  // decks query is in scope: the form (and this input) only mounts once
+  // `decksQuery.isLoading` is false, so the focus must wait for that.
+  const wordInputRef = useRef<HTMLInputElement>(null)
+
   // ── Derived ─────────────────────────────────────────────────────────────
   const trimmedWord     = word.trim()
   const trimmedSentence = sentence.trim()
@@ -70,15 +82,54 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 
   // ── Decks ───────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
+
+  // Whether the full "New deck" dialog is open. The dialog (shared with the
+  // decks page) collects name + description + type so the user can build a
+  // complete deck without leaving /add.
+  const [createDeckOpen, setCreateDeckOpen] = useState<boolean>(false)
+
+  // Decks created via the dialog this session. Held locally and merged into
+  // the options so a freshly-created deck is selectable *immediately* —
+  // before the invalidated `decks.list` query has finished refetching —
+  // which avoids a flash where the just-selected deck has no matching
+  // option. Deduped against the server list by id once the refetch lands.
+  const [createdDecks, setCreatedDecks] = useState<ApiDeck[]>([])
+
   const deckOptions = useMemo<ReadonlyArray<TomoSelectOption<string>>>(() => {
-    const items = decksQuery.data?.items ?? []
+    const items = [...(decksQuery.data?.items ?? [])]
+    for (const d of createdDecks) {
+      if (!items.some((existing) => existing.id === d.id)) items.push(d)
+    }
     return items.map((d) => ({
       value: d.id,
       label: d.name.trim().length > 0 ? d.name : 'Untitled deck',
     }))
-  }, [decksQuery.data])
+  }, [decksQuery.data, createdDecks])
 
   const noDecks = !decksQuery.isLoading && deckOptions.length === 0
+
+  // Called by the dialog on a successful create: merge the new deck into the
+  // options and select it, clearing any "pick a deck" error.
+  const handleDeckCreated = useCallback((deck: ApiDeck): void => {
+    setCreatedDecks((prev) => [...prev, deck])
+    setDeckId(deck.id)
+    setErrors((prev) => (prev.deck === null ? prev : { ...prev, deck: null }))
+  }, [])
+
+  // ── Capture-first autofocus, pointer devices only ────────────────────────
+  // Focusing the Word field on load speeds desktop capture, but on touch it
+  // ambushes the calm landing by raising the keyboard and scrolling the
+  // header away. Gate on `(pointer: fine)` so phones/tablets keep the header
+  // in view. The form only mounts once decks finish loading (the component
+  // early-returns a loader before then), so wait for that and fire once.
+  // Client-only effect, so there's no SSR/hydration focus mismatch.
+  const hasAutofocusedRef = useRef<boolean>(false)
+  useEffect(() => {
+    if (decksQuery.isLoading || hasAutofocusedRef.current) return
+    if (!window.matchMedia('(pointer: fine)').matches) return
+    hasAutofocusedRef.current = true
+    wordInputRef.current?.focus()
+  }, [decksQuery.isLoading])
 
   // ── Field setters that also clear their error ───────────────────────────
   const updateWord = useCallback((next: string): void => {
@@ -88,7 +139,6 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 
   const updateSentence = useCallback((next: string): void => {
     setSentence(next)
-    setErrors((prev) => (prev.sentence === null ? prev : { ...prev, sentence: null }))
   }, [])
 
   const updateDeck = useCallback((next: string): void => {
@@ -99,16 +149,29 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   // ── Validate + submit ───────────────────────────────────────────────────
   const validate = useCallback((): FormErrors => {
     return {
-      word:     trimmedWord.length === 0     ? 'Add a word or phrase.'    : null,
-      sentence: trimmedSentence.length === 0 ? 'Add an example sentence.' : null,
-      deck:     deckId === null              ? 'Pick a deck to save into.': null,
+      word: trimmedWord.length === 0 ? 'Add a word or phrase.'     : null,
+      deck: deckId === null          ? 'Pick a deck to save into.' : null,
     }
-  }, [trimmedWord, trimmedSentence, deckId])
+  }, [trimmedWord, deckId])
 
   const submit = useCallback((mode: CaptureMode) => {
     if (submitting) return
     const next = validate()
-    if (next.word !== null || next.sentence !== null || next.deck !== null) {
+    // The word gates everything; surface its error first (also the Enter-key
+    // path, which can fire with an empty word even though the buttons gate on it).
+    if (next.word !== null) {
+      setErrors({ ...next, deck: null })
+      return
+    }
+    // Deckless: there's no deck to pick, so the "pick a deck" error would be a
+    // dead end. Open the create dialog instead. The word is valid here, so the
+    // user lands in deck creation with their capture intact; on success the new
+    // deck is auto-selected and they proceed with a second click.
+    if (noDecks) {
+      setCreateDeckOpen(true)
+      return
+    }
+    if (next.deck !== null) {
       setErrors(next)
       return
     }
@@ -140,7 +203,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
     }
 
     startNav(() => router.push('/add/review'))
-  }, [submitting, validate, trimmedWord, trimmedSentence, deckId, captureActions, router])
+  }, [submitting, validate, noDecks, trimmedWord, trimmedSentence, deckId, captureActions, router])
 
   const onGenerate = useCallback(() => submit('generate'), [submit])
   const onManual   = useCallback(() => submit('manual'),   [submit])
@@ -151,10 +214,28 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   }, [])
 
   // ── Action area (shared between desktop sibling and mobile bar) ─────────
+  // Both required fields gate the actions: a word, and (when decks exist) a
+  // chosen deck. The deckless path is the one exception — there's no deck to
+  // pick, so the buttons stay enabled on the word alone and route through the
+  // create-deck dialog instead of dead-ending on a requirement the user can't
+  // satisfy here.
+  const hasWord    = trimmedWord.length > 0
+  const needsDeck  = hasWord && deckId === null && !noDecks
+  const canProceed = hasWord && !needsDeck
+  // The status line names the load-bearing blocker once the word is in and
+  // stays visible while the buttons are disabled, so the disabled state
+  // explains itself. It yields to the localized field error after a submit
+  // attempt (`errors.deck`) so the same sentence never shows in two places.
+  const deckStatus = needsDeck && errors.deck === null
+    ? 'Pick a deck to save into.'
+    : null
+
   const actions = (
     <ActionArea
       submitting={submitting}
       activeMode={submitMode}
+      canProceed={canProceed}
+      statusLine={deckStatus}
       onGenerate={onGenerate}
       onManual={onManual}
       onCancel={cancelSubmit}
@@ -162,9 +243,12 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
   )
 
   // ── Render ──────────────────────────────────────────────────────────────
+  if (decksQuery.isLoading) {
+    return <PageLoader />
+  }
+
   return (
-    <div className="relative isolate flex flex-1 flex-col">
-      <div className="relative z-10 grid flex-1 grid-cols-1 content-center gap-y-8 mx-auto w-full max-w-[1440px] px-6 pt-8 md:px-12 md:pt-10 lg:px-16 lg:pt-12">
+    <PageFrame desktopCentered>
         <PageHeader
           kanji="採"
           label="Capture"
@@ -172,14 +256,18 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
           subtitle="Tomo adds context, you stay in the moment."
         />
 
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-10">
+        {/* items-start so the single-column (below lg) grid doesn't stretch the
+            form-column track to the grid height and clip h-full SectionCards via
+            their overflow-hidden — and so the two desktop columns keep their own
+            heights rather than equalizing. */}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
           {/* Left: required form (back-of-card capture moved to /add/review) */}
           <div className="lg:col-span-6">
             <SectionCard
               id="add-form"
               kanji="記"
               label="Write it down"
-              description="Three fields make a card."
+              description="A word and a deck make a card."
               stripeTone="brand"
             >
               <form
@@ -191,32 +279,27 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                 noValidate
               >
                 <Input
+                  ref={wordInputRef}
                   label="Word or phrase"
                   value={word}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => updateWord(e.target.value)}
                   placeholder="e.g. 木漏れ日"
                   script="mixed"
                   size="lg"
-                  autoFocus
                   autoComplete="off"
                   spellCheck={false}
                   error={errors.word ?? undefined}
                 />
 
                 <Textarea
-                  label="Example sentence"
+                  label="Example sentence (optional)"
                   value={sentence}
                   onChange={(e) => updateSentence(e.target.value)}
                   placeholder="今日は木漏れ日だから、人が少ない。"
                   script="mixed"
                   block
                   rows={4}
-                  hint={
-                    errors.sentence === null
-                      ? 'A sentence where the word appears. Helps Tomo pick the right meaning.'
-                      : undefined
-                  }
-                  error={errors.sentence ?? undefined}
+                  hint="Optional. A sentence where the word appears; you can also add one on the next step."
                 />
 
                 <DeckField
@@ -226,6 +309,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
                   loading={decksQuery.isLoading}
                   noDecks={noDecks}
                   error={errors.deck}
+                  onRequestCreate={() => setCreateDeckOpen(true)}
                 />
 
                 <button type="submit" className="sr-only" aria-hidden="true" tabIndex={-1}>
@@ -236,7 +320,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
           </div>
 
           {/* Right: session-faithful preview + sibling action block */}
-          <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-5">
+          <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-6">
             <AddSessionPreview
               word={trimmedWord}
               sentence={trimmedSentence}
@@ -248,28 +332,39 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
             <div className="hidden lg:block">{actions}</div>
           </aside>
         </div>
-      </div>
 
       <MobileStickyActionBar ariaLabel="Create card">
         {actions}
       </MobileStickyActionBar>
-    </div>
+
+      <CreateDeckDialog
+        open={createDeckOpen}
+        onClose={() => setCreateDeckOpen(false)}
+        onCreated={handleDeckCreated}
+      />
+    </PageFrame>
   )
 }
 
 // ── Deck field (uses TomoSelect to match the Settings dropdown register) ─────
+//
+// Picks an existing deck, or opens the shared "New deck" dialog so the user
+// can build a full deck (name + description + type) without leaving /add.
+// The dialog itself lives in the parent; this field just requests it via
+// `onRequestCreate`.
 
 interface DeckFieldProps {
-  options:  ReadonlyArray<TomoSelectOption<string>>
-  value:    string | null
-  onChange: (next: string) => void
-  loading:  boolean
-  noDecks:  boolean
-  error:    string | null
+  options:         ReadonlyArray<TomoSelectOption<string>>
+  value:           string | null
+  onChange:        (next: string) => void
+  loading:         boolean
+  noDecks:         boolean
+  error:           string | null
+  onRequestCreate: () => void
 }
 
 function DeckField({
-  options, value, onChange, loading, noDecks, error,
+  options, value, onChange, loading, noDecks, error, onRequestCreate,
 }: DeckFieldProps): React.JSX.Element {
   const id = useId()
   const labelId = `${id}-label`
@@ -282,36 +377,55 @@ function DeckField({
       ? undefined
       : 'The card will live in this deck.'
 
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span id={labelId} className="text-sm font-medium text-sumi-ink/85">Deck</span>
+  // Associate the select with whichever helper line is showing, mirroring the
+  // `describedBy` logic in `Input`: the error wins when present, otherwise the
+  // hint. Lets a screen reader read the guidance on focus, not only via the
+  // `role="alert"` flash.
+  const describedBy = error !== null
+    ? errId
+    : hint !== undefined
+      ? hintId
+      : undefined
 
-      <TomoSelect<string>
-        id={id}
-        value={value ?? ''}
-        options={options}
-        onValueChange={onChange}
-        ariaLabelledBy={labelId}
-        placeholder="Choose a deck…"
-        disabled={loading || noDecks}
-      />
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <span id={labelId} className="text-sm font-medium text-sumi-ink/85">Deck</span>
+        <QuietLink
+          onClick={onRequestCreate}
+          tone="brand"
+          size="md"
+          ariaLabel="Create a new deck"
+        >
+          + New deck
+        </QuietLink>
+      </div>
+
+      {!noDecks && (
+        <TomoSelect<string>
+          id={id}
+          value={value ?? ''}
+          options={options}
+          onValueChange={onChange}
+          ariaLabelledBy={labelId}
+          ariaDescribedBy={describedBy}
+          placeholder="Choose a deck…"
+          disabled={loading}
+        />
+      )}
 
       {error !== null ? (
         <p id={errId} role="alert" className="text-sm text-error">
           {error}
         </p>
+      ) : noDecks ? (
+        <p className="text-sm text-faded-sumi">
+          No decks yet. Your first one takes a moment, and your card lands right inside.
+        </p>
       ) : (
         hint !== undefined && (
           <p id={hintId} className="text-sm text-faded-sumi">{hint}</p>
         )
-      )}
-
-      {noDecks && (
-        <p className="text-sm text-faded-sumi">
-          No decks yet.{' '}
-          <QuietLink href="/decks" tone="brand" size="sm">Create a deck</QuietLink>{' '}
-          to get started.
-        </p>
       )}
     </div>
   )
@@ -322,50 +436,69 @@ function DeckField({
 interface ActionAreaProps {
   submitting: boolean
   activeMode: CaptureMode | null
+  /** A word is present, so the actions are allowed to fire. */
+  canProceed: boolean
+  /** The single load-bearing blocker to show above the hero, or null. */
+  statusLine: string | null
   onGenerate: () => void
   onManual:   () => void
   onCancel:   () => void
 }
 
+// One hero (Generate), one quiet escape hatch (manual). Generate is the path
+// Tomo is built around: it drafts the back of the card. Manual hands the user
+// a blank editor, so it reads as the deliberate, secondary choice beneath the
+// hero rather than a co-equal button. Both gate on a word being present.
 function ActionArea({
-  submitting, activeMode, onGenerate, onManual, onCancel,
+  submitting, activeMode, canProceed, statusLine, onGenerate, onManual, onCancel,
 }: ActionAreaProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-      {submitting && (
-        <QuietLink
-          onClick={onCancel}
-          tone="sumi"
-          size="sm"
-          ariaLabel="Cancel card creation"
-        >
-          Cancel
-        </QuietLink>
-      )}
+  const generateDisabled = !canProceed || (submitting && activeMode !== 'generate')
 
-      <Button
-        type="button"
-        variant="secondary"
-        size="lg"
-        onClick={onManual}
-        disabled={submitting && activeMode !== 'manual'}
-        loading={submitting && activeMode === 'manual'}
-        className="w-full sm:w-auto"
-      >
-        Add manually
-      </Button>
+  return (
+    <div className="flex flex-col gap-3">
+      {statusLine !== null && (
+        <p role="status" className="text-center font-mono text-xs text-faded-sumi">
+          {statusLine}
+        </p>
+      )}
 
       <Button
         type="button"
         variant="primary"
         size="lg"
         onClick={onGenerate}
-        disabled={submitting && activeMode !== 'generate'}
+        disabled={generateDisabled}
         loading={submitting && activeMode === 'generate'}
-        className="w-full sm:w-auto sm:min-w-[180px]"
+        className="w-full"
       >
         Generate card
       </Button>
+
+      {/* The escape hatch and Cancel are exclusive in time: the manual offer
+          before submit, Cancel while generating. Showing one keeps the row
+          quiet at a waiting moment instead of pairing a dimmed link with Cancel. */}
+      <div className="flex items-center justify-center">
+        {submitting ? (
+          <QuietLink
+            onClick={onCancel}
+            tone="sumi"
+            size="md"
+            ariaLabel="Cancel card creation"
+          >
+            Cancel
+          </QuietLink>
+        ) : (
+          <QuietLink
+            onClick={onManual}
+            tone="sumi"
+            size="md"
+            disabled={!canProceed}
+            ariaLabel="Skip AI and build the card yourself"
+          >
+            or build it yourself
+          </QuietLink>
+        )}
+      </div>
     </div>
   )
 }

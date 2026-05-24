@@ -9,36 +9,36 @@ import {
   useTransition,
   type ChangeEvent,
 } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconUndo } from '@/components/icons/chrome-marks'
+import { IconUndo, IconChevronDown, IconEdit } from '@/components/icons/chrome-marks'
 
 import {
-  getWordFields,
-  getVocabularyFields,
+  partOfSpeechEnum,
+  pitchPatternEnum,
   type ApiDueCard,
   type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
+import { useAddReviewDevState } from '@/dev/panels/add-review'
+
 import { Button }       from '@/components/ui/Button'
 import { Input }        from '@/components/ui/Input'
+import { PageFrame }    from '@/app/(app)/_components/page-frame'
+import { MobileStickyActionBar } from '@/app/(app)/_components/mobile-sticky-action-bar'
 import { Logo }         from '@/components/ui/Logo'
 import { PageHeader }   from '@/components/ui/PageHeader'
 import { QuietLink }    from '@/components/ui/QuietLink'
 import { SectionCard }  from '@/components/ui/SectionCard'
 import { Textarea }     from '@/components/ui/Textarea'
 import { TomoSelect, type TomoSelectOption } from '@/components/ui/TomoSelect'
+import { PageLoader }   from '@/components/ui/TomoLoader'
 import { CardBack }     from '@/components/review/session/CardBack'
 import { CardFront }    from '@/components/review/session/CardFront'
 import { useDecks }     from '@/lib/api/decks'
 import {
   generateCardPreviewAction,
-  generateSentencesAction,
-  generateMnemonicAction,
-  getCardByIdAction,
-  moveCardAction,
+  generateSentencesByWordAction,
   saveCardAction,
-  updateCardAction,
 } from '@/lib/actions/cards.actions'
 import {
   useCaptureDraftActions,
@@ -53,6 +53,20 @@ import { cn } from '@/lib/utils'
 
 interface KanjiEntry { kanji: string; meaning: string; reading: string }
 
+// One authored example sentence. Mirrors `ExampleSentenceSchema`
+// (packages/shared-types). A card holds an ordered list; the review back
+// shows one per review (rotated stable-randomly), so list order is the
+// author's browsing order, not a display priority.
+interface SentenceEntry { ja: string; en: string; furigana: string }
+
+// Cap on authored example sentences. Keeps the editor bounded and storage
+// sane; the rotation cycles through whatever is present.
+const MAX_SENTENCES = 10
+
+// How many sentences one "Generate examples" click fetches (clamped to the
+// remaining headroom under MAX_SENTENCES).
+const SENTENCE_BATCH = 3
+
 interface CardFields {
   word:            string
   reading:         string
@@ -62,17 +76,10 @@ interface CardFields {
   mnemonic:        string
   pitchAccent:     string
   pitchPosition:   string  // input as string; parsed to number on save
-  expressionAudio: string
   frequencyRank:   string
   jlptLevel:       JLPTLevel | ''
-  sentenceJa:      string
-  sentenceEn:      string
-  sentenceFuri:    string
-  sentenceAudio:   string
+  sentences:       SentenceEntry[]
   kanjiBreakdown:  KanjiEntry[]
-  collocations:    string  // one per line, parsed on save
-  homophones:      string
-  tags:            string
   picture:         string | null
 }
 
@@ -80,11 +87,10 @@ function makeEmptyFields(): CardFields {
   return {
     word: '', reading: '', meaning: '', partOfSpeech: '',
     nuance: '', mnemonic: '',
-    pitchAccent: '', pitchPosition: '', expressionAudio: '',
+    pitchAccent: '', pitchPosition: '',
     frequencyRank: '', jlptLevel: '',
-    sentenceJa: '', sentenceEn: '', sentenceFuri: '', sentenceAudio: '',
+    sentences: [],
     kanjiBreakdown: [],
-    collocations: '', homophones: '', tags: '',
     picture: null,
   }
 }
@@ -99,30 +105,47 @@ const JLPT_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
   { value: 'beyond_jlpt', label: 'Beyond JLPT'       },
 ]
 
+// Sourced from the shared enums so the selector, the AI prompt, and the
+// structured-output validation stay in lockstep.
+const POS_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
+  { value: '', label: 'Not set' },
+  ...partOfSpeechEnum.options.map((v) => ({ value: v, label: v })),
+]
+
+const PITCH_LABELS: Record<string, string> = {
+  heiban:    'Heiban (平板)',
+  atamadaka: 'Atamadaka (頭高)',
+  nakadaka:  'Nakadaka (中高)',
+  odaka:     'Odaka (尾高)',
+}
+const PITCH_OPTIONS: ReadonlyArray<TomoSelectOption<string>> = [
+  { value: '', label: 'Not set' },
+  ...pitchPatternEnum.options.map((v) => ({ value: v, label: PITCH_LABELS[v] ?? v })),
+]
+
 // ── Synthetic preview card ────────────────────────────────────────────────────
 
 // Shared by the synthetic preview card and the save/update payloads — keeps
 // "what we send to the backend" and "what the preview renders" in lockstep.
 function buildFieldsData(fields: CardFields): Record<string, unknown> {
-  const example = fields.sentenceJa.trim().length > 0
-    ? [{ ja: fields.sentenceJa, en: fields.sentenceEn, furigana: fields.sentenceFuri || fields.sentenceJa, audio: fields.sentenceAudio || undefined }]
-    : undefined
+  // Each authored sentence with a non-empty Japanese line becomes an
+  // exampleSentences entry; furigana falls back to the plain sentence.
+  const examples = fields.sentences
+    .filter((s) => s.ja.trim().length > 0)
+    .map((s) => ({ ja: s.ja, en: s.en, furigana: s.furigana || s.ja }))
 
   const fieldsData: Record<string, unknown> = {
-    word:            fields.word,
-    reading:         fields.reading,
-    meaning:         fields.meaning,
-    partOfSpeech:    fields.partOfSpeech,
-    mnemonic:        fields.mnemonic,
-    nuance:          fields.nuance,
-    pitchAccent:     fields.pitchAccent,
-    expressionAudio: fields.expressionAudio,
+    word:         fields.word,
+    reading:      fields.reading,
+    meaning:      fields.meaning,
+    partOfSpeech: fields.partOfSpeech,
+    mnemonic:     fields.mnemonic,
+    nuance:       fields.nuance,
+    pitchAccent:  fields.pitchAccent,
   }
-  if (example !== undefined)              fieldsData.exampleSentences = example
+  if (examples.length > 0)                fieldsData.exampleSentences = examples
   if (fields.picture !== null)            fieldsData.picture = fields.picture
   if (fields.kanjiBreakdown.length > 0)   fieldsData.kanjiBreakdown = fields.kanjiBreakdown.filter((k) => k.kanji.trim().length > 0)
-  const cols = parseList(fields.collocations); if (cols.length > 0) fieldsData.collocations = cols
-  const homo = parseList(fields.homophones);   if (homo.length > 0) fieldsData.homophones   = homo
   const freq = Number(fields.frequencyRank);   if (Number.isFinite(freq) && freq > 0) fieldsData.frequencyRank = freq
   const pos  = Number(fields.pitchPosition);   if (Number.isFinite(pos))              fieldsData.pitchPosition  = pos
 
@@ -146,16 +169,10 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
   }
 }
 
-function parseList(raw: string): string[] {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GeneratedReviewClient(): React.JSX.Element {
+  useAddReviewDevState()
   const router         = useRouter()
   const [, startNav]   = useTransition()
   const draft          = useCaptureDraftStore((s) => s.draft)
@@ -177,54 +194,42 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // ── Live state ────────────────────────────────────────────────────────
   const [fields,  setFields]  = useState<CardFields>(() => ({
     ...makeEmptyFields(),
-    word:       draft.word,
-    reading:    draft.reading,
-    meaning:    draft.meaning,
-    mnemonic:   draft.mnemonic,
-    sentenceJa: draft.sentence,
-    picture:    draft.imageDataUrl,
+    word:      draft.word,
+    reading:   draft.reading,
+    meaning:   draft.meaning,
+    mnemonic:  draft.mnemonic,
+    sentences: draft.sentence.trim().length > 0
+      ? [{ ja: draft.sentence, en: '', furigana: '' }]
+      : [],
+    picture:   draft.imageDataUrl,
   }))
   const [deckId,  setDeckId]  = useState<string | null>(draft.deckId)
   const [flipped, setFlipped] = useState<boolean>(false)
+  // Which example sentence the preview pins (the review back rotates; the
+  // author pages through them here). Clamped against the live count at render.
+  const [previewSentenceIdx, setPreviewSentenceIdx] = useState<number>(0)
 
   const isAiPath = draft.mode === 'generate'
   const needsSeed = isAiPath && draft.reading === ''
   const [generating,    setGenerating]    = useState<boolean>(needsSeed)
   const [aiError,       setAiError]       = useState<string | null>(null)
-  const [regenSentence, setRegenSentence] = useState<boolean>(false)
-  const [regenMnemonic, setRegenMnemonic] = useState<boolean>(false)
+  // Batch sentence generation: `pendingCount` drives the skeleton placeholder
+  // rows so the author sees how many sentences are inbound.
+  const [generatingBatch, setGeneratingBatch] = useState<boolean>(false)
+  const [pendingCount,    setPendingCount]    = useState<number>(0)
+  // Index of the single row being regenerated in place (null = none).
+  const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null)
+  const [regenMnemonic,   setRegenMnemonic]   = useState<boolean>(false)
 
   const [saving,    setSaving]    = useState<boolean>(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved,     setSaved]     = useState<{ count: number; deckName: string } | null>(null)
-  // Captured from the save response so subsequent regenerations can call
-  // the cheap, dedicated `/api/v1/ai/generate-sentences` and
-  // `/generate-mnemonic` endpoints instead of re-running the full
-  // generate-card flow. Stays null pre-save (the dedicated endpoints
-  // require a saved cardId to look up `word` server-side).
-  const [savedCardId,  setSavedCardId]  = useState<string | null>(null)
-  // Captured at save time so PATCH can satisfy If-Match. Refreshed from
-  // every successful PATCH / move response so successive tweaks don't
-  // need a refetch.
-  const [savedVersion, setSavedVersion] = useState<number | null>(null)
-  // Tracks where the saved card currently lives so we can detect that
-  // the user picked a different deck during a tweak and route the change
-  // through `moveCardAction` before the content PATCH.
-  const [savedDeckId,  setSavedDeckId]  = useState<string | null>(null)
-
-  // Post-save iteration UI: 'creating' is the original flow up to and
-  // including the SuccessBlock terminal state; 'editing-saved' renders
-  // the form again pre-filled with the just-saved values so the user
-  // can tweak and PATCH back. The transition is triggered from the
-  // SuccessBlock's third action ("Tweak this card").
-  const [mode, setMode] = useState<'creating' | 'editing-saved'>('creating')
-  // Inline feedback under the primary action in editing-saved mode:
-  // 'updated' after a successful PATCH (cleared on next field edit),
-  // 'conflict' after a 412 reseed (cleared on next field edit).
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'updated' | 'conflict'>('idle')
-
-  // Focusable landmark for the route-like mode change.
-  const headerRef = useRef<HTMLDivElement | null>(null)
+  // Flips true the first time the user attempts a save while a blocker is
+  // still unmet. Until then, unmet requirements read as calm guidance
+  // (faded-sumi); after a blocked attempt they escalate to error tone. Reset
+  // on the next field/deck edit so the form returns to calm once the user
+  // re-engages — the same "status reflects current truth" pattern used below.
+  const [attemptedSave, setAttemptedSave] = useState<boolean>(false)
 
   // ── Decks ─────────────────────────────────────────────────────────────
   const decksQuery = useDecks(50)
@@ -249,7 +254,11 @@ export function GeneratedReviewClient(): React.JSX.Element {
     void generateCardPreviewAction(draft.word.trim())
       .then((data) => {
         if (cancelled) return
-        const first = data.exampleSentences?.[0]
+        // Seed every generated sentence (capped) only when the author hasn't
+        // already typed their own; never clobber an in-progress edit.
+        const generated = (data.exampleSentences ?? [])
+          .slice(0, MAX_SENTENCES)
+          .map((s) => ({ ja: s.ja, en: s.en, furigana: s.furigana }))
         setFields((prev) => ({
           ...prev,
           reading:      data.reading,
@@ -257,9 +266,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
           partOfSpeech: data.partOfSpeech ?? prev.partOfSpeech,
           mnemonic:     data.mnemonic    ?? prev.mnemonic,
           pitchAccent:  data.pitchAccent ?? prev.pitchAccent,
-          sentenceJa:   prev.sentenceJa.length > 0 ? prev.sentenceJa : first?.ja       ?? prev.sentenceJa,
-          sentenceEn:   prev.sentenceEn.length > 0 ? prev.sentenceEn : first?.en       ?? prev.sentenceEn,
-          sentenceFuri: prev.sentenceFuri.length > 0 ? prev.sentenceFuri : first?.furigana ?? prev.sentenceFuri,
+          sentences:    prev.sentences.length > 0 ? prev.sentences : generated,
           kanjiBreakdown: prev.kanjiBreakdown.length > 0
             ? prev.kanjiBreakdown
             : (data.kanjiBreakdown ?? []).map((k) => ({ kanji: k.kanji, meaning: k.meaning, reading: '' })),
@@ -276,321 +283,270 @@ export function GeneratedReviewClient(): React.JSX.Element {
   // ── Derived ───────────────────────────────────────────────────────────
   const previewCard = useMemo(() => buildPreviewCard(fields), [fields])
 
+  // Preview pager: indexes the same non-empty sentences `buildFieldsData`
+  // emits, so the pinned index lines up with the preview card's array.
+  const sentenceCount = useMemo(
+    () => fields.sentences.filter((s) => s.ja.trim().length > 0).length,
+    [fields.sentences],
+  )
+  const clampedPreviewIdx = sentenceCount > 0 ? Math.min(previewSentenceIdx, sentenceCount - 1) : 0
+
+  // Hard save gates only: a definition and a deck. The "sentence doesn't
+  // include the word" check moved to a per-sentence inline warning (see
+  // SentenceEditor) — with conjugation and multiple sentences a hard block
+  // would be hostile, so it informs rather than prevents.
   const blockers = useMemo<string[]>(() => {
     const list: string[] = []
     if (fields.meaning.trim().length === 0) list.push('Add a definition to save.')
     if (deckId === null)                    list.push('Pick a deck to save into.')
-    const sentence = fields.sentenceJa.trim()
-    const word     = fields.word.trim()
-    if (sentence.length > 0 && word.length > 0 && !sentence.includes(word)) {
-      list.push('Your sentence doesn’t include the word — fix the sentence or word to save.')
-    }
     return list
-  }, [fields.meaning, fields.sentenceJa, fields.word, deckId])
+  }, [fields.meaning, deckId])
 
-  const canSave = !generating && !saving && blockers.length === 0
+  // The Save button stays clickable whenever the form isn't mid-flight, even
+  // with blockers present: a disabled button can't explain itself, so a
+  // blocked click is what surfaces the (now escalated) requirement copy.
+  const busy = generating || saving
 
   const updateField = useCallback(
     <K extends keyof CardFields>(key: K, value: CardFields[K]): void => {
       setFields((prev) => ({ ...prev, [key]: value }))
-      // Status reflects the current truth, not a timed celebration —
-      // clearing on the next edit matches the existing "Ready to save."
-      // ↔ blocker pattern in this form.
-      setUpdateStatus((prev) => (prev === 'idle' ? prev : 'idle'))
+      // Re-engaging clears a prior blocked-save escalation, so unmet
+      // requirements fall back to calm guidance rather than staying red.
+      setAttemptedSave((prev) => (prev ? false : prev))
     }, [])
+
+  const onDeckChange = useCallback((next: string): void => {
+    setDeckId(next)
+    setAttemptedSave((prev) => (prev ? false : prev))
+  }, [])
 
   // ── Regenerate ────────────────────────────────────────────────────────
   //
-  // Two paths, picked by whether the card has been saved yet:
-  //
-  //   - **Pre-save** (savedCardId === null): the dedicated endpoints
-  //     can't help — they look up the card server-side to extract `word`,
-  //     and the card doesn't exist yet. We fall back to
-  //     `generateCardPreviewAction` and slice the field we want.
-  //   - **Post-save** (savedCardId !== null): the cheap, dedicated
-  //     endpoints (`/ai/generate-sentences`, `/ai/generate-mnemonic`)
-  //     return just the field we need without re-generating the rest of
-  //     the card. ~80% cheaper at the OpenAI layer.
-  //
-  // Note: the post-save branch is wired but not yet reachable from this
-  // component — the SuccessBlock terminal state currently replaces the
-  // form on save. A future post-save iteration UI (read-only seed + a
-  // "tweak more" affordance that PATCHes back) will activate it.
+  // All regeneration runs pre-save: no card exists yet, so the dedicated
+  // cardId endpoints can't help (they look the card up server-side to extract
+  // `word`). Sentences route through `generateSentencesByWordAction`; the
+  // mnemonic re-runs the full preview generator and slices the field. Once the
+  // card is saved the form is replaced by the success screen, so there is no
+  // post-save regeneration path to feed.
 
-  const onRegenSentence = useCallback((): void => {
-    if (regenSentence || generating) return
-    setRegenSentence(true); setAiError(null)
+  // Snapshot of the current non-empty Japanese lines. Sent as `avoid` so the
+  // server prompts for fresh, distinct sentences (and caches per-context), and
+  // reused to dedupe what comes back.
+  const existingJa = useCallback(
+    (): string[] => fields.sentences.map((s) => s.ja.trim()).filter((s) => s.length > 0),
+    [fields.sentences],
+  )
 
-    const work = savedCardId !== null
-      ? generateSentencesAction(savedCardId, 1).then((data) => {
-          const first = data.sentences[0]
-          if (first !== undefined) {
-            setFields((prev) => ({ ...prev, sentenceJa: first.ja, sentenceEn: first.en, sentenceFuri: first.furigana }))
-          }
-        })
-      : generateCardPreviewAction(fields.word.trim()).then((data) => {
-          const first = data.exampleSentences?.[0]
-          if (first !== undefined) {
-            setFields((prev) => ({ ...prev, sentenceJa: first.ja, sentenceEn: first.en, sentenceFuri: first.furigana }))
-          }
-        })
+  // Generate a batch in one call and append the new, deduped sentences (up to
+  // the cap), routed by `word`.
+  const onGenerateExamples = useCallback((): void => {
+    if (generatingBatch || generating) return
+    const word = fields.word.trim()
+    if (word.length === 0) return
+    const remaining = MAX_SENTENCES - fields.sentences.length
+    if (remaining <= 0) return
 
-    void work
+    const want   = Math.min(SENTENCE_BATCH, remaining)
+    const avoid  = existingJa()
+    setGeneratingBatch(true); setPendingCount(want); setAiError(null)
+
+    void generateSentencesByWordAction(word, want, avoid)
+      .then((data) => {
+        const seen  = new Set(avoid)
+        const fresh: SentenceEntry[] = []
+        for (const s of data.sentences) {
+          const ja = s.ja.trim()
+          if (ja.length === 0 || seen.has(ja)) continue
+          seen.add(ja)
+          fresh.push({ ja: s.ja, en: s.en, furigana: s.furigana })
+        }
+        if (fresh.length > 0) {
+          setFields((prev) => ({
+            ...prev,
+            sentences: [...prev.sentences, ...fresh].slice(0, MAX_SENTENCES),
+          }))
+        }
+      })
+      .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Generation failed.'))
+      .finally(() => { setGeneratingBatch(false); setPendingCount(0) })
+  }, [generatingBatch, generating, fields.word, fields.sentences, existingJa])
+
+  // Replace a single sentence in place with a fresh AI generation, telling the
+  // model to avoid every current sentence so it doesn't echo what's there.
+  const onRegenerateRow = useCallback((index: number): void => {
+    if (regeneratingIdx !== null || generating) return
+    const word = fields.word.trim()
+    if (word.length === 0) return
+
+    const avoid = existingJa()
+    setRegeneratingIdx(index); setAiError(null)
+
+    void generateSentencesByWordAction(word, 1, avoid)
+      .then((data) => {
+        const first = data.sentences[0]
+        if (first !== undefined) {
+          setFields((prev) => ({
+            ...prev,
+            sentences: prev.sentences.map((s, i) =>
+              i === index ? { ja: first.ja, en: first.en, furigana: first.furigana } : s),
+          }))
+        }
+      })
       .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
-      .finally(() => setRegenSentence(false))
-  }, [fields.word, regenSentence, generating, savedCardId])
+      .finally(() => setRegeneratingIdx(null))
+  }, [regeneratingIdx, generating, fields.word, existingJa])
 
   const onRegenMnemonic = useCallback((): void => {
     if (regenMnemonic || generating) return
     setRegenMnemonic(true); setAiError(null)
 
-    const work = savedCardId !== null
-      ? generateMnemonicAction(savedCardId).then((data) => {
-          if (data.mnemonic.length > 0) {
-            setFields((prev) => ({ ...prev, mnemonic: data.mnemonic }))
-          }
-        })
-      : generateCardPreviewAction(fields.word.trim()).then((data) => {
-          if (data.mnemonic !== undefined && data.mnemonic.length > 0) {
-            setFields((prev) => ({ ...prev, mnemonic: data.mnemonic ?? prev.mnemonic }))
-          }
-        })
-
-    void work
+    void generateCardPreviewAction(fields.word.trim())
+      .then((data) => {
+        if (data.mnemonic !== undefined && data.mnemonic.length > 0) {
+          setFields((prev) => ({ ...prev, mnemonic: data.mnemonic ?? prev.mnemonic }))
+        }
+      })
       .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
       .finally(() => setRegenMnemonic(false))
-  }, [fields.word, regenMnemonic, generating, savedCardId])
+  }, [fields.word, regenMnemonic, generating])
 
-  // ── Refetch helper (412 conflict path) ────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────
   //
-  // Reseeds form state from the server's current version of the card. Used
-  // by the 412 conflict path: the user's pending edits are discarded in
-  // favour of whatever's now persisted, so they can re-apply changes on
-  // top of fresh truth. Only the fields this form exposes are reseeded;
-  // FSRS state on the server is untouched by this flow.
-  const reseedFromServer = useCallback(async (cardId: string): Promise<void> => {
-    const fresh = await getCardByIdAction(cardId)
-    if (fresh === null) return
-    // Typed access via shared-types helpers: WordFieldsSchema covers the
-    // vocabulary/grammar base (word, reading, meaning, partOfSpeech, mnemonic,
-    // frequencyRank, nuance, pitchPosition, expressionAudio, picture);
-    // VocabularyFieldsDataSchema adds the vocabulary-only fields the form
-    // exposes (exampleSentences, kanjiBreakdown, pitchAccent, collocations,
-    // homophones). Sentence-layout cards yield null from both helpers; the
-    // form has no shape for them, so the path collapses to empty defaults.
-    const wf    = getWordFields(fresh)
-    const vocab = getVocabularyFields(fresh)
-    const first = vocab?.exampleSentences?.[0]
-    const kanji = vocab?.kanjiBreakdown    ?? []
-    const cols  = vocab?.collocations      ?? []
-    const homo  = vocab?.homophones        ?? []
-    setFields({
-      word:            wf?.word                ?? '',
-      reading:         wf?.reading             ?? '',
-      meaning:         wf?.meaning             ?? '',
-      partOfSpeech:    wf?.partOfSpeech        ?? '',
-      nuance:          wf?.nuance              ?? '',
-      mnemonic:        wf?.mnemonic            ?? '',
-      pitchAccent:     vocab?.pitchAccent      ?? '',
-      pitchPosition:   typeof wf?.pitchPosition === 'number' ? String(wf.pitchPosition) : '',
-      expressionAudio: wf?.expressionAudio     ?? '',
-      frequencyRank:   typeof wf?.frequencyRank === 'number' ? String(wf.frequencyRank)  : '',
-      jlptLevel:       fresh.jlptLevel         ?? '',
-      sentenceJa:      first?.ja               ?? '',
-      sentenceEn:      first?.en               ?? '',
-      sentenceFuri:    first?.furigana         ?? '',
-      sentenceAudio:   first?.sentenceAudio    ?? '',
-      kanjiBreakdown:  kanji.map((k) => ({ kanji: k.kanji, meaning: k.meaning, reading: k.reading })),
-      collocations:    cols.join('\n'),
-      homophones:      homo.join('\n'),
-      tags:            (fresh.tags ?? []).join('\n'),
-      picture:         wf?.picture             ?? null,
-    })
-    setDeckId(fresh.deckId)
-    setSavedDeckId(fresh.deckId)
-    setSavedVersion(fresh.version)
-  }, [])
-
-  // ── Save / Update ─────────────────────────────────────────────────────
-  //
-  // Two paths picked by `mode`:
-  //   - 'creating'       → POST via saveCardAction, capture id + version + deckId
-  //                        for any subsequent tweak loop, then show SuccessBlock.
-  //   - 'editing-saved'  → if the deck selector moved, run moveCardAction first
-  //                        (the PATCH schema is strict and doesn't accept
-  //                        deckId), then PATCH content via updateCardAction.
-  //                        Result is a discriminated `UpdateCardResult` so the
-  //                        412 If-Match conflict surfaces as `{ ok: false,
-  //                        conflict: true }` rather than a thrown error (which
-  //                        would lose its class identity across the Server
-  //                        Action boundary).
+  // A blocked attempt (missing definition or deck) flips `attemptedSave` so the
+  // requirement copy escalates from calm guidance to error tone, then bails. A
+  // clean attempt POSTs via saveCardAction and shows the success screen.
   const onSave = useCallback(async (): Promise<void> => {
-    if (!canSave || deckId === null) return
+    if (saving || generating) return
+    if (blockers.length > 0) { setAttemptedSave(true); return }
+    if (deckId === null) return
     setSaving(true); setSaveError(null)
-
-    if (mode === 'creating') {
-      try {
-        const tagList = parseList(fields.tags)
-        const created = await saveCardAction(deckId, {
-          mode: 'manual',
-          fieldsData: buildFieldsData(fields),
-          layoutType: 'vocabulary',
-          ...(tagList.length > 0 ? { tags: tagList } : {}),
-          ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
-        })
-        setSavedCardId(created.id)
-        setSavedVersion(created.version)
-        setSavedDeckId(created.deckId)
-        setSaved({ count: 1, deckName: deckName ?? 'your deck' })
-        // Flip *before* resetting the draft so the noDraft → redirect
-        // effect sees `hasSavedRef.current === true` on the very next
-        // render (refs are synchronous; state is not).
-        hasSavedRef.current = true
-        captureActions.reset()
-      } catch (err: unknown) {
-        setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
-      } finally {
-        setSaving(false)
-      }
-      return
-    }
-
-    // mode === 'editing-saved'
-    if (savedCardId === null || savedVersion === null) {
-      setSaving(false)
-      return
-    }
     try {
-      let workingVersion = savedVersion
-      if (deckId !== savedDeckId) {
-        const moved = await moveCardAction(savedCardId, deckId)
-        workingVersion = moved.version
-        setSavedDeckId(moved.deckId)
-        setSavedVersion(moved.version)
-      }
-      const tagList = parseList(fields.tags)
-      // The Record<string, unknown> shape from `buildFieldsData` matches the
-      // vocabulary arm of the FieldsData union at runtime — same justification
-      // as the cast inside `buildPreviewCard` above. The double-cast routes
-      // through `unknown` because the wire type is the tight Zod-inferred union.
-      const payload = {
-        fieldsData: buildFieldsData(fields) as unknown,
-        layoutType: 'vocabulary' as const,
-        tags:       tagList,
-        jlptLevel:  fields.jlptLevel === '' ? null : fields.jlptLevel,
-      } as unknown as Parameters<typeof updateCardAction>[2]
-      const result = await updateCardAction(savedCardId, workingVersion, payload)
-      if (result.ok) {
-        setSavedVersion(result.card.version)
-        setSaved({ count: 1, deckName: deckName ?? 'your deck' })
-        setUpdateStatus('updated')
-      } else {
-        // 412 If-Match conflict — server's version of the card has advanced
-        // since this user's last read. Discard local edits, reseed, and let
-        // the user re-apply on top of fresh truth.
-        await reseedFromServer(savedCardId)
-        setUpdateStatus('conflict')
-      }
+      await saveCardAction(deckId, {
+        mode: 'manual',
+        fieldsData: buildFieldsData(fields),
+        layoutType: 'vocabulary',
+        ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
+      })
+      setSaved({ count: 1, deckName: deckName ?? 'your deck' })
+      // Flip *before* resetting the draft so the noDraft → redirect effect
+      // sees `hasSavedRef.current === true` on the very next render (refs are
+      // synchronous; state is not).
+      hasSavedRef.current = true
+      captureActions.reset()
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Could not update the card.')
+      setSaveError(err instanceof Error ? err.message : 'Could not save the card.')
     } finally {
       setSaving(false)
     }
-  }, [canSave, deckId, fields, deckName, captureActions, mode, savedCardId, savedVersion, savedDeckId, reseedFromServer])
+  }, [saving, generating, blockers, deckId, fields, deckName, captureActions])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
       if (!(e.metaKey || e.ctrlKey)) return
-      if (e.key !== 'Enter' || !canSave) return
+      if (e.key !== 'Enter') return
       e.preventDefault()
       void onSave()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [canSave, onSave])
+  }, [onSave])
 
   // ── Renders ───────────────────────────────────────────────────────────
   // Only short-circuit on noDraft *before* a save has happened. After save,
   // captureActions.reset() empties the draft intentionally — letting the
   // loading stub steal the render would hide the SuccessBlock entirely.
-  if (noDraft && saved === null) return <div className="px-6 pt-16 text-sm text-faded-sumi" role="status">Loading…</div>
-
-  // SuccessBlock is the terminal celebratory state — shown only while we
-  // remain in 'creating' mode. 'editing-saved' keeps `saved` set (so
-  // savedCardId/version are populated and the cheap regen branch fires)
-  // but re-renders the form so the user can tweak.
-  if (saved !== null && mode === 'creating') {
+  if (noDraft && saved === null) {
     return (
-      <Frame>
+      <PageLoader
+        stageLabels={[
+          'Reading the word…',
+          'Drafting reading and meaning…',
+          'Writing an example sentence…',
+          'Polishing the mnemonic…',
+        ]}
+      />
+    )
+  }
+
+  // While the AI is generating the card preview (the user has a word but
+  // not yet a populated draft), hold the form behind the page loader with
+  // rotating stage labels so the 2–10s wait reads as deliberate work.
+  if (generating) {
+    return (
+      <PageLoader
+        stageLabels={[
+          'Reading the word…',
+          'Drafting reading and meaning…',
+          'Writing an example sentence…',
+          'Polishing the mnemonic…',
+        ]}
+      />
+    )
+  }
+
+  // SuccessBlock is the terminal celebratory state once a card is saved.
+  if (saved !== null) {
+    return (
+      // Short closure screen: vertically centered (desktopCentered) rather
+      // than top-anchored like the long form.
+      <PageFrame desktopCentered>
         <SuccessBlock
           count={saved.count}
           deckName={saved.deckName}
           onAddAnother={() => startNav(() => router.push('/add'))}
           onReturnToToday={() => startNav(() => router.push('/today'))}
-          onTweak={() => {
-            setMode('editing-saved')
-            setUpdateStatus('idle')
-            setSaveError(null)
-            // Move focus to the page header so screen-reader users get
-            // the mode change announced as a meaningful landmark
-            // (CODING_STANDARDS_FRONTEND.md: "Route changes move focus
-            // to a meaningful landmark"). Defer to next tick so the
-            // re-render has mounted the header.
-            requestAnimationFrame(() => headerRef.current?.focus())
-          }}
         />
-      </Frame>
+      </PageFrame>
     )
   }
 
-  const header = mode === 'editing-saved'
+  const header = isAiPath
     ? {
-        kanji:    '直',
-        label:    'Editing saved card',
-        title:    'Tweak and update.',
-        subtitle: 'Your changes will overwrite the saved card. Cheap regenerations are available below.',
+        kanji:    '校',
+        label:    'Review prepared card',
+        title:    'Confirm what’s right.',
+        subtitle: 'Tomo drafted this from the word and sentence you chose. Fix anything that’s off.',
       }
-    : isAiPath
-      ? {
-          kanji:    '校',
-          label:    'Review prepared card',
-          title:    'Confirm what’s right.',
-          subtitle: 'Tomo drafted this from the word and sentence you chose. Fix anything that’s off.',
-        }
-      : {
-          kanji:    '確',
-          label:    'Confirm your card',
-          title:    'Fill in the back.',
-          subtitle: 'Add the details a learner will see after they flip during practice.',
-        }
-
-  const saveLabel = mode === 'editing-saved' ? 'Update card' : 'Save card'
+    : {
+        kanji:    '確',
+        label:    'Confirm your card',
+        title:    'Fill in the back.',
+        subtitle: 'Add the details a learner will see after they flip during practice.',
+      }
 
   return (
     <Frame>
-      {/* tabIndex={-1} makes the header a programmatic focus target without
-          putting it in the Tab sequence — used by the 'Tweak this card'
-          handler so the mode change has a screen-reader-meaningful landing. */}
-      <div ref={headerRef} tabIndex={-1} className="outline-none">
-        <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
-      </div>
+      <PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
 
-      <SectionEyebrow />
-
-      {/* Two-column desktop (6/6): field SectionCards left, preview + Save right. */}
-      <div className="grid gap-6 lg:grid-cols-12 lg:items-start lg:gap-10">
-        {/* Left: field SectionCards */}
-        <div className="lg:col-span-6 flex flex-col gap-6 lg:gap-7">
+      {/* Two-column desktop (6/6): field SectionCards left, preview + Save right.
+          items-start at every breakpoint: below lg this is a single-column grid
+          whose default align-items:stretch would stretch the left-column track
+          to the grid's (definite, flex-1-derived) height. The left column is a
+          flex-col of h-full SectionCards, so that stretch splits into equal-height
+          slabs and SectionCard's overflow-hidden clips the taller sections. Pin
+          items to start so each card keeps its content height.
+          grid-cols-1 (minmax(0,1fr)) at the base breakpoint is load-bearing too:
+          without it, below lg the grid has no column template and falls back to
+          an implicit auto track that grows to its content's min-content width. A
+          textarea's intrinsic min-content (its default cols) then drags the
+          column past the viewport when the Example sentences editor expands. The
+          explicit 1fr track refuses to grow past the container. */}
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
+        {/* Left: field SectionCards. lg:order-first reasserts source order on
+            desktop; on mobile the aside below claims order-first so the card the
+            user is confirming leads the page instead of trailing six form
+            sections. */}
+        <div className="lg:order-first lg:col-span-6 flex flex-col gap-6 lg:gap-7">
           <DeckCard
             options={deckOptions}
             value={deckId}
-            onChange={setDeckId}
+            onChange={onDeckChange}
             loading={decksQuery.isLoading}
             deckName={deckName}
           />
 
-          <SectionCard kanji="義" label="Definition" stripeTone="brand">
-            <div className="flex flex-col gap-5 pt-1">
+          <SectionCard kanji="義" label="Definition" rightContent={<SectionRequirement />}>
+            <div className="flex flex-col gap-6 pt-1">
               <Textarea
                 label="Meaning"
                 value={fields.meaning}
@@ -598,62 +554,62 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 placeholder="e.g. dappled sunlight filtering through leaves"
                 rows={2}
                 block
-                hint="The English meaning the card teaches. Required."
+                hint="The English meaning the card teaches."
               />
-              <Input
-                label="Part of speech"
-                value={fields.partOfSpeech}
-                onChange={(e) => updateField('partOfSpeech', e.target.value)}
-                placeholder="e.g. noun"
-              />
+              <div className="flex flex-col gap-2">
+                <span id="pos-label" className="text-sm font-medium text-sumi-ink/85">
+                  Part of speech <span className="font-normal text-faded-sumi">· Optional</span>
+                </span>
+                <TomoSelect<string>
+                  value={fields.partOfSpeech}
+                  options={POS_OPTIONS}
+                  onValueChange={(v) => updateField('partOfSpeech', v)}
+                  ariaLabelledBy="pos-label"
+                />
+              </div>
             </div>
           </SectionCard>
 
-          <SectionCard kanji="例" label="Example sentence">
-            <div className="flex flex-col gap-5 pt-1">
-              <Textarea
-                label="Japanese"
-                value={fields.sentenceJa}
-                onChange={(e) => updateField('sentenceJa', e.target.value)}
-                placeholder="今日は木漏れ日だから、人が少ない。"
-                script="mixed"
-                rows={3}
-                block
+          <CollapsibleSection
+            kanji="例"
+            label="Example sentences"
+            description="The learner sees one per review, rotated across your set."
+            {...(fields.sentences.length > 0 ? { count: fields.sentences.length } : {})}
+          >
+            <div className="flex flex-col gap-6 pt-1">
+              <SentenceEditor
+                entries={fields.sentences}
+                word={fields.word}
+                onChange={(next) => updateField('sentences', next)}
+                regeneratingIndex={regeneratingIdx}
+                pendingCount={pendingCount}
+                {...(isAiPath ? { onRegenerateRow } : {})}
               />
-              <Textarea
-                label="Furigana"
-                value={fields.sentenceFuri}
-                onChange={(e) => updateField('sentenceFuri', e.target.value)}
-                placeholder="Sentence with kana over kanji."
-                script="kana"
-                rows={2}
-                block
-                hint="Optional. Falls back to the plain sentence if empty."
-              />
-              <Textarea
-                label="Translation"
-                value={fields.sentenceEn}
-                onChange={(e) => updateField('sentenceEn', e.target.value)}
-                placeholder="There are few people today because of the dappled light."
-                rows={2}
-                block
-              />
-              <Input
-                label="Sentence audio URL"
-                value={fields.sentenceAudio}
-                onChange={(e) => updateField('sentenceAudio', e.target.value)}
-                placeholder="Optional. Plays under the sentence on the back."
-              />
-              {isAiPath && (
-                <QuietLink onClick={onRegenSentence} tone="sumi" size="sm" ariaLabel="Generate a new sentence">
-                  {regenSentence ? 'Generating sentence…' : 'Try another sentence'}
-                </QuietLink>
+              {isAiPath && fields.sentences.length < MAX_SENTENCES && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={onGenerateExamples}
+                    loading={generatingBatch}
+                    leadingIcon={<IconEdit className="h-4 w-4" />}
+                    aria-label="Generate example sentences"
+                  >
+                    {generatingBatch ? 'Generating…' : `Generate ${Math.min(SENTENCE_BATCH, MAX_SENTENCES - fields.sentences.length)} examples`}
+                  </Button>
+                </div>
               )}
             </div>
-          </SectionCard>
+          </CollapsibleSection>
 
-          <SectionCard kanji="音" label="Pronunciation">
-            <div className="grid gap-5 pt-1 sm:grid-cols-2">
+          <CollapsibleSection
+            kanji="音"
+            label="Pronunciation"
+            description="Reading in kana, plus pitch accent for how the word sounds."
+            hasContent={fields.reading.trim().length > 0 || fields.pitchAccent.trim().length > 0 || fields.pitchPosition.trim().length > 0}
+          >
+            <div className="grid gap-6 pt-1 sm:grid-cols-2">
               <Input
                 label="Reading"
                 value={fields.reading}
@@ -661,12 +617,15 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 placeholder="こもれび"
                 script="kana"
               />
-              <Input
-                label="Pitch accent"
-                value={fields.pitchAccent}
-                onChange={(e) => updateField('pitchAccent', e.target.value)}
-                placeholder="e.g. heiban / atamadaka"
-              />
+              <div className="flex flex-col gap-2">
+                <span id="pitch-label" className="text-sm font-medium text-sumi-ink/85">Pitch accent</span>
+                <TomoSelect<string>
+                  value={fields.pitchAccent}
+                  options={PITCH_OPTIONS}
+                  onValueChange={(v) => updateField('pitchAccent', v)}
+                  ariaLabelledBy="pitch-label"
+                />
+              </div>
               <Input
                 label="Pitch position"
                 value={fields.pitchPosition}
@@ -674,17 +633,16 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 placeholder="e.g. 0, 1, 3"
                 inputMode="numeric"
               />
-              <Input
-                label="Expression audio URL"
-                value={fields.expressionAudio}
-                onChange={(e) => updateField('expressionAudio', e.target.value)}
-                placeholder="Optional."
-              />
             </div>
-          </SectionCard>
+          </CollapsibleSection>
 
-          <SectionCard kanji="解" label="Teaching notes">
-            <div className="flex flex-col gap-5 pt-1">
+          <CollapsibleSection
+            kanji="解"
+            label="Teaching notes"
+            description="Usage nuance and a memory aid, shown on the back of the card."
+            hasContent={fields.nuance.trim().length > 0 || fields.mnemonic.trim().length > 0}
+          >
+            <div className="flex flex-col gap-6 pt-1">
               <Textarea
                 label="Nuance"
                 value={fields.nuance}
@@ -701,47 +659,45 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 placeholder="A small story or image that anchors the meaning."
                 rows={3}
                 block
+                hint="Optional. A memory aid shown on the back of the card."
               />
               {isAiPath && (
-                <QuietLink onClick={onRegenMnemonic} tone="sumi" size="sm" ariaLabel="Generate a new mnemonic">
-                  {regenMnemonic ? 'Generating mnemonic…' : 'Try another mnemonic'}
-                </QuietLink>
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={onRegenMnemonic}
+                    loading={regenMnemonic}
+                    leadingIcon={<IconEdit className="h-4 w-4" />}
+                    aria-label="Generate a new mnemonic"
+                  >
+                    {regenMnemonic ? 'Generating…' : 'Try another mnemonic'}
+                  </Button>
+                </div>
               )}
             </div>
-          </SectionCard>
+          </CollapsibleSection>
 
-          <SectionCard kanji="字" label="Kanji breakdown">
+          <CollapsibleSection
+            kanji="字"
+            label="Kanji breakdown"
+            description="Split the word into its kanji, each with a meaning and reading."
+            {...(fields.kanjiBreakdown.length > 0 ? { count: fields.kanjiBreakdown.length } : {})}
+          >
             <KanjiEditor
               entries={fields.kanjiBreakdown}
               onChange={(next) => updateField('kanjiBreakdown', next)}
             />
-          </SectionCard>
+          </CollapsibleSection>
 
-          <SectionCard kanji="連" label="Related words">
-            <div className="flex flex-col gap-5 pt-1">
-              <Textarea
-                label="Collocations"
-                value={fields.collocations}
-                onChange={(e) => updateField('collocations', e.target.value)}
-                placeholder={'One per line\ne.g. 木漏れ日が差す'}
-                rows={3}
-                block
-                script="mixed"
-              />
-              <Textarea
-                label="Homophones"
-                value={fields.homophones}
-                onChange={(e) => updateField('homophones', e.target.value)}
-                placeholder={'One per line'}
-                rows={3}
-                block
-                script="mixed"
-              />
-            </div>
-          </SectionCard>
-
-          <SectionCard kanji="他" label="Advanced">
-            <div className="grid gap-5 pt-1 sm:grid-cols-2">
+          <CollapsibleSection
+            kanji="他"
+            label="Advanced"
+            description="Frequency rank and JLPT level."
+            hasContent={fields.frequencyRank.trim().length > 0 || fields.jlptLevel !== ''}
+          >
+            <div className="grid gap-6 pt-1 sm:grid-cols-2">
               <Input
                 label="Frequency rank"
                 value={fields.frequencyRank}
@@ -749,55 +705,71 @@ export function GeneratedReviewClient(): React.JSX.Element {
                 placeholder="e.g. 2400"
                 inputMode="numeric"
               />
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium text-sumi-ink/85">JLPT level</span>
+              <div className="flex flex-col gap-2">
+                <span id="jlpt-label" className="text-sm font-medium text-sumi-ink/85">JLPT level</span>
                 <TomoSelect<string>
                   value={fields.jlptLevel}
                   options={JLPT_OPTIONS}
                   onValueChange={(v) => updateField('jlptLevel', (v === '' ? '' : v) as JLPTLevel | '')}
-                  ariaLabel="JLPT level"
+                  ariaLabelledBy="jlpt-label"
                 />
-              </div>
-              <div className="sm:col-span-2">
-                <Textarea
-                  label="Tags"
-                  value={fields.tags}
-                  onChange={(e) => updateField('tags', e.target.value)}
-                  placeholder="One per line"
-                  rows={2}
-                  block
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <ImageField picture={fields.picture} onClear={() => updateField('picture', null)} />
               </div>
             </div>
-          </SectionCard>
+          </CollapsibleSection>
         </div>
 
-        {/* Right: preview + Save action, paired so the act of saving sits
-            beside the artifact being saved. Sticky on lg so the preview
-            and CTA travel with the editor as the form scrolls. */}
-        <aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-6">
+        {/* Right column. On mobile this leads the page (order-first) so the
+            card being confirmed is the first thing seen; the form sections and a
+            sticky bottom Save bar follow. At lg it reverts to the right rail and
+            sticks to the top of the scroll area (<main>) while the field column
+            scrolls:
+              - top-12 (3rem) matches PageFrame's lg top padding, so the pinned
+                preview lines up with where the field column begins.
+              - self-start keeps the aside content-height so the sticky offset
+                applies inside the taller field-column grid row.
+            No max-height / internal scroll: the aside is its natural height so
+            it never shows its own scrollbar over the preview. */}
+        <aside className="order-first lg:order-none flex flex-col gap-6 lg:col-span-6 lg:sticky lg:top-12 lg:self-start">
           <PreviewBlock
             card={previewCard}
             flipped={flipped}
             onFlip={() => setFlipped((f) => !f)}
             loading={generating}
             aiError={aiError}
+            sentenceCount={sentenceCount}
+            sentenceIndex={clampedPreviewIdx}
+            onPrevSentence={() => setPreviewSentenceIdx((i) => Math.max(0, i - 1))}
+            onNextSentence={() => setPreviewSentenceIdx((i) => Math.min(sentenceCount - 1, i + 1))}
           />
-          <SaveBlock
-            saveLabel={saveLabel}
-            canSave={canSave}
-            saving={saving}
-            blockers={blockers}
-            saveError={saveError}
-            onSave={onSave}
-            mode={mode}
-            updateStatus={updateStatus}
-          />
+          {/* Desktop Save lives under the sticky preview. On mobile it's hidden
+              here and re-homed to the bottom sticky bar so it stays in reach
+              without scrolling the full form. */}
+          <div className="hidden lg:block">
+            <SaveBlock
+              saving={saving}
+              busy={busy}
+              blockers={blockers}
+              attemptedSave={attemptedSave}
+              saveError={saveError}
+              onSave={onSave}
+            />
+          </div>
         </aside>
       </div>
+
+      {/* Mobile-only: the primary action pinned to the bottom of the viewport,
+          so Save is always one tap away regardless of scroll position. Hidden
+          at lg, where the Save block rides the sticky preview column instead. */}
+      <MobileStickyActionBar ariaLabel="Save card">
+        <SaveBlock
+          saving={saving}
+          busy={busy}
+          blockers={blockers}
+          attemptedSave={attemptedSave}
+          saveError={saveError}
+          onSave={onSave}
+        />
+      </MobileStickyActionBar>
     </Frame>
   )
 }
@@ -805,26 +777,105 @@ export function GeneratedReviewClient(): React.JSX.Element {
 // ── Frame ─────────────────────────────────────────────────────────────────────
 
 function Frame({ children }: { children: React.ReactNode }): React.JSX.Element {
+  // Top-anchored (not desktopCentered): this is a long scrollable form, and
+  // page-level vertical centering would fight the sticky preview column.
+  return <PageFrame>{children}</PageFrame>
+}
+
+// ── Section requirement tag ────────────────────────────────────────────────
+//
+// Quiet header marker stating whether a section gates saving. Only Deck and
+// Definition are required; everything else is optional. Rendered in the
+// section header's rightContent slot so the contract is scannable down the
+// long form without competing with the field labels.
+
+function SectionRequirement(): React.JSX.Element {
   return (
-    <div className="relative isolate flex flex-1 flex-col">
-      <div className="relative z-10 mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 content-center gap-y-8 px-6 pt-8 md:px-12 md:pt-10 lg:gap-y-10 lg:px-16 lg:pt-12">
-        {children}
-      </div>
-    </div>
+    <span className="font-mono text-xs uppercase tracking-[0.08em] text-faded-sumi">
+      Required
+    </span>
   )
 }
 
-// ── Section eyebrow (introduces the back-of-card field stack) ────────────────
+// ── Collapsible optional section ────────────────────────────────────────────
+//
+// Wraps a SectionCard so an optional section can collapse to just its header,
+// keeping the long form short. Collapsed by default. The header carries the
+// persistent "Optional" classification plus a chevron toggle; when collapsed
+// with content present, a `count` ("· N") or a filled dot signals that the
+// section still holds data, so disclosure never hides it silently. Deck and
+// Definition stay plain (always-open) SectionCards — they gate saving.
 
-function SectionEyebrow(): React.JSX.Element {
+interface CollapsibleSectionProps {
+  kanji:        string
+  label:        string
+  description?: string
+  /** Shown as "· N" after the label (use for list sections like sentences). */
+  count?:       number
+  /** When no count applies, a filled dot signals the section has content. */
+  hasContent?:  boolean
+  children:     React.ReactNode
+}
+
+function CollapsibleSection({
+  kanji, label, description, count, hasContent = false, children,
+}: CollapsibleSectionProps): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const showDot = !open && count === undefined && hasContent
+
+  // WAI-ARIA accordion: the whole header is a button wrapped in an <h2>, so the
+  // entire row toggles (a generous target) while the section title stays a real
+  // heading. `omitTitle` skips SectionCard's own CardHeader so we own the
+  // markup — which also means the rule and spacing are conditional in JSX (no
+  // arbitrary-variant `!important` hacks needed). Header typography mirrors
+  // CardHeader so these read identically to the required Deck / Definition
+  // cards above.
   return (
-    <header className="flex flex-col gap-1">
-      <p className="flex items-baseline gap-3 font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
-        <span lang="ja" aria-hidden="true" className="font-display text-base leading-none text-inari-vermillion">背</span>
-        Back of card · these fields fill what the learner sees after flipping
-      </p>
-      <h2 className="font-display text-xl text-sumi-ink">Build the back of your card.</h2>
-    </header>
+    <SectionCard kanji={kanji} label={label} omitTitle>
+      <h2>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className={cn(
+            'flex w-full items-start gap-3 rounded-[2px] text-left',
+            'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+          )}
+        >
+          <span
+            lang="ja"
+            aria-hidden="true"
+            className="shrink-0 translate-y-[0.05em] font-display text-xl leading-none text-inari-vermillion"
+          >
+            {kanji}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-baseline gap-x-2 font-mono text-sm font-medium uppercase tracking-normal text-sumi-ink/80">
+              {label}
+              {count !== undefined && <span className="text-faded-sumi">· {count}</span>}
+            </span>
+            {description !== undefined && (
+              <span className="mt-2 block max-w-measure text-sm leading-[1.55] text-faded-sumi">
+                {description}
+              </span>
+            )}
+          </span>
+          <span className="flex shrink-0 items-center gap-2 pt-0.5 font-mono text-xs uppercase tracking-[0.08em] text-faded-sumi">
+            {showDot && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-matcha-green/70" />}
+            {open ? 'Less' : 'Optional'}
+            <IconChevronDown
+              aria-hidden="true"
+              className={cn('h-3 w-3 transition-transform duration-200 ease-out', open ? 'rotate-180' : 'rotate-0')}
+            />
+          </span>
+        </button>
+      </h2>
+      {open && (
+        <div className="mt-3 flex flex-col gap-6 border-t border-soft-hairline pt-5">
+          {children}
+        </div>
+      )}
+    </SectionCard>
   )
 }
 
@@ -843,19 +894,24 @@ interface DeckCardProps {
   deckName: string | null
 }
 
+// The requirement is carried by the header "Required" tag (at the field) and
+// the SaveBlock blocker line (at the action) — the same two-signal pattern the
+// Definition card uses. The card's own description handles locality, so no
+// inline error line is needed here.
 function DeckCard({ options, value, onChange, loading, deckName }: DeckCardProps): React.JSX.Element {
   const empty = value === null
   return (
     <SectionCard
       kanji="組"
       label="Deck"
+      rightContent={<SectionRequirement />}
       description={
         empty
           ? 'Pick where this card will live.'
           : `This card will be saved to ${deckName ?? 'your selected deck'}.`
       }
     >
-      <div className="flex flex-col gap-2 pt-1">
+      <div className="pt-1">
         <div className="w-full sm:max-w-[440px]">
           <TomoSelect<string>
             value={value ?? ''}
@@ -866,14 +922,6 @@ function DeckCard({ options, value, onChange, loading, deckName }: DeckCardProps
             disabled={loading || options.length === 0}
           />
         </div>
-        {empty && (
-          <p
-            role="status"
-            className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-error"
-          >
-            Required · pick a deck before saving.
-          </p>
-        )}
       </div>
     </SectionCard>
   )
@@ -882,14 +930,24 @@ function DeckCard({ options, value, onChange, loading, deckName }: DeckCardProps
 // ── Preview block ─────────────────────────────────────────────────────────────
 
 interface PreviewBlockProps {
-  card:    ApiDueCard
-  flipped: boolean
-  onFlip:  () => void
-  loading: boolean
-  aiError: string | null
+  card:           ApiDueCard
+  flipped:        boolean
+  onFlip:         () => void
+  loading:        boolean
+  aiError:        string | null
+  sentenceCount:  number
+  sentenceIndex:  number
+  onPrevSentence: () => void
+  onNextSentence: () => void
 }
 
-function PreviewBlock({ card, flipped, onFlip, loading, aiError }: PreviewBlockProps): React.JSX.Element {
+function PreviewBlock({
+  card, flipped, onFlip, loading, aiError,
+  sentenceCount, sentenceIndex, onPrevSentence, onNextSentence,
+}: PreviewBlockProps): React.JSX.Element {
+  // The pager only earns its place once a card has more than one sentence;
+  // with 0 or 1 there is nothing to rotate, so it stays hidden.
+  const showPager = sentenceCount > 1
   const flipToggle = (
     <button
       type="button"
@@ -897,8 +955,10 @@ function PreviewBlock({ card, flipped, onFlip, loading, aiError }: PreviewBlockP
       aria-pressed={flipped}
       aria-label={flipped ? 'Show front of card' : 'Show back of card'}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5',
-        'font-mono text-[0.65rem] uppercase tracking-[0.16em]',
+        // Roomier vertical hit area on touch; collapses to the quiet inline
+        // size on fine-pointer (sm+) so the desktop chrome stays understated.
+        'inline-flex items-center gap-2 rounded-[2px] px-2 py-2 sm:px-1.5 sm:py-0.5',
+        'text-sm',
         'text-faded-sumi hover:text-sumi-ink transition-colors duration-150',
         'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
       )}
@@ -924,17 +984,72 @@ function PreviewBlock({ card, flipped, onFlip, loading, aiError }: PreviewBlockP
             loading && 'opacity-70',
           )}
         >
-          {flipped ? <CardBack card={card} /> : <CardFront card={card} />}
+          {flipped
+            ? <CardBack card={card} exampleSentenceIndex={sentenceIndex} />
+            : <CardFront card={card} exampleSentenceIndex={sentenceIndex} />}
         </div>
       </SectionCard>
 
+      {showPager && (
+        <div className="flex items-center justify-end gap-3 px-1">
+          <div className="flex items-center gap-2">
+            <PagerButton
+              onClick={onPrevSentence}
+              disabled={sentenceIndex <= 0}
+              ariaLabel="Preview previous sentence"
+            >‹</PagerButton>
+            <span className="text-sm text-faded-sumi tabular-nums" aria-live="polite">
+              Sentence {sentenceIndex + 1} of {sentenceCount}
+            </span>
+            <PagerButton
+              onClick={onNextSentence}
+              disabled={sentenceIndex >= sentenceCount - 1}
+              ariaLabel="Preview next sentence"
+            >›</PagerButton>
+          </div>
+        </div>
+      )}
+
       {loading && (
-        <p role="status" className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
+        <p role="status" className="text-sm text-faded-sumi">
           Preparing card…
         </p>
       )}
       {aiError !== null && <p role="alert" className="text-sm text-error">{aiError}</p>}
     </div>
+  )
+}
+
+// Square chevron control for the preview sentence pager. Disabled at the ends
+// of the list; matches the quiet font-mono register of the preview chrome.
+function PagerButton({
+  onClick, disabled, ariaLabel, children,
+}: {
+  onClick:   () => void
+  disabled:  boolean
+  ariaLabel: string
+  children:  React.ReactNode
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className={cn(
+        // Touch-first sizing: ~40px hit area on phones, tightened to the quiet
+        // 28px chrome size once a fine pointer is the likely input (sm+).
+        'inline-flex h-10 w-10 sm:h-7 sm:w-7 items-center justify-center rounded-[2px]',
+        'border border-soft-hairline font-mono text-base sm:text-sm leading-none',
+        'transition-colors duration-150',
+        disabled
+          ? 'text-faded-sumi/40 cursor-not-allowed'
+          : 'text-faded-sumi hover:text-sumi-ink hover:border-sumi-ink/30',
+        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -992,26 +1107,181 @@ function KanjiEditor({ entries, onChange }: KanjiEditorProps): React.JSX.Element
   )
 }
 
-// ── Image field ───────────────────────────────────────────────────────────────
+// ── Sentence editor ───────────────────────────────────────────────────────────
+//
+// Single-expand accordion for the card's example sentences. Each sentence
+// collapses to a one-line summary (truncated Japanese + a warning dot when it
+// omits the card's word) and expands in place to the three fields. Keeps the
+// section short at the 10-sentence cap. Rows are hairline-separated, not
+// nested cards. No "primary" row: the review back rotates across the set, so
+// order is the author's browsing order only. The per-sentence "doesn't
+// include the word" note is informational, never a save gate.
 
-function ImageField({
-  picture, onClear,
-}: { picture: string | null; onClear: () => void }): React.JSX.Element {
+interface SentenceEditorProps {
+  entries:            SentenceEntry[]
+  word:               string
+  onChange:           (next: SentenceEntry[]) => void
+  /** AI per-row regenerate; omitted on the manual path. */
+  onRegenerateRow?:   (i: number) => void
+  regeneratingIndex?: number | null
+  /** Skeleton placeholder rows for an in-flight batch generation, appended
+   *  to the bottom of the list. */
+  pendingCount?:      number
+}
+
+function SentenceEditor({
+  entries, word, onChange, onRegenerateRow, regeneratingIndex = null, pendingCount = 0,
+}: SentenceEditorProps): React.JSX.Element {
+  // One row open at a time. Manual adds open immediately (you need to type);
+  // AI-appended rows stay collapsed because they already carry content.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+
+  const update = (i: number, patch: Partial<SentenceEntry>): void =>
+    onChange(entries.map((e, idx) => idx === i ? { ...e, ...patch } : e))
+  const remove = (i: number): void => {
+    onChange(entries.filter((_, idx) => idx !== i))
+    // Keep the open row pointing at the same sentence after the splice.
+    setEditingIndex((cur) =>
+      cur === null ? null : cur === i ? null : cur > i ? cur - 1 : cur)
+  }
+  const add = (): void => {
+    onChange([...entries, { ja: '', en: '', furigana: '' }])
+    setEditingIndex(entries.length)  // index of the row just appended
+  }
+
+  const trimmedWord = word.trim()
+  const atCap       = entries.length >= MAX_SENTENCES
+
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm font-medium text-sumi-ink/85">Image</p>
-      {picture !== null ? (
-        <div className="flex items-start gap-3">
-          <img
-            src={picture}
-            alt="Card illustration"
-            className="max-h-[140px] w-auto rounded-md border border-soft-hairline bg-cream-inset/30 object-contain"
-          />
-          <QuietLink onClick={onClear} tone="sumi" size="sm" ariaLabel="Remove image">Remove</QuietLink>
-        </div>
-      ) : (
-        <p className="text-sm text-faded-sumi">No image yet. You can add one after saving from card detail.</p>
+    <div className="flex flex-col pt-1">
+      {entries.length === 0 && (
+        <p className="text-sm text-faded-sumi pb-2">
+          No example sentences yet. Add one, or generate a few with AI below.
+        </p>
       )}
+      {entries.map((entry, i) => {
+        const ja          = entry.ja.trim()
+        const missingWord = ja.length > 0 && trimmedWord.length > 0 && !ja.includes(trimmedWord)
+        const open        = editingIndex === i
+        const regenning   = regeneratingIndex === i
+        return (
+          <div key={i} className={cn(i > 0 && 'border-t border-soft-hairline')}>
+            {/* Summary row: expand toggle + Remove sit as siblings (no nested
+                interactive elements). */}
+            <div className="flex items-center gap-2 py-2.5">
+              <button
+                type="button"
+                onClick={() => setEditingIndex(open ? null : i)}
+                aria-expanded={open}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-2 rounded-[2px] text-left',
+                  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn('font-mono text-faded-sumi leading-none transition-transform duration-150', open && 'rotate-90')}
+                >
+                  ›
+                </span>
+                <span className="shrink-0 text-sm text-faded-sumi">{i + 1}</span>
+                <span
+                  lang="ja"
+                  className={cn('min-w-0 truncate text-base', ja.length > 0 ? 'text-sumi-ink' : 'italic text-faded-sumi')}
+                >
+                  {ja.length > 0 ? entry.ja : 'Empty sentence'}
+                </span>
+                {missingWord && (
+                  <span
+                    aria-label={`Sentence ${i + 1} does not include the word`}
+                    className="ml-0.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-inari-vermillion/70"
+                  />
+                )}
+              </button>
+              <QuietLink onClick={() => remove(i)} tone="sumi" size="sm" ariaLabel={`Remove sentence ${i + 1}`}>
+                Remove
+              </QuietLink>
+            </div>
+
+            {open && (
+              <div className="flex flex-col gap-4 pb-5 pt-1">
+                <Textarea
+                  label="Japanese"
+                  value={entry.ja}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => update(i, { ja: e.target.value })}
+                  placeholder="今日は木漏れ日だから、人が少ない。"
+                  script="mixed"
+                  rows={2}
+                  block
+                />
+                {missingWord && (
+                  <p role="status" className="text-sm text-faded-sumi">
+                    This sentence doesn’t include {trimmedWord}. That’s fine if it’s a conjugated form.
+                  </p>
+                )}
+                <Textarea
+                  label="Furigana"
+                  value={entry.furigana}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => update(i, { furigana: e.target.value })}
+                  placeholder="きょうはこもれびだから、ひとがすくない。"
+                  script="kana"
+                  rows={2}
+                  block
+                  hint="Optional. Falls back to the plain sentence if empty."
+                />
+                <Textarea
+                  label="Translation"
+                  value={entry.en}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => update(i, { en: e.target.value })}
+                  placeholder="There are few people today because of the dappled light."
+                  rows={2}
+                  block
+                />
+                {onRegenerateRow !== undefined && (
+                  <div>
+                    <QuietLink
+                      onClick={() => onRegenerateRow(i)}
+                      tone="sumi"
+                      size="sm"
+                      ariaLabel={`Regenerate sentence ${i + 1} with AI`}
+                    >
+                      {regenning ? 'Regenerating…' : 'Regenerate this sentence'}
+                    </QuietLink>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {pendingCount > 0 && <SentenceSkeletons count={pendingCount} />}
+
+      <div>
+        {atCap ? (
+          <p className="pt-3 text-sm text-faded-sumi">Up to {MAX_SENTENCES} sentences.</p>
+        ) : (
+          <div className="pt-3">
+            <QuietLink onClick={add} tone="brand" size="sm" ariaLabel="Add example sentence">+ Add sentence</QuietLink>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Skeleton placeholder rows shown while a batch of sentences generates, so the
+// number of inbound sentences is visible. Opacity pulse only (no layout
+// animation); the global stylesheet disables it under prefers-reduced-motion.
+function SentenceSkeletons({ count }: { count: number }): React.JSX.Element {
+  return (
+    <div className="flex flex-col" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="flex items-center gap-2 border-t border-soft-hairline py-2.5">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-faded-sumi/25" />
+          <span className="h-3 w-1/2 rounded bg-cream-inset/70 animate-pulse" />
+        </div>
+      ))}
     </div>
   )
 }
@@ -1024,58 +1294,77 @@ function ImageField({
 // stays visible without competing for attention.
 
 interface SaveBlockProps {
-  saveLabel:    string
-  canSave:      boolean
-  saving:       boolean
-  blockers:     string[]
-  saveError:    string | null
-  onSave:       () => void
-  mode:         'creating' | 'editing-saved'
-  updateStatus: 'idle' | 'updated' | 'conflict'
+  saving:        boolean
+  /** Disables the button while in flight (generating or saving). The button
+   *  stays enabled with blockers present so a click can surface them. */
+  busy:          boolean
+  blockers:      string[]
+  /** A blocked attempt escalates the blocker line from calm guidance to error. */
+  attemptedSave: boolean
+  saveError:     string | null
+  onSave:        () => void
 }
 
 function SaveBlock({
-  saveLabel, canSave, saving, blockers, saveError, onSave, mode, updateStatus,
+  saving, busy, blockers, attemptedSave, saveError, onSave,
 }: SaveBlockProps): React.JSX.Element {
-  // Status line precedence:
-  //   blockers > saveError (handled below) > updateStatus (post-PATCH) > mode default.
-  // The post-update line is rendered as a separate `role="status"` paragraph so
-  // a screen reader announces it without depending on whether blockers cleared.
-  const idleLine = mode === 'editing-saved' ? 'Editing saved card.' : 'Ready to save.'
+  const blocked = blockers.length > 0
   return (
     <div className="flex flex-col gap-3 px-1">
-      {blockers.length > 0 ? (
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi" role="status">
+      {blocked ? (
+        <p
+          role={attemptedSave ? 'alert' : 'status'}
+          className={cn('text-sm', attemptedSave ? 'text-error' : 'text-faded-sumi')}
+        >
           {blockers[0]}
         </p>
-      ) : updateStatus === 'updated' ? (
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-matcha-green" role="status">
-          Updated.
-        </p>
-      ) : updateStatus === 'conflict' ? (
-        <p className="text-sm text-error" role="alert">
-          Someone else updated this card. Your unsaved edits were replaced with the latest version.
-        </p>
       ) : (
-        <p className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-faded-sumi">
-          {idleLine}
-        </p>
+        <p className="text-sm text-faded-sumi">Ready to save.</p>
       )}
       <Button
         type="button"
         variant="primary"
         size="lg"
         onClick={onSave}
-        disabled={!canSave}
+        disabled={busy}
         loading={saving}
         className="w-full"
       >
-        {saveLabel}
+        Save card
       </Button>
+      <SaveShortcutHint />
       {saveError !== null && (
         <p className="text-sm text-error" role="alert">{saveError}</p>
       )}
     </div>
+  )
+}
+
+// Quiet keyboard-shortcut hint under the Save button, so the existing
+// Cmd/Ctrl+Enter path is discoverable instead of hidden. Resolved after mount:
+// shown only on keyboard-capable (fine-pointer) devices, so touch users aren't
+// told to press a key they don't have. Starting hidden also keeps SSR
+// hydration deterministic (server and first client render both emit nothing).
+function SaveShortcutHint(): React.JSX.Element | null {
+  const [hint, setHint] = useState<{ show: boolean; isMac: boolean }>({ show: false, isMac: false })
+  useEffect(() => {
+    const finePointer = window.matchMedia('(pointer: fine)').matches
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    setHint({ show: finePointer, isMac })
+  }, [])
+  if (!hint.show) return null
+  return (
+    <p className="text-xs text-faded-sumi">
+      Press{' '}
+      <kbd className="rounded-[2px] border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
+        {hint.isMac ? '⌘' : 'Ctrl'}
+      </kbd>
+      {' '}
+      <kbd className="rounded-[2px] border border-soft-hairline px-1 py-0.5 font-mono text-sm text-sumi-ink/70">
+        Enter
+      </kbd>
+      {' '}to save.
+    </p>
   )
 }
 
@@ -1086,37 +1375,27 @@ interface SuccessBlockProps {
   deckName:        string
   onAddAnother:    () => void
   onReturnToToday: () => void
-  onTweak:         () => void
 }
 
-function SuccessBlock({ count, deckName, onAddAnother, onReturnToToday, onTweak }: SuccessBlockProps): React.JSX.Element {
+function SuccessBlock({ count, deckName, onAddAnother, onReturnToToday }: SuccessBlockProps): React.JSX.Element {
   const cardsWord = count === 1 ? 'card' : 'cards'
   return (
     <SectionCard kanji="済" label="Saved">
       <div className="grid gap-6 sm:gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <h1 className="font-display text-[2rem] sm:text-[2.5rem] leading-[1.05] text-sumi-ink">
+          <h1 className="font-display text-display leading-[1.05] text-sumi-ink">
             Saved {count} {cardsWord} to {deckName}.
           </h1>
-          <p className="mt-3 max-w-[55ch] text-base text-faded-sumi leading-relaxed">
-            You can keep adding, tweak what you just saved, or return to Today.
+          <p className="mt-3 max-w-measure text-base text-faded-sumi leading-relaxed">
+            Keep adding, or return to Today.
           </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button variant="primary" size="lg" onClick={onAddAnother} autoFocus>
               Add another
-            </Button>
-            <Button variant="editorial" size="lg" onClick={onTweak}>
-              Tweak this card
             </Button>
             <Button variant="editorial" size="lg" onClick={onReturnToToday}>
               Return to Today
             </Button>
-            <Link
-              href="/cards"
-              className="text-sm text-faded-sumi underline-offset-2 hover:text-sumi-ink hover:underline"
-            >
-              Open cards
-            </Link>
           </div>
         </div>
         <div aria-hidden="true" className="flex items-center justify-center lg:order-last lg:pl-4">

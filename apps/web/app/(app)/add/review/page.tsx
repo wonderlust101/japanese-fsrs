@@ -10,7 +10,7 @@ export default function GeneratedCardReviewPage(): React.JSX.Element {
   return (
     <>
       <TopBar desktopHidden />
-      <div className="flex min-h-full flex-col pb-40 lg:pb-32">
+      <div className="flex min-h-full flex-col">
         <GeneratedReviewClient />
       </div>
     </>
