@@ -34,9 +34,10 @@ export function NavSection({
     return (
       <div>
         {!isFirst && <div aria-hidden="true" className="mx-2 my-3 h-px bg-soft-hairline" />}
-        <div
-          role="heading"
-          aria-level={2}
+        {/* Native <h2> (implicit role=heading, level 2 — matches the expanded
+            mode below). The kanji is aria-hidden, so the accessible name comes
+            from aria-label. */}
+        <h2
           aria-label={label}
           title={label}
           className={`flex items-center justify-center pb-2 select-none cursor-help ${isFirst ? 'pt-5' : 'pt-2'}`}
@@ -48,7 +49,7 @@ export function NavSection({
           >
             {kanji}
           </span>
-        </div>
+        </h2>
         <ul className="flex flex-col gap-1">
           {children}
         </ul>

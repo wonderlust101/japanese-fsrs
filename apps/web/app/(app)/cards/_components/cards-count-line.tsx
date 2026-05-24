@@ -43,7 +43,10 @@ export function CardsCountLine({
           bumps from text-xs → text-sm below `sm:` so the text matches
           the visual weight of 44px touch targets sitting next to it. */}
       <div className="flex min-w-0 items-center gap-2 font-mono text-sm sm:text-xs text-faded-sumi tabular-nums">
-        <span className="whitespace-nowrap">
+        {/* role="status" (implicit polite + atomic) so filtering/searching
+            announces the new result count to screen readers. Always in the DOM
+            so the live region is registered before it updates. */}
+        <span role="status" className="whitespace-nowrap">
           <span className="text-sumi-ink">{totalCount}</span>
           {' '}{totalCount === 1 ? 'card' : 'cards'}
         </span>

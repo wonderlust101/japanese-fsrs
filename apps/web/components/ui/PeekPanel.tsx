@@ -24,7 +24,7 @@ interface PeekPanelProps {
    */
   offset?:     PeekOffset
   ariaLabel?:  string
-  role?:       'status' | 'note' | 'region'
+  role?:       'status' | 'alert' | 'note' | 'region'
   className?:  string
   /**
    * Max width override (e.g. `'max-w-[32rem]'`). Default `'max-w-[28rem]'`

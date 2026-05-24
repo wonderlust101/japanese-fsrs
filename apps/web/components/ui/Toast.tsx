@@ -48,6 +48,7 @@ export function Toast({
   return (
     <PeekPanel
       onDismiss={onDismiss}
+      role={kind === 'error' ? 'alert' : 'status'}
       offset={offset}
       {...(maxWidth !== undefined ? { maxWidth } : {})}
       className={cn(TONE_CLASS[kind])}
