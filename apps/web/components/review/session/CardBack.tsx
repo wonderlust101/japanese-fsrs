@@ -164,8 +164,12 @@ function Stage({
 }
 
 function Picture({ src, alt }: { src: string; alt: string }): React.JSX.Element {
+  // min-h reserves vertical space so the mnemonic loading doesn't shift the
+  // card-back layout (CLS). A complete fix would reserve the exact aspect from
+  // API-supplied image dimensions; this floor + object-contain bounds the shift
+  // without guessing each image's ratio.
   return (
-    <div className="flex w-full justify-center md:justify-end">
+    <div className="flex min-h-[200px] w-full items-center justify-center md:justify-end">
       <img
         src={src}
         alt={alt}

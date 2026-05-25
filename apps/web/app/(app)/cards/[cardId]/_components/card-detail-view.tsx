@@ -868,7 +868,7 @@ function ToolAction({
   children:      React.ReactNode
 }): React.JSX.Element {
   const base =
-    'ui-motion-colors inline-flex h-9 items-center gap-2 rounded-xs px-2.5 ' +
+    'ui-motion-colors inline-flex h-9 min-h-11 sm:min-h-0 items-center gap-2 rounded-xs px-2.5 ' +
     'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2'
   const tone = danger === true
     ? 'text-inari-vermillion-deep hover:bg-inari-vermillion-deep/8 hover:text-inari-vermillion'
