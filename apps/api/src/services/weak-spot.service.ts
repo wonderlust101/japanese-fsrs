@@ -11,6 +11,7 @@ import {
   type RecordDrillAttemptInput,
 } from '../schemas/weak-spot.schema.ts'
 import {
+  assertNever,
   FieldsDataSchema,
   getWordFields,
   type ApiWeakSpotListItem,
@@ -19,8 +20,6 @@ import {
   type ApiWeakSpotDrillSessionDetail,
   type ApiWeakSpotDrillAttempt,
   type FieldsData,
-  type LayoutType,
-  type JLPTLevel,
 } from '@fsrs-japanese/shared-types'
 
 const log = componentLogger('weakSpot.service')
@@ -122,7 +121,11 @@ export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
     // `getWordFields` returns null for sentence-layout cards; vocabulary and
     // grammar both expose word/reading/meaning via WordFields.
     const fields = getWordFields({
-      layoutType: card.layout_type as LayoutType,
+      // layout_type is already narrowed to LayoutType by WeakSpotCardRowSchema;
+      // only fields_data needs the (load-bearing) FieldsData cast — see the
+      // diagnoseWeakSpot note below for why the CHECK constraint, not Zod, is
+      // the runtime guarantee.
+      layoutType: card.layout_type,
       fieldsData: card.fields_data as FieldsData,
     })
     if (fields !== null) {
@@ -140,8 +143,8 @@ export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
     word,
     reading,
     meaning,
-    layoutType:   (card?.layout_type as LayoutType | undefined) ?? null,
-    jlptLevel:    (card?.jlpt_level as JLPTLevel | null | undefined) ?? null,
+    layoutType:   card?.layout_type ?? null,
+    jlptLevel:    card?.jlpt_level ?? null,
     lapses:       card?.lapses      ?? null,
     reps:         card?.reps        ?? null,
     due:          card?.due         ?? null,
@@ -242,7 +245,24 @@ export async function listWeakSpots(
   // comma/paren-delimited or() grammar; embedded quotes/backslashes are
   // stripped first since they'd terminate the quoted value.
   if (hasSearch) {
-    const safe    = searchTerm.replace(/[\\"]/g, '')
+    // Two escaping layers protect this interpolated filter value:
+    //   1. Strip backslash and double-quote — both are special inside
+    //      PostgREST's double-quoted `.or()` value (one escapes, one
+    //      terminates), so a raw occurrence would corrupt the filter grammar.
+    //   2. Escape the SQL LIKE wildcards `%` and `_` so a learner typing them
+    //      is matched literally instead of turning the term into a match-all /
+    //      match-any-char scan (a mild scan-amplification vector). The escape
+    //      is DOUBLED (`\\`) on purpose: inside a PostgREST double-quoted value
+    //      `\\` collapses to a single `\`, which is Postgres LIKE's default
+    //      escape char, so the metachar reaches ILIKE as `\%` / `\_` (literal).
+    //      PostgREST's own `*` wildcard maps to `%` separately, so a `*` in the
+    //      term stays a wildcard — that is out of scope for this guard.
+    //      NOTE: unit tests mock Supabase, so this escaping needs a live
+    //      PostgREST smoke test to confirm the deployed version's quoted-value
+    //      handling matches the assumption above.
+    const safe = searchTerm
+      .replace(/[\\"]/g, '')
+      .replace(/[%_]/g, '\\\\$&')
     const pattern = `"*${safe}*"`
     q = q.or(
       [
@@ -486,6 +506,7 @@ function sourceToDb(source: CreateDrillSessionInput['source']): string {
     case 'highLapseCandidates': return 'high_lapse_candidates'
     case 'manualSelection':     return 'manual_selection'
     case 'currentCard':         return 'current_card'
+    default:                    return assertNever(source)
   }
 }
 
@@ -803,6 +824,10 @@ const ProfileForDiagnosisSchema = z.object({
   native_language: z.string(),
 })
 
+/** Inferred profile slice. Accepted by diagnoseWeakSpot's `opts.profile` so a
+ *  batch caller can prefetch it once instead of re-reading it per weak spot. */
+type DiagnosisProfile = z.infer<typeof ProfileForDiagnosisSchema>
+
 /** Recent review-log ratings for the card, oldest → newest. */
 const ReviewLogRatingRowSchema = z.object({
   rating: z.string(),
@@ -828,7 +853,11 @@ const ReviewLogRatingRowSchema = z.object({
  * only side; the write-only-to-weakSpots side is verified by the per-test
  * assertion that the only UPDATE is against `from('weakSpots')`.
  */
-export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Promise<ApiWeakSpotListItem> {
+export async function diagnoseWeakSpot(
+  userId: string,
+  weakSpotId: string,
+  opts?: { profile?: DiagnosisProfile },
+): Promise<ApiWeakSpotListItem> {
   // 1. Fetch the weakSpot + its card (slim projection for prompt inputs).
   //    Filter by user_id to give 404 on cross-user attempts.
   const { data: weakSpotRow, error: fetchError } = await supabaseAdmin
@@ -878,16 +907,16 @@ export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Prom
   // vocabulary and grammar cards both work; sentence-layout cards return
   // null fields and fail with the same 422.
   //
-  // The `as LayoutType` / `as FieldsData` casts are narrowing-after-validation:
-  // `WeakSpotDiagnosisCardRowSchema` above already constrained `layout_type` to
-  // one of 'vocabulary' | 'grammar' | 'sentence' and `fields_data` to a
-  // non-null record. The casts shift those Zod-inferred types to the
-  // shared-types brands without runtime work. Same pattern toListItem() uses
-  // for the list response (see this file, line ~111). The standards file
-  // (`CODING_STANDARDS.md` §Types) asks for a comment justifying any
-  // narrowing assertion; this is it.
+  // `WeakSpotDiagnosisCardRowSchema` already narrows `layout_type` to one of
+  // 'vocabulary' | 'grammar' | 'sentence' (= LayoutType), so it is passed
+  // through without a cast. `fields_data` is typed loosely as a record by the
+  // row schema, so the `as FieldsData` cast below is load-bearing: FieldsData
+  // is a NON-discriminated union, so its real runtime guarantee is the
+  // cards_fields_data_shape CHECK constraint, not Zod. Same split toListItem()
+  // uses for the list response (see this file, ~line 124). The standards file
+  // (`CODING_STANDARDS.md` §Types) asks for a comment justifying the assertion.
   const fields = getWordFields({
-    layoutType: card.layout_type as LayoutType,
+    layoutType: card.layout_type,
     fieldsData: card.fields_data as FieldsData,
   })
   if (fields === null) {
@@ -896,12 +925,15 @@ export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Prom
     })
   }
 
-  // 4. + 5. Fetch the profile slice and recent review-log ratings in PARALLEL.
-  //    They share no inputs and both must complete before the prompt is built,
-  //    so awaiting serially would add one Supabase round-trip of latency per
-  //    fresh diagnose call (p50 ~15-30ms). Both error branches degrade to
-  //    safe defaults rather than failing the diagnosis — preferences can be
-  //    sparse and review history can be empty, and neither should block AI.
+  // 4. + 5. Ratings are per-card (always fetched). The profile (diagnosis
+  //    voice: JLPT target + native language) is per-user and identical across
+  //    a session, so a batch caller (batchDiagnoseForSession) can prefetch it
+  //    once and pass it via `opts.profile` to skip N identical reads. When it
+  //    is absent we fetch it here, in parallel with ratings, so the single-
+  //    card path keeps its prior latency (~one Supabase round-trip, p50
+  //    15-30ms). Both error branches degrade to safe defaults rather than
+  //    failing the diagnosis — preferences can be sparse and review history
+  //    can be empty, and neither should block AI.
   //
   //    EXPLAIN reasoning for the review_logs query: existing indexes are
   //      review_logs_card_id_idx (card_id)
@@ -912,31 +944,37 @@ export async function diagnoseWeakSpot(userId: string, weakSpotId: string): Prom
   //    bounded (tens, not hundreds) so the sort is cheap. If observability
   //    ever shows this query exceeding 50ms p95, add a covering index on
   //    (card_id, user_id, reviewed_at DESC).
-  const [
-    { data: profileRow, error: profileError },
-    { data: ratingRows,  error: ratingError  },
-  ] = await Promise.all([
-    supabaseAdmin
-      .from('profiles')
-      .select('jlpt_target, native_language')
-      .eq('id', userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('review_logs')
-      .select('rating')
-      .eq('card_id', weakSpotRow.card_id)
-      .eq('user_id', userId)
-      .order('reviewed_at', { ascending: false })
-      .limit(10),
-  ])
+  const ratingsPromise = supabaseAdmin
+    .from('review_logs')
+    .select('rating')
+    .eq('card_id', weakSpotRow.card_id)
+    .eq('user_id', userId)
+    .order('reviewed_at', { ascending: false })
+    .limit(10)
 
-  if (profileError !== null) {
-    log.warn({ userId, err: { message: profileError.message, code: profileError.code } },
-             'diagnoseWeakSpot profile fetch failed; falling back to defaults')
-  }
-  const profile = profileRow !== null
-    ? ProfileForDiagnosisSchema.parse(profileRow)
-    : { jlpt_target: null, native_language: 'en' }
+  // PromiseLike, not Promise: supabase-js builders are thenables (no .catch/
+  // .finally), and Promise.all accepts `T | PromiseLike<T>`.
+  const profilePromise: PromiseLike<DiagnosisProfile> = opts?.profile !== undefined
+    ? Promise.resolve(opts.profile)
+    : supabaseAdmin
+        .from('profiles')
+        .select('jlpt_target, native_language')
+        .eq('id', userId)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (error !== null) {
+            log.warn({ userId, err: { message: error.message, code: error.code } },
+                     'diagnoseWeakSpot profile fetch failed; falling back to defaults')
+          }
+          return data !== null
+            ? ProfileForDiagnosisSchema.parse(data)
+            : { jlpt_target: null, native_language: 'en' }
+        })
+
+  const [{ data: ratingRows, error: ratingError }, profile] = await Promise.all([
+    ratingsPromise,
+    profilePromise,
+  ])
 
   if (ratingError !== null) {
     log.warn({ weakSpotId, err: { message: ratingError.message, code: ratingError.code } },
@@ -1041,8 +1079,26 @@ export async function batchDiagnoseForSession(
   //    don't need a second semaphore here — let allSettled drive parallel
   //    invocations and the semaphore inside each call serializes the
   //    actual API hits to the configured concurrency cap.
+  // The diagnosis voice (JLPT target + native language) is identical for every
+  // weak spot in the session, so fetch it once here and hand it to each
+  // diagnoseWeakSpot call rather than letting all N calls re-read the same
+  // profile row. A prefetch failure degrades to undefined → each call falls
+  // back to its own fetch (and ultimately safe defaults).
+  const { data: profileRow, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('jlpt_target, native_language')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profileError !== null) {
+    log.warn({ userId, sessionId, err: { message: profileError.message, code: profileError.code } },
+             'batchDiagnoseForSession profile prefetch failed; per-row calls will fall back')
+  }
+  const sharedProfile = profileRow !== null
+    ? ProfileForDiagnosisSchema.parse(profileRow)
+    : undefined
+
   const settled = await Promise.allSettled(
-    ids.map((id) => diagnoseWeakSpot(userId, id)),
+    ids.map((id) => diagnoseWeakSpot(userId, id, sharedProfile !== undefined ? { profile: sharedProfile } : undefined)),
   )
 
   let diagnosed = 0

@@ -1,19 +1,27 @@
 'use client'
 
-import type {
-  CardMissingField,
-  CardPresentField,
-  CardSortDir,
-  CardSortField,
-  CardStatusFilter,
-  PitchPattern,
+import {
+  assertNever,
+  crossDeckJlptFilterEnum,
+  type CardMissingField,
+  type CardPresentField,
+  type CardSortDir,
+  type CardSortField,
+  type CardStatusFilter,
+  type CrossDeckJlptFilter,
+  type PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
 import type { SavedViewRecipe } from './saved-views-storage'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-export type JlptFilter = 'all' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1' | 'beyond'
+// The /cards JLPT filter is exactly the cross-deck endpoint's filter token
+// set, so alias the canonical shared-types type instead of re-spelling the
+// union — keeps the wire mapping single-sourced. NOTE: this is intentionally
+// distinct from the premade catalogue's `'all' | JLPTLevel`, which filters by
+// the raw enum value (`beyond_jlpt`), not this derived `beyond` bucket.
+export type JlptFilter = CrossDeckJlptFilter
 
 /**
  * Canonical filter state for /cards. Single source of truth: the URL
@@ -75,6 +83,7 @@ export function naturalSortDirFor(sort: CardSortField): CardSortDir {
     case 'recent': return 'desc'
     case 'due':    return 'asc'
     case 'lapses': return 'desc'
+    default:       return assertNever(sort)
   }
 }
 
@@ -86,9 +95,9 @@ export function effectiveSortDir(state: CardsFilterState): CardSortDir {
 // ─── Token whitelists ───────────────────────────────────────────────────
 // Tolerant parse: unknown values fall back to the default for that dim.
 
-const JLPT_TOKENS: ReadonlySet<JlptFilter> = new Set([
-  'all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond',
-])
+// Derived from the canonical enum so the whitelist can never drift from the
+// shared-types token set.
+const JLPT_TOKENS: ReadonlySet<JlptFilter> = new Set(crossDeckJlptFilterEnum.options)
 const STATUS_TOKENS: ReadonlySet<CardStatusFilter> = new Set([
   'all', 'new', 'learning', 'review', 'suspended',
 ])
@@ -347,6 +356,7 @@ export function clearChip(state: CardsFilterState, dim: ChipDimension): CardsFil
     case 'missing':      return { ...state, missingField: null }
     case 'present':      return { ...state, presentField: null, pitchPattern: null }
     case 'pitchPattern': return { ...state, pitchPattern: null }
+    default:             return assertNever(dim)
   }
 }
 

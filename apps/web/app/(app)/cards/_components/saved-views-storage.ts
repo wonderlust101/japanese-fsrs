@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { z } from 'zod'
 
 import type {
   CardMissingField,
@@ -147,12 +148,15 @@ export const BUILTIN_VIEWS: ReadonlyArray<SavedView> = [
 
 const ACTIVE_KEY = 'tomo.cards.activeView.v2'
 
-function safeRead<T>(key: string, fallback: T): T {
+// Validates the persisted shape, not just JSON well-formedness, so a stale or
+// hand-edited entry falls back rather than flowing through typed as `T`.
+function safeRead<T>(key: string, schema: z.ZodType<T>, fallback: T): T {
   if (typeof window === 'undefined') return fallback
   try {
     const raw = window.localStorage.getItem(key)
     if (raw === null) return fallback
-    return JSON.parse(raw) as T
+    const parsed = schema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : fallback
   } catch {
     return fallback
   }
@@ -213,7 +217,7 @@ export function useSavedViewPersistence(): {
   const [lastActiveId, setLastActiveId] = useState<string | null>(null)
 
   useEffect(() => {
-    setLastActiveId(safeRead<string | null>(ACTIVE_KEY, null))
+    setLastActiveId(safeRead(ACTIVE_KEY, z.string().nullable(), null))
   }, [])
 
   const remember = useCallback((next: string | null) => {

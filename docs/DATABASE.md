@@ -59,6 +59,7 @@ The `service_role` connection has `statement_timeout = '10s'` and `lock_timeout 
 - **Indexes on populated tables:** prefer plain `CREATE INDEX` (sub-second SHARE lock at current scale). Use `CONCURRENTLY` only when applying outside `bunx supabase db push` because the CLI runs migrations inside an implicit transaction (SQLSTATE 25001 forbids `CONCURRENTLY` there).
 - **CHECK constraints on populated tables:** use `NOT VALID + VALIDATE` (cheap add, isolated validation lock).
 - **Backfills:** filter against the FK target with `LEFT JOIN ... WHERE … IS NOT NULL` — `ON CONFLICT DO NOTHING` only catches PK conflicts, not FK violations.
+- **Recreating functions:** prefer `CREATE OR REPLACE FUNCTION` — it preserves the function's ACL. A `DROP FUNCTION` + `CREATE` (unavoidable when the `RETURNS` signature changes) silently discards every `GRANT EXECUTE`, so any such recreation **must** re-issue `GRANT EXECUTE … TO service_role` in the same migration or the RPC fails at runtime with `42501 permission denied`. `20260704000000_regrant_similar_and_stale_embedding_execute.sql` restores two grants lost this way in `20260630000004` (`find_similar_cards`, `get_stale_embedding_cards`).
 
 ---
 

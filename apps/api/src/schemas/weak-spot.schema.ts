@@ -51,8 +51,11 @@ export const listWeakSpotsQuerySchema = z.object({
   // Offset pagination (mirrors the cross-deck cards list as of
   // 20260630000003). The client multiplies the 0-indexed page by the page
   // size; the service translates this to a Supabase `.range()` window. Coerced
-  // because it arrives as a query-string value.
-  offset:     z.coerce.number().int().min(0).default(0),
+  // because it arrives as a query-string value. The `.max()` is a safety guard
+  // (not a product limit) against a pathological deep offset (e.g. 1e8) forcing
+  // Postgres into a huge scan-and-skip: the weakSpots list is lapse-gated and
+  // small, so 10k (≈ page 100 at the 100-row max) is far beyond any real depth.
+  offset:     z.coerce.number().int().min(0).max(10_000).default(0),
 }).strict()
 
 export type ListWeakSpotsQuery = z.infer<typeof listWeakSpotsQuerySchema>

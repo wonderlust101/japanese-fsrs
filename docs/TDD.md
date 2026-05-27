@@ -38,8 +38,8 @@ API route families are mounted under `/api/v1`: auth, profile, decks, premade de
 - Wire payloads are camelCase. Database columns and SQL RPC parameters are snake_case. Transforms happen in service-layer helpers.
 - Retryable mutating POSTs use `Idempotency-Key`; exact storage and replay behavior lives in [DATABASE.md](DATABASE.md) and the route/controller implementation.
 - `PATCH /cards/:id`, `PATCH /decks/:id`, and `PATCH /profile` use `If-Match: <version>` optimistic concurrency.
-- List endpoints use cursor pagination and return `{ items, nextCursor, hasMore }`.
-- Bounded responses such as due cards, analytics, forecasts, and similar cards keep the same envelope with `nextCursor: null` and `hasMore: false` where applicable.
+- Collection endpoints use one of two list contracts, per endpoint: **cursor** pagination returns `{ items, nextCursor, hasMore }` (decks, premade decks, cards-in-deck); **offset** pagination returns `{ items, hasMore, totalCount }` (the cross-deck cards browser and the weak-spots list, which need clickable numbered pages). The `offset` query param is bounded by a `.max()` cap as a deep-scan guard. The two shapes are not interchangeable — clients read the contract for the endpoint they call.
+- Inherently bounded reads that are deliberately *not* paginated — due cards (capped by the daily limits), the 14-day forecast, and top-N similar cards — return a bare array rather than a list envelope.
 - All protected routes use auth middleware. In production, they also use the default per-user rate limiter, with stricter production limiters layered onto costly AI, premade-copy, delete, batch, and analytics-dashboard paths. Development and test bypass rate-limit checks so local iteration and integration suites do not call Upstash for every guarded route.
 
 ## Database And Scheduling

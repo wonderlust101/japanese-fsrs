@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { z } from 'zod'
 
 import { useArchiveDeck, useDecks, useUnarchiveDeck } from '@/lib/api/decks'
 
@@ -15,17 +16,25 @@ import { useArchiveDeck, useDecks, useUnarchiveDeck } from '@/lib/api/decks'
  * stick across page reloads on the same device).
  */
 
-export type DecksSortKey =
-  | 'study-order'
-  | 'recently-reviewed'
-  | 'alphabetical'
-  | 'most-due-first'
-  | 'jlpt-level'
-
-export type DecksTypeFilter = 'all' | 'vocabulary' | 'kanji' | 'mixed'
-
+// Zod enums are the single source of truth for these closed sets so the
+// localStorage migration (`migratePrefs`) can validate membership instead of
+// blindly casting a persisted string to the union — a stale or hand-edited
+// value then falls back to the default rather than flowing downstream typed
+// but structurally invalid.
+const decksSortKeySchema = z.enum([
+  'study-order',
+  'recently-reviewed',
+  'alphabetical',
+  'most-due-first',
+  'jlpt-level',
+])
+const decksTypeFilterSchema = z.enum(['all', 'vocabulary', 'kanji', 'mixed'])
 /** Top-level tab on the Decks page. */
-export type DecksViewTab = 'active' | 'mature' | 'archived'
+const decksViewTabSchema = z.enum(['active', 'mature', 'archived'])
+
+export type DecksSortKey    = z.infer<typeof decksSortKeySchema>
+export type DecksTypeFilter = z.infer<typeof decksTypeFilterSchema>
+export type DecksViewTab    = z.infer<typeof decksViewTabSchema>
 
 export interface DeckViewPrefs {
   sort:         DecksSortKey
@@ -57,23 +66,35 @@ const DEFAULT_PREFS: DeckViewPrefs = {
 function migratePrefs(raw: unknown): DeckViewPrefs {
   if (raw === null || typeof raw !== 'object') return DEFAULT_PREFS
   const obj = raw as Record<string, unknown>
-  const view: DecksViewTab =
-    typeof obj['view'] === 'string' && ['active', 'mature', 'archived'].includes(obj['view'] as string)
-      ? (obj['view'] as DecksViewTab)
-      : obj['showArchived'] === true
-        ? 'archived'
-        : 'active'
-  const sort = (typeof obj['sort'] === 'string' ? obj['sort'] : DEFAULT_PREFS.sort) as DecksSortKey
-  const typeFilter = (typeof obj['typeFilter'] === 'string' ? obj['typeFilter'] : DEFAULT_PREFS.typeFilter) as DecksTypeFilter
-  return { sort, typeFilter, view }
+  // `view` (new shape) wins; fall back to the legacy `showArchived` boolean.
+  // Each field is membership-validated against its enum so a stale or
+  // hand-edited value falls back to the default instead of flowing downstream
+  // typed-but-invalid.
+  const parsedView = decksViewTabSchema.safeParse(obj['view'])
+  const view: DecksViewTab = parsedView.success
+    ? parsedView.data
+    : obj['showArchived'] === true
+      ? 'archived'
+      : 'active'
+  const parsedSort       = decksSortKeySchema.safeParse(obj['sort'])
+  const parsedTypeFilter = decksTypeFilterSchema.safeParse(obj['typeFilter'])
+  return {
+    sort:       parsedSort.success ? parsedSort.data : DEFAULT_PREFS.sort,
+    typeFilter: parsedTypeFilter.success ? parsedTypeFilter.data : DEFAULT_PREFS.typeFilter,
+    view,
+  }
 }
 
-function safeRead<T>(key: string, fallback: T): T {
+// Validates the persisted shape, not just JSON well-formedness: a stale entry
+// from an older app version (or a hand-edited one) fails `safeParse` and falls
+// back instead of flowing downstream typed as `T` but structurally wrong.
+function safeRead<T>(key: string, schema: z.ZodType<T>, fallback: T): T {
   if (typeof window === 'undefined') return fallback
   try {
     const raw = window.localStorage.getItem(key)
     if (raw === null) return fallback
-    return JSON.parse(raw) as T
+    const parsed = schema.safeParse(JSON.parse(raw))
+    return parsed.success ? parsed.data : fallback
   } catch {
     return fallback
   }
@@ -98,7 +119,9 @@ export function useViewPrefs(): {
 
   // Hydrate from localStorage after mount to avoid SSR/CSR text mismatch.
   useEffect(() => {
-    setPrefs(migratePrefs(safeRead<unknown>(VIEW_PREFS_KEY, null)))
+    // `migratePrefs` is itself the shape validator for this key (it tolerates
+    // legacy `showArchived`), so the read stays permissive with `z.unknown()`.
+    setPrefs(migratePrefs(safeRead(VIEW_PREFS_KEY, z.unknown(), null)))
   }, [])
 
   const persist = useCallback((next: DeckViewPrefs) => {
@@ -134,7 +157,7 @@ export function useStudyOrder(knownDeckIds: ReadonlyArray<string>): {
   const [studyOrder, setStudyOrder] = useState<ReadonlyArray<string>>([])
 
   useEffect(() => {
-    setStudyOrder(safeRead<string[]>(STUDY_ORDER_KEY, []))
+    setStudyOrder(safeRead(STUDY_ORDER_KEY, z.array(z.string()), []))
   }, [])
 
   // Resolved order: start from the stored order, drop any IDs no longer in
@@ -237,8 +260,8 @@ export function useArchiveSet(): {
     if (migrationFired.current) return
     if (typeof window === 'undefined') return
     if (decksQuery.data === undefined) return
-    if (safeRead<boolean>(ARCHIVED_KEY_MIGRATED, false)) return
-    const legacy = safeRead<string[]>(ARCHIVED_KEY, [])
+    if (safeRead(ARCHIVED_KEY_MIGRATED, z.boolean(), false)) return
+    const legacy = safeRead(ARCHIVED_KEY, z.array(z.string()), [])
     if (legacy.length === 0) {
       window.localStorage.removeItem(ARCHIVED_KEY)
       safeWrite(ARCHIVED_KEY_MIGRATED, true)
@@ -280,7 +303,7 @@ export function useLocalNameOverrides(): {
   const [overrides, setOverrides] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    setOverrides(safeRead<Record<string, string>>(RESERVED_LOCAL_NAME_KEY, {}))
+    setOverrides(safeRead(RESERVED_LOCAL_NAME_KEY, z.record(z.string(), z.string()), {}))
   }, [])
 
   return {

@@ -3,11 +3,12 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import type {
-  CardMissingField,
-  CardPresentField,
-  CardStatusFilter,
-  PitchPattern,
+import {
+  assertNever,
+  type CardMissingField,
+  type CardPresentField,
+  type CardStatusFilter,
+  type PitchPattern,
 } from '@fsrs-japanese/shared-types'
 
 import { CommandList, type CommandItem } from '@/components/ui/CommandList'
@@ -224,6 +225,7 @@ function chipPrefix(dim: ChipDimension): string {
     case 'missing':      return 'Missing'
     case 'present':      return 'Has'
     case 'pitchPattern': return 'Pattern'
+    default:             return assertNever(dim)
   }
 }
 
@@ -373,6 +375,7 @@ function optionsFor(dim: ChipDimension): ReadonlyArray<Option> {
       { value: 'nakadaka',  label: 'Nakadaka (中高)' },
       { value: 'odaka',     label: 'Odaka (尾高)' },
     ]
+    default: return assertNever(dim)
   }
 }
 
@@ -383,6 +386,7 @@ function isOptionCurrent(dim: ChipDimension, state: CardsFilterState, value: str
     case 'missing':      return state.missingField === value
     case 'present':      return state.presentField === value
     case 'pitchPattern': return state.pitchPattern === value
+    default:             return assertNever(dim)
   }
 }
 
@@ -402,6 +406,8 @@ function applyOption(state: CardsFilterState, dim: ChipDimension, value: string)
     }
     case 'pitchPattern':
       return { ...state, presentField: 'pitch', pitchPattern: value as PitchPattern }
+    default:
+      return assertNever(dim)
   }
 }
 

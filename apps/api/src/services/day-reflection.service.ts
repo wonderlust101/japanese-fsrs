@@ -8,6 +8,7 @@ import { asPayload } from '../lib/db.ts'
 import { AppError, ServiceUnavailableError } from '../middleware/errorHandler.ts'
 import { generateDayReflection } from './ai.service.ts'
 import {
+  assertNever,
   classifySession,
   type ApiDayReflection,
 } from '@fsrs-japanese/shared-types'
@@ -85,6 +86,7 @@ function ruleBasedReflection(args: {
     case 'strong':      return 'No clear weak spot today.'
     case 'ended-early': return 'A short stop is fine; the rough spots will come back around.'
     case 'mixed':       return 'A few rough spots, nothing alarming.'
+    default:            return assertNever(pattern)
   }
 }
 

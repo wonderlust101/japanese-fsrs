@@ -497,11 +497,17 @@ export async function processReviewBatch(
 
   for (const review of reviews) {
     if (opts?.signal?.aborted) {
-      // Client cancelled mid-batch — stop building. The pre-RPC payload
-      // is dropped; reviews already pushed are also dropped (we don't
-      // call the RPC after break). Idempotency-Key replay from the
-      // offline queue re-attempts the full batch when the client returns.
-      break
+      // Client disconnected mid-batch. Abort the WHOLE operation without
+      // applying the partial batch: the persist RPC below runs only on a
+      // clean, complete build. We throw a transient (5xx) error so
+      // withIdempotency drops the stored placeholder instead of caching a
+      // partial result — the offline queue's same-key retry then re-runs the
+      // full batch cleanly. (Falling through here would apply + cache the
+      // partial head: lost on a same-key replay, double-applied on a new-key
+      // retry, since process_review is not idempotent across distinct keys.)
+      throw new AppError(503, 'Batch review aborted before completion; retry the full batch', {
+        code: 'BATCH_REVIEW_ABORTED',
+      })
     }
     const row = cardMap.get(review.cardId)
     if (row === undefined) {

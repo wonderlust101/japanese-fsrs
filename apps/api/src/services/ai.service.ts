@@ -678,8 +678,6 @@ export async function generateTomoNote(
         ? `Reviewed ${yesterdayReviews} cards yesterday${yesterdayRetention !== null ? ` with ${Math.round(yesterdayRetention)}% retention` : ''}.`
         : 'No reviews recorded yesterday.';
 
-    console.log('safeNative', safeNative);
-
     const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
         let response;
         try {

@@ -1,4 +1,5 @@
 import {
+  assertNever,
   classifySession,
   type PatternInputs,
   type SessionPattern,
@@ -180,6 +181,9 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
         showProblemCards:   inputs.leechCount > 0,
         showTomorrowGlance: false,
       }
+
+    default:
+      return assertNever(pattern)
   }
 }
 

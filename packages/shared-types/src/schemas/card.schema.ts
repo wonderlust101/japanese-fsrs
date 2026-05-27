@@ -145,8 +145,11 @@ export const crossDeckListCardsQuerySchema = z.object({
   limit:        z.coerce.number().int().min(1).max(100).default(50),
   // Offset pagination (was cursor pagination until 20260630000003).
   // The change enabled clickable numbered page buttons on /cards; the
-  // cards page is the sole consumer of this endpoint.
-  offset:       z.coerce.number().int().min(0).optional(),
+  // cards page is the sole consumer of this endpoint. The `.max()` is a safety
+  // guard (not a product limit) against a pathological deep offset (e.g. 1e8)
+  // forcing Postgres into a huge scan-and-skip; 100k (≈ page 1000 at the
+  // 100-row max) sits comfortably above any real library size.
+  offset:       z.coerce.number().int().min(0).max(100_000).optional(),
   search:       z.string().min(1).max(100).optional(),
   deckId:       z.string().uuid('Invalid deck ID').optional(),
   jlptLevel:    crossDeckJlptFilterEnum.optional(),

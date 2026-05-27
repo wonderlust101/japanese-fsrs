@@ -8,14 +8,12 @@ export { DeckType, isDeckType } from './deck.types.ts'
 export { ReviewRating } from './review.types.ts'
 export type { SessionWeakSpot, SessionSummary } from './review.types.ts'
 
-export {
-  classifySession,
-  NO_PATTERN_MIN_CARDS,
-  WEAK_SPOT_MIN_COUNT,
-  DIFFICULT_MAX_ACCURACY,
-  DIFFICULT_MAX_AGAIN_RATIO,
-  STRONG_MIN_ACCURACY,
-} from './review/classify-session.ts'
+// Only `classifySession` is part of the public surface. Its threshold
+// constants (NO_PATTERN_MIN_CARDS, WEAK_SPOT_MIN_COUNT, …) were re-exported
+// for "UI copy" that never materialized — confirmed unused across both apps —
+// so they stay module-private to classify-session.ts. Re-add here if a
+// consumer ever needs the raw values.
+export { classifySession } from './review/classify-session.ts'
 export type { SessionPattern, PatternInputs } from './review/classify-session.ts'
 
 export type {
