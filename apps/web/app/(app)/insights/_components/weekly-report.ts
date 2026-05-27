@@ -622,12 +622,13 @@ export function splitEmphasis(text: string): Array<{ kind: "plain" | "em"; text:
 	const parts: Array<{ kind: "plain" | "em"; text: string }> = [];
 	let cursor = 0;
 	const re = /\*([^*]+)\*/g;
-	let match: RegExpExecArray | null;
-	while ((match = re.exec(text)) !== null) {
+	let match: RegExpExecArray | null = re.exec(text);
+	while (match !== null) {
 		if (match.index > cursor)
 			parts.push({ kind: "plain", text: text.slice(cursor, match.index) });
 		parts.push({ kind: "em", text: match[1] ?? "" });
 		cursor = re.lastIndex;
+		match = re.exec(text);
 	}
 	if (cursor < text.length)
 		parts.push({ kind: "plain", text: text.slice(cursor) });

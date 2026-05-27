@@ -195,7 +195,6 @@ describe("deck.service — copyDeck", () => {
 	});
 
 	it("throws a Zod parse error when the RPC returns a row with a missing column", async () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		state.rpcResult = [{ deck_id: "deck-new" } as any];
 		let thrown = false;
 		try {

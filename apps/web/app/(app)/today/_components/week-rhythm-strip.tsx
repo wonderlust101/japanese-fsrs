@@ -119,6 +119,15 @@ export function WeekRhythmStrip({
 	todayKey,
 	apiDays,
 }: WeekRhythmStripProps): React.JSX.Element {
+	// Hooks must run unconditionally and in a stable order, so they precede every
+	// early return. Memoize the per-day derivation chain so the 14-day projection
+	// only runs when its inputs change (the forecast payload or today's date key);
+	// without this, every parent re-render walks the loop over identical data.
+	const days = useMemo(() => buildDays(apiDays, todayKey), [apiDays, todayKey]);
+	const scaleMax = useMemo(() => roundUpToNice(peakCountForDays(days)), [days]);
+	const [glossaryOpen, setGlossaryOpen] = useState(false);
+	const isEmptyForecast = days.every(day => day.total === 0);
+
 	if (state === "error") {
 		return (
 			<SectionCard
@@ -136,15 +145,6 @@ export function WeekRhythmStrip({
 			</SectionCard>
 		);
 	}
-
-	// Memoize the per-day derivation chain so the 14-day projection only runs
-	// when its inputs actually change (the forecast payload or today's date key).
-	// Without this, every parent re-render walks the loop, even though the data
-	// is identical.
-	const days = useMemo(() => buildDays(apiDays, todayKey), [apiDays, todayKey]);
-	const scaleMax = useMemo(() => roundUpToNice(peakCountForDays(days)), [days]);
-	const isEmptyForecast = days.every(day => day.total === 0);
-	const [glossaryOpen, setGlossaryOpen] = useState(false);
 
 	if (isEmptyForecast) {
 		return (
@@ -271,12 +271,11 @@ function StackedBar({ day, height }: StackedBarProps): React.JSX.Element {
 	const visibleSegments = STACK_SEGMENTS
 		.map(segment => ({
 			...segment,
-			value:
-        segment.key === "backlog"
-        	? day.backlog
-        	: segment.key === "review"
-        		? day.review
-        		: day.newCnt,
+			value: segment.key === "backlog"
+				? day.backlog
+				: segment.key === "review"
+					? day.review
+					: day.newCnt,
 		}))
 		.filter(segment => segment.value > 0);
 	const animationKey = `${day.key}-${day.total}-${day.backlog}-${day.review}-${day.newCnt}`;

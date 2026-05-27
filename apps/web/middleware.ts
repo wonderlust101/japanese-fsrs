@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
 	// Start with a passthrough response so we can mutate its cookies.
 	let supabaseResponse = NextResponse.next({ request });
 

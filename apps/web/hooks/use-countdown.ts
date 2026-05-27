@@ -16,7 +16,8 @@ export function useCountdown(initialSeconds: number): { remaining: number; resta
 		intervalRef.current = setInterval(() => {
 			setRemaining((s) => {
 				if (s <= 1) {
-					clearInterval(intervalRef.current!);
+					if (intervalRef.current)
+						clearInterval(intervalRef.current);
 					return 0;
 				}
 				return s - 1;
