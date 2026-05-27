@@ -181,7 +181,7 @@ Curated, system-owned decks provided by the application. `user_id` is never set 
 
 **RLS policies:**
 - SELECT: `is_active = TRUE` for all authenticated and anon users.
-- INSERT/UPDATE/DELETE: blocked. Premade decks are seeded via migration (`20260504000000_seed_premade_decks.sql`) or admin SQL only.
+- INSERT/UPDATE/DELETE: blocked. Premade decks are seeded via migration or admin SQL only. The catalogue was first stubbed in `20260504000000_seed_premade_decks.sql`; `20260703000000_seed_full_jlpt_vocab.sql` then loaded the full JLPT N5–N1 vocabulary lists (7,370 cards) and hard-deleted the three remaining stub decks (Grammar, Joyo Kanji, Beyond JLPT Core) via the cascade path above. The live catalogue is now the **five JLPT vocabulary decks (N5–N1)**.
 
 ---
 

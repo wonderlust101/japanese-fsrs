@@ -61,7 +61,7 @@ export interface MatureMilestone {
 
 export interface JlptCoverage {
   level:       Exclude<JLPTLevel, 'beyond_jlpt'>
-  /** Canonical total cards in the level (e.g. N5 ≈ 800). */
+  /** Total cards in the level — the coverage denominator (see JLPT_TOTALS). */
   total:       number
   /** Cards the learner has encountered (added to a deck). */
   encountered: number
@@ -102,15 +102,21 @@ export interface ProgressData {
 // ── Canonical JLPT denominators ────────────────────────────────────────────
 
 /**
- * Approximate total cards per JLPT level, mirroring widely-cited counts
- * (e.g. JLPT Sensei). Treated as the canonical denominator for coverage
- * math everywhere on this page. Sourced once here so any other surface
- * needing the same numbers imports from a single place.
+ * Total cards per JLPT level — the coverage denominator everywhere on this
+ * page (100% means the learner owns the whole level). These match the sizes
+ * of the premade JLPT vocabulary decks seeded by
+ * `supabase/migrations/20260703000000_seed_full_jlpt_vocab.sql`, which are the
+ * canonical "complete" lists Tomo ships (ordered Wiktionary appendix). Keep
+ * these in sync with that seed if the decks are regenerated. Sourced once here
+ * so any other surface needing the same numbers imports from a single place.
+ *
+ * Note: the per-level counts are not monotonic (N4 < N5, N2 < N3) because each
+ * list holds the words *introduced* at that level, not a cumulative total.
  */
 export const JLPT_TOTALS: Readonly<Record<Exclude<JLPTLevel, 'beyond_jlpt'>, number>> = {
-  N5:  800,
-  N4:  1500,
-  N3:  3700,
-  N2:  6000,
-  N1:  10000,
+  N5:  667,
+  N4:  573,
+  N3:  1677,
+  N2:  1635,
+  N1:  2818,
 }

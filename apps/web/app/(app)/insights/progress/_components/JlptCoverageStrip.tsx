@@ -7,8 +7,8 @@ interface JlptCoverageStripProps {
 
 /**
  * Demoted JLPT view. One segmented horizontal bar across the card width.
- * Segments are sized in proportion to the canonical total cards in each
- * level (N5 smallest, N1 largest), which visually communicates the
+ * Segments are sized in proportion to the total cards in each level (from
+ * JLPT_TOTALS; N1 is by far the largest), which visually communicates the
  * asymmetric scale of the levels themselves. Within each segment, each
  * level paints with its own JLPT identity color (green / emerald / blue
  * / violet / red) — the same palette used by the JlptPill component —
