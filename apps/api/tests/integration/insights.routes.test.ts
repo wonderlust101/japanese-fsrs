@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, restSeed, restRpc, restSelect } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -58,7 +58,7 @@ async function seedCardWithFields(
   layoutType:  'vocabulary' | 'grammar' | 'sentence' = 'vocabulary',
 ): Promise<string> {
   const id = randomUUID()
-  const { error } = await supabaseAdmin.from('cards').insert({
+  await restSeed('cards', {
     id,
     user_id:        u.userId,
     deck_id:        u.deckId,
@@ -68,7 +68,6 @@ async function seedCardWithFields(
     jlpt_level:     'N5',
     is_suspended:   false,
   })
-  if (error !== null) throw new Error(`seed quality card failed: ${error.message}`)
   return id
 }
 
@@ -274,31 +273,33 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     //   - review (state=2, scheduled_days < 21)
     //   - relearning (state=3)
     //   - mature (state=2, scheduled_days >= 21)
-    const insert = await supabaseAdmin.from('cards').insert([
+    // Every row carries the SAME key set — PostgREST batch insert (used by
+    // restSeed) requires it ("All object keys must match"), so reps/lapses are
+    // explicit on all rows rather than relying on column defaults.
+    await restSeed('cards', [
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'new', reading: 'new', meaning: 'new' },
-        state: 0, scheduled_days: 0, is_suspended: false },
+        state: 0, scheduled_days: 0,  is_suspended: false, reps: 0,  lapses: 0 },
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'learn1', reading: 'learn1', meaning: 'learn1' },
-        state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
+        state: 1, scheduled_days: 0,  is_suspended: false, reps: 1,  lapses: 0 },
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'learn2', reading: 'learn2', meaning: 'learn2' },
-        state: 1, scheduled_days: 0, is_suspended: false, reps: 1 },
+        state: 1, scheduled_days: 0,  is_suspended: false, reps: 1,  lapses: 0 },
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'review', reading: 'review', meaning: 'review' },
-        state: 2, scheduled_days: 5, is_suspended: false, reps: 3 },
+        state: 2, scheduled_days: 5,  is_suspended: false, reps: 3,  lapses: 0 },
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'relearn', reading: 'relearn', meaning: 'relearn' },
-        state: 3, scheduled_days: 1, is_suspended: false, reps: 5, lapses: 1 },
+        state: 3, scheduled_days: 1,  is_suspended: false, reps: 5,  lapses: 1 },
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'mature', reading: 'mature', meaning: 'mature' },
-        state: 2, scheduled_days: 30, is_suspended: false, reps: 10 },
+        state: 2, scheduled_days: 30, is_suspended: false, reps: 10, lapses: 0 },
       // Suspended card — must NOT show up in any bucket.
       { user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
         fields_data: { word: 'suspended', reading: 'suspended', meaning: 'suspended' },
-        state: 2, scheduled_days: 30, is_suspended: true, reps: 10 },
+        state: 2, scheduled_days: 30, is_suspended: true,  reps: 10, lapses: 0 },
     ])
-    expect(insert.error).toBeNull()
 
     const res = await request(app)
       .get('/api/v1/insights/maturity-history?days=90')
@@ -327,7 +328,7 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     const u = await seedUser(); seeded.push(u)
 
     // Seed a mature card so the snapshot row has non-zero counts.
-    await supabaseAdmin.from('cards').insert({
+    await restSeed('cards', {
       user_id: u.userId, deck_id: u.deckId, layout_type: 'vocabulary',
       fields_data: { word: 'snap', reading: 'snap', meaning: 'snap' },
       state: 2, scheduled_days: 30, is_suspended: false, reps: 10,
@@ -337,16 +338,12 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     // take. Note: this writes a row labeled with the user's local "today",
     // which the history RPC excludes from the historical CTE. We still
     // verify the function runs without error and that the row lands.
-    const snap = await supabaseAdmin.rpc('record_card_state_snapshots')
-    expect(snap.error).toBeNull()
+    await restRpc('record_card_state_snapshots')
 
-    const { data: rows, error: rowsError } = await supabaseAdmin
-      .from('card_state_snapshots')
-      .select('user_id, snapshot_date, mature_count')
-      .eq('user_id', u.userId)
-    expect(rowsError).toBeNull()
-    expect(rows).not.toBeNull()
-    if (rows === null) throw new Error('snapshot rows missing')
+    const rows = await restSelect<{ user_id: string; snapshot_date: string; mature_count: number }>(
+      'card_state_snapshots',
+      `user_id=eq.${u.userId}&select=user_id,snapshot_date,mature_count`,
+    )
     expect(rows.length).toBeGreaterThanOrEqual(1)
     const mine = rows.find((r) => r.user_id === u.userId)
     expect(mine).toBeDefined()
@@ -381,7 +378,7 @@ describeIntegration('insights routes — Stage 9 maturity-pipeline history', () 
     const b = await seedUser(); seeded.push(b)
 
     // a has a mature card; b should see all zeros.
-    await supabaseAdmin.from('cards').insert({
+    await restSeed('cards', {
       user_id: a.userId, deck_id: a.deckId, layout_type: 'vocabulary',
       fields_data: { word: 'a-only', reading: 'a-only', meaning: 'a-only' },
       state: 2, scheduled_days: 30, is_suspended: false, reps: 10,

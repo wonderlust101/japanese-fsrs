@@ -616,7 +616,7 @@ describeIntegration('cards routes — Stage 12 sentence-layout shape', () => {
 //
 // Pins three things end-to-end:
 //   1. The controller dispatches on `input.layoutType === 'sentence'`.
-//   2. The cache key shape (`sentence-card:v1:{topic}:{level}:{hash}`) matches
+//   2. The cache key shape (`sentence-card:v2:{topic}:{level}:{hash}`) matches
 //      what the service computes — any drift makes the test fail.
 //   3. The Stage 12 DB CHECK accepts the canonical sentence-layout shape
 //      when it lands via the AI path.
@@ -634,7 +634,7 @@ describeIntegration('cards routes — Stage 13 AI sentence-card dispatch', () =>
       .update(JSON.stringify([]))
       .digest('hex')
       .slice(0, 16)
-    const cacheKey = `sentence-card:v1:${topic}:${userLevel}:${interestsHash}`
+    const cacheKey = `sentence-card:v2:${topic}:${userLevel}:${interestsHash}`
     seededRedisKeys.push(cacheKey)
 
     const cachedPayload = {
@@ -691,8 +691,8 @@ describeIntegration('cards routes — Stage 13 AI sentence-card dispatch', () =>
     // mis-routed dispatch would prefer the sentence-card key (and thus
     // produce a sentence shape) or vice versa. Test that the vocabulary
     // dispatch reads from `card:v2:…` only.
-    const sentenceKey = `sentence-card:v1:${word}:${userLevel}:${interestsHash}`
-    const vocabKey    = `card:v2:${word}:${userLevel}:${interestsHash}`
+    const sentenceKey = `sentence-card:v2:${word}:${userLevel}:${interestsHash}`
+    const vocabKey    = `card:v5:${word}:${userLevel}:${interestsHash}`
     seededRedisKeys.push(sentenceKey, vocabKey)
 
     await redis.set(sentenceKey, JSON.stringify({

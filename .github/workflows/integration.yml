@@ -1,0 +1,60 @@
+name: integration
+
+# Runs the gated integration tier (apps/api/tests/integration) against a real
+# local Supabase stack plus an Upstash-REST-compatible Redis shim. These suites
+# self-skip in the plain `test` workflow (no real SUPABASE_URL); here they run.
+#
+# Requirements to go fully green:
+#   - secrets.OPENAI_API_KEY — the embedding / AI-dispatch suites call OpenAI.
+#     Without it those specific tests fail with a 503 (breaker), not a crash.
+#   - the update_deck path bug (references the dropped `is_premade_fork` column)
+#     must be fixed; until then the deck If-Match suite is correctly red.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    services:
+      # Real Redis behind an Upstash-REST shim — the app talks @upstash/redis,
+      # and the Supabase circuit breaker reads/writes Redis on every DB call.
+      redis:
+        image: redis:7-alpine
+      srh:
+        image: hiett/serverless-redis-http:latest
+        env:
+          SRH_MODE:              env
+          SRH_TOKEN:             test-token
+          SRH_CONNECTION_STRING: redis://redis:6379
+        ports:
+          - 8079:80
+
+    steps:
+      # SHAs pinned per security audit FIND-DEP-06 — Dependabot keeps them current.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5    # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6   # v2
+      - run: bun install --frozen-lockfile
+
+      # Local Supabase: Postgres + GoTrue + PostgREST + Kong, with all
+      # migrations applied. Docker is available on ubuntu-latest runners.
+      - name: Start Supabase
+        run: bunx supabase start
+
+      - name: Run integration tests
+        env:
+          UPSTASH_REDIS_REST_URL:   http://127.0.0.1:8079
+          UPSTASH_REDIS_REST_TOKEN: test-token
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          eval "$(bunx supabase status -o env)"
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          bun test apps/api/tests/integration/
+
+      - name: Stop Supabase
+        if: always()
+        run: bunx supabase stop

@@ -181,4 +181,28 @@ describe('withIdempotency — worker failure policy', () => {
     expect(findRpc('delete_idempotency_key')).toBeDefined()
     expect(findRpc('store_idempotency_response')).toBeUndefined()
   })
+
+  it('still propagates the original 4xx when persisting the error response itself fails', async () => {
+    queueClaim({ status: 'fresh', stored_status: null, stored_body: null })
+    sb.state.rpcResponses['store_idempotency_response'] = [{ data: null, error: { message: 'store failed' } }]
+
+    // The store is best-effort: its failure is logged, never masks the worker's
+    // original 4xx.
+    await expect(
+      withIdempotency('user-1', VALID_KEY, {}, async () => {
+        throw new AppError(422, 'conflict', { code: 'X' })
+      }),
+    ).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('still propagates the original 5xx when releasing the placeholder itself fails', async () => {
+    queueClaim({ status: 'fresh', stored_status: null, stored_body: null })
+    sb.state.rpcResponses['delete_idempotency_key'] = [{ data: null, error: { message: 'delete failed' } }]
+
+    await expect(
+      withIdempotency('user-1', VALID_KEY, {}, async () => {
+        throw new AppError(503, 'upstream down', { code: 'Y' })
+      }),
+    ).rejects.toMatchObject({ statusCode: 503 })
+  })
 })

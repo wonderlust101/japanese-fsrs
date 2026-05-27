@@ -567,3 +567,53 @@ describe('ai.service — generateCard cache miss (mocked OpenAI)', () => {
     expect((caught as { statusCode?: number }).statusCode).toBe(503)
   })
 })
+
+// ─── WP-E follow-up — remaining generators' success paths (mocked OpenAI) ─────
+// Same miss → call → parse → cache pattern as generateCard, one per generator,
+// so a regression in any generator's parse/return/cache-key fails here — and so
+// none of them silently fall back to a live network call.
+describe('ai.service — other generators cache miss (mocked OpenAI)', () => {
+  it('generateSentences returns parsed sentences and caches under the count-keyed namespace', async () => {
+    ai.queueChat({ sentences: [
+      { ja: '水を飲む。',   en: 'Drink water.',        furigana: 'みずをのむ。' },
+      { ja: '水は冷たい。', en: 'The water is cold.',  furigana: 'みずはつめたい。' },
+    ] })
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+
+    const out = await generateSentences('水', 'N5', [], 2)
+
+    expect(out.sentences).toHaveLength(2)
+    expect(ai.chatCalls).toHaveLength(1)
+    expect(state.redisStore.has(`sentences:水:N5:${hash}:2`)).toBe(true)
+  })
+
+  it('generateMnemonic returns the parsed mnemonic and caches under a user-scoped key', async () => {
+    ai.queueChat({ mnemonic: 'water flows in three strokes' })
+
+    const out = await generateMnemonic('水', 'user-1', 'N5', 'en', [])
+
+    expect(out.mnemonic).toBe('water flows in three strokes')
+    expect(state.redisStore.has('mnemonic:水:user-1')).toBe(true)
+  })
+
+  it('generateTomoNote returns the parsed note and caches under the version+day key', async () => {
+    ai.queueChat({ body: 'Your N3 verb conjugation has been steady this week.' })
+
+    const out = await generateTomoNote('user-tomo-9', '2026-05-17', 'N3', 'en', [], null, null)
+
+    expect(out.body).toMatch(/N3 verb conjugation/)
+    expect(state.redisStore.has('tomo:note:v1:user-tomo-9:2026-05-17')).toBe(true)
+  })
+
+  it('generateSentenceCard returns the parsed card and caches under its own namespace', async () => {
+    ai.queueChat({ ja: 'コーヒーをください。', en: 'Coffee, please.', furigana: 'コーヒーをください。' })
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+
+    const out = await generateSentenceCard('ordering coffee', 'N3', [])
+
+    expect(out.ja).toBe('コーヒーをください。')
+    expect(state.redisStore.has(`sentence-card:v2:ordering coffee:N3:${hash}`)).toBe(true)
+  })
+})

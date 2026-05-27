@@ -54,6 +54,7 @@ afterAll(async () => {
 // delete identically regardless of origin. `sourcePremadeId` is kept as
 // attribution-only.
 const API_DECK_KEYS = [
+  'archivedAt',
   'cardCount',
   'createdAt',
   'deckType',

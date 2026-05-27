@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, restSeed, restDelete } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -44,18 +44,15 @@ interface PremadeOptions {
  */
 async function seedPremadeDeck(opts: PremadeOptions = {}): Promise<string> {
   const id = randomUUID()
-  const { error } = await supabaseAdmin
-    .from('premade_decks')
-    .insert({
-      id,
-      name:        `Stage 4 Copy Test Deck ${Date.now()}`,
-      description: 'integration-test only — deleted in afterAll',
-      deck_type:   'vocabulary',
-      jlpt_level:  'N5',
-      domain:      null,
-      is_active:   opts.isActive ?? true,
-    })
-  if (error !== null) throw new Error(`createPremadeDeck failed: ${error.message}`)
+  await restSeed('premade_decks', {
+    id,
+    name:        `Stage 4 Copy Test Deck ${Date.now()}`,
+    description: 'integration-test only — deleted in afterAll',
+    deck_type:   'vocabulary',
+    jlpt_level:  'N5',
+    domain:      null,
+    is_active:   opts.isActive ?? true,
+  })
   seededPremadeDeckIds.push(id)
 
   // Seed N source cards. The copy RPC clones rows WHERE premade_deck_id =
@@ -71,8 +68,7 @@ async function seedPremadeDeck(opts: PremadeOptions = {}): Promise<string> {
     jlpt_level:      'N5' as const,
   }))
   if (cards.length > 0) {
-    const { error: cardsError } = await supabaseAdmin.from('cards').insert(cards)
-    if (cardsError !== null) throw new Error(`createCards failed: ${cardsError.message}`)
+    await restSeed('cards', cards)
   }
   return id
 }
@@ -92,8 +88,8 @@ afterAll(async () => {
   // premade_decks (cards stay around with premade_deck_id = NULL), so we
   // explicitly delete the source cards first.
   for (const id of seededPremadeDeckIds) {
-    await supabaseAdmin.from('cards').delete().eq('premade_deck_id', id).is('user_id', null).then(() => undefined, () => undefined)
-    await supabaseAdmin.from('premade_decks').delete().eq('id', id).then(() => undefined, () => undefined)
+    await restDelete('cards', `premade_deck_id=eq.${id}&user_id=is.null`)
+    await restDelete('premade_decks', `id=eq.${id}`)
   }
 })
 
