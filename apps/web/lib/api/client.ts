@@ -38,6 +38,30 @@ export class ApiHttpError extends Error {
   }
 }
 
+/**
+ * Per-call request budget for the Express API. These helpers run inside Next.js
+ * server actions / RSC reads on the Node runtime, where a bare `fetch` has no
+ * timeout: a half-open TCP connection or DNS black-hole (bytes never arrive, no
+ * FIN) would park the request promise — and with it a server worker — until the
+ * platform kills the invocation.
+ *
+ * Sized just ABOVE the API's own `server.requestTimeout` (30s, see
+ * apps/api/src/index.ts). A slow-but-alive upstream hits its 30s cap first and
+ * resets the socket, so the caller still observes the server's real behaviour;
+ * this 35s signal only fires for connections the server's own cap can't reach.
+ */
+const API_TIMEOUT_MS = 35_000
+
+/**
+ * Builds the abort signal for a single API fetch: a fresh 35s timeout, composed
+ * with any caller-supplied `init.signal` via `AbortSignal.any` so the earliest
+ * abort wins. Mirrors the server-side compose pattern in apps/api/src/db/supabase.ts.
+ */
+function apiTimeoutSignal(init: RequestInit): AbortSignal {
+  const timeout = AbortSignal.timeout(API_TIMEOUT_MS)
+  return init.signal != null ? AbortSignal.any([init.signal, timeout]) : timeout
+}
+
 export async function apiCall<T>(
   path:           string,
   responseSchema: z.ZodType<T>,
@@ -57,7 +81,8 @@ export async function apiCall<T>(
   const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
     headers,
-    cache: init.cache ?? 'no-store',
+    cache:  init.cache ?? 'no-store',
+    signal: apiTimeoutSignal(init),
   })
 
   if (!res.ok) {
@@ -97,7 +122,8 @@ export async function apiCallSafe<T>(
   const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     ...init,
     headers,
-    cache: init.cache ?? 'no-store',
+    cache:  init.cache ?? 'no-store',
+    signal: apiTimeoutSignal(init),
   })
 
   if (!res.ok) {
