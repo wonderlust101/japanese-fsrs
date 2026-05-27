@@ -78,13 +78,20 @@ export function useCardQualityIssuesQuery(): UseQueryResult<ReadonlyArray<ApiCar
 
 // ─── Single-card mutations ────────────────────────────────────────────────────
 
-/** Invalidates every cards.* cache + the affected decks' rollups. */
+/**
+ * Invalidates every cards.* cache + the affected decks' rollups, plus the
+ * review queue (due + forecast). A card mutation can change what's
+ * reviewable — delete removes a due card, move re-groups it, edit changes the
+ * cached content — so the today/review surfaces must refetch too.
+ */
 function useCardCachesInvalidator(): () => Promise<void> {
   const queryClient = useQueryClient()
   return async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.cards.all() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() }),
     ])
   }
 }

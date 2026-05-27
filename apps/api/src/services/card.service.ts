@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../db/supabase.ts';
 import { asPayload } from '../lib/db.ts';
 import { componentLogger } from '../lib/logger.ts';
 import { encodeCursor, decodeCursor } from '../lib/http.ts';
+import { invalidateDueCache } from '../lib/due-cache.ts';
 import { AppError, ServiceUnavailableError, dbError } from '../middleware/errorHandler.ts';
 import { uuidIdCursorSchema } from '../schemas/common.schema.ts';
 import { getInitialFsrsState } from './fsrs.service.ts';
@@ -44,6 +45,7 @@ import {
     type JLPTLevel,
     type LayoutType,
     type UpdateCardInput,
+    assertNever,
 } from '@fsrs-japanese/shared-types';
 
 // ─── Column projection ────────────────────────────────────────────────────────
@@ -367,6 +369,8 @@ async function countCardsForDeck(
       case 'suspended':
         query = query.eq('is_suspended', true)
         break
+      default:
+        assertNever(status)
     }
   }
 
@@ -491,6 +495,12 @@ export async function createCard(
     }
     log.error({ cardId: created.id, err }, 'embedding backfill failed')
   })
+
+  // A new card enters the New pool, so the cached due set is now stale.
+  // Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts —
+  // without this, a freshly added card doesn't surface as a review until the
+  // 60s due-cache TTL lapses.
+  void invalidateDueCache(userId)
 
   return created
 }
@@ -813,6 +823,8 @@ export async function copyCard(
   }
 
   const newId = z.string().uuid().parse(data)
+  // The clone resets to New FSRS state, so the cached due set is now stale.
+  void invalidateDueCache(userId)
   return getCard(newId, userId)
 }
 

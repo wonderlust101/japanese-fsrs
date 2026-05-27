@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { supabaseAdmin } from '../db/supabase.ts'
 import { asPayload } from '../lib/db.ts'
 import { encodeCursor, decodeCursor } from '../lib/http.ts'
+import { invalidateDueCache } from '../lib/due-cache.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
 import { uuidIdCursorSchema } from '../schemas/common.schema.ts'
@@ -198,6 +199,10 @@ export async function copyPremadeDeck(
     { userId, premadeDeckId, deckId: row.deck_id, cardCount: row.card_count },
     'copied premade deck',
   )
+
+  // The copied cards start as New, so the cached due set is now stale.
+  // Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts.
+  void invalidateDueCache(userId)
 
   return {
     deckId:    row.deck_id,

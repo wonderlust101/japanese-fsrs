@@ -101,11 +101,13 @@ export async function getDueCards(
   userId:  string,
   profile: Profile,
 ): Promise<ApiList<ApiDueCard>> {
-  // Cache short-circuit. 60s TTL caps any staleness from non-invalidating
-  // mutation paths (deck archive, suspend, create/delete). The four FSRS
-  // write paths (processReview, processReviewBatch, forgetCard,
-  // rescheduleFromHistory) call `invalidateDueCache` explicitly so a user
-  // who JUST rated a card doesn't see it again on the next fetch.
+  // Cache short-circuit. Paths that add or reschedule cards invalidate the
+  // cache explicitly so the change shows up on the very next fetch: the four
+  // FSRS write paths (processReview, processReviewBatch, forgetCard,
+  // rescheduleFromHistory) and the card-add paths (createCard, copyCard,
+  // copyPremadeDeck, copyDeck). The 60s TTL still caps staleness from the
+  // remaining mutation paths that don't invalidate (deck archive, suspend/
+  // unsuspend, delete).
   const cached = await readDueCache<ApiDueCard>(userId)
   if (cached !== null) {
     return { items: cached.items, nextCursor: null, hasMore: cached.hasMore }

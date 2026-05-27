@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { useUnsavedChangesWarning } from '@/lib/hooks/useUnsavedChangesWarning'
 import { IconUndo, IconChevronDown, IconEdit } from '@/components/icons/chrome-marks'
@@ -37,6 +38,7 @@ import { PageLoader }   from '@/components/ui/TomoLoader'
 import { CardBack }     from '@/components/review/session/CardBack'
 import { CardFront }    from '@/components/review/session/CardFront'
 import { useDecks }     from '@/lib/api/decks'
+import { queryKeys }    from '@/lib/api/queryKeys'
 import {
   generateCardPreviewAction,
   generateSentencesByWordAction,
@@ -185,6 +187,7 @@ function buildPreviewCard(fields: CardFields): ApiDueCard {
 export function GeneratedReviewClient(): React.JSX.Element {
   useAddReviewDevState()
   const router         = useRouter()
+  const queryClient    = useQueryClient()
   const [, startNav]   = useTransition()
   const draft          = useCaptureDraftStore((s) => s.draft)
   const captureActions = useCaptureDraftActions()
@@ -463,6 +466,13 @@ export function GeneratedReviewClient(): React.JSX.Element {
         layoutType: 'vocabulary',
         ...(fields.jlptLevel !== '' ? { jlptLevel: fields.jlptLevel } : {}),
       })
+      // The new card enters the New pool. Refresh the review queue (due +
+      // forecast) and the cards/decks rollups so it surfaces immediately on
+      // /today and /review instead of waiting for the queries to go stale.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.cards.all() })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() })
       // Flip *before* resetting the draft so the noDraft → redirect effect
       // sees `hasSavedRef.current === true` on the very next render (refs are
       // synchronous; state is not).
@@ -474,7 +484,7 @@ export function GeneratedReviewClient(): React.JSX.Element {
       // is needed to clear an in-flight flag — the union does that by shape.
       setSave({ status: 'error', message: err instanceof Error ? err.message : 'Could not save the card.' })
     }
-  }, [save.status, generating, blockers, deckId, fields, deckName, captureActions])
+  }, [save.status, generating, blockers, deckId, fields, deckName, captureActions, queryClient])
 
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
