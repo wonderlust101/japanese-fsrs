@@ -121,6 +121,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
         aria-modal="true"
         aria-label="Menu"
         aria-hidden={!isOpen}
+        inert={!isOpen}
         className={[
           'lg:hidden fixed inset-y-0 left-0 z-[var(--z-overlay)] w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col',
           'transform transition-transform duration-[250ms] ease-out',

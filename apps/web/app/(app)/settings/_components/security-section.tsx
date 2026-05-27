@@ -126,6 +126,7 @@ export function SecuritySection(): React.JSX.Element {
 
   return (
     <SectionShell
+      heading="Security settings"
       strip={(
         <ContextStrip>
           <ContextNote eyebrow="Password" title="What makes a good one">

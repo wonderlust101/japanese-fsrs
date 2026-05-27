@@ -1,6 +1,6 @@
 'use client'
 
-import { useId } from 'react'
+import { cloneElement, isValidElement, useId, type ReactElement } from 'react'
 
 interface SettingsFieldProps {
   label:    string
@@ -54,6 +54,24 @@ export function SettingsField({
   const generatedId = useId()
   const id = htmlFor ?? generatedId
 
+  // Associate the error/hint line with the control for screen readers: give
+  // the feedback <p> an id and forward it to the single child via
+  // aria-describedby (plus aria-invalid on error). The settings controls
+  // (Input/Textarea) spread unknown props onto their native element, so the
+  // attributes land where a screen reader can read them on focus — not only
+  // via the role="alert" flash. Mirrors the DeckField pattern in add-client.
+  const feedbackId  = `${id}-feedback`
+  const hasFeedback = error !== undefined || hint !== undefined
+  const control     = isValidElement(children) && hasFeedback
+    ? cloneElement(
+        children as ReactElement<{ 'aria-describedby'?: string; 'aria-invalid'?: boolean }>,
+        {
+          'aria-describedby': feedbackId,
+          ...(error !== undefined ? { 'aria-invalid': true } : {}),
+        },
+      )
+    : children
+
   return (
     <div className="grid grid-cols-1 gap-2">
       <div className="flex items-baseline justify-between gap-3 pl-3">
@@ -77,11 +95,12 @@ export function SettingsField({
           dirty ? 'border-inari-vermillion' : 'border-transparent',
         ].join(' ')}
       >
-        {children}
+        {control}
       </div>
 
       {(error !== undefined || hint !== undefined) && (
         <p
+          id={feedbackId}
           role={error !== undefined ? 'alert' : undefined}
           className={[
             'pl-3 text-xs',

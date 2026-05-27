@@ -64,7 +64,10 @@ function buildClass({
     // per-row kebab, etc.) inherits this automatically.
     'min-h-11 sm:min-h-0',
     'ui-motion-colors',
-    'focus-visible:outline-none',
+    // The cream-inset/vermillion-wash focus fill alone is too low-contrast to
+    // be a reliable focus indicator; pair it with the app's standard sumi-ink
+    // outline (~16:1), inset 1px so it stays within the row's bounds.
+    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:-outline-offset-1',
     'disabled:opacity-50 disabled:pointer-events-none',
     padY,
     text,

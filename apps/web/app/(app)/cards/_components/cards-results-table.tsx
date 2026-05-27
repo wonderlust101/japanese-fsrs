@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 import { StatusPill, type StatusTone } from '@/components/ui/Pill'
 import { Time } from '@/components/ui/Time'
+import { TomoLoader } from '@/components/ui/TomoLoader'
 import { DecksMenu, MenuItem, MenuSeparator } from '@/app/(app)/decks/_components/decks-menu'
 import { State, assertNever } from '@fsrs-japanese/shared-types'
 
@@ -213,14 +214,8 @@ export function CardsResultsTable({
       </div>
 
       {loading && (
-        <div className="divide-y divide-soft-hairline">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-2 px-4 py-3">
-              <span className="dashboard-skeleton h-5 w-24 rounded-[1px]" />
-              <span className="dashboard-skeleton h-4 w-16 rounded-[1px]" />
-              <span className="dashboard-skeleton h-4 w-40 rounded-[1px]" />
-            </div>
-          ))}
+        <div className="flex items-center justify-center py-12">
+          <TomoLoader size="block" />
         </div>
       )}
 
@@ -352,6 +347,7 @@ function ResultRow({
               if the cell narrows; the reading stays inline as a quiet
               pronunciation aid in faded-sumi. */}
           <span className="flex min-w-0 items-baseline gap-2">
+            <span className="sr-only">Word: </span>
             <span
               lang="ja"
               className={['min-w-0 truncate text-base font-semibold', wordToneClass(lapseTier)].join(' ')}
@@ -366,17 +362,21 @@ function ResultRow({
             {!readOnly && <HealthBadge tier={lapseTier} />}
           </span>
           <span className="min-w-0 truncate text-sm text-sumi-ink/85">
+            <span className="sr-only">Meaning: </span>
             {row.meaning || '—'}
           </span>
           <span className="hidden min-w-0 truncate font-mono text-sm text-faded-sumi lg:block">
+            <span className="sr-only">Type: </span>
             {row.partOfSpeech ?? '—'}
           </span>
           {!readOnly && (
             <>
               <span>
+                <span className="sr-only">Status: </span>
                 <StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
               </span>
               <span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
+                <span className="sr-only">Due: </span>
                 {row.due === null ? dueLabel : <Time value={row.due}>{dueLabel}</Time>}
               </span>
               <span aria-hidden="true" />
@@ -502,7 +502,7 @@ function CardRowMenu({ onAction }: { onAction: (action: CardRowAction) => void }
           aria-expanded={ariaExpanded}
           aria-label="Card actions"
           className={[
-            'ui-motion-colors inline-flex h-8 w-8 items-center justify-center rounded-xs text-faded-sumi',
+            'ui-motion-colors inline-flex h-11 w-11 sm:h-8 sm:w-8 items-center justify-center rounded-xs text-faded-sumi',
             'hover:bg-cream-inset hover:text-sumi-ink',
             'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
           ].join(' ')}

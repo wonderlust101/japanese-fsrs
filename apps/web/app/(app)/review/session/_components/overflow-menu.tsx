@@ -148,6 +148,16 @@ export function OverflowMenu({
     }
   }, [open])
 
+  // Move focus into the first enabled menu item on open, matching DecksMenu /
+  // UserMenu so keyboard users land inside the menu without an extra ArrowDown.
+  useEffect(() => {
+    if (!open) return
+    const id = window.setTimeout(() => {
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')?.focus()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [open])
+
   const portalNode =
     typeof document !== 'undefined' && open && pos !== null
       ? createPortal(

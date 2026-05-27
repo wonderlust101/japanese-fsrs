@@ -47,6 +47,8 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
   const router       = useRouter()
   const queryClient  = useQueryClient()
   const wrapperRef   = useRef<HTMLDivElement>(null)
+  const triggerRef   = useRef<HTMLButtonElement>(null)
+  const menuRef      = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
   const { openHelp }        = useHelpDialogActions()
 
@@ -73,11 +75,46 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
       if (e.key === 'Escape') {
         e.preventDefault()
         setIsOpen(false)
+        triggerRef.current?.focus()
       }
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
   }, [isOpen])
+
+  // On open, move focus into the first menu item (APG menu-button pattern).
+  useEffect(() => {
+    if (!isOpen) return
+    const id = window.setTimeout(() => {
+      menuRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
+        ?.focus()
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [isOpen])
+
+  // Roving arrow-key / Home / End navigation across the menu items, matching
+  // the DecksMenu reference so every role="menu" in the app behaves the same.
+  function onMenuKeyDown(e: React.KeyboardEvent): void {
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [],
+    )
+    if (items.length === 0) return
+    const current = items.indexOf(document.activeElement as HTMLElement)
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      items[(current + 1) % items.length]?.focus()
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      items[(current - 1 + items.length) % items.length]?.focus()
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      items[0]?.focus()
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      items[items.length - 1]?.focus()
+    }
+  }
 
   const displayLabel = getUserDisplayName(user) ?? user?.email ?? 'User'
   const initial      = displayLabel[0]?.toUpperCase() ?? '?'
@@ -99,8 +136,15 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setIsOpen(true)
+          }
+        }}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label="Account menu"
@@ -123,8 +167,11 @@ export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Elemen
 
       {isOpen && (
         <div
+          ref={menuRef}
           role="menu"
           aria-label="Account options"
+          aria-orientation="vertical"
+          onKeyDown={onMenuKeyDown}
           className="absolute bottom-full left-0 right-0 mb-2 bg-warm-paper-raised rounded-xs border border-soft-hairline shadow-card p-1 flex flex-col animate-page-enter"
         >
           <MenuItem.Link

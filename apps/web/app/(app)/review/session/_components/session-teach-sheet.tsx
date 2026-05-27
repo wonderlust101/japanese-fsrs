@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/Button'
 import { KbdChip } from '@/components/ui/KbdChip'
+import { useFocusTrap } from '@/hooks/use-focus-trap'
 import { cn } from '@/lib/utils'
 
 interface SessionTeachSheetProps {
@@ -33,6 +34,14 @@ export function SessionTeachSheet({
   onClose,
 }: SessionTeachSheetProps): React.JSX.Element | null {
   const closeRef = useRef<HTMLButtonElement | null>(null)
+  const sheetRef = useRef<HTMLDivElement | null>(null)
+
+  // Manual mode is a real modal: contain Tab within the sheet and restore focus
+  // to the opener on close. Declared before the effects below so it captures the
+  // pre-open focus (the trigger) before the closeRef effect moves focus to Close.
+  // Escape + auto-mode dismissal are handled by the effect below, so onEscape is
+  // intentionally omitted here (avoids double-handling).
+  useFocusTrap(sheetRef, { active: open && mode === 'manual', restoreFocus: true })
 
   useEffect(() => {
     if (!open) return
@@ -76,6 +85,7 @@ export function SessionTeachSheet({
 
   return (
     <div
+      ref={sheetRef}
       role={mode === 'manual' ? 'dialog' : 'presentation'}
       aria-modal={mode === 'manual' ? 'true' : undefined}
       aria-labelledby={mode === 'manual' ? 'teach-sheet-title' : undefined}

@@ -73,7 +73,7 @@ export default function SchedulePage(): React.JSX.Element {
         />
       }
     >
-      <div className="flex flex-col gap-3">
+      <div role="group" aria-label="Study pace" className="flex flex-col gap-3">
         {OPTIONS.map((opt) => (
           <StepChild key={opt.value}>
             <SelectionCard

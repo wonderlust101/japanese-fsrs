@@ -136,6 +136,7 @@ export function LearningSection({
 
   return (
     <SectionShell
+      heading="Learning settings"
       strip={(
         <ContextStrip>
           <ContextNote eyebrow="Daily load" title={`${dailyNew} new · up to ${dailyReview} reviews`}>

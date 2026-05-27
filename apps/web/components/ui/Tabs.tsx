@@ -106,7 +106,11 @@ export function Tabs<V extends string>({
             type="button"
             role="tab"
             aria-selected={selected}
-            aria-controls={panelId}
+            // Only bind aria-controls when the caller shares an idBase with
+            // matching <TabPanel>s. Without one, the panelId derives from a
+            // private fallback that no panel renders — so emitting it would
+            // dangle. Pure-nav Tabs (no TabPanel) thus carry no aria-controls.
+            {...(idBase !== undefined && { 'aria-controls': panelId })}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(item.value)}
             className={cn(

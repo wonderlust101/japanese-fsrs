@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef } from 'react'
+
 import { cn } from '@/lib/utils'
 
 interface ToggleProps {
@@ -72,10 +74,29 @@ export function Segmented<T extends string>({
   ariaLabel,
   className,
 }: SegmentedProps<T>): React.JSX.Element {
+  const groupRef = useRef<HTMLDivElement>(null)
+
+  // APG radiogroup keyboard model: roving tabindex (only the selected segment
+  // is tab-reachable) + Arrow keys move selection and focus together.
+  function onKeyDown(e: React.KeyboardEvent): void {
+    const isNext = e.key === 'ArrowRight' || e.key === 'ArrowDown'
+    const isPrev = e.key === 'ArrowLeft'  || e.key === 'ArrowUp'
+    if (!isNext && !isPrev) return
+    e.preventDefault()
+    const currentIndex = Math.max(0, options.findIndex((o) => o.value === value))
+    const nextIndex = (currentIndex + (isNext ? 1 : -1) + options.length) % options.length
+    const next = options[nextIndex]
+    if (next === undefined) return
+    onChange(next.value)
+    groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]')[nextIndex]?.focus()
+  }
+
   return (
     <div
+      ref={groupRef}
       role="radiogroup"
       aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
       className={cn(
         'inline-flex rounded-full border border-soft-hairline bg-cream-inset p-0.5',
         className,
@@ -89,6 +110,7 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
             onClick={() => onChange(opt.value)}
             className={cn(
               // Inner buttons at py-1.5 = ~32px each + outer p-0.5 + border

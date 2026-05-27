@@ -233,8 +233,11 @@ export function TomoSlider({
             : 'bg-inari-vermillion',
           // Hover halo only when not dragging (avoid the ring competing with
           // the pressed state)
+          // Hover halo stays a soft vermillion-wash; keyboard focus gets the
+          // app's standard sumi-ink ring instead (the wash ring is ~1.1:1 and
+          // fails WCAG 1.4.11/2.4.11, so it can't be the sole focus indicator).
           !isDragging && !disabled
-            ? 'group-hover:ring-4 group-hover:ring-vermillion-wash group-focus-visible:ring-4 group-focus-visible:ring-vermillion-wash'
+            ? 'group-hover:ring-4 group-hover:ring-vermillion-wash group-focus-visible:ring-2 group-focus-visible:ring-sumi-ink'
             : '',
           'transition-shadow duration-150 ease-out',
         ].join(' ')}

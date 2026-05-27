@@ -78,7 +78,7 @@ export default function LevelPage(): React.JSX.Element {
         />
       }
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div role="group" aria-label="Current level" className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {OPTIONS.map((opt) => (
           <StepChild key={opt.value}>
             <SelectionCard

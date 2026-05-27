@@ -277,6 +277,7 @@ export function TomoSelect<T extends string>({
           ref={popoverRef}
           id={listboxId}
           role="listbox"
+          aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           className={[
             'fixed z-[var(--z-popover)] max-h-64 overflow-y-auto rounded-xs',
