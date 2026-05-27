@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       {/* Main content column */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto outline-none">
+        <main id="main-content" tabIndex={-1} className="flex flex-col flex-1 overflow-y-auto outline-none">
           {children}
         </main>
       </div>

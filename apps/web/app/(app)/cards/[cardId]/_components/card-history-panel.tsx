@@ -1,4 +1,4 @@
-import { State, type ApiCard } from '@fsrs-japanese/shared-types'
+import { State, assertNever, type ApiCard } from '@fsrs-japanese/shared-types'
 
 import { cn } from '@/lib/utils'
 
@@ -20,10 +20,8 @@ function stateLabel(state: State): string {
     case State.Learning:   return 'Learning'
     case State.Relearning: return 'Relearning'
     case State.Review:     return 'Review'
-    default: {
-      const _exhaustive: never = state
-      return _exhaustive
-    }
+    default:
+      return assertNever(state)
   }
 }
 
@@ -90,6 +88,11 @@ export function CardHistoryPanel({ card }: Props): React.JSX.Element {
     return T + ((yTop - c) / (yTop - yFloor)) * (B - T)
   }
 
+  // viewBox units → percentage of the chart box, so HTML overlay markers and
+  // labels land exactly on their SVG coordinates regardless of render width.
+  const pctX = (x: number): string => `${((x / VB_W) * 100).toFixed(2)}%`
+  const pctY = (y: number): string => `${((y / VB_H) * 100).toFixed(2)}%`
+
   const STEPS = 60
   const curve: string = Array.from({ length: STEPS + 1 }, (_, i) => {
     const t = (i / STEPS) * tMax
@@ -134,63 +137,108 @@ export function CardHistoryPanel({ card }: Props): React.JSX.Element {
         85% target.
       </p>
 
-      {/* ── The forgetting curve, full popup width ─────────────────────── */}
-      <svg
-        viewBox={`0 0 ${VB_W} ${VB_H}`}
-        className="w-full"
+      {/* ── The forgetting curve. The SVG carries only the scalable shapes
+          (guide, wash, curve); markers and labels live in an HTML overlay
+          pinned to the same coordinates, so they stay legible from a
+          phone-width popup up to the full 64rem desktop modal instead of
+          shrinking with the viewBox. The box keeps the viewBox aspect so the
+          overlay percentages map 1:1 onto the SVG. ─────────────────────── */}
+      <div
+        className="relative w-full"
+        style={{ aspectRatio: `${VB_W} / ${VB_H}` }}
         role="img"
         aria-label={`Memory curve: about ${pctNow} percent recall today, next review ${formatDate(card.due)}.`}
       >
-        {/* 0.85 retention target guide */}
-        <line
-          x1={L} y1={guideY} x2={R} y2={guideY}
-          className="text-faded-sumi/40" stroke="currentColor" strokeWidth="1" strokeDasharray="3 4"
-        />
+        <svg
+          viewBox={`0 0 ${VB_W} ${VB_H}`}
+          className="absolute inset-0 h-full w-full"
+          aria-hidden="true"
+        >
+          {/* 0.85 retention target guide */}
+          <line
+            x1={L} y1={guideY} x2={R} y2={guideY}
+            className="text-faded-sumi/40" stroke="currentColor" strokeWidth="1"
+            strokeDasharray="3 4" vectorEffect="non-scaling-stroke"
+          />
 
-        {/* sumi wash: memory elapsed since the last review */}
-        <path d={area} className="text-sumi-ink" fill="currentColor" fillOpacity={0.05} />
+          {/* sumi wash: memory elapsed since the last review */}
+          <path d={area} className="text-sumi-ink" fill="currentColor" fillOpacity={0.05} />
 
-        {/* the curve, inked in on open */}
-        <path
-          d={curve}
-          pathLength={1}
-          className="text-sumi-ink animate-memory-curve-draw"
-          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-          style={{ strokeDasharray: 1 }}
-        />
+          {/* the curve, inked in on open; non-scaling-stroke holds it at 2.5px
+              whether the popup is 320px or 960px across */}
+          <path
+            d={curve}
+            pathLength={1}
+            className="text-sumi-ink animate-memory-curve-draw"
+            fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            style={{ strokeDasharray: 1 }}
+          />
+        </svg>
 
-        {/* markers + axis labels fade in just behind the stroke */}
-        <g className="animate-memory-fade-in" style={{ animationDelay: '700ms' }}>
+        {/* Markers + labels at fixed CSS sizes, positioned by the shared
+            geometry. Fades in just behind the stroke draw. */}
+        <div
+          className="animate-memory-fade-in pointer-events-none absolute inset-0"
+          style={{ animationDelay: '700ms' }}
+        >
           {/* last-review tick (hidden when the today dot covers it) */}
           {lastTickClear && (
-            <circle cx={xOf(0)} cy={yOf(1)} r={3} className="text-faded-sumi" fill="currentColor" />
+            <span
+              aria-hidden="true"
+              className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-faded-sumi"
+              style={{ left: pctX(xOf(0)), top: pctY(yOf(1)) }}
+            />
           )}
           {/* next review: hollow ring */}
-          <circle cx={dueX} cy={dueY} r={5} className="text-inari-vermillion-deep" fill="var(--color-warm-paper-raised)" stroke="currentColor" strokeWidth="2" />
-          {/* today: filled, labelled with the live recall % */}
-          <circle cx={todayX} cy={todayY} r={5.5} className="text-inari-vermillion-deep" fill="currentColor" />
-          <text x={todayX} y={todayY - 11} textAnchor="middle" className="text-inari-vermillion-deep" fill="currentColor" style={{ fontSize: 12, fontWeight: 600 }}>
+          <span
+            aria-hidden="true"
+            className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-inari-vermillion-deep bg-warm-paper-raised"
+            style={{ left: pctX(dueX), top: pctY(dueY) }}
+          />
+          {/* today: filled dot + the live recall % above it */}
+          <span
+            aria-hidden="true"
+            className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-inari-vermillion-deep"
+            style={{ left: pctX(todayX), top: pctY(todayY) }}
+          />
+          <span
+            className="absolute -translate-x-1/2 -translate-y-full whitespace-nowrap font-mono text-xs font-semibold text-inari-vermillion-deep"
+            style={{ left: pctX(todayX), top: `calc(${pctY(todayY)} - 0.6rem)` }}
+          >
             {pctNow}%
-          </text>
+          </span>
 
-          {/* axis labels */}
-          <text x={xOf(0)} y={BASE + 20} textAnchor="start" className="text-faded-sumi" fill="currentColor" style={{ fontSize: 11 }}>
+          {/* axis labels, dropped to the reserved row below the plot box */}
+          <span
+            className="absolute -translate-y-1/2 whitespace-nowrap text-[0.6875rem] text-faded-sumi"
+            style={{ left: pctX(xOf(0)), top: pctY(BASE + 20) }}
+          >
             {formatDate(card.lastReview as string)}
-          </text>
-          <text x={dueX} y={BASE + 20} textAnchor={labelGap ? 'end' : 'middle'} className="text-faded-sumi" fill="currentColor" style={{ fontSize: 11 }}>
+          </span>
+          <span
+            className={cn(
+              'absolute -translate-y-1/2 whitespace-nowrap text-[0.6875rem] text-faded-sumi',
+              labelGap ? '-translate-x-full' : '-translate-x-1/2',
+            )}
+            style={{ left: pctX(dueX), top: pctY(BASE + 20) }}
+          >
             due {formatDate(card.due)}
-          </text>
+          </span>
 
-          {/* 85% target label, dropped to the axis row so it reads cleanly
-              without colliding with the curve. Hidden when the due label
-              would overlap it at the right edge. */}
+          {/* 85% target label on the same row; suppressed when the due label
+              would collide with it at the right edge (the dashed guide stays
+              self-evident). */}
           {!dueNearRight && (
-            <text x={R} y={BASE + 20} textAnchor="end" className="text-faded-sumi" fill="currentColor" style={{ fontSize: 11 }}>
+            <span
+              className="absolute -translate-x-full -translate-y-1/2 whitespace-nowrap text-[0.6875rem] text-faded-sumi"
+              style={{ left: pctX(R), top: pctY(BASE + 20) }}
+            >
               85% target
-            </text>
+            </span>
           )}
-        </g>
-      </svg>
+        </div>
+      </div>
 
       {/* ── Plain-language scheduling readout, as a stat strip ─────────── */}
       <dl className="grid grid-cols-2 gap-x-8 gap-y-6 border-t border-soft-hairline pt-5 sm:grid-cols-3 lg:grid-cols-5">
