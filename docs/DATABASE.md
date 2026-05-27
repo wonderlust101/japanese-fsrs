@@ -603,7 +603,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 
 | Function | Purpose | Notes |
 |---|---|---|
-| `process_review(p_card_id, p_user_id, p_state, p_due, …, p_session_id)` | Atomic FSRS update + `review_logs` insert + weak spot detection. | Locks the card row with `SELECT … FOR UPDATE` so concurrent reviews of the same card serialize. Raises `card_not_found`, `cannot_review_source_card`, or `card_ownership_mismatch`. |
+| `process_review(p_card_id, p_user_id, p_state, p_due, …, p_session_id)` | Atomic FSRS update + `review_logs` insert + weak spot detection. **Returns the inserted `review_logs.id`** (`RETURNING id INTO v_log_id`, migration `20260706000000`) so the single-card path propagates the log id to the rollback affordance without a follow-up `reviewed_at` SELECT — mirroring `process_review_batch`. | Locks the card row with `SELECT … FOR UPDATE` so concurrent reviews of the same card serialize. Raises `card_not_found`, `cannot_review_source_card`, or `card_ownership_mismatch`. |
 | `process_review_batch(p_user_id, p_reviews JSONB, p_leech_threshold)` | Batches N `process_review` calls into one round-trip. Per-review subtransactions preserve "collect errors, continue" semantics. Migration `20260620000000_process_review_batch_return_log_id.sql` added `review_log_id` to the return shape (captured via `RETURNING id INTO v_log_id`) so callers can propagate the per-row log id without a second round-trip. | Returns `(card_id, success, error_message, due, stability, difficulty, scheduled_days, state, review_log_id)` per row. |
 | `process_forget(p_card_id, p_user_id, …)` | Anki Forget — resets card to `state = 0` and writes a `manual` review log entry. | Same row lock + ownership check as `process_review`. |
 

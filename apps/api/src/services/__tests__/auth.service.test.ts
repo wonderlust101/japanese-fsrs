@@ -45,46 +45,54 @@ const state: MockState = {
 
 // ─── Module mocks (must precede dynamic import of auth.service) ───────────────
 
-mock.module('../../db/supabase.ts', () => ({
-  supabaseAdmin: {
-    auth: {
-      signInWithPassword: mock(async (creds: { email: string; password: string }) => {
-        state.lastSignInArgs = creds
-        if (state.signInResult.ok) {
-          return {
-            data:  { session: { access_token: 'a', refresh_token: 'r', expires_in: 3600 } },
-            error: null,
-          }
-        }
+// auth.service routes user-auth ops (signInWithPassword/signUp/verifyOtp/…)
+// through `supabaseAuth` and admin ops through `supabaseAdmin`. Back both
+// exports with ONE stub object so every stubbed call is reachable no matter
+// which client issues it — the behavioural assertions don't care which client
+// was used, only that the right credentials/results flowed through.
+const mockSupabaseClient = {
+  auth: {
+    signInWithPassword: mock(async (creds: { email: string; password: string }) => {
+      state.lastSignInArgs = creds
+      if (state.signInResult.ok) {
         return {
-          data:  { session: null },
-          error: { name: 'AuthApiError', message: 'Invalid login credentials', status: 400 },
+          data:  { session: { access_token: 'a', refresh_token: 'r', expires_in: 3600 } },
+          error: null,
         }
+      }
+      return {
+        data:  { session: null },
+        error: { name: 'AuthApiError', message: 'Invalid login credentials', status: 400 },
+      }
+    }),
+    signUp: mock(async () => {
+      if (state.signUpError !== null) return { data: { user: null }, error: state.signUpError }
+      return { data: { user: state.signUpUser }, error: null }
+    }),
+    admin: {
+      updateUserById: mock(async (userId: string, patch: { password?: string }) => {
+        state.lastUpdateUserId    = userId
+        state.lastUpdateUserPatch = patch
+        if (state.updateUserError !== null) {
+          return { data: null, error: state.updateUserError }
+        }
+        return { data: { user: { id: userId } }, error: null }
       }),
-      signUp: mock(async () => {
-        if (state.signUpError !== null) return { data: { user: null }, error: state.signUpError }
-        return { data: { user: state.signUpUser }, error: null }
+      deleteUser: mock(async (userId: string) => {
+        state.lastDeleteUserId = userId
+        if (state.deleteUserError !== null) {
+          return { data: null, error: state.deleteUserError }
+        }
+        return { data: null, error: null }
       }),
-      admin: {
-        updateUserById: mock(async (userId: string, patch: { password?: string }) => {
-          state.lastUpdateUserId    = userId
-          state.lastUpdateUserPatch = patch
-          if (state.updateUserError !== null) {
-            return { data: null, error: state.updateUserError }
-          }
-          return { data: { user: { id: userId } }, error: null }
-        }),
-        deleteUser: mock(async (userId: string) => {
-          state.lastDeleteUserId = userId
-          if (state.deleteUserError !== null) {
-            return { data: null, error: state.deleteUserError }
-          }
-          return { data: null, error: null }
-        }),
-        getUserById: mock(async (_userId: string) => state.getUserByIdResponse),
-      },
+      getUserById: mock(async (_userId: string) => state.getUserByIdResponse),
     },
   },
+}
+
+mock.module('../../db/supabase.ts', () => ({
+  supabaseAdmin: mockSupabaseClient,
+  supabaseAuth:  mockSupabaseClient,
 }))
 
 mock.module('../../db/redis.ts', () => ({

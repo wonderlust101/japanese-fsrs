@@ -2,7 +2,7 @@ import { randomUUID, createHash } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled, isOpenAIEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, isOpenAIEnabled, signInUser } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -30,11 +30,11 @@ async function seedUser(): Promise<SeededUser> {
   if (error !== null || data.user === null) throw new Error(`createUser failed: ${error?.message ?? 'unknown'}`)
   const userId = data.user.id
 
-  const sessionRes = await supabaseAdmin.auth.signInWithPassword({ email, password: 'integration-pass' })
-  if (sessionRes.error !== null || sessionRes.data.session === null) {
-    throw new Error(`session generation failed: ${sessionRes.error?.message ?? 'no session'}`)
-  }
-  const jwt = sessionRes.data.session.access_token
+  // Mint the JWT on a dedicated auth client (NOT supabaseAdmin). signing in on
+  // the shared service-role client leaks the user session onto it, so the app's
+  // internal queries run under that user's RLS instead of service_role — which
+  // breaks cross-user fixtures (the second seedUser would re-point the client).
+  const jwt = await signInUser(email)
 
   const deckRes = await request(app)
     .post('/api/v1/decks')

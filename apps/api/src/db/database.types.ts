@@ -1080,7 +1080,9 @@ export type Database = {
           p_updated_at: string
           p_user_id: string
         }
-        Returns: undefined
+        // 20260706000000_process_review_return_log_id.sql — RETURNS the inserted
+        // review_logs id (was VOID). Mirrors process_review_batch.review_log_id.
+        Returns: string
       }
       process_review_batch: {
         Args: { p_leech_threshold: number; p_reviews: Json; p_user_id: string }
@@ -1193,13 +1195,15 @@ export type Database = {
           p_patch: Json
           p_user_id: string
         }
+        // 20260705000000_fix_update_deck_drop_premade_fork.sql — drop
+        // is_premade_fork (gone in the copy model), add archived_at.
         Returns: {
+          archived_at: string | null
           card_count: number
           created_at: string
           deck_type: Database["public"]["Enums"]["deck_type"]
           description: string
           id: string
-          is_premade_fork: boolean
           name: string
           source_premade_id: string
           updated_at: string

@@ -10,6 +10,11 @@ import { supabaseAuthMock } from '../../tests/support'
 // so the default invalid result is irrelevant here.
 mock.module('../db/supabase.ts', () => ({
   supabaseAdmin: { auth: { getUser: supabaseAuthMock.getUser } },
+  // auth.service imports `supabaseAuth` too; the mock MUST expose it or Bun
+  // throws "Export named 'supabaseAuth' not found" at module-load when app.ts's
+  // route tree pulls in auth.service — the same trap the rawRedis note below
+  // describes. This suite only inspects router stacks, so a bare stub suffices.
+  supabaseAuth: { auth: { getUser: supabaseAuthMock.getUser } },
 }))
 // Mirror the real module shape: redis.ts exports both `redis` (Proxy-wrapped
 // with the upstash breaker) and `rawRedis` (un-wrapped, used by the

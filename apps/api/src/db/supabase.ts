@@ -98,3 +98,27 @@ export const supabaseAdmin = createClient<Database, 'public', 'public'>(
   env.SUPABASE_SERVICE_ROLE_KEY,
   { global: { fetch: timeoutFetch } },
 )
+
+/**
+ * Dedicated client for user-facing GoTrue operations (signIn / signUp /
+ * verifyOtp / refreshSession / resend). Each of those sets an in-memory session
+ * on whatever client issues it. Routing them through `supabaseAdmin` — the
+ * singleton used for every service_role data query — would leave it acting as
+ * the just-authenticated user, so subsequent `.from()` calls run under that
+ * user's RLS instead of service_role. Under concurrency that is a cross-user
+ * hazard (request B's query running as the user who logged in via request A);
+ * in the integration suite it surfaced as createDeck → RLS 42501 in every
+ * suite that ran after the auth tests.
+ *
+ * Isolating these ops here keeps `supabaseAdmin` session-less = always
+ * service_role. `persistSession` / `autoRefreshToken` are off: callers read the
+ * returned tokens and never rely on this client's own session, so there is
+ * nothing to persist or refresh (and no background refresh timers to leak).
+ * Admin operations (`auth.admin.*`) stay on `supabaseAdmin` — they use the
+ * service_role key directly and do not set a session.
+ */
+export const supabaseAuth = createClient<Database, 'public', 'public'>(
+  env.SUPABASE_URL,
+  env.SUPABASE_SERVICE_ROLE_KEY,
+  { global: { fetch: timeoutFetch }, auth: { persistSession: false, autoRefreshToken: false } },
+)

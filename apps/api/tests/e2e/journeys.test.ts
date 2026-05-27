@@ -104,17 +104,12 @@ describeIntegration('E2E — review → rollback lifecycle', () => {
     expect(submit.body.state).toBeGreaterThan(0)
     expect(submit.body.stability).toBeGreaterThan(0)
 
-    // The review_log was persisted; read its id from the DB to drive rollback.
-    // NB finding: the submit response's `reviewLogId` comes back null here —
-    // fetchLatestReviewLogId's exact reviewed_at match misses — so the summary
-    // page's per-card rollback affordance is unavailable after a single review.
-    // We fetch the id directly so the journey still exercises the rollback
-    // endpoint + the state-restore handoff.
-    const logs = await restSelect<{ id: string }>(
-      'review_logs', `card_id=eq.${card.id}&select=id&order=reviewed_at.desc&limit=1`,
-    )
-    expect(logs).toHaveLength(1)
-    const reviewLogId = logs[0]?.id ?? ''
+    // process_review RETURNS the inserted log id (migration 20260706000000),
+    // so the submit response carries `reviewLogId` directly — this is what
+    // powers the summary page's per-card rollback affordance. (Previously this
+    // came back null; the journey had to re-find the id with a DB SELECT.)
+    expect(typeof submit.body.reviewLogId).toBe('string')
+    const reviewLogId: string = submit.body.reviewLogId
 
     // Rollback restores the card to its pre-review (New) state — the handoff
     // that proves the review log written by submit is found + reversed.

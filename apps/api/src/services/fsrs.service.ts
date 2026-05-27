@@ -325,7 +325,10 @@ export async function processReview(
   // p_session_id) are typed as non-nullable in the generated Database type
   // because the migration declares them without DEFAULT NULL. The DB accepts
   // NULL at runtime; supabase-js sends NULL correctly.
-  const { error: rpcError } = await supabaseAdmin.rpc('process_review', asPayload({
+  //
+  // process_review RETURNS the inserted review_logs id (migration
+  // 20260706000000) so we read it straight off `data` — no follow-up SELECT.
+  const { data: reviewLogId, error: rpcError } = await supabaseAdmin.rpc('process_review', asPayload({
     p_card_id:              cardId,
     p_user_id:              userId,
     p_state:                updated.state,
@@ -376,12 +379,6 @@ export async function processReview(
   // next /reviews/due fetch — see lib/due-cache.ts.
   void invalidateDueCache(userId)
 
-  // Fetch the just-inserted review log id. `reviewed_at` (set in JS above)
-  // is unique-enough per (user, card) for the same-instant case; we filter
-  // by all three for safety and take the most recent if multiple match.
-  // The summary page uses this id to power per-card rollback affordances.
-  const reviewLogId = await fetchLatestReviewLogId(cardId, userId, reviewedAt)
-
   return {
     id:            cardId,
     reviewLogId,
@@ -391,33 +388,6 @@ export async function processReview(
     scheduledDays: updated.scheduled_days,
     state:         updated.state,
   }
-}
-
-/**
- * Looks up the review_logs row that processReview / forgetCard /
- * rescheduleFromHistory just wrote. Filtering by `(user_id, card_id,
- * reviewed_at)` is exact for the single-card path because the caller
- * controls `reviewed_at`. Returns null on lookup failure rather than
- * throwing — the rollback affordance becomes unavailable, but the review
- * itself already succeeded.
- */
-async function fetchLatestReviewLogId(
-  cardId:     string,
-  userId:     string,
-  reviewedAt: Date,
-): Promise<string | null> {
-  const { data, error } = await supabaseAdmin
-    .from('review_logs')
-    .select('id')
-    .eq('card_id', cardId)
-    .eq('user_id', userId)
-    .eq('reviewed_at', reviewedAt.toISOString())
-    .order('reviewed_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error !== null || data === null) return null
-  return data.id
 }
 
 /**

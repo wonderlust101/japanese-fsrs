@@ -140,8 +140,7 @@ describe('fsrs.service — previewNextStates', () => {
 describe('fsrs.service — processReview', () => {
   it('reschedules a New card on "good" and persists it via process_review', async () => {
     sb.state.responses['cards']       = [{ data: makeFsrsRow({ state: 0, stability: 0, difficulty: 0, reps: 0, due: '2026-05-01T00:00:00.000Z' }), error: null }]
-    sb.state.rpcResponses['process_review'] = [{ data: null, error: null }]
-    sb.state.responses['review_logs'] = [{ data: { id: 'log-7' }, error: null }]   // fetchLatestReviewLogId
+    sb.state.rpcResponses['process_review'] = [{ data: 'log-7', error: null }]   // RPC returns the inserted log id
 
     const result = await processReview('card-1', 'good', 'user-1', 4000)
 
@@ -154,8 +153,7 @@ describe('fsrs.service — processReview', () => {
 
   it('persists the BEFORE snapshot from the original row so the review is rollback-able', async () => {
     sb.state.responses['cards']       = [{ data: makeFsrsRow({ state: 2, stability: 10, due: '2026-05-01T00:00:00.000Z' }), error: null }]
-    sb.state.rpcResponses['process_review'] = [{ data: null, error: null }]
-    sb.state.responses['review_logs'] = [{ data: { id: 'log-7' }, error: null }]
+    sb.state.rpcResponses['process_review'] = [{ data: 'log-7', error: null }]
 
     await processReview('card-1', 'good', 'user-1')
 

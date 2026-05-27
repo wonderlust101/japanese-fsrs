@@ -1,7 +1,7 @@
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, signInUser } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -18,10 +18,11 @@ async function seedUser(): Promise<SeededUser> {
   if (created.error !== null || created.data.user === null) throw new Error(`createUser failed: ${created.error?.message}`)
   const userId = created.data.user.id
 
-  const session = await supabaseAdmin.auth.signInWithPassword({ email, password: 'integration-pass' })
-  if (session.error !== null || session.data.session === null) throw new Error('session failed')
+  // Mint the JWT on a dedicated auth client so supabaseAdmin stays service_role
+  // (see signInUser). Signing in on the shared client leaks the user session.
+  const jwt = await signInUser(email)
 
-  return { userId, jwt: session.data.session.access_token }
+  return { userId, jwt }
 }
 
 beforeAll(async () => {

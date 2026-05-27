@@ -6,7 +6,7 @@ import type {
   CancelSignupInput, VerifyOtpInput, ResendOtpInput,
 } from '@fsrs-japanese/shared-types'
 
-import { supabaseAdmin } from '../db/supabase.ts'
+import { supabaseAdmin, supabaseAuth } from '../db/supabase.ts'
 import { redis } from '../db/redis.ts'
 import { componentLogger } from '../lib/logger.ts'
 import { AppError, dbError } from '../middleware/errorHandler.ts'
@@ -25,8 +25,9 @@ const CANCEL_TOKEN_TTL_SECONDS = 3600
 // ─── Step-up auth helper ──────────────────────────────────────────────────────
 
 /**
- * Verifies the user's current password by attempting a fresh sign-in. The
- * service-role client does not carry per-user session state, so the returned
+ * Verifies the user's current password by attempting a fresh sign-in on the
+ * dedicated `supabaseAuth` client (NOT `supabaseAdmin`), so this throwaway
+ * sign-in never leaves a session on the service_role data client. The returned
  * tokens are discarded — this is purely a verification primitive.
  *
  * Throws AppError(401, 'Current password is incorrect') on failure. Generic
@@ -34,7 +35,7 @@ const CANCEL_TOKEN_TTL_SECONDS = 3600
  * account) so the failure mode does not leak account state.
  */
 async function verifyCurrentPassword(email: string, password: string): Promise<void> {
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({ email, password })
   if (error !== null || data.session === null) {
     throw new AppError(401, 'Current password is incorrect', { code: 'AUTH_CURRENT_PASSWORD_INVALID' })
   }
@@ -57,7 +58,7 @@ async function verifyCurrentPassword(email: string, password: string): Promise<v
  * template configured to send OTP tokens (not magic links).
  */
 export async function signUp(input: SignupInput): Promise<ApiSignUpResult> {
-  const { data, error } = await supabaseAdmin.auth.signUp({
+  const { data, error } = await supabaseAuth.auth.signUp({
     email:    input.email,
     password: input.password,
     // GoTrue's `raw_user_meta_data` stays snake_case (their internal contract).
@@ -177,7 +178,7 @@ export async function cancelSignup(input: CancelSignupInput): Promise<void> {
  * because the anon key is not available server-side.
  */
 export async function signInWithPassword(input: LoginInput): Promise<ApiAuthTokens> {
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+  const { data, error } = await supabaseAuth.auth.signInWithPassword({
     email:    input.email,
     password: input.password,
   })
@@ -203,7 +204,7 @@ export async function signInWithPassword(input: LoginInput): Promise<ApiAuthToke
  * The old refresh token is invalidated by Supabase upon success.
  */
 export async function refreshSession(input: RefreshInput): Promise<ApiAuthTokens> {
-  const { data, error } = await supabaseAdmin.auth.refreshSession({
+  const { data, error } = await supabaseAuth.auth.refreshSession({
     refresh_token: input.refreshToken,
   })
 
@@ -224,7 +225,7 @@ export async function refreshSession(input: RefreshInput): Promise<ApiAuthTokens
  * establish a session without a second round-trip.
  */
 export async function verifyOtp(input: VerifyOtpInput): Promise<ApiAuthTokens> {
-  const { data, error } = await supabaseAdmin.auth.verifyOtp({
+  const { data, error } = await supabaseAuth.auth.verifyOtp({
     email: input.email,
     token: input.token,
     type:  'signup',
@@ -249,7 +250,7 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<ApiAuthTokens> {
  * Uses the service role client to trigger the resend without a user session.
  */
 export async function resendOtp(input: ResendOtpInput): Promise<void> {
-  const { error } = await supabaseAdmin.auth.resend({
+  const { error } = await supabaseAuth.auth.resend({
     type:  'signup',
     email: input.email,
   })

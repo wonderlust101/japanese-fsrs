@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, signInUser } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -19,10 +19,8 @@ async function seedUser(): Promise<SeededUser> {
   if (created.error !== null || created.data.user === null) throw new Error(`createUser failed: ${created.error?.message}`)
   const userId = created.data.user.id
 
-  const session = await supabaseAdmin.auth.signInWithPassword({ email, password: 'integration-pass' })
-  if (session.error !== null || session.data.session === null) throw new Error('session failed')
-
-  const jwt = session.data.session.access_token
+  // Dedicated-client sign-in keeps supabaseAdmin service_role (see signInUser).
+  const jwt = await signInUser(email)
 
   const deckRes = await request(app)
     .post('/api/v1/decks')
