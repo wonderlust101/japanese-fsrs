@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@fsrs-japanese/shared-types": "workspace:*",
+    "@supabase/supabase-js": "^2.104.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "compression": "^1.7.5",
