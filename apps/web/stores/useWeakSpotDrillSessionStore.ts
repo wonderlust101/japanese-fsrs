@@ -1,12 +1,12 @@
-import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
-
-import { randomUUID } from '@/lib/random-uuid'
-
 import type {
-  ApiWeakSpotDrillAttemptResult,
-  ApiWeakSpotDrillSessionDetailCard,
-} from '@fsrs-japanese/shared-types'
+	ApiWeakSpotDrillAttemptResult,
+	ApiWeakSpotDrillSessionDetailCard,
+} from "@fsrs-japanese/shared-types";
+import { create } from "zustand";
+
+import { devtools } from "zustand/middleware";
+
+import { randomUUID } from "@/lib/random-uuid";
 
 // ── State (discriminated by phase) ────────────────────────────────────────────
 //
@@ -26,198 +26,218 @@ import type {
 //              summary page, regardless of whether all cards were attempted.
 
 export interface DrillAttemptRecord {
-  eventId:        string
-  sessionCardId:  string
-  weakSpotId:        string | null
-  cardId:         string | null
-  result:         ApiWeakSpotDrillAttemptResult
-  shownAt:        string
-  answeredAt:     string
-  responseTimeMs: number
-  countedAsReview: boolean
+	eventId: string;
+	sessionCardId: string;
+	weakSpotId: string | null;
+	cardId: string | null;
+	result: ApiWeakSpotDrillAttemptResult;
+	shownAt: string;
+	answeredAt: string;
+	responseTimeMs: number;
+	countedAsReview: boolean;
 }
 
 interface IdleState {
-  phase: 'idle'
+	phase: "idle";
 }
 
 interface ActiveState {
-  phase:         'active'
-  sessionId:     string
-  queue:         ApiWeakSpotDrillSessionDetailCard[]
-  currentIndex:  number
-  showAnswer:    boolean
-  attempts:      DrillAttemptRecord[]
-  /** Captured when the card first reveals (or is shown). Used to compute
-   *  responseTimeMs when the learner rates. */
-  cardShownAt:   number
+	phase: "active";
+	sessionId: string;
+	queue: ApiWeakSpotDrillSessionDetailCard[];
+	currentIndex: number;
+	showAnswer: boolean;
+	attempts: DrillAttemptRecord[];
+	/**
+	 * Captured when the card first reveals (or is shown). Used to compute
+	 *  responseTimeMs when the learner rates.
+	 */
+	cardShownAt: number;
 }
 
 interface FinishedState {
-  phase:        'finished'
-  sessionId:    string
-  queue:        ApiWeakSpotDrillSessionDetailCard[]
-  attempts:     DrillAttemptRecord[]
-  exitedEarly:  boolean
+	phase: "finished";
+	sessionId: string;
+	queue: ApiWeakSpotDrillSessionDetailCard[];
+	attempts: DrillAttemptRecord[];
+	exitedEarly: boolean;
 }
 
-export type WeakSpotDrillSessionState = IdleState | ActiveState | FinishedState
+export type WeakSpotDrillSessionState = IdleState | ActiveState | FinishedState;
 
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 interface WeakSpotDrillSessionActions {
-  /** Initialize a drill from a fetched session detail. */
-  startSession:       (sessionId: string, queue: ApiWeakSpotDrillSessionDetailCard[]) => void
-  flipCard:           () => void
-  recordAttempt:      (result: ApiWeakSpotDrillAttemptResult, countedAsReview: boolean) => DrillAttemptRecord | null
-  undoLastAttempt:    () => void
-  /** Reset the shown timestamp — used after `recordAttempt` advances. */
-  markCardShown:      () => void
-  endSession:         (exitedEarly: boolean) => void
-  reset:              () => void
+	/** Initialize a drill from a fetched session detail. */
+	startSession: (sessionId: string, queue: ApiWeakSpotDrillSessionDetailCard[]) => void;
+	flipCard: () => void;
+	recordAttempt: (result: ApiWeakSpotDrillAttemptResult, countedAsReview: boolean) => DrillAttemptRecord | null;
+	undoLastAttempt: () => void;
+	/** Reset the shown timestamp — used after `recordAttempt` advances. */
+	markCardShown: () => void;
+	endSession: (exitedEarly: boolean) => void;
+	reset: () => void;
 }
 
-type WeakSpotDrillSessionStore = WeakSpotDrillSessionState & { actions: WeakSpotDrillSessionActions }
+type WeakSpotDrillSessionStore = WeakSpotDrillSessionState & { actions: WeakSpotDrillSessionActions };
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useWeakSpotDrillSessionStore = create<WeakSpotDrillSessionStore>()(
-  devtools(
-    (set, get) => ({
-      phase: 'idle',
+	devtools(
+		(set, get) => ({
+			phase: "idle",
 
-      actions: {
-        startSession: (sessionId, queue) =>
-          set({
-            phase:        'active',
-            sessionId,
-            queue,
-            currentIndex: 0,
-            showAnswer:   false,
-            attempts:     [],
-            cardShownAt:  Date.now(),
-            actions:      get().actions,
-          }, true),
+			actions: {
+				startSession: (sessionId, queue) =>
+					set({
+						phase: "active",
+						sessionId,
+						queue,
+						currentIndex: 0,
+						showAnswer: false,
+						attempts: [],
+						cardShownAt: Date.now(),
+						actions: get().actions,
+					}, true),
 
-        flipCard: () => {
-          const s = get()
-          if (s.phase !== 'active') return
-          // Re-capture the shown moment as the reveal — gives a tighter
-          // response-time signal anchored to when the answer actually came
-          // into view rather than when the card first mounted.
-          set({ ...s, showAnswer: true, cardShownAt: Date.now() }, true)
-        },
+				flipCard: () => {
+					const s = get();
+					if (s.phase !== "active")
+						return;
+					// Re-capture the shown moment as the reveal — gives a tighter
+					// response-time signal anchored to when the answer actually came
+					// into view rather than when the card first mounted.
+					set({ ...s, showAnswer: true, cardShownAt: Date.now() }, true);
+				},
 
-        recordAttempt: (result, countedAsReview) => {
-          const s = get()
-          if (s.phase !== 'active') return null
-          const card = s.queue[s.currentIndex]
-          if (card === undefined) return null
+				recordAttempt: (result, countedAsReview) => {
+					const s = get();
+					if (s.phase !== "active")
+						return null;
+					const card = s.queue[s.currentIndex];
+					if (card === undefined)
+						return null;
 
-          const answeredAt = Date.now()
-          const record: DrillAttemptRecord = {
-            eventId:         randomUUID(),
-            sessionCardId:   card.sessionCardId,
-            weakSpotId:         card.weakSpotId,
-            cardId:          card.cardId,
-            result,
-            shownAt:         new Date(s.cardShownAt).toISOString(),
-            answeredAt:      new Date(answeredAt).toISOString(),
-            responseTimeMs:  Math.max(0, answeredAt - s.cardShownAt),
-            countedAsReview,
-          }
+					const answeredAt = Date.now();
+					const record: DrillAttemptRecord = {
+						eventId: randomUUID(),
+						sessionCardId: card.sessionCardId,
+						weakSpotId: card.weakSpotId,
+						cardId: card.cardId,
+						result,
+						shownAt: new Date(s.cardShownAt).toISOString(),
+						answeredAt: new Date(answeredAt).toISOString(),
+						responseTimeMs: Math.max(0, answeredAt - s.cardShownAt),
+						countedAsReview,
+					};
 
-          set({
-            ...s,
-            currentIndex: s.currentIndex + 1,
-            showAnswer:   false,
-            attempts:     [...s.attempts, record],
-            cardShownAt:  answeredAt,
-          }, true)
-          return record
-        },
+					set({
+						...s,
+						currentIndex: s.currentIndex + 1,
+						showAnswer: false,
+						attempts: [...s.attempts, record],
+						cardShownAt: answeredAt,
+					}, true);
+					return record;
+				},
 
-        undoLastAttempt: () => {
-          const s = get()
-          if (s.phase !== 'active') return
-          if (s.attempts.length === 0) return
-          if (s.currentIndex === 0) return
-          set({
-            ...s,
-            currentIndex: s.currentIndex - 1,
-            // The previous card was rated, meaning the back was visible.
-            // Restore that state so the rating bar is immediately usable.
-            showAnswer:   true,
-            attempts:     s.attempts.slice(0, -1),
-            cardShownAt:  Date.now(),
-          }, true)
-        },
+				undoLastAttempt: () => {
+					const s = get();
+					if (s.phase !== "active")
+						return;
+					if (s.attempts.length === 0)
+						return;
+					if (s.currentIndex === 0)
+						return;
+					set({
+						...s,
+						currentIndex: s.currentIndex - 1,
+						// The previous card was rated, meaning the back was visible.
+						// Restore that state so the rating bar is immediately usable.
+						showAnswer: true,
+						attempts: s.attempts.slice(0, -1),
+						cardShownAt: Date.now(),
+					}, true);
+				},
 
-        markCardShown: () => {
-          const s = get()
-          if (s.phase !== 'active') return
-          set({ ...s, cardShownAt: Date.now() }, true)
-        },
+				markCardShown: () => {
+					const s = get();
+					if (s.phase !== "active")
+						return;
+					set({ ...s, cardShownAt: Date.now() }, true);
+				},
 
-        endSession: (exitedEarly) => {
-          const s = get()
-          if (s.phase !== 'active') return
-          set({
-            phase:        'finished',
-            sessionId:    s.sessionId,
-            queue:        s.queue,
-            attempts:     s.attempts,
-            exitedEarly,
-            actions:      s.actions,
-          }, true)
-        },
+				endSession: (exitedEarly) => {
+					const s = get();
+					if (s.phase !== "active")
+						return;
+					set({
+						phase: "finished",
+						sessionId: s.sessionId,
+						queue: s.queue,
+						attempts: s.attempts,
+						exitedEarly,
+						actions: s.actions,
+					}, true);
+				},
 
-        reset: () => set({ phase: 'idle', actions: get().actions }, true),
-      },
-    }),
-    { name: 'WeakSpotDrillSessionStore' },
-  ),
-)
+				reset: () => set({ phase: "idle", actions: get().actions }, true),
+			},
+		}),
+		{ name: "WeakSpotDrillSessionStore" },
+	),
+);
 
 // ── Selector hooks ────────────────────────────────────────────────────────────
 
-const EMPTY_QUEUE:    readonly ApiWeakSpotDrillSessionDetailCard[] = []
-const EMPTY_ATTEMPTS: readonly DrillAttemptRecord[]             = []
+const EMPTY_QUEUE: readonly ApiWeakSpotDrillSessionDetailCard[] = [];
+const EMPTY_ATTEMPTS: readonly DrillAttemptRecord[] = [];
 
-export const useDrillSessionId = (): string | null =>
-  useWeakSpotDrillSessionStore((s) =>
-    s.phase === 'active' || s.phase === 'finished' ? s.sessionId : null,
-  )
+export function useDrillSessionId(): string | null {
+	return useWeakSpotDrillSessionStore(s =>
+		s.phase === "active" || s.phase === "finished" ? s.sessionId : null,
+	);
+}
 
-export const useDrillQueue = (): readonly ApiWeakSpotDrillSessionDetailCard[] =>
-  useWeakSpotDrillSessionStore((s) =>
-    s.phase === 'active' || s.phase === 'finished' ? s.queue : EMPTY_QUEUE,
-  )
+export function useDrillQueue(): readonly ApiWeakSpotDrillSessionDetailCard[] {
+	return useWeakSpotDrillSessionStore(s =>
+		s.phase === "active" || s.phase === "finished" ? s.queue : EMPTY_QUEUE,
+	);
+}
 
-export const useDrillCurrentCard = (): ApiWeakSpotDrillSessionDetailCard | undefined =>
-  useWeakSpotDrillSessionStore((s) =>
-    s.phase === 'active' ? s.queue[s.currentIndex] : undefined,
-  )
+export function useDrillCurrentCard(): ApiWeakSpotDrillSessionDetailCard | undefined {
+	return useWeakSpotDrillSessionStore(s =>
+		s.phase === "active" ? s.queue[s.currentIndex] : undefined,
+	);
+}
 
-export const useDrillCurrentIndex = (): number =>
-  useWeakSpotDrillSessionStore((s) => (s.phase === 'active' ? s.currentIndex : 0))
+export function useDrillCurrentIndex(): number {
+	return useWeakSpotDrillSessionStore(s => (s.phase === "active" ? s.currentIndex : 0));
+}
 
-export const useDrillShowAnswer = (): boolean =>
-  useWeakSpotDrillSessionStore((s) => (s.phase === 'active' ? s.showAnswer : false))
+export function useDrillShowAnswer(): boolean {
+	return useWeakSpotDrillSessionStore(s => (s.phase === "active" ? s.showAnswer : false));
+}
 
-export const useDrillAttempts = (): readonly DrillAttemptRecord[] =>
-  useWeakSpotDrillSessionStore((s) =>
-    s.phase === 'active' || s.phase === 'finished' ? s.attempts : EMPTY_ATTEMPTS,
-  )
+export function useDrillAttempts(): readonly DrillAttemptRecord[] {
+	return useWeakSpotDrillSessionStore(s =>
+		s.phase === "active" || s.phase === "finished" ? s.attempts : EMPTY_ATTEMPTS,
+	);
+}
 
-export const useDrillIsActive = (): boolean =>
-  useWeakSpotDrillSessionStore((s) => s.phase === 'active')
+export function useDrillIsActive(): boolean {
+	return useWeakSpotDrillSessionStore(s => s.phase === "active");
+}
 
-export const useDrillIsFinished = (): boolean =>
-  useWeakSpotDrillSessionStore((s) => s.phase === 'finished')
+export function useDrillIsFinished(): boolean {
+	return useWeakSpotDrillSessionStore(s => s.phase === "finished");
+}
 
-export const useDrillExitedEarly = (): boolean =>
-  useWeakSpotDrillSessionStore((s) => (s.phase === 'finished' ? s.exitedEarly : false))
+export function useDrillExitedEarly(): boolean {
+	return useWeakSpotDrillSessionStore(s => (s.phase === "finished" ? s.exitedEarly : false));
+}
 
-export const useDrillActions = (): WeakSpotDrillSessionActions =>
-  useWeakSpotDrillSessionStore((s) => s.actions)
+export function useDrillActions(): WeakSpotDrillSessionActions {
+	return useWeakSpotDrillSessionStore(s => s.actions);
+}

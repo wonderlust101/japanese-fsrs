@@ -1,28 +1,20 @@
-import { z } from 'zod'
+import type { ApiWeakSpotDrillAttempt, ApiWeakSpotDrillSession, ApiWeakSpotDrillSessionDetail, ApiWeakSpotListItem, ApiWeakSpotListResponse, FieldsData } from "@fsrs-japanese/shared-types";
+import type { CreateDrillSessionInput, ListWeakSpotsQuery, RecordDrillAttemptInput } from "../schemas/weak-spot.schema.ts";
 
-import { supabaseAdmin } from '../db/supabase.ts'
-import { asPayload } from '../lib/db.ts'
-import { componentLogger } from '../lib/logger.ts'
-import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { generateWeakSpotDiagnosis } from './ai.service.ts'
 import {
-  type CreateDrillSessionInput,
-  type ListWeakSpotsQuery,
-  type RecordDrillAttemptInput,
-} from '../schemas/weak-spot.schema.ts'
-import {
-  assertNever,
-  FieldsDataSchema,
-  getWordFields,
-  type ApiWeakSpotListItem,
-  type ApiWeakSpotListResponse,
-  type ApiWeakSpotDrillSession,
-  type ApiWeakSpotDrillSessionDetail,
-  type ApiWeakSpotDrillAttempt,
-  type FieldsData,
-} from '@fsrs-japanese/shared-types'
+	assertNever,
+	FieldsDataSchema,
+	getWordFields,
 
-const log = componentLogger('weakSpot.service')
+} from "@fsrs-japanese/shared-types";
+import { z } from "zod";
+import { supabaseAdmin } from "../db/supabase.ts";
+import { asPayload } from "../lib/db.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { AppError, dbError } from "../middleware/errorHandler.ts";
+import { generateWeakSpotDiagnosis } from "./ai.service.ts";
+
+const log = componentLogger("weakSpot.service");
 
 // ─── Column projections ───────────────────────────────────────────────────────
 //
@@ -38,8 +30,8 @@ const log = componentLogger('weakSpot.service')
 // surfacing as a weakSpot with `card: null`.
 
 function weakSpotSelect(innerJoin: boolean): string {
-  const cardEmbed = innerJoin ? 'cards!inner' : 'cards'
-  return `
+	const cardEmbed = innerJoin ? "cards!inner" : "cards";
+	return `
     id,
     card_id,
     diagnosis,
@@ -59,11 +51,11 @@ function weakSpotSelect(innerJoin: boolean): string {
       is_suspended,
       deck:decks ( name )
     )
-  `
+  `;
 }
 
-const WEAK_SPOT_SELECT_LEFT  = weakSpotSelect(false)
-const WEAK_SPOT_SELECT_INNER = weakSpotSelect(true)
+const WEAK_SPOT_SELECT_LEFT = weakSpotSelect(false);
+const WEAK_SPOT_SELECT_INNER = weakSpotSelect(true);
 
 // ─── Row schemas ──────────────────────────────────────────────────────────────
 //
@@ -72,36 +64,38 @@ const WEAK_SPOT_SELECT_INNER = weakSpotSelect(true)
 // Mirrors the precedent set in analytics.service.ts / deck.service.ts.
 
 const WeakSpotDeckRowSchema = z.object({
-  name: z.string(),
-}).nullable()
+	name: z.string(),
+}).nullable();
 
 const WeakSpotCardRowSchema = z.object({
-  deck_id:      z.string().uuid(),
-  fields_data:  z.record(z.string(), z.unknown()),
-  layout_type:  z.enum(['vocabulary', 'grammar', 'sentence']),
-  jlpt_level:   z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']).nullable(),
-  lapses:       z.number().int().nonnegative(),
-  reps:         z.number().int().nonnegative(),
-  due:          z.string(),
-  last_review:  z.string().nullable(),
-  is_suspended: z.boolean(),
-  deck:         WeakSpotDeckRowSchema,
-}).nullable()
+	deck_id: z.string().uuid(),
+	fields_data: z.record(z.string(), z.unknown()),
+	layout_type: z.enum(["vocabulary", "grammar", "sentence"]),
+	jlpt_level: z.enum(["N5", "N4", "N3", "N2", "N1", "beyond_jlpt"]).nullable(),
+	lapses: z.number().int().nonnegative(),
+	reps: z.number().int().nonnegative(),
+	due: z.string(),
+	last_review: z.string().nullable(),
+	is_suspended: z.boolean(),
+	deck: WeakSpotDeckRowSchema,
+}).nullable();
 
 const WeakSpotRowSchema = z.object({
-  id:           z.string().uuid(),
-  card_id:      z.string().uuid().nullable(),
-  diagnosis:    z.string().nullable(),
-  prescription: z.string().nullable(),
-  resolved:     z.boolean(),
-  resolved_at:  z.string().nullable(),
-  created_at:   z.string(),
-  card:         WeakSpotCardRowSchema,
-})
+	id: z.string().uuid(),
+	card_id: z.string().uuid().nullable(),
+	diagnosis: z.string().nullable(),
+	prescription: z.string().nullable(),
+	resolved: z.boolean(),
+	resolved_at: z.string().nullable(),
+	created_at: z.string(),
+	card: WeakSpotCardRowSchema,
+});
 
-/** Internal row type. Exported solely so the unit test can type its fixtures
- *  without redeclaring the joined-row shape. Not part of the public API. */
-export type WeakSpotRow = z.infer<typeof WeakSpotRowSchema>
+/**
+ * Internal row type. Exported solely so the unit test can type its fixtures
+ *  without redeclaring the joined-row shape. Not part of the public API.
+ */
+export type WeakSpotRow = z.infer<typeof WeakSpotRowSchema>;
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
@@ -111,50 +105,50 @@ export type WeakSpotRow = z.infer<typeof WeakSpotRowSchema>
  * but the weakSpot is kept as historical learning data, per [[DATABASE]]).
  */
 export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
-  const card = raw.card
+	const card = raw.card;
 
-  let word: string | null = null
-  let reading: string | null = null
-  let meaning: string | null = null
+	let word: string | null = null;
+	let reading: string | null = null;
+	let meaning: string | null = null;
 
-  if (card !== null) {
-    // `getWordFields` returns null for sentence-layout cards; vocabulary and
-    // grammar both expose word/reading/meaning via WordFields.
-    const fields = getWordFields({
-      // layout_type is already narrowed to LayoutType by WeakSpotCardRowSchema;
-      // only fields_data needs the (load-bearing) FieldsData cast — see the
-      // diagnoseWeakSpot note below for why the CHECK constraint, not Zod, is
-      // the runtime guarantee.
-      layoutType: card.layout_type,
-      fieldsData: card.fields_data as FieldsData,
-    })
-    if (fields !== null) {
-      word    = fields.word
-      reading = fields.reading
-      meaning = fields.meaning
-    }
-  }
+	if (card !== null) {
+		// `getWordFields` returns null for sentence-layout cards; vocabulary and
+		// grammar both expose word/reading/meaning via WordFields.
+		const fields = getWordFields({
+			// layout_type is already narrowed to LayoutType by WeakSpotCardRowSchema;
+			// only fields_data needs the (load-bearing) FieldsData cast — see the
+			// diagnoseWeakSpot note below for why the CHECK constraint, not Zod, is
+			// the runtime guarantee.
+			layoutType: card.layout_type,
+			fieldsData: card.fields_data as FieldsData,
+		});
+		if (fields !== null) {
+			word = fields.word;
+			reading = fields.reading;
+			meaning = fields.meaning;
+		}
+	}
 
-  return {
-    id:           raw.id,
-    cardId:       raw.card_id,
-    deckId:       card?.deck_id ?? null,
-    deckName:     card?.deck?.name ?? null,
-    word,
-    reading,
-    meaning,
-    layoutType:   card?.layout_type ?? null,
-    jlptLevel:    card?.jlpt_level ?? null,
-    lapses:       card?.lapses      ?? null,
-    reps:         card?.reps        ?? null,
-    due:          card?.due         ?? null,
-    lastReview:   card?.last_review ?? null,
-    diagnosis:    raw.diagnosis,
-    prescription: raw.prescription,
-    resolved:     raw.resolved,
-    resolvedAt:   raw.resolved_at,
-    createdAt:    raw.created_at,
-  }
+	return {
+		id: raw.id,
+		cardId: raw.card_id,
+		deckId: card?.deck_id ?? null,
+		deckName: card?.deck?.name ?? null,
+		word,
+		reading,
+		meaning,
+		layoutType: card?.layout_type ?? null,
+		jlptLevel: card?.jlpt_level ?? null,
+		lapses: card?.lapses ?? null,
+		reps: card?.reps ?? null,
+		due: card?.due ?? null,
+		lastReview: card?.last_review ?? null,
+		diagnosis: raw.diagnosis,
+		prescription: raw.prescription,
+		resolved: raw.resolved,
+		resolvedAt: raw.resolved_at,
+		createdAt: raw.created_at,
+	};
 }
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -185,133 +179,135 @@ export function toListItem(raw: WeakSpotRow): ApiWeakSpotListItem {
  * trigger the LEFT→INNER join switch that the card-side filters do.
  */
 export async function listWeakSpots(
-  userId: string,
-  params: ListWeakSpotsQuery,
+	userId: string,
+	params: ListWeakSpotsQuery,
 ): Promise<ApiWeakSpotListResponse> {
-  const { status, deckId, jlptLevel, diagnosis, sort, sortDir, limit, offset } = params
-  const searchTerm = params.search?.trim() ?? ''
-  const hasSearch  = searchTerm.length > 0
+	const { status, deckId, jlptLevel, diagnosis, sort, sortDir, limit, offset } = params;
+	const searchTerm = params.search?.trim() ?? "";
+	const hasSearch = searchTerm.length > 0;
 
-  // Resolve the primary sort direction: an explicit `sortDir` overrides the
-  // mode's natural default (newest / most lapses first → descending; oldest /
-  // first-deck → ascending). The client surfaces this as a direction toggle.
-  const naturalAscending = sort === 'oldestUnresolved' || sort === 'deckOrder'
-  const primaryAscending =
-    sortDir === 'asc' ? true : sortDir === 'desc' ? false : naturalAscending
+	// Resolve the primary sort direction: an explicit `sortDir` overrides the
+	// mode's natural default (newest / most lapses first → descending; oldest /
+	// first-deck → ascending). The client surfaces this as a direction toggle.
+	const naturalAscending = sort === "oldestUnresolved" || sort === "deckOrder";
+	const primaryAscending
+		= sortDir === "asc" ? true : sortDir === "desc" ? false : naturalAscending;
 
-  // Card-side filters force an inner join so non-matching cards drop the
-  // parent weakSpot rather than surface with `card: null`. Orphans (card_id IS
-  // NULL) are dropped naturally when any card filter is applied — that's the
-  // desired behavior since the user is asking "which weakSpots match this
-  // deck/JLPT/etc."
-  //
-  // The `diagnosis` filter is intentionally NOT part of hasCardFilter — it
-  // lives on `weakSpots`, not on `cards`. Forcing inner-join because of it
-  // would incorrectly drop orphan weakSpots (card_id NULL) where a diagnosis
-  // was recorded before the card was deleted.
-  // Search also targets the joined card, so it forces the inner join for the
-  // same reason the deck/JLPT filters do: a free-text query is asking "which
-  // weakSpots have a card matching this text", and orphan rows (card_id NULL)
-  // can never match. Embedded-resource filters only drop the *parent* row
-  // under `!inner`; under a LEFT join they'd merely null the embed.
-  const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || hasSearch
-  const selectStr = hasCardFilter ? WEAK_SPOT_SELECT_INNER : WEAK_SPOT_SELECT_LEFT
+	// Card-side filters force an inner join so non-matching cards drop the
+	// parent weakSpot rather than surface with `card: null`. Orphans (card_id IS
+	// NULL) are dropped naturally when any card filter is applied — that's the
+	// desired behavior since the user is asking "which weakSpots match this
+	// deck/JLPT/etc."
+	//
+	// The `diagnosis` filter is intentionally NOT part of hasCardFilter — it
+	// lives on `weakSpots`, not on `cards`. Forcing inner-join because of it
+	// would incorrectly drop orphan weakSpots (card_id NULL) where a diagnosis
+	// was recorded before the card was deleted.
+	// Search also targets the joined card, so it forces the inner join for the
+	// same reason the deck/JLPT filters do: a free-text query is asking "which
+	// weakSpots have a card matching this text", and orphan rows (card_id NULL)
+	// can never match. Embedded-resource filters only drop the *parent* row
+	// under `!inner`; under a LEFT join they'd merely null the embed.
+	const hasCardFilter = deckId !== undefined || jlptLevel !== undefined || hasSearch;
+	const selectStr = hasCardFilter ? WEAK_SPOT_SELECT_INNER : WEAK_SPOT_SELECT_LEFT;
 
-  // `count: 'exact'` makes the awaited result carry the full match count
-  // alongside the page window, so the client can render numbered pagination.
-  // `.range()` is inclusive on both ends, hence `offset + limit - 1`.
-  let q = supabaseAdmin
-    .from('weak_spots')
-    .select(selectStr, { count: 'exact' })
-    .eq('user_id', userId)
-    .eq('resolved', status === 'resolved')
-    .range(offset, offset + limit - 1)
+	// `count: 'exact'` makes the awaited result carry the full match count
+	// alongside the page window, so the client can render numbered pagination.
+	// `.range()` is inclusive on both ends, hence `offset + limit - 1`.
+	let q = supabaseAdmin
+		.from("weak_spots")
+		.select(selectStr, { count: "exact" })
+		.eq("user_id", userId)
+		.eq("resolved", status === "resolved")
+		.range(offset, offset + limit - 1);
 
-  if (deckId    !== undefined) q = q.eq('card.deck_id',    deckId)
-  if (jlptLevel !== undefined) q = q.eq('card.jlpt_level', jlptLevel)
+	if (deckId !== undefined)
+		q = q.eq("card.deck_id", deckId);
+	if (jlptLevel !== undefined)
+		q = q.eq("card.jlpt_level", jlptLevel);
 
-  if (diagnosis === 'available') {
-    // PostgREST compiles `.not('diagnosis', 'is', null)` to `diagnosis IS NOT NULL`.
-    q = q.not('diagnosis', 'is', null)
-  } else if (diagnosis === 'missing') {
-    q = q.is('diagnosis', null)
-  }
+	if (diagnosis === "available") {
+		// PostgREST compiles `.not('diagnosis', 'is', null)` to `diagnosis IS NOT NULL`.
+		q = q.not("diagnosis", "is", null);
+	} else if (diagnosis === "missing") {
+		q = q.is("diagnosis", null);
+	}
 
-  // ── Free-text search ──
-  // ILIKE across the joined card's word / reading / meaning JSONB fields. The
-  // `referencedTable: 'card'` option scopes the OR group to the embedded card
-  // relation (the select alias is `card:cards`). The pattern is wrapped in
-  // double quotes so spaces or punctuation in the term can't break PostgREST's
-  // comma/paren-delimited or() grammar; embedded quotes/backslashes are
-  // stripped first since they'd terminate the quoted value.
-  if (hasSearch) {
-    // Two escaping layers protect this interpolated filter value:
-    //   1. Strip backslash and double-quote — both are special inside
-    //      PostgREST's double-quoted `.or()` value (one escapes, one
-    //      terminates), so a raw occurrence would corrupt the filter grammar.
-    //   2. Escape the SQL LIKE wildcards `%` and `_` so a learner typing them
-    //      is matched literally instead of turning the term into a match-all /
-    //      match-any-char scan (a mild scan-amplification vector). The escape
-    //      is DOUBLED (`\\`) on purpose: inside a PostgREST double-quoted value
-    //      `\\` collapses to a single `\`, which is Postgres LIKE's default
-    //      escape char, so the metachar reaches ILIKE as `\%` / `\_` (literal).
-    //      PostgREST's own `*` wildcard maps to `%` separately, so a `*` in the
-    //      term stays a wildcard — that is out of scope for this guard.
-    //      NOTE: unit tests mock Supabase, so this escaping needs a live
-    //      PostgREST smoke test to confirm the deployed version's quoted-value
-    //      handling matches the assumption above.
-    const safe = searchTerm
-      .replace(/[\\"]/g, '')
-      .replace(/[%_]/g, '\\\\$&')
-    const pattern = `"*${safe}*"`
-    q = q.or(
-      [
-        `fields_data->>word.ilike.${pattern}`,
-        `fields_data->>reading.ilike.${pattern}`,
-        `fields_data->>meaning.ilike.${pattern}`,
-      ].join(','),
-      { referencedTable: 'card' },
-    )
-  }
+	// ── Free-text search ──
+	// ILIKE across the joined card's word / reading / meaning JSONB fields. The
+	// `referencedTable: 'card'` option scopes the OR group to the embedded card
+	// relation (the select alias is `card:cards`). The pattern is wrapped in
+	// double quotes so spaces or punctuation in the term can't break PostgREST's
+	// comma/paren-delimited or() grammar; embedded quotes/backslashes are
+	// stripped first since they'd terminate the quoted value.
+	if (hasSearch) {
+		// Two escaping layers protect this interpolated filter value:
+		//   1. Strip backslash and double-quote — both are special inside
+		//      PostgREST's double-quoted `.or()` value (one escapes, one
+		//      terminates), so a raw occurrence would corrupt the filter grammar.
+		//   2. Escape the SQL LIKE wildcards `%` and `_` so a learner typing them
+		//      is matched literally instead of turning the term into a match-all /
+		//      match-any-char scan (a mild scan-amplification vector). The escape
+		//      is DOUBLED (`\\`) on purpose: inside a PostgREST double-quoted value
+		//      `\\` collapses to a single `\`, which is Postgres LIKE's default
+		//      escape char, so the metachar reaches ILIKE as `\%` / `\_` (literal).
+		//      PostgREST's own `*` wildcard maps to `%` separately, so a `*` in the
+		//      term stays a wildcard — that is out of scope for this guard.
+		//      NOTE: unit tests mock Supabase, so this escaping needs a live
+		//      PostgREST smoke test to confirm the deployed version's quoted-value
+		//      handling matches the assumption above.
+		const safe = searchTerm
+			.replace(/[\\"]/g, "")
+			.replace(/[%_]/g, "\\\\$&");
+		const pattern = `"*${safe}*"`;
+		q = q.or(
+			[
+				`fields_data->>word.ilike.${pattern}`,
+				`fields_data->>reading.ilike.${pattern}`,
+				`fields_data->>meaning.ilike.${pattern}`,
+			].join(","),
+			{ referencedTable: "card" },
+		);
+	}
 
-  // ── Ordering ──
-  // `mostRecent` and `oldestUnresolved` are the same axis (created_at) at
-  // opposite directions; both honour `primaryAscending` so the client's single
-  // "Date flagged" axis + direction toggle maps onto either. The id tiebreaker
-  // tracks the primary direction to keep keyset order total.
-  if (sort === 'mostRecent' || sort === 'oldestUnresolved') {
-    q = q
-      .order('created_at', { ascending: primaryAscending })
-      .order('id',         { ascending: primaryAscending })
-  } else if (sort === 'mostLapses') {
-    // `foreignTable` orders by the joined cards row; nullsFirst:false keeps
-    // orphan weakSpots (card row absent) at the end of the list.
-    q = q
-      .order('lapses',     { ascending: primaryAscending, nullsFirst: false, foreignTable: 'cards' })
-      .order('created_at', { ascending: false })
-      .order('id',         { ascending: false })
-  } else {
-    // deckOrder. Groups adjacent weakSpots by deck. Across decks the order is
-    // by deck UUID (deterministic but not alphabetical) — that's an acceptable
-    // trade for avoiding an extra join just to sort on deck.name. In practice
-    // this sort is most useful paired with a deckId filter, where intra-deck
-    // ordering matters and inter-deck ordering doesn't.
-    q = q
-      .order('deck_id',    { ascending: primaryAscending, foreignTable: 'cards' })
-      .order('created_at', { ascending: false })
-      .order('id',         { ascending: false })
-  }
+	// ── Ordering ──
+	// `mostRecent` and `oldestUnresolved` are the same axis (created_at) at
+	// opposite directions; both honour `primaryAscending` so the client's single
+	// "Date flagged" axis + direction toggle maps onto either. The id tiebreaker
+	// tracks the primary direction to keep keyset order total.
+	if (sort === "mostRecent" || sort === "oldestUnresolved") {
+		q = q
+			.order("created_at", { ascending: primaryAscending })
+			.order("id", { ascending: primaryAscending });
+	} else if (sort === "mostLapses") {
+		// `foreignTable` orders by the joined cards row; nullsFirst:false keeps
+		// orphan weakSpots (card row absent) at the end of the list.
+		q = q
+			.order("lapses", { ascending: primaryAscending, nullsFirst: false, foreignTable: "cards" })
+			.order("created_at", { ascending: false })
+			.order("id", { ascending: false });
+	} else {
+		// deckOrder. Groups adjacent weakSpots by deck. Across decks the order is
+		// by deck UUID (deterministic but not alphabetical) — that's an acceptable
+		// trade for avoiding an extra join just to sort on deck.name. In practice
+		// this sort is most useful paired with a deckId filter, where intra-deck
+		// ordering matters and inter-deck ordering doesn't.
+		q = q
+			.order("deck_id", { ascending: primaryAscending, foreignTable: "cards" })
+			.order("created_at", { ascending: false })
+			.order("id", { ascending: false });
+	}
 
-  const { data, error, count } = await q
+	const { data, error, count } = await q;
 
-  if (error !== null) {
-    throw dbError('list weakSpots', error)
-  }
+	if (error !== null) {
+		throw dbError("list weakSpots", error);
+	}
 
-  const rows  = z.array(WeakSpotRowSchema).parse(data ?? [])
-  const items = rows.map(toListItem)
+	const rows = z.array(WeakSpotRowSchema).parse(data ?? []);
+	const items = rows.map(toListItem);
 
-  return { items, totalCount: count ?? 0 }
+	return { items, totalCount: count ?? 0 };
 }
 
 /**
@@ -321,22 +317,22 @@ export async function listWeakSpots(
  * client so explicit filtering is the only safety belt.
  */
 export async function getWeakSpotById(userId: string, id: string): Promise<ApiWeakSpotListItem> {
-  const { data, error } = await supabaseAdmin
-    .from('weak_spots')
-    .select(WEAK_SPOT_SELECT_LEFT)
-    .eq('id',      id)
-    .eq('user_id', userId)
-    .maybeSingle()
+	const { data, error } = await supabaseAdmin
+		.from("weak_spots")
+		.select(WEAK_SPOT_SELECT_LEFT)
+		.eq("id", id)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (error !== null) {
-    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'getWeakSpotById query failed')
-    throw dbError('fetch weakSpot', error)
-  }
-  if (data === null) {
-    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
-  }
+	if (error !== null) {
+		log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, "getWeakSpotById query failed");
+		throw dbError("fetch weakSpot", error);
+	}
+	if (data === null) {
+		throw new AppError(404, "WeakSpot not found", { code: "WEAK_SPOT_NOT_FOUND" });
+	}
 
-  return toListItem(WeakSpotRowSchema.parse(data))
+	return toListItem(WeakSpotRowSchema.parse(data));
 }
 
 // ─── Write path (Stage 2) ─────────────────────────────────────────────────────
@@ -352,48 +348,48 @@ export async function getWeakSpotById(userId: string, id: string): Promise<ApiWe
 // getWeakSpotById.
 
 const WeakSpotStateRowSchema = z.object({
-  id:          z.string().uuid(),
-  resolved:    z.boolean(),
-  resolved_at: z.string().nullable(),
-})
+	id: z.string().uuid(),
+	resolved: z.boolean(),
+	resolved_at: z.string().nullable(),
+});
 
 async function fetchWeakSpotState(userId: string, id: string): Promise<z.infer<typeof WeakSpotStateRowSchema>> {
-  const { data, error } = await supabaseAdmin
-    .from('weak_spots')
-    .select('id, resolved, resolved_at')
-    .eq('id',      id)
-    .eq('user_id', userId)
-    .maybeSingle()
+	const { data, error } = await supabaseAdmin
+		.from("weak_spots")
+		.select("id, resolved, resolved_at")
+		.eq("id", id)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (error !== null) {
-    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'fetchWeakSpotState query failed')
-    throw dbError('fetch weakSpot', error)
-  }
-  if (data === null) {
-    // Same 404 shape as getWeakSpotById for cross-user attempts — does not leak
-    // existence to other users.
-    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
-  }
-  return WeakSpotStateRowSchema.parse(data)
+	if (error !== null) {
+		log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, "fetchWeakSpotState query failed");
+		throw dbError("fetch weakSpot", error);
+	}
+	if (data === null) {
+		// Same 404 shape as getWeakSpotById for cross-user attempts — does not leak
+		// existence to other users.
+		throw new AppError(404, "WeakSpot not found", { code: "WEAK_SPOT_NOT_FOUND" });
+	}
+	return WeakSpotStateRowSchema.parse(data);
 }
 
 async function fetchWeakSpotJoined(userId: string, id: string): Promise<ApiWeakSpotListItem> {
-  // Reads the row we just mutated. .single() is the right terminal here:
-  // the row provably exists (we just confirmed it in the pre-fetch and the
-  // UPDATE returned without 404 conditions), so a null result would be a
-  // genuine 500-class anomaly worth surfacing as such.
-  const { data, error } = await supabaseAdmin
-    .from('weak_spots')
-    .select(WEAK_SPOT_SELECT_LEFT)
-    .eq('id',      id)
-    .eq('user_id', userId)
-    .single()
+	// Reads the row we just mutated. .single() is the right terminal here:
+	// the row provably exists (we just confirmed it in the pre-fetch and the
+	// UPDATE returned without 404 conditions), so a null result would be a
+	// genuine 500-class anomaly worth surfacing as such.
+	const { data, error } = await supabaseAdmin
+		.from("weak_spots")
+		.select(WEAK_SPOT_SELECT_LEFT)
+		.eq("id", id)
+		.eq("user_id", userId)
+		.single();
 
-  if (error !== null) {
-    log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, 'fetchWeakSpotJoined query failed')
-    throw dbError('refetch weakSpot', error)
-  }
-  return toListItem(WeakSpotRowSchema.parse(data))
+	if (error !== null) {
+		log.error({ weakSpotId: id, err: { message: error.message, code: error.code } }, "fetchWeakSpotJoined query failed");
+		throw dbError("refetch weakSpot", error);
+	}
+	return toListItem(WeakSpotRowSchema.parse(data));
 }
 
 /**
@@ -409,24 +405,24 @@ async function fetchWeakSpotJoined(userId: string, id: string): Promise<ApiWeakS
  *      response directly into their cache.
  */
 export async function resolveWeakSpot(userId: string, id: string): Promise<ApiWeakSpotListItem> {
-  const current = await fetchWeakSpotState(userId, id)
+	const current = await fetchWeakSpotState(userId, id);
 
-  if (current.resolved) {
-    // Already resolved — return the existing joined payload without writing.
-    return fetchWeakSpotJoined(userId, id)
-  }
+	if (current.resolved) {
+		// Already resolved — return the existing joined payload without writing.
+		return fetchWeakSpotJoined(userId, id);
+	}
 
-  const { error } = await supabaseAdmin
-    .from('weak_spots')
-    .update({ resolved: true, resolved_at: new Date().toISOString() })
-    .eq('id',      id)
-    .eq('user_id', userId)
+	const { error } = await supabaseAdmin
+		.from("weak_spots")
+		.update({ resolved: true, resolved_at: new Date().toISOString() })
+		.eq("id", id)
+		.eq("user_id", userId);
 
-  if (error !== null) {
-    throw dbError('resolve weakSpot', error)
-  }
+	if (error !== null) {
+		throw dbError("resolve weakSpot", error);
+	}
 
-  return fetchWeakSpotJoined(userId, id)
+	return fetchWeakSpotJoined(userId, id);
 }
 
 /**
@@ -441,31 +437,31 @@ export async function resolveWeakSpot(userId: string, id: string): Promise<ApiWe
  * pattern is "UPDATE optimistically, catch 23505, translate to 409".
  */
 export async function reopenWeakSpot(userId: string, id: string): Promise<ApiWeakSpotListItem> {
-  const current = await fetchWeakSpotState(userId, id)
+	const current = await fetchWeakSpotState(userId, id);
 
-  if (!current.resolved) {
-    // Already open — return the existing joined payload without writing.
-    return fetchWeakSpotJoined(userId, id)
-  }
+	if (!current.resolved) {
+		// Already open — return the existing joined payload without writing.
+		return fetchWeakSpotJoined(userId, id);
+	}
 
-  const { error } = await supabaseAdmin
-    .from('weak_spots')
-    .update({ resolved: false, resolved_at: null })
-    .eq('id',      id)
-    .eq('user_id', userId)
+	const { error } = await supabaseAdmin
+		.from("weak_spots")
+		.update({ resolved: false, resolved_at: null })
+		.eq("id", id)
+		.eq("user_id", userId);
 
-  if (error !== null) {
-    if (typeof error === 'object' && 'code' in error && error.code === '23505') {
-      throw new AppError(
-        409,
-        'Another unresolved weakSpot exists for this card; resolve it first',
-        { cause: error, code: 'WEAK_SPOT_ALREADY_OPEN' },
-      )
-    }
-    throw dbError('reopen weakSpot', error)
-  }
+	if (error !== null) {
+		if (typeof error === "object" && "code" in error && error.code === "23505") {
+			throw new AppError(
+				409,
+				"Another unresolved weakSpot exists for this card; resolve it first",
+				{ cause: error, code: "WEAK_SPOT_ALREADY_OPEN" },
+			);
+		}
+		throw dbError("reopen weakSpot", error);
+	}
 
-  return fetchWeakSpotJoined(userId, id)
+	return fetchWeakSpotJoined(userId, id);
 }
 
 // ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
@@ -476,43 +472,45 @@ export async function reopenWeakSpot(userId: string, id: string): Promise<ApiWea
 // `cards` or `review_logs` — drill is a parallel namespace by design.
 
 const DrillSessionCardRowSchema = z.object({
-  sessionCardId: z.string().uuid(),
-  weakSpotId:       z.string().uuid(),
-  cardId:        z.string().uuid(),
-  ordinal:       z.number().int().nonnegative(),
-  layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']),
-  // FieldsDataSchema (the wire-format union) was widened from
-  // `z.record(z.string(), z.unknown())` to a concrete union by Stage 12.
-  // The RPC returns DB-validated JSONB so the parse will succeed for any
-  // row admitted by `cards_fields_data_shape`; using the same schema here
-  // means the inferred type is `FieldsData`, not `Record<string, unknown>`,
-  // and the response can be returned directly without a brand cast.
-  fieldsData:    FieldsDataSchema,
-  lapses:        z.number().int().nonnegative(),
-})
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid(),
+	cardId: z.string().uuid(),
+	ordinal: z.number().int().nonnegative(),
+	layoutType: z.enum(["vocabulary", "grammar", "sentence"]),
+	// FieldsDataSchema (the wire-format union) was widened from
+	// `z.record(z.string(), z.unknown())` to a concrete union by Stage 12.
+	// The RPC returns DB-validated JSONB so the parse will succeed for any
+	// row admitted by `cards_fields_data_shape`; using the same schema here
+	// means the inferred type is `FieldsData`, not `Record<string, unknown>`,
+	// and the response can be returned directly without a brand cast.
+	fieldsData: FieldsDataSchema,
+	lapses: z.number().int().nonnegative(),
+});
 
 const DrillSessionResponseSchema = z.object({
-  sessionId: z.string().uuid(),
-  status:    z.enum(['active', 'finished', 'aborted']),
-  cards:     z.array(DrillSessionCardRowSchema),
-})
+	sessionId: z.string().uuid(),
+	status: z.enum(["active", "finished", "aborted"]),
+	cards: z.array(DrillSessionCardRowSchema),
+});
 
-/** Wire camelCase → DB snake_case for the `source` enum. The DB CHECK admits
- *  all five values; Stage 6 wired the remaining three through the TS schema. */
-function sourceToDb(source: CreateDrillSessionInput['source']): string {
-  switch (source) {
-    case 'unresolvedLeeches':   return 'unresolved_leeches'
-    case 'deckScoped':          return 'deck_scoped'
-    case 'highLapseCandidates': return 'high_lapse_candidates'
-    case 'manualSelection':     return 'manual_selection'
-    case 'currentCard':         return 'current_card'
-    default:                    return assertNever(source)
-  }
+/**
+ * Wire camelCase → DB snake_case for the `source` enum. The DB CHECK admits
+ *  all five values; Stage 6 wired the remaining three through the TS schema.
+ */
+function sourceToDb(source: CreateDrillSessionInput["source"]): string {
+	switch (source) {
+		case "unresolvedLeeches": return "unresolved_leeches";
+		case "deckScoped": return "deck_scoped";
+		case "highLapseCandidates": return "high_lapse_candidates";
+		case "manualSelection": return "manual_selection";
+		case "currentCard": return "current_card";
+		default: return assertNever(source);
+	}
 }
 
 /** Wire camelCase → DB snake_case for the `repeat_policy` enum. */
-function repeatPolicyToDb(policy: CreateDrillSessionInput['repeatPolicy']): string {
-  return policy === 'missedAfterLag' ? 'missed_after_lag' : 'none'
+function repeatPolicyToDb(policy: CreateDrillSessionInput["repeatPolicy"]): string {
+	return policy === "missedAfterLag" ? "missed_after_lag" : "none";
 }
 
 /**
@@ -530,46 +528,46 @@ function repeatPolicyToDb(policy: CreateDrillSessionInput['repeatPolicy']): stri
  * sessionId rather than creating duplicate sessions.
  */
 export async function createDrillSession(
-  userId: string,
-  input:  CreateDrillSessionInput,
+	userId: string,
+	input: CreateDrillSessionInput,
 ): Promise<ApiWeakSpotDrillSession> {
-  const { data, error } = await supabaseAdmin.rpc('create_weak_spot_drill_session', asPayload({
-    p_user_id:       userId,
-    p_source:        sourceToDb(input.source),
-    p_deck_id:       input.deckId    ?? null,
-    p_jlpt_level:    input.jlptLevel ?? null,
-    p_order:         input.order,
-    p_limit:         input.limit,
-    p_mode:          input.mode,
-    p_repeat_policy: repeatPolicyToDb(input.repeatPolicy),
-    p_stop_rule:     input.stopRule,
-    // source_query is the analytics breadcrumb. Persist the wire-level filters
-    // (camelCase) — including the three new source-specific fields — so future
-    // analytics queries don't have to reverse-map and can answer "which UX
-    // pattern (high-lapse drill / manual pick / single-card drill) does the
-    // learner reach for most?" without a JOIN.
-    p_source_query: {
-      deckId:    input.deckId    ?? null,
-      jlptLevel: input.jlptLevel ?? null,
-      cardIds:   input.cardIds   ?? null,
-      cardId:    input.cardId    ?? null,
-      minLapses: input.minLapses ?? null,
-      order:     input.order,
-      limit:     input.limit,
-    },
-    p_card_ids:   input.cardIds   ?? null,
-    p_card_id:    input.cardId    ?? null,
-    p_min_lapses: input.minLapses ?? null,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("create_weak_spot_drill_session", asPayload({
+		p_user_id: userId,
+		p_source: sourceToDb(input.source),
+		p_deck_id: input.deckId ?? null,
+		p_jlpt_level: input.jlptLevel ?? null,
+		p_order: input.order,
+		p_limit: input.limit,
+		p_mode: input.mode,
+		p_repeat_policy: repeatPolicyToDb(input.repeatPolicy),
+		p_stop_rule: input.stopRule,
+		// source_query is the analytics breadcrumb. Persist the wire-level filters
+		// (camelCase) — including the three new source-specific fields — so future
+		// analytics queries don't have to reverse-map and can answer "which UX
+		// pattern (high-lapse drill / manual pick / single-card drill) does the
+		// learner reach for most?" without a JOIN.
+		p_source_query: {
+			deckId: input.deckId ?? null,
+			jlptLevel: input.jlptLevel ?? null,
+			cardIds: input.cardIds ?? null,
+			cardId: input.cardId ?? null,
+			minLapses: input.minLapses ?? null,
+			order: input.order,
+			limit: input.limit,
+		},
+		p_card_ids: input.cardIds ?? null,
+		p_card_id: input.cardId ?? null,
+		p_min_lapses: input.minLapses ?? null,
+	}));
 
-  if (error !== null) {
-    log.error({ err: { message: error.message, code: error.code } }, 'createDrillSession RPC failed')
-    throw dbError('create drill session', error)
-  }
+	if (error !== null) {
+		log.error({ err: { message: error.message, code: error.code } }, "createDrillSession RPC failed");
+		throw dbError("create drill session", error);
+	}
 
-  // The RPC's RETURNS JSONB carries the full envelope. Parse it through Zod
-  // so silent schema drift surfaces as a clean ZodError at this boundary.
-  return DrillSessionResponseSchema.parse(data)
+	// The RPC's RETURNS JSONB carries the full envelope. Parse it through Zod
+	// so silent schema drift surfaces as a clean ZodError at this boundary.
+	return DrillSessionResponseSchema.parse(data);
 }
 
 // ─── Drill session resume (Stage 4) ───────────────────────────────────────────
@@ -582,26 +580,26 @@ export async function createDrillSession(
 // hint for the frontend to suppress "what would happen next" previews.
 
 const DrillSessionDetailCardRowSchema = z.object({
-  sessionCardId: z.string().uuid(),
-  weakSpotId:       z.string().uuid().nullable(),
-  cardId:        z.string().uuid().nullable(),
-  ordinal:       z.number().int().nonnegative(),
-  layoutType:    z.enum(['vocabulary', 'grammar', 'sentence']).nullable(),
-  // `.nullable()` admits orphan rows (card deleted post-snapshot). See the
-  // sibling DrillSessionCardRowSchema comment for the Stage 12 rationale.
-  fieldsData:    FieldsDataSchema.nullable(),
-  lapses:        z.number().int().nonnegative().nullable(),
-  isOrphaned:    z.boolean(),
-  isStale:       z.boolean(),
-})
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid().nullable(),
+	cardId: z.string().uuid().nullable(),
+	ordinal: z.number().int().nonnegative(),
+	layoutType: z.enum(["vocabulary", "grammar", "sentence"]).nullable(),
+	// `.nullable()` admits orphan rows (card deleted post-snapshot). See the
+	// sibling DrillSessionCardRowSchema comment for the Stage 12 rationale.
+	fieldsData: FieldsDataSchema.nullable(),
+	lapses: z.number().int().nonnegative().nullable(),
+	isOrphaned: z.boolean(),
+	isStale: z.boolean(),
+});
 
 const DrillSessionDetailResponseSchema = z.object({
-  sessionId:             z.string().uuid(),
-  status:                z.enum(['active', 'finished', 'aborted']),
-  isCanonicalStateStale: z.boolean(),
-  staleCards:            z.array(z.string().uuid()),
-  cards:                 z.array(DrillSessionDetailCardRowSchema),
-})
+	sessionId: z.string().uuid(),
+	status: z.enum(["active", "finished", "aborted"]),
+	isCanonicalStateStale: z.boolean(),
+	staleCards: z.array(z.string().uuid()),
+	cards: z.array(DrillSessionDetailCardRowSchema),
+});
 
 /**
  * Returns a drill session's full detail for resume: the ordered queue, per-row
@@ -621,26 +619,26 @@ const DrillSessionDetailResponseSchema = z.object({
  * purely a forwarder + Zod boundary parser.
  */
 export async function getDrillSession(
-  userId:    string,
-  sessionId: string,
+	userId: string,
+	sessionId: string,
 ): Promise<ApiWeakSpotDrillSessionDetail> {
-  const { data, error } = await supabaseAdmin.rpc('get_weak_spot_drill_session', asPayload({
-    p_user_id:    userId,
-    p_session_id: sessionId,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("get_weak_spot_drill_session", asPayload({
+		p_user_id: userId,
+		p_session_id: sessionId,
+	}));
 
-  if (error !== null) {
-    // RPC raises `weak_spot_drill_session_not_found` with SQLSTATE 02000 when the
-    // session row doesn't exist for this user. Same precedent as deck.service's
-    // DECK_NOT_FOUND translation (see deck.service.ts:225-227).
-    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_not_found')) {
-      throw new AppError(404, 'Drill session not found', { code: 'WEAK_SPOT_DRILL_SESSION_NOT_FOUND' })
-    }
-    log.error({ sessionId, err: { message: error.message, code: error.code } }, 'getDrillSession RPC failed')
-    throw dbError('fetch drill session', error)
-  }
+	if (error !== null) {
+		// RPC raises `weak_spot_drill_session_not_found` with SQLSTATE 02000 when the
+		// session row doesn't exist for this user. Same precedent as deck.service's
+		// DECK_NOT_FOUND translation (see deck.service.ts:225-227).
+		if (error.code === "02000" && error.message.includes("weak_spot_drill_session_not_found")) {
+			throw new AppError(404, "Drill session not found", { code: "WEAK_SPOT_DRILL_SESSION_NOT_FOUND" });
+		}
+		log.error({ sessionId, err: { message: error.message, code: error.code } }, "getDrillSession RPC failed");
+		throw dbError("fetch drill session", error);
+	}
 
-  return DrillSessionDetailResponseSchema.parse(data)
+	return DrillSessionDetailResponseSchema.parse(data);
 }
 
 // ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
@@ -658,19 +656,19 @@ export async function getDrillSession(
 // to HTTP 422 `WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH`.
 
 const DrillAttemptResponseSchema = z.object({
-  attemptId:      z.string().uuid(),
-  eventId:        z.string().uuid(),
-  sessionId:      z.string().uuid(),
-  sessionCardId:  z.string().uuid(),
-  weakSpotId:        z.string().uuid().nullable(),
-  cardId:         z.string().uuid().nullable(),
-  result:         z.enum(['missed', 'hesitated', 'remembered']),
-  localSequence:  z.number().int().nonnegative().nullable(),
-  responseTimeMs: z.number().int().nonnegative().nullable(),
-  shownAt:        z.string().nullable(),
-  answeredAt:     z.string(),
-  createdAt:      z.string(),
-})
+	attemptId: z.string().uuid(),
+	eventId: z.string().uuid(),
+	sessionId: z.string().uuid(),
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid().nullable(),
+	cardId: z.string().uuid().nullable(),
+	result: z.enum(["missed", "hesitated", "remembered"]),
+	localSequence: z.number().int().nonnegative().nullable(),
+	responseTimeMs: z.number().int().nonnegative().nullable(),
+	shownAt: z.string().nullable(),
+	answeredAt: z.string(),
+	createdAt: z.string(),
+});
 
 /**
  * Records a drill attempt against the named session-card. Idempotent by
@@ -693,48 +691,47 @@ const DrillAttemptResponseSchema = z.object({
  * the structural assertion.
  */
 export async function recordDrillAttempt(
-  userId:    string,
-  sessionId: string,
-  input:     RecordDrillAttemptInput,
+	userId: string,
+	sessionId: string,
+	input: RecordDrillAttemptInput,
 ): Promise<ApiWeakSpotDrillAttempt> {
-  const { data, error } = await supabaseAdmin.rpc('record_weak_spot_drill_attempt', asPayload({
-    p_user_id:           userId,
-    p_session_id:        sessionId,
-    p_event_id:          input.eventId,
-    p_session_card_id:   input.sessionCardId,
-    p_asserted_card_id:  input.cardId         ?? null,
-    p_asserted_weak_spot_id: input.weakSpotId        ?? null,
-    p_result:            input.result,
-    p_local_sequence:    input.localSequence  ?? null,
-    p_response_time_ms:  input.responseTimeMs ?? null,
-    p_shown_at:          input.shownAt        ?? null,
-    p_answered_at:       input.answeredAt     ?? null,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("record_weak_spot_drill_attempt", asPayload({
+		p_user_id: userId,
+		p_session_id: sessionId,
+		p_event_id: input.eventId,
+		p_session_card_id: input.sessionCardId,
+		p_asserted_card_id: input.cardId ?? null,
+		p_asserted_weak_spot_id: input.weakSpotId ?? null,
+		p_result: input.result,
+		p_local_sequence: input.localSequence ?? null,
+		p_response_time_ms: input.responseTimeMs ?? null,
+		p_shown_at: input.shownAt ?? null,
+		p_answered_at: input.answeredAt ?? null,
+	}));
 
-  if (error !== null) {
-    // 404: sessionCardId/sessionId/user triple mismatch.
-    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_card_not_found')) {
-      throw new AppError(404, 'Drill session card not found', {
-        code: 'WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND',
-      })
-    }
-    // 422: body cardId/weakSpotId disagrees with canonical session-card values.
-    // Two distinct RAISE message fragments share the same wire code because
-    // the client only needs one bit of information: "your assertion was wrong."
-    if (error.code === '22000' && (
-      error.message.includes('weak_spot_drill_attempt_card_mismatch') ||
-      error.message.includes('weak_spot_drill_attempt_weak_spot_mismatch')
-    )) {
-      throw new AppError(422, 'Drill attempt body cardId/weakSpotId does not match the session card', {
-        code: 'WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH',
-      })
-    }
-    log.error({ sessionId, eventId: input.eventId, err: { message: error.message, code: error.code } },
-              'recordDrillAttempt RPC failed')
-    throw dbError('record drill attempt', error)
-  }
+	if (error !== null) {
+		// 404: sessionCardId/sessionId/user triple mismatch.
+		if (error.code === "02000" && error.message.includes("weak_spot_drill_session_card_not_found")) {
+			throw new AppError(404, "Drill session card not found", {
+				code: "WEAK_SPOT_DRILL_SESSION_CARD_NOT_FOUND",
+			});
+		}
+		// 422: body cardId/weakSpotId disagrees with canonical session-card values.
+		// Two distinct RAISE message fragments share the same wire code because
+		// the client only needs one bit of information: "your assertion was wrong."
+		if (error.code === "22000" && (
+			error.message.includes("weak_spot_drill_attempt_card_mismatch")
+			|| error.message.includes("weak_spot_drill_attempt_weak_spot_mismatch")
+		)) {
+			throw new AppError(422, "Drill attempt body cardId/weakSpotId does not match the session card", {
+				code: "WEAK_SPOT_DRILL_ATTEMPT_ASSERTION_MISMATCH",
+			});
+		}
+		log.error({ sessionId, eventId: input.eventId, err: { message: error.message, code: error.code } }, "recordDrillAttempt RPC failed");
+		throw dbError("record drill attempt", error);
+	}
 
-  return DrillAttemptResponseSchema.parse(data)
+	return DrillAttemptResponseSchema.parse(data);
 }
 
 // ─── Drill session lifecycle transitions (Stage 6) ────────────────────────────
@@ -750,7 +747,7 @@ export async function recordDrillAttempt(
 // shape stays identical to the Stage 4 resume response. Frontends can drop
 // the response into TanStack Query's session-detail cache directly.
 
-export type DrillSessionTransitionTarget = 'finished' | 'aborted'
+export type DrillSessionTransitionTarget = "finished" | "aborted";
 
 /**
  * Transitions a drill session's status from `'active'` to the requested
@@ -771,35 +768,34 @@ export type DrillSessionTransitionTarget = 'finished' | 'aborted'
  * `get_weak_spot_drill_session` call also only reads `cards` (never writes).
  */
 export async function transitionDrillSession(
-  userId:    string,
-  sessionId: string,
-  target:    DrillSessionTransitionTarget,
+	userId: string,
+	sessionId: string,
+	target: DrillSessionTransitionTarget,
 ): Promise<ApiWeakSpotDrillSessionDetail> {
-  const { error } = await supabaseAdmin.rpc('transition_weak_spot_drill_session', asPayload({
-    p_user_id:       userId,
-    p_session_id:    sessionId,
-    p_target_status: target,
-  }))
+	const { error } = await supabaseAdmin.rpc("transition_weak_spot_drill_session", asPayload({
+		p_user_id: userId,
+		p_session_id: sessionId,
+		p_target_status: target,
+	}));
 
-  if (error !== null) {
-    if (error.code === '02000' && error.message.includes('weak_spot_drill_session_not_found')) {
-      throw new AppError(404, 'Drill session not found', { code: 'WEAK_SPOT_DRILL_SESSION_NOT_FOUND' })
-    }
-    if (error.code === '22000' && error.message.includes('weak_spot_drill_session_state_conflict')) {
-      throw new AppError(409, 'Drill session cannot be transitioned from its current state', {
-        code: 'WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT',
-      })
-    }
-    log.error({ sessionId, target, err: { message: error.message, code: error.code } },
-              'transitionDrillSession RPC failed')
-    throw dbError('transition drill session', error)
-  }
+	if (error !== null) {
+		if (error.code === "02000" && error.message.includes("weak_spot_drill_session_not_found")) {
+			throw new AppError(404, "Drill session not found", { code: "WEAK_SPOT_DRILL_SESSION_NOT_FOUND" });
+		}
+		if (error.code === "22000" && error.message.includes("weak_spot_drill_session_state_conflict")) {
+			throw new AppError(409, "Drill session cannot be transitioned from its current state", {
+				code: "WEAK_SPOT_DRILL_SESSION_STATE_CONFLICT",
+			});
+		}
+		log.error({ sessionId, target, err: { message: error.message, code: error.code } }, "transitionDrillSession RPC failed");
+		throw dbError("transition drill session", error);
+	}
 
-  // The transition RPC returns void. Fetch the post-state envelope through
-  // the same RPC the Stage 4 resume endpoint uses, so the wire shape stays
-  // identical and frontends can drop the response into their TanStack Query
-  // session-detail cache directly.
-  return getDrillSession(userId, sessionId)
+	// The transition RPC returns void. Fetch the post-state envelope through
+	// the same RPC the Stage 4 resume endpoint uses, so the wire shape stays
+	// identical and frontends can drop the response into their TanStack Query
+	// session-detail cache directly.
+	return getDrillSession(userId, sessionId);
 }
 
 // ─── WeakSpot diagnosis (Stage 7) ────────────────────────────────────────────────
@@ -813,25 +809,27 @@ export async function transitionDrillSession(
 
 /** Slim card projection used by diagnosis prompt construction. */
 const WeakSpotDiagnosisCardRowSchema = z.object({
-  fields_data: z.record(z.string(), z.unknown()),
-  layout_type: z.enum(['vocabulary', 'grammar', 'sentence']),
-  lapses:      z.number().int().nonnegative(),
-})
+	fields_data: z.record(z.string(), z.unknown()),
+	layout_type: z.enum(["vocabulary", "grammar", "sentence"]),
+	lapses: z.number().int().nonnegative(),
+});
 
 /** Profile slice we read for diagnosis voice (JLPT target + native language). */
 const ProfileForDiagnosisSchema = z.object({
-  jlpt_target:     z.enum(['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']).nullable(),
-  native_language: z.string(),
-})
+	jlpt_target: z.enum(["N5", "N4", "N3", "N2", "N1", "beyond_jlpt"]).nullable(),
+	native_language: z.string(),
+});
 
-/** Inferred profile slice. Accepted by diagnoseWeakSpot's `opts.profile` so a
- *  batch caller can prefetch it once instead of re-reading it per weak spot. */
-type DiagnosisProfile = z.infer<typeof ProfileForDiagnosisSchema>
+/**
+ * Inferred profile slice. Accepted by diagnoseWeakSpot's `opts.profile` so a
+ *  batch caller can prefetch it once instead of re-reading it per weak spot.
+ */
+type DiagnosisProfile = z.infer<typeof ProfileForDiagnosisSchema>;
 
 /** Recent review-log ratings for the card, oldest → newest. */
 const ReviewLogRatingRowSchema = z.object({
-  rating: z.string(),
-})
+	rating: z.string(),
+});
 
 /**
  * Generates and persists a diagnosis + prescription for a weakSpot, then returns
@@ -854,15 +852,15 @@ const ReviewLogRatingRowSchema = z.object({
  * assertion that the only UPDATE is against `from('weakSpots')`.
  */
 export async function diagnoseWeakSpot(
-  userId: string,
-  weakSpotId: string,
-  opts?: { profile?: DiagnosisProfile },
+	userId: string,
+	weakSpotId: string,
+	opts?: { profile?: DiagnosisProfile },
 ): Promise<ApiWeakSpotListItem> {
-  // 1. Fetch the weakSpot + its card (slim projection for prompt inputs).
-  //    Filter by user_id to give 404 on cross-user attempts.
-  const { data: weakSpotRow, error: fetchError } = await supabaseAdmin
-    .from('weak_spots')
-    .select(`
+	// 1. Fetch the weakSpot + its card (slim projection for prompt inputs).
+	//    Filter by user_id to give 404 on cross-user attempts.
+	const { data: weakSpotRow, error: fetchError } = await supabaseAdmin
+		.from("weak_spots")
+		.select(`
       id,
       card_id,
       diagnosis,
@@ -874,148 +872,144 @@ export async function diagnoseWeakSpot(
         lapses
       )
     `)
-    .eq('id', weakSpotId)
-    .eq('user_id', userId)
-    .maybeSingle()
+		.eq("id", weakSpotId)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (fetchError !== null) {
-    log.error({ weakSpotId, err: { message: fetchError.message, code: fetchError.code } },
-              'diagnoseWeakSpot weakSpot fetch failed')
-    throw dbError('fetch weakSpot for diagnosis', fetchError)
-  }
-  if (weakSpotRow === null) {
-    throw new AppError(404, 'WeakSpot not found', { code: 'WEAK_SPOT_NOT_FOUND' })
-  }
+	if (fetchError !== null) {
+		log.error({ weakSpotId, err: { message: fetchError.message, code: fetchError.code } }, "diagnoseWeakSpot weakSpot fetch failed");
+		throw dbError("fetch weakSpot for diagnosis", fetchError);
+	}
+	if (weakSpotRow === null) {
+		throw new AppError(404, "WeakSpot not found", { code: "WEAK_SPOT_NOT_FOUND" });
+	}
 
-  // 2. Replay-on-existing: if the weakSpot already has diagnosis text, return
-  //    the full envelope without calling OpenAI. Idempotent and cost-bounded.
-  if (weakSpotRow.diagnosis !== null && weakSpotRow.prescription !== null) {
-    return getWeakSpotById(userId, weakSpotId)
-  }
+	// 2. Replay-on-existing: if the weakSpot already has diagnosis text, return
+	//    the full envelope without calling OpenAI. Idempotent and cost-bounded.
+	if (weakSpotRow.diagnosis !== null && weakSpotRow.prescription !== null) {
+		return getWeakSpotById(userId, weakSpotId);
+	}
 
-  // 3. Orphan weakSpot (card_id NULL after card deletion) or insufficient card
-  //    fields → 422. The prompt needs at least word/meaning to be useful.
-  if (weakSpotRow.card_id === null || weakSpotRow.card === null) {
-    throw new AppError(422, 'Cannot diagnose an orphan weakSpot (card has been deleted)', {
-      code: 'CARD_FIELDS_INSUFFICIENT',
-    })
-  }
+	// 3. Orphan weakSpot (card_id NULL after card deletion) or insufficient card
+	//    fields → 422. The prompt needs at least word/meaning to be useful.
+	if (weakSpotRow.card_id === null || weakSpotRow.card === null) {
+		throw new AppError(422, "Cannot diagnose an orphan weakSpot (card has been deleted)", {
+			code: "CARD_FIELDS_INSUFFICIENT",
+		});
+	}
 
-  const card = WeakSpotDiagnosisCardRowSchema.parse(weakSpotRow.card)
+	const card = WeakSpotDiagnosisCardRowSchema.parse(weakSpotRow.card);
 
-  // Extract word/reading/meaning from fields_data via the shared helper so
-  // vocabulary and grammar cards both work; sentence-layout cards return
-  // null fields and fail with the same 422.
-  //
-  // `WeakSpotDiagnosisCardRowSchema` already narrows `layout_type` to one of
-  // 'vocabulary' | 'grammar' | 'sentence' (= LayoutType), so it is passed
-  // through without a cast. `fields_data` is typed loosely as a record by the
-  // row schema, so the `as FieldsData` cast below is load-bearing: FieldsData
-  // is a NON-discriminated union, so its real runtime guarantee is the
-  // cards_fields_data_shape CHECK constraint, not Zod. Same split toListItem()
-  // uses for the list response (see this file, ~line 124). The standards file
-  // (`CODING_STANDARDS.md` §Types) asks for a comment justifying the assertion.
-  const fields = getWordFields({
-    layoutType: card.layout_type,
-    fieldsData: card.fields_data as FieldsData,
-  })
-  if (fields === null) {
-    throw new AppError(422, 'Card layout does not expose word/reading/meaning required for diagnosis', {
-      code: 'CARD_FIELDS_INSUFFICIENT',
-    })
-  }
+	// Extract word/reading/meaning from fields_data via the shared helper so
+	// vocabulary and grammar cards both work; sentence-layout cards return
+	// null fields and fail with the same 422.
+	//
+	// `WeakSpotDiagnosisCardRowSchema` already narrows `layout_type` to one of
+	// 'vocabulary' | 'grammar' | 'sentence' (= LayoutType), so it is passed
+	// through without a cast. `fields_data` is typed loosely as a record by the
+	// row schema, so the `as FieldsData` cast below is load-bearing: FieldsData
+	// is a NON-discriminated union, so its real runtime guarantee is the
+	// cards_fields_data_shape CHECK constraint, not Zod. Same split toListItem()
+	// uses for the list response (see this file, ~line 124). The standards file
+	// (`CODING_STANDARDS.md` §Types) asks for a comment justifying the assertion.
+	const fields = getWordFields({
+		layoutType: card.layout_type,
+		fieldsData: card.fields_data as FieldsData,
+	});
+	if (fields === null) {
+		throw new AppError(422, "Card layout does not expose word/reading/meaning required for diagnosis", {
+			code: "CARD_FIELDS_INSUFFICIENT",
+		});
+	}
 
-  // 4. + 5. Ratings are per-card (always fetched). The profile (diagnosis
-  //    voice: JLPT target + native language) is per-user and identical across
-  //    a session, so a batch caller (batchDiagnoseForSession) can prefetch it
-  //    once and pass it via `opts.profile` to skip N identical reads. When it
-  //    is absent we fetch it here, in parallel with ratings, so the single-
-  //    card path keeps its prior latency (~one Supabase round-trip, p50
-  //    15-30ms). Both error branches degrade to safe defaults rather than
-  //    failing the diagnosis — preferences can be sparse and review history
-  //    can be empty, and neither should block AI.
-  //
-  //    EXPLAIN reasoning for the review_logs query: existing indexes are
-  //      review_logs_card_id_idx (card_id)
-  //      review_logs_user_id_reviewed_at_idx (user_id, reviewed_at)
-  //    For our (card_id, user_id, ORDER BY reviewed_at DESC LIMIT 10) shape,
-  //    the planner picks card_id_idx and sorts in memory. For the dominant
-  //    "lapsed >= 8 times" diagnose targets, candidate rows per card are
-  //    bounded (tens, not hundreds) so the sort is cheap. If observability
-  //    ever shows this query exceeding 50ms p95, add a covering index on
-  //    (card_id, user_id, reviewed_at DESC).
-  const ratingsPromise = supabaseAdmin
-    .from('review_logs')
-    .select('rating')
-    .eq('card_id', weakSpotRow.card_id)
-    .eq('user_id', userId)
-    .order('reviewed_at', { ascending: false })
-    .limit(10)
+	// 4. + 5. Ratings are per-card (always fetched). The profile (diagnosis
+	//    voice: JLPT target + native language) is per-user and identical across
+	//    a session, so a batch caller (batchDiagnoseForSession) can prefetch it
+	//    once and pass it via `opts.profile` to skip N identical reads. When it
+	//    is absent we fetch it here, in parallel with ratings, so the single-
+	//    card path keeps its prior latency (~one Supabase round-trip, p50
+	//    15-30ms). Both error branches degrade to safe defaults rather than
+	//    failing the diagnosis — preferences can be sparse and review history
+	//    can be empty, and neither should block AI.
+	//
+	//    EXPLAIN reasoning for the review_logs query: existing indexes are
+	//      review_logs_card_id_idx (card_id)
+	//      review_logs_user_id_reviewed_at_idx (user_id, reviewed_at)
+	//    For our (card_id, user_id, ORDER BY reviewed_at DESC LIMIT 10) shape,
+	//    the planner picks card_id_idx and sorts in memory. For the dominant
+	//    "lapsed >= 8 times" diagnose targets, candidate rows per card are
+	//    bounded (tens, not hundreds) so the sort is cheap. If observability
+	//    ever shows this query exceeding 50ms p95, add a covering index on
+	//    (card_id, user_id, reviewed_at DESC).
+	const ratingsPromise = supabaseAdmin
+		.from("review_logs")
+		.select("rating")
+		.eq("card_id", weakSpotRow.card_id)
+		.eq("user_id", userId)
+		.order("reviewed_at", { ascending: false })
+		.limit(10);
 
-  // PromiseLike, not Promise: supabase-js builders are thenables (no .catch/
-  // .finally), and Promise.all accepts `T | PromiseLike<T>`.
-  const profilePromise: PromiseLike<DiagnosisProfile> = opts?.profile !== undefined
-    ? Promise.resolve(opts.profile)
-    : supabaseAdmin
-        .from('profiles')
-        .select('jlpt_target, native_language')
-        .eq('id', userId)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (error !== null) {
-            log.warn({ userId, err: { message: error.message, code: error.code } },
-                     'diagnoseWeakSpot profile fetch failed; falling back to defaults')
-          }
-          return data !== null
-            ? ProfileForDiagnosisSchema.parse(data)
-            : { jlpt_target: null, native_language: 'en' }
-        })
+	// PromiseLike, not Promise: supabase-js builders are thenables (no .catch/
+	// .finally), and Promise.all accepts `T | PromiseLike<T>`.
+	const profilePromise: PromiseLike<DiagnosisProfile> = opts?.profile !== undefined
+		? Promise.resolve(opts.profile)
+		: supabaseAdmin
+				.from("profiles")
+				.select("jlpt_target, native_language")
+				.eq("id", userId)
+				.maybeSingle()
+				.then(({ data, error }) => {
+					if (error !== null) {
+						log.warn({ userId, err: { message: error.message, code: error.code } }, "diagnoseWeakSpot profile fetch failed; falling back to defaults");
+					}
+					return data !== null
+						? ProfileForDiagnosisSchema.parse(data)
+						: { jlpt_target: null, native_language: "en" };
+				});
 
-  const [{ data: ratingRows, error: ratingError }, profile] = await Promise.all([
-    ratingsPromise,
-    profilePromise,
-  ])
+	const [{ data: ratingRows, error: ratingError }, profile] = await Promise.all([
+		ratingsPromise,
+		profilePromise,
+	]);
 
-  if (ratingError !== null) {
-    log.warn({ weakSpotId, err: { message: ratingError.message, code: ratingError.code } },
-             'diagnoseWeakSpot review_logs fetch failed; proceeding with empty pattern')
-  }
-  const recentRatings = (ratingRows ?? [])
-    .map((r) => ReviewLogRatingRowSchema.parse(r).rating)
-    .reverse()   // oldest → newest for the prompt
+	if (ratingError !== null) {
+		log.warn({ weakSpotId, err: { message: ratingError.message, code: ratingError.code } }, "diagnoseWeakSpot review_logs fetch failed; proceeding with empty pattern");
+	}
+	const recentRatings = (ratingRows ?? [])
+		.map(r => ReviewLogRatingRowSchema.parse(r).rating)
+		.reverse(); // oldest → newest for the prompt
 
-  // 6. Call OpenAI via the AI service. The semaphore + breaker + cache live
-  //    there; this service just provides the inputs and writes the output.
-  const generated = await generateWeakSpotDiagnosis(
-    fields.word,
-    fields.reading,
-    fields.meaning,
-    card.lapses,
-    recentRatings,
-    profile.jlpt_target ?? 'N5',
-    profile.native_language,
-  )
+	// 6. Call OpenAI via the AI service. The semaphore + breaker + cache live
+	//    there; this service just provides the inputs and writes the output.
+	const generated = await generateWeakSpotDiagnosis(
+		fields.word,
+		fields.reading,
+		fields.meaning,
+		card.lapses,
+		recentRatings,
+		profile.jlpt_target ?? "N5",
+		profile.native_language,
+	);
 
-  // 7. Persist the diagnosis + prescription onto the weakSpot row. Only updates
-  //    the two text columns; FSRS state and resolution status are untouched.
-  const { error: updateError } = await supabaseAdmin
-    .from('weak_spots')
-    .update({
-      diagnosis:    generated.diagnosis,
-      prescription: generated.prescription,
-    })
-    .eq('id',      weakSpotId)
-    .eq('user_id', userId)
+	// 7. Persist the diagnosis + prescription onto the weakSpot row. Only updates
+	//    the two text columns; FSRS state and resolution status are untouched.
+	const { error: updateError } = await supabaseAdmin
+		.from("weak_spots")
+		.update({
+			diagnosis: generated.diagnosis,
+			prescription: generated.prescription,
+		})
+		.eq("id", weakSpotId)
+		.eq("user_id", userId);
 
-  if (updateError !== null) {
-    log.error({ weakSpotId, err: { message: updateError.message, code: updateError.code } },
-              'diagnoseWeakSpot update failed')
-    throw dbError('persist weakSpot diagnosis', updateError)
-  }
+	if (updateError !== null) {
+		log.error({ weakSpotId, err: { message: updateError.message, code: updateError.code } }, "diagnoseWeakSpot update failed");
+		throw dbError("persist weakSpot diagnosis", updateError);
+	}
 
-  // 8. Return the full joined detail so the client can drop the response into
-  //    its TanStack Query cache directly. Same shape as GET /:id.
-  return getWeakSpotById(userId, weakSpotId)
+	// 8. Return the full joined detail so the client can drop the response into
+	//    its TanStack Query cache directly. Same shape as GET /:id.
+	return getWeakSpotById(userId, weakSpotId);
 }
 
 // ─── Batch diagnose for session (audit-remediation: feature 1) ──────────────
@@ -1030,13 +1024,13 @@ export async function diagnoseWeakSpot(
 // parallel without one failure blocking the rest.
 
 const BatchDiagnoseWeakSpotRowSchema = z.object({
-  id: z.string(),
-})
+	id: z.string(),
+});
 
 export interface BatchDiagnoseResult {
-  diagnosed: number
-  skipped:   number
-  failed:    number
+	diagnosed: number;
+	skipped: number;
+	failed: number;
 }
 
 /**
@@ -1051,67 +1045,66 @@ export interface BatchDiagnoseResult {
  * batch operation.
  */
 export async function batchDiagnoseForSession(
-  userId:    string,
-  sessionId: string,
+	userId: string,
+	sessionId: string,
 ): Promise<BatchDiagnoseResult> {
-  // 1. Find weak spots in this session that don't have a diagnosis yet.
-  //    `diagnosis IS NULL` is the gate: existing diagnoses are sticky and
-  //    only refreshed via an explicit per-row re-diagnose (not exposed yet).
-  const { data: rows, error } = await supabaseAdmin
-    .from('weak_spots')
-    .select('id')
-    .eq('user_id',    userId)
-    .eq('session_id', sessionId)
-    .is('diagnosis',  null)
+	// 1. Find weak spots in this session that don't have a diagnosis yet.
+	//    `diagnosis IS NULL` is the gate: existing diagnoses are sticky and
+	//    only refreshed via an explicit per-row re-diagnose (not exposed yet).
+	const { data: rows, error } = await supabaseAdmin
+		.from("weak_spots")
+		.select("id")
+		.eq("user_id", userId)
+		.eq("session_id", sessionId)
+		.is("diagnosis", null);
 
-  if (error !== null) {
-    throw dbError('fetch session weak spots for batch diagnose', error)
-  }
+	if (error !== null) {
+		throw dbError("fetch session weak spots for batch diagnose", error);
+	}
 
-  const ids = z.array(BatchDiagnoseWeakSpotRowSchema).parse(rows ?? []).map((r) => r.id)
+	const ids = z.array(BatchDiagnoseWeakSpotRowSchema).parse(rows ?? []).map(r => r.id);
 
-  if (ids.length === 0) {
-    return { diagnosed: 0, skipped: 0, failed: 0 }
-  }
+	if (ids.length === 0) {
+		return { diagnosed: 0, skipped: 0, failed: 0 };
+	}
 
-  // 2. Fire diagnoses in parallel. `diagnoseWeakSpot` internally bounds
-  //    OpenAI concurrency via `openaiSemaphore` (ai.service.ts), so we
-  //    don't need a second semaphore here — let allSettled drive parallel
-  //    invocations and the semaphore inside each call serializes the
-  //    actual API hits to the configured concurrency cap.
-  // The diagnosis voice (JLPT target + native language) is identical for every
-  // weak spot in the session, so fetch it once here and hand it to each
-  // diagnoseWeakSpot call rather than letting all N calls re-read the same
-  // profile row. A prefetch failure degrades to undefined → each call falls
-  // back to its own fetch (and ultimately safe defaults).
-  const { data: profileRow, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('jlpt_target, native_language')
-    .eq('id', userId)
-    .maybeSingle()
-  if (profileError !== null) {
-    log.warn({ userId, sessionId, err: { message: profileError.message, code: profileError.code } },
-             'batchDiagnoseForSession profile prefetch failed; per-row calls will fall back')
-  }
-  const sharedProfile = profileRow !== null
-    ? ProfileForDiagnosisSchema.parse(profileRow)
-    : undefined
+	// 2. Fire diagnoses in parallel. `diagnoseWeakSpot` internally bounds
+	//    OpenAI concurrency via `openaiSemaphore` (ai.service.ts), so we
+	//    don't need a second semaphore here — let allSettled drive parallel
+	//    invocations and the semaphore inside each call serializes the
+	//    actual API hits to the configured concurrency cap.
+	// The diagnosis voice (JLPT target + native language) is identical for every
+	// weak spot in the session, so fetch it once here and hand it to each
+	// diagnoseWeakSpot call rather than letting all N calls re-read the same
+	// profile row. A prefetch failure degrades to undefined → each call falls
+	// back to its own fetch (and ultimately safe defaults).
+	const { data: profileRow, error: profileError } = await supabaseAdmin
+		.from("profiles")
+		.select("jlpt_target, native_language")
+		.eq("id", userId)
+		.maybeSingle();
+	if (profileError !== null) {
+		log.warn({ userId, sessionId, err: { message: profileError.message, code: profileError.code } }, "batchDiagnoseForSession profile prefetch failed; per-row calls will fall back");
+	}
+	const sharedProfile = profileRow !== null
+		? ProfileForDiagnosisSchema.parse(profileRow)
+		: undefined;
 
-  const settled = await Promise.allSettled(
-    ids.map((id) => diagnoseWeakSpot(userId, id, sharedProfile !== undefined ? { profile: sharedProfile } : undefined)),
-  )
+	const settled = await Promise.allSettled(
+		ids.map(id => diagnoseWeakSpot(userId, id, sharedProfile !== undefined ? { profile: sharedProfile } : undefined)),
+	);
 
-  let diagnosed = 0
-  let failed    = 0
-  for (const result of settled) {
-    if (result.status === 'fulfilled') {
-      diagnosed += 1
-    } else {
-      failed += 1
-      const message = result.reason instanceof Error ? result.reason.message : String(result.reason)
-      log.warn({ userId, sessionId, err: { message } }, 'batchDiagnoseForSession: per-row diagnose failed')
-    }
-  }
+	let diagnosed = 0;
+	let failed = 0;
+	for (const result of settled) {
+		if (result.status === "fulfilled") {
+			diagnosed += 1;
+		} else {
+			failed += 1;
+			const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+			log.warn({ userId, sessionId, err: { message } }, "batchDiagnoseForSession: per-row diagnose failed");
+		}
+	}
 
-  return { diagnosed, skipped: 0, failed }
+	return { diagnosed, skipped: 0, failed };
 }

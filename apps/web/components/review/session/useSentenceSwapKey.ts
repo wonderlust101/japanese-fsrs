@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Returns a key that increments whenever `token` changes after the first mount.
@@ -13,21 +13,21 @@ import { useEffect, useRef, useState } from 'react'
  * no pager) the key stays at 0 and nothing animates.
  */
 export function useSentenceSwapKey(token: number | undefined): number {
-  const [swapKey, setSwapKey] = useState(0)
-  const prevToken = useRef(token)
-  const mounted = useRef(false)
+	const [swapKey, setSwapKey] = useState(0);
+	const prevToken = useRef(token);
+	const mounted = useRef(false);
 
-  useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true
-      prevToken.current = token
-      return
-    }
-    if (token !== undefined && prevToken.current !== token) {
-      prevToken.current = token
-      setSwapKey((k) => k + 1)
-    }
-  }, [token])
+	useEffect(() => {
+		if (!mounted.current) {
+			mounted.current = true;
+			prevToken.current = token;
+			return;
+		}
+		if (token !== undefined && prevToken.current !== token) {
+			prevToken.current = token;
+			setSwapKey(k => k + 1);
+		}
+	}, [token]);
 
-  return swapKey
+	return swapKey;
 }

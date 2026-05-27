@@ -1,52 +1,54 @@
-import { forwardRef } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
+import { forwardRef } from "react";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 // 'lg' is the touch-comfortable size: 44px tall, which meets WCAG 2.5.5
 // (AAA target size) and Apple HIG / Material Design 44pt / 48dp baselines.
 // Callers that render at the `sm:` breakpoint and below should pass
 // `size="lg"` so coarse-pointer users can hit chips without mistapping.
-type ChipSize  = 'sm' | 'md' | 'lg'
-type ChipState = 'default' | 'selected' | 'inactive'
+type ChipSize = "sm" | "md" | "lg";
+type ChipState = "default" | "selected" | "inactive";
 
 interface ToolbarChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  size?:         ChipSize
-  state?:        ChipState
-  leadingNode?:  ReactNode
-  trailingNode?: ReactNode
-  /** Right-aligned secondary content (e.g. a count or status hint)
-   *  rendered between the label and the trailing node. */
-  meta?:         ReactNode
+	size?: ChipSize;
+	state?: ChipState;
+	leadingNode?: ReactNode;
+	trailingNode?: ReactNode;
+	/**
+	 * Right-aligned secondary content (e.g. a count or status hint)
+	 *  rendered between the label and the trailing node.
+	 */
+	meta?: ReactNode;
 }
 
 const SIZE_CLASS: Record<ChipSize, string> = {
-  sm: 'h-8 text-sm',
-  md: 'h-9 text-sm',
-  lg: 'h-11 text-sm',
-}
+	sm: "h-8 text-sm",
+	md: "h-9 text-sm",
+	lg: "h-11 text-sm",
+};
 
 const STATE_CLASS: Record<ChipState, string> = {
-  default:
-    'border-soft-hairline bg-warm-paper-raised text-sumi-ink ' +
-    'hover:border-faded-sumi hover:bg-cream-inset',
-  selected:
-    'border-inari-vermillion/40 bg-vermillion-wash text-inari-vermillion-deep ' +
-    'hover:border-inari-vermillion/60',
-  inactive:
-    'border-soft-hairline bg-warm-paper-raised text-faded-sumi',
-}
+	default:
+    "border-soft-hairline bg-warm-paper-raised text-sumi-ink "
+    + "hover:border-faded-sumi hover:bg-cream-inset",
+	selected:
+    "border-inari-vermillion/40 bg-vermillion-wash text-inari-vermillion-deep "
+    + "hover:border-inari-vermillion/60",
+	inactive:
+    "border-soft-hairline bg-warm-paper-raised text-faded-sumi",
+};
 
 const BASE = [
-  'ui-motion-colors inline-flex items-center gap-2 rounded-xs border',
-  'pl-2.5 pr-2.5 font-medium',
-  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2',
-  // HTML `disabled` drives the visual disabled state so callers don't have
-  // to duplicate the fade-out / pointer rules. Matches the original
-  // cards-pagination tuning of 45% opacity, neutral text, no hover lift.
-  'disabled:cursor-not-allowed disabled:opacity-45 disabled:text-faded-sumi',
-  'disabled:hover:border-soft-hairline disabled:hover:bg-warm-paper-raised',
-].join(' ')
+	"ui-motion-colors inline-flex items-center gap-2 rounded-xs border",
+	"pl-2.5 pr-2.5 font-medium",
+	"focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2",
+	// HTML `disabled` drives the visual disabled state so callers don't have
+	// to duplicate the fade-out / pointer rules. Matches the original
+	// cards-pagination tuning of 45% opacity, neutral text, no hover lift.
+	"disabled:cursor-not-allowed disabled:opacity-45 disabled:text-faded-sumi",
+	"disabled:hover:border-soft-hairline disabled:hover:bg-warm-paper-raised",
+].join(" ");
 
 /**
  * The toolbar / utility-row chip primitive: a small ink-on-warm-paper
@@ -66,49 +68,49 @@ const BASE = [
  * inside dropdown trigger renderprops without re-enumerating event types.
  */
 export const ToolbarChip = forwardRef<HTMLButtonElement, ToolbarChipProps>(
-  (
-    {
-      size         = 'md',
-      state        = 'default',
-      leadingNode,
-      trailingNode,
-      meta,
-      children,
-      className,
-      type         = 'button',
-      ...rest
-    },
-    ref,
-  ) => {
-    return (
-      <button
-        ref={ref}
-        type={type}
-        className={cn(
-          BASE,
-          SIZE_CLASS[size],
-          STATE_CLASS[state],
-          className,
-        )}
-        {...rest}
-      >
-        {leadingNode !== undefined && (
-          <span aria-hidden="true" className="inline-flex shrink-0">
-            {leadingNode}
-          </span>
-        )}
-        <span className="truncate">{children}</span>
-        {meta !== undefined && (
-          <span className="ml-auto tabular-nums text-faded-sumi">{meta}</span>
-        )}
-        {trailingNode !== undefined && (
-          <span aria-hidden="true" className="inline-flex shrink-0">
-            {trailingNode}
-          </span>
-        )}
-      </button>
-    )
-  },
-)
+	(
+		{
+			size = "md",
+			state = "default",
+			leadingNode,
+			trailingNode,
+			meta,
+			children,
+			className,
+			type = "button",
+			...rest
+		},
+		ref,
+	) => {
+		return (
+			<button
+				ref={ref}
+				type={type}
+				className={cn(
+					BASE,
+					SIZE_CLASS[size],
+					STATE_CLASS[state],
+					className,
+				)}
+				{...rest}
+			>
+				{leadingNode !== undefined && (
+					<span aria-hidden="true" className="inline-flex shrink-0">
+						{leadingNode}
+					</span>
+				)}
+				<span className="truncate">{children}</span>
+				{meta !== undefined && (
+					<span className="ml-auto tabular-nums text-faded-sumi">{meta}</span>
+				)}
+				{trailingNode !== undefined && (
+					<span aria-hidden="true" className="inline-flex shrink-0">
+						{trailingNode}
+					</span>
+				)}
+			</button>
+		);
+	},
+);
 
-ToolbarChip.displayName = 'ToolbarChip'
+ToolbarChip.displayName = "ToolbarChip";

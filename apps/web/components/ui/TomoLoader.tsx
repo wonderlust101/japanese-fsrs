@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 /* ──────────────────────────────────────────────────────────────────────
    TomoLoader
@@ -22,71 +22,111 @@ import { useEffect, useState } from 'react'
      - prefers-reduced-motion collapses the draw motion to a slow breath
    ────────────────────────────────────────────────────────────────────── */
 
-type Size = 'inline' | 'block' | 'page'
+type Size = "inline" | "block" | "page";
 
 interface TomoLoaderProps {
-  /** Visual size. inline = 16px (in-row), block = 64px (section), page = 140px (full route). */
-  size?:        Size
-  /**
-   * Optional rotating status copy for long AI waits. When provided and `size === 'page'`,
-   * the loader renders the active label beneath the cards with a polite live region.
-   * Strings cycle every 1.8s; the last one persists once reached.
-   */
-  stageLabels?: readonly string[]
-  /**
-   * Secondary line shown when the wait exceeds {@link slowAfterMs}.
-   * Defaults to a quiet reassurance string; pass `null` to suppress.
-   */
-  slowLabel?:   string | null
-  /** ms after mount before {@link slowLabel} appears. Default 8000. */
-  slowAfterMs?: number
-  /** Optional className applied to the outer wrapper. */
-  className?:   string
+	/** Visual size. inline = 16px (in-row), block = 64px (section), page = 140px (full route). */
+	size?: Size;
+	/**
+	 * Optional rotating status copy for long AI waits. When provided and `size === 'page'`,
+	 * the loader renders the active label beneath the cards with a polite live region.
+	 * Strings cycle every 1.8s; the last one persists once reached.
+	 */
+	stageLabels?: readonly string[];
+	/**
+	 * Secondary line shown when the wait exceeds {@link slowAfterMs}.
+	 * Defaults to a quiet reassurance string; pass `null` to suppress.
+	 */
+	slowLabel?: string | null;
+	/** ms after mount before {@link slowLabel} appears. Default 8000. */
+	slowAfterMs?: number;
+	/** Optional className applied to the outer wrapper. */
+	className?: string;
 }
 
-const SLOW_DEFAULT_LABEL = 'Taking longer than usual. Still working.'
-const STAGE_INTERVAL_MS  = 1800
+const SLOW_DEFAULT_LABEL = "Taking longer than usual. Still working.";
+const STAGE_INTERVAL_MS = 1800;
 /* Page-size centerpiece cadence. Kept well under the loader's typical visible
    lifetime so the glyph visibly changes during an ordinary route load (the
    previous 1600ms outlived most loads, leaving the kanji apparently frozen). */
-const KANJI_CYCLE_MS     = 700
+const KANJI_CYCLE_MS = 700;
 /* Curated pool of common, well-supported kanji for the page-size centerpiece.
    A random glyph is shown on each cycle. The pool is hand-picked (rather than
    sampling arbitrary codepoints) so every frame renders cleanly in the CJK
    font stack — random Unicode in the kanji range often lands on glyphs the
    font can't draw. Leans on calm, evocative characters that fit Tomo's tone. */
 const KANJI_POOL = [
-  '学', '語', '道', '心', '力', '水', '火', '木', '金', '土',
-  '日', '月', '花', '鳥', '風', '山', '川', '海', '空', '雨',
-  '雪', '星', '光', '夢', '知', '思', '見', '聞', '書', '読',
-  '話', '待', '友', '和', '森', '林', '雲', '春', '秋', '音',
-] as const
+	"学",
+	"語",
+	"道",
+	"心",
+	"力",
+	"水",
+	"火",
+	"木",
+	"金",
+	"土",
+	"日",
+	"月",
+	"花",
+	"鳥",
+	"風",
+	"山",
+	"川",
+	"海",
+	"空",
+	"雨",
+	"雪",
+	"星",
+	"光",
+	"夢",
+	"知",
+	"思",
+	"見",
+	"聞",
+	"書",
+	"読",
+	"話",
+	"待",
+	"友",
+	"和",
+	"森",
+	"林",
+	"雲",
+	"春",
+	"秋",
+	"音",
+] as const;
 
 export function TomoLoader({
-  size        = 'block',
-  stageLabels,
-  slowLabel   = SLOW_DEFAULT_LABEL,
-  slowAfterMs = 8000,
-  className   = '',
+	size = "block",
+	stageLabels,
+	slowLabel = SLOW_DEFAULT_LABEL,
+	slowAfterMs = 8000,
+	className = "",
 }: TomoLoaderProps): React.JSX.Element {
-  const showStage = size === 'page' && stageLabels && stageLabels.length > 0
+	const showStage = size === "page" && stageLabels && stageLabels.length > 0;
 
-  return (
-    <div
-      role="status"
-      aria-label="Loading"
-      aria-live={showStage ? 'polite' : undefined}
-      className={`flex flex-col items-center justify-center gap-4 ${className}`}
-    >
-      <CardStack size={size} />
-      {size === 'page' ? (
-        <PageCenterKana />
-      ) : null}
-      {showStage ? (
-        <StageLabels labels={stageLabels} slowLabel={slowLabel} slowAfterMs={slowAfterMs} />
-      ) : null}
-    </div>
-  )
+	return (
+		<div
+			role="status"
+			aria-label="Loading"
+			aria-live={showStage ? "polite" : undefined}
+			className={`flex flex-col items-center justify-center gap-4 ${className}`}
+		>
+			<CardStack size={size} />
+			{size === "page"
+				? (
+						<PageCenterKana />
+					)
+				: null}
+			{showStage
+				? (
+						<StageLabels labels={stageLabels} slowLabel={slowLabel} slowAfterMs={slowAfterMs} />
+					)
+				: null}
+		</div>
+	);
 }
 
 /* ── Card stack SVG ────────────────────────────────────────────────── */
@@ -94,225 +134,233 @@ export function TomoLoader({
 interface CardStackProps { size: Size }
 
 function CardStack({ size }: CardStackProps): React.JSX.Element {
-  const { width, height, cards, radius, offset } = DIMENSIONS[size]
-  /* Compose a small stack: a base shadow card, two background cards,
+	const { width, height, cards, radius, offset } = DIMENSIONS[size];
+	/* Compose a small stack: a base shadow card, two background cards,
      then the lead card that draws upward. Lead is drawn last so it
      paints on top during the lift. */
-  const restCount = Math.max(0, cards - 1)
-  /* The lead card draws up by translateY(-46%) of its own height
+	const restCount = Math.max(0, cards - 1);
+	/* The lead card draws up by translateY(-46%) of its own height
      (height * 0.78). Reserve that lift (plus margin for the warm
      drop-shadow) as room above the stack so the lifted card and its
      vermillion stripe are never clipped. The same room is mirrored below
      so the resting stack sits at the optical center of the viewBox (and
      therefore at the center of the page once the flex container centers
      the svg), rather than being shoved downward by top-only padding. */
-  const lift  = Math.ceil(height * 0.78 * 0.46 + 6)
-  const shift = lift - height * 0.18
-  const vbH   = height + lift + shift
-  const top   = lift
-  return (
-    <svg
-      width={width}
-      height={vbH}
-      viewBox={`0 0 ${width} ${vbH}`}
-      aria-hidden="true"
-      className="overflow-visible motion-reduce:[&_.tomo-lead-card]:!animate-[var(--animate-tomo-card-breath)]"
-    >
-      {/* background cards: stacked with vertical offset so the stack has weight */}
-      {Array.from({ length: restCount }).map((_, i) => {
-        const idx       = restCount - i
-        const cardW     = width  - idx * offset * 2
-        const cardH     = height - idx * offset * 2 - height * 0.18
-        const x         = (width  - cardW) / 2
-        const y         = height - cardH - idx * offset + shift
-        const opacity   = 0.32 + (restCount - idx) * 0.18
-        return (
-          <rect
-            key={idx}
-            x={x}
-            y={y}
-            width={cardW}
-            height={cardH}
-            rx={radius}
-            className="tomo-card"
-            style={{ opacity }}
-          />
-        )
-      })}
+	const lift = Math.ceil(height * 0.78 * 0.46 + 6);
+	const shift = lift - height * 0.18;
+	const vbH = height + lift + shift;
+	const top = lift;
+	return (
+		<svg
+			width={width}
+			height={vbH}
+			viewBox={`0 0 ${width} ${vbH}`}
+			aria-hidden="true"
+			className="overflow-visible motion-reduce:[&_.tomo-lead-card]:!animate-[var(--animate-tomo-card-breath)]"
+		>
+			{/* background cards: stacked with vertical offset so the stack has weight */}
+			{Array.from({ length: restCount }).map((_, i) => {
+				const idx = restCount - i;
+				const cardW = width - idx * offset * 2;
+				const cardH = height - idx * offset * 2 - height * 0.18;
+				const x = (width - cardW) / 2;
+				const y = height - cardH - idx * offset + shift;
+				const opacity = 0.32 + (restCount - idx) * 0.18;
+				return (
+					<rect
+						key={idx}
+						x={x}
+						y={y}
+						width={cardW}
+						height={cardH}
+						rx={radius}
+						className="tomo-card"
+						style={{ opacity }}
+					/>
+				);
+			})}
 
-      {/* secondary card (top of the deck, brightens on each draw) */}
-      <rect
-        x={offset}
-        y={top}
-        width={width - offset * 2}
-        height={height * 0.78}
-        rx={radius}
-        className="tomo-card motion-reduce:!animate-none"
-        style={{ animation: 'var(--animate-tomo-card-reveal)', transformOrigin: 'center' }}
-      />
+			{/* secondary card (top of the deck, brightens on each draw) */}
+			<rect
+				x={offset}
+				y={top}
+				width={width - offset * 2}
+				height={height * 0.78}
+				rx={radius}
+				className="tomo-card motion-reduce:!animate-none"
+				style={{ animation: "var(--animate-tomo-card-reveal)", transformOrigin: "center" }}
+			/>
 
-      {/* lead card: drawn upward each loop. Carries the canonical Tomo card
+			{/* lead card: drawn upward each loop. Carries the canonical Tomo card
          anatomy — a 2px Inari Vermillion top-edge stripe inset between the
          rounded corners — so the drawn card reads as a real card, not a
          blank rectangle. The stripe rides inside the lead <g>, so it lifts
          with the card. */}
-      <g
-        className="tomo-lead-card motion-reduce:!animate-[var(--animate-tomo-card-breath)]"
-        style={{
-          animation:       'var(--animate-tomo-card-draw)',
-          transformOrigin: `${width / 2}px ${height + shift}px`,
-        }}
-      >
-        <rect
-          x={offset}
-          y={top}
-          width={width - offset * 2}
-          height={height * 0.78}
-          rx={radius}
-          className="tomo-card-lead"
-        />
-        <rect
-          x={offset + radius}
-          y={top + Math.max(1, radius * 0.35)}
-          width={Math.max(0, width - offset * 2 - radius * 2)}
-          height={Math.max(2, height * 0.018)}
-          rx={Math.min(1, radius / 2)}
-          className="tomo-card-stripe"
-        />
-      </g>
-    </svg>
-  )
+			<g
+				className="tomo-lead-card motion-reduce:!animate-[var(--animate-tomo-card-breath)]"
+				style={{
+					animation: "var(--animate-tomo-card-draw)",
+					transformOrigin: `${width / 2}px ${height + shift}px`,
+				}}
+			>
+				<rect
+					x={offset}
+					y={top}
+					width={width - offset * 2}
+					height={height * 0.78}
+					rx={radius}
+					className="tomo-card-lead"
+				/>
+				<rect
+					x={offset + radius}
+					y={top + Math.max(1, radius * 0.35)}
+					width={Math.max(0, width - offset * 2 - radius * 2)}
+					height={Math.max(2, height * 0.018)}
+					rx={Math.min(1, radius / 2)}
+					className="tomo-card-stripe"
+				/>
+			</g>
+		</svg>
+	);
 }
 
 /* ── Page-size centerpiece: a random kanji, swapped each cycle ──────── */
 
 function randomKanjiIndex(exclude: number): number {
-  // Pick a fresh index, never repeating the current one so consecutive frames
-  // always visibly differ (a repeat would read as a stall).
-  if (KANJI_POOL.length <= 1) return 0
-  let next = Math.floor(Math.random() * KANJI_POOL.length)
-  if (next === exclude) next = (next + 1) % KANJI_POOL.length
-  return next
+	// Pick a fresh index, never repeating the current one so consecutive frames
+	// always visibly differ (a repeat would read as a stall).
+	if (KANJI_POOL.length <= 1)
+		return 0;
+	let next = Math.floor(Math.random() * KANJI_POOL.length);
+	if (next === exclude)
+		next = (next + 1) % KANJI_POOL.length;
+	return next;
 }
 
 function PageCenterKana(): React.JSX.Element {
-  // Deterministic first paint (index 0) so SSR and the client agree; the glyph
-  // is randomized on mount and on every cycle thereafter.
-  const [idx, setIdx] = useState(0)
-  const [reduced, setReduced] = useState(false)
+	// Deterministic first paint (index 0) so SSR and the client agree; the glyph
+	// is randomized on mount and on every cycle thereafter.
+	const [idx, setIdx] = useState(0);
+	const [reduced, setReduced] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = (e: MediaQueryListEvent): void => setReduced(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
+	useEffect(() => {
+		if (typeof window === "undefined")
+			return;
+		const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+		setReduced(mq.matches);
+		const onChange = (e: MediaQueryListEvent): void => setReduced(e.matches);
+		mq.addEventListener("change", onChange);
+		return () => mq.removeEventListener("change", onChange);
+	}, []);
 
-  useEffect(() => {
-    // Randomize the first shown glyph after mount (avoids always opening on the
-    // same pool[0] character). Under reduced motion this single swap is the
-    // whole animation; no interval runs.
-    setIdx((i) => randomKanjiIndex(i))
-    if (reduced) return
-    const t = window.setInterval(() => {
-      setIdx((i) => randomKanjiIndex(i))
-    }, KANJI_CYCLE_MS)
-    return () => window.clearInterval(t)
-  }, [reduced])
+	useEffect(() => {
+		// Randomize the first shown glyph after mount (avoids always opening on the
+		// same pool[0] character). Under reduced motion this single swap is the
+		// whole animation; no interval runs.
+		setIdx(i => randomKanjiIndex(i));
+		if (reduced)
+			return;
+		const t = window.setInterval(() => {
+			setIdx(i => randomKanjiIndex(i));
+		}, KANJI_CYCLE_MS);
+		return () => window.clearInterval(t);
+	}, [reduced]);
 
-  return (
-    /* Fixed 2rem square, glyph centered inside: the character swaps every
+	return (
+	/* Fixed 2rem square, glyph centered inside: the character swaps every
        KANJI_CYCLE_MS, but the box never resizes, so the swap can't nudge the
        loader off-center or shift anything around it. Sized to the text-2xl em
        (1.5rem) with headroom so any pool glyph renders without clipping,
        independent of which font in the CJK fallback chain draws it. */
-    <div
-      lang="ja"
-      aria-hidden="true"
-      className="-mt-2 flex h-8 w-8 items-center justify-center text-2xl leading-none tracking-[0.04em] text-faded-sumi/70"
-    >
-      {KANJI_POOL[idx]}
-    </div>
-  )
+		<div
+			lang="ja"
+			aria-hidden="true"
+			className="-mt-2 flex h-8 w-8 items-center justify-center text-2xl leading-none tracking-[0.04em] text-faded-sumi/70"
+		>
+			{KANJI_POOL[idx]}
+		</div>
+	);
 }
 
 /* ── Stage labels for long AI waits ────────────────────────────────── */
 
 interface StageLabelsProps {
-  labels:      readonly string[]
-  slowLabel:   string | null
-  slowAfterMs: number
+	labels: readonly string[];
+	slowLabel: string | null;
+	slowAfterMs: number;
 }
 
 function StageLabels({ labels, slowLabel, slowAfterMs }: StageLabelsProps): React.JSX.Element {
-  const [idx, setIdx]   = useState(0)
-  const [slow, setSlow] = useState(false)
+	const [idx, setIdx] = useState(0);
+	const [slow, setSlow] = useState(false);
 
-  useEffect(() => {
-    if (labels.length <= 1) return
-    const t = window.setInterval(() => {
-      setIdx((i) => Math.min(i + 1, labels.length - 1))
-    }, STAGE_INTERVAL_MS)
-    return () => window.clearInterval(t)
-  }, [labels.length])
+	useEffect(() => {
+		if (labels.length <= 1)
+			return;
+		const t = window.setInterval(() => {
+			setIdx(i => Math.min(i + 1, labels.length - 1));
+		}, STAGE_INTERVAL_MS);
+		return () => window.clearInterval(t);
+	}, [labels.length]);
 
-  useEffect(() => {
-    if (!slowLabel || slowAfterMs <= 0) return
-    const t = window.setTimeout(() => setSlow(true), slowAfterMs)
-    return () => window.clearTimeout(t)
-  }, [slowLabel, slowAfterMs])
+	useEffect(() => {
+		if (!slowLabel || slowAfterMs <= 0)
+			return;
+		const t = window.setTimeout(setSlow, slowAfterMs, true);
+		return () => window.clearTimeout(t);
+	}, [slowLabel, slowAfterMs]);
 
-  return (
-    <div className="flex flex-col items-center gap-1 text-center">
-      {/* Two-line reserve: the active label is centered inside a fixed
+	return (
+		<div className="flex flex-col items-center gap-1 text-center">
+			{/* Two-line reserve: the active label is centered inside a fixed
           min-height, so a longer label that wraps on a narrow width occupies
           the same box as a single-line one and never jumps the cards above. */}
-      <div className="flex min-h-[2.5rem] items-center justify-center">
-        <div
-          key={idx}
-          className="text-faded-sumi text-sm"
-          style={{ animation: 'var(--animate-tomo-stage-fade)' }}
-        >
-          {labels[idx]}
-        </div>
-      </div>
-      {/* Reassurance keeps its slot from first paint and only fades in at
+			<div className="flex min-h-[2.5rem] items-center justify-center">
+				<div
+					key={idx}
+					className="text-faded-sumi text-sm"
+					style={{ animation: "var(--animate-tomo-stage-fade)" }}
+				>
+					{labels[idx]}
+				</div>
+			</div>
+			{/* Reassurance keeps its slot from first paint and only fades in at
           slowAfterMs, so its arrival never adds height. aria-hidden while
           invisible keeps the polite live region quiet until it actually shows. */}
-      {slowLabel ? (
-        <div
-          aria-hidden={!slow}
-          className={`text-faded-sumi text-xs transition-opacity duration-500 ${
-            slow ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          {slowLabel}
-        </div>
-      ) : null}
-    </div>
-  )
+			{slowLabel
+				? (
+						<div
+							aria-hidden={!slow}
+							className={`text-faded-sumi text-xs transition-opacity duration-500 ${
+								slow ? "opacity-100" : "opacity-0"
+							}`}
+						>
+							{slowLabel}
+						</div>
+					)
+				: null}
+		</div>
+	);
 }
 
 /* ── Size table ────────────────────────────────────────────────────── */
 
 interface SizeDims {
-  width:  number
-  height: number
-  /** number of cards including the lead */
-  cards:  number
-  /** corner radius */
-  radius: number
-  /** per-card stack offset */
-  offset: number
+	width: number;
+	height: number;
+	/** number of cards including the lead */
+	cards: number;
+	/** corner radius */
+	radius: number;
+	/** per-card stack offset */
+	offset: number;
 }
 
 const DIMENSIONS: Record<Size, SizeDims> = {
-  inline: { width: 16,  height: 18,  cards: 2, radius: 2,  offset: 1 },
-  block:  { width: 56,  height: 70,  cards: 3, radius: 4,  offset: 2 },
-  page:   { width: 110, height: 138, cards: 4, radius: 6,  offset: 3 },
-}
+	inline: { width: 16, height: 18, cards: 2, radius: 2, offset: 1 },
+	block: { width: 56, height: 70, cards: 3, radius: 4, offset: 2 },
+	page: { width: 110, height: 138, cards: 4, radius: 6, offset: 3 },
+};
 
 /* ──────────────────────────────────────────────────────────────────────
    PageLoader
@@ -327,23 +375,23 @@ const DIMENSIONS: Record<Size, SizeDims> = {
    ────────────────────────────────────────────────────────────────────── */
 
 interface PageLoaderProps {
-  stageLabels?: readonly string[]
-  className?:   string
+	stageLabels?: readonly string[];
+	className?: string;
 }
 
 export function PageLoader({
-  stageLabels,
-  className = '',
+	stageLabels,
+	className = "",
 }: PageLoaderProps): React.JSX.Element {
-  return (
-    <div
-      className={`flex min-h-[60vh] flex-1 items-center justify-center px-6 ${className}`}
-    >
-      {stageLabels !== undefined
-        ? <TomoLoader size="page" stageLabels={stageLabels} />
-        : <TomoLoader size="page" />}
-    </div>
-  )
+	return (
+		<div
+			className={`flex min-h-[60vh] flex-1 items-center justify-center px-6 ${className}`}
+		>
+			{stageLabels !== undefined
+				? <TomoLoader size="page" stageLabels={stageLabels} />
+				: <TomoLoader size="page" />}
+		</div>
+	);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -376,37 +424,39 @@ export function PageLoader({
    ────────────────────────────────────────────────────────────────────── */
 
 interface PageGateProps {
-  ready:        boolean
-  /** Optional stage labels for long AI waits. Forwarded to the loader. */
-  stageLabels?: readonly string[]
-  /** Optional className applied to the loader wrapper while gating. */
-  loaderClassName?: string
-  children:     React.ReactNode
+	ready: boolean;
+	/** Optional stage labels for long AI waits. Forwarded to the loader. */
+	stageLabels?: readonly string[];
+	/** Optional className applied to the loader wrapper while gating. */
+	loaderClassName?: string;
+	children: React.ReactNode;
 }
 
 export function PageGate({
-  ready,
-  stageLabels,
-  loaderClassName = '',
-  children,
+	ready,
+	stageLabels,
+	loaderClassName = "",
+	children,
 }: PageGateProps): React.JSX.Element {
-  const [opened, setOpened] = useState(ready)
+	const [opened, setOpened] = useState(ready);
 
-  useEffect(() => {
-    if (ready && !opened) setOpened(true)
-  }, [ready, opened])
+	useEffect(() => {
+		if (ready && !opened)
+			setOpened(true);
+	}, [ready, opened]);
 
-  if (opened) return <>{children}</>
+	if (opened)
+		return <>{children}</>;
 
-  return (
-    <div
-      className={`flex min-h-[60vh] flex-1 items-center justify-center px-6 ${loaderClassName}`}
-    >
-      {stageLabels !== undefined
-        ? <TomoLoader size="page" stageLabels={stageLabels} />
-        : <TomoLoader size="page" />}
-    </div>
-  )
+	return (
+		<div
+			className={`flex min-h-[60vh] flex-1 items-center justify-center px-6 ${loaderClassName}`}
+		>
+			{stageLabels !== undefined
+				? <TomoLoader size="page" stageLabels={stageLabels} />
+				: <TomoLoader size="page" />}
+		</div>
+	);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -423,29 +473,32 @@ export function PageGate({
    ────────────────────────────────────────────────────────────────────── */
 
 export function useDelayedLoading(
-  isLoading:   boolean,
-  delayMs    = 200,
-  minVisible = 400,
+	isLoading: boolean,
+	delayMs = 200,
+	minVisible = 400,
 ): boolean {
-  const [visible, setVisible] = useState(false)
+	const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading) {
-      // already hidden, nothing to do
-      if (!visible) return
-      return
-    }
+	useEffect(() => {
+		if (!isLoading) {
+			// already hidden, nothing to do
+			if (!visible)
+				return;
+			return;
+		}
 
-    const showT = window.setTimeout(() => setVisible(true), delayMs)
-    return () => window.clearTimeout(showT)
-  }, [isLoading, delayMs, visible])
+		const showT = window.setTimeout(setVisible, delayMs, true);
+		return () => window.clearTimeout(showT);
+	}, [isLoading, delayMs, visible]);
 
-  useEffect(() => {
-    if (!visible) return
-    if (isLoading) return
-    const hideT = window.setTimeout(() => setVisible(false), minVisible)
-    return () => window.clearTimeout(hideT)
-  }, [visible, isLoading, minVisible])
+	useEffect(() => {
+		if (!visible)
+			return;
+		if (isLoading)
+			return;
+		const hideT = window.setTimeout(setVisible, minVisible, false);
+		return () => window.clearTimeout(hideT);
+	}, [visible, isLoading, minVisible]);
 
-  return visible
+	return visible;
 }

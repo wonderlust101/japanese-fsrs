@@ -1,8 +1,8 @@
 // Use the unprefixed `http` import to match Express's `app.listen()`
 // return type. The `node:`-prefixed import resolves to a structurally
 // identical but TS-distinct type, which would force every caller to cast.
-import type { Server } from 'http'
-import type { Logger } from 'pino'
+import type { Server } from "http";
+import type { Logger } from "pino";
 
 /**
  * Hard-exit deadline. Sized below the typical 30-second orchestrator grace
@@ -10,9 +10,9 @@ import type { Logger } from 'pino'
  * this — likely because long-tail in-flight requests are still completing —
  * exit anyway with code 1 so the orchestrator's force-kill never has to fire.
  */
-const SHUTDOWN_GRACE_MS = 25_000
+const SHUTDOWN_GRACE_MS = 25_000;
 
-let shuttingDown = false
+let shuttingDown = false;
 
 /**
  * True once SIGTERM/SIGINT has fired and gracefulShutdown has begun. The
@@ -20,7 +20,7 @@ let shuttingDown = false
  * traffic-routing decision in lockstep with the API's drain.
  */
 export function isShuttingDown(): boolean {
-  return shuttingDown
+	return shuttingDown;
 }
 
 /**
@@ -40,26 +40,27 @@ export function isShuttingDown(): boolean {
  * `uncaughtException` handlers in `index.ts` still win — they'll exit 1.
  */
 export async function gracefulShutdown(
-  signal: NodeJS.Signals,
-  server: Server,
-  log:    Logger,
+	signal: NodeJS.Signals,
+	server: Server,
+	log: Logger,
 ): Promise<void> {
-  if (shuttingDown) return
-  shuttingDown = true
-  log.info({ signal }, 'graceful shutdown initiated')
+	if (shuttingDown)
+		return;
+	shuttingDown = true;
+	log.info({ signal }, "graceful shutdown initiated");
 
-  const forceExit = setTimeout(() => {
-    log.error({ graceMs: SHUTDOWN_GRACE_MS }, 'shutdown grace exceeded; hard-exit')
-    process.exit(1)
-  }, SHUTDOWN_GRACE_MS)
-  forceExit.unref()
+	const forceExit = setTimeout(() => {
+		log.error({ graceMs: SHUTDOWN_GRACE_MS }, "shutdown grace exceeded; hard-exit");
+		process.exit(1);
+	}, SHUTDOWN_GRACE_MS);
+	forceExit.unref();
 
-  await new Promise<void>((resolve, reject) => {
-    server.close((err) => (err !== undefined ? reject(err) : resolve()))
-  })
-  log.info('http server closed; in-flight requests drained')
+	await new Promise<void>((resolve, reject) => {
+		server.close(err => (err !== undefined ? reject(err) : resolve()));
+	});
+	log.info("http server closed; in-flight requests drained");
 
-  clearTimeout(forceExit)
-  log.info('graceful shutdown complete; exiting')
-  process.exit(0)
+	clearTimeout(forceExit);
+	log.info("graceful shutdown complete; exiting");
+	process.exit(0);
 }

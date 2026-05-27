@@ -12,31 +12,31 @@
  * adjacent makes the hint a single self-contained module.
  */
 function CapsLockGlyph(): React.JSX.Element {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      <path d="M8 3 L3 8 L5.5 8 L5.5 11.5 L10.5 11.5 L10.5 8 L13 8 Z" />
-    </svg>
-  )
+	return (
+		<svg
+			width="12"
+			height="12"
+			viewBox="0 0 16 16"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1"
+			strokeLinejoin="round"
+			aria-hidden="true"
+			className="shrink-0"
+		>
+			<path d="M8 3 L3 8 L5.5 8 L5.5 11.5 L10.5 11.5 L10.5 8 L13 8 Z" />
+		</svg>
+	);
 }
 
 export function CapsLockHint(): React.JSX.Element {
-  return (
-    <p
-      role="status"
-      className="flex items-center gap-2 text-sm font-medium text-inari-vermillion-deep"
-    >
-      <CapsLockGlyph />
-      <span>Caps Lock is on</span>
-    </p>
-  )
+	return (
+		<p
+			role="status"
+			className="flex items-center gap-2 text-sm font-medium text-inari-vermillion-deep"
+		>
+			<CapsLockGlyph />
+			<span>Caps Lock is on</span>
+		</p>
+	);
 }

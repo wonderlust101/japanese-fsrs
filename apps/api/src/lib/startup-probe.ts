@@ -12,14 +12,14 @@
  *     failures at first user write.
  */
 
-import OpenAI from 'openai'
+import OpenAI from "openai";
 
-import { supabaseAdmin } from '../db/supabase.ts'
-import { env } from './env.ts'
-import { componentLogger } from './logger.ts'
-import { TIMEOUTS } from './timeouts.ts'
+import { supabaseAdmin } from "../db/supabase.ts";
+import { env } from "./env.ts";
+import { componentLogger } from "./logger.ts";
+import { TIMEOUTS } from "./timeouts.ts";
 
-const log = componentLogger('startup-probe')
+const log = componentLogger("startup-probe");
 
 /**
  * The pgvector column `cards.embedding` is declared `vector(1536)`. Switching
@@ -28,65 +28,65 @@ const log = componentLogger('startup-probe')
  * boundary and the fire-and-forget catch in `card.service.ts` would swallow it.
  * The probe catches the misconfiguration at deploy time instead.
  */
-const REQUIRED_EMBEDDING_DIM = 1536
+const REQUIRED_EMBEDDING_DIM = 1536;
 
 export async function probeOpenAIEmbeddingDimension(): Promise<void> {
-  if (env.OPENAI_API_KEY === undefined) {
-    log.info('OPENAI_API_KEY not set — skipping embedding-dimension probe')
-    return
-  }
+	if (env.OPENAI_API_KEY === undefined) {
+		log.info("OPENAI_API_KEY not set — skipping embedding-dimension probe");
+		return;
+	}
 
-  // Dedicated short-timeout client just for the probe. Decoupled from the
-  // service-layer clients (lib/openai.ts) so a future refactor of either
-  // side doesn't drift the probe behaviour. Tighter timeout than the
-  // request-path client because misconfigurations should fail fast at boot.
-  const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: TIMEOUTS.startupProbe })
+	// Dedicated short-timeout client just for the probe. Decoupled from the
+	// service-layer clients (lib/openai.ts) so a future refactor of either
+	// side doesn't drift the probe behaviour. Tighter timeout than the
+	// request-path client because misconfigurations should fail fast at boot.
+	const client = new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: TIMEOUTS.startupProbe });
 
-  // Narrow try: only the SDK call should be downgraded to warn-and-continue.
-  // The post-response logic (data-shape checks, dim read) shouldn't be silently
-  // swallowed if it ever throws — that would be a bug, not a transient outage.
-  let response: Awaited<ReturnType<typeof client.embeddings.create>>
-  try {
-    response = await client.embeddings.create({
-      model: env.OPENAI_EMBEDDING_MODEL,
-      input: 'probe',
-    })
-  } catch (err) {
-    log.warn(
-      {
-        err: err instanceof Error
-          ? { name: err.name, message: err.message }
-          : { detail: String(err) },
-      },
-      'embedding probe failed (transient OpenAI error); continuing startup',
-    )
-    return
-  }
+	// Narrow try: only the SDK call should be downgraded to warn-and-continue.
+	// The post-response logic (data-shape checks, dim read) shouldn't be silently
+	// swallowed if it ever throws — that would be a bug, not a transient outage.
+	let response: Awaited<ReturnType<typeof client.embeddings.create>>;
+	try {
+		response = await client.embeddings.create({
+			model: env.OPENAI_EMBEDDING_MODEL,
+			input: "probe",
+		});
+	} catch (err) {
+		log.warn(
+			{
+				err: err instanceof Error
+					? { name: err.name, message: err.message }
+					: { detail: String(err) },
+			},
+			"embedding probe failed (transient OpenAI error); continuing startup",
+		);
+		return;
+	}
 
-  const first = response.data[0]
-  if (first === undefined) {
-    log.warn('embedding probe returned no data; continuing startup')
-    return
-  }
+	const first = response.data[0];
+	if (first === undefined) {
+		log.warn("embedding probe returned no data; continuing startup");
+		return;
+	}
 
-  const dim = first.embedding.length
+	const dim = first.embedding.length;
 
-  if (dim !== REQUIRED_EMBEDDING_DIM) {
-    log.fatal(
-      {
-        model:    env.OPENAI_EMBEDDING_MODEL,
-        actual:   dim,
-        expected: REQUIRED_EMBEDDING_DIM,
-      },
-      'OPENAI_EMBEDDING_MODEL dimension does not match cards.embedding vector(1536); refusing to start',
-    )
-    process.exit(1)
-  }
+	if (dim !== REQUIRED_EMBEDDING_DIM) {
+		log.fatal(
+			{
+				model: env.OPENAI_EMBEDDING_MODEL,
+				actual: dim,
+				expected: REQUIRED_EMBEDDING_DIM,
+			},
+			"OPENAI_EMBEDDING_MODEL dimension does not match cards.embedding vector(1536); refusing to start",
+		);
+		process.exit(1);
+	}
 
-  log.info(
-    { model: env.OPENAI_EMBEDDING_MODEL, dim },
-    'embedding-dimension probe passed',
-  )
+	log.info(
+		{ model: env.OPENAI_EMBEDDING_MODEL, dim },
+		"embedding-dimension probe passed",
+	);
 }
 
 /**
@@ -104,25 +104,25 @@ export async function probeOpenAIEmbeddingDimension(): Promise<void> {
  * decide on restart policy.
  */
 export async function probeSupabaseConnectivity(): Promise<void> {
-  try {
-    const { error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 })
-    if (error !== null) {
-      log.fatal(
-        { err: { name: error.name, message: error.message } },
-        'Supabase unreachable at startup; refusing to start',
-      )
-      process.exit(1)
-    }
-    log.info('Supabase connectivity probe passed')
-  } catch (err) {
-    log.fatal(
-      {
-        err: err instanceof Error
-          ? { name: err.name, message: err.message }
-          : { detail: String(err) },
-      },
-      'Supabase unreachable at startup; refusing to start',
-    )
-    process.exit(1)
-  }
+	try {
+		const { error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+		if (error !== null) {
+			log.fatal(
+				{ err: { name: error.name, message: error.message } },
+				"Supabase unreachable at startup; refusing to start",
+			);
+			process.exit(1);
+		}
+		log.info("Supabase connectivity probe passed");
+	} catch (err) {
+		log.fatal(
+			{
+				err: err instanceof Error
+					? { name: err.name, message: err.message }
+					: { detail: String(err) },
+			},
+			"Supabase unreachable at startup; refusing to start",
+		);
+		process.exit(1);
+	}
 }

@@ -1,5 +1,5 @@
-import { cache } from 'react'
-import { createSupabaseServerClient } from './server'
+import { cache } from "react";
+import { createSupabaseServerClient } from "./server";
 
 /**
  * Returns the authenticated Supabase user for the current request.
@@ -9,9 +9,9 @@ import { createSupabaseServerClient } from './server'
  * round-trip to Supabase is made per request.
  */
 export const getAuthUser = cache(async () => {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
-})
+	const supabase = await createSupabaseServerClient();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+	return user;
+});

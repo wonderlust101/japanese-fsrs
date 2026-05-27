@@ -20,102 +20,102 @@
  */
 
 export interface QueryResult {
-  data:   unknown
-  error:  { message: string; code?: string } | null
-  count?: number | null
+	data: unknown;
+	error: { message: string; code?: string } | null;
+	count?: number | null;
 }
 
 export interface CallRecord { method: string; args: readonly unknown[] }
 export interface RpcCall { name: string; payload: unknown }
 
 export interface SupabaseHarnessState {
-  /** FIFO of terminal results per table (drained in call order). */
-  responses:     Record<string, QueryResult[]>
-  /** FIFO of results per RPC name. */
-  rpcResponses:  Record<string, QueryResult[]>
-  /** Every builder method invoked (`select`, `eq`, `order`, …) with its args. */
-  calls:         CallRecord[]
-  /** Every `rpc(name, payload)` invocation. */
-  rpcCalls:      RpcCall[]
-  lastTable:     string | null
-  terminalShape: 'list' | 'maybeSingle'
+	/** FIFO of terminal results per table (drained in call order). */
+	responses: Record<string, QueryResult[]>;
+	/** FIFO of results per RPC name. */
+	rpcResponses: Record<string, QueryResult[]>;
+	/** Every builder method invoked (`select`, `eq`, `order`, …) with its args. */
+	calls: CallRecord[];
+	/** Every `rpc(name, payload)` invocation. */
+	rpcCalls: RpcCall[];
+	lastTable: string | null;
+	terminalShape: "list" | "maybeSingle";
 }
 
 export interface SupabaseHarness {
-  supabaseAdmin: {
-    from: (table: string) => unknown
-    rpc:  (name: string, payload?: unknown) => Promise<QueryResult>
-  }
-  state: SupabaseHarnessState
-  reset: () => void
+	supabaseAdmin: {
+		from: (table: string) => unknown;
+		rpc: (name: string, payload?: unknown) => Promise<QueryResult>;
+	};
+	state: SupabaseHarnessState;
+	reset: () => void;
 }
 
 function toCamelTable(table: string): string {
-  return table.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
+	return table.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase());
 }
 
 export function createSupabaseHarness(): SupabaseHarness {
-  const state: SupabaseHarnessState = {
-    responses:     {},
-    rpcResponses:  {},
-    calls:         [],
-    rpcCalls:      [],
-    lastTable:     null,
-    terminalShape: 'list',
-  }
+	const state: SupabaseHarnessState = {
+		responses: {},
+		rpcResponses: {},
+		calls: [],
+		rpcCalls: [],
+		lastTable: null,
+		terminalShape: "list",
+	};
 
-  function makeBuilder(table: string): unknown {
-    const queue = state.responses[table] ?? state.responses[toCamelTable(table)] ?? []
+	function makeBuilder(table: string): unknown {
+		const queue = state.responses[table] ?? state.responses[toCamelTable(table)] ?? [];
 
-    const handler: ProxyHandler<{ then: unknown }> = {
-      get(_target, prop) {
-        if (prop === 'then') {
-          const next = queue.shift() ?? {
-            data:  state.terminalShape === 'maybeSingle' ? null : [],
-            error: null,
-          }
-          return (resolve: (v: unknown) => void): void => { resolve(next) }
-        }
-        if (prop === 'maybeSingle' || prop === 'single') {
-          return (...args: readonly unknown[]): unknown => {
-            state.calls.push({ method: String(prop), args })
-            state.terminalShape = 'maybeSingle'
-            return builder
-          }
-        }
-        return (...args: readonly unknown[]): unknown => {
-          state.calls.push({ method: String(prop), args })
-          return builder
-        }
-      },
-    }
+		const handler: ProxyHandler<{ then: unknown }> = {
+			get(_target, prop) {
+				if (prop === "then") {
+					const next = queue.shift() ?? {
+						data: state.terminalShape === "maybeSingle" ? null : [],
+						error: null,
+					};
+					return (resolve: (v: unknown) => void): void => { resolve(next); };
+				}
+				if (prop === "maybeSingle" || prop === "single") {
+					return (...args: readonly unknown[]): unknown => {
+						state.calls.push({ method: String(prop), args });
+						state.terminalShape = "maybeSingle";
+						return builder;
+					};
+				}
+				return (...args: readonly unknown[]): unknown => {
+					state.calls.push({ method: String(prop), args });
+					return builder;
+				};
+			},
+		};
 
-    const builder: unknown = new Proxy({ then: undefined }, handler)
-    return builder
-  }
+		const builder: unknown = new Proxy({ then: undefined }, handler);
+		return builder;
+	}
 
-  const supabaseAdmin = {
-    from: (table: string): unknown => {
-      state.lastTable = table
-      return makeBuilder(table)
-    },
-    rpc: async (name: string, payload?: unknown): Promise<QueryResult> => {
-      state.rpcCalls.push({ name, payload })
-      const queue = state.rpcResponses[name] ?? []
-      return queue.shift() ?? { data: null, error: null }
-    },
-  }
+	const supabaseAdmin = {
+		from: (table: string): unknown => {
+			state.lastTable = table;
+			return makeBuilder(table);
+		},
+		rpc: async (name: string, payload?: unknown): Promise<QueryResult> => {
+			state.rpcCalls.push({ name, payload });
+			const queue = state.rpcResponses[name] ?? [];
+			return queue.shift() ?? { data: null, error: null };
+		},
+	};
 
-  return {
-    supabaseAdmin,
-    state,
-    reset: () => {
-      state.responses     = {}
-      state.rpcResponses  = {}
-      state.calls         = []
-      state.rpcCalls      = []
-      state.lastTable     = null
-      state.terminalShape = 'list'
-    },
-  }
+	return {
+		supabaseAdmin,
+		state,
+		reset: () => {
+			state.responses = {};
+			state.rpcResponses = {};
+			state.calls = [];
+			state.rpcCalls = [];
+			state.lastTable = null;
+			state.terminalShape = "list";
+		},
+	};
 }

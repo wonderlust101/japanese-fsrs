@@ -13,5 +13,5 @@
  * @param message optional override for the thrown error's message
  */
 export function assertNever(value: never, message?: string): never {
-  throw new Error(message ?? `Unhandled union member: ${JSON.stringify(value)}`)
+	throw new Error(message ?? `Unhandled union member: ${JSON.stringify(value)}`);
 }

@@ -2,11 +2,11 @@
 // two hooks; the dock and the launcher are mounted once via `DevDockProvider`
 // in the root layout.
 
-export { DevDockProvider } from './DevDockProvider'
-export { useDevStatePanel, useDevPanel } from './useDevStatePanel'
+export type { DevFixtureSpec } from "./DevDockContext";
+export { DevDockProvider } from "./DevDockProvider";
+export { useDevPanel, useDevStatePanel } from "./useDevStatePanel";
 export type {
-  UseDevStatePanelOptions,
-  UseDevStatePanelResult,
-  UseDevPanelOptions,
-} from './useDevStatePanel'
-export type { DevFixtureSpec } from './DevDockContext'
+	UseDevPanelOptions,
+	UseDevStatePanelOptions,
+	UseDevStatePanelResult,
+} from "./useDevStatePanel";

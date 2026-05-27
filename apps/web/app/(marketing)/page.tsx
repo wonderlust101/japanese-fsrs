@@ -1,13 +1,13 @@
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { JsonLd, organizationSchema, webApplicationSchema } from '@/components/seo/JsonLd'
-import { env } from '@/lib/env'
+import { JsonLd, organizationSchema, webApplicationSchema } from "@/components/seo/JsonLd";
+import { env } from "@/lib/env";
 
-import { LandingExperience } from './_components/landing-experience'
+import { LandingExperience } from "./_components/landing-experience";
 
-const SITE_URL = env.NEXT_PUBLIC_SITE_URL
-const PAGE_DESCRIPTION =
-  'Tomo is a calm spaced-repetition app for Japanese learners: FSRS scheduling that times each card to your memory, cards built for you with example sentences and mnemonics, and a teacher’s eye for your weak spots. JLPT N5–N1 decks included.'
+const SITE_URL = env.NEXT_PUBLIC_SITE_URL;
+const PAGE_DESCRIPTION
+	= "Tomo is a calm spaced-repetition app for Japanese learners: FSRS scheduling that times each card to your memory, cards built for you with example sentences and mnemonics, and a teacher’s eye for your weak spots. JLPT N5–N1 decks included.";
 
 // Homepage. Inherits the root `title.default` ('Tomo · Japanese spaced
 // repetition') and the root `openGraph` block (image, siteName, type, url '/')
@@ -19,15 +19,15 @@ const PAGE_DESCRIPTION =
 // render server-side for SEO; the scroll-choreographed, GSAP-driven body lives
 // in the client `<LandingExperience>` child.
 export const metadata: Metadata = {
-  description: PAGE_DESCRIPTION,
-  alternates: { canonical: '/' },
-}
+	description: PAGE_DESCRIPTION,
+	alternates: { canonical: "/" },
+};
 
 export default function LandingPage(): React.JSX.Element {
-  return (
-    <>
-      <JsonLd schema={[organizationSchema(SITE_URL), webApplicationSchema(SITE_URL, PAGE_DESCRIPTION)]} />
-      <LandingExperience />
-    </>
-  )
+	return (
+		<>
+			<JsonLd schema={[organizationSchema(SITE_URL), webApplicationSchema(SITE_URL, PAGE_DESCRIPTION)]} />
+			<LandingExperience />
+		</>
+	);
 }

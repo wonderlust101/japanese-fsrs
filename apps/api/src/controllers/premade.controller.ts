@@ -1,38 +1,38 @@
-import type { RequestHandler } from 'express'
+import type { ApiCopyPremadeDeckResult } from "@fsrs-japanese/shared-types";
 
-import type { ApiCopyPremadeDeckResult } from '@fsrs-japanese/shared-types'
+import type { RequestHandler } from "express";
+import { cacheControl } from "../lib/http.ts";
+import { withIdempotency } from "../lib/idempotency.ts";
 import {
-  listPremadeDecksQuerySchema,
-  premadeDeckIdParamSchema,
-} from '../schemas/premade.schema.ts'
-import { emptyBodySchema } from '../schemas/weak-spot.schema.ts'
-import * as premadeService from '../services/premade.service.ts'
-import { cacheControl } from '../lib/http.ts'
-import { withIdempotency } from '../lib/idempotency.ts'
+	listPremadeDecksQuerySchema,
+	premadeDeckIdParamSchema,
+} from "../schemas/premade.schema.ts";
+import { emptyBodySchema } from "../schemas/weak-spot.schema.ts";
+import * as premadeService from "../services/premade.service.ts";
 
-const PREMADE_MAX_AGE_SECONDS = 600
+const PREMADE_MAX_AGE_SECONDS = 600;
 
 /**
  * GET /api/v1/premade-decks
  * Returns active premade decks, optionally filtered.
  */
 export const list: RequestHandler = async (req, res): Promise<void> => {
-  const filters = listPremadeDecksQuerySchema.parse(req.query)
-  const data    = await premadeService.listPremadeDecks(filters)
-  cacheControl(res, PREMADE_MAX_AGE_SECONDS)
-  res.json(data)
-}
+	const filters = listPremadeDecksQuerySchema.parse(req.query);
+	const data = await premadeService.listPremadeDecks(filters);
+	cacheControl(res, PREMADE_MAX_AGE_SECONDS);
+	res.json(data);
+};
 
 /**
  * GET /api/v1/premade-decks/:id
  * Returns a single active premade deck.
  */
 export const get: RequestHandler = async (req, res): Promise<void> => {
-  const { id } = premadeDeckIdParamSchema.parse(req.params)
-  const data   = await premadeService.getPremadeDeck(id)
-  cacheControl(res, PREMADE_MAX_AGE_SECONDS)
-  res.json(data)
-}
+	const { id } = premadeDeckIdParamSchema.parse(req.params);
+	const data = await premadeService.getPremadeDeck(id);
+	cacheControl(res, PREMADE_MAX_AGE_SECONDS);
+	res.json(data);
+};
 
 /**
  * POST /api/v1/premade-decks/:id/copy
@@ -52,20 +52,20 @@ export const get: RequestHandler = async (req, res): Promise<void> => {
  * route param.
  */
 export const copy: RequestHandler = async (req, res): Promise<void> => {
-  const { id } = premadeDeckIdParamSchema.parse(req.params)
-  emptyBodySchema.parse(req.body ?? {})
+	const { id } = premadeDeckIdParamSchema.parse(req.params);
+	emptyBodySchema.parse(req.body ?? {});
 
-  const { status, body } = await withIdempotency<ApiCopyPremadeDeckResult>(
-    req.user.id,
-    req.header('idempotency-key'),
-    { premadeDeckId: id },
-    async () => {
-      const data = await premadeService.copyPremadeDeck(req.user.id, id)
-      return { status: 201, body: data }
-    },
-  )
-  if (status === 201) {
-    res.setHeader('Location', `/api/v1/decks/${body.deckId}`)
-  }
-  res.status(status).json(body)
-}
+	const { status, body } = await withIdempotency<ApiCopyPremadeDeckResult>(
+		req.user.id,
+		req.header("idempotency-key"),
+		{ premadeDeckId: id },
+		async () => {
+			const data = await premadeService.copyPremadeDeck(req.user.id, id);
+			return { status: 201, body: data };
+		},
+	);
+	if (status === 201) {
+		res.setHeader("Location", `/api/v1/decks/${body.deckId}`);
+	}
+	res.status(status).json(body);
+};

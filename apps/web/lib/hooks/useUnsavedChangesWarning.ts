@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
 /**
  * Prompts the browser's native "Leave site?" dialog while `isDirty` is true, so
@@ -14,14 +14,15 @@ import { useEffect } from 'react'
  * call site (e.g. "the user edited a field") so a pristine form never prompts.
  */
 export function useUnsavedChangesWarning(isDirty: boolean): void {
-  useEffect(() => {
-    if (!isDirty) return
-    const handler = (e: BeforeUnloadEvent): void => {
-      e.preventDefault()
-      // Some browsers still require returnValue to be set to show the prompt.
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [isDirty])
+	useEffect(() => {
+		if (!isDirty)
+			return;
+		const handler = (e: BeforeUnloadEvent): void => {
+			e.preventDefault();
+			// Some browsers still require returnValue to be set to show the prompt.
+			e.returnValue = "";
+		};
+		window.addEventListener("beforeunload", handler);
+		return () => window.removeEventListener("beforeunload", handler);
+	}, [isDirty]);
 }

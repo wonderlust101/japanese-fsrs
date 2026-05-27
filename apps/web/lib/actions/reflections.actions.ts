@@ -1,21 +1,22 @@
-'use server'
+"use server";
 
-import type { z } from 'zod'
+import type { ApiDayReflection } from "@fsrs-japanese/shared-types";
 
+import type { z } from "zod";
 import {
-  ApiDayReflectionSchema,
-  type ApiDayReflection,
-} from '@fsrs-japanese/shared-types'
+	ApiDayReflectionSchema,
 
-import { apiCallSafe } from '@/lib/api/client'
+} from "@fsrs-japanese/shared-types";
+
+import { apiCallSafe } from "@/lib/api/client";
 
 // Day-reflection wire shape allows `null` from the safe action when the
 // call fails, the response is not schema-valid, or the user is not signed
 // in. The Session details card silently falls back to the deterministic
 // `content.diagnosisLead` prose in those cases — the AI reflection is an
 // enhancement, never a hard dependency.
-const NullableDayReflectionSchema: z.ZodType<ApiDayReflection | null> =
-  ApiDayReflectionSchema.nullable()
+const NullableDayReflectionSchema: z.ZodType<ApiDayReflection | null>
+	= ApiDayReflectionSchema.nullable();
 
 /**
  * Fetches the Tomo-voice post-session reflection for the user-local day
@@ -26,12 +27,12 @@ const NullableDayReflectionSchema: z.ZodType<ApiDayReflection | null> =
  * fallback prose without an error boundary.
  */
 export async function getDayReflectionAction(
-  sessionId: string,
+	sessionId: string,
 ): Promise<ApiDayReflection | null> {
-  return apiCallSafe<ApiDayReflection | null>(
-    `/api/v1/reviews/day-reflection/${encodeURIComponent(sessionId)}`,
-    NullableDayReflectionSchema,
-    {},
-    null,
-  )
+	return apiCallSafe<ApiDayReflection | null>(
+		`/api/v1/reviews/day-reflection/${encodeURIComponent(sessionId)}`,
+		NullableDayReflectionSchema,
+		{},
+		null,
+	);
 }

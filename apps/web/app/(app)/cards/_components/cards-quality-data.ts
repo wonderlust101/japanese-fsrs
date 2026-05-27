@@ -12,15 +12,15 @@
  * matching saved views render without a count badge until the endpoint
  * is extended.
  */
-export type CardQualityIssueKind =
-  | 'missing_reading'
-  | 'missing_meaning'
-  | 'missing_example'
-  | 'missing_mnemonic'
-  | 'missing_picture'
-  | 'missing_nuance'
+export type CardQualityIssueKind
+	= | "missing_reading"
+		| "missing_meaning"
+		| "missing_example"
+		| "missing_mnemonic"
+		| "missing_picture"
+		| "missing_nuance";
 
 export interface CardQualityIssue {
-  kind:  CardQualityIssueKind
-  count: number
+	kind: CardQualityIssueKind;
+	count: number;
 }

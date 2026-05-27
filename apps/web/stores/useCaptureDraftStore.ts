@@ -1,5 +1,5 @@
-import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 //
@@ -21,70 +21,79 @@ import { devtools } from 'zustand/middleware'
  *   'generate' — kick off AI generation on /add/review (default).
  *   'manual'   — skip generation; /add/review opens a manual-edit form.
  */
-export type CaptureMode = 'generate' | 'manual'
+export type CaptureMode = "generate" | "manual";
 
 export interface CaptureDraft {
-  word:         string
-  sentence:     string
-  /** Build path the user chose on /add: 'generate' (AI) or 'manual'. */
-  mode:         CaptureMode
-  /** Optional kana reading the user already knows. Empty string means "let
-   *  Tomo infer." Surfaces on the back of the card (`WordStack`). */
-  reading:      string
-  /** Optional English meaning the user wants to lock in. Empty string means
-   *  "let Tomo write one." Surfaces on the back of the card. */
-  meaning:      string
-  /** Optional personal mnemonic. Surfaces as a tab on the back of the card. */
-  mnemonic:     string
-  note:         string
-  /** Required at capture per the v4 redesign (explicit IA deviation). Submit
-   *  is gated on `deckId !== null`. */
-  deckId:       string | null
-  source:       string
-  imageName:    string | null
-  imageDataUrl: string | null
-  /** Wall-clock ms when the draft was last touched; lets the next page warn
-   *  about stale handoffs (e.g. browser back navigation hours later). */
-  updatedAt:    number
+	word: string;
+	sentence: string;
+	/** Build path the user chose on /add: 'generate' (AI) or 'manual'. */
+	mode: CaptureMode;
+	/**
+	 * Optional kana reading the user already knows. Empty string means "let
+	 *  Tomo infer." Surfaces on the back of the card (`WordStack`).
+	 */
+	reading: string;
+	/**
+	 * Optional English meaning the user wants to lock in. Empty string means
+	 *  "let Tomo write one." Surfaces on the back of the card.
+	 */
+	meaning: string;
+	/** Optional personal mnemonic. Surfaces as a tab on the back of the card. */
+	mnemonic: string;
+	note: string;
+	/**
+	 * Required at capture per the v4 redesign (explicit IA deviation). Submit
+	 *  is gated on `deckId !== null`.
+	 */
+	deckId: string | null;
+	source: string;
+	imageName: string | null;
+	imageDataUrl: string | null;
+	/**
+	 * Wall-clock ms when the draft was last touched; lets the next page warn
+	 *  about stale handoffs (e.g. browser back navigation hours later).
+	 */
+	updatedAt: number;
 }
 
 export const EMPTY_CAPTURE_DRAFT: CaptureDraft = {
-  word:         '',
-  sentence:     '',
-  mode:         'generate',
-  reading:      '',
-  meaning:      '',
-  mnemonic:     '',
-  note:         '',
-  deckId:       null,
-  source:       '',
-  imageName:    null,
-  imageDataUrl: null,
-  updatedAt:    0,
-}
+	word: "",
+	sentence: "",
+	mode: "generate",
+	reading: "",
+	meaning: "",
+	mnemonic: "",
+	note: "",
+	deckId: null,
+	source: "",
+	imageName: null,
+	imageDataUrl: null,
+	updatedAt: 0,
+};
 
 interface CaptureDraftActions {
-  setDraft: (draft: CaptureDraft) => void
-  reset:    () => void
+	setDraft: (draft: CaptureDraft) => void;
+	reset: () => void;
 }
 
 interface CaptureDraftStore {
-  draft:   CaptureDraft
-  actions: CaptureDraftActions
+	draft: CaptureDraft;
+	actions: CaptureDraftActions;
 }
 
 export const useCaptureDraftStore = create<CaptureDraftStore>()(
-  devtools(
-    (set) => ({
-      draft: EMPTY_CAPTURE_DRAFT,
-      actions: {
-        setDraft: (draft) => set({ draft: { ...draft, updatedAt: Date.now() } }),
-        reset:    () => set({ draft: EMPTY_CAPTURE_DRAFT }),
-      },
-    }),
-    { name: 'capture-draft-store' },
-  ),
-)
+	devtools(
+		set => ({
+			draft: EMPTY_CAPTURE_DRAFT,
+			actions: {
+				setDraft: draft => set({ draft: { ...draft, updatedAt: Date.now() } }),
+				reset: () => set({ draft: EMPTY_CAPTURE_DRAFT }),
+			},
+		}),
+		{ name: "capture-draft-store" },
+	),
+);
 
-export const useCaptureDraftActions = (): CaptureDraftActions =>
-  useCaptureDraftStore((s) => s.actions)
+export function useCaptureDraftActions(): CaptureDraftActions {
+	return useCaptureDraftStore(s => s.actions);
+}

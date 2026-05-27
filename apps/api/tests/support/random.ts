@@ -1,9 +1,9 @@
-import { spyOn } from 'bun:test'
+import { spyOn } from "bun:test";
 
 /** A constant, a cycled sequence, or a generator for the next `Math.random()`. */
-export type RandomSource = number | readonly number[] | (() => number)
+export type RandomSource = number | readonly number[] | (() => number);
 
-let activeSpy: { mockRestore: () => void } | null = null
+let activeSpy: { mockRestore: () => void } | null = null;
 
 /**
  * Make `Math.random()` deterministic. Pass a constant (`0`), a sequence that
@@ -15,25 +15,27 @@ let activeSpy: { mockRestore: () => void } | null = null
  * instead of range-based.
  */
 export function seedRandom(source: RandomSource = 0): void {
-  restoreRandom()
-  activeSpy = spyOn(Math, 'random').mockImplementation(toGenerator(source))
+	restoreRandom();
+	activeSpy = spyOn(Math, "random").mockImplementation(toGenerator(source));
 }
 
 /** Restore the real `Math.random`. Safe to call when nothing was seeded. */
 export function restoreRandom(): void {
-  if (activeSpy !== null) {
-    activeSpy.mockRestore()
-    activeSpy = null
-  }
+	if (activeSpy !== null) {
+		activeSpy.mockRestore();
+		activeSpy = null;
+	}
 }
 
 function toGenerator(source: RandomSource): () => number {
-  if (typeof source === 'function') return source
-  if (typeof source === 'number') return () => source
-  let i = 0
-  return () => {
-    const value = source[i % source.length] ?? 0
-    i += 1
-    return value
-  }
+	if (typeof source === "function")
+		return source;
+	if (typeof source === "number")
+		return () => source;
+	let i = 0;
+	return () => {
+		const value = source[i % source.length] ?? 0;
+		i += 1;
+		return value;
+	};
 }

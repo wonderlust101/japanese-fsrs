@@ -1,30 +1,30 @@
-'use server'
+"use server";
 
-import { apiCall, apiCallSafe } from '@/lib/api/client'
+import type { ApiCopyPremadeDeckResult, ApiList, ApiPremadeDeck } from "@fsrs-japanese/shared-types";
 import {
-  ApiPremadeDeckSchema,
-  ApiCopyPremadeDeckResultSchema,
-  apiListEnvelope,
-  type ApiList,
-  type ApiPremadeDeck,
-  type ApiCopyPremadeDeckResult,
-} from '@fsrs-japanese/shared-types'
+	ApiCopyPremadeDeckResultSchema,
+	apiListEnvelope,
+	ApiPremadeDeckSchema,
 
-const EMPTY_PREMADE_PAGE: ApiList<ApiPremadeDeck> = { items: [], nextCursor: null, hasMore: false }
+} from "@fsrs-japanese/shared-types";
+import { apiCall, apiCallSafe } from "@/lib/api/client";
+
+const EMPTY_PREMADE_PAGE: ApiList<ApiPremadeDeck> = { items: [], nextCursor: null, hasMore: false };
 
 export async function listPremadeDecksAction(
-  options: { limit?: number; cursor?: string } = {},
+	options: { limit?: number; cursor?: string } = {},
 ): Promise<ApiList<ApiPremadeDeck>> {
-  const params = new URLSearchParams()
-  params.set('limit', String(options.limit ?? 50))
-  if (options.cursor !== undefined) params.set('cursor', options.cursor)
+	const params = new URLSearchParams();
+	params.set("limit", String(options.limit ?? 50));
+	if (options.cursor !== undefined)
+		params.set("cursor", options.cursor);
 
-  return apiCallSafe<ApiList<ApiPremadeDeck>>(
-    `/api/v1/premade-decks?${params.toString()}`,
-    apiListEnvelope(ApiPremadeDeckSchema),
-    {},
-    EMPTY_PREMADE_PAGE,
-  )
+	return apiCallSafe<ApiList<ApiPremadeDeck>>(
+		`/api/v1/premade-decks?${params.toString()}`,
+		apiListEnvelope(ApiPremadeDeckSchema),
+		{},
+		EMPTY_PREMADE_PAGE,
+	);
 }
 
 /**
@@ -38,16 +38,16 @@ export async function listPremadeDecksAction(
  * layer rather than reusing keys.
  */
 export async function copyPremadeDeckAction(
-  premadeDeckId: string,
+	premadeDeckId: string,
 ): Promise<ApiCopyPremadeDeckResult> {
-  const key = crypto.randomUUID()
-  return apiCall<ApiCopyPremadeDeckResult>(
-    `/api/v1/premade-decks/${premadeDeckId}/copy`,
-    ApiCopyPremadeDeckResultSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': key },
-    },
-    'Failed to copy premade deck',
-  )
+	const key = crypto.randomUUID();
+	return apiCall<ApiCopyPremadeDeckResult>(
+		`/api/v1/premade-decks/${premadeDeckId}/copy`,
+		ApiCopyPremadeDeckResultSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": key },
+		},
+		"Failed to copy premade deck",
+	);
 }

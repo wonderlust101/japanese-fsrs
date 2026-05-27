@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
 // Metadata only. The drill flow is intentionally split:
 //   - /drill/setup       → inherits the app shell (sidebar visible),
@@ -8,12 +8,12 @@ import type { Metadata } from 'next'
 //   - /drill/[sessionId]/summary → app shell again (own layout.tsx),
 //                          mirroring /review/summary.
 
-export const metadata: Metadata = { title: 'Weak spot drill' }
+export const metadata: Metadata = { title: "Weak spot drill" };
 
 export default function DrillLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode
+	children: React.ReactNode;
 }): React.JSX.Element {
-  return <>{children}</>
+	return <>{children}</>;
 }

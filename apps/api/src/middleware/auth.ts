@@ -1,15 +1,15 @@
-import { createHash } from 'node:crypto'
-import type { User } from '@supabase/supabase-js'
-import type { RequestHandler } from 'express'
-import { z } from 'zod'
+import type { User } from "@supabase/supabase-js";
+import type { RequestHandler } from "express";
+import { createHash } from "node:crypto";
+import { z } from "zod";
 
-import { redis } from '../db/redis.ts'
-import { supabaseAdmin } from '../db/supabase.ts'
-import { env } from '../lib/env.ts'
-import { componentLogger } from '../lib/logger.ts'
-import { AppError } from './errorHandler.ts'
+import { redis } from "../db/redis.ts";
+import { supabaseAdmin } from "../db/supabase.ts";
+import { env } from "../lib/env.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { AppError } from "./errorHandler.ts";
 
-const log = componentLogger('auth.middleware')
+const log = componentLogger("auth.middleware");
 
 interface CacheEntry { user: User; expiresAt: number }
 
@@ -25,15 +25,15 @@ interface CacheEntry { user: User; expiresAt: number }
 //
 // Version prefix gives a manual invalidation lever — bump if the cached
 // shape stops being a User-compatible object.
-const TOKEN_L2_TTL_SECONDS = 30
-const TOKEN_L2_VERSION     = 'v1'
-const L2_ENABLED           = env.NODE_ENV !== 'test'
+const TOKEN_L2_TTL_SECONDS = 30;
+const TOKEN_L2_VERSION = "v1";
+const L2_ENABLED = env.NODE_ENV !== "test";
 
-const l2Key = (tokenHash: string): string => `auth:${TOKEN_L2_VERSION}:${tokenHash}`
+const l2Key = (tokenHash: string): string => `auth:${TOKEN_L2_VERSION}:${tokenHash}`;
 
 // Permissive shape: require `id` so downstream req.user.id is always safe;
 // allow Supabase to add fields without invalidating cached entries.
-const CachedUserSchema = z.looseObject({ id: z.string() })
+const CachedUserSchema = z.looseObject({ id: z.string() });
 
 /**
  * Per-process in-memory cache for verified bearer tokens. Keyed by SHA-256 of
@@ -52,14 +52,16 @@ const CachedUserSchema = z.looseObject({ id: z.string() })
  * miss + open breaker) still 503s, so the cache only ever *improves* tail
  * behaviour during outages — it never masks them.
  */
-const TOKEN_CACHE_TTL_MS = 30_000
-const TOKEN_CACHE_MAX    = 5000
-const tokenCache = new Map<string, CacheEntry>()
+const TOKEN_CACHE_TTL_MS = 30_000;
+const TOKEN_CACHE_MAX = 5000;
+const tokenCache = new Map<string, CacheEntry>();
 
 function pruneIfTooLarge(): void {
-  if (tokenCache.size <= TOKEN_CACHE_MAX) return
-  const oldestKey = tokenCache.keys().next().value
-  if (oldestKey !== undefined) tokenCache.delete(oldestKey)
+	if (tokenCache.size <= TOKEN_CACHE_MAX)
+		return;
+	const oldestKey = tokenCache.keys().next().value;
+	if (oldestKey !== undefined)
+		tokenCache.delete(oldestKey);
 }
 
 /**
@@ -68,7 +70,7 @@ function pruneIfTooLarge(): void {
  * prefix marks it as internal; production code never calls it.
  */
 export function _clearTokenCacheForTests(): void {
-  tokenCache.clear()
+	tokenCache.clear();
 }
 
 /**
@@ -85,59 +87,59 @@ export function _clearTokenCacheForTests(): void {
  *   - The token has expired or is otherwise invalid
  */
 export const authMiddleware: RequestHandler = async (req, _res, next): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization
+	try {
+		const authHeader = req.headers.authorization;
 
-    if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
-      throw new AppError(401, 'Missing or malformed Authorization header', { code: 'AUTH_HEADER_MISSING' })
-    }
+		if (typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+			throw new AppError(401, "Missing or malformed Authorization header", { code: "AUTH_HEADER_MISSING" });
+		}
 
-    const token = authHeader.slice('Bearer '.length)
+		const token = authHeader.slice("Bearer ".length);
 
-    // Hash, not raw token, lives in the Map key. SHA-256 is sufficient for
-    // collision resistance at this scale; cryptographic strength isn't
-    // required since the cache is a process-local optimization.
-    const tokenHash = createHash('sha256').update(token).digest('hex')
-    const cached = tokenCache.get(tokenHash)
-    if (cached !== undefined && Date.now() < cached.expiresAt) {
-      req.user = cached.user
-      next()
-      return
-    }
+		// Hash, not raw token, lives in the Map key. SHA-256 is sufficient for
+		// collision resistance at this scale; cryptographic strength isn't
+		// required since the cache is a process-local optimization.
+		const tokenHash = createHash("sha256").update(token).digest("hex");
+		const cached = tokenCache.get(tokenHash);
+		if (cached !== undefined && Date.now() < cached.expiresAt) {
+			req.user = cached.user;
+			next();
+			return;
+		}
 
-    // ── L2 (Redis) lookup on L1 miss ─────────────────────────────────────────
-    // Any failure (network, breaker open, corrupt entry) falls through to the
-    // Supabase call below — L2 only ever speeds things up, never gates them.
-    if (L2_ENABLED) {
-      const l2User = await readL2Token(tokenHash)
-      if (l2User !== null) {
-        tokenCache.set(tokenHash, { user: l2User, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS })
-        pruneIfTooLarge()
-        req.user = l2User
-        next()
-        return
-      }
-    }
+		// ── L2 (Redis) lookup on L1 miss ─────────────────────────────────────────
+		// Any failure (network, breaker open, corrupt entry) falls through to the
+		// Supabase call below — L2 only ever speeds things up, never gates them.
+		if (L2_ENABLED) {
+			const l2User = await readL2Token(tokenHash);
+			if (l2User !== null) {
+				tokenCache.set(tokenHash, { user: l2User, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
+				pruneIfTooLarge();
+				req.user = l2User;
+				next();
+				return;
+			}
+		}
 
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+		const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
-    if (error !== null || user === null) {
-      throw new AppError(401, 'Invalid or expired token', { code: 'AUTH_TOKEN_INVALID' })
-    }
+		if (error !== null || user === null) {
+			throw new AppError(401, "Invalid or expired token", { code: "AUTH_TOKEN_INVALID" });
+		}
 
-    tokenCache.set(tokenHash, { user, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS })
-    pruneIfTooLarge()
-    if (L2_ENABLED) {
-      // Fire-and-forget: the response must not wait on Redis. A failed write
-      // just means the next cross-pod request will pay one more Supabase call.
-      void writeL2Token(tokenHash, user)
-    }
-    req.user = user
-    next()
-  } catch (err) {
-    next(err)
-  }
-}
+		tokenCache.set(tokenHash, { user, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
+		pruneIfTooLarge();
+		if (L2_ENABLED) {
+			// Fire-and-forget: the response must not wait on Redis. A failed write
+			// just means the next cross-pod request will pay one more Supabase call.
+			void writeL2Token(tokenHash, user);
+		}
+		req.user = user;
+		next();
+	} catch (err) {
+		next(err);
+	}
+};
 
 /**
  * Read a cached User from L2 (Redis). Returns null on miss, on Redis failure
@@ -145,34 +147,36 @@ export const authMiddleware: RequestHandler = async (req, _res, next): Promise<v
  * corrupt entries the bad key is best-effort deleted.
  */
 async function readL2Token(tokenHash: string): Promise<User | null> {
-  const key = l2Key(tokenHash)
-  let raw: unknown
-  try {
-    raw = await redis.get<unknown>(key)
-  } catch (err) {
-    log.warn({
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'L2 token cache read failed; treating as miss')
-    return null
-  }
-  if (raw === null) return null
+	const key = l2Key(tokenHash);
+	let raw: unknown;
+	try {
+		raw = await redis.get<unknown>(key);
+	} catch (err) {
+		log.warn({
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "L2 token cache read failed; treating as miss");
+		return null;
+	}
+	if (raw === null)
+		return null;
 
-  try {
-    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
-    const result = CachedUserSchema.safeParse(parsed)
-    if (!result.success) throw new Error('cached user failed shape check')
-    // Cast back to the SDK User type: the loose schema preserves all fields,
-    // so downstream `req.user.id`/`.email` access continues to work. If the
-    // Supabase User type ever drifts in a breaking way, the version prefix
-    // is the manual invalidation lever.
-    return result.data as unknown as User
-  } catch (err) {
-    log.warn({
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'corrupt L2 token cache entry; treating as miss')
-    void redis.del(key).catch(() => { /* swallow — entry will TTL out */ })
-    return null
-  }
+	try {
+		const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+		const result = CachedUserSchema.safeParse(parsed);
+		if (!result.success)
+			throw new Error("cached user failed shape check");
+		// Cast back to the SDK User type: the loose schema preserves all fields,
+		// so downstream `req.user.id`/`.email` access continues to work. If the
+		// Supabase User type ever drifts in a breaking way, the version prefix
+		// is the manual invalidation lever.
+		return result.data as unknown as User;
+	} catch (err) {
+		log.warn({
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "corrupt L2 token cache entry; treating as miss");
+		void redis.del(key).catch(() => { /* swallow — entry will TTL out */ });
+		return null;
+	}
 }
 
 /**
@@ -181,11 +185,11 @@ async function readL2Token(tokenHash: string): Promise<User | null> {
  * of truth, and the next cross-pod miss falls back to Supabase auth.
  */
 async function writeL2Token(tokenHash: string, user: User): Promise<void> {
-  try {
-    await redis.set(l2Key(tokenHash), JSON.stringify(user), { ex: TOKEN_L2_TTL_SECONDS })
-  } catch (err) {
-    log.warn({
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'L2 token cache write failed')
-  }
+	try {
+		await redis.set(l2Key(tokenHash), JSON.stringify(user), { ex: TOKEN_L2_TTL_SECONDS });
+	} catch (err) {
+		log.warn({
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "L2 token cache write failed");
+	}
 }

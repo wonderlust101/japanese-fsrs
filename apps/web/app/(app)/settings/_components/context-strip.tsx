@@ -11,58 +11,58 @@
  */
 
 interface ContextNoteProps {
-  /** Mono small-caps eyebrow above the note body. */
-  eyebrow: string
-  /** Optional headline below the eyebrow. Falls back to eyebrow if absent. */
-  title?: string
-  children: React.ReactNode
+	/** Mono small-caps eyebrow above the note body. */
+	eyebrow: string;
+	/** Optional headline below the eyebrow. Falls back to eyebrow if absent. */
+	title?: string;
+	children: React.ReactNode;
 }
 
 export function ContextNote({
-  eyebrow,
-  title,
-  children,
+	eyebrow,
+	title,
+	children,
 }: ContextNoteProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-y-2">
-      <p className="font-mono text-sm text-faded-sumi">
-        {eyebrow}
-      </p>
-      {title !== undefined && (
-        <p className="text-sm font-medium text-sumi-ink">{title}</p>
-      )}
-      <div className="text-xs leading-relaxed text-faded-sumi flex flex-col gap-y-2">
-        {children}
-      </div>
-    </div>
-  )
+	return (
+		<div className="flex flex-col gap-y-2">
+			<p className="font-mono text-sm text-faded-sumi">
+				{eyebrow}
+			</p>
+			{title !== undefined && (
+				<p className="text-sm font-medium text-sumi-ink">{title}</p>
+			)}
+			<div className="text-xs leading-relaxed text-faded-sumi flex flex-col gap-y-2">
+				{children}
+			</div>
+		</div>
+	);
 }
 
 interface ContextStripProps {
-  children?: React.ReactNode
+	children?: React.ReactNode;
 }
 
 export function ContextStrip({
-  children,
+	children,
 }: ContextStripProps): React.JSX.Element {
-  return (
-    <aside
-      aria-label="Section context"
-      className="hidden xl:block w-[300px] shrink-0"
-    >
-      <div className="sticky top-24 flex flex-col gap-y-6">
-        {children}
-      </div>
-    </aside>
-  )
+	return (
+		<aside
+			aria-label="Section context"
+			className="hidden xl:block w-[300px] shrink-0"
+		>
+			<div className="sticky top-24 flex flex-col gap-y-6">
+				{children}
+			</div>
+		</aside>
+	);
 }
 
 // ─── Inline keyboard pill (used in the strip's keyboard references) ──────
 
 export function Kbd({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <kbd className="inline-flex items-center rounded-xs border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-sm text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
-      {children}
-    </kbd>
-  )
+	return (
+		<kbd className="inline-flex items-center rounded-xs border border-soft-hairline bg-warm-paper-raised px-1.5 py-0.5 font-mono text-sm text-sumi-ink shadow-[0_1px_0_rgba(31,26,24,0.04)]">
+			{children}
+		</kbd>
+	);
 }

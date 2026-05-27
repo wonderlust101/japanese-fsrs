@@ -1,4 +1,4 @@
-import { PageLoader } from '@/components/ui/TomoLoader'
+import { PageLoader } from "@/components/ui/TomoLoader";
 
 /**
  * Streamed fallback for every route under (app) whose server component awaits
@@ -11,5 +11,5 @@ import { PageLoader } from '@/components/ui/TomoLoader'
  * (thin client shells) render immediately and never trigger this fallback.
  */
 export default function AppLoading(): React.JSX.Element {
-  return <PageLoader />
+	return <PageLoader />;
 }

@@ -1,9 +1,9 @@
-import type { RequestHandler } from 'express'
+import type { RequestHandler } from "express";
 
 import {
-  maturityHistoryQuerySchema,
-} from '../schemas/insights.schema.ts'
-import * as insightsService from '../services/insights.service.ts'
+	maturityHistoryQuerySchema,
+} from "../schemas/insights.schema.ts";
+import * as insightsService from "../services/insights.service.ts";
 
 /**
  * GET /api/v1/insights/card-quality
@@ -18,9 +18,9 @@ import * as insightsService from '../services/insights.service.ts'
  * Lapis fields — that's expected, not a regression.
  */
 export const cardQuality: RequestHandler = async (req, res): Promise<void> => {
-  const data = await insightsService.listCardQualityIssues(req.user.id)
-  res.json(data)
-}
+	const data = await insightsService.listCardQualityIssues(req.user.id);
+	res.json(data);
+};
 
 /**
  * GET /api/v1/insights/maturity-history?days=…
@@ -32,10 +32,10 @@ export const cardQuality: RequestHandler = async (req, res): Promise<void> => {
  * always computed live so the chart reflects the user's current moment.
  */
 export const maturityHistory: RequestHandler = async (req, res): Promise<void> => {
-  const { days } = maturityHistoryQuerySchema.parse(req.query)
-  const data     = await insightsService.listMaturityHistory(req.user.id, days)
-  res.json(data)
-}
+	const { days } = maturityHistoryQuerySchema.parse(req.query);
+	const data = await insightsService.listMaturityHistory(req.user.id, days);
+	res.json(data);
+};
 
 /**
  * GET /api/v1/insights/distributions
@@ -48,6 +48,6 @@ export const maturityHistory: RequestHandler = async (req, res): Promise<void> =
  * yet" message in that case.
  */
 export const distributions: RequestHandler = async (req, res): Promise<void> => {
-  const data = await insightsService.getDistributions(req.user.id)
-  res.json(data)
-}
+	const data = await insightsService.getDistributions(req.user.id);
+	res.json(data);
+};

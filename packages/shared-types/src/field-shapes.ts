@@ -5,38 +5,38 @@
  * `schemas/field-shapes.schema.ts` so the validator and the type cannot drift.
  */
 
-import type { z } from 'zod'
+import type { z } from "zod";
 
-import type { LayoutType } from './card.types.ts'
+import type { LayoutType } from "./card.types.ts";
 import type {
-  WordFieldsSchema,
-  VocabularyFieldsDataSchema,
-  GrammarFieldsDataSchema,
-  SentenceFieldsDataSchema,
-  FieldsDataSchema,
-} from './schemas/field-shapes.schema.ts'
+	FieldsDataSchema,
+	GrammarFieldsDataSchema,
+	SentenceFieldsDataSchema,
+	VocabularyFieldsDataSchema,
+	WordFieldsSchema,
+} from "./schemas/field-shapes.schema.ts";
 
 /** Common base for vocabulary and grammar layouts. */
-export type WordFields = z.infer<typeof WordFieldsSchema>
+export type WordFields = z.infer<typeof WordFieldsSchema>;
 
 /** fields_data shape for layout_type = 'vocabulary'. */
-export type VocabularyFieldsData = z.infer<typeof VocabularyFieldsDataSchema>
+export type VocabularyFieldsData = z.infer<typeof VocabularyFieldsDataSchema>;
 
 /** fields_data shape for layout_type = 'grammar'. */
-export type GrammarFieldsData = z.infer<typeof GrammarFieldsDataSchema>
+export type GrammarFieldsData = z.infer<typeof GrammarFieldsDataSchema>;
 
 /** fields_data shape for layout_type = 'sentence' (reserved for future use). */
-export type SentenceFieldsData = z.infer<typeof SentenceFieldsDataSchema>
+export type SentenceFieldsData = z.infer<typeof SentenceFieldsDataSchema>;
 
 /**
  * Discriminated union of all `fields_data` shapes by layout_type.
  * Use `getWordFields` / `getVocabularyFields` to narrow at the consumer site
  * instead of widening to `Record<string, unknown>`.
  */
-export type FieldsData = z.infer<typeof FieldsDataSchema>
+export type FieldsData = z.infer<typeof FieldsDataSchema>;
 
 /** Narrow input — anything carrying both layoutType and fieldsData. */
-type FieldsCarrier = { layoutType: LayoutType; fieldsData: FieldsData }
+interface FieldsCarrier { layoutType: LayoutType; fieldsData: FieldsData }
 
 /**
  * Returns the shared word/reading/meaning fields when the card is vocabulary
@@ -45,15 +45,15 @@ type FieldsCarrier = { layoutType: LayoutType; fieldsData: FieldsData }
  * inside this helper is safe at runtime.
  */
 export function getWordFields(card: FieldsCarrier): WordFields | null {
-  if (card.layoutType === 'vocabulary' || card.layoutType === 'grammar') {
-    return card.fieldsData as WordFields
-  }
-  return null
+	if (card.layoutType === "vocabulary" || card.layoutType === "grammar") {
+		return card.fieldsData as WordFields;
+	}
+	return null;
 }
 
 /** Returns vocabulary-only fields (example sentences, kanji breakdown, etc.) or null. */
 export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData | null {
-  return card.layoutType === 'vocabulary' ? (card.fieldsData as VocabularyFieldsData) : null
+	return card.layoutType === "vocabulary" ? (card.fieldsData as VocabularyFieldsData) : null;
 }
 
 /**
@@ -68,7 +68,7 @@ export function getVocabularyFields(card: FieldsCarrier): VocabularyFieldsData |
  * pattern as `getWordFields`).
  */
 export function getSentenceFields(card: FieldsCarrier): SentenceFieldsData | null {
-  return card.layoutType === 'sentence' ? (card.fieldsData as SentenceFieldsData) : null
+	return card.layoutType === "sentence" ? (card.fieldsData as SentenceFieldsData) : null;
 }
 
 /**
@@ -83,6 +83,6 @@ export function getSentenceFields(card: FieldsCarrier): SentenceFieldsData | nul
  * narrowing.
  */
 export function getSentenceFrontBack(card: FieldsCarrier): { front: string; back: string } | null {
-  const fd = getSentenceFields(card)
-  return fd === null ? null : { front: fd.ja, back: fd.en }
+	const fd = getSentenceFields(card);
+	return fd === null ? null : { front: fd.ja, back: fd.en };
 }

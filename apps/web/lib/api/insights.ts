@@ -1,15 +1,17 @@
-'use client'
+"use client";
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import type { ApiInsightsDistributions, ApiMaturitySnapshot } from '@fsrs-japanese/shared-types'
+import type { ApiInsightsDistributions, ApiMaturitySnapshot } from "@fsrs-japanese/shared-types";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { MaturityHistoryWindow } from "../actions/insights.actions";
 
-import { queryKeys } from './queryKeys'
-import { staleTimes } from './config'
+import { useQuery } from "@tanstack/react-query";
 import {
-  getInsightsDistributionsAction,
-  getMaturityHistoryAction,
-  type MaturityHistoryWindow,
-} from '../actions/insights.actions'
+	getInsightsDistributionsAction,
+	getMaturityHistoryAction,
+
+} from "../actions/insights.actions";
+import { staleTimes } from "./config";
+import { queryKeys } from "./queryKeys";
 
 /**
  * Backend Completion Plan Stage 9 — `GET /api/v1/insights/maturity-history`.
@@ -18,13 +20,13 @@ import {
  * the chart reflects the current moment without needing a tighter staleTime.
  */
 export function useMaturityHistory(
-  days: MaturityHistoryWindow = '90',
+	days: MaturityHistoryWindow = "90",
 ): UseQueryResult<ReadonlyArray<ApiMaturitySnapshot>, Error> {
-  return useQuery({
-    queryKey:  queryKeys.insights.maturityHistory(days),
-    queryFn:   () => getMaturityHistoryAction(days),
-    staleTime: staleTimes.analytics,
-  })
+	return useQuery({
+		queryKey: queryKeys.insights.maturityHistory(days),
+		queryFn: () => getMaturityHistoryAction(days),
+		staleTime: staleTimes.analytics,
+	});
 }
 
 /**
@@ -35,9 +37,9 @@ export function useMaturityHistory(
  * components render their calm "no data yet" message instead of erroring.
  */
 export function useInsightsDistributions(): UseQueryResult<ApiInsightsDistributions, Error> {
-  return useQuery({
-    queryKey:  queryKeys.insights.distributions(),
-    queryFn:   () => getInsightsDistributionsAction(),
-    staleTime: staleTimes.analytics,
-  })
+	return useQuery({
+		queryKey: queryKeys.insights.distributions(),
+		queryFn: () => getInsightsDistributionsAction(),
+		staleTime: staleTimes.analytics,
+	});
 }

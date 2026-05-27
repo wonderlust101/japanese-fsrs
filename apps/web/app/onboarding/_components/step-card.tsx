@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { Card } from '@/components/ui/Card'
+import { Card } from "@/components/ui/Card";
 
 /**
  * StepChild is the onboarding-era wrapper used by the five step pages
@@ -10,24 +10,24 @@ import { Card } from '@/components/ui/Card'
  * change.
  */
 export function StepChild({
-  children,
-  className = '',
+	children,
+	className = "",
 }: {
-  children:   React.ReactNode
-  className?: string
+	children: React.ReactNode;
+	className?: string;
 }): React.JSX.Element {
-  return <div className={className}>{children}</div>
+	return <div className={className}>{children}</div>;
 }
 
 interface StepCardProps {
-  /** Left pane: the SRS preview visualization. */
-  previewPane: React.ReactNode
-  heading:     string
-  subhead:     string
-  /** Right pane content: answer affordance (selection cards, chips, deck rows). */
-  children:    React.ReactNode
-  /** Footer row content: Back + Continue buttons. */
-  footer:      React.ReactNode
+	/** Left pane: the SRS preview visualization. */
+	previewPane: React.ReactNode;
+	heading: string;
+	subhead: string;
+	/** Right pane content: answer affordance (selection cards, chips, deck rows). */
+	children: React.ReactNode;
+	/** Footer row content: Back + Continue buttons. */
+	footer: React.ReactNode;
 }
 
 /**
@@ -51,50 +51,49 @@ interface StepCardProps {
  * full-width single-column stack instead.
  */
 export function StepCard({
-  previewPane,
-  heading,
-  subhead,
-  children,
-  footer,
+	previewPane,
+	heading,
+	subhead,
+	children,
+	footer,
 }: StepCardProps): React.JSX.Element {
-  return (
-    <Card variant="default">
-      <div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-8 lg:gap-12">
-        {/* SRS preview pane (left on md, top on mobile) */}
-        <aside className="flex flex-col items-stretch gap-3">
-          {/* Section caption for the preview pane. The preview visualizations
+	return (
+		<Card variant="default">
+			<div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-8 lg:gap-12">
+				{/* SRS preview pane (left on md, top on mobile) */}
+				<aside className="flex flex-col items-stretch gap-3">
+					{/* Section caption for the preview pane. The preview visualizations
               use this same mono/faded-sumi style for their own internal labels
               ("Estimated cards to learn", day names, etc.), so a bare word would
               read as part of the image. The trailing hairline frames "Preview"
               as a caption sitting above the visualization, not a line within it. */}
-          <div className="flex items-center gap-3 text-xs font-mono tracking-wide text-faded-sumi">
-            <span>Preview</span>
-            <span aria-hidden="true" className="h-px flex-1 bg-soft-hairline" />
-          </div>
-          <div className="flex-1">{previewPane}</div>
-        </aside>
+					<div className="flex items-center gap-3 text-xs font-mono tracking-wide text-faded-sumi">
+						<span>Preview</span>
+						<span aria-hidden="true" className="h-px flex-1 bg-soft-hairline" />
+					</div>
+					<div className="flex-1">{previewPane}</div>
+				</aside>
 
-        {/* Right column with its own inner stagger */}
-        <section          className="flex flex-col gap-8"
-        >
-          <header className="flex flex-col gap-2">
-            <h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1]">
-              {heading}
-            </h1>
-            <p className="text-base text-faded-sumi leading-relaxed max-w-measure">
-              {subhead}
-            </p>
-          </header>
+				{/* Right column with its own inner stagger */}
+				<section className="flex flex-col gap-8">
+					<header className="flex flex-col gap-2">
+						<h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1]">
+							{heading}
+						</h1>
+						<p className="text-base text-faded-sumi leading-relaxed max-w-measure">
+							{subhead}
+						</p>
+					</header>
 
-          {/* Inner stagger so body items (selection cards, chips, deck rows)
+					{/* Inner stagger so body items (selection cards, chips, deck rows)
               arrive one by one instead of together. */}
-          <div>{children}</div>
+					<div>{children}</div>
 
-          <div className="mt-auto pt-2">
-            {footer}
-          </div>
-        </section>
-      </div>
-    </Card>
-  )
+					<div className="mt-auto pt-2">
+						{footer}
+					</div>
+				</section>
+			</div>
+		</Card>
+	);
 }

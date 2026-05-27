@@ -17,8 +17,8 @@
  * // → 'Incorrect API key <redacted-key>'
  */
 export function scrubKeyish(input: unknown): string {
-  const msg = input instanceof Error ? input.message : String(input)
-  return msg.replace(/sk-[A-Za-z0-9_*-]+/g, '<redacted-key>')
+	const msg = input instanceof Error ? input.message : String(input);
+	return msg.replace(/sk-[\w*-]+/g, "<redacted-key>");
 }
 
 /**
@@ -29,26 +29,28 @@ export function scrubKeyish(input: unknown): string {
  * on malformed cause chains.
  */
 export function summarizeErr(err: unknown): Record<string, unknown> {
-  if (err instanceof Error) {
-    const summary: Record<string, unknown> = {
-      name:    err.name,
-      message: scrubKeyish(err.message),
-    }
-    if (err.stack !== undefined) summary['stack'] = scrubKeyish(err.stack)
-    const cause = (err as { cause?: unknown }).cause
-    if (cause !== undefined) summary['cause'] = summarizeCause(cause)
-    return summary
-  }
-  return { detail: String(err) }
+	if (err instanceof Error) {
+		const summary: Record<string, unknown> = {
+			name: err.name,
+			message: scrubKeyish(err.message),
+		};
+		if (err.stack !== undefined)
+			summary.stack = scrubKeyish(err.stack);
+		const cause = (err as { cause?: unknown }).cause;
+		if (cause !== undefined)
+			summary.cause = summarizeCause(cause);
+		return summary;
+	}
+	return { detail: String(err) };
 }
 
 /** One-level cause summary (no stack, no recursive cause walk). */
 function summarizeCause(err: unknown): Record<string, unknown> {
-  if (err instanceof Error) {
-    return {
-      name:    err.name,
-      message: scrubKeyish(err.message),
-    }
-  }
-  return { detail: String(err) }
+	if (err instanceof Error) {
+		return {
+			name: err.name,
+			message: scrubKeyish(err.message),
+		};
+	}
+	return { detail: String(err) };
 }

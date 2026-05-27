@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Full-bleed sumi-ink shader for the landing hero.
@@ -32,7 +32,7 @@ void main() {
   vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
   v_uv = p;                       // 0..2 across the clip-covering triangle
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
-}`
+}`;
 
 const FRAG_SRC = /* glsl */ `#version 300 es
 precision highp float;
@@ -110,161 +110,165 @@ void main() {
   col = mix(PAPER, col, 0.55 + 0.45 * vig);
 
   outColor = vec4(col, 1.0);
-}`
+}`;
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader | null {
-  const sh = gl.createShader(type)
-  if (!sh) return null
-  gl.shaderSource(sh, src)
-  gl.compileShader(sh)
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    gl.deleteShader(sh)
-    return null
-  }
-  return sh
+	const sh = gl.createShader(type);
+	if (!sh)
+		return null;
+	gl.shaderSource(sh, src);
+	gl.compileShader(sh);
+	if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+		gl.deleteShader(sh);
+		return null;
+	}
+	return sh;
 }
 
 export function InkShaderCanvas({ className }: { className?: string }): React.JSX.Element | null {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  // `failed` flips on when WebGL2 is unavailable or shader setup throws, so the
-  // parent's CSS wash shows through instead of an empty canvas.
-  const [failed, setFailed] = useState(false)
+	const canvasRef = useRef<HTMLCanvasElement>(null);
+	// `failed` flips on when WebGL2 is unavailable or shader setup throws, so the
+	// parent's CSS wash shows through instead of an empty canvas.
+	const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		if (!canvas)
+			return;
 
-    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'low-power' })
-    if (!gl) {
-      setFailed(true)
-      return
-    }
+		const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "low-power" });
+		if (!gl) {
+			setFailed(true);
+			return;
+		}
 
-    const vert = compile(gl, gl.VERTEX_SHADER, VERT_SRC)
-    const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC)
-    const program = gl.createProgram()
-    if (!vert || !frag || !program) {
-      setFailed(true)
-      return
-    }
-    gl.attachShader(program, vert)
-    gl.attachShader(program, frag)
-    gl.linkProgram(program)
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      setFailed(true)
-      return
-    }
-    gl.useProgram(program)
+		const vert = compile(gl, gl.VERTEX_SHADER, VERT_SRC);
+		const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
+		const program = gl.createProgram();
+		if (!vert || !frag || !program) {
+			setFailed(true);
+			return;
+		}
+		gl.attachShader(program, vert);
+		gl.attachShader(program, frag);
+		gl.linkProgram(program);
+		if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+			setFailed(true);
+			return;
+		}
+		gl.useProgram(program);
 
-    const uResolution = gl.getUniformLocation(program, 'u_resolution')
-    const uTime = gl.getUniformLocation(program, 'u_time')
-    const uPointer = gl.getUniformLocation(program, 'u_pointer')
-    const uScroll = gl.getUniformLocation(program, 'u_scroll')
+		const uResolution = gl.getUniformLocation(program, "u_resolution");
+		const uTime = gl.getUniformLocation(program, "u_time");
+		const uPointer = gl.getUniformLocation(program, "u_pointer");
+		const uScroll = gl.getUniformLocation(program, "u_scroll");
 
-    // DPR capped at 1.5: the ink is soft, so the extra pixels of a 3x phone
-    // screen buy nothing visible but cost a lot of fill rate.
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-    const resize = (): void => {
-      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr))
-      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr))
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w
-        canvas.height = h
-        gl.viewport(0, 0, w, h)
-      }
-      gl.uniform2f(uResolution, canvas.width, canvas.height)
-    }
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
-    resize()
+		// DPR capped at 1.5: the ink is soft, so the extra pixels of a 3x phone
+		// screen buy nothing visible but cost a lot of fill rate.
+		const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+		const resize = (): void => {
+			const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+			const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+			if (canvas.width !== w || canvas.height !== h) {
+				canvas.width = w;
+				canvas.height = h;
+				gl.viewport(0, 0, w, h);
+			}
+			gl.uniform2f(uResolution, canvas.width, canvas.height);
+		};
+		const ro = new ResizeObserver(resize);
+		ro.observe(canvas);
+		resize();
 
-    // Pointer: store a target, ease the live uniform toward it each frame.
-    const target = { x: 0.5, y: 0.5 }
-    const eased = { x: 0.5, y: 0.5 }
-    const onPointer = (e: PointerEvent): void => {
-      const rect = canvas.getBoundingClientRect()
-      target.x = (e.clientX - rect.left) / rect.width
-      target.y = 1 - (e.clientY - rect.top) / rect.height // GL y is bottom-up
-    }
+		// Pointer: store a target, ease the live uniform toward it each frame.
+		const target = { x: 0.5, y: 0.5 };
+		const eased = { x: 0.5, y: 0.5 };
+		const onPointer = (e: PointerEvent): void => {
+			const rect = canvas.getBoundingClientRect();
+			target.x = (e.clientX - rect.left) / rect.width;
+			target.y = 1 - (e.clientY - rect.top) / rect.height; // GL y is bottom-up
+		};
 
-    let scroll = 0
-    const onScroll = (): void => {
-      scroll = Math.min(1, Math.max(0, window.scrollY / Math.max(1, window.innerHeight)))
-    }
-    onScroll()
+		let scroll = 0;
+		const onScroll = (): void => {
+			scroll = Math.min(1, Math.max(0, window.scrollY / Math.max(1, window.innerHeight)));
+		};
+		onScroll();
 
-    const draw = (timeSeconds: number): void => {
-      eased.x += (target.x - eased.x) * 0.06
-      eased.y += (target.y - eased.y) * 0.06
-      gl.uniform1f(uTime, timeSeconds)
-      gl.uniform2f(uPointer, eased.x, eased.y)
-      gl.uniform1f(uScroll, scroll)
-      gl.drawArrays(gl.TRIANGLES, 0, 3)
-    }
+		const draw = (timeSeconds: number): void => {
+			eased.x += (target.x - eased.x) * 0.06;
+			eased.y += (target.y - eased.y) * 0.06;
+			gl.uniform1f(uTime, timeSeconds);
+			gl.uniform2f(uPointer, eased.x, eased.y);
+			gl.uniform1f(uScroll, scroll);
+			gl.drawArrays(gl.TRIANGLES, 0, 3);
+		};
 
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) {
-      // One static frame. No loop, no listeners — the frozen ink IS the
-      // reduced-motion experience.
-      draw(8.0)
-      return () => ro.disconnect()
-    }
+		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if (reduced) {
+			// One static frame. No loop, no listeners — the frozen ink IS the
+			// reduced-motion experience.
+			draw(8.0);
+			return () => ro.disconnect();
+		}
 
-    window.addEventListener('pointermove', onPointer, { passive: true })
-    window.addEventListener('scroll', onScroll, { passive: true })
+		window.addEventListener("pointermove", onPointer, { passive: true });
+		window.addEventListener("scroll", onScroll, { passive: true });
 
-    let raf = 0
-    let running = true
-    const start = performance.now()
-    const loop = (): void => {
-      if (!running) return
-      draw((performance.now() - start) / 1000)
-      raf = requestAnimationFrame(loop)
-    }
+		let raf = 0;
+		let running = true;
+		const start = performance.now();
+		const loop = (): void => {
+			if (!running)
+				return;
+			draw((performance.now() - start) / 1000);
+			raf = requestAnimationFrame(loop);
+		};
 
-    // Pause when the hero leaves the viewport — nothing to render off-screen.
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        const visible = entry?.isIntersecting ?? false
-        if (visible && !running) {
-          running = true
-          raf = requestAnimationFrame(loop)
-        } else if (!visible) {
-          running = false
-          cancelAnimationFrame(raf)
-        }
-      },
-      { threshold: 0 },
-    )
-    io.observe(canvas)
+		// Pause when the hero leaves the viewport — nothing to render off-screen.
+		const io = new IntersectionObserver(
+			([entry]) => {
+				const visible = entry?.isIntersecting ?? false;
+				if (visible && !running) {
+					running = true;
+					raf = requestAnimationFrame(loop);
+				} else if (!visible) {
+					running = false;
+					cancelAnimationFrame(raf);
+				}
+			},
+			{ threshold: 0 },
+		);
+		io.observe(canvas);
 
-    const onVisibility = (): void => {
-      if (document.hidden) {
-        running = false
-        cancelAnimationFrame(raf)
-      } else if (!running) {
-        running = true
-        raf = requestAnimationFrame(loop)
-      }
-    }
-    document.addEventListener('visibilitychange', onVisibility)
+		const onVisibility = (): void => {
+			if (document.hidden) {
+				running = false;
+				cancelAnimationFrame(raf);
+			} else if (!running) {
+				running = true;
+				raf = requestAnimationFrame(loop);
+			}
+		};
+		document.addEventListener("visibilitychange", onVisibility);
 
-    raf = requestAnimationFrame(loop)
+		raf = requestAnimationFrame(loop);
 
-    return () => {
-      running = false
-      cancelAnimationFrame(raf)
-      ro.disconnect()
-      io.disconnect()
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pointermove', onPointer)
-      window.removeEventListener('scroll', onScroll)
-      gl.deleteProgram(program)
-      gl.deleteShader(vert)
-      gl.deleteShader(frag)
-    }
-  }, [])
+		return () => {
+			running = false;
+			cancelAnimationFrame(raf);
+			ro.disconnect();
+			io.disconnect();
+			document.removeEventListener("visibilitychange", onVisibility);
+			window.removeEventListener("pointermove", onPointer);
+			window.removeEventListener("scroll", onScroll);
+			gl.deleteProgram(program);
+			gl.deleteShader(vert);
+			gl.deleteShader(frag);
+		};
+	}, []);
 
-  if (failed) return null
-  return <canvas ref={canvasRef} aria-hidden="true" className={className} />
+	if (failed)
+		return null;
+	return <canvas ref={canvasRef} aria-hidden="true" className={className} />;
 }

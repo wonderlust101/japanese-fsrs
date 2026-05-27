@@ -1,10 +1,10 @@
 {
-  "extends": "@fsrs-japanese/tsconfig/base",
-  "compilerOptions": {
-    "paths": {
-      "@api/*": ["./src/*"],
-      "@fsrs-japanese/shared-types": ["../../packages/shared-types/src/index.ts"]
-    }
-  },
-  "include": ["src", "scripts", "tests"]
+	"extends": "@fsrs-japanese/tsconfig/base",
+	"compilerOptions": {
+		"paths": {
+			"@api/*": ["./src/*"],
+			"@fsrs-japanese/shared-types": ["../../packages/shared-types/src/index.ts"]
+		}
+	},
+	"include": ["src", "scripts", "tests"]
 }

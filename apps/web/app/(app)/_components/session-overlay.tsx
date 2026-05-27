@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { useRef } from 'react'
+import { useRef } from "react";
 
-import { cn } from '@/lib/utils'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
+import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { cn } from "@/lib/utils";
 
 /**
  * Full-screen session takeover container (review + drill). A fixed overlay that
@@ -15,24 +15,24 @@ import { useFocusTrap } from '@/hooks/use-focus-trap'
  * end-session flow — so no autoFocus / Escape-close / restoreFocus here.
  */
 export function SessionOverlay({
-  children,
-  className,
+	children,
+	className,
 }: {
-  children:   React.ReactNode
-  className?: string
+	children: React.ReactNode;
+	className?: string;
 }): React.JSX.Element {
-  const ref = useRef<HTMLDivElement>(null)
-  useFocusTrap(ref, { active: true })
+	const ref = useRef<HTMLDivElement>(null);
+	useFocusTrap(ref, { active: true });
 
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        'fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
+	return (
+		<div
+			ref={ref}
+			className={cn(
+				"fixed inset-0 z-[var(--z-overlay)] flex flex-col bg-cool-paper-base overflow-y-auto",
+				className,
+			)}
+		>
+			{children}
+		</div>
+	);
 }

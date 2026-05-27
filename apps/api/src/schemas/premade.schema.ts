@@ -1,18 +1,18 @@
-import { z } from 'zod'
+import { deckTypeEnum, jlptLevelEnum } from "@fsrs-japanese/shared-types";
 
-import { deckTypeEnum, jlptLevelEnum } from '@fsrs-japanese/shared-types'
+import { z } from "zod";
 
 export const listPremadeDecksQuerySchema = z.object({
-  deckType:  deckTypeEnum.optional(),
-  jlptLevel: jlptLevelEnum.optional(),
-  domain:    z.string().trim().min(1).max(50).optional(),
-  limit:     z.coerce.number().int().min(1).max(100).default(50),
-  // Opaque cursor — see apps/api/src/lib/http.ts:encodeCursor.
-  cursor:    z.string().min(1).max(512).optional(),
-}).strict()
+	deckType: deckTypeEnum.optional(),
+	jlptLevel: jlptLevelEnum.optional(),
+	domain: z.string().trim().min(1).max(50).optional(),
+	limit: z.coerce.number().int().min(1).max(100).default(50),
+	// Opaque cursor — see apps/api/src/lib/http.ts:encodeCursor.
+	cursor: z.string().min(1).max(512).optional(),
+}).strict();
 
 export const premadeDeckIdParamSchema = z.object({
-  id: z.string().uuid('Invalid premade deck ID'),
-})
+	id: z.string().uuid("Invalid premade deck ID"),
+});
 
-export type ListPremadeDecksQuery = z.infer<typeof listPremadeDecksQuerySchema>
+export type ListPremadeDecksQuery = z.infer<typeof listPremadeDecksQuerySchema>;

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 /**
  * /settings is no longer a single rendered page; each settings category
@@ -8,5 +8,5 @@ import { redirect } from 'next/navigation'
  * working.
  */
 export default function SettingsIndexPage(): never {
-  redirect('/settings/profile')
+	redirect("/settings/profile");
 }

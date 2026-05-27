@@ -1,34 +1,36 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
-type KickerSize  = 'xs' | 'sm' | 'md'
-type KickerTone  = 'default' | 'ink' | 'inverse'
-type KickerAs    = 'p' | 'span' | 'div' | 'h2' | 'h3' | 'header'
+type KickerSize = "xs" | "sm" | "md";
+type KickerTone = "default" | "ink" | "inverse";
+type KickerAs = "p" | "span" | "div" | "h2" | "h3" | "header";
 
 interface SectionKickerProps {
-  children:    ReactNode
-  size?:       KickerSize
-  tone?:       KickerTone
-  as?:         KickerAs
-  className?:  string
-  /** Letter-spacing override. The default `[0.16em]` matches Tomo's
-   *  uppercase-mono eyebrow register; pass `'wide'` for the `[0.18em]`
-   *  display used on the page-state empty-card label. */
-  tracking?:   'normal' | 'wide'
+	children: ReactNode;
+	size?: KickerSize;
+	tone?: KickerTone;
+	as?: KickerAs;
+	className?: string;
+	/**
+	 * Letter-spacing override. The default `[0.16em]` matches Tomo's
+	 *  uppercase-mono eyebrow register; pass `'wide'` for the `[0.18em]`
+	 *  display used on the page-state empty-card label.
+	 */
+	tracking?: "normal" | "wide";
 }
 
 const SIZE_CLASS: Record<KickerSize, string> = {
-  xs: 'text-sm',
-  sm: 'text-sm',
-  md: 'text-xs',
-}
+	xs: "text-sm",
+	sm: "text-sm",
+	md: "text-xs",
+};
 
 const TONE_CLASS: Record<KickerTone, string> = {
-  default: 'text-faded-sumi',
-  ink:     'text-sumi-ink',
-  inverse: 'text-warm-paper-raised',
-}
+	default: "text-faded-sumi",
+	ink: "text-sumi-ink",
+	inverse: "text-warm-paper-raised",
+};
 
 /**
  * The mono-uppercase "section eyebrow" used to label modules, dev panels,
@@ -46,25 +48,25 @@ const TONE_CLASS: Record<KickerTone, string> = {
  * Today, Insights, Settings, Cards, Decks, and the dev panels.
  */
 export function SectionKicker({
-  children,
-  size      = 'sm',
-  tone      = 'default',
-  as        = 'p',
-  className,
-  tracking  = 'normal',
+	children,
+	size = "sm",
+	tone = "default",
+	as = "p",
+	className,
+	tracking = "normal",
 }: SectionKickerProps): React.JSX.Element {
-  const Element = as as 'p'
-  return (
-    <Element
-      className={cn(
-        'font-mono uppercase font-medium',
-        SIZE_CLASS[size],
-        TONE_CLASS[tone],
-        tracking === 'wide' ? 'tracking-[0.18em]' : 'tracking-[0.16em]',
-        className,
-      )}
-    >
-      {children}
-    </Element>
-  )
+	const Element = as as "p";
+	return (
+		<Element
+			className={cn(
+				"font-mono uppercase font-medium",
+				SIZE_CLASS[size],
+				TONE_CLASS[tone],
+				tracking === "wide" ? "tracking-[0.18em]" : "tracking-[0.16em]",
+				className,
+			)}
+		>
+			{children}
+		</Element>
+	);
 }

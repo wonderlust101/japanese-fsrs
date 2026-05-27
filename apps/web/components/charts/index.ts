@@ -1,3 +1,5 @@
+export * from "./dates";
+export * from "./paths";
 /**
  * Shared chart toolkit for the Insights surfaces (overview, forecast,
  * progress, statistics). Promoted out of `insights/_components` so the
@@ -11,8 +13,6 @@
  * - `paths`       — smoothed line/area path math (`smoothLinePath`, …).
  * - `dates`       — chart date-axis helpers.
  */
-export * from './primitives'
-export { ScrollableChartFrame } from './ScrollableChartFrame'
-export { YearHeatmap, type HeatmapDay } from './YearHeatmap'
-export * from './paths'
-export * from './dates'
+export * from "./primitives";
+export { ScrollableChartFrame } from "./ScrollableChartFrame";
+export { type HeatmapDay, YearHeatmap } from "./YearHeatmap";

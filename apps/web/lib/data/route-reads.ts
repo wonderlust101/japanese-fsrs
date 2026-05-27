@@ -1,9 +1,9 @@
-import 'server-only'
+import { cache } from "react";
 
-import { cache } from 'react'
+import { getCardByIdAction } from "@/lib/actions/cards.actions";
 
-import { getCardByIdAction } from '@/lib/actions/cards.actions'
-import { getDeckAction } from '@/lib/actions/decks.actions'
+import { getDeckAction } from "@/lib/actions/decks.actions";
+import "server-only";
 
 /**
  * Per-request memoized reads for Server Components that fetch the same entity in
@@ -16,5 +16,5 @@ import { getDeckAction } from '@/lib/actions/decks.actions'
  * so they never reach the client bundle. Client callers keep using the actions
  * directly via the TanStack Query hooks.
  */
-export const getCardByIdCached = cache(getCardByIdAction)
-export const getDeckCached = cache(getDeckAction)
+export const getCardByIdCached = cache(getCardByIdAction);
+export const getDeckCached = cache(getDeckAction);

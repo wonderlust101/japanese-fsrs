@@ -1,24 +1,36 @@
-import { Logo } from '@/components/ui/Logo'
+import { Logo } from "@/components/ui/Logo";
 
 interface InsightsMastheadProps {
-  weekStart:  string
-  weekEnd:    string
-  weekNumber: number
+	weekStart: string;
+	weekEnd: string;
+	weekNumber: number;
 }
 
 const MONTHS = [
-  'January',  'February', 'March',    'April',   'May',      'June',
-  'July',     'August',   'September','October', 'November', 'December',
-] as const
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+] as const;
 
 function rangeLabel(startIso: string, endIso: string): string {
-  const [sy, sm, sd] = startIso.split('-').map(Number) as [number, number, number]
-  const [ey, em, ed] = endIso.split('-').map(Number) as [number, number, number]
-  const startMonth = MONTHS[(sm ?? 1) - 1] as string
-  const endMonth   = MONTHS[(em ?? 1) - 1] as string
-  if (sy !== ey) return `${startMonth} ${sd}, ${sy} – ${endMonth} ${ed}, ${ey}`
-  if (sm !== em) return `${startMonth} ${sd} – ${endMonth} ${ed}, ${ey}`
-  return `${startMonth} ${sd}–${ed}, ${ey}`
+	const [sy, sm, sd] = startIso.split("-").map(Number) as [number, number, number];
+	const [ey, em, ed] = endIso.split("-").map(Number) as [number, number, number];
+	const startMonth = MONTHS[(sm ?? 1) - 1] as string;
+	const endMonth = MONTHS[(em ?? 1) - 1] as string;
+	if (sy !== ey)
+		return `${startMonth} ${sd}, ${sy} – ${endMonth} ${ed}, ${ey}`;
+	if (sm !== em)
+		return `${startMonth} ${sd} – ${endMonth} ${ed}, ${ey}`;
+	return `${startMonth} ${sd}–${ed}, ${ey}`;
 }
 
 /**
@@ -29,24 +41,29 @@ function rangeLabel(startIso: string, endIso: string): string {
  * tabs keep the layout's existing eyebrow chrome.
  */
 export function InsightsMasthead({
-  weekStart,
-  weekEnd,
-  weekNumber,
+	weekStart,
+	weekEnd,
+	weekNumber,
 }: InsightsMastheadProps): React.JSX.Element {
-  return (
-    <header className="flex flex-col gap-y-6">
-      <div className="flex items-center gap-x-4 sm:gap-x-6">
-        <Logo size={48} showWordmark={false} priority />
-        <div className="flex min-w-0 flex-col gap-y-2">
-          <p className="text-sm font-medium uppercase leading-none tracking-[0.28em] text-sumi-ink sm:text-base sm:tracking-[0.34em]">
-            Tomo&nbsp;&nbsp;·&nbsp;&nbsp;Insights
-          </p>
-          <p className="font-mono text-sm text-faded-sumi">
-            Week {String(weekNumber).padStart(2, '0')} · {rangeLabel(weekStart, weekEnd)}
-          </p>
-        </div>
-      </div>
-      <hr aria-hidden="true" className="border-0 border-t border-sumi-ink/25" />
-    </header>
-  )
+	return (
+		<header className="flex flex-col gap-y-6">
+			<div className="flex items-center gap-x-4 sm:gap-x-6">
+				<Logo size={48} showWordmark={false} priority />
+				<div className="flex min-w-0 flex-col gap-y-2">
+					<p className="text-sm font-medium uppercase leading-none tracking-[0.28em] text-sumi-ink sm:text-base sm:tracking-[0.34em]">
+						Tomo&nbsp;&nbsp;·&nbsp;&nbsp;Insights
+					</p>
+					<p className="font-mono text-sm text-faded-sumi">
+						Week
+						{" "}
+						{String(weekNumber).padStart(2, "0")}
+						{" "}
+						·
+						{rangeLabel(weekStart, weekEnd)}
+					</p>
+				</div>
+			</div>
+			<hr aria-hidden="true" className="border-0 border-t border-sumi-ink/25" />
+		</header>
+	);
 }

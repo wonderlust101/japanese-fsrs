@@ -1,8 +1,8 @@
-import { Logo } from '@/components/ui/Logo'
-import { QuietLink } from '@/components/ui/QuietLink'
+import { Logo } from "@/components/ui/Logo";
+import { QuietLink } from "@/components/ui/QuietLink";
 
 interface WeakSpotsEmptyProps {
-  variant: 'unresolved' | 'resolved'
+	variant: "unresolved" | "resolved";
 }
 
 /**
@@ -16,37 +16,37 @@ interface WeakSpotsEmptyProps {
  * the same product family.
  */
 export function WeakSpotsEmpty({ variant }: WeakSpotsEmptyProps): React.JSX.Element {
-  const headline = variant === 'unresolved'
-    ? 'No weak spots right now.'
-    : 'No resolved weak spots yet.'
+	const headline = variant === "unresolved"
+		? "No weak spots right now."
+		: "No resolved weak spots yet.";
 
-  const body = variant === 'unresolved'
-    ? 'Keep your daily reviews steady; this list fills only when a card needs extra attention.'
-    : 'Cards you resolve will show up here, so you can see the pattern of what got better over time.'
+	const body = variant === "unresolved"
+		? "Keep your daily reviews steady; this list fills only when a card needs extra attention."
+		: "Cards you resolve will show up here, so you can see the pattern of what got better over time.";
 
-  const linkLabel = variant === 'unresolved' ? 'Start a review' : 'Open your cards'
-  const linkHref  = variant === 'unresolved' ? '/today' : '/cards'
+	const linkLabel = variant === "unresolved" ? "Start a review" : "Open your cards";
+	const linkHref = variant === "unresolved" ? "/today" : "/cards";
 
-  return (
-    <section
-      aria-label={variant === 'unresolved' ? 'No unresolved weak spots' : 'No resolved weak spots'}
-      className="mx-auto mt-12 flex flex-col items-center gap-y-6 py-6 text-center lg:mt-20"
-    >
-      <Logo size={112} showWordmark={false} priority />
+	return (
+		<section
+			aria-label={variant === "unresolved" ? "No unresolved weak spots" : "No resolved weak spots"}
+			className="mx-auto mt-12 flex flex-col items-center gap-y-6 py-6 text-center lg:mt-20"
+		>
+			<Logo size={112} showWordmark={false} priority />
 
-      <p className="max-w-measure-tight font-display text-lg leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
-        {headline}
-      </p>
+			<p className="max-w-measure-tight font-display text-lg leading-[1.4] text-sumi-ink sm:text-[1.375rem]">
+				{headline}
+			</p>
 
-      <p className="max-w-measure-tight text-sm leading-relaxed text-faded-sumi">
-        {body}
-      </p>
+			<p className="max-w-measure-tight text-sm leading-relaxed text-faded-sumi">
+				{body}
+			</p>
 
-      <div className="pt-2">
-        <QuietLink href={linkHref} tone="brand" trailingArrow size="md">
-          {linkLabel}
-        </QuietLink>
-      </div>
-    </section>
-  )
+			<div className="pt-2">
+				<QuietLink href={linkHref} tone="brand" trailingArrow size="md">
+					{linkLabel}
+				</QuietLink>
+			</div>
+		</section>
+	);
 }

@@ -5,9 +5,9 @@
  * the sticky TopBar honest while preserving the shared route grouping.
  */
 export default function InsightsLayout({
-  children,
+	children,
 }: {
-  children: React.ReactNode
+	children: React.ReactNode;
 }): React.JSX.Element {
-  return <>{children}</>
+	return <>{children}</>;
 }

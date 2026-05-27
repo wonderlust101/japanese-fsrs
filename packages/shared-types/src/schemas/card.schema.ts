@@ -1,15 +1,15 @@
-import { z } from 'zod'
+import { z } from "zod";
 
-import { JLPTLevel, LayoutType } from '../card.types.ts'
+import { JLPTLevel, LayoutType } from "../card.types.ts";
 
-import { deepHasMarkup, deepHasOversizedString, safeShortText } from '../sanitize.ts'
+import { deepHasMarkup, deepHasOversizedString, safeShortText } from "../sanitize.ts";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 // Derived from the canonical `as const` objects in shared-types so a value
 // added there propagates here automatically — no second source of truth.
 
-export const layoutTypeEnum = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]])
-export const jlptLevelEnum  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  ...JLPTLevel[]])
+export const layoutTypeEnum = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]]);
+export const jlptLevelEnum = z.enum(Object.values(JLPTLevel) as [JLPTLevel, ...JLPTLevel[]]);
 
 // ─── Shared field-validation primitives ───────────────────────────────────────
 
@@ -18,32 +18,32 @@ export const jlptLevelEnum  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  .
 // values but reject markup and oversized strings recursively. Top-level keys
 // are also length-bounded.
 const fieldsDataSchema = z.record(z.string().min(1).max(50), z.unknown())
-  .refine((v) => !deepHasMarkup(v), 'Field values cannot contain HTML or script-like content')
-  .refine((v) => !deepHasOversizedString(v, 2000), 'Field values must each be at most 2000 characters')
+	.refine(v => !deepHasMarkup(v), "Field values cannot contain HTML or script-like content")
+	.refine(v => !deepHasOversizedString(v, 2000), "Field values must each be at most 2000 characters");
 
 // ─── Shared metadata fields ───────────────────────────────────────────────────
 
 const cardMetaFields = {
-  layoutType:   layoutTypeEnum.default('vocabulary'),
-  jlptLevel:    jlptLevelEnum.optional(),
-  parentCardId: z.string().uuid('Invalid parent card ID').optional(),
-}
+	layoutType: layoutTypeEnum.default("vocabulary"),
+	jlptLevel: jlptLevelEnum.optional(),
+	parentCardId: z.string().uuid("Invalid parent card ID").optional(),
+};
 
 // ─── Create schemas ───────────────────────────────────────────────────────────
 
 // AI path: client sends a word; controller calls ai.service.generateCard.
 const aiCreateSchema = z.object({
-  mode: z.literal('ai'),
-  word: safeShortText(50, 1),
-  ...cardMetaFields,
-}).strict()
+	mode: z.literal("ai"),
+	word: safeShortText(50, 1),
+	...cardMetaFields,
+}).strict();
 
 // Manual path: client supplies fieldsData directly.
 const manualCreateSchema = z.object({
-  mode: z.literal('manual'),
-  fieldsData: fieldsDataSchema,
-  ...cardMetaFields,
-}).strict()
+	mode: z.literal("manual"),
+	fieldsData: fieldsDataSchema,
+	...cardMetaFields,
+}).strict();
 
 // Tagged union on `mode`. The previous z.union narrowed structurally on the
 // presence of `word` vs `fieldsData`, which was already safe due to .strict()
@@ -51,37 +51,39 @@ const manualCreateSchema = z.object({
 // makes the intent of every payload self-evident on the wire and forecloses
 // any future schema-evolution mishap that might re-introduce overlapping
 // fields between the two branches.
-export const createCardSchema = z.discriminatedUnion('mode', [
-  aiCreateSchema,
-  manualCreateSchema,
-])
+export const createCardSchema = z.discriminatedUnion("mode", [
+	aiCreateSchema,
+	manualCreateSchema,
+]);
 
 // ─── Update schema ────────────────────────────────────────────────────────────
 
 // All fields optional — only present keys are written (true PATCH semantics).
 export const updateCardSchema = z.object({
-  fieldsData: fieldsDataSchema.optional(),
-  layoutType: layoutTypeEnum.optional(),
-  jlptLevel:  jlptLevelEnum.nullable().optional(),
-}).strict()
+	fieldsData: fieldsDataSchema.optional(),
+	layoutType: layoutTypeEnum.optional(),
+	jlptLevel: jlptLevelEnum.nullable().optional(),
+}).strict();
 
 // ─── Param / query schemas ────────────────────────────────────────────────────
 
-export const cardIdParamSchema      = z.object({ id:     z.string().uuid('Invalid card ID') })
-/** Validates the nested-route :deckId param (e.g. /decks/:deckId/cards). Distinct
- *  from deck.schema.ts's deckIdParamSchema, which validates the top-level :id param. */
-export const nestedDeckIdParamSchema = z.object({ deckId: z.string().uuid('Invalid deck ID') })
+export const cardIdParamSchema = z.object({ id: z.string().uuid("Invalid card ID") });
+/**
+ * Validates the nested-route :deckId param (e.g. /decks/:deckId/cards). Distinct
+ *  from deck.schema.ts's deckIdParamSchema, which validates the top-level :id param.
+ */
+export const nestedDeckIdParamSchema = z.object({ deckId: z.string().uuid("Invalid deck ID") });
 
-export const cardStatusFilterEnum = z.enum(['all', 'new', 'learning', 'review', 'suspended'])
+export const cardStatusFilterEnum = z.enum(["all", "new", "learning", "review", "suspended"]);
 
 export const listCardsQuerySchema = z.object({
-  limit:  z.coerce.number().int().min(1).max(100).default(50),
-  // Opaque base64url-encoded cursor (see lib/http.ts:encodeCursor). Length is
-  // bounded loosely; precise shape validation happens at decode time and a
-  // malformed value surfaces as a 400 with code 'CURSOR_INVALID'.
-  cursor: z.string().min(1).max(512).optional(),
-  status: cardStatusFilterEnum.optional(),
-}).strict()
+	limit: z.coerce.number().int().min(1).max(100).default(50),
+	// Opaque base64url-encoded cursor (see lib/http.ts:encodeCursor). Length is
+	// bounded loosely; precise shape validation happens at decode time and a
+	// malformed value surfaces as a 400 with code 'CURSOR_INVALID'.
+	cursor: z.string().min(1).max(512).optional(),
+	status: cardStatusFilterEnum.optional(),
+}).strict();
 
 // ─── Cross-deck list query (powers GET /api/v1/cards/cross-deck) ──────────────
 //
@@ -90,16 +92,27 @@ export const listCardsQuerySchema = z.object({
 // 'Beyond JLPT' bucket exactly — see cards-browser-view.tsx).
 
 export const crossDeckJlptFilterEnum = z.enum([
-  'all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond',
-])
+	"all",
+	"N5",
+	"N4",
+	"N3",
+	"N2",
+	"N1",
+	"beyond",
+]);
 
 // Negative-direction presence filter: "find cards MISSING X". Covers the
 // fields the AI generator produces so the cross-deck browser can sweep for
 // gaps. (The `audio` dimension was removed alongside the audio fields.)
 export const cardMissingFieldEnum = z.enum([
-  'reading', 'meaning', 'example', 'mnemonic', 'picture', 'nuance',
-  'pitch',
-])
+	"reading",
+	"meaning",
+	"example",
+	"mnemonic",
+	"picture",
+	"nuance",
+	"pitch",
+]);
 
 // Positive-direction presence filter: "find cards that HAVE X". Sibling
 // of `cardMissingFieldEnum`. Both may be set simultaneously to express
@@ -108,13 +121,13 @@ export const cardMissingFieldEnum = z.enum([
 // client (single segmented control per dimension). Limited to the
 // dimensions the UI surfaces — adding `reading` / `meaning` here makes no
 // sense since those are virtually always populated.
-export const cardPresentFieldEnum = z.enum(['picture', 'pitch'])
+export const cardPresentFieldEnum = z.enum(["picture", "pitch"]);
 
 // Pitch-accent pattern classes derived from `pitchPosition` + mora count
 // of the reading. See `count_moras` SQL helper in migration 20260624 for
 // the predicate semantics. Pattern requires `pitchPosition` to be set;
 // cards without it are excluded silently from any pattern result.
-export const pitchPatternEnum = z.enum(['heiban', 'atamadaka', 'nakadaka', 'odaka'])
+export const pitchPatternEnum = z.enum(["heiban", "atamadaka", "nakadaka", "odaka"]);
 
 // Closed vocabulary for a card's part of speech. Stored verbatim in
 // `fields_data.partOfSpeech` and surfaced as a selector on /add/review, so
@@ -122,44 +135,44 @@ export const pitchPatternEnum = z.enum(['heiban', 'atamadaka', 'nakadaka', 'odak
 // adjective classes use the hiragana convention learners recognise (る verb,
 // う verb, い adjective, な adjective) rather than romaji.
 export const partOfSpeechEnum = z.enum([
-  'Noun',
-  'る verb',
-  'う verb',
-  'Irregular verb',
-  'い adjective',
-  'な adjective',
-  'Adverb',
-  'Particle',
-  'Conjunction',
-  'Expression',
-  'Counter',
-])
+	"Noun",
+	"る verb",
+	"う verb",
+	"Irregular verb",
+	"い adjective",
+	"な adjective",
+	"Adverb",
+	"Particle",
+	"Conjunction",
+	"Expression",
+	"Counter",
+]);
 
-export const cardSortFieldEnum = z.enum(['recent', 'due', 'lapses'])
+export const cardSortFieldEnum = z.enum(["recent", "due", "lapses"]);
 // Sort direction. Optional on the wire: when omitted, the RPC applies
 // the per-axis natural default ('recent' DESC, 'due' ASC, 'lapses' DESC).
 // Callers only set this when the user explicitly toggles direction.
-export const cardSortDirEnum = z.enum(['asc', 'desc'])
+export const cardSortDirEnum = z.enum(["asc", "desc"]);
 
 export const crossDeckListCardsQuerySchema = z.object({
-  limit:        z.coerce.number().int().min(1).max(100).default(50),
-  // Offset pagination (was cursor pagination until 20260630000003).
-  // The change enabled clickable numbered page buttons on /cards; the
-  // cards page is the sole consumer of this endpoint. The `.max()` is a safety
-  // guard (not a product limit) against a pathological deep offset (e.g. 1e8)
-  // forcing Postgres into a huge scan-and-skip; 100k (≈ page 1000 at the
-  // 100-row max) sits comfortably above any real library size.
-  offset:       z.coerce.number().int().min(0).max(100_000).optional(),
-  search:       z.string().min(1).max(100).optional(),
-  deckId:       z.string().uuid('Invalid deck ID').optional(),
-  jlptLevel:    crossDeckJlptFilterEnum.optional(),
-  status:       cardStatusFilterEnum.optional(),
-  missingField: cardMissingFieldEnum.optional(),
-  presentField: cardPresentFieldEnum.optional(),
-  pitchPattern: pitchPatternEnum.optional(),
-  sort:         cardSortFieldEnum.optional(),
-  sortDir:      cardSortDirEnum.optional(),
-}).strict()
+	limit: z.coerce.number().int().min(1).max(100).default(50),
+	// Offset pagination (was cursor pagination until 20260630000003).
+	// The change enabled clickable numbered page buttons on /cards; the
+	// cards page is the sole consumer of this endpoint. The `.max()` is a safety
+	// guard (not a product limit) against a pathological deep offset (e.g. 1e8)
+	// forcing Postgres into a huge scan-and-skip; 100k (≈ page 1000 at the
+	// 100-row max) sits comfortably above any real library size.
+	offset: z.coerce.number().int().min(0).max(100_000).optional(),
+	search: z.string().min(1).max(100).optional(),
+	deckId: z.string().uuid("Invalid deck ID").optional(),
+	jlptLevel: crossDeckJlptFilterEnum.optional(),
+	status: cardStatusFilterEnum.optional(),
+	missingField: cardMissingFieldEnum.optional(),
+	presentField: cardPresentFieldEnum.optional(),
+	pitchPattern: pitchPatternEnum.optional(),
+	sort: cardSortFieldEnum.optional(),
+	sortDir: cardSortDirEnum.optional(),
+}).strict();
 // NOTE: previous revision (20260624) attached a .refine here that
 // rejected payloads with both missingField and presentField set. The
 // guard collaterally blocked legitimate cross-dimension combinations
@@ -174,12 +187,12 @@ export const crossDeckListCardsQuerySchema = z.object({
 // (suspend/unsuspend). All are POSTs with `Idempotency-Key`.
 
 export const moveCardBodySchema = z.object({
-  deckId: z.string().uuid('Invalid target deck ID'),
-}).strict()
+	deckId: z.string().uuid("Invalid target deck ID"),
+}).strict();
 
-export const copyCardBodySchema = moveCardBodySchema
+export const copyCardBodySchema = moveCardBodySchema;
 
-export const suspendCardBodySchema = z.object({}).strict()
+export const suspendCardBodySchema = z.object({}).strict();
 
 // ─── Bulk mutation schemas ────────────────────────────────────────────────────
 //
@@ -187,20 +200,20 @@ export const suspendCardBodySchema = z.object({}).strict()
 // enough for a paged selection (page sizes go up to 100) and bounded so a
 // runaway payload can't DoS the rate limiter.
 
-const bulkIdsField = z.array(z.string().uuid('Invalid card ID')).min(1).max(500)
+const bulkIdsField = z.array(z.string().uuid("Invalid card ID")).min(1).max(500);
 
 export const bulkMoveCardsBodySchema = z.object({
-  ids:    bulkIdsField,
-  deckId: z.string().uuid('Invalid target deck ID'),
-}).strict()
+	ids: bulkIdsField,
+	deckId: z.string().uuid("Invalid target deck ID"),
+}).strict();
 
 export const bulkSuspendCardsBodySchema = z.object({
-  ids: bulkIdsField,
-}).strict()
+	ids: bulkIdsField,
+}).strict();
 
-export const bulkUnsuspendCardsBodySchema = bulkSuspendCardsBodySchema
+export const bulkUnsuspendCardsBodySchema = bulkSuspendCardsBodySchema;
 
-export const bulkDeleteCardsBodySchema = bulkSuspendCardsBodySchema
+export const bulkDeleteCardsBodySchema = bulkSuspendCardsBodySchema;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 //
@@ -210,26 +223,26 @@ export const bulkDeleteCardsBodySchema = bulkSuspendCardsBodySchema
 //   are allowed to send over the wire.
 //   Client-side use: typing the request body before serialization.
 
-export type CreateCardInput    = z.infer<typeof createCardSchema>
-export type CreateCardPayload  = z.input<typeof createCardSchema>
-export type UpdateCardInput    = z.infer<typeof updateCardSchema>
-export type UpdateCardPayload  = z.input<typeof updateCardSchema>
-export type ListCardsQuery     = z.infer<typeof listCardsQuerySchema>
-export type CardStatusFilter   = z.infer<typeof cardStatusFilterEnum>
+export type CreateCardInput = z.infer<typeof createCardSchema>;
+export type CreateCardPayload = z.input<typeof createCardSchema>;
+export type UpdateCardInput = z.infer<typeof updateCardSchema>;
+export type UpdateCardPayload = z.input<typeof updateCardSchema>;
+export type ListCardsQuery = z.infer<typeof listCardsQuerySchema>;
+export type CardStatusFilter = z.infer<typeof cardStatusFilterEnum>;
 
-export type CrossDeckListCardsQuery = z.infer<typeof crossDeckListCardsQuerySchema>
-export type CrossDeckJlptFilter     = z.infer<typeof crossDeckJlptFilterEnum>
-export type CardMissingField        = z.infer<typeof cardMissingFieldEnum>
-export type CardPresentField        = z.infer<typeof cardPresentFieldEnum>
-export type PitchPattern            = z.infer<typeof pitchPatternEnum>
-export type PartOfSpeech            = z.infer<typeof partOfSpeechEnum>
-export type CardSortField           = z.infer<typeof cardSortFieldEnum>
-export type CardSortDir             = z.infer<typeof cardSortDirEnum>
+export type CrossDeckListCardsQuery = z.infer<typeof crossDeckListCardsQuerySchema>;
+export type CrossDeckJlptFilter = z.infer<typeof crossDeckJlptFilterEnum>;
+export type CardMissingField = z.infer<typeof cardMissingFieldEnum>;
+export type CardPresentField = z.infer<typeof cardPresentFieldEnum>;
+export type PitchPattern = z.infer<typeof pitchPatternEnum>;
+export type PartOfSpeech = z.infer<typeof partOfSpeechEnum>;
+export type CardSortField = z.infer<typeof cardSortFieldEnum>;
+export type CardSortDir = z.infer<typeof cardSortDirEnum>;
 
-export type MoveCardBody             = z.infer<typeof moveCardBodySchema>
-export type CopyCardBody             = z.infer<typeof copyCardBodySchema>
-export type SuspendCardBody          = z.infer<typeof suspendCardBodySchema>
-export type BulkMoveCardsBody        = z.infer<typeof bulkMoveCardsBodySchema>
-export type BulkSuspendCardsBody     = z.infer<typeof bulkSuspendCardsBodySchema>
-export type BulkUnsuspendCardsBody   = z.infer<typeof bulkUnsuspendCardsBodySchema>
-export type BulkDeleteCardsBody      = z.infer<typeof bulkDeleteCardsBodySchema>
+export type MoveCardBody = z.infer<typeof moveCardBodySchema>;
+export type CopyCardBody = z.infer<typeof copyCardBodySchema>;
+export type SuspendCardBody = z.infer<typeof suspendCardBodySchema>;
+export type BulkMoveCardsBody = z.infer<typeof bulkMoveCardsBodySchema>;
+export type BulkSuspendCardsBody = z.infer<typeof bulkSuspendCardsBodySchema>;
+export type BulkUnsuspendCardsBody = z.infer<typeof bulkUnsuspendCardsBodySchema>;
+export type BulkDeleteCardsBody = z.infer<typeof bulkDeleteCardsBodySchema>;

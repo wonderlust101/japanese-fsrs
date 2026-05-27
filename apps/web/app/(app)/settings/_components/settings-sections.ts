@@ -24,29 +24,29 @@
  */
 
 export interface SettingsSection {
-  readonly id:          string
-  readonly kanji:       string
-  readonly label:       string
-  readonly description: string
+	readonly id: string;
+	readonly kanji: string;
+	readonly label: string;
+	readonly description: string;
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  {
-    id:          'profile',
-    kanji:       '人',
-    label:       'Account',
-    description: 'Your identity, locale, and goal.',
-  },
-  {
-    id:          'learning',
-    kanji:       '学',
-    label:       'Learning',
-    description: 'How firmly you practice.',
-  },
-  {
-    id:          'security',
-    kanji:       '鍵',
-    label:       'Security',
-    description: 'Sign-in and account removal.',
-  },
-] as const
+	{
+		id: "profile",
+		kanji: "人",
+		label: "Account",
+		description: "Your identity, locale, and goal.",
+	},
+	{
+		id: "learning",
+		kanji: "学",
+		label: "Learning",
+		description: "How firmly you practice.",
+	},
+	{
+		id: "security",
+		kanji: "鍵",
+		label: "Security",
+		description: "Sign-in and account removal.",
+	},
+] as const;

@@ -1,4 +1,4 @@
-import { setSystemTime } from 'bun:test'
+import { setSystemTime } from "bun:test";
 
 /**
  * Freeze the process clock at a fixed instant so any code that reads
@@ -10,11 +10,11 @@ import { setSystemTime } from 'bun:test'
  *   America/Los_Angeles (−7) is still on 2026-05-16 — the boundary the
  *   tomo-note day-key tests exercise.
  */
-export function freezeClock(instant: string | Date = '2026-05-17T03:00:00.000Z'): void {
-  setSystemTime(new Date(instant))
+export function freezeClock(instant: string | Date = "2026-05-17T03:00:00.000Z"): void {
+	setSystemTime(new Date(instant));
 }
 
 /** Restore the real system clock. Safe to call when no clock was frozen. */
 export function restoreClock(): void {
-  setSystemTime()
+	setSystemTime();
 }

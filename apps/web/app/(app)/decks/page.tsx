@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
-import { DeckListView } from './_components/deck-list'
+import type { Metadata } from "next";
+import { DeckListView } from "./_components/deck-list";
 
-export const metadata: Metadata = { title: 'Decks' }
+export const metadata: Metadata = { title: "Decks" };
 
 export default function DecksPage(): React.JSX.Element {
-  return <DeckListView />
+	return <DeckListView />;
 }

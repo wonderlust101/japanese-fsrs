@@ -1,17 +1,17 @@
 // Onboarding layout: delegates to OnboardingShell (persistent card-stack chrome)
-import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { getProfileAction } from '@/lib/actions/profile.actions'
-import { OnboardingShell } from './_components/onboarding-shell'
+import { getProfileAction } from "@/lib/actions/profile.actions";
+import { OnboardingShell } from "./_components/onboarding-shell";
 
 // `title` covers /onboarding (the welcome page is a client component and can't
 // export its own metadata). Each onboarding step has its own per-segment
 // layout that overrides this title. Whole tree is `noindex` (private flow).
 export const metadata: Metadata = {
-  title: 'Welcome',
-  robots: { index: false, follow: false },
-}
+	title: "Welcome",
+	robots: { index: false, follow: false },
+};
 
 /**
  * Onboarding layout. Delegates to OnboardingShell, which owns the persistent
@@ -27,10 +27,11 @@ export const metadata: Metadata = {
  * normally. If the profile can't be loaded we fail open and allow onboarding.
  */
 export default async function OnboardingLayout({ children }: { children: React.ReactNode }): Promise<React.JSX.Element> {
-  if (process.env.NODE_ENV !== 'development') {
-    const profile = await getProfileAction()
-    if (profile?.jlptTarget != null) redirect('/today')
-  }
+	if (process.env.NODE_ENV !== "development") {
+		const profile = await getProfileAction();
+		if (profile?.jlptTarget != null)
+			redirect("/today");
+	}
 
-  return <OnboardingShell>{children}</OnboardingShell>
+	return <OnboardingShell>{children}</OnboardingShell>;
 }

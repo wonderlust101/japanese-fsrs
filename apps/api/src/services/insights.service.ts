@@ -1,30 +1,25 @@
-import { z } from 'zod'
-
-import { supabaseAdmin } from '../db/supabase.ts'
-import { asPayload } from '../lib/db.ts'
-import { AppError, dbError } from '../middleware/errorHandler.ts'
+import type { ApiAnswerRatingDistribution, ApiCardQualityIssue, ApiHistogramBucket, ApiInsightsDistributions, ApiList, ApiMaturityHistoryDaysSchema, ApiMaturitySnapshot } from "@fsrs-japanese/shared-types";
 import {
-  ApiCardQualityIssueTypeSchema,
-  type ApiAnswerRatingDistribution,
-  type ApiHistogramBucket,
-  type ApiInsightsDistributions,
-  type ApiList,
-  type ApiCardQualityIssue,
-  type ApiMaturitySnapshot,
-  type ApiMaturityHistoryDaysSchema,
-} from '@fsrs-japanese/shared-types'
+	ApiCardQualityIssueTypeSchema,
 
-type MaturityHistoryDays = z.infer<typeof ApiMaturityHistoryDaysSchema>
+} from "@fsrs-japanese/shared-types";
+
+import { z } from "zod";
+import { supabaseAdmin } from "../db/supabase.ts";
+import { asPayload } from "../lib/db.ts";
+import { AppError, dbError } from "../middleware/errorHandler.ts";
+
+type MaturityHistoryDays = z.infer<typeof ApiMaturityHistoryDaysSchema>;
 
 // ─── Stage 8 — card-quality issue counts ─────────────────────────────────────
 
 const CardQualityIssueRpcRowSchema = z.object({
-  // Mirrors the RPC's TEXT column. The Zod enum at the API boundary narrows
-  // this back to the wire-format enum, so an unknown value from a future
-  // RPC drift surfaces as a clean ZodError instead of leaking through.
-  issue_type: ApiCardQualityIssueTypeSchema,
-  count:      z.number().int().nonnegative(),
-})
+	// Mirrors the RPC's TEXT column. The Zod enum at the API boundary narrows
+	// this back to the wire-format enum, so an unknown value from a future
+	// RPC drift surfaces as a clean ZodError instead of leaking through.
+	issue_type: ApiCardQualityIssueTypeSchema,
+	count: z.number().int().nonnegative(),
+});
 
 /**
  * Backend Completion Plan Stage 8. Returns one row per known issue type
@@ -43,42 +38,42 @@ const CardQualityIssueRpcRowSchema = z.object({
  * change required.
  */
 export async function listCardQualityIssues(
-  userId: string,
+	userId: string,
 ): Promise<ApiList<ApiCardQualityIssue>> {
-  const { data, error } = await supabaseAdmin.rpc('get_card_quality_issues', asPayload({
-    p_user_id: userId,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("get_card_quality_issues", asPayload({
+		p_user_id: userId,
+	}));
 
-  if (error !== null) {
-    throw dbError('list card-quality issues', error)
-  }
+	if (error !== null) {
+		throw dbError("list card-quality issues", error);
+	}
 
-  const rows = z.array(CardQualityIssueRpcRowSchema).parse(data ?? [])
-  const items: ApiCardQualityIssue[] = rows.map((r) => ({
-    issueType: r.issue_type,
-    count:     r.count,
-  }))
+	const rows = z.array(CardQualityIssueRpcRowSchema).parse(data ?? []);
+	const items: ApiCardQualityIssue[] = rows.map(r => ({
+		issueType: r.issue_type,
+		count: r.count,
+	}));
 
-  return { items, nextCursor: null, hasMore: false }
+	return { items, nextCursor: null, hasMore: false };
 }
 
 // ─── Stage 9 — maturity-pipeline history ─────────────────────────────────────
 
 const MaturitySnapshotRpcRowSchema = z.object({
-  // Postgres returns DATE as an ISO YYYY-MM-DD string over the supabase-js
-  // wire. The RPC's "today" row is computed in the learner's timezone.
-  snapshot_date:    z.string(),
-  new_count:        z.number().int().nonnegative(),
-  learning_count:   z.number().int().nonnegative(),
-  review_count:     z.number().int().nonnegative(),
-  relearning_count: z.number().int().nonnegative(),
-  mature_count:     z.number().int().nonnegative(),
-  // Optional + default 0 so the API parses cleanly whether or not migration
-  // 20260701000000 (which adds suspended_count to the RPC) has been applied
-  // to the target DB yet. Pre-migration rows simply read 0; post-migration
-  // they carry the live tally. Avoids a deploy-order ZodError → 400.
-  suspended_count:  z.number().int().nonnegative().optional().default(0),
-})
+	// Postgres returns DATE as an ISO YYYY-MM-DD string over the supabase-js
+	// wire. The RPC's "today" row is computed in the learner's timezone.
+	snapshot_date: z.string(),
+	new_count: z.number().int().nonnegative(),
+	learning_count: z.number().int().nonnegative(),
+	review_count: z.number().int().nonnegative(),
+	relearning_count: z.number().int().nonnegative(),
+	mature_count: z.number().int().nonnegative(),
+	// Optional + default 0 so the API parses cleanly whether or not migration
+	// 20260701000000 (which adds suspended_count to the RPC) has been applied
+	// to the target DB yet. Pre-migration rows simply read 0; post-migration
+	// they carry the live tally. Avoids a deploy-order ZodError → 400.
+	suspended_count: z.number().int().nonnegative().optional().default(0),
+});
 
 /**
  * Backend Completion Plan Stage 9. Returns up to `days` rows of per-state
@@ -98,36 +93,36 @@ const MaturitySnapshotRpcRowSchema = z.object({
  * a sparse history").
  */
 export async function listMaturityHistory(
-  userId: string,
-  days:   MaturityHistoryDays,
+	userId: string,
+	days: MaturityHistoryDays,
 ): Promise<ApiList<ApiMaturitySnapshot>> {
-  const daysInt = Number.parseInt(days, 10)
-  const { data, error } = await supabaseAdmin.rpc('get_maturity_pipeline_history', asPayload({
-    p_user_id: userId,
-    p_days:    daysInt,
-  }))
+	const daysInt = Number.parseInt(days, 10);
+	const { data, error } = await supabaseAdmin.rpc("get_maturity_pipeline_history", asPayload({
+		p_user_id: userId,
+		p_days: daysInt,
+	}));
 
-  if (error !== null) {
-    if (error.code === '22023' && error.message.includes('invalid_days_parameter')) {
-      throw new AppError(400, 'Unknown maturity-history window', {
-        code: 'MATURITY_HISTORY_DAYS_INVALID',
-      })
-    }
-    throw dbError('list maturity-pipeline history', error)
-  }
+	if (error !== null) {
+		if (error.code === "22023" && error.message.includes("invalid_days_parameter")) {
+			throw new AppError(400, "Unknown maturity-history window", {
+				code: "MATURITY_HISTORY_DAYS_INVALID",
+			});
+		}
+		throw dbError("list maturity-pipeline history", error);
+	}
 
-  const rows  = z.array(MaturitySnapshotRpcRowSchema).parse(data ?? [])
-  const items: ApiMaturitySnapshot[] = rows.map((r) => ({
-    date:            r.snapshot_date,
-    newCount:        r.new_count,
-    learningCount:   r.learning_count,
-    reviewCount:     r.review_count,
-    relearningCount: r.relearning_count,
-    matureCount:     r.mature_count,
-    suspendedCount:  r.suspended_count,
-  }))
+	const rows = z.array(MaturitySnapshotRpcRowSchema).parse(data ?? []);
+	const items: ApiMaturitySnapshot[] = rows.map(r => ({
+		date: r.snapshot_date,
+		newCount: r.new_count,
+		learningCount: r.learning_count,
+		reviewCount: r.review_count,
+		relearningCount: r.relearning_count,
+		matureCount: r.mature_count,
+		suspendedCount: r.suspended_count,
+	}));
 
-  return { items, nextCursor: null, hasMore: false }
+	return { items, nextCursor: null, hasMore: false };
 }
 
 // ─── Statistics distributions ────────────────────────────────────────────────
@@ -137,75 +132,80 @@ export async function listMaturityHistory(
 // calls in `Promise.all` because they're independent reads.
 
 const RatingDistributionRpcRowSchema = z.object({
-  rating: z.enum(['again', 'hard', 'good', 'easy']),
-  count:  z.number().int().nonnegative(),
-})
+	rating: z.enum(["again", "hard", "good", "easy"]),
+	count: z.number().int().nonnegative(),
+});
 
 const HistogramBucketRpcRowSchema = z.object({
-  bucket:    z.string(),
-  // The interval/stability/difficulty RPCs carry a numeric `sort_key` so
-  // the row order is stable even if the planner re-orders the underlying
-  // LATERAL VALUES (it shouldn't, but the explicit ORDER BY in the RPC
-  // depends on this column). We don't surface it on the wire.
-  sort_key:  z.number().int().positive(),
-  count:     z.number().int().nonnegative(),
-})
+	bucket: z.string(),
+	// The interval/stability/difficulty RPCs carry a numeric `sort_key` so
+	// the row order is stable even if the planner re-orders the underlying
+	// LATERAL VALUES (it shouldn't, but the explicit ORDER BY in the RPC
+	// depends on this column). We don't surface it on the wire.
+	sort_key: z.number().int().positive(),
+	count: z.number().int().nonnegative(),
+});
 
 function ratingRowsToDistribution(
-  rows: ReadonlyArray<z.infer<typeof RatingDistributionRpcRowSchema>>,
+	rows: ReadonlyArray<z.infer<typeof RatingDistributionRpcRowSchema>>,
 ): ApiAnswerRatingDistribution {
-  const out: ApiAnswerRatingDistribution = { again: 0, hard: 0, good: 0, easy: 0 }
-  for (const row of rows) out[row.rating] = row.count
-  return out
+	const out: ApiAnswerRatingDistribution = { again: 0, hard: 0, good: 0, easy: 0 };
+	for (const row of rows) out[row.rating] = row.count;
+	return out;
 }
 
 function histogramRowsToBuckets(
-  rows: ReadonlyArray<z.infer<typeof HistogramBucketRpcRowSchema>>,
+	rows: ReadonlyArray<z.infer<typeof HistogramBucketRpcRowSchema>>,
 ): ApiHistogramBucket[] {
-  return rows.map((r) => ({ label: r.bucket, count: r.count }))
+	return rows.map(r => ({ label: r.bucket, count: r.count }));
 }
 
 export async function getDistributions(
-  userId: string,
+	userId: string,
 ): Promise<ApiInsightsDistributions> {
-  const [ratingResult, intervalResult, stabilityResult, difficultyResult] = await Promise.all([
-    supabaseAdmin.rpc('get_answer_rating_distribution', asPayload({ p_user_id: userId })),
-    supabaseAdmin.rpc('get_interval_distribution',      asPayload({ p_user_id: userId })),
-    supabaseAdmin.rpc('get_stability_distribution',     asPayload({ p_user_id: userId })),
-    supabaseAdmin.rpc('get_difficulty_distribution',    asPayload({ p_user_id: userId })),
-  ])
+	const [ratingResult, intervalResult, stabilityResult, difficultyResult] = await Promise.all([
+		supabaseAdmin.rpc("get_answer_rating_distribution", asPayload({ p_user_id: userId })),
+		supabaseAdmin.rpc("get_interval_distribution", asPayload({ p_user_id: userId })),
+		supabaseAdmin.rpc("get_stability_distribution", asPayload({ p_user_id: userId })),
+		supabaseAdmin.rpc("get_difficulty_distribution", asPayload({ p_user_id: userId })),
+	]);
 
-  if (ratingResult.error !== null)     throw dbError('get rating distribution',     ratingResult.error)
-  if (intervalResult.error !== null)   throw dbError('get interval distribution',   intervalResult.error)
-  if (stabilityResult.error !== null)  throw dbError('get stability distribution',  stabilityResult.error)
-  if (difficultyResult.error !== null) throw dbError('get difficulty distribution', difficultyResult.error)
+	if (ratingResult.error !== null)
+		throw dbError("get rating distribution", ratingResult.error);
+	if (intervalResult.error !== null)
+		throw dbError("get interval distribution", intervalResult.error);
+	if (stabilityResult.error !== null)
+		throw dbError("get stability distribution", stabilityResult.error);
+	if (difficultyResult.error !== null)
+		throw dbError("get difficulty distribution", difficultyResult.error);
 
-  return {
-    ratings:    ratingRowsToDistribution(
-      z.array(RatingDistributionRpcRowSchema).parse(ratingResult.data ?? []),
-    ),
-    intervals:  histogramRowsToBuckets(
-      z.array(HistogramBucketRpcRowSchema).parse(intervalResult.data ?? []),
-    ),
-    stability:  histogramRowsToBuckets(
-      z.array(HistogramBucketRpcRowSchema).parse(stabilityResult.data ?? []),
-    ),
-    difficulty: histogramRowsToBuckets(
-      z.array(HistogramBucketRpcRowSchema).parse(difficultyResult.data ?? []),
-    ),
-  }
+	return {
+		ratings: ratingRowsToDistribution(
+			z.array(RatingDistributionRpcRowSchema).parse(ratingResult.data ?? []),
+		),
+		intervals: histogramRowsToBuckets(
+			z.array(HistogramBucketRpcRowSchema).parse(intervalResult.data ?? []),
+		),
+		stability: histogramRowsToBuckets(
+			z.array(HistogramBucketRpcRowSchema).parse(stabilityResult.data ?? []),
+		),
+		difficulty: histogramRowsToBuckets(
+			z.array(HistogramBucketRpcRowSchema).parse(difficultyResult.data ?? []),
+		),
+	};
 }
 
 // ─── Tz-aware cards-added-this-month (Progress page summary tile) ───────────
 
 export async function getCardsAddedThisMonth(
-  userId:   string,
-  timezone: string,
+	userId: string,
+	timezone: string,
 ): Promise<number> {
-  const { data, error } = await supabaseAdmin.rpc('get_cards_added_this_month', asPayload({
-    p_user_id:  userId,
-    p_timezone: timezone,
-  }))
-  if (error !== null) throw dbError('get cards added this month', error)
-  return z.number().int().nonnegative().parse(data ?? 0)
+	const { data, error } = await supabaseAdmin.rpc("get_cards_added_this_month", asPayload({
+		p_user_id: userId,
+		p_timezone: timezone,
+	}));
+	if (error !== null)
+		throw dbError("get cards added this month", error);
+	return z.number().int().nonnegative().parse(data ?? 0);
 }

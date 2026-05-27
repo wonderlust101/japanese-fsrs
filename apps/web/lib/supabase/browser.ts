@@ -1,7 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
-import { env } from '@/lib/env'
+import { env } from "@/lib/env";
 
 /**
  * Returns a Supabase client configured for use in browser (Client Component)
@@ -17,5 +17,5 @@ import { env } from '@/lib/env'
  * so there is never more than one GoTrue listener active at a time.
  */
 export function createSupabaseBrowserClient(): SupabaseClient {
-  return createBrowserClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+	return createBrowserClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }

@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { useCallback } from 'react'
-import Link from 'next/link'
-
-import { useDevPanel } from '@/dev'
+import Link from "next/link";
+import { useCallback } from "react";
 
 import {
-  DRILL_ATTEMPT_FIXTURES,
-  DRILL_SESSION_FIXTURES,
-  devSessionHref,
-} from '@/app/(app)/weak-spots/drill/_components/drill-fixtures'
+	devSessionHref,
+	DRILL_ATTEMPT_FIXTURES,
+	DRILL_SESSION_FIXTURES,
+} from "@/app/(app)/weak-spots/drill/_components/drill-fixtures";
+
+import { useDevPanel } from "@/dev";
 
 /**
  * Register the Drill Setup dev panel — fixture-backed session and summary
@@ -18,57 +18,57 @@ import {
  * touching the live mutation path.
  */
 export function useWeakSpotDrillSetupDevState(): void {
-  const render = useCallback(() => (
-    <div className="flex flex-col gap-3">
-      <DevSection title="Drill sessions">
-        <div className="flex flex-wrap gap-1.5">
-          {DRILL_SESSION_FIXTURES.map((f) => (
-            <Link
-              key={f.key}
-              href={devSessionHref(f.key)}
-              title={f.description}
-              className="rounded-[2px] border border-warm-paper-raised/20 bg-warm-paper-raised/8 px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/85 hover:bg-warm-paper-raised/20 hover:text-warm-paper-raised cursor-pointer transition-colors duration-150 ease-out"
-            >
-              {f.label}
-            </Link>
-          ))}
-        </div>
-      </DevSection>
+	const render = useCallback(() => (
+		<div className="flex flex-col gap-3">
+			<DevSection title="Drill sessions">
+				<div className="flex flex-wrap gap-1.5">
+					{DRILL_SESSION_FIXTURES.map(f => (
+						<Link
+							key={f.key}
+							href={devSessionHref(f.key)}
+							title={f.description}
+							className="rounded-[2px] border border-warm-paper-raised/20 bg-warm-paper-raised/8 px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/85 hover:bg-warm-paper-raised/20 hover:text-warm-paper-raised cursor-pointer transition-colors duration-150 ease-out"
+						>
+							{f.label}
+						</Link>
+					))}
+				</div>
+			</DevSection>
 
-      <DevSection title="Pre-baked summaries">
-        <div className="flex flex-wrap gap-1.5">
-          {DRILL_ATTEMPT_FIXTURES.map((f) => (
-            <Link
-              key={f.key}
-              href={`${devSessionHref('mixed')}/summary?seed=${f.key}`}
-              title={f.description}
-              className="rounded-[2px] border border-warm-paper-raised/20 bg-warm-paper-raised/8 px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/85 hover:bg-warm-paper-raised/20 hover:text-warm-paper-raised cursor-pointer transition-colors duration-150 ease-out"
-            >
-              {f.label}
-            </Link>
-          ))}
-        </div>
-      </DevSection>
-    </div>
-  ), [])
+			<DevSection title="Pre-baked summaries">
+				<div className="flex flex-wrap gap-1.5">
+					{DRILL_ATTEMPT_FIXTURES.map(f => (
+						<Link
+							key={f.key}
+							href={`${devSessionHref("mixed")}/summary?seed=${f.key}`}
+							title={f.description}
+							className="rounded-[2px] border border-warm-paper-raised/20 bg-warm-paper-raised/8 px-2 py-1 font-mono text-[0.625rem] uppercase tracking-[0.12em] text-warm-paper-raised/85 hover:bg-warm-paper-raised/20 hover:text-warm-paper-raised cursor-pointer transition-colors duration-150 ease-out"
+						>
+							{f.label}
+						</Link>
+					))}
+				</div>
+			</DevSection>
+		</div>
+	), []);
 
-  useDevPanel({
-    id:    'weak-spots.drill.setup',
-    title: 'Drill · Setup',
-    render,
-  })
+	useDevPanel({
+		id: "weak-spots.drill.setup",
+		title: "Drill · Setup",
+		render,
+	});
 }
 
 function DevSection({
-  title,
-  children,
+	title,
+	children,
 }: { title: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <section>
-      <p className="mb-1.5 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-warm-paper-raised/55">
-        {title}
-      </p>
-      {children}
-    </section>
-  )
+	return (
+		<section>
+			<p className="mb-1.5 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-warm-paper-raised/55">
+				{title}
+			</p>
+			{children}
+		</section>
+	);
 }

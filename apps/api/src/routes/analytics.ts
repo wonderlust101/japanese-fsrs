@@ -1,16 +1,16 @@
-import { Router } from 'express'
+import { Router } from "express";
 
-import { authMiddleware }       from '../middleware/auth.ts'
+import * as analyticsController from "../controllers/analytics.controller.ts";
+import { authMiddleware } from "../middleware/auth.ts";
 import {
-  analyticsDashboardRateLimitMiddleware,
-  defaultUserRateLimitMiddleware,
-} from '../middleware/rateLimit.ts'
-import * as analyticsController from '../controllers/analytics.controller.ts'
+	analyticsDashboardRateLimitMiddleware,
+	defaultUserRateLimitMiddleware,
+} from "../middleware/rateLimit.ts";
 
-const router = Router()
+const router = Router();
 
-router.use(authMiddleware, defaultUserRateLimitMiddleware)
+router.use(authMiddleware, defaultUserRateLimitMiddleware);
 
-router.get('/dashboard',  analyticsDashboardRateLimitMiddleware, analyticsController.dashboard)
+router.get("/dashboard", analyticsDashboardRateLimitMiddleware, analyticsController.dashboard);
 
-export default router
+export default router;

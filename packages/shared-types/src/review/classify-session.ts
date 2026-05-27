@@ -10,32 +10,32 @@
 // frontend can pick longer prose for a richer card; the backend stays
 // terse for cache efficiency).
 
-export type SessionPattern =
-  | 'strong'
-  | 'mixed'
-  | 'difficult'
-  | 'weakSpot'
-  | 'ended-early'
-  | 'no-pattern'
+export type SessionPattern
+	= | "strong"
+		| "mixed"
+		| "difficult"
+		| "weakSpot"
+		| "ended-early"
+		| "no-pattern";
 
 export interface PatternInputs {
-  totalCards:  number
-  accuracyPct: number
-  again:       number
-  hard:        number
-  good:        number
-  easy:        number
-  leechCount:  number
-  endedEarly:  boolean
+	totalCards: number;
+	accuracyPct: number;
+	again: number;
+	hard: number;
+	good: number;
+	easy: number;
+	leechCount: number;
+	endedEarly: boolean;
 }
 
 // Threshold constants. Exported so consumers can reference the same
 // numbers in copy ("8 or more lapses…") without duplicating literals.
-export const NO_PATTERN_MIN_CARDS    = 5
-export const WEAK_SPOT_MIN_COUNT     = 3
-export const DIFFICULT_MAX_ACCURACY  = 65
-export const DIFFICULT_MAX_AGAIN_RATIO = 0.25
-export const STRONG_MIN_ACCURACY     = 90
+export const NO_PATTERN_MIN_CARDS = 5;
+export const WEAK_SPOT_MIN_COUNT = 3;
+export const DIFFICULT_MAX_ACCURACY = 65;
+export const DIFFICULT_MAX_AGAIN_RATIO = 0.25;
+export const STRONG_MIN_ACCURACY = 90;
 
 /**
  * Ordered most-specific-first; first matching predicate wins. The order
@@ -44,15 +44,22 @@ export const STRONG_MIN_ACCURACY     = 90
  * actionable read.
  */
 export function classifySession(i: PatternInputs): SessionPattern {
-  if (i.totalCards < NO_PATTERN_MIN_CARDS)                       return 'no-pattern'
-  if (i.endedEarly)                                              return 'ended-early'
-  if (i.leechCount >= WEAK_SPOT_MIN_COUNT)                       return 'weakSpot'
-  if (i.accuracyPct < DIFFICULT_MAX_ACCURACY)                    return 'difficult'
-  if (i.totalCards > 0 && i.again / i.totalCards > DIFFICULT_MAX_AGAIN_RATIO) return 'difficult'
-  if (
-    i.accuracyPct >= STRONG_MIN_ACCURACY &&
-    i.leechCount === 0 &&
-    i.again === 0
-  )                                                              return 'strong'
-  return 'mixed'
+	if (i.totalCards < NO_PATTERN_MIN_CARDS)
+		return "no-pattern";
+	if (i.endedEarly)
+		return "ended-early";
+	if (i.leechCount >= WEAK_SPOT_MIN_COUNT)
+		return "weakSpot";
+	if (i.accuracyPct < DIFFICULT_MAX_ACCURACY)
+		return "difficult";
+	if (i.totalCards > 0 && i.again / i.totalCards > DIFFICULT_MAX_AGAIN_RATIO)
+		return "difficult";
+	if (
+		i.accuracyPct >= STRONG_MIN_ACCURACY
+		&& i.leechCount === 0
+		&& i.again === 0
+	) {
+		return "strong";
+	}
+	return "mixed";
 }

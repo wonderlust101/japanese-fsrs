@@ -1,9 +1,9 @@
-import type { ApiDueCard } from '@fsrs-japanese/shared-types'
+import type { ApiDueCard } from "@fsrs-japanese/shared-types";
 import {
-  getWordFields,
-  getVocabularyFields,
-  getSentenceFields,
-} from '@fsrs-japanese/shared-types'
+	getSentenceFields,
+	getVocabularyFields,
+	getWordFields,
+} from "@fsrs-japanese/shared-types";
 
 // Layout-normalization adapter for the review surface.
 //
@@ -21,29 +21,29 @@ import {
 // `packages/shared-types/src/schemas/field-shapes.schema.ts`.
 
 export interface ResolvedCardFields {
-  word:            string
-  reading:         string | null
-  meaning:         string
-  partOfSpeech:    string | null
-  mnemonic:        string | null
-  /**
-   * AI-authored prose explaining usage register, connotation, and synonym
-   * distinctions. Renders as the first tab on the back of the card.
-   * Sourced from `WordFieldsSchema.nuance` (vocabulary / grammar) or
-   * `SentenceFieldsDataSchema.nuance` (sentence layout).
-   */
-  nuance:          string | null
-  frequencyRank:   number | null
-  pitchPosition:   number | null
-  pitchAccent:     string | null
-  picture:         string | null
-  kanjiBreakdown:  Array<{ kanji: string; radical: string; meaning?: string; reading?: string }>
-  exampleSentence: {
-    ja:        string
-    en:        string
-    furigana:  string
-  } | null
-  jlptLevel:       string | null
+	word: string;
+	reading: string | null;
+	meaning: string;
+	partOfSpeech: string | null;
+	mnemonic: string | null;
+	/**
+	 * AI-authored prose explaining usage register, connotation, and synonym
+	 * distinctions. Renders as the first tab on the back of the card.
+	 * Sourced from `WordFieldsSchema.nuance` (vocabulary / grammar) or
+	 * `SentenceFieldsDataSchema.nuance` (sentence layout).
+	 */
+	nuance: string | null;
+	frequencyRank: number | null;
+	pitchPosition: number | null;
+	pitchAccent: string | null;
+	picture: string | null;
+	kanjiBreakdown: Array<{ kanji: string; radical: string; meaning?: string; reading?: string }>;
+	exampleSentence: {
+		ja: string;
+		en: string;
+		furigana: string;
+	} | null;
+	jlptLevel: string | null;
 }
 
 // FNV-1a string hash → unsigned 32-bit. Deterministic and dependency-free.
@@ -52,12 +52,12 @@ export interface ResolvedCardFields {
 // varies across reviews (FSRS rewrites `due` after each rating), with no
 // server round-trip and identical results across devices.
 function hashString(s: string): number {
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return h >>> 0
+	let h = 0x811C9DC5;
+	for (let i = 0; i < s.length; i++) {
+		h ^= s.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return h >>> 0;
 }
 
 /**
@@ -67,50 +67,50 @@ function hashString(s: string): number {
  *   per review, picked stable-randomly from `card.id + card.due`.
  */
 export function resolveCardFields(card: ApiDueCard, sentenceIndex?: number): ResolvedCardFields {
-  const word     = getWordFields(card)
-  const vocab    = getVocabularyFields(card)
-  const sentence = getSentenceFields(card)
+	const word = getWordFields(card);
+	const vocab = getVocabularyFields(card);
+	const sentence = getSentenceFields(card);
 
-  // Rotate across the vocabulary card's example sentences (fall back to the
-  // sentence-layout shape, which is a single top-level ja/en/furigana rather
-  // than a nested array). With N sentences the back shows one per review;
-  // an explicit `sentenceIndex` overrides the rotation for preview surfaces.
-  const sentences = vocab?.exampleSentences ?? []
-  const rotated   = sentences.length === 0
-    ? undefined
-    : sentences[
-        sentenceIndex !== undefined
-          ? Math.min(Math.max(sentenceIndex, 0), sentences.length - 1)
-          : hashString(`${card.id}|${card.due}`) % sentences.length
-      ]
-  const example = rotated
-  const exampleSentence = example !== undefined
-    ? {
-        ja:       example.ja,
-        en:       example.en,
-        furigana: example.furigana,
-      }
-    : sentence !== null
-    ? {
-        ja:       sentence.ja,
-        en:       sentence.en,
-        furigana: sentence.furigana,
-      }
-    : null
+	// Rotate across the vocabulary card's example sentences (fall back to the
+	// sentence-layout shape, which is a single top-level ja/en/furigana rather
+	// than a nested array). With N sentences the back shows one per review;
+	// an explicit `sentenceIndex` overrides the rotation for preview surfaces.
+	const sentences = vocab?.exampleSentences ?? [];
+	const rotated = sentences.length === 0
+		? undefined
+		: sentences[
+			sentenceIndex !== undefined
+				? Math.min(Math.max(sentenceIndex, 0), sentences.length - 1)
+				: hashString(`${card.id}|${card.due}`) % sentences.length
+		];
+	const example = rotated;
+	const exampleSentence = example !== undefined
+		? {
+				ja: example.ja,
+				en: example.en,
+				furigana: example.furigana,
+			}
+		: sentence !== null
+			? {
+					ja: sentence.ja,
+					en: sentence.en,
+					furigana: sentence.furigana,
+				}
+			: null;
 
-  return {
-    word:            word?.word            ?? sentence?.ja ?? '',
-    reading:         word?.reading         ?? null,
-    meaning:         word?.meaning         ?? sentence?.en ?? '',
-    partOfSpeech:    word?.partOfSpeech    ?? null,
-    mnemonic:        word?.mnemonic        ?? null,
-    nuance:          word?.nuance          ?? sentence?.nuance ?? null,
-    frequencyRank:   word?.frequencyRank   ?? null,
-    pitchPosition:   word?.pitchPosition   ?? null,
-    pitchAccent:     vocab?.pitchAccent    ?? null,
-    picture:         word?.picture         ?? null,
-    kanjiBreakdown:  vocab?.kanjiBreakdown ?? [],
-    exampleSentence,
-    jlptLevel:       card.jlptLevel,
-  }
+	return {
+		word: word?.word ?? sentence?.ja ?? "",
+		reading: word?.reading ?? null,
+		meaning: word?.meaning ?? sentence?.en ?? "",
+		partOfSpeech: word?.partOfSpeech ?? null,
+		mnemonic: word?.mnemonic ?? null,
+		nuance: word?.nuance ?? sentence?.nuance ?? null,
+		frequencyRank: word?.frequencyRank ?? null,
+		pitchPosition: word?.pitchPosition ?? null,
+		pitchAccent: vocab?.pitchAccent ?? null,
+		picture: word?.picture ?? null,
+		kanjiBreakdown: vocab?.kanjiBreakdown ?? [],
+		exampleSentence,
+		jlptLevel: card.jlptLevel,
+	};
 }

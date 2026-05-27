@@ -1,10 +1,9 @@
+import type { PatternInputs, SessionPattern, SessionSummary } from "@fsrs-japanese/shared-types";
 import {
-  assertNever,
-  classifySession,
-  type PatternInputs,
-  type SessionPattern,
-  type SessionSummary,
-} from '@fsrs-japanese/shared-types'
+	assertNever,
+	classifySession,
+
+} from "@fsrs-japanese/shared-types";
 
 // Pattern-to-prose mapping for the review summary UI. The classifier
 // itself lives in shared-types/review/classify-session.ts so the backend
@@ -13,23 +12,23 @@ import {
 // here because the UI copy and the backend fallback copy are allowed to
 // diverge intentionally.
 
-export type { SessionPattern, PatternInputs }
-export { classifySession }
+export type { PatternInputs, SessionPattern };
+export { classifySession };
 
 export function inputsFromSummary(
-  summary: SessionSummary,
-  endedEarly: boolean,
+	summary: SessionSummary,
+	endedEarly: boolean,
 ): PatternInputs {
-  return {
-    totalCards:  summary.totalCards,
-    accuracyPct: summary.accuracyPct,
-    again:       summary.ratingBreakdown.again,
-    hard:        summary.ratingBreakdown.hard,
-    good:        summary.ratingBreakdown.good,
-    easy:        summary.ratingBreakdown.easy,
-    leechCount:  summary.weakSpots.length,
-    endedEarly,
-  }
+	return {
+		totalCards: summary.totalCards,
+		accuracyPct: summary.accuracyPct,
+		again: summary.ratingBreakdown.again,
+		hard: summary.ratingBreakdown.hard,
+		good: summary.ratingBreakdown.good,
+		easy: summary.ratingBreakdown.easy,
+		leechCount: summary.weakSpots.length,
+		endedEarly,
+	};
 }
 
 // ── Content mapping ──────────────────────────────────────────────────────────
@@ -38,161 +37,164 @@ export function inputsFromSummary(
 // labels follow the IA brief's "Primary Action Logic" table. Routes are best-
 // effort against the current router; missing destinations degrade to /today.
 
-export type ActionRoute =
-  | { kind: 'today' }
-  | { kind: 'repair' }
-  | { kind: 'review-problem'; cardIds: string[] }
-  | { kind: 'insights' }
+export type ActionRoute
+	= | { kind: "today" }
+		| { kind: "repair" }
+		| { kind: "review-problem"; cardIds: string[] }
+		| { kind: "insights" };
 
 export interface SummaryContent {
-  pattern:        SessionPattern
-  kicker:         { kanji: string; label: string }
-  heroHeadline:   string
-  heroSubcopy?:   string | undefined
-  diagnosisLead:  string
-  diagnosisAside: string | null
-  rationale:      string
-  primary:        { label: string; route: ActionRoute }
-  secondary?:     { label: string; route: ActionRoute } | undefined
-  showProblemCards: boolean
-  showTomorrowGlance: boolean
+	pattern: SessionPattern;
+	kicker: { kanji: string; label: string };
+	heroHeadline: string;
+	heroSubcopy?: string | undefined;
+	diagnosisLead: string;
+	diagnosisAside: string | null;
+	rationale: string;
+	primary: { label: string; route: ActionRoute };
+	secondary?: { label: string; route: ActionRoute } | undefined;
+	showProblemCards: boolean;
+	showTomorrowGlance: boolean;
 }
 
 interface ContentInputs {
-  inputs:       PatternInputs
-  pattern:      SessionPattern
-  leechIds:     string[]
-  leechTokens:  string[]
+	inputs: PatternInputs;
+	pattern: SessionPattern;
+	leechIds: string[];
+	leechTokens: string[];
 }
 
 export function buildSummaryContent(
-  summary: SessionSummary,
-  endedEarly: boolean,
+	summary: SessionSummary,
+	endedEarly: boolean,
 ): SummaryContent {
-  const inputs  = inputsFromSummary(summary, endedEarly)
-  const pattern = classifySession(inputs)
-  const leechIds    = summary.weakSpots.map((l) => l.cardId)
-  const leechTokens = summary.weakSpots.slice(0, 3).map((l) => l.word)
-  return mapPattern({ inputs, pattern, leechIds, leechTokens })
+	const inputs = inputsFromSummary(summary, endedEarly);
+	const pattern = classifySession(inputs);
+	const leechIds = summary.weakSpots.map(l => l.cardId);
+	const leechTokens = summary.weakSpots.slice(0, 3).map(l => l.word);
+	return mapPattern({ inputs, pattern, leechIds, leechTokens });
 }
 
 function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): SummaryContent {
-  const baseShow = {
-    showProblemCards:    inputs.leechCount > 0,
-    showTomorrowGlance:  true,
-  }
+	const baseShow = {
+		showProblemCards: inputs.leechCount > 0,
+		showTomorrowGlance: true,
+	};
 
-  // Inline-Japanese specifics line. Stays null when there are no weakSpots.
-  const specifics = leechTokens.length > 0
-    ? `${formatTokens(leechTokens)} showed up in repeated misses.`
-    : null
+	// Inline-Japanese specifics line. Stays null when there are no weakSpots.
+	const specifics = leechTokens.length > 0
+		? `${formatTokens(leechTokens)} showed up in repeated misses.`
+		: null;
 
-  switch (pattern) {
-    case 'strong':
-      return {
-        pattern,
-        kicker:         { kanji: '済', label: 'All done' },
-        heroHeadline:   'Beautifully done.',
-        heroSubcopy:    'That was a clean run. Enjoy the rest of your morning.',
-        diagnosisLead:  'No clear weak spot today.',
-        diagnosisAside: null,
-        rationale:      'Today reads as a strong session. The deck is settled; leave the rest for tomorrow.',
-        primary:        { label: 'Leave for today', route: { kind: 'today' } },
-        secondary:      undefined,
-        showProblemCards:   false,
-        showTomorrowGlance: true,
-      }
+	switch (pattern) {
+		case "strong":
+			return {
+				pattern,
+				kicker: { kanji: "済", label: "All done" },
+				heroHeadline: "Beautifully done.",
+				heroSubcopy: "That was a clean run. Enjoy the rest of your morning.",
+				diagnosisLead: "No clear weak spot today.",
+				diagnosisAside: null,
+				rationale: "Today reads as a strong session. The deck is settled; leave the rest for tomorrow.",
+				primary: { label: "Leave for today", route: { kind: "today" } },
+				secondary: undefined,
+				showProblemCards: false,
+				showTomorrowGlance: true,
+			};
 
-    case 'mixed':
-      return {
-        pattern,
-        kicker:         { kanji: '済', label: 'Session wrapped' },
-        heroHeadline:   'Nicely wrapped.',
-        heroSubcopy:    'A few rough spots, nothing alarming.',
-        diagnosisLead:  'A few rough spots, nothing alarming.',
-        diagnosisAside: specifics,
-        rationale:      'Most of the session held together. The few rough spots can wait until tomorrow.',
-        primary:        { label: 'Leave for today', route: { kind: 'today' } },
-        secondary:      inputs.leechCount > 0
-          ? { label: 'Improve weak spots', route: { kind: 'repair' } }
-          : undefined,
-        ...baseShow,
-      }
+		case "mixed":
+			return {
+				pattern,
+				kicker: { kanji: "済", label: "Session wrapped" },
+				heroHeadline: "Nicely wrapped.",
+				heroSubcopy: "A few rough spots, nothing alarming.",
+				diagnosisLead: "A few rough spots, nothing alarming.",
+				diagnosisAside: specifics,
+				rationale: "Most of the session held together. The few rough spots can wait until tomorrow.",
+				primary: { label: "Leave for today", route: { kind: "today" } },
+				secondary: inputs.leechCount > 0
+					? { label: "Improve weak spots", route: { kind: "repair" } }
+					: undefined,
+				...baseShow,
+			};
 
-    case 'difficult':
-      return {
-        pattern,
-        kicker:         { kanji: '済', label: 'Session wrapped' },
-        heroHeadline:   'You stayed with it.',
-        heroSubcopy:    'That was a heavy one. The effort still counts.',
-        diagnosisLead:  'Recall sat lower than usual. A short focused drill will help.',
-        diagnosisAside: specifics,
-        rationale:      'A short drill on the cards below settles the rough spots without restarting the day.',
-        primary:        leechIds.length > 0
-          ? { label: 'Review weak spots', route: { kind: 'review-problem', cardIds: leechIds } }
-          : { label: 'Open Insights', route: { kind: 'insights' } },
-        secondary:      { label: 'Leave for today', route: { kind: 'today' } },
-        ...baseShow,
-      }
+		case "difficult":
+			return {
+				pattern,
+				kicker: { kanji: "済", label: "Session wrapped" },
+				heroHeadline: "You stayed with it.",
+				heroSubcopy: "That was a heavy one. The effort still counts.",
+				diagnosisLead: "Recall sat lower than usual. A short focused drill will help.",
+				diagnosisAside: specifics,
+				rationale: "A short drill on the cards below settles the rough spots without restarting the day.",
+				primary: leechIds.length > 0
+					? { label: "Review weak spots", route: { kind: "review-problem", cardIds: leechIds } }
+					: { label: "Open Insights", route: { kind: "insights" } },
+				secondary: { label: "Leave for today", route: { kind: "today" } },
+				...baseShow,
+			};
 
-    case 'weakSpot':
-      return {
-        pattern,
-        kicker:         { kanji: '済', label: 'Session wrapped' },
-        heroHeadline:   'Practice done.',
-        heroSubcopy:    'A handful of cards keep slipping. Worth a closer look.',
-        diagnosisLead:  'A handful of cards keep slipping. They look like weak spots.',
-        diagnosisAside: specifics,
-        rationale:      'Repairing the cards below once is usually enough to break the loop.',
-        primary:        { label: 'Improve weak spots', route: { kind: 'repair' } },
-        secondary:      { label: 'Leave for today', route: { kind: 'today' } },
-        ...baseShow,
-      }
+		case "weakSpot":
+			return {
+				pattern,
+				kicker: { kanji: "済", label: "Session wrapped" },
+				heroHeadline: "Practice done.",
+				heroSubcopy: "A handful of cards keep slipping. Worth a closer look.",
+				diagnosisLead: "A handful of cards keep slipping. They look like weak spots.",
+				diagnosisAside: specifics,
+				rationale: "Repairing the cards below once is usually enough to break the loop.",
+				primary: { label: "Improve weak spots", route: { kind: "repair" } },
+				secondary: { label: "Leave for today", route: { kind: "today" } },
+				...baseShow,
+			};
 
-    case 'ended-early':
-      return {
-        pattern,
-        kicker:         { kanji: '中', label: 'Paused for now' },
-        heroHeadline:   'Stopped at a good spot.',
-        heroSubcopy:    'Partial sessions still count.',
-        diagnosisLead:  inputs.leechCount > 0
-          ? 'A short stop is fine; the rough spots will come back around.'
-          : 'A short stop is fine. The schedule adjusts.',
-        diagnosisAside: specifics,
-        rationale:      'Stopping at a reasonable point is part of the practice. The remaining cards are still scheduled.',
-        primary:        { label: 'Leave for today', route: { kind: 'today' } },
-        secondary:      inputs.leechCount > 0
-          ? { label: 'Improve weak spots', route: { kind: 'repair' } }
-          : undefined,
-        ...baseShow,
-      }
+		case "ended-early":
+			return {
+				pattern,
+				kicker: { kanji: "中", label: "Paused for now" },
+				heroHeadline: "Stopped at a good spot.",
+				heroSubcopy: "Partial sessions still count.",
+				diagnosisLead: inputs.leechCount > 0
+					? "A short stop is fine; the rough spots will come back around."
+					: "A short stop is fine. The schedule adjusts.",
+				diagnosisAside: specifics,
+				rationale: "Stopping at a reasonable point is part of the practice. The remaining cards are still scheduled.",
+				primary: { label: "Leave for today", route: { kind: "today" } },
+				secondary: inputs.leechCount > 0
+					? { label: "Improve weak spots", route: { kind: "repair" } }
+					: undefined,
+				...baseShow,
+			};
 
-    case 'no-pattern':
-      return {
-        pattern,
-        kicker:         { kanji: '済', label: 'Short and sweet' },
-        heroHeadline:   'Short and sweet.',
-        heroSubcopy:    'A brief one today. Every pass keeps the rhythm.',
-        diagnosisLead:  'Short session today.',
-        diagnosisAside: 'Not enough cards to call a pattern.',
-        rationale:      'Nothing requires action. Leave the rest for tomorrow.',
-        primary:        { label: 'Leave for today', route: { kind: 'today' } },
-        secondary:      undefined,
-        showProblemCards:   inputs.leechCount > 0,
-        showTomorrowGlance: false,
-      }
+		case "no-pattern":
+			return {
+				pattern,
+				kicker: { kanji: "済", label: "Short and sweet" },
+				heroHeadline: "Short and sweet.",
+				heroSubcopy: "A brief one today. Every pass keeps the rhythm.",
+				diagnosisLead: "Short session today.",
+				diagnosisAside: "Not enough cards to call a pattern.",
+				rationale: "Nothing requires action. Leave the rest for tomorrow.",
+				primary: { label: "Leave for today", route: { kind: "today" } },
+				secondary: undefined,
+				showProblemCards: inputs.leechCount > 0,
+				showTomorrowGlance: false,
+			};
 
-    default:
-      return assertNever(pattern)
-  }
+		default:
+			return assertNever(pattern);
+	}
 }
 
 // Comma-joined list with a final "and"; keeps the diagnosis sentence readable
 // when more than two tokens appear (capped at three by the caller).
 function formatTokens(tokens: string[]): string {
-  const last = tokens[tokens.length - 1]
-  if (last === undefined) return ''
-  if (tokens.length === 1) return last
-  if (tokens.length === 2) return `${tokens[0]} and ${tokens[1]}`
-  return `${tokens.slice(0, -1).join(', ')}, and ${last}`
+	const last = tokens[tokens.length - 1];
+	if (last === undefined)
+		return "";
+	if (tokens.length === 1)
+		return last;
+	if (tokens.length === 2)
+		return `${tokens[0]} and ${tokens[1]}`;
+	return `${tokens.slice(0, -1).join(", ")}, and ${last}`;
 }

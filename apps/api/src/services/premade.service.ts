@@ -1,44 +1,45 @@
-import { z } from 'zod'
+import type { ApiCopyPremadeDeckResult, ApiList, ApiPremadeDeck } from "@fsrs-japanese/shared-types";
 
-import { supabaseAdmin } from '../db/supabase.ts'
-import { asPayload } from '../lib/db.ts'
-import { encodeCursor, decodeCursor } from '../lib/http.ts'
-import { invalidateDueCache } from '../lib/due-cache.ts'
-import { componentLogger } from '../lib/logger.ts'
-import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { uuidIdCursorSchema } from '../schemas/common.schema.ts'
-
-const log = componentLogger('premade.service')
-import type { ListPremadeDecksQuery } from '../schemas/premade.schema.ts'
+import type { ListPremadeDecksQuery } from "../schemas/premade.schema.ts";
 import {
-  deckTypeEnum,
-  jlptLevelEnum,
-  type ApiList,
-  type ApiPremadeDeck,
-  type ApiCopyPremadeDeckResult,
-} from '@fsrs-japanese/shared-types'
+	deckTypeEnum,
+	jlptLevelEnum,
+
+} from "@fsrs-japanese/shared-types";
+import { z } from "zod";
+import { supabaseAdmin } from "../db/supabase.ts";
+import { asPayload } from "../lib/db.ts";
+import { invalidateDueCache } from "../lib/due-cache.ts";
+import { decodeCursor, encodeCursor } from "../lib/http.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { AppError, dbError } from "../middleware/errorHandler.ts";
+import { uuidIdCursorSchema } from "../schemas/common.schema.ts";
+
+const log = componentLogger("premade.service");
 
 // ─── Column projections ───────────────────────────────────────────────────────
 
 const PREMADE_COLUMNS = [
-  'id',
-  'name',
-  'description',
-  'deck_type',
-  'jlpt_level',
-  'domain',
-  'card_count',
-  'is_active',
-  'created_at',
-  'updated_at',
-].join(', ')
+	"id",
+	"name",
+	"description",
+	"deck_type",
+	"jlpt_level",
+	"domain",
+	"card_count",
+	"is_active",
+	"created_at",
+	"updated_at",
+].join(", ");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Raw snake_case premade-deck row. Inferred from PremadeDeckListRpcRowSchema
+/**
+ * Raw snake_case premade-deck row. Inferred from PremadeDeckListRpcRowSchema
  *  (the schema is shared between the list_premade_decks_paginated RPC and
- *  direct .from('premade_decks') reads). */
-type PremadeDeckDbRow = z.infer<typeof PremadeDeckListRpcRowSchema>
+ *  direct .from('premade_decks') reads).
+ */
+type PremadeDeckDbRow = z.infer<typeof PremadeDeckListRpcRowSchema>;
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
 // Mirrors the analytics / review precedent: parse the RPC result so any future
@@ -48,47 +49,49 @@ type PremadeDeckDbRow = z.infer<typeof PremadeDeckListRpcRowSchema>
 // Backend Completion Plan Stage 4 (copy model) dropped `version`; the column
 // no longer exists on premade_decks. The schema follows.
 const PremadeDeckListRpcRowSchema = z.object({
-  id:          z.string(),
-  name:        z.string(),
-  description: z.string().nullable(),
-  deck_type:   deckTypeEnum,
-  jlpt_level:  jlptLevelEnum.nullable(),
-  domain:      z.string().nullable(),
-  card_count:  z.number(),
-  is_active:   z.boolean(),
-  created_at:  z.string(),
-  updated_at:  z.string(),
-})
+	id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	deck_type: deckTypeEnum,
+	jlpt_level: jlptLevelEnum.nullable(),
+	domain: z.string().nullable(),
+	card_count: z.number(),
+	is_active: z.boolean(),
+	created_at: z.string(),
+	updated_at: z.string(),
+});
 
-/** Cursor payload for the premade-decks-list endpoint. The
+/**
+ * Cursor payload for the premade-decks-list endpoint. The
  *  `list_premade_decks_paginated` RPC re-derives the sort key from the row
  *  pointed to by `id`, so the cursor only needs to carry `id` today. Shared
  *  with card.service.ts and deck.service.ts via `uuidIdCursorSchema` — see
- *  schemas/common.schema.ts. */
-const premadeListCursorSchema = uuidIdCursorSchema
+ *  schemas/common.schema.ts.
+ */
+const premadeListCursorSchema = uuidIdCursorSchema;
 
 // Backend Completion Plan Stage 4 (copy model) envelope. The copy RPC returns
 // one row carrying the newly-created deck id and the count of cards cloned
 // into it. No subscription junction, no "alreadyExisted" flag — duplicates
 // are allowed by design.
 const CopyRpcRowSchema = z.object({
-  deck_id:    z.string(),
-  card_count: z.number(),
-})
+	deck_id: z.string(),
+	card_count: z.number(),
+});
 
 function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
-  return {
-    id:          raw.id,
-    name:        raw.name,
-    description: raw.description,
-    deckType:    raw.deck_type,
-    jlptLevel:   raw.jlpt_level,
-    domain:      raw.domain,
-    cardCount:   raw.card_count,
-    isActive:    raw.is_active,
-    createdAt:   raw.created_at,
-    updatedAt:   raw.updated_at,
-  }
+	return {
+		id: raw.id,
+		name: raw.name,
+		description: raw.description,
+		deckType: raw.deck_type,
+		jlptLevel: raw.jlpt_level,
+		domain: raw.domain,
+		cardCount: raw.card_count,
+		isActive: raw.is_active,
+		createdAt: raw.created_at,
+		updatedAt: raw.updated_at,
+	};
 }
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -99,52 +102,52 @@ function toPremadeRow(raw: PremadeDeckDbRow): ApiPremadeDeck {
  * Order: (jlpt_level ASC NULLS LAST, name ASC, id ASC).
  */
 export async function listPremadeDecks(
-  filters: ListPremadeDecksQuery,
+	filters: ListPremadeDecksQuery,
 ): Promise<ApiList<ApiPremadeDeck>> {
-  const cursorId = filters.cursor !== undefined
-    ? decodeCursor(filters.cursor, premadeListCursorSchema).id
-    : null
+	const cursorId = filters.cursor !== undefined
+		? decodeCursor(filters.cursor, premadeListCursorSchema).id
+		: null;
 
-  const { data, error } = await supabaseAdmin.rpc('list_premade_decks_paginated', asPayload({
-    p_limit:      filters.limit + 1,
-    p_cursor:     cursorId,
-    p_deck_type:  filters.deckType  ?? null,
-    p_jlpt_level: filters.jlptLevel ?? null,
-    p_domain:     filters.domain    ?? null,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("list_premade_decks_paginated", asPayload({
+		p_limit: filters.limit + 1,
+		p_cursor: cursorId,
+		p_deck_type: filters.deckType ?? null,
+		p_jlpt_level: filters.jlptLevel ?? null,
+		p_domain: filters.domain ?? null,
+	}));
 
-  if (error !== null) {
-    throw dbError('list premade decks', error)
-  }
+	if (error !== null) {
+		throw dbError("list premade decks", error);
+	}
 
-  const rows    = z.array(PremadeDeckListRpcRowSchema).parse(data ?? [])
-  const hasMore = rows.length > filters.limit
-  const items   = rows.slice(0, filters.limit).map(toPremadeRow)
-  const lastId  = items[items.length - 1]?.id
+	const rows = z.array(PremadeDeckListRpcRowSchema).parse(data ?? []);
+	const hasMore = rows.length > filters.limit;
+	const items = rows.slice(0, filters.limit).map(toPremadeRow);
+	const lastId = items[items.length - 1]?.id;
 
-  return {
-    items,
-    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
-    hasMore,
-  }
+	return {
+		items,
+		nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
+		hasMore,
+	};
 }
 
 /**
  * Returns a single active premade deck by ID. Throws 404 if missing or inactive.
  */
 export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
-  const { data, error } = await supabaseAdmin
-    .from('premade_decks')
-    .select(PREMADE_COLUMNS)
-    .eq('id', id)
-    .eq('is_active', true)
-    .single()
+	const { data, error } = await supabaseAdmin
+		.from("premade_decks")
+		.select(PREMADE_COLUMNS)
+		.eq("id", id)
+		.eq("is_active", true)
+		.single();
 
-  if (error !== null || data === null) {
-    throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
-  }
+	if (error !== null || data === null) {
+		throw new AppError(404, "Premade deck not found", { code: "PREMADE_DECK_NOT_FOUND" });
+	}
 
-  return toPremadeRow(PremadeDeckListRpcRowSchema.parse(data))
+	return toPremadeRow(PremadeDeckListRpcRowSchema.parse(data));
 }
 
 /**
@@ -168,44 +171,44 @@ export async function getPremadeDeck(id: string): Promise<ApiPremadeDeck> {
  * `is_active = FALSE`; any other RPC failure surfaces via `dbError()`.
  */
 export async function copyPremadeDeck(
-  userId: string,
-  premadeDeckId: string,
+	userId: string,
+	premadeDeckId: string,
 ): Promise<ApiCopyPremadeDeckResult> {
-  const { data, error } = await supabaseAdmin.rpc('copy_premade_deck', asPayload({
-    p_user_id:         userId,
-    p_premade_deck_id: premadeDeckId,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("copy_premade_deck", asPayload({
+		p_user_id: userId,
+		p_premade_deck_id: premadeDeckId,
+	}));
 
-  if (error !== null) {
-    // The new RPC raises `premade_deck_not_found` with SQLSTATE 02000
-    // (no_data_found) when the source is inactive or missing. Translate
-    // to HTTP 404 — same code the previous subscribe path used.
-    if (error.code === '02000' && error.message.includes('premade_deck_not_found')) {
-      throw new AppError(404, 'Premade deck not found', { code: 'PREMADE_DECK_NOT_FOUND' })
-    }
-    throw dbError('copy premade deck', error)
-  }
+	if (error !== null) {
+		// The new RPC raises `premade_deck_not_found` with SQLSTATE 02000
+		// (no_data_found) when the source is inactive or missing. Translate
+		// to HTTP 404 — same code the previous subscribe path used.
+		if (error.code === "02000" && error.message.includes("premade_deck_not_found")) {
+			throw new AppError(404, "Premade deck not found", { code: "PREMADE_DECK_NOT_FOUND" });
+		}
+		throw dbError("copy premade deck", error);
+	}
 
-  const rows = z.array(CopyRpcRowSchema).parse(data ?? [])
-  const row  = rows[0]
-  if (row === undefined) {
-    // RPC succeeded but returned no row — should never happen under the
-    // new contract (the RPC always RETURN QUERYs one row). Surface as 500
-    // so a future regression is loud.
-    throw new AppError(500, 'Copy RPC returned no row', { code: 'PREMADE_COPY_RPC_EMPTY' })
-  }
+	const rows = z.array(CopyRpcRowSchema).parse(data ?? []);
+	const row = rows[0];
+	if (row === undefined) {
+		// RPC succeeded but returned no row — should never happen under the
+		// new contract (the RPC always RETURN QUERYs one row). Surface as 500
+		// so a future regression is loud.
+		throw new AppError(500, "Copy RPC returned no row", { code: "PREMADE_COPY_RPC_EMPTY" });
+	}
 
-  log.info(
-    { userId, premadeDeckId, deckId: row.deck_id, cardCount: row.card_count },
-    'copied premade deck',
-  )
+	log.info(
+		{ userId, premadeDeckId, deckId: row.deck_id, cardCount: row.card_count },
+		"copied premade deck",
+	);
 
-  // The copied cards start as New, so the cached due set is now stale.
-  // Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts.
-  void invalidateDueCache(userId)
+	// The copied cards start as New, so the cached due set is now stale.
+	// Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts.
+	void invalidateDueCache(userId);
 
-  return {
-    deckId:    row.deck_id,
-    cardCount: row.card_count,
-  }
+	return {
+		deckId: row.deck_id,
+		cardCount: row.card_count,
+	};
 }

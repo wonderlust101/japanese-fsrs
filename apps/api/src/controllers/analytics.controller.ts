@@ -1,10 +1,10 @@
-import type { RequestHandler } from 'express'
+import type { RequestHandler } from "express";
 
-import * as analyticsService from '../services/analytics.service.ts'
-import * as profileService from '../services/profile.service.ts'
-import { cacheControl } from '../lib/http.ts'
+import { cacheControl } from "../lib/http.ts";
+import * as analyticsService from "../services/analytics.service.ts";
+import * as profileService from "../services/profile.service.ts";
 
-const ANALYTICS_MAX_AGE_SECONDS = 300
+const ANALYTICS_MAX_AGE_SECONDS = 300;
 
 /**
  * GET /api/v1/analytics/dashboard
@@ -16,8 +16,8 @@ const ANALYTICS_MAX_AGE_SECONDS = 300
  * only analytics read path the API exposes today.
  */
 export const dashboard: RequestHandler = async (req, res): Promise<void> => {
-  const profile = await profileService.getProfile(req.user.id)
-  const data = await analyticsService.getDashboardData(req.user.id, profile.timezone)
-  cacheControl(res, ANALYTICS_MAX_AGE_SECONDS)
-  res.json(data)
-}
+	const profile = await profileService.getProfile(req.user.id);
+	const data = await analyticsService.getDashboardData(req.user.id, profile.timezone);
+	cacheControl(res, ANALYTICS_MAX_AGE_SECONDS);
+	res.json(data);
+};

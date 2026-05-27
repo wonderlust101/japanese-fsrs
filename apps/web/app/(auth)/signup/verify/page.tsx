@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 /**
  * /signup/verify is in the middleware matcher so that authenticated users are
@@ -9,5 +9,5 @@ import { redirect } from 'next/navigation'
  * to /signup so the two-step flow can start from the beginning.
  */
 export default function VerifyRedirectPage(): never {
-  redirect('/signup')
+	redirect("/signup");
 }

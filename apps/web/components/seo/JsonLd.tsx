@@ -8,12 +8,12 @@
  * break out of the script element.
  */
 export function JsonLd({
-  schema,
+	schema,
 }: {
-  schema: Record<string, unknown> | Record<string, unknown>[]
+	schema: Record<string, unknown> | Record<string, unknown>[];
 }): React.JSX.Element {
-  const json = JSON.stringify(schema).replace(/</g, '\\u003c')
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />
+	const json = JSON.stringify(schema).replace(/</g, "\\u003c");
+	return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />;
 }
 
 // ── Schema builders ─────────────────────────────────────────────────────────
@@ -24,15 +24,15 @@ export function JsonLd({
 
 /** The brand entity. Logo points at the full kitsune + 友 mark. */
 export function organizationSchema(siteUrl: string): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'Tomo',
-    url: siteUrl,
-    logo: `${siteUrl}/brand/icon-512.png`,
-    description:
-      'Tomo is a spaced-repetition practice app built specifically for Japanese learners.',
-  }
+	return {
+		"@context": "https://schema.org",
+		"@type": "Organization",
+		"name": "Tomo",
+		"url": siteUrl,
+		"logo": `${siteUrl}/brand/icon-512.png`,
+		"description":
+      "Tomo is a spaced-repetition practice app built specifically for Japanese learners.",
+	};
 }
 
 /**
@@ -41,32 +41,32 @@ export function organizationSchema(siteUrl: string): Record<string, unknown> {
  * structured data — we do not signal a price here.
  */
 export function webApplicationSchema(siteUrl: string, description: string): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'WebApplication',
-    name: 'Tomo',
-    url: siteUrl,
-    applicationCategory: 'EducationalApplication',
-    operatingSystem: 'Web',
-    inLanguage: 'en',
-    description,
-  }
+	return {
+		"@context": "https://schema.org",
+		"@type": "WebApplication",
+		"name": "Tomo",
+		"url": siteUrl,
+		"applicationCategory": "EducationalApplication",
+		"operatingSystem": "Web",
+		"inLanguage": "en",
+		description,
+	};
 }
 
 export interface FaqItem {
-  question: string
-  answer: string
+	question: string;
+	answer: string;
 }
 
 /** FAQPage rich-result schema, built from the same Q&A the page renders. */
 export function faqPageSchema(items: readonly FaqItem[]): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: items.map((item) => ({
-      '@type': 'Question',
-      name: item.question,
-      acceptedAnswer: { '@type': 'Answer', text: item.answer },
-    })),
-  }
+	return {
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		"mainEntity": items.map(item => ({
+			"@type": "Question",
+			"name": item.question,
+			"acceptedAnswer": { "@type": "Answer", "text": item.answer },
+		})),
+	};
 }

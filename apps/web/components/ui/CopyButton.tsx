@@ -1,22 +1,22 @@
-'use client'
+"use client";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
-type CopySize = 'xs' | 'sm'
+type CopySize = "xs" | "sm";
 
 interface CopyButtonProps {
-  onClick:    () => void
-  copied:     boolean
-  label:      string
-  size?:      CopySize
-  className?: string
-  ariaLabel?: string
+	onClick: () => void;
+	copied: boolean;
+	label: string;
+	size?: CopySize;
+	className?: string;
+	ariaLabel?: string;
 }
 
 const SIZE_CLASS: Record<CopySize, string> = {
-  xs: 'h-6 px-2 text-sm',
-  sm: 'h-7 px-2 text-sm',
-}
+	xs: "h-6 px-2 text-sm",
+	sm: "h-7 px-2 text-sm",
+};
 
 /**
  * "Copy to clipboard" button that morphs to "✓ Copied" for ~1500ms after a
@@ -28,46 +28,48 @@ const SIZE_CLASS: Record<CopySize, string> = {
  * panel and the cards / decks dev fixtures.
  */
 export function CopyButton({
-  onClick,
-  copied,
-  label,
-  size       = 'sm',
-  className,
-  ariaLabel,
+	onClick,
+	copied,
+	label,
+	size = "sm",
+	className,
+	ariaLabel,
 }: CopyButtonProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-live="polite"
-      aria-label={ariaLabel ?? label}
-      className={cn(
-        'inline-flex items-center gap-2 rounded-xs border font-mono transition-colors',
-        SIZE_CLASS[size],
-        copied
-          ? 'border-deck-n5-mark/30 bg-deck-n5-wash text-deck-n5-mark'
-          : 'border-soft-hairline bg-warm-paper-raised text-faded-sumi hover:border-faded-sumi hover:text-sumi-ink',
-        'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-        className,
-      )}
-    >
-      {copied ? (
-        <>
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-            <path
-              d="M2 5 L 4.2 7 L 8 3"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              fill="none"
-            />
-          </svg>
-          Copied
-        </>
-      ) : (
-        label
-      )}
-    </button>
-  )
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-live="polite"
+			aria-label={ariaLabel ?? label}
+			className={cn(
+				"inline-flex items-center gap-2 rounded-xs border font-mono transition-colors",
+				SIZE_CLASS[size],
+				copied
+					? "border-deck-n5-mark/30 bg-deck-n5-wash text-deck-n5-mark"
+					: "border-soft-hairline bg-warm-paper-raised text-faded-sumi hover:border-faded-sumi hover:text-sumi-ink",
+				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink",
+				className,
+			)}
+		>
+			{copied
+				? (
+						<>
+							<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+								<path
+									d="M2 5 L 4.2 7 L 8 3"
+									stroke="currentColor"
+									strokeWidth="1.6"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									fill="none"
+								/>
+							</svg>
+							Copied
+						</>
+					)
+				: (
+						label
+					)}
+		</button>
+	);
 }

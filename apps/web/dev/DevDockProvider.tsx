@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
+import type { Corner } from "./useDraggableSnap";
 
-import { DevDock } from './DevDock'
-import { DevDockContextProvider } from './DevDockContext'
-import { FloatingLauncher } from './FloatingLauncher'
-import type { Corner } from './useDraggableSnap'
+import { useState } from "react";
+import { DevDock } from "./DevDock";
+import { DevDockContextProvider } from "./DevDockContext";
+import { FloatingLauncher } from "./FloatingLauncher";
 
 interface DevDockProviderProps {
-  children: ReactNode
+	children: ReactNode;
 }
 
 /**
@@ -34,20 +34,21 @@ interface DevDockProviderProps {
  * /onboarding, and any other route segment.
  */
 export function DevDockProvider({ children }: DevDockProviderProps): React.JSX.Element {
-  if (process.env.NODE_ENV !== 'development') return <>{children}</>
-  return <DevDockProviderInner>{children}</DevDockProviderInner>
+	if (process.env.NODE_ENV !== "development")
+		return <>{children}</>;
+	return <DevDockProviderInner>{children}</DevDockProviderInner>;
 }
 
 function DevDockProviderInner({ children }: DevDockProviderProps): React.JSX.Element {
-  // The launcher's current corner is held here so the dock can anchor its
-  // initial position adjacent to the launcher's resting place.
-  const [launcherCorner, setLauncherCorner] = useState<Corner>('br')
+	// The launcher's current corner is held here so the dock can anchor its
+	// initial position adjacent to the launcher's resting place.
+	const [launcherCorner, setLauncherCorner] = useState<Corner>("br");
 
-  return (
-    <DevDockContextProvider launcherCorner={launcherCorner}>
-      {children}
-      <DevDock />
-      <FloatingLauncher onCornerChange={setLauncherCorner} />
-    </DevDockContextProvider>
-  )
+	return (
+		<DevDockContextProvider launcherCorner={launcherCorner}>
+			{children}
+			<DevDock />
+			<FloatingLauncher onCornerChange={setLauncherCorner} />
+		</DevDockContextProvider>
+	);
 }

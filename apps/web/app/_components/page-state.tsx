@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useState } from 'react'
+import Link from "next/link";
+import { useState } from "react";
 
-import { ArrowGlyph } from '@/components/icons/arrow-glyph'
-import { CopyButton } from '@/components/ui/CopyButton'
-import { Logo } from '@/components/ui/Logo'
-import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
+import { ArrowGlyph } from "@/components/icons/arrow-glyph";
+import { CopyButton } from "@/components/ui/CopyButton";
+import { Logo } from "@/components/ui/Logo";
+import { useCopyConfirmation } from "@/hooks/use-copy-confirmation";
 
 /**
  * Shared composition for surfaces that signal "no content lives here" (not-
@@ -24,21 +24,21 @@ import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
  * across surfaces.
  */
 
-export type StateTone = 'default' | 'error'
+export type StateTone = "default" | "error";
 
 interface PageStateFrameProps {
-  /**
-   * `fullbleed` paints the cool-paper page background and centers the card.
-   * Used by root-level surfaces that may render without an app shell (404 on
-   * an unauthenticated route, the root error boundary, the global last-resort
-   * boundary).
-   *
-   * `inshell` skips the page-level background because the (app) layout
-   * already paints `bg-cool-paper-base`. The composition sits inside the
-   * scrollable main area so the sidebar and top-bar remain.
-   */
-  variant: 'fullbleed' | 'inshell'
-  children: React.ReactNode
+	/**
+	 * `fullbleed` paints the cool-paper page background and centers the card.
+	 * Used by root-level surfaces that may render without an app shell (404 on
+	 * an unauthenticated route, the root error boundary, the global last-resort
+	 * boundary).
+	 *
+	 * `inshell` skips the page-level background because the (app) layout
+	 * already paints `bg-cool-paper-base`. The composition sits inside the
+	 * scrollable main area so the sidebar and top-bar remain.
+	 */
+	variant: "fullbleed" | "inshell";
+	children: React.ReactNode;
 }
 
 /**
@@ -46,39 +46,39 @@ interface PageStateFrameProps {
  * vertical centering. Inner card composition is identical between variants.
  */
 export function PageStateFrame({ variant, children }: PageStateFrameProps): React.JSX.Element {
-  const card = (
-    <section
-      role="region"
-      aria-labelledby="page-state-headline"
-      className={[
-        'relative w-full max-w-[min(640px,92vw)] overflow-hidden rounded-xs',
-        'border border-soft-hairline bg-warm-paper-raised',
-        'px-6 py-8 sm:px-10 sm:py-12',
-      ].join(' ')}
-    >
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-0 top-0 z-10 h-0.5 bg-inari-vermillion"
-      />
-      <div className="relative z-0 flex flex-col items-center text-center">
-        {children}
-      </div>
-    </section>
-  )
+	const card = (
+		<section
+			role="region"
+			aria-labelledby="page-state-headline"
+			className={[
+				"relative w-full max-w-[min(640px,92vw)] overflow-hidden rounded-xs",
+				"border border-soft-hairline bg-warm-paper-raised",
+				"px-6 py-8 sm:px-10 sm:py-12",
+			].join(" ")}
+		>
+			<span
+				aria-hidden="true"
+				className="absolute inset-x-0 top-0 z-10 h-0.5 bg-inari-vermillion"
+			/>
+			<div className="relative z-0 flex flex-col items-center text-center">
+				{children}
+			</div>
+		</section>
+	);
 
-  if (variant === 'inshell') {
-    return (
-      <div className="flex min-h-full w-full items-start justify-center px-4 py-12 sm:py-20">
-        {card}
-      </div>
-    )
-  }
+	if (variant === "inshell") {
+		return (
+			<div className="flex min-h-full w-full items-start justify-center px-4 py-12 sm:py-20">
+				{card}
+			</div>
+		);
+	}
 
-  return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-cool-paper-base px-4 py-12 sm:py-16">
-      {card}
-    </main>
-  )
+	return (
+		<main className="flex min-h-screen w-full items-center justify-center bg-cool-paper-base px-4 py-12 sm:py-16">
+			{card}
+		</main>
+	);
 }
 
 /**
@@ -93,22 +93,22 @@ export function PageStateFrame({ variant, children }: PageStateFrameProps): Reac
  * brand still announces itself but the surface reads as an error moment
  * before the eye reaches the kicker.
  */
-export function IdentityStrip({ tone = 'default' }: { tone?: StateTone }): React.JSX.Element {
-  const isError = tone === 'error'
+export function IdentityStrip({ tone = "default" }: { tone?: StateTone }): React.JSX.Element {
+	const isError = tone === "error";
 
-  return (
-    <div className="relative inline-flex items-center" aria-label="Tomo">
-      <Logo size={56} wordmarkSize="lg" priority />
-      <span
-        aria-hidden="true"
-        className={[
-          'absolute h-px',
-          isError ? 'bg-error' : 'bg-inari-vermillion',
-        ].join(' ')}
-        style={{ left: '3.75rem', right: 0, bottom: '0.55rem' }}
-      />
-    </div>
-  )
+	return (
+		<div className="relative inline-flex items-center" aria-label="Tomo">
+			<Logo size={56} wordmarkSize="lg" priority />
+			<span
+				aria-hidden="true"
+				className={[
+					"absolute h-px",
+					isError ? "bg-error" : "bg-inari-vermillion",
+				].join(" ")}
+				style={{ left: "3.75rem", right: 0, bottom: "0.55rem" }}
+			/>
+		</div>
+	);
 }
 
 /**
@@ -117,47 +117,47 @@ export function IdentityStrip({ tone = 'default' }: { tone?: StateTone }): React
  * reads as Tomo's typographic register, not a generic error page.
  */
 export function HeroKicker({
-  kanji,
-  label,
-  tone = 'default',
+	kanji,
+	label,
+	tone = "default",
 }: {
-  kanji: string
-  label: string
-  tone?: StateTone
+	kanji: string;
+	label: string;
+	tone?: StateTone;
 }): React.JSX.Element {
-  const isError = tone === 'error'
+	const isError = tone === "error";
 
-  return (
-    <header className="mt-6 w-full">
-      <p className="flex items-baseline justify-center gap-4">
-        <span
-          lang="ja"
-          aria-hidden="true"
-          className={[
-            'select-none font-display text-3xl leading-none',
-            isError ? 'text-error' : 'text-inari-vermillion',
-          ].join(' ')}
-        >
-          {kanji}
-        </span>
-        <span
-          className={[
-            'font-mono text-sm font-medium',
-            isError ? 'text-error-deep/85' : 'text-sumi-ink/80',
-          ].join(' ')}
-        >
-          {label}
-        </span>
-      </p>
-      <hr
-        aria-hidden="true"
-        className={[
-          'mx-auto mt-4 w-full border-0 border-t',
-          isError ? 'border-error/25' : 'border-soft-hairline',
-        ].join(' ')}
-      />
-    </header>
-  )
+	return (
+		<header className="mt-6 w-full">
+			<p className="flex items-baseline justify-center gap-4">
+				<span
+					lang="ja"
+					aria-hidden="true"
+					className={[
+						"select-none font-display text-3xl leading-none",
+						isError ? "text-error" : "text-inari-vermillion",
+					].join(" ")}
+				>
+					{kanji}
+				</span>
+				<span
+					className={[
+						"font-mono text-sm font-medium",
+						isError ? "text-error-deep/85" : "text-sumi-ink/80",
+					].join(" ")}
+				>
+					{label}
+				</span>
+			</p>
+			<hr
+				aria-hidden="true"
+				className={[
+					"mx-auto mt-4 w-full border-0 border-t",
+					isError ? "border-error/25" : "border-soft-hairline",
+				].join(" ")}
+			/>
+		</header>
+	);
 }
 
 /**
@@ -165,14 +165,14 @@ export function HeroKicker({
  * doesn't reflow when the visual swaps. Honors reduced-motion via parent.
  */
 export function VisualSlot({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div
-      aria-hidden="true"
-      className="mt-8 flex w-full items-center justify-center"
-    >
-      {children}
-    </div>
-  )
+	return (
+		<div
+			aria-hidden="true"
+			className="mt-8 flex w-full items-center justify-center"
+		>
+			{children}
+		</div>
+	);
 }
 
 /**
@@ -190,49 +190,49 @@ export function VisualSlot({ children }: { children: React.ReactNode }): React.J
  * empty state or an interrupted one.
  */
 export function EmptyPathVisual({
-  kanji = '路',
-  label = 'Empty path',
-  tone  = 'default',
+	kanji = "路",
+	label = "Empty path",
+	tone = "default",
 }: {
-  kanji?: string
-  label?: string
-  tone?:  StateTone
+	kanji?: string;
+	label?: string;
+	tone?: StateTone;
 }): React.JSX.Element {
-  const isError = tone === 'error'
+	const isError = tone === "error";
 
-  return (
-    <div className="relative h-[180px] w-full max-w-[280px]">
-      <div
-        className={[
-          'absolute inset-x-0 top-1/2 -translate-y-1/2 rotate-[-1.2deg]',
-          'mx-auto w-[88%] rounded-xs px-5 py-6',
-          'border border-dashed',
-          isError
-            ? 'border-error/45 bg-error-tint/25'
-            : 'border-soft-hairline bg-warm-paper-raised/70',
-        ].join(' ')}
-      >
-        <p
-          lang="ja"
-          aria-hidden="true"
-          className={[
-            'text-center font-display text-5xl leading-none',
-            isError ? 'text-error-deep/25' : 'text-sumi-ink/15',
-          ].join(' ')}
-        >
-          {kanji}
-        </p>
-        <p
-          className={[
-            'mt-4 text-center font-mono text-sm',
-            isError ? 'text-error-deep' : 'text-faded-sumi',
-          ].join(' ')}
-        >
-          {label}
-        </p>
-      </div>
-    </div>
-  )
+	return (
+		<div className="relative h-[180px] w-full max-w-[280px]">
+			<div
+				className={[
+					"absolute inset-x-0 top-1/2 -translate-y-1/2 rotate-[-1.2deg]",
+					"mx-auto w-[88%] rounded-xs px-5 py-6",
+					"border border-dashed",
+					isError
+						? "border-error/45 bg-error-tint/25"
+						: "border-soft-hairline bg-warm-paper-raised/70",
+				].join(" ")}
+			>
+				<p
+					lang="ja"
+					aria-hidden="true"
+					className={[
+						"text-center font-display text-5xl leading-none",
+						isError ? "text-error-deep/25" : "text-sumi-ink/15",
+					].join(" ")}
+				>
+					{kanji}
+				</p>
+				<p
+					className={[
+						"mt-4 text-center font-mono text-sm",
+						isError ? "text-error-deep" : "text-faded-sumi",
+					].join(" ")}
+				>
+					{label}
+				</p>
+			</div>
+		</div>
+	);
 }
 
 /**
@@ -242,23 +242,23 @@ export function EmptyPathVisual({
  * current page-state surfaces use the default (sumi-ink) register.
  */
 export function PageHeadline({
-  children,
-  tone = 'default',
+	children,
+	tone = "default",
 }: {
-  children: React.ReactNode
-  tone?:    StateTone
+	children: React.ReactNode;
+	tone?: StateTone;
 }): React.JSX.Element {
-  return (
-    <h1
-      id="page-state-headline"
-      className={[
-        'mt-7 font-display text-title',
-        tone === 'error' ? 'text-error-deep' : 'text-sumi-ink',
-      ].join(' ')}
-    >
-      {children}
-    </h1>
-  )
+	return (
+		<h1
+			id="page-state-headline"
+			className={[
+				"mt-7 font-display text-title",
+				tone === "error" ? "text-error-deep" : "text-sumi-ink",
+			].join(" ")}
+		>
+			{children}
+		</h1>
+	);
 }
 
 /**
@@ -267,19 +267,19 @@ export function PageHeadline({
  * page even when the kicker is in error tone.
  */
 export function PageBody({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <p className="mt-3 max-w-measure-tight text-base leading-relaxed text-faded-sumi">
-      {children}
-    </p>
-  )
+	return (
+		<p className="mt-3 max-w-measure-tight text-base leading-relaxed text-faded-sumi">
+			{children}
+		</p>
+	);
 }
 
 interface PrimaryActionProps {
-  children: React.ReactNode
-  tone?:    StateTone
-  href?:    string
-  onClick?: () => void
-  type?:    'button' | 'submit'
+	children: React.ReactNode;
+	tone?: StateTone;
+	href?: string;
+	onClick?: () => void;
+	type?: "button" | "submit";
 }
 
 /**
@@ -290,54 +290,54 @@ interface PrimaryActionProps {
  * call to `reset()` on error.tsx).
  */
 export function PrimaryAction({
-  children,
-  tone = 'default',
-  href,
-  onClick,
-  type = 'button',
+	children,
+	tone = "default",
+	href,
+	onClick,
+	type = "button",
 }: PrimaryActionProps): React.JSX.Element {
-  const isError = tone === 'error'
-  // Color order matches DESIGN.md §Components → Buttons: brand red at rest,
-  // deep variant on hover. Same direction (lighter → darker on interaction)
-  // for both tones, so the button reads consistently regardless of register.
-  const className = [
-    'inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-3',
-    'rounded-xs px-8 py-3 text-base font-semibold',
-    'today-motion-transform',
-    'focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2',
-    isError
-      ? 'bg-error text-warm-paper-raised hover:bg-error-deep active:bg-error-deep active:shadow-pressed focus-visible:outline-error-deep'
-      : 'bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-pressed focus-visible:outline-sumi-ink',
-  ].join(' ')
+	const isError = tone === "error";
+	// Color order matches DESIGN.md §Components → Buttons: brand red at rest,
+	// deep variant on hover. Same direction (lighter → darker on interaction)
+	// for both tones, so the button reads consistently regardless of register.
+	const className = [
+		"inline-flex min-h-12 min-w-[240px] max-w-full items-center justify-center gap-3",
+		"rounded-xs px-8 py-3 text-base font-semibold",
+		"today-motion-transform",
+		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2",
+		isError
+			? "bg-error text-warm-paper-raised hover:bg-error-deep active:bg-error-deep active:shadow-pressed focus-visible:outline-error-deep"
+			: "bg-inari-vermillion text-warm-paper-raised hover:bg-inari-vermillion-deep active:bg-inari-vermillion-deep active:shadow-pressed focus-visible:outline-sumi-ink",
+	].join(" ");
 
-  const inner = (
-    <>
-      {children}
-      <ArrowGlyph direction="right" />
-    </>
-  )
+	const inner = (
+		<>
+			{children}
+			<ArrowGlyph direction="right" />
+		</>
+	);
 
-  if (href !== undefined) {
-    return (
-      <div className="mt-8">
-        <Link href={href} className={className}>
-          {inner}
-        </Link>
-      </div>
-    )
-  }
+	if (href !== undefined) {
+		return (
+			<div className="mt-8">
+				<Link href={href} className={className}>
+					{inner}
+				</Link>
+			</div>
+		);
+	}
 
-  return (
-    <div className="mt-8">
-      <button type={type} onClick={onClick} className={className}>
-        {inner}
-      </button>
-    </div>
-  )
+	return (
+		<div className="mt-8">
+			<button type={type} onClick={onClick} className={className}>
+				{inner}
+			</button>
+		</div>
+	);
 }
 
 interface InlinePathsRowProps {
-  children: React.ReactNode
+	children: React.ReactNode;
 }
 
 /**
@@ -346,17 +346,17 @@ interface InlinePathsRowProps {
  * 500's "Back to dashboard · Report this" pair.
  */
 export function InlinePathsRow({ children }: InlinePathsRowProps): React.JSX.Element {
-  return (
-    <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-faded-sumi">
-      {children}
-    </ul>
-  )
+	return (
+		<ul className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-faded-sumi">
+			{children}
+		</ul>
+	);
 }
 
 interface InlinePathProps {
-  children: React.ReactNode
-  href?:    string
-  onClick?: () => void
+	children: React.ReactNode;
+	href?: string;
+	onClick?: () => void;
 }
 
 /**
@@ -369,28 +369,30 @@ interface InlinePathProps {
  * navigable affordance on the page reads label-first, arrow-trailing.
  */
 export function InlinePath({ children, href, onClick }: InlinePathProps): React.JSX.Element {
-  const className = [
-    'inline-flex items-center gap-2 rounded-xs px-1 py-1',
-    'text-sm text-faded-sumi transition-colors',
-    'hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink',
-  ].join(' ')
+	const className = [
+		"inline-flex items-center gap-2 rounded-xs px-1 py-1",
+		"text-sm text-faded-sumi transition-colors",
+		"hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink",
+	].join(" ");
 
-  const inner = (
-    <>
-      <span>{children}</span>
-      <ArrowGlyph direction="right" className="opacity-60" />
-    </>
-  )
+	const inner = (
+		<>
+			<span>{children}</span>
+			<ArrowGlyph direction="right" className="opacity-60" />
+		</>
+	);
 
-  return (
-    <li>
-      {href !== undefined ? (
-        <Link href={href} className={className}>{inner}</Link>
-      ) : (
-        <button type="button" onClick={onClick} className={className}>{inner}</button>
-      )}
-    </li>
-  )
+	return (
+		<li>
+			{href !== undefined
+				? (
+						<Link href={href} className={className}>{inner}</Link>
+					)
+				: (
+						<button type="button" onClick={onClick} className={className}>{inner}</button>
+					)}
+		</li>
+	);
 }
 
 /**
@@ -399,18 +401,18 @@ export function InlinePath({ children, href, onClick }: InlinePathProps): React.
  * it's discoverable but doesn't compete with the soft-retry default.
  */
 export function FullReloadHint({ onClick }: { onClick: () => void }): React.JSX.Element {
-  return (
-    <p className="mt-3 text-sm text-faded-sumi">
-      <button
-        type="button"
-        onClick={onClick}
-        className="inline-flex items-center gap-2 rounded-xs px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
-      >
-        Still stuck? Full reload
-        <ArrowGlyph direction="right" className="opacity-60" />
-      </button>
-    </p>
-  )
+	return (
+		<p className="mt-3 text-sm text-faded-sumi">
+			<button
+				type="button"
+				onClick={onClick}
+				className="inline-flex items-center gap-2 rounded-xs px-1 py-1 text-faded-sumi underline-offset-4 transition-colors hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+			>
+				Still stuck? Full reload
+				<ArrowGlyph direction="right" className="opacity-60" />
+			</button>
+		</p>
+	);
 }
 
 // Shared `useCopyConfirmation` hook now lives in `@/hooks/use-copy-confirmation`
@@ -418,29 +420,29 @@ export function FullReloadHint({ onClick }: { onClick: () => void }): React.JSX.
 // "click → ✓ Copied for 1.5s" affordance.
 
 interface DevPanelProps {
-  /**
-   * In production this component renders nothing. The check happens inside
-   * the component so callers can keep markup flat; tree-shaking will drop
-   * the body for prod builds when NODE_ENV is statically known.
-   *
-   * The `| undefined` widening on each field matches the project's pattern
-   * (see DueQueue in today-hero.tsx). With `exactOptionalPropertyTypes`
-   * on, callers can pass `digest: error.digest` directly even when the
-   * underlying `error.digest` is itself `string | undefined`.
-   */
-  error?:    {
-    name?:    string | undefined
-    message?: string | undefined
-    digest?:  string | undefined
-    stack?:   string | undefined
-  } | undefined
-  pathname?: string | undefined
-  /**
-   * Optional referrer string (only meaningful on 404, where the user's
-   * previous page is informative). Omitted entirely from the dev panel
-   * if not provided.
-   */
-  referrer?: string | undefined
+	/**
+	 * In production this component renders nothing. The check happens inside
+	 * the component so callers can keep markup flat; tree-shaking will drop
+	 * the body for prod builds when NODE_ENV is statically known.
+	 *
+	 * The `| undefined` widening on each field matches the project's pattern
+	 * (see DueQueue in today-hero.tsx). With `exactOptionalPropertyTypes`
+	 * on, callers can pass `digest: error.digest` directly even when the
+	 * underlying `error.digest` is itself `string | undefined`.
+	 */
+	error?: {
+		name?: string | undefined;
+		message?: string | undefined;
+		digest?: string | undefined;
+		stack?: string | undefined;
+	} | undefined;
+	pathname?: string | undefined;
+	/**
+	 * Optional referrer string (only meaningful on 404, where the user's
+	 * previous page is informative). Omitted entirely from the dev panel
+	 * if not provided.
+	 */
+	referrer?: string | undefined;
 }
 
 /**
@@ -459,140 +461,140 @@ interface DevPanelProps {
  * production reporting channel.
  */
 export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JSX.Element | null {
-  const [expanded, setExpanded] = useState(true)
-  const { copied: copiedAll,   copy: copyAll }   = useCopyConfirmation()
-  const { copied: copiedStack, copy: copyStack } = useCopyConfirmation()
+	const [expanded, setExpanded] = useState(true);
+	const { copied: copiedAll, copy: copyAll } = useCopyConfirmation();
+	const { copied: copiedStack, copy: copyStack } = useCopyConfirmation();
 
-  // The check is intentionally inside render so the component is safe to
-  // import unconditionally. Webpack drops the body for prod bundles.
-  if (process.env.NODE_ENV !== 'development') {
-    return null
-  }
+	// The check is intentionally inside render so the component is safe to
+	// import unconditionally. Webpack drops the body for prod bundles.
+	if (process.env.NODE_ENV !== "development") {
+		return null;
+	}
 
-  const time    = new Date().toISOString()
-  const browser = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+	const time = new Date().toISOString();
+	const browser = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
 
-  const fields: { label: string; value: string }[] = [
-    ...(error?.name        !== undefined ? [{ label: 'Name',    value: error.name    }] : []),
-    ...(error?.message     !== undefined ? [{ label: 'Message', value: error.message }] : []),
-    ...(error?.digest      !== undefined ? [{ label: 'Digest',  value: error.digest  }] : []),
-    ...(pathname           !== undefined ? [{ label: 'Route',   value: pathname      }] : []),
-    ...(referrer           !== undefined ? [{ label: 'Referrer', value: referrer     }] : []),
-    { label: 'Time',    value: time    },
-    { label: 'Browser', value: browser },
-  ]
+	const fields: { label: string; value: string }[] = [
+		...(error?.name !== undefined ? [{ label: "Name", value: error.name }] : []),
+		...(error?.message !== undefined ? [{ label: "Message", value: error.message }] : []),
+		...(error?.digest !== undefined ? [{ label: "Digest", value: error.digest }] : []),
+		...(pathname !== undefined ? [{ label: "Route", value: pathname }] : []),
+		...(referrer !== undefined ? [{ label: "Referrer", value: referrer }] : []),
+		{ label: "Time", value: time },
+		{ label: "Browser", value: browser },
+	];
 
-  const markdownPayload = buildMarkdownReport({
-    name:     error?.name,
-    message:  error?.message,
-    digest:   error?.digest,
-    stack:    error?.stack,
-    pathname,
-    referrer,
-    time,
-    browser,
-  })
+	const markdownPayload = buildMarkdownReport({
+		name: error?.name,
+		message: error?.message,
+		digest: error?.digest,
+		stack: error?.stack,
+		pathname,
+		referrer,
+		time,
+		browser,
+	});
 
-  return (
-    <section
-      aria-label="Developer information"
-      className={[
-        'mt-10 w-full rounded-xs border border-soft-hairline bg-cream-inset/60',
-        'text-left',
-      ].join(' ')}
-    >
-      <header className="flex items-center justify-between gap-3 border-b border-soft-hairline px-4 py-2.5">
-        <p className="font-mono text-sm text-faded-sumi">
-          Development info
-        </p>
-        <div className="flex items-center gap-2">
-          <CopyButton
-            onClick={() => copyAll(markdownPayload)}
-            copied={copiedAll}
-            label="Copy all"
-          />
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            aria-label={expanded ? 'Collapse developer info' : 'Expand developer info'}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-xs text-faded-sumi transition-colors hover:bg-warm-paper-raised hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              aria-hidden="true"
-              className={['transition-transform', expanded ? '' : '-rotate-90'].join(' ')}
-            >
-              <path d="M2 4 L 6 8 L 10 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
-          </button>
-        </div>
-      </header>
+	return (
+		<section
+			aria-label="Developer information"
+			className={[
+				"mt-10 w-full rounded-xs border border-soft-hairline bg-cream-inset/60",
+				"text-left",
+			].join(" ")}
+		>
+			<header className="flex items-center justify-between gap-3 border-b border-soft-hairline px-4 py-2.5">
+				<p className="font-mono text-sm text-faded-sumi">
+					Development info
+				</p>
+				<div className="flex items-center gap-2">
+					<CopyButton
+						onClick={() => copyAll(markdownPayload)}
+						copied={copiedAll}
+						label="Copy all"
+					/>
+					<button
+						type="button"
+						onClick={() => setExpanded(v => !v)}
+						aria-expanded={expanded}
+						aria-label={expanded ? "Collapse developer info" : "Expand developer info"}
+						className="inline-flex h-7 w-7 items-center justify-center rounded-xs text-faded-sumi transition-colors hover:bg-warm-paper-raised hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-sumi-ink"
+					>
+						<svg
+							width="12"
+							height="12"
+							viewBox="0 0 12 12"
+							aria-hidden="true"
+							className={["transition-transform", expanded ? "" : "-rotate-90"].join(" ")}
+						>
+							<path d="M2 4 L 6 8 L 10 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+						</svg>
+					</button>
+				</div>
+			</header>
 
-      {expanded && (
-        <div className="px-4 py-3">
-          <dl className="grid grid-cols-[7rem_1fr] gap-y-2 font-mono text-xs leading-relaxed">
-            {fields.map((f) => (
-              <DevField key={f.label} label={f.label} value={f.value} />
-            ))}
-          </dl>
+			{expanded && (
+				<div className="px-4 py-3">
+					<dl className="grid grid-cols-[7rem_1fr] gap-y-2 font-mono text-xs leading-relaxed">
+						{fields.map(f => (
+							<DevField key={f.label} label={f.label} value={f.value} />
+						))}
+					</dl>
 
-          {error?.stack !== undefined && (
-            <div className="mt-4 border-t border-soft-hairline pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-mono text-sm text-faded-sumi">
-                  Stack
-                </p>
-                <CopyButton
-                  onClick={() => copyStack(error.stack ?? '')}
-                  copied={copiedStack}
-                  label="Copy stack"
-                />
-              </div>
-              <pre
-                className={[
-                  'mt-2 max-h-80 overflow-auto rounded-xs bg-warm-paper-raised',
-                  'p-3 font-mono text-sm leading-relaxed text-sumi-ink',
-                  'whitespace-pre',
-                ].join(' ')}
-              >
-                {error.stack}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  )
+					{error?.stack !== undefined && (
+						<div className="mt-4 border-t border-soft-hairline pt-3">
+							<div className="flex items-center justify-between gap-3">
+								<p className="font-mono text-sm text-faded-sumi">
+									Stack
+								</p>
+								<CopyButton
+									onClick={() => copyStack(error.stack ?? "")}
+									copied={copiedStack}
+									label="Copy stack"
+								/>
+							</div>
+							<pre
+								className={[
+									"mt-2 max-h-80 overflow-auto rounded-xs bg-warm-paper-raised",
+									"p-3 font-mono text-sm leading-relaxed text-sumi-ink",
+									"whitespace-pre",
+								].join(" ")}
+							>
+								{error.stack}
+							</pre>
+						</div>
+					)}
+				</div>
+			)}
+		</section>
+	);
 }
 
 function DevField({ label, value }: { label: string; value: string }): React.JSX.Element {
-  return (
-    <>
-      <dt className="text-sm text-faded-sumi">
-        {label}
-      </dt>
-      <dd className="min-w-0 break-words text-sumi-ink">
-        {value}
-      </dd>
-    </>
-  )
+	return (
+		<>
+			<dt className="text-sm text-faded-sumi">
+				{label}
+			</dt>
+			<dd className="min-w-0 break-words text-sumi-ink">
+				{value}
+			</dd>
+		</>
+	);
 }
 
 // CopyButton (the "morph to ✓ Copied" mono chip) now lives in
 // `@/components/ui/CopyButton` and is shared with the dev tooling.
 
 interface ReportPayload {
-  name?:     string | undefined
-  message?:  string | undefined
-  digest?:   string | undefined
-  stack?:    string | undefined
-  pathname?: string | undefined
-  referrer?: string | undefined
-  time?:     string | undefined
-  browser?:  string | undefined
+	name?: string | undefined;
+	message?: string | undefined;
+	digest?: string | undefined;
+	stack?: string | undefined;
+	pathname?: string | undefined;
+	referrer?: string | undefined;
+	time?: string | undefined;
+	browser?: string | undefined;
 }
 
 /**
@@ -605,16 +607,23 @@ interface ReportPayload {
  * to clients); the function gracefully omits the code block in that case.
  */
 export function buildMarkdownReport(p: ReportPayload): string {
-  const lines: string[] = ['**Tomo error**', '']
-  if (p.digest   !== undefined) lines.push(`- Digest: \`${p.digest}\``)
-  if (p.pathname !== undefined) lines.push(`- Route: \`${p.pathname}\``)
-  if (p.referrer !== undefined) lines.push(`- Referrer: \`${p.referrer}\``)
-  if (p.time     !== undefined) lines.push(`- Time: ${p.time}`)
-  if (p.browser  !== undefined) lines.push(`- Browser: ${p.browser}`)
-  if (p.name     !== undefined) lines.push(`- Name: \`${p.name}\``)
-  if (p.message  !== undefined) lines.push(`- Message: ${p.message}`)
-  if (p.stack    !== undefined) {
-    lines.push('', '```', p.stack, '```')
-  }
-  return lines.join('\n')
+	const lines: string[] = ["**Tomo error**", ""];
+	if (p.digest !== undefined)
+		lines.push(`- Digest: \`${p.digest}\``);
+	if (p.pathname !== undefined)
+		lines.push(`- Route: \`${p.pathname}\``);
+	if (p.referrer !== undefined)
+		lines.push(`- Referrer: \`${p.referrer}\``);
+	if (p.time !== undefined)
+		lines.push(`- Time: ${p.time}`);
+	if (p.browser !== undefined)
+		lines.push(`- Browser: ${p.browser}`);
+	if (p.name !== undefined)
+		lines.push(`- Name: \`${p.name}\``);
+	if (p.message !== undefined)
+		lines.push(`- Message: ${p.message}`);
+	if (p.stack !== undefined) {
+		lines.push("", "```", p.stack, "```");
+	}
+	return lines.join("\n");
 }

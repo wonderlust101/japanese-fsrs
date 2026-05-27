@@ -1,11 +1,12 @@
-'use client'
+"use client";
 
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import type { ApiAnalyticsDashboard } from '@fsrs-japanese/shared-types'
+import type { ApiAnalyticsDashboard } from "@fsrs-japanese/shared-types";
+import type { UseQueryResult } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
-import { queryKeys } from './queryKeys'
-import { staleTimes } from './config'
-import { getDashboardAction } from '../actions/analytics.actions'
+import { getDashboardAction } from "../actions/analytics.actions";
+import { staleTimes } from "./config";
+import { queryKeys } from "./queryKeys";
 
 /**
  * Bundled fetch for the analytics page — combines heatmap, accuracy, JLPT
@@ -14,9 +15,9 @@ import { getDashboardAction } from '../actions/analytics.actions'
  * sweep because no surface needed partial refresh.
  */
 export function useAnalyticsDashboard(): UseQueryResult<ApiAnalyticsDashboard, Error> {
-  return useQuery({
-    queryKey:  queryKeys.analytics.dashboard(),
-    queryFn:   getDashboardAction,
-    staleTime: staleTimes.analytics,
-  })
+	return useQuery({
+		queryKey: queryKeys.analytics.dashboard(),
+		queryFn: getDashboardAction,
+		staleTime: staleTimes.analytics,
+	});
 }

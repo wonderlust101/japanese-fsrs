@@ -1,39 +1,38 @@
-'use client'
+"use client";
 
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseMutationResult,
-  type UseQueryResult,
-} from '@tanstack/react-query'
 import type {
-  ApiWeakSpotDrillAttempt,
-  ApiWeakSpotDrillSession,
-  ApiWeakSpotDrillSessionDetail,
-  ApiWeakSpotListItem,
-  ApiWeakSpotListResponse,
-} from '@fsrs-japanese/shared-types'
+	ApiWeakSpotDrillAttempt,
+	ApiWeakSpotDrillSession,
+	ApiWeakSpotDrillSessionDetail,
+	ApiWeakSpotListItem,
+	ApiWeakSpotListResponse,
+} from "@fsrs-japanese/shared-types";
+import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 
+import type { CreateDrillSessionInput, ListLeechesOptions, RecordDrillAttemptInput } from "../actions/weak-spots.actions";
 import {
-  abortDrillSessionAction,
-  createDrillSessionAction,
-  diagnoseWeakSpotAction,
-  finishDrillSessionAction,
-  getDrillSessionAction,
-  getWeakSpotAction,
-  listWeakSpotsAction,
-  recordDrillAttemptAction,
-  reopenWeakSpotAction,
-  resolveWeakSpotAction,
-  type CreateDrillSessionInput,
-  type ListLeechesOptions,
-  type RecordDrillAttemptInput,
-} from '../actions/weak-spots.actions'
+	keepPreviousData,
+	useMutation,
+	useQuery,
+	useQueryClient,
 
-import { staleTimes } from './config'
-import { queryKeys }  from './queryKeys'
+} from "@tanstack/react-query";
+import {
+	abortDrillSessionAction,
+	createDrillSessionAction,
+	diagnoseWeakSpotAction,
+	finishDrillSessionAction,
+	getDrillSessionAction,
+	getWeakSpotAction,
+	listWeakSpotsAction,
+	recordDrillAttemptAction,
+	reopenWeakSpotAction,
+	resolveWeakSpotAction,
+
+} from "../actions/weak-spots.actions";
+
+import { staleTimes } from "./config";
+import { queryKeys } from "./queryKeys";
 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
@@ -51,14 +50,14 @@ import { queryKeys }  from './queryKeys'
  * refetch (`isFetching`) to drive its pagination-busy affordance.
  */
 export function useWeakSpotsQuery(
-  opts: ListLeechesOptions = {},
+	opts: ListLeechesOptions = {},
 ): UseQueryResult<ApiWeakSpotListResponse, Error> {
-  return useQuery({
-    queryKey:       queryKeys.weakSpots.list(opts),
-    queryFn:        () => listWeakSpotsAction(opts),
-    staleTime:      staleTimes.analytics,
-    placeholderData: keepPreviousData,
-  })
+	return useQuery({
+		queryKey: queryKeys.weakSpots.list(opts),
+		queryFn: () => listWeakSpotsAction(opts),
+		staleTime: staleTimes.analytics,
+		placeholderData: keepPreviousData,
+	});
 }
 
 /**
@@ -67,16 +66,17 @@ export function useWeakSpotsQuery(
  * inspecting any weakSpot — the request only fires when an id is supplied.
  */
 export function useWeakSpotDetailQuery(
-  id: string | null,
+	id: string | null,
 ): UseQueryResult<ApiWeakSpotListItem, Error> {
-  return useQuery({
-    queryKey: queryKeys.weakSpots.detail(id ?? '__none__'),
-    queryFn:  () => {
-      if (id === null) throw new Error('WeakSpot id is required')
-      return getWeakSpotAction(id)
-    },
-    enabled:  id !== null,
-  })
+	return useQuery({
+		queryKey: queryKeys.weakSpots.detail(id ?? "__none__"),
+		queryFn: () => {
+			if (id === null)
+				throw new Error("WeakSpot id is required");
+			return getWeakSpotAction(id);
+		},
+		enabled: id !== null,
+	});
 }
 
 // ─── Derived signals ──────────────────────────────────────────────────────────
@@ -100,26 +100,26 @@ export function useWeakSpotDetailQuery(
  * independent of the page window, so a single row is enough to learn the
  * count without over-fetching.
  */
-const WEAK_SPOT_COUNT_CAP = 50
+const WEAK_SPOT_COUNT_CAP = 50;
 
 export function useUnresolvedWeakSpotCount(): {
-  count:     number
-  hasMore:   boolean
-  isLoading: boolean
+	count: number;
+	hasMore: boolean;
+	isLoading: boolean;
 } {
-  const query = useWeakSpotsQuery({
-    status: 'unresolved',
-    limit:  1,
-    sort:   'mostRecent',
-  })
-  const total = query.data?.totalCount ?? 0
-  // `count` is pre-capped at the chip cap so the badge renderer can append a
-  // `+` when `hasMore` (e.g. 218 unresolved → chip reads "50+", never "218+").
-  return {
-    count:     Math.min(total, WEAK_SPOT_COUNT_CAP),
-    hasMore:   total > WEAK_SPOT_COUNT_CAP,
-    isLoading: query.isLoading,
-  }
+	const query = useWeakSpotsQuery({
+		status: "unresolved",
+		limit: 1,
+		sort: "mostRecent",
+	});
+	const total = query.data?.totalCount ?? 0;
+	// `count` is pre-capped at the chip cap so the badge renderer can append a
+	// `+` when `hasMore` (e.g. 218 unresolved → chip reads "50+", never "218+").
+	return {
+		count: Math.min(total, WEAK_SPOT_COUNT_CAP),
+		hasMore: total > WEAK_SPOT_COUNT_CAP,
+		isLoading: query.isLoading,
+	};
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
@@ -133,52 +133,52 @@ export function useUnresolvedWeakSpotCount(): {
  * lifecycle mutations.
  */
 function invalidateLeeches(queryClient: ReturnType<typeof useQueryClient>): void {
-  queryClient.invalidateQueries({ queryKey: queryKeys.weakSpots.all() })
+	queryClient.invalidateQueries({ queryKey: queryKeys.weakSpots.all() });
 }
 
 export function useResolveWeakSpotMutation(): UseMutationResult<
-  ApiWeakSpotListItem,
-  Error,
-  string
+	ApiWeakSpotListItem,
+	Error,
+	string
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: resolveWeakSpotAction,
-    onSuccess:  (weakSpot) => {
-      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
-      invalidateLeeches(queryClient)
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: resolveWeakSpotAction,
+		onSuccess: (weakSpot) => {
+			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
+			invalidateLeeches(queryClient);
+		},
+	});
 }
 
 export function useReopenWeakSpotMutation(): UseMutationResult<
-  ApiWeakSpotListItem,
-  Error,
-  string
+	ApiWeakSpotListItem,
+	Error,
+	string
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: reopenWeakSpotAction,
-    onSuccess:  (weakSpot) => {
-      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
-      invalidateLeeches(queryClient)
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: reopenWeakSpotAction,
+		onSuccess: (weakSpot) => {
+			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
+			invalidateLeeches(queryClient);
+		},
+	});
 }
 
 export function useDiagnoseWeakSpotMutation(): UseMutationResult<
-  ApiWeakSpotListItem,
-  Error,
-  string
+	ApiWeakSpotListItem,
+	Error,
+	string
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: diagnoseWeakSpotAction,
-    onSuccess:  (weakSpot) => {
-      queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot)
-      invalidateLeeches(queryClient)
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: diagnoseWeakSpotAction,
+		onSuccess: (weakSpot) => {
+			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
+			invalidateLeeches(queryClient);
+		},
+	});
 }
 
 // ─── Drill (Phase 2) ──────────────────────────────────────────────────────────
@@ -190,20 +190,20 @@ export function useDiagnoseWeakSpotMutation(): UseMutationResult<
  * the drill-session detail cache, which is empty pre-creation anyway.
  */
 export function useCreateDrillSessionMutation(): UseMutationResult<
-  ApiWeakSpotDrillSession,
-  Error,
-  CreateDrillSessionInput
+	ApiWeakSpotDrillSession,
+	Error,
+	CreateDrillSessionInput
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: createDrillSessionAction,
-    onSuccess:  (session) => {
-      queryClient.setQueryData(
-        queryKeys.weakSpots.drillSession(session.sessionId),
-        session,
-      )
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createDrillSessionAction,
+		onSuccess: (session) => {
+			queryClient.setQueryData(
+				queryKeys.weakSpots.drillSession(session.sessionId),
+				session,
+			);
+		},
+	});
 }
 
 /**
@@ -212,21 +212,22 @@ export function useCreateDrillSessionMutation(): UseMutationResult<
  * request when no id is known yet.
  */
 export function useDrillSessionQuery(
-  sessionId: string | null,
+	sessionId: string | null,
 ): UseQueryResult<ApiWeakSpotDrillSessionDetail, Error> {
-  return useQuery({
-    queryKey: queryKeys.weakSpots.drillSession(sessionId ?? '__none__'),
-    queryFn:  () => {
-      if (sessionId === null) throw new Error('Session id is required')
-      return getDrillSessionAction(sessionId)
-    },
-    enabled:  sessionId !== null,
-  })
+	return useQuery({
+		queryKey: queryKeys.weakSpots.drillSession(sessionId ?? "__none__"),
+		queryFn: () => {
+			if (sessionId === null)
+				throw new Error("Session id is required");
+			return getDrillSessionAction(sessionId);
+		},
+		enabled: sessionId !== null,
+	});
 }
 
 interface RecordAttemptVariables {
-  sessionId: string
-  input:     RecordDrillAttemptInput
+	sessionId: string;
+	input: RecordDrillAttemptInput;
 }
 
 /**
@@ -237,39 +238,39 @@ interface RecordAttemptVariables {
  * progress tracking.
  */
 export function useRecordDrillAttemptMutation(): UseMutationResult<
-  ApiWeakSpotDrillAttempt,
-  Error,
-  RecordAttemptVariables
+	ApiWeakSpotDrillAttempt,
+	Error,
+	RecordAttemptVariables
 > {
-  return useMutation({
-    mutationFn: ({ sessionId, input }) => recordDrillAttemptAction(sessionId, input),
-  })
+	return useMutation({
+		mutationFn: ({ sessionId, input }) => recordDrillAttemptAction(sessionId, input),
+	});
 }
 
 export function useFinishDrillSessionMutation(): UseMutationResult<
-  ApiWeakSpotDrillSessionDetail,
-  Error,
-  string
+	ApiWeakSpotDrillSessionDetail,
+	Error,
+	string
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: finishDrillSessionAction,
-    onSuccess:  (detail) => {
-      queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail)
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: finishDrillSessionAction,
+		onSuccess: (detail) => {
+			queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail);
+		},
+	});
 }
 
 export function useAbortDrillSessionMutation(): UseMutationResult<
-  ApiWeakSpotDrillSessionDetail,
-  Error,
-  string
+	ApiWeakSpotDrillSessionDetail,
+	Error,
+	string
 > {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: abortDrillSessionAction,
-    onSuccess:  (detail) => {
-      queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail)
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: abortDrillSessionAction,
+		onSuccess: (detail) => {
+			queryClient.setQueryData(queryKeys.weakSpots.drillSession(detail.sessionId), detail);
+		},
+	});
 }

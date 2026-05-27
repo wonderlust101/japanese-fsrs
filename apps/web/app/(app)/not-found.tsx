@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { usePathname } from 'next/navigation'
+import { usePathname } from "next/navigation";
 
 import {
-  DevPanel,
-  EmptyPathVisual,
-  HeroKicker,
-  PageBody,
-  PageHeadline,
-  PageStateFrame,
-  PrimaryAction,
-  VisualSlot,
-} from '../_components/page-state'
+	DevPanel,
+	EmptyPathVisual,
+	HeroKicker,
+	PageBody,
+	PageHeadline,
+	PageStateFrame,
+	PrimaryAction,
+	VisualSlot,
+} from "../_components/page-state";
 
 /**
  * In-shell not-found surface. Triggers when a route inside the (app)
@@ -27,18 +27,18 @@ import {
  * ("did I just lose a deck?") is the same.
  */
 export default function AppNotFound(): React.JSX.Element {
-  const pathname = usePathname()
+	const pathname = usePathname();
 
-  return (
-    <PageStateFrame variant="inshell">
-      <HeroKicker kanji="路" label="End of the path" />
-      <VisualSlot>
-        <EmptyPathVisual />
-      </VisualSlot>
-      <PageHeadline>This path isn&apos;t part of Tomo.</PageHeadline>
-      <PageBody>Nothing has been lost.</PageBody>
-      <PrimaryAction href="/today">Back to home</PrimaryAction>
-      <DevPanel pathname={pathname} />
-    </PageStateFrame>
-  )
+	return (
+		<PageStateFrame variant="inshell">
+			<HeroKicker kanji="路" label="End of the path" />
+			<VisualSlot>
+				<EmptyPathVisual />
+			</VisualSlot>
+			<PageHeadline>This path isn&apos;t part of Tomo.</PageHeadline>
+			<PageBody>Nothing has been lost.</PageBody>
+			<PrimaryAction href="/today">Back to home</PrimaryAction>
+			<DevPanel pathname={pathname} />
+		</PageStateFrame>
+	);
 }

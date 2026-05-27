@@ -1,23 +1,23 @@
-'use client'
+"use client";
 
-import { useHelpDialogActions } from '@/stores/useHelpDialogStore'
+import { useHelpDialogActions } from "@/stores/useHelpDialogStore";
 
 interface HelpRowProps {
-  /** Icon-only render at 64px collapsed rail width. Mutually exclusive with `mobile`. */
-  collapsed?: boolean
-  /** Mobile drawer variant: no key chip (no keyboard), just the label. */
-  mobile?:    boolean
+	/** Icon-only render at 64px collapsed rail width. Mutually exclusive with `mobile`. */
+	collapsed?: boolean;
+	/** Mobile drawer variant: no key chip (no keyboard), just the label. */
+	mobile?: boolean;
 }
 
 function HelpKeyChip(): React.JSX.Element {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 border border-inari-vermillion/45 rounded-xs font-mono text-sm text-inari-vermillion-deep"
-    >
-      ?
-    </span>
-  )
+	return (
+		<span
+			aria-hidden="true"
+			className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 border border-inari-vermillion/45 rounded-xs font-mono text-sm text-inari-vermillion-deep"
+		>
+			?
+		</span>
+	);
 }
 
 /**
@@ -30,49 +30,49 @@ function HelpKeyChip(): React.JSX.Element {
  * shortcut; this row is its visible anchor.
  */
 export function HelpRow({ collapsed = false, mobile = false }: HelpRowProps): React.JSX.Element {
-  const { openHelp } = useHelpDialogActions()
+	const { openHelp } = useHelpDialogActions();
 
-  if (mobile) {
-    return (
-      <button
-        type="button"
-        aria-label="Help"
-        onClick={openHelp}
-        className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <span className="truncate flex-1 text-left">Help</span>
-      </button>
-    )
-  }
+	if (mobile) {
+		return (
+			<button
+				type="button"
+				aria-label="Help"
+				onClick={openHelp}
+				className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+			>
+				<span className="truncate flex-1 text-left">Help</span>
+			</button>
+		);
+	}
 
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        title="Help and shortcuts · ?"
-        aria-label="Help and shortcuts"
-        aria-keyshortcuts="?"
-        onClick={openHelp}
-        className="w-full flex items-center justify-center min-h-11 rounded-xs hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        <HelpKeyChip />
-      </button>
-    )
-  }
+	if (collapsed) {
+		return (
+			<button
+				type="button"
+				title="Help and shortcuts · ?"
+				aria-label="Help and shortcuts"
+				aria-keyshortcuts="?"
+				onClick={openHelp}
+				className="w-full flex items-center justify-center min-h-11 rounded-xs hover:bg-cream-inset transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+			>
+				<HelpKeyChip />
+			</button>
+		);
+	}
 
-  return (
-    <button
-      type="button"
-      aria-label="Help and shortcuts"
-      aria-keyshortcuts="?"
-      title="Help and shortcuts · ?"
-      onClick={openHelp}
-      className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-    >
-      <span className="shrink-0 transition-colors duration-200">
-        <HelpKeyChip />
-      </span>
-      <span className="truncate flex-1 text-left">Help and shortcuts</span>
-    </button>
-  )
+	return (
+		<button
+			type="button"
+			aria-label="Help and shortcuts"
+			aria-keyshortcuts="?"
+			title="Help and shortcuts · ?"
+			onClick={openHelp}
+			className="w-full flex items-center gap-2 px-3 py-2 min-h-11 rounded-xs text-sm font-medium text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+		>
+			<span className="shrink-0 transition-colors duration-200">
+				<HelpKeyChip />
+			</span>
+			<span className="truncate flex-1 text-left">Help and shortcuts</span>
+		</button>
+	);
 }

@@ -1,8 +1,8 @@
-import OpenAI from 'openai'
+import OpenAI from "openai";
 
-import { env } from './env.ts'
-import { Semaphore } from './semaphore.ts'
-import { TIMEOUTS } from './timeouts.ts'
+import { env } from "./env.ts";
+import { Semaphore } from "./semaphore.ts";
+import { TIMEOUTS } from "./timeouts.ts";
 
 /**
  * Shared OpenAI client used by both the chat-completion service
@@ -29,8 +29,8 @@ import { TIMEOUTS } from './timeouts.ts'
  * decoupled so a refactor here can't drift probe behavior.
  */
 export const openai = env.OPENAI_API_KEY !== undefined
-  ? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: TIMEOUTS.openaiCall })
-  : null
+	? new OpenAI({ apiKey: env.OPENAI_API_KEY, timeout: TIMEOUTS.openaiCall })
+	: null;
 
 /**
  * Bulkheading semaphore for OpenAI calls. Caps concurrent in-flight OpenAI
@@ -45,4 +45,4 @@ export const openai = env.OPENAI_API_KEY !== undefined
  * not API-quota management. Per-user rate limiters in `middleware/rateLimit.ts`
  * handle quota.
  */
-export const openaiSemaphore = new Semaphore({ max: 50, label: 'openai' })
+export const openaiSemaphore = new Semaphore({ max: 50, label: "openai" });

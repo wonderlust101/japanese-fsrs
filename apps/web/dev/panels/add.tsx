@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { createLifecyclePanel } from './_factory'
+import { createLifecyclePanel } from "./_factory";
 
 /**
  * `/add` lifecycle dev panel. Used by the capture entry point to force its
@@ -8,7 +8,7 @@ import { createLifecyclePanel } from './_factory'
  * downstream AI generation network calls.
  */
 export const useAddDevState = createLifecyclePanel({
-  id:     'add.capture',
-  title:  'Add · Capture',
-  states: ['loading', 'error'],
-})
+	id: "add.capture",
+	title: "Add · Capture",
+	states: ["loading", "error"],
+});

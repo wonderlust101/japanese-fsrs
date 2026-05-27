@@ -1,14 +1,16 @@
-'use client'
+"use client";
 
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 interface MobileStickyActionBarProps {
-  /** ARIA label for the wrapping landmark. Defaults to "Sticky actions". */
-  ariaLabel?: string
-  /** Accent classes appended to the outer wrapper (e.g. `lg:hidden` override
-   *  hooks). Defaults are already mobile-only. */
-  className?: string
-  children:   React.ReactNode
+	/** ARIA label for the wrapping landmark. Defaults to "Sticky actions". */
+	ariaLabel?: string;
+	/**
+	 * Accent classes appended to the outer wrapper (e.g. `lg:hidden` override
+	 *  hooks). Defaults are already mobile-only.
+	 */
+	className?: string;
+	children: React.ReactNode;
 }
 
 /**
@@ -25,25 +27,25 @@ interface MobileStickyActionBarProps {
  * sidebar instead).
  */
 export function MobileStickyActionBar({
-  ariaLabel = 'Sticky actions',
-  className = '',
-  children,
+	ariaLabel = "Sticky actions",
+	className = "",
+	children,
 }: MobileStickyActionBarProps): React.JSX.Element {
-  return (
-    <div
-      role="region"
-      aria-label={ariaLabel}
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-[var(--z-bar)] border-t border-soft-hairline',
-        // Bottom padding clears the iOS home indicator, matching the review /
-        // drill rating bars' established safe-area pattern (this bar is the
-        // primary CTA on the mobile dashboard).
-        'bg-warm-paper-raised px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6',
-        'lg:hidden',
-        className,
-      )}
-    >
-      <div className="mx-auto max-w-[1440px]">{children}</div>
-    </div>
-  )
+	return (
+		<div
+			role="region"
+			aria-label={ariaLabel}
+			className={cn(
+				"fixed inset-x-0 bottom-0 z-[var(--z-bar)] border-t border-soft-hairline",
+				// Bottom padding clears the iOS home indicator, matching the review /
+				// drill rating bars' established safe-area pattern (this bar is the
+				// primary CTA on the mobile dashboard).
+				"bg-warm-paper-raised px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:px-6",
+				"lg:hidden",
+				className,
+			)}
+		>
+			<div className="mx-auto max-w-[1440px]">{children}</div>
+		</div>
+	);
 }

@@ -1,20 +1,22 @@
-'use client'
-
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+"use client";
 
 import type {
-  ApiDeck,
-  ApiInsightsDistributions,
-  ApiList,
-  ApiMaturitySnapshot,
-} from '@fsrs-japanese/shared-types'
+	ApiDeck,
+	ApiInsightsDistributions,
+	ApiList,
+	ApiMaturitySnapshot,
+} from "@fsrs-japanese/shared-types";
 
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { MaturityHistoryWindow } from "@/lib/actions/insights.actions";
+
+import { useQuery } from "@tanstack/react-query";
+import { listDecksStrictAction } from "@/lib/actions/decks.actions";
 import {
-  getInsightsDistributionsStrictAction,
-  getMaturityHistoryStrictAction,
-  type MaturityHistoryWindow,
-} from '@/lib/actions/insights.actions'
-import { listDecksStrictAction } from '@/lib/actions/decks.actions'
+	getInsightsDistributionsStrictAction,
+	getMaturityHistoryStrictAction,
+
+} from "@/lib/actions/insights.actions";
 
 /**
  * Statistics-only query hooks that surface real errors. They call the throwing
@@ -24,32 +26,32 @@ import { listDecksStrictAction } from '@/lib/actions/decks.actions'
  * retry" state without changing app-wide resilience.
  */
 
-const STALE = 1000 * 60 * 5
+const STALE = 1000 * 60 * 5;
 
 export function useStatisticsDistributions(): UseQueryResult<ApiInsightsDistributions, Error> {
-  return useQuery({
-    queryKey:  ['statistics', 'distributions'],
-    queryFn:   getInsightsDistributionsStrictAction,
-    staleTime: STALE,
-  })
+	return useQuery({
+		queryKey: ["statistics", "distributions"],
+		queryFn: getInsightsDistributionsStrictAction,
+		staleTime: STALE,
+	});
 }
 
 export function useStatisticsMaturityHistory(
-  days: MaturityHistoryWindow = '90',
+	days: MaturityHistoryWindow = "90",
 ): UseQueryResult<ReadonlyArray<ApiMaturitySnapshot>, Error> {
-  return useQuery({
-    queryKey:  ['statistics', 'maturity-history', days],
-    queryFn:   () => getMaturityHistoryStrictAction(days),
-    staleTime: STALE,
-  })
+	return useQuery({
+		queryKey: ["statistics", "maturity-history", days],
+		queryFn: () => getMaturityHistoryStrictAction(days),
+		staleTime: STALE,
+	});
 }
 
 export function useStatisticsDecks(
-  limit = 50,
+	limit = 50,
 ): UseQueryResult<ApiList<ApiDeck>, Error> {
-  return useQuery({
-    queryKey:  ['statistics', 'decks', limit],
-    queryFn:   () => listDecksStrictAction({ limit }),
-    staleTime: STALE,
-  })
+	return useQuery({
+		queryKey: ["statistics", "decks", limit],
+		queryFn: () => listDecksStrictAction({ limit }),
+		staleTime: STALE,
+	});
 }

@@ -1,11 +1,11 @@
-import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 
 interface MobileNavState {
-  isOpen: boolean
-  open: () => void
-  close: () => void
-  toggle: () => void
+	isOpen: boolean;
+	open: () => void;
+	close: () => void;
+	toggle: () => void;
 }
 
 /**
@@ -15,13 +15,13 @@ interface MobileNavState {
  * client component.
  */
 export const useMobileNavStore = create<MobileNavState>()(
-  devtools(
-    (set) => ({
-      isOpen: false,
-      open:   () => set({ isOpen: true },           false, 'mobileNav/open'),
-      close:  () => set({ isOpen: false },          false, 'mobileNav/close'),
-      toggle: () => set((s) => ({ isOpen: !s.isOpen }), false, 'mobileNav/toggle'),
-    }),
-    { name: 'mobileNav' },
-  ),
-)
+	devtools(
+		set => ({
+			isOpen: false,
+			open: () => set({ isOpen: true }, false, "mobileNav/open"),
+			close: () => set({ isOpen: false }, false, "mobileNav/close"),
+			toggle: () => set(s => ({ isOpen: !s.isOpen }), false, "mobileNav/toggle"),
+		}),
+		{ name: "mobileNav" },
+	),
+);

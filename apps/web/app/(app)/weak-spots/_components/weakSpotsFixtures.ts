@@ -1,7 +1,7 @@
 import type {
-  ApiWeakSpotListItem,
-  ApiWeakSpotListResponse,
-} from '@fsrs-japanese/shared-types'
+	ApiWeakSpotListItem,
+	ApiWeakSpotListResponse,
+} from "@fsrs-japanese/shared-types";
 
 /**
  * Dev fixtures for the weakSpots page. Each builder returns a list-shaped
@@ -12,108 +12,127 @@ import type {
  * production bundle never executes the fixture branch in `weakSpots-view.tsx`.
  */
 
-const NOW = '2026-05-17T12:00:00.000Z'
+const NOW = "2026-05-17T12:00:00.000Z";
 
 function days(daysAgo: number): string {
-  const date = new Date(NOW)
-  date.setUTCDate(date.getUTCDate() - daysAgo)
-  return date.toISOString()
+	const date = new Date(NOW);
+	date.setUTCDate(date.getUTCDate() - daysAgo);
+	return date.toISOString();
 }
 
 function weakSpot(
-  id: string,
-  overrides: Partial<ApiWeakSpotListItem> = {},
+	id: string,
+	overrides: Partial<ApiWeakSpotListItem> = {},
 ): ApiWeakSpotListItem {
-  return {
-    id,
-    cardId:       'c-' + id,
-    deckId:       'd-core',
-    deckName:     'Core 2k',
-    word:         '見送る',
-    reading:      'みおくる',
-    meaning:      'to see off; to escort',
-    layoutType:   'vocabulary',
-    jlptLevel:    'N4',
-    lapses:       8,
-    reps:         22,
-    due:          days(-1),
-    lastReview:   days(2),
-    diagnosis:    null,
-    prescription: null,
-    resolved:     false,
-    resolvedAt:   null,
-    createdAt:    days(14),
-    ...overrides,
-  }
+	return {
+		id,
+		cardId: `c-${id}`,
+		deckId: "d-core",
+		deckName: "Core 2k",
+		word: "見送る",
+		reading: "みおくる",
+		meaning: "to see off; to escort",
+		layoutType: "vocabulary",
+		jlptLevel: "N4",
+		lapses: 8,
+		reps: 22,
+		due: days(-1),
+		lastReview: days(2),
+		diagnosis: null,
+		prescription: null,
+		resolved: false,
+		resolvedAt: null,
+		createdAt: days(14),
+		...overrides,
+	};
 }
 
 function envelope(items: ApiWeakSpotListItem[]): ApiWeakSpotListResponse {
-  // Fixtures live entirely on one page, so `totalCount` is just the item
-  // count. The view renders no pagination footer when totalCount ≤ page size.
-  return { items, totalCount: items.length }
+	// Fixtures live entirely on one page, so `totalCount` is just the item
+	// count. The view renders no pagination footer when totalCount ≤ page size.
+	return { items, totalCount: items.length };
 }
 
 export function buildCleanFixture(): ApiWeakSpotListResponse {
-  return envelope([])
+	return envelope([]);
 }
 
 export function buildFewFixture(): ApiWeakSpotListResponse {
-  return envelope([
-    weakSpot('l1', { word: '見送る', reading: 'みおくる', meaning: 'to see off',  lapses: 8 }),
-    weakSpot('l2', {
-      word: '預ける', reading: 'あずける', meaning: 'to entrust; to deposit',
-      lapses: 6, jlptLevel: 'N3', deckName: 'JLPT N3 vocab',
-      deckId: 'd-n3',
-    }),
-    weakSpot('l3', {
-      word: '果たして', reading: 'はたして', meaning: 'really; sure enough',
-      lapses: 5, jlptLevel: 'N2', deckName: 'Reading practice', deckId: 'd-reading',
-    }),
-  ])
+	return envelope([
+		weakSpot("l1", { word: "見送る", reading: "みおくる", meaning: "to see off", lapses: 8 }),
+		weakSpot("l2", {
+			word: "預ける",
+			reading: "あずける",
+			meaning: "to entrust; to deposit",
+			lapses: 6,
+			jlptLevel: "N3",
+			deckName: "JLPT N3 vocab",
+			deckId: "d-n3",
+		}),
+		weakSpot("l3", {
+			word: "果たして",
+			reading: "はたして",
+			meaning: "really; sure enough",
+			lapses: 5,
+			jlptLevel: "N2",
+			deckName: "Reading practice",
+			deckId: "d-reading",
+		}),
+	]);
 }
 
 export function buildManyFixture(): ApiWeakSpotListResponse {
-  return envelope([
-    weakSpot('l1', { word: '見送る',     reading: 'みおくる',   meaning: 'to see off',                lapses: 12 }),
-    weakSpot('l2', { word: '預ける',     reading: 'あずける',   meaning: 'to entrust',                lapses: 9,
-                  jlptLevel: 'N3', deckName: 'JLPT N3 vocab', deckId: 'd-n3' }),
-    weakSpot('l3', { word: '果たして',   reading: 'はたして',   meaning: 'really; sure enough',       lapses: 7,
-                  jlptLevel: 'N2', deckName: 'Reading practice', deckId: 'd-reading' }),
-    weakSpot('l4', { word: '相次ぐ',     reading: 'あいつぐ',   meaning: 'to happen in succession',   lapses: 6,
-                  jlptLevel: 'N2', deckName: 'News vocab', deckId: 'd-news',
-                  diagnosis:    'Reading conflict with 相継ぐ; the visual stem 「相」 trips comprehension.',
-                  prescription: 'Add a contrast card pairing 相次ぐ with 相継ぐ and a sentence anchor.' }),
-    weakSpot('l5', { word: 'まちまち',   reading: 'まちまち',   meaning: 'varied; mixed',             lapses: 5,
-                  jlptLevel: 'N2', deckName: 'Casual', deckId: 'd-casual' }),
-    weakSpot('l6', { word: '振る舞う',   reading: 'ふるまう',   meaning: 'to behave; to treat (food)', lapses: 6,
-                  jlptLevel: 'N2' }),
-    weakSpot('l7', { word: '取り立てて', reading: 'とりたてて', meaning: 'particularly; especially',  lapses: 8,
-                  jlptLevel: 'N1' }),
-  ])
+	return envelope([
+		weakSpot("l1", { word: "見送る", reading: "みおくる", meaning: "to see off", lapses: 12 }),
+		weakSpot("l2", { word: "預ける", reading: "あずける", meaning: "to entrust", lapses: 9, jlptLevel: "N3", deckName: "JLPT N3 vocab", deckId: "d-n3" }),
+		weakSpot("l3", { word: "果たして", reading: "はたして", meaning: "really; sure enough", lapses: 7, jlptLevel: "N2", deckName: "Reading practice", deckId: "d-reading" }),
+		weakSpot("l4", { word: "相次ぐ", reading: "あいつぐ", meaning: "to happen in succession", lapses: 6, jlptLevel: "N2", deckName: "News vocab", deckId: "d-news", diagnosis: "Reading conflict with 相継ぐ; the visual stem 「相」 trips comprehension.", prescription: "Add a contrast card pairing 相次ぐ with 相継ぐ and a sentence anchor." }),
+		weakSpot("l5", { word: "まちまち", reading: "まちまち", meaning: "varied; mixed", lapses: 5, jlptLevel: "N2", deckName: "Casual", deckId: "d-casual" }),
+		weakSpot("l6", { word: "振る舞う", reading: "ふるまう", meaning: "to behave; to treat (food)", lapses: 6, jlptLevel: "N2" }),
+		weakSpot("l7", { word: "取り立てて", reading: "とりたてて", meaning: "particularly; especially", lapses: 8, jlptLevel: "N1" }),
+	]);
 }
 
 export function buildResolvedFixture(): ApiWeakSpotListResponse {
-  return envelope([
-    weakSpot('lr1', {
-      word: '案内',  reading: 'あんない', meaning: 'guidance; information',
-      lapses: 4, resolved: true, resolvedAt: days(2),
-    }),
-    weakSpot('lr2', {
-      word: '取り組む', reading: 'とりくむ', meaning: 'to tackle (a problem)',
-      lapses: 5, resolved: true, resolvedAt: days(7),
-      jlptLevel: 'N3', deckName: 'JLPT N3 vocab', deckId: 'd-n3',
-    }),
-  ])
+	return envelope([
+		weakSpot("lr1", {
+			word: "案内",
+			reading: "あんない",
+			meaning: "guidance; information",
+			lapses: 4,
+			resolved: true,
+			resolvedAt: days(2),
+		}),
+		weakSpot("lr2", {
+			word: "取り組む",
+			reading: "とりくむ",
+			meaning: "to tackle (a problem)",
+			lapses: 5,
+			resolved: true,
+			resolvedAt: days(7),
+			jlptLevel: "N3",
+			deckName: "JLPT N3 vocab",
+			deckId: "d-n3",
+		}),
+	]);
 }
 
 export function buildOrphanFixture(): ApiWeakSpotListResponse {
-  return envelope([
-    weakSpot('lo1', {
-      cardId: null, deckId: null, deckName: null,
-      word: null, reading: null, meaning: null,
-      layoutType: null, jlptLevel: null,
-      lapses: null, reps: null, due: null, lastReview: null,
-    }),
-    weakSpot('lo2'),
-  ])
+	return envelope([
+		weakSpot("lo1", {
+			cardId: null,
+			deckId: null,
+			deckName: null,
+			word: null,
+			reading: null,
+			meaning: null,
+			layoutType: null,
+			jlptLevel: null,
+			lapses: null,
+			reps: null,
+			due: null,
+			lastReview: null,
+		}),
+		weakSpot("lo2"),
+	]);
 }

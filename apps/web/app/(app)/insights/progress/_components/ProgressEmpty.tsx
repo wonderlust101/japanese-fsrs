@@ -1,17 +1,17 @@
-import { KitsuneEmptyState } from '@/components/ui/KitsuneEmptyState'
+import { KitsuneEmptyState } from "@/components/ui/KitsuneEmptyState";
 
-import { LIMITED_THRESHOLD_DAYS } from './progressInterpretation'
+import { LIMITED_THRESHOLD_DAYS } from "./progressInterpretation";
 
 interface ProgressEmptyProps {
-  /**
-   * Distinct days the learner has practiced so far (the heatmap returns one
-   * row per review-day), or null when no data has loaded yet. This is the
-   * exact quantity `classifyProgress` gates on, so the copy can count toward
-   * the real threshold rather than a calendar date.
-   */
-  activeDays: number | null
-  /** Render the dev-flavored copy variant when we're previewing without data. */
-  isDev?:     boolean
+	/**
+	 * Distinct days the learner has practiced so far (the heatmap returns one
+	 * row per review-day), or null when no data has loaded yet. This is the
+	 * exact quantity `classifyProgress` gates on, so the copy can count toward
+	 * the real threshold rather than a calendar date.
+	 */
+	activeDays: number | null;
+	/** Render the dev-flavored copy variant when we're previewing without data. */
+	isDev?: boolean;
 }
 
 /**
@@ -31,22 +31,22 @@ interface ProgressEmptyProps {
  * to load.
  */
 export function ProgressEmpty({
-  activeDays,
-  isDev = false,
+	activeDays,
+	isDev = false,
 }: ProgressEmptyProps): React.JSX.Element {
-  const body = isDev
-    ? 'Limited-data fixture selected. After about two weeks of reviews, the page will fill with retention, mature growth, JLPT coverage, and cadence.'
-    : activeDays !== null && activeDays > 0
-      ? `You've practiced on ${activeDays} of the ${LIMITED_THRESHOLD_DAYS} days this page needs. Once you get there, it fills in with retention, mature growth, JLPT coverage, and cadence.`
-      : `After about ${LIMITED_THRESHOLD_DAYS} days of practice, this page will show retention, mature growth, JLPT coverage, and cadence.`
+	const body = isDev
+		? "Limited-data fixture selected. After about two weeks of reviews, the page will fill with retention, mature growth, JLPT coverage, and cadence."
+		: activeDays !== null && activeDays > 0
+			? `You've practiced on ${activeDays} of the ${LIMITED_THRESHOLD_DAYS} days this page needs. Once you get there, it fills in with retention, mature growth, JLPT coverage, and cadence.`
+			: `After about ${LIMITED_THRESHOLD_DAYS} days of practice, this page will show retention, mature growth, JLPT coverage, and cadence.`;
 
-  return (
-    <KitsuneEmptyState
-      ariaLabel="Progress takes a beat to settle"
-      headline="Progress takes a beat to settle."
-      body={body}
-      ctaHref="/today"
-      ctaLabel="Start a review"
-    />
-  )
+	return (
+		<KitsuneEmptyState
+			ariaLabel="Progress takes a beat to settle"
+			headline="Progress takes a beat to settle."
+			body={body}
+			ctaHref="/today"
+			ctaLabel="Start a review"
+		/>
+	);
 }

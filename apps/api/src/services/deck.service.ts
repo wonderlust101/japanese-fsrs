@@ -1,50 +1,51 @@
-import { z } from 'zod'
-
-import { supabaseAdmin } from '../db/supabase.ts'
-import { asPayload } from '../lib/db.ts'
-import { encodeCursor, decodeCursor } from '../lib/http.ts'
-import { invalidateDueCache } from '../lib/due-cache.ts'
-import { componentLogger } from '../lib/logger.ts'
-import { AppError, dbError } from '../middleware/errorHandler.ts'
-import { uuidIdCursorSchema } from '../schemas/common.schema.ts'
+import type { ApiCopyDeckResult, ApiDeck, ApiDeckWithStats, ApiList, CreateDeckInput, UpdateDeckInput } from "@fsrs-japanese/shared-types";
 import {
-  State,
-  deckTypeEnum,
-  type ApiCopyDeckResult,
-  type ApiDeck, type ApiDeckWithStats, type ApiList,
-  type CreateDeckInput, type UpdateDeckInput,
-} from '@fsrs-japanese/shared-types'
+	deckTypeEnum,
+	State,
 
-const log = componentLogger('deck.service')
+} from "@fsrs-japanese/shared-types";
+
+import { z } from "zod";
+import { supabaseAdmin } from "../db/supabase.ts";
+import { asPayload } from "../lib/db.ts";
+import { invalidateDueCache } from "../lib/due-cache.ts";
+import { decodeCursor, encodeCursor } from "../lib/http.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { AppError, dbError } from "../middleware/errorHandler.ts";
+import { uuidIdCursorSchema } from "../schemas/common.schema.ts";
+
+const log = componentLogger("deck.service");
 
 // ─── Column projections ───────────────────────────────────────────────────────
 // Keep these in sync with the return interfaces below. Never use select('*').
 
 const DECK_COLUMNS = [
-  'id',
-  'name',
-  'description',
-  'deck_type',
-  // `is_premade_fork` was dropped in Backend Completion Plan Stage 4 (copy
-  // model). `source_premade_id` stays as attribution-only — non-null means
-  // "this deck started from a premade catalogue entry"; nothing branches on
-  // it anymore.
-  'source_premade_id',
-  'card_count',
-  'version',
-  'created_at',
-  'updated_at',
-  // Archive timestamp (migration 20260622000000). NULL = active, non-null
-  // = archived. Surfaced on the wire as `archivedAt`.
-  'archived_at',
-].join(', ')
+	"id",
+	"name",
+	"description",
+	"deck_type",
+	// `is_premade_fork` was dropped in Backend Completion Plan Stage 4 (copy
+	// model). `source_premade_id` stays as attribution-only — non-null means
+	// "this deck started from a premade catalogue entry"; nothing branches on
+	// it anymore.
+	"source_premade_id",
+	"card_count",
+	"version",
+	"created_at",
+	"updated_at",
+	// Archive timestamp (migration 20260622000000). NULL = active, non-null
+	// = archived. Surfaced on the wire as `archivedAt`.
+	"archived_at",
+].join(", ");
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-/** Raw snake_case deck row. Inferred from DeckListRpcRowSchema (the schema
+/**
+ * Raw snake_case deck row. Inferred from DeckListRpcRowSchema (the schema
  *  is shared between the list_decks_paginated RPC and direct .from('decks')
- *  reads, since the column projections match). */
-type DeckDbRow = z.infer<typeof DeckListRpcRowSchema>
+ *  reads, since the column projections match).
+ */
+type DeckDbRow = z.infer<typeof DeckListRpcRowSchema>;
 
 // ─── RPC envelope schema ──────────────────────────────────────────────────────
 // Mirrors the analytics.service.ts / review.service.ts precedent: parse the
@@ -53,69 +54,75 @@ type DeckDbRow = z.infer<typeof DeckListRpcRowSchema>
 // Backend Completion Plan Stage 3 are `.optional()` here so the schema can
 // validate both shapes (RPC carries them; direct table reads do not).
 const DeckListRpcRowSchema = z.object({
-  id:                z.string(),
-  name:              z.string(),
-  description:       z.string().nullable(),
-  deck_type:         deckTypeEnum,
-  // `is_premade_fork` removed in Backend Completion Plan Stage 4 (copy
-  // model). The column no longer exists on the decks table.
-  source_premade_id: z.string().nullable(),
-  card_count:        z.number(),
-  version:           z.number(),
-  created_at:        z.string(),
-  updated_at:        z.string(),
-  // Archive timestamp (migration 20260622000000). NULL = active, non-null
-  // = archived. Present on both RPC rows and direct .from('decks') reads.
-  archived_at:       z.string().nullable(),
-  // Stage 3 — present on list_decks_paginated rows, absent on direct
-  // `.from('decks').select(DECK_COLUMNS)` reads. Kept optional rather
-  // than splitting into a second schema so the existing shared usage in
-  // createDeck / updateDeck continues to parse cleanly.
-  due_count:         z.number().optional(),
-  new_count:         z.number().optional(),
-  mature_count:      z.number().optional(),
-  due_new_count:     z.number().optional(),
-  due_review_count:  z.number().optional(),
-  last_reviewed_at:  z.string().nullable().optional(),
-})
+	id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	deck_type: deckTypeEnum,
+	// `is_premade_fork` removed in Backend Completion Plan Stage 4 (copy
+	// model). The column no longer exists on the decks table.
+	source_premade_id: z.string().nullable(),
+	card_count: z.number(),
+	version: z.number(),
+	created_at: z.string(),
+	updated_at: z.string(),
+	// Archive timestamp (migration 20260622000000). NULL = active, non-null
+	// = archived. Present on both RPC rows and direct .from('decks') reads.
+	archived_at: z.string().nullable(),
+	// Stage 3 — present on list_decks_paginated rows, absent on direct
+	// `.from('decks').select(DECK_COLUMNS)` reads. Kept optional rather
+	// than splitting into a second schema so the existing shared usage in
+	// createDeck / updateDeck continues to parse cleanly.
+	due_count: z.number().optional(),
+	new_count: z.number().optional(),
+	mature_count: z.number().optional(),
+	due_new_count: z.number().optional(),
+	due_review_count: z.number().optional(),
+	last_reviewed_at: z.string().nullable().optional(),
+});
 
-/** Slim projection used by deleteDeck for the existence check. After the
+/**
+ * Slim projection used by deleteDeck for the existence check. After the
  *  Backend Completion Plan Stage 4 (copy model) refactor, all decks delete
  *  through the same path — no branch on `is_premade_fork`, so we only need
- *  the `id` to confirm the row exists and is owned by the caller. */
+ *  the `id` to confirm the row exists and is owned by the caller.
+ */
 const DeckOwnerRowSchema = z.object({
-  id: z.string(),
-})
+	id: z.string(),
+});
 
-/** Envelope for the `copy_user_deck` RPC (migration 20260621000000). Mirrors
+/**
+ * Envelope for the `copy_user_deck` RPC (migration 20260621000000). Mirrors
  *  the `copy_premade_deck` envelope in premade.service.ts. The RPC always
  *  RETURN QUERYs one row carrying the new deck id + the count of cards
- *  cloned into it; a zero-row return indicates a regression. */
+ *  cloned into it; a zero-row return indicates a regression.
+ */
 const CopyDeckRpcRowSchema = z.object({
-  deck_id:    z.string(),
-  card_count: z.number(),
-})
+	deck_id: z.string(),
+	card_count: z.number(),
+});
 
-/** Cursor payload for the decks-list endpoint. The `list_decks_paginated`
+/**
+ * Cursor payload for the decks-list endpoint. The `list_decks_paginated`
  *  RPC re-derives the sort timestamp from the row pointed to by `id`, so the
  *  cursor only needs to carry `id` today. Shared with card.service.ts and
- *  premade.service.ts via `uuidIdCursorSchema` — see schemas/common.schema.ts. */
-const deckListCursorSchema = uuidIdCursorSchema
+ *  premade.service.ts via `uuidIdCursorSchema` — see schemas/common.schema.ts.
+ */
+const deckListCursorSchema = uuidIdCursorSchema;
 
 /** Maps a raw DB row (snake_case) to the camelCase API shape. */
 function toRow(raw: DeckDbRow): ApiDeck {
-  return {
-    id:              raw.id,
-    name:            raw.name,
-    description:     raw.description,
-    deckType:        raw.deck_type,
-    sourcePremadeId: raw.source_premade_id,
-    cardCount:       raw.card_count,
-    version:         raw.version,
-    createdAt:       raw.created_at,
-    updatedAt:       raw.updated_at,
-    archivedAt:      raw.archived_at,
-  }
+	return {
+		id: raw.id,
+		name: raw.name,
+		description: raw.description,
+		deckType: raw.deck_type,
+		sourcePremadeId: raw.source_premade_id,
+		cardCount: raw.card_count,
+		version: raw.version,
+		createdAt: raw.created_at,
+		updatedAt: raw.updated_at,
+		archivedAt: raw.archived_at,
+	};
 }
 
 /**
@@ -129,15 +136,15 @@ function toRow(raw: DeckDbRow): ApiDeck {
  * so the COALESCE is a safety net rather than a silent data path.
  */
 function toRowWithStats(raw: DeckDbRow): ApiDeckWithStats {
-  return {
-    ...toRow(raw),
-    dueCount:       raw.due_count        ?? 0,
-    newCount:       raw.new_count        ?? 0,
-    matureCount:    raw.mature_count     ?? 0,
-    dueNewCount:    raw.due_new_count    ?? 0,
-    dueReviewCount: raw.due_review_count ?? 0,
-    lastReviewedAt: raw.last_reviewed_at ?? null,
-  }
+	return {
+		...toRow(raw),
+		dueCount: raw.due_count ?? 0,
+		newCount: raw.new_count ?? 0,
+		matureCount: raw.mature_count ?? 0,
+		dueNewCount: raw.due_new_count ?? 0,
+		dueReviewCount: raw.due_review_count ?? 0,
+		lastReviewedAt: raw.last_reviewed_at ?? null,
+	};
 }
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -158,36 +165,36 @@ function toRowWithStats(raw: DeckDbRow): ApiDeckWithStats {
  * cursor is provably stable across concurrent UPDATEs.
  */
 export async function listDecks(
-  userId:  string,
-  limit:   number,
-  cursor?: string,
-  view:    'active' | 'archived' | 'all' = 'active',
+	userId: string,
+	limit: number,
+	cursor?: string,
+	view: "active" | "archived" | "all" = "active",
 ): Promise<ApiList<ApiDeckWithStats>> {
-  // Decode opaque cursor → bare id for the RPC. See lib/http.ts for the
-  // cursor format rationale.
-  const cursorId = cursor !== undefined ? decodeCursor(cursor, deckListCursorSchema).id : null
+	// Decode opaque cursor → bare id for the RPC. See lib/http.ts for the
+	// cursor format rationale.
+	const cursorId = cursor !== undefined ? decodeCursor(cursor, deckListCursorSchema).id : null;
 
-  const { data, error } = await supabaseAdmin.rpc('list_decks_paginated', asPayload({
-    p_user_id: userId,
-    p_limit:   limit + 1,
-    p_cursor:  cursorId,
-    p_view:    view,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("list_decks_paginated", asPayload({
+		p_user_id: userId,
+		p_limit: limit + 1,
+		p_cursor: cursorId,
+		p_view: view,
+	}));
 
-  if (error !== null) {
-    throw dbError('list decks', error)
-  }
+	if (error !== null) {
+		throw dbError("list decks", error);
+	}
 
-  const rows    = z.array(DeckListRpcRowSchema).parse(data ?? [])
-  const hasMore = rows.length > limit
-  const items   = rows.slice(0, limit).map(toRowWithStats)
-  const lastId  = items[items.length - 1]?.id
+	const rows = z.array(DeckListRpcRowSchema).parse(data ?? []);
+	const hasMore = rows.length > limit;
+	const items = rows.slice(0, limit).map(toRowWithStats);
+	const lastId = items[items.length - 1]?.id;
 
-  return {
-    items,
-    nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
-    hasMore,
-  }
+	return {
+		items,
+		nextCursor: hasMore && lastId !== undefined ? encodeCursor({ id: lastId }) : null,
+		hasMore,
+	};
 }
 
 /**
@@ -203,109 +210,109 @@ export async function listDecks(
  * the index coverage on (deck_id, user_id) handles each filter cheaply.
  */
 export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
-  const now = new Date().toISOString()
+	const now = new Date().toISOString();
 
-  // Seven parallel queries: deck row, total due, total new, mature
-  // (state=Review AND interval ≥ 21d, Anki convention), the new/review
-  // split of `due`, and the deck-wide last_review timestamp.
-  const [deckResult, dueResult, newResult, matureResult, dueNewResult, dueReviewResult, lastReviewedResult] = await Promise.all([
-    supabaseAdmin
-      .from('decks')
-      .select(DECK_COLUMNS)
-      .eq('id', deckId)
-      .eq('user_id', userId)
-      .single(),
+	// Seven parallel queries: deck row, total due, total new, mature
+	// (state=Review AND interval ≥ 21d, Anki convention), the new/review
+	// split of `due`, and the deck-wide last_review timestamp.
+	const [deckResult, dueResult, newResult, matureResult, dueNewResult, dueReviewResult, lastReviewedResult] = await Promise.all([
+		supabaseAdmin
+			.from("decks")
+			.select(DECK_COLUMNS)
+			.eq("id", deckId)
+			.eq("user_id", userId)
+			.single(),
 
-    // Cards due now: due <= now AND not suspended. Uses user_id to scope
-    // to this user's cards only (service role bypasses RLS).
-    supabaseAdmin
-      .from('cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .lte('due', now)
-      .eq('is_suspended', false),
+		// Cards due now: due <= now AND not suspended. Uses user_id to scope
+		// to this user's cards only (service role bypasses RLS).
+		supabaseAdmin
+			.from("cards")
+			.select("id", { count: "exact", head: true })
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.lte("due", now)
+			.eq("is_suspended", false),
 
-    // Cards never reviewed.
-    supabaseAdmin
-      .from('cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .eq('state', State.New),
+		// Cards never reviewed.
+		supabaseAdmin
+			.from("cards")
+			.select("id", { count: "exact", head: true })
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.eq("state", State.New),
 
-    // Mature: graduated to Review state with scheduled interval ≥ 21 days.
-    // Suspended cards excluded so the mature % reflects what's actively in
-    // rotation (matches how dueCount excludes suspended cards).
-    supabaseAdmin
-      .from('cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .eq('state', State.Review)
-      .eq('is_suspended', false)
-      .gte('scheduled_days', 21),
+		// Mature: graduated to Review state with scheduled interval ≥ 21 days.
+		// Suspended cards excluded so the mature % reflects what's actively in
+		// rotation (matches how dueCount excludes suspended cards).
+		supabaseAdmin
+			.from("cards")
+			.select("id", { count: "exact", head: true })
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.eq("state", State.Review)
+			.eq("is_suspended", false)
+			.gte("scheduled_days", 21),
 
-    // Due breakdown — new cards portion of the due bucket.
-    supabaseAdmin
-      .from('cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .lte('due', now)
-      .eq('is_suspended', false)
-      .eq('state', State.New),
+		// Due breakdown — new cards portion of the due bucket.
+		supabaseAdmin
+			.from("cards")
+			.select("id", { count: "exact", head: true })
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.lte("due", now)
+			.eq("is_suspended", false)
+			.eq("state", State.New),
 
-    // Due breakdown — review portion (everything in due that is NOT state=New).
-    // We count anything with state != New (Learning / Review / Relearning) to
-    // keep this exhaustive against any future state-enum changes.
-    supabaseAdmin
-      .from('cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .lte('due', now)
-      .eq('is_suspended', false)
-      .neq('state', State.New),
+		// Due breakdown — review portion (everything in due that is NOT state=New).
+		// We count anything with state != New (Learning / Review / Relearning) to
+		// keep this exhaustive against any future state-enum changes.
+		supabaseAdmin
+			.from("cards")
+			.select("id", { count: "exact", head: true })
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.lte("due", now)
+			.eq("is_suspended", false)
+			.neq("state", State.New),
 
-    // Last review across any card in this deck — mirrors the
-    // `MAX(cards.last_review)` aggregate that list_decks_paginated computes
-    // server-side (Stage 3 migration). Returned as a single-row max via
-    // ORDER BY DESC + LIMIT 1; `.maybeSingle()` handles the empty-deck case
-    // by returning `data: null` without raising.
-    supabaseAdmin
-      .from('cards')
-      .select('last_review')
-      .eq('deck_id', deckId)
-      .eq('user_id', userId)
-      .not('last_review', 'is', null)
-      .order('last_review', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
+		// Last review across any card in this deck — mirrors the
+		// `MAX(cards.last_review)` aggregate that list_decks_paginated computes
+		// server-side (Stage 3 migration). Returned as a single-row max via
+		// ORDER BY DESC + LIMIT 1; `.maybeSingle()` handles the empty-deck case
+		// by returning `data: null` without raising.
+		supabaseAdmin
+			.from("cards")
+			.select("last_review")
+			.eq("deck_id", deckId)
+			.eq("user_id", userId)
+			.not("last_review", "is", null)
+			.order("last_review", { ascending: false })
+			.limit(1)
+			.maybeSingle(),
+	]);
 
-  if (deckResult.error !== null || deckResult.data === null) {
-    // PGRST116 = no rows from .single() — deck missing or wrong owner.
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
+	if (deckResult.error !== null || deckResult.data === null) {
+		// PGRST116 = no rows from .single() — deck missing or wrong owner.
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
 
-  // `.maybeSingle()` returns null data (not error) on empty result. A real
-  // query error still surfaces as `lastReviewedResult.error` and is treated
-  // as a 500 — same convention as the count queries above.
-  if (lastReviewedResult.error !== null) {
-    throw dbError('read deck last_review', lastReviewedResult.error)
-  }
-  const lastReviewedAt = (lastReviewedResult.data?.last_review ?? null) as string | null
+	// `.maybeSingle()` returns null data (not error) on empty result. A real
+	// query error still surfaces as `lastReviewedResult.error` and is treated
+	// as a 500 — same convention as the count queries above.
+	if (lastReviewedResult.error !== null) {
+		throw dbError("read deck last_review", lastReviewedResult.error);
+	}
+	const lastReviewedAt = (lastReviewedResult.data?.last_review ?? null) as string | null;
 
-  return {
-    ...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
-    dueCount:       dueResult.count       ?? 0,
-    newCount:       newResult.count       ?? 0,
-    matureCount:    matureResult.count    ?? 0,
-    dueNewCount:    dueNewResult.count    ?? 0,
-    dueReviewCount: dueReviewResult.count ?? 0,
-    lastReviewedAt,
-  }
+	return {
+		...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
+		dueCount: dueResult.count ?? 0,
+		newCount: newResult.count ?? 0,
+		matureCount: matureResult.count ?? 0,
+		dueNewCount: dueNewResult.count ?? 0,
+		dueReviewCount: dueReviewResult.count ?? 0,
+		lastReviewedAt,
+	};
 }
 
 /**
@@ -314,22 +321,22 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
  * @param userId - Taken from the verified JWT; never from the request body.
  */
 export async function createDeck(userId: string, input: CreateDeckInput): Promise<ApiDeck> {
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .insert({
-      user_id:     userId,
-      name:        input.name,
-      description: input.description ?? null,
-      deck_type:   input.deckType,
-    })
-    .select(DECK_COLUMNS)
-    .single()
+	const { data, error } = await supabaseAdmin
+		.from("decks")
+		.insert({
+			user_id: userId,
+			name: input.name,
+			description: input.description ?? null,
+			deck_type: input.deckType,
+		})
+		.select(DECK_COLUMNS)
+		.single();
 
-  if (error !== null || data === null) {
-    throw dbError('create deck', error)
-  }
+	if (error !== null || data === null) {
+		throw dbError("create deck", error);
+	}
 
-  return toRow(DeckListRpcRowSchema.parse(data))
+	return toRow(DeckListRpcRowSchema.parse(data));
 }
 
 /**
@@ -341,50 +348,54 @@ export async function createDeck(userId: string, input: CreateDeckInput): Promis
  * Successful UPDATE bumps `version` by 1 inside the RPC.
  */
 export async function updateDeck(
-  deckId:          string,
-  userId:          string,
-  input:           UpdateDeckInput,
-  expectedVersion: number,
+	deckId: string,
+	userId: string,
+	input: UpdateDeckInput,
+	expectedVersion: number,
 ): Promise<ApiDeck> {
-  const patch: Record<string, unknown> = {}
-  if (input.name        !== undefined) patch['name']        = input.name
-  if (input.description !== undefined) patch['description'] = input.description
-  if (input.deckType    !== undefined) patch['deck_type']   = input.deckType
-  if (input.isPublic    !== undefined) patch['is_public']   = input.isPublic
+	const patch: Record<string, unknown> = {};
+	if (input.name !== undefined)
+		patch.name = input.name;
+	if (input.description !== undefined)
+		patch.description = input.description;
+	if (input.deckType !== undefined)
+		patch.deck_type = input.deckType;
+	if (input.isPublic !== undefined)
+		patch.is_public = input.isPublic;
 
-  const { data, error } = await supabaseAdmin.rpc('update_deck_with_version_check', asPayload({
-    p_deck_id:          deckId,
-    p_user_id:          userId,
-    p_expected_version: expectedVersion,
-    p_patch:            patch,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("update_deck_with_version_check", asPayload({
+		p_deck_id: deckId,
+		p_user_id: userId,
+		p_expected_version: expectedVersion,
+		p_patch: patch,
+	}));
 
-  if (error !== null) {
-    // RPC raises 'deck_not_found' with SQLSTATE 02000 when the row is missing
-    // or owned by another user.
-    if (error.code === '02000' && error.message.includes('deck_not_found')) {
-      throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-    }
-    // RPC raises 'deck_version_mismatch' with SQLSTATE 22000 when the
-    // optimistic-concurrency check fails — caller's snapshot is stale.
-    if (error.code === '22000' && error.message.includes('deck_version_mismatch')) {
-      throw new AppError(412, 'Deck has been modified since you loaded it; refresh and retry', { code: 'VERSION_CONFLICT' })
-    }
-    throw dbError('update deck', error)
-  }
+	if (error !== null) {
+		// RPC raises 'deck_not_found' with SQLSTATE 02000 when the row is missing
+		// or owned by another user.
+		if (error.code === "02000" && error.message.includes("deck_not_found")) {
+			throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+		}
+		// RPC raises 'deck_version_mismatch' with SQLSTATE 22000 when the
+		// optimistic-concurrency check fails — caller's snapshot is stale.
+		if (error.code === "22000" && error.message.includes("deck_version_mismatch")) {
+			throw new AppError(412, "Deck has been modified since you loaded it; refresh and retry", { code: "VERSION_CONFLICT" });
+		}
+		throw dbError("update deck", error);
+	}
 
-  // RPC returns the freshly-updated row (migration 20260528000000), so we
-  // skip the previous follow-up SELECT round-trip. Stats columns (due/new
-  // counts) are intentionally NOT included in the PATCH response — those
-  // belong to GET /decks/:id and would require additional queries to compute.
-  const rows = z.array(DeckListRpcRowSchema).parse(data ?? [])
-  const updated = rows[0]
-  if (updated === undefined) {
-    // RPC succeeded but returned no row — only reachable if the row was
-    // concurrently deleted between UPDATE and RETURN QUERY.
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
-  return toRow(updated)
+	// RPC returns the freshly-updated row (migration 20260528000000), so we
+	// skip the previous follow-up SELECT round-trip. Stats columns (due/new
+	// counts) are intentionally NOT included in the PATCH response — those
+	// belong to GET /decks/:id and would require additional queries to compute.
+	const rows = z.array(DeckListRpcRowSchema).parse(data ?? []);
+	const updated = rows[0];
+	if (updated === undefined) {
+		// RPC succeeded but returned no row — only reachable if the row was
+		// concurrently deleted between UPDATE and RETURN QUERY.
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
+	return toRow(updated);
 }
 
 /**
@@ -399,30 +410,30 @@ export async function updateDeck(
  * Throws 404 if the deck does not exist or does not belong to the user.
  */
 export async function deleteDeck(deckId: string, userId: string): Promise<void> {
-  const { data, error: fetchError } = await supabaseAdmin
-    .from('decks')
-    .select('id')
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .single()
+	const { data, error: fetchError } = await supabaseAdmin
+		.from("decks")
+		.select("id")
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.single();
 
-  if (fetchError !== null || data === null) {
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
+	if (fetchError !== null || data === null) {
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
 
-  // Defensive parse — keeps drift on the slim SELECT surface as a clean
-  // ZodError instead of letting a malformed row reach the delete branch.
-  DeckOwnerRowSchema.parse(data)
+	// Defensive parse — keeps drift on the slim SELECT surface as a clean
+	// ZodError instead of letting a malformed row reach the delete branch.
+	DeckOwnerRowSchema.parse(data);
 
-  const { error: deleteError } = await supabaseAdmin
-    .from('decks')
-    .delete()
-    .eq('id', deckId)
-    .eq('user_id', userId)
+	const { error: deleteError } = await supabaseAdmin
+		.from("decks")
+		.delete()
+		.eq("id", deckId)
+		.eq("user_id", userId);
 
-  if (deleteError !== null) {
-    throw dbError('delete deck', deleteError)
-  }
+	if (deleteError !== null) {
+		throw dbError("delete deck", deleteError);
+	}
 }
 
 /**
@@ -445,22 +456,22 @@ export async function deleteDeck(deckId: string, userId: string): Promise<void> 
  * corruption.
  */
 export async function assertDeckActive(deckId: string, userId: string): Promise<void> {
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .select('archived_at')
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .maybeSingle()
+	const { data, error } = await supabaseAdmin
+		.from("decks")
+		.select("archived_at")
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (error !== null) {
-    throw dbError('assert deck active', error)
-  }
-  if (data === null) {
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
-  if (data.archived_at !== null) {
-    throw new AppError(422, 'Deck is archived. Unarchive it to make changes.', { code: 'DECK_ARCHIVED' })
-  }
+	if (error !== null) {
+		throw dbError("assert deck active", error);
+	}
+	if (data === null) {
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
+	if (data.archived_at !== null) {
+		throw new AppError(422, "Deck is archived. Unarchive it to make changes.", { code: "DECK_ARCHIVED" });
+	}
 }
 
 /**
@@ -485,20 +496,20 @@ export async function assertDeckActive(deckId: string, userId: string): Promise<
  * latency.
  */
 export async function assertCardDeckActive(cardId: string, userId: string): Promise<void> {
-  const { data, error } = await supabaseAdmin
-    .from('cards')
-    .select('deck_id')
-    .eq('id', cardId)
-    .eq('user_id', userId)
-    .maybeSingle()
+	const { data, error } = await supabaseAdmin
+		.from("cards")
+		.select("deck_id")
+		.eq("id", cardId)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (error !== null) {
-    throw dbError('assert card deck active (probe)', error)
-  }
-  if (data === null || data.deck_id === null) {
-    throw new AppError(404, 'Card not found', { code: 'CARD_NOT_FOUND' })
-  }
-  await assertDeckActive(data.deck_id, userId)
+	if (error !== null) {
+		throw dbError("assert card deck active (probe)", error);
+	}
+	if (data === null || data.deck_id === null) {
+		throw new AppError(404, "Card not found", { code: "CARD_NOT_FOUND" });
+	}
+	await assertDeckActive(data.deck_id, userId);
 }
 
 /**
@@ -520,59 +531,59 @@ export async function assertCardDeckActive(cardId: string, userId: string): Prom
  * the next PATCH.
  */
 export async function archiveDeck(deckId: string, userId: string): Promise<ApiDeck> {
-  // Existence + ownership probe first so we can distinguish 404 from a
-  // generic DB failure. `.maybeSingle()` returns `{ data: null }` (not an
-  // error) when the row is missing.
-  const { data: existing, error: probeError } = await supabaseAdmin
-    .from('decks')
-    .select('archived_at')
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .maybeSingle()
+	// Existence + ownership probe first so we can distinguish 404 from a
+	// generic DB failure. `.maybeSingle()` returns `{ data: null }` (not an
+	// error) when the row is missing.
+	const { data: existing, error: probeError } = await supabaseAdmin
+		.from("decks")
+		.select("archived_at")
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (probeError !== null) {
-    throw dbError('archive deck (probe)', probeError)
-  }
-  if (existing === null) {
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
+	if (probeError !== null) {
+		throw dbError("archive deck (probe)", probeError);
+	}
+	if (existing === null) {
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
 
-  // Idempotent: if already archived, just re-read and return the row. We
-  // deliberately don't refresh the `archived_at` timestamp — preserving the
-  // original moment-of-archive is more useful for UI ("archived 3 days ago")
-  // than a sliding timestamp would be.
-  if (existing.archived_at !== null) {
-    const { data, error } = await supabaseAdmin
-      .from('decks')
-      .select(DECK_COLUMNS)
-      .eq('id', deckId)
-      .eq('user_id', userId)
-      .single()
-    if (error !== null || data === null) {
-      throw dbError('archive deck (re-read)', error)
-    }
-    return toRow(DeckListRpcRowSchema.parse(data))
-  }
+	// Idempotent: if already archived, just re-read and return the row. We
+	// deliberately don't refresh the `archived_at` timestamp — preserving the
+	// original moment-of-archive is more useful for UI ("archived 3 days ago")
+	// than a sliding timestamp would be.
+	if (existing.archived_at !== null) {
+		const { data, error } = await supabaseAdmin
+			.from("decks")
+			.select(DECK_COLUMNS)
+			.eq("id", deckId)
+			.eq("user_id", userId)
+			.single();
+		if (error !== null || data === null) {
+			throw dbError("archive deck (re-read)", error);
+		}
+		return toRow(DeckListRpcRowSchema.parse(data));
+	}
 
-  // Archive is a state-transition, not a content edit. We leave `version`
-  // alone — that column tracks content edits for the PATCH/If-Match flow,
-  // which is already blocked on archived decks by `assertDeckActive`. The
-  // `archived_at` change is itself the audit signal.
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .update({ archived_at: new Date().toISOString() })
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .select(DECK_COLUMNS)
-    .single()
+	// Archive is a state-transition, not a content edit. We leave `version`
+	// alone — that column tracks content edits for the PATCH/If-Match flow,
+	// which is already blocked on archived decks by `assertDeckActive`. The
+	// `archived_at` change is itself the audit signal.
+	const { data, error } = await supabaseAdmin
+		.from("decks")
+		.update({ archived_at: new Date().toISOString() })
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.select(DECK_COLUMNS)
+		.single();
 
-  if (error !== null || data === null) {
-    throw dbError('archive deck', error)
-  }
+	if (error !== null || data === null) {
+		throw dbError("archive deck", error);
+	}
 
-  const row = toRow(DeckListRpcRowSchema.parse(data))
-  log.info({ userId, deckId }, 'archived deck')
-  return row
+	const row = toRow(DeckListRpcRowSchema.parse(data));
+	log.info({ userId, deckId }, "archived deck");
+	return row;
 }
 
 /**
@@ -586,47 +597,47 @@ export async function archiveDeck(deckId: string, userId: string): Promise<ApiDe
  *   - 404 `DECK_NOT_FOUND` — deck is missing or owned by another user.
  */
 export async function unarchiveDeck(deckId: string, userId: string): Promise<ApiDeck> {
-  const { data: existing, error: probeError } = await supabaseAdmin
-    .from('decks')
-    .select('archived_at')
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .maybeSingle()
+	const { data: existing, error: probeError } = await supabaseAdmin
+		.from("decks")
+		.select("archived_at")
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.maybeSingle();
 
-  if (probeError !== null) {
-    throw dbError('unarchive deck (probe)', probeError)
-  }
-  if (existing === null) {
-    throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-  }
-  if (existing.archived_at === null) {
-    const { data, error } = await supabaseAdmin
-      .from('decks')
-      .select(DECK_COLUMNS)
-      .eq('id', deckId)
-      .eq('user_id', userId)
-      .single()
-    if (error !== null || data === null) {
-      throw dbError('unarchive deck (re-read)', error)
-    }
-    return toRow(DeckListRpcRowSchema.parse(data))
-  }
+	if (probeError !== null) {
+		throw dbError("unarchive deck (probe)", probeError);
+	}
+	if (existing === null) {
+		throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+	}
+	if (existing.archived_at === null) {
+		const { data, error } = await supabaseAdmin
+			.from("decks")
+			.select(DECK_COLUMNS)
+			.eq("id", deckId)
+			.eq("user_id", userId)
+			.single();
+		if (error !== null || data === null) {
+			throw dbError("unarchive deck (re-read)", error);
+		}
+		return toRow(DeckListRpcRowSchema.parse(data));
+	}
 
-  const { data, error } = await supabaseAdmin
-    .from('decks')
-    .update({ archived_at: null })
-    .eq('id', deckId)
-    .eq('user_id', userId)
-    .select(DECK_COLUMNS)
-    .single()
+	const { data, error } = await supabaseAdmin
+		.from("decks")
+		.update({ archived_at: null })
+		.eq("id", deckId)
+		.eq("user_id", userId)
+		.select(DECK_COLUMNS)
+		.single();
 
-  if (error !== null || data === null) {
-    throw dbError('unarchive deck', error)
-  }
+	if (error !== null || data === null) {
+		throw dbError("unarchive deck", error);
+	}
 
-  const row = toRow(DeckListRpcRowSchema.parse(data))
-  log.info({ userId, deckId }, 'unarchived deck')
-  return row
+	const row = toRow(DeckListRpcRowSchema.parse(data));
+	log.info({ userId, deckId }, "unarchived deck");
+	return row;
 }
 
 /**
@@ -656,47 +667,47 @@ export async function unarchiveDeck(deckId: string, userId: string): Promise<Api
  * that's intentional under the copy model.
  */
 export async function copyDeck(
-  userId:       string,
-  sourceDeckId: string,
-  name?:        string,
+	userId: string,
+	sourceDeckId: string,
+	name?: string,
 ): Promise<ApiCopyDeckResult> {
-  const { data, error } = await supabaseAdmin.rpc('copy_user_deck', asPayload({
-    p_user_id:        userId,
-    p_source_deck_id: sourceDeckId,
-    p_target_name:    name ?? null,
-  }))
+	const { data, error } = await supabaseAdmin.rpc("copy_user_deck", asPayload({
+		p_user_id: userId,
+		p_source_deck_id: sourceDeckId,
+		p_target_name: name ?? null,
+	}));
 
-  if (error !== null) {
-    // RPC raises `deck_not_found` with SQLSTATE 02000 (no_data_found) when
-    // the source is missing, owned by another user, or a premade source
-    // row (user_id IS NULL). Translate to HTTP 404 — same code/shape the
-    // get/update/delete paths use.
-    if (error.code === '02000' && error.message.includes('deck_not_found')) {
-      throw new AppError(404, 'Deck not found', { code: 'DECK_NOT_FOUND' })
-    }
-    throw dbError('copy deck', error)
-  }
+	if (error !== null) {
+		// RPC raises `deck_not_found` with SQLSTATE 02000 (no_data_found) when
+		// the source is missing, owned by another user, or a premade source
+		// row (user_id IS NULL). Translate to HTTP 404 — same code/shape the
+		// get/update/delete paths use.
+		if (error.code === "02000" && error.message.includes("deck_not_found")) {
+			throw new AppError(404, "Deck not found", { code: "DECK_NOT_FOUND" });
+		}
+		throw dbError("copy deck", error);
+	}
 
-  const rows = z.array(CopyDeckRpcRowSchema).parse(data ?? [])
-  const row  = rows[0]
-  if (row === undefined) {
-    // RPC succeeded but returned no row — should never happen under the
-    // contract (the RPC always RETURN QUERYs one row). Surface as 500 so
-    // a future regression is loud rather than silently returning empty.
-    throw new AppError(500, 'Copy RPC returned no row', { code: 'DECK_COPY_RPC_EMPTY' })
-  }
+	const rows = z.array(CopyDeckRpcRowSchema).parse(data ?? []);
+	const row = rows[0];
+	if (row === undefined) {
+		// RPC succeeded but returned no row — should never happen under the
+		// contract (the RPC always RETURN QUERYs one row). Surface as 500 so
+		// a future regression is loud rather than silently returning empty.
+		throw new AppError(500, "Copy RPC returned no row", { code: "DECK_COPY_RPC_EMPTY" });
+	}
 
-  log.info(
-    { userId, sourceDeckId, deckId: row.deck_id, cardCount: row.card_count },
-    'copied user deck',
-  )
+	log.info(
+		{ userId, sourceDeckId, deckId: row.deck_id, cardCount: row.card_count },
+		"copied user deck",
+	);
 
-  // Cloned cards reset to New FSRS state, so the cached due set is now stale.
-  // Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts.
-  void invalidateDueCache(userId)
+	// Cloned cards reset to New FSRS state, so the cached due set is now stale.
+	// Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts.
+	void invalidateDueCache(userId);
 
-  return {
-    deckId:    row.deck_id,
-    cardCount: row.card_count,
-  }
+	return {
+		deckId: row.deck_id,
+		cardCount: row.card_count,
+	};
 }

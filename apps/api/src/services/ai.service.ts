@@ -1,40 +1,39 @@
-import { createHash } from 'node:crypto';
-import type { ZodType } from 'zod';
+import type { GeneratedCardData, GeneratedMnemonic, GeneratedSentenceCard, GeneratedSentences, GeneratedTomoNote, GeneratedWeakSpotDiagnosis } from "@fsrs-japanese/shared-types";
+import type { ZodType } from "zod";
 
-import { redis } from '../db/redis.ts';
-import { env } from '../lib/env.ts';
-import { openai } from '../lib/openai.ts';
+import { createHash } from "node:crypto";
 import {
-    GeneratedCardDataSchema,
-    GeneratedSentencesSchema,
-    GeneratedMnemonicSchema,
-    GeneratedWeakSpotDiagnosisSchema,
-    GeneratedTomoNoteSchema,
-    GeneratedSentenceCardSchema,
-    sanitizeForPrompt,
-    type GeneratedCardData,
-    type GeneratedSentences,
-    type GeneratedMnemonic,
-    type GeneratedWeakSpotDiagnosis,
-    type GeneratedTomoNote,
-    type GeneratedSentenceCard
-} from '@fsrs-japanese/shared-types';
-import { componentLogger } from '../lib/logger.ts';
-import { withBreaker } from '../lib/circuit-breaker.ts';
-import { openaiSemaphore } from '../lib/openai.ts';
-import { scrubKeyish } from '../lib/scrub.ts';
-import { AppError } from '../middleware/errorHandler.ts';
+	GeneratedCardDataSchema,
+	GeneratedMnemonicSchema,
+	GeneratedSentenceCardSchema,
+	GeneratedSentencesSchema,
+	GeneratedTomoNoteSchema,
+	GeneratedWeakSpotDiagnosisSchema,
+	sanitizeForPrompt,
 
-/** Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
- *  all hit the same OpenAI completions backend, so one shared breaker is correct). */
-const CHAT_BREAKER = 'openai-chat';
+} from "@fsrs-japanese/shared-types";
+import { redis } from "../db/redis.ts";
+import { withBreaker } from "../lib/circuit-breaker.ts";
+import { env } from "../lib/env.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { openai, openaiSemaphore } from "../lib/openai.ts";
+import { scrubKeyish } from "../lib/scrub.ts";
+import { AppError } from "../middleware/errorHandler.ts";
 
-/** Single user-facing 503 message for all AI degradation paths (open breaker
+/**
+ * Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
+ *  all hit the same OpenAI completions backend, so one shared breaker is correct).
+ */
+const CHAT_BREAKER = "openai-chat";
+
+/**
+ * Single user-facing 503 message for all AI degradation paths (open breaker
  *  or inline failure). Per-failure-mode messages don't help the end user — they
- *  just need "retry shortly." Diagnostic specifics live in server logs. */
-const CHAT_UNAVAILABLE_MSG = 'AI service temporarily unavailable; please retry shortly';
+ *  just need "retry shortly." Diagnostic specifics live in server logs.
+ */
+const CHAT_UNAVAILABLE_MSG = "AI service temporarily unavailable; please retry shortly";
 
-const log = componentLogger('ai.service');
+const log = componentLogger("ai.service");
 
 // `scrubKeyish` lives in lib/scrub.ts so the global error handler can apply
 // the same redaction at its log boundaries (defense-in-depth: the inline
@@ -48,9 +47,9 @@ const CHAT_MODEL = env.OPENAI_CHAT_MODEL;
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
-const CARD_CACHE_TTL = 60 * 60 * 24 * 7;    // 7 days — per TDD §10.1
-const SENTENCES_CACHE_TTL = 60 * 60 * 24 * 7;    // 7 days
-const MNEMONIC_CACHE_TTL = 60 * 60 * 24 * 30;   // 30 days — per TDD §10.1
+const CARD_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days — per TDD §10.1
+const SENTENCES_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days
+const MNEMONIC_CACHE_TTL = 60 * 60 * 24 * 30; // 30 days — per TDD §10.1
 // Diagnosis is weakSpot-specific (driven by lapse pattern) and stays valid only
 // while the underlying card and review history are stable. 30 days is the
 // same TTL as mnemonics — both are advisory text that doesn't need to be
@@ -63,7 +62,7 @@ const DIAGNOSIS_CACHE_TTL = 60 * 60 * 24 * 30;
 // the new prompt — they simply don't match the new key, the next call
 // regenerates and caches under the versioned key, and the old entries TTL
 // out naturally. Forward-only cache invalidation, zero downtime.
-const DIAGNOSIS_PROMPT_VERSION = 'v1';
+const DIAGNOSIS_PROMPT_VERSION = "v1";
 
 // Same pattern as DIAGNOSIS_PROMPT_VERSION. Bumped to 'v2' in Backend
 // Completion Plan Stage 2 when the `generateCard` prompt grew to ask for
@@ -84,12 +83,12 @@ const DIAGNOSIS_PROMPT_VERSION = 'v1';
 // it can't fulfill produces hallucinated 404s, which is worse than no
 // field. The schema admits it so a future prompt-version bump or
 // out-of-band populator can land without a second schema change.
-const CARD_PROMPT_VERSION = 'v5';
+const CARD_PROMPT_VERSION = "v5";
 
 // Same pattern as DIAGNOSIS_PROMPT_VERSION + CARD_PROMPT_VERSION. Bump on
 // any change to the Tomo daily-note prompt body so cached notes from the
 // previous template aren't served against the new prompt.
-const TOMO_NOTE_PROMPT_VERSION = 'v1';
+const TOMO_NOTE_PROMPT_VERSION = "v1";
 
 // Day reflection (post-session AI note over the user's local-day aggregate
 // of reviews). Versioned independently of the morning Tomo note so the two
@@ -100,8 +99,8 @@ const TOMO_NOTE_PROMPT_VERSION = 'v1';
 // sessions explicitly rather than silently producing a generic line. The
 // version bump invalidates every cached v1 entry on deploy; cost spike is
 // one regeneration per active user per day.
-const REFLECTION_PROMPT_VERSION = 'v2';
-const REFLECTION_CACHE_TTL      = 60 * 60 * 36;
+const REFLECTION_PROMPT_VERSION = "v2";
+const REFLECTION_CACHE_TTL = 60 * 60 * 36;
 
 // Backend Completion Plan Stage 13. Mirror of CARD_PROMPT_VERSION for the
 // sentence-layout branch. Lives separately so the sentence prompt can
@@ -109,12 +108,12 @@ const REFLECTION_CACHE_TTL      = 60 * 60 * 36;
 // key invalidation pattern, different namespace (`sentence-card:vN:…`).
 // Bumped to 'v2' when the sentence-layout `audio` field was removed from
 // the model and its "do not invent audio" prompt line dropped.
-const SENTENCE_CARD_PROMPT_VERSION = 'v2';
+const SENTENCE_CARD_PROMPT_VERSION = "v2";
 
 // Sentence cards live on the same 7-day TTL as vocabulary cards (per
 // TDD §10.1). The cache key already discriminates by version + topic +
 // learner level + interests; a long TTL just delays the natural eviction.
-const SENTENCE_CARD_CACHE_TTL = 60 * 60 * 24 * 7;    // 7 days
+const SENTENCE_CARD_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days
 
 // Tomo note cache TTL — 36h. The cache key is keyed by `dateKey` (one
 // learner-local day), so a longer TTL never serves the wrong day. 36h is
@@ -131,14 +130,14 @@ const PROMPT_INTERESTS_MAX = 500;
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function joinInterests(interests: string[]): string {
-    return interests.join(', ').slice(0, PROMPT_INTERESTS_MAX);
+	return interests.join(", ").slice(0, PROMPT_INTERESTS_MAX);
 }
 
 function hashInterests(interests: string[]): string {
-    return createHash('sha256')
-        .update(JSON.stringify([...interests].sort()))
-        .digest('hex')
-        .slice(0, 16);
+	return createHash("sha256")
+		.update(JSON.stringify([...interests].sort()))
+		.digest("hex")
+		.slice(0, 16);
 }
 
 /**
@@ -149,34 +148,35 @@ function hashInterests(interests: string[]): string {
  * subsequent request that hashes to the same key until TTL.
  */
 async function readCache<T>(cacheKey: string, schema: ZodType<T>): Promise<T | null> {
-    // Cache is OPTIONAL — Upstash failures must not break the AI request path.
-    // A `redis.get` throw (e.g., breaker open from sustained Upstash issues)
-    // surfaces here; we log warn and return null so the caller falls through
-    // to the fresh OpenAI fetch.
-    let cached: unknown;
-    try {
-        cached = await redis.get<unknown>(cacheKey);
-    } catch (err) {
-        log.warn({
-            cacheKey,
-            err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-        }, 'AI cache read failed; treating as miss');
-        return null;
-    }
-    if (cached === null) return null;
-    try {
-        const payload = typeof cached === 'string' ? JSON.parse(cached) : cached;
-        return schema.parse(payload);
-    } catch (err) {
-        log.warn({
-            cacheKey,
-            err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-        }, 'corrupt AI cache entry; treating as miss');
-        // Best-effort delete; if the del also fails (e.g. same Upstash issue),
-        // the corrupt entry will eventually TTL out — don't fail the request.
-        await redis.del(cacheKey).catch(() => undefined);
-        return null;
-    }
+	// Cache is OPTIONAL — Upstash failures must not break the AI request path.
+	// A `redis.get` throw (e.g., breaker open from sustained Upstash issues)
+	// surfaces here; we log warn and return null so the caller falls through
+	// to the fresh OpenAI fetch.
+	let cached: unknown;
+	try {
+		cached = await redis.get<unknown>(cacheKey);
+	} catch (err) {
+		log.warn({
+			cacheKey,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "AI cache read failed; treating as miss");
+		return null;
+	}
+	if (cached === null)
+		return null;
+	try {
+		const payload = typeof cached === "string" ? JSON.parse(cached) : cached;
+		return schema.parse(payload);
+	} catch (err) {
+		log.warn({
+			cacheKey,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "corrupt AI cache entry; treating as miss");
+		// Best-effort delete; if the del also fails (e.g. same Upstash issue),
+		// the corrupt entry will eventually TTL out — don't fail the request.
+		await redis.del(cacheKey).catch(() => undefined);
+		return null;
+	}
 }
 
 // ─── Service functions ────────────────────────────────────────────────────────
@@ -192,53 +192,55 @@ async function readCache<T>(cacheKey: string, schema: ZodType<T>): Promise<T | n
  * Throws ZodError if the response shape does not match `GeneratedCardDataSchema`.
  */
 export async function generateCard(
-    word: string,
-    userLevel: string,
-    interests: string[],
-    opts?: {signal?: AbortSignal}
+	word: string,
+	userLevel: string,
+	interests: string[],
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedCardData> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    // Capture the narrowed (non-null) reference into a local. The inner closure
-    // below sees `openai` widened back to `OpenAI | null` — the local survives
-    // the closure boundary as a non-null without needing a `!` assertion.
-    const client = openai;
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	// Capture the narrowed (non-null) reference into a local. The inner closure
+	// below sees `openai` widened back to `OpenAI | null` — the local survives
+	// the closure boundary as a non-null without needing a `!` assertion.
+	const client = openai;
 
-    const safeWord = sanitizeForPrompt(word);
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeInterests = interests.map((s) => sanitizeForPrompt(s));
+	const safeWord = sanitizeForPrompt(word);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeInterests = interests.map(s => sanitizeForPrompt(s));
 
-    // Cache key includes CARD_PROMPT_VERSION so a Stage-2 prompt rewrite
-    // (e.g. adding pitchPosition + nuance) cleanly bypasses entries written
-    // by the previous prompt. Mirrors the diagnosis-cache versioning at
-    // ai.service.ts:`DIAGNOSIS_PROMPT_VERSION`.
-    const cacheKey = `card:${CARD_PROMPT_VERSION}:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`;
+	// Cache key includes CARD_PROMPT_VERSION so a Stage-2 prompt rewrite
+	// (e.g. adding pitchPosition + nuance) cleanly bypasses entries written
+	// by the previous prompt. Mirrors the diagnosis-cache versioning at
+	// ai.service.ts:`DIAGNOSIS_PROMPT_VERSION`.
+	const cacheKey = `card:${CARD_PROMPT_VERSION}:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedCardDataSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedCardDataSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    // Breaker integration runs only on a cache miss. A network exception, an
-    // empty response, or a Zod parse failure inside the inner fn all become
-    // 503 via withBreaker's catch path; specific diagnostic info goes to the
-    // log line below. The outer try/catch around the OpenAI call is kept
-    // solely to scrub `sk-…` tokens from `err.message` (the SDK leaks them
-    // in 401 messages).
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `You are a Japanese language expert generating SRS card data.
+	// Breaker integration runs only on a cache miss. A network exception, an
+	// empty response, or a Zod parse failure inside the inner fn all become
+	// 503 via withBreaker's catch path; specific diagnostic info goes to the
+	// log line below. The outer try/catch around the OpenAI call is kept
+	// solely to scrub `sk-…` tokens from `err.message` (the SDK leaks them
+	// in 401 messages).
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese language expert generating SRS card data.
 Always respond with valid JSON.
 User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
-Generate content appropriate for the user's level and interests.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Generate complete card data for the Japanese word: ${safeWord}
+Generate content appropriate for the user's level and interests.`,
+					},
+					{
+						role: "user",
+						content: `Generate complete card data for the Japanese word: ${safeWord}
 
 Return JSON with these keys:
 {
@@ -254,45 +256,45 @@ Return JSON with these keys:
   "mnemonic": string (memorable association for ${safeLevel} learner)
 }
 
-Do NOT invent a value for "picture" (image URL). It requires a hosted asset the system cannot yet produce; if you do not have a real, hostable URL, omit the field entirely.`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateCard OpenAI request failed');
-            throw err;
-        }
+Do NOT invent a value for "picture" (image URL). It requires a hosted asset the system cannot yet produce; if you do not have a real, hostable URL, omit the field entirely.`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateCard OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
-            // 200 with malformed content. Using AppError (vs plain Error) prevents
-            // withBreaker from counting this against the chat breaker — see the
-            // skip-AppError branch in lib/circuit-breaker.ts.
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedCardDataSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			// 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+			// 200 with malformed content. Using AppError (vs plain Error) prevents
+			// withBreaker from counting this against the chat breaker — see the
+			// skip-AppError branch in lib/circuit-breaker.ts.
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedCardDataSchema.parse(JSON.parse(raw));
+	}));
 
-    // Cache write outside the breaker — a Redis blip should not trip the
-    // OpenAI breaker. If the write fails, the work already succeeded; we just
-    // miss caching this entry and the next equivalent request hits OpenAI.
-    // Cache write is best-effort — see the comment above the breaker call.
-    // Without this swallow a Redis blip after a successful OpenAI generation
-    // would surface to the user, who'd retry and re-bill the OpenAI call.
-    await redis.set(cacheKey, JSON.stringify(result), {ex : CARD_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	// Cache write outside the breaker — a Redis blip should not trip the
+	// OpenAI breaker. If the write fails, the work already succeeded; we just
+	// miss caching this entry and the next equivalent request hits OpenAI.
+	// Cache write is best-effort — see the comment above the breaker call.
+	// Without this swallow a Redis blip after a successful OpenAI generation
+	// would surface to the user, who'd retry and re-bill the OpenAI call.
+	await redis.set(cacheKey, JSON.stringify(result), { ex: CARD_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 /**
@@ -303,49 +305,51 @@ Do NOT invent a value for "picture" (image URL). It requires a hosted asset the 
  * TTL: 7 days.
  */
 export async function generateSentences(
-    word: string,
-    userLevel: string,
-    interests: string[],
-    count: number,
-    avoid: string[] = [],
-    opts?: {signal?: AbortSignal}
+	word: string,
+	userLevel: string,
+	interests: string[],
+	count: number,
+	avoid: string[] = [],
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedSentences> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;  // see generateCard for the narrowing rationale.
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai; // see generateCard for the narrowing rationale.
 
-    const safeWord = sanitizeForPrompt(word);
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeInterests = interests.map((s) => sanitizeForPrompt(s));
-    const safeCount = Math.max(1, Math.min(5, Math.trunc(count)));
-    // Sentences the caller already has; the model is told to avoid them and
-    // the cache key is namespaced by their hash so each distinct context
-    // ("generate more" after adding some) produces fresh output instead of
-    // replaying a prior cached batch. Empty avoid keeps the legacy key shape.
-    const safeAvoid = avoid.map((s) => sanitizeForPrompt(s)).filter((s) => s.length > 0);
-    const avoidSeg  = safeAvoid.length > 0 ? `:${hashInterests(safeAvoid)}` : '';
+	const safeWord = sanitizeForPrompt(word);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeInterests = interests.map(s => sanitizeForPrompt(s));
+	const safeCount = Math.max(1, Math.min(5, Math.trunc(count)));
+	// Sentences the caller already has; the model is told to avoid them and
+	// the cache key is namespaced by their hash so each distinct context
+	// ("generate more" after adding some) produces fresh output instead of
+	// replaying a prior cached batch. Empty avoid keeps the legacy key shape.
+	const safeAvoid = avoid.map(s => sanitizeForPrompt(s)).filter(s => s.length > 0);
+	const avoidSeg = safeAvoid.length > 0 ? `:${hashInterests(safeAvoid)}` : "";
 
-    const cacheKey = `sentences:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}:${safeCount}${avoidSeg}`;
+	const cacheKey = `sentences:${safeWord}:${safeLevel}:${hashInterests(safeInterests)}:${safeCount}${avoidSeg}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedSentencesSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedSentencesSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `You are a Japanese language expert generating natural example sentences for SRS flash cards.
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese language expert generating natural example sentences for SRS flash cards.
 Always respond with valid JSON.
 User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
-Sentences must be natural, level-appropriate, and tied to the user's interests when possible.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
+Sentences must be natural, level-appropriate, and tied to the user's interests when possible.`,
+					},
+					{
+						role: "user",
+						content: `Generate ${safeCount} fresh example sentences for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 {
@@ -357,42 +361,42 @@ Constraints:
 - Each "ja" must contain the target word.
 - "furigana" should give hiragana readings for kanji compounds in the sentence.
 - Vary the grammar pattern across sentences.${
-  safeAvoid.length > 0
-    ? `\n- Do NOT repeat or closely paraphrase any of these existing sentences:\n${safeAvoid.map((s) => `  • ${s}`).join('\n')}`
-    : ''
-}`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateSentences OpenAI request failed');
-            throw err;
-        }
+	safeAvoid.length > 0
+		? `\n- Do NOT repeat or closely paraphrase any of these existing sentences:\n${safeAvoid.map(s => `  • ${s}`).join("\n")}`
+		: ""
+}`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateSentences OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
-            // 200 with malformed content. Using AppError (vs plain Error) prevents
-            // withBreaker from counting this against the chat breaker — see the
-            // skip-AppError branch in lib/circuit-breaker.ts.
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedSentencesSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			// 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+			// 200 with malformed content. Using AppError (vs plain Error) prevents
+			// withBreaker from counting this against the chat breaker — see the
+			// skip-AppError branch in lib/circuit-breaker.ts.
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedSentencesSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : SENTENCES_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: SENTENCES_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 /**
@@ -403,43 +407,45 @@ Constraints:
  * incorporate personal interests and L1. TTL: 30 days.
  */
 export async function generateMnemonic(
-    word: string,
-    userId: string,
-    userLevel: string,
-    nativeLanguage: string,
-    interests: string[],
-    opts?: {signal?: AbortSignal}
+	word: string,
+	userId: string,
+	userLevel: string,
+	nativeLanguage: string,
+	interests: string[],
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedMnemonic> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;  // see generateCard for the narrowing rationale.
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai; // see generateCard for the narrowing rationale.
 
-    const safeWord = sanitizeForPrompt(word);
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeNative = sanitizeForPrompt(nativeLanguage);
-    const safeInterests = interests.map((s) => sanitizeForPrompt(s));
+	const safeWord = sanitizeForPrompt(word);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeNative = sanitizeForPrompt(nativeLanguage);
+	const safeInterests = interests.map(s => sanitizeForPrompt(s));
 
-    const cacheKey = `mnemonic:${safeWord}:${userId}`;
+	const cacheKey = `mnemonic:${safeWord}:${userId}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `You are a Japanese language tutor crafting memorable mnemonics.
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese language tutor crafting memorable mnemonics.
 Always respond with valid JSON.
 User level: ${safeLevel}. Native language: ${safeNative}. Interests: ${joinInterests(safeInterests)}.
-Mnemonics must be vivid, link sound + meaning, and reference the user's interests when possible.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Generate one memorable mnemonic for the Japanese word: ${safeWord}
+Mnemonics must be vivid, link sound + meaning, and reference the user's interests when possible.`,
+					},
+					{
+						role: "user",
+						content: `Generate one memorable mnemonic for the Japanese word: ${safeWord}
 
 Return JSON with this exact shape:
 { "mnemonic": string }
@@ -447,39 +453,39 @@ Return JSON with this exact shape:
 Constraints:
 - Keep it under 200 characters.
 - Connect the reading to the meaning through a vivid image.
-- Use the user's native language for the mnemonic text.`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateMnemonic OpenAI request failed');
-            throw err;
-        }
+- Use the user's native language for the mnemonic text.`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateMnemonic OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            // 502 Bad Gateway is the right status here: OpenAI returned an HTTP
-            // 200 with malformed content. Using AppError (vs plain Error) prevents
-            // withBreaker from counting this against the chat breaker — see the
-            // skip-AppError branch in lib/circuit-breaker.ts.
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedMnemonicSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			// 502 Bad Gateway is the right status here: OpenAI returned an HTTP
+			// 200 with malformed content. Using AppError (vs plain Error) prevents
+			// withBreaker from counting this against the chat breaker — see the
+			// skip-AppError branch in lib/circuit-breaker.ts.
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedMnemonicSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : MNEMONIC_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: MNEMONIC_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 /**
@@ -508,49 +514,51 @@ Constraints:
  * chat breaker is open. ZodError if structured-output validation fails.
  */
 export async function generateWeakSpotDiagnosis(
-    word: string,
-    reading: string | null,
-    meaning: string,
-    lapseCount: number,
-    recentRatings: string[],
-    userLevel: string,
-    nativeLanguage: string,
-    opts?: {signal?: AbortSignal}
+	word: string,
+	reading: string | null,
+	meaning: string,
+	lapseCount: number,
+	recentRatings: string[],
+	userLevel: string,
+	nativeLanguage: string,
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedWeakSpotDiagnosis> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;  // see generateCard for the narrowing rationale.
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai; // see generateCard for the narrowing rationale.
 
-    const safeWord = sanitizeForPrompt(word);
-    const safeReading = reading !== null ? sanitizeForPrompt(reading) : '';
-    const safeMeaning = sanitizeForPrompt(meaning);
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeNative = sanitizeForPrompt(nativeLanguage);
-    // Ratings are well-known enum values from review_logs.rating; sanitize
-    // defensively in case future ratings include user text.
-    const safeRatings = recentRatings.map((r) => sanitizeForPrompt(r));
+	const safeWord = sanitizeForPrompt(word);
+	const safeReading = reading !== null ? sanitizeForPrompt(reading) : "";
+	const safeMeaning = sanitizeForPrompt(meaning);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeNative = sanitizeForPrompt(nativeLanguage);
+	// Ratings are well-known enum values from review_logs.rating; sanitize
+	// defensively in case future ratings include user text.
+	const safeRatings = recentRatings.map(r => sanitizeForPrompt(r));
 
-    // Cache key encodes every dimension that affects the diagnosis output:
-    // prompt-template version (bumped when the prompt body changes), word,
-    // reading, lapse count, recent rating pattern, learner level, and native
-    // language. Same inputs → same diagnosis — shared across users by design
-    // since the output depends on the card + the lapse pattern, not on user
-    // identity. Per `CODING_STANDARDS_BACKEND.md` §Performance: "cache keys
-    // include every dimension that affects the result."
-    const cacheKey = `diagnosis:${DIAGNOSIS_PROMPT_VERSION}:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(',')}`;
+	// Cache key encodes every dimension that affects the diagnosis output:
+	// prompt-template version (bumped when the prompt body changes), word,
+	// reading, lapse count, recent rating pattern, learner level, and native
+	// language. Same inputs → same diagnosis — shared across users by design
+	// since the output depends on the card + the lapse pattern, not on user
+	// identity. Per `CODING_STANDARDS_BACKEND.md` §Performance: "cache keys
+	// include every dimension that affects the result."
+	const cacheKey = `diagnosis:${DIAGNOSIS_PROMPT_VERSION}:${safeWord}:${safeReading}:${lapseCount}:${safeLevel}:${safeNative}:${safeRatings.join(",")}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedWeakSpotDiagnosisSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedWeakSpotDiagnosisSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `You are a Japanese-language SRS coach. The learner has lapsed on a card multiple times; you must diagnose why and prescribe one concrete next-step fix.
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese-language SRS coach. The learner has lapsed on a card multiple times; you must diagnose why and prescribe one concrete next-step fix.
 Always respond with valid JSON.
 Learner level: ${safeLevel}. Native language: ${safeNative}.
 
@@ -563,15 +571,15 @@ Common reasons a Japanese-learning card lapses:
 - Pitch-accent confusion (heteronyms with different accents)
 - Polysemy — one word, several distinct senses
 
-Your diagnosis must name the most likely reason in plain learner language (not jargon). Your prescription must propose one concrete action: a specific mnemonic image, a kanji disambiguation tip, an example-sentence pattern to learn, or a similar-cards study set to drill.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Card front: ${safeWord}
-Reading: ${safeReading !== '' ? safeReading : '(unknown)'}
+Your diagnosis must name the most likely reason in plain learner language (not jargon). Your prescription must propose one concrete action: a specific mnemonic image, a kanji disambiguation tip, an example-sentence pattern to learn, or a similar-cards study set to drill.`,
+					},
+					{
+						role: "user",
+						content: `Card front: ${safeWord}
+Reading: ${safeReading !== "" ? safeReading : "(unknown)"}
 Meaning: ${safeMeaning}
 Current lapse count: ${lapseCount}
-Recent ratings (oldest → newest): ${safeRatings.length > 0 ? safeRatings.join(', ') : '(none recorded)'}
+Recent ratings (oldest → newest): ${safeRatings.length > 0 ? safeRatings.join(", ") : "(none recorded)"}
 
 Return JSON with this exact shape:
 { "diagnosis": string, "prescription": string }
@@ -580,35 +588,35 @@ Constraints:
 - diagnosis: under 200 characters, plain language, names the likely cause.
 - prescription: under 240 characters, names ONE concrete next step.
 - Use the user's native language for both fields.
-- Do not mention "AI" or apologize for being a model.`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateWeakSpotDiagnosis OpenAI request failed');
-            throw err;
-        }
+- Do not mention "AI" or apologize for being a model.`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateWeakSpotDiagnosis OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedWeakSpotDiagnosisSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedWeakSpotDiagnosisSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : DIAGNOSIS_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: DIAGNOSIS_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 /**
@@ -641,53 +649,55 @@ Constraints:
  * error envelope for this endpoint.
  */
 export async function generateTomoNote(
-    userId: string,
-    dateKey: string,
-    userLevel: string,
-    nativeLanguage: string,
-    interests: string[],
-    yesterdayReviews: number | null,
-    yesterdayRetention: number | null,
-    opts?: {signal?: AbortSignal}
+	userId: string,
+	dateKey: string,
+	userLevel: string,
+	nativeLanguage: string,
+	interests: string[],
+	yesterdayReviews: number | null,
+	yesterdayRetention: number | null,
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedTomoNote> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;  // see generateCard for the narrowing rationale.
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai; // see generateCard for the narrowing rationale.
 
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeNative = sanitizeForPrompt(nativeLanguage);
-    const safeInterests = interests.map((s) => sanitizeForPrompt(s));
-    // dateKey is server-computed (not user input) but sanitize defensively so
-    // a future caller that pipes user input in can't poison the cache key.
-    const safeDateKey = sanitizeForPrompt(dateKey);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeNative = sanitizeForPrompt(nativeLanguage);
+	const safeInterests = interests.map(s => sanitizeForPrompt(s));
+	// dateKey is server-computed (not user input) but sanitize defensively so
+	// a future caller that pipes user input in can't poison the cache key.
+	const safeDateKey = sanitizeForPrompt(dateKey);
 
-    // Cache key includes (version, userId, dateKey). userId scopes to one
-    // learner; dateKey scopes to one calendar day in their timezone; version
-    // invalidates the whole keyspace on prompt edits.
-    const cacheKey = `tomo:note:${TOMO_NOTE_PROMPT_VERSION}:${userId}:${safeDateKey}`;
+	// Cache key includes (version, userId, dateKey). userId scopes to one
+	// learner; dateKey scopes to one calendar day in their timezone; version
+	// invalidates the whole keyspace on prompt edits.
+	const cacheKey = `tomo:note:${TOMO_NOTE_PROMPT_VERSION}:${userId}:${safeDateKey}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedTomoNoteSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedTomoNoteSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    // Render yesterday's signal into plain prose for the prompt. `(unknown)`
-    // keeps the line readable when the learner hasn't reviewed yet today;
-    // the model is told to handle this case explicitly.
-    const yesterdaySummary = yesterdayReviews !== null
-        // `yesterdayRetention` comes straight from get_heatmap_data, which
-        // already returns retention as a 0–100 percentage — do not multiply
-        // by 100 again (that produced "8070% retention" in the prompt).
-        ? `Reviewed ${yesterdayReviews} cards yesterday${yesterdayRetention !== null ? ` with ${Math.round(yesterdayRetention)}% retention` : ''}.`
-        : 'No reviews recorded yesterday.';
+	// Render yesterday's signal into plain prose for the prompt. `(unknown)`
+	// keeps the line readable when the learner hasn't reviewed yet today;
+	// the model is told to handle this case explicitly.
+	const yesterdaySummary = yesterdayReviews !== null
+	// `yesterdayRetention` comes straight from get_heatmap_data, which
+	// already returns retention as a 0–100 percentage — do not multiply
+	// by 100 again (that produced "8070% retention" in the prompt).
+		? `Reviewed ${yesterdayReviews} cards yesterday${yesterdayRetention !== null ? ` with ${Math.round(yesterdayRetention)}% retention` : ""}.`
+		: "No reviews recorded yesterday.";
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `Role:
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `Role:
 You are Tomo, a calm English-speaking tutor for learners of Japanese.
 
 Task:
@@ -696,7 +706,7 @@ Write one short prose note for the learner after a practice session.
 Context:
 The learner is studying Japanese.
 Learner level: ${safeLevel}.
-Native language: ${safeNative}.${safeInterests.length > 0 ? ` Interests: ${joinInterests(safeInterests)}.` : ''}
+Native language: ${safeNative}.${safeInterests.length > 0 ? ` Interests: ${joinInterests(safeInterests)}.` : ""}
 
 Goal:
 Help the learner notice one small, useful thing about their Japanese practice.
@@ -734,64 +744,66 @@ A good note should feel like a small useful observation from a real tutor.
 It should not sound automated, inflated, vague, cute, or overly enthusiastic.
 Prefer concrete noticing over praise.
 Prefer gentle direction over encouragement.
-The learner should feel seen, not managed.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Practice summary:
+The learner should feel seen, not managed.`,
+					},
+					{
+						role: "user",
+						content: `Practice summary:
 ${yesterdaySummary}
 
 Write one warm, grounded English note based on the practice summary.
 
 Return JSON with this exact shape:
-{ "body": string }`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateTomoNote OpenAI request failed');
-            throw err;
-        }
+{ "body": string }`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateTomoNote OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedTomoNoteSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedTomoNoteSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : TOMO_NOTE_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: TOMO_NOTE_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 // ─── Day reflection ───────────────────────────────────────────────────────────
 
 interface DayReflectionInput {
-    userId:         string;
-    dateKey:        string;
-    /** SHA-256-derived fingerprint of the day's session-ID set. New session
-     *  same day → new fingerprint → cache miss → fresh generation that
-     *  incorporates the just-finished session's data. */
-    fingerprint:    string;
-    userLevel:      string;
-    nativeLanguage: string;
-    totalCards:     number;
-    totalTimeMs:    number;
-    accuracyPct:    number;
-    breakdown:      {again: number; hard: number; good: number; easy: number};
-    sessionCount:   number;
-    weakSpotWords:  string[];
+	userId: string;
+	dateKey: string;
+	/**
+	 * SHA-256-derived fingerprint of the day's session-ID set. New session
+	 *  same day → new fingerprint → cache miss → fresh generation that
+	 *  incorporates the just-finished session's data.
+	 */
+	fingerprint: string;
+	userLevel: string;
+	nativeLanguage: string;
+	totalCards: number;
+	totalTimeMs: number;
+	accuracyPct: number;
+	breakdown: { again: number; hard: number; good: number; easy: number };
+	sessionCount: number;
+	weakSpotWords: string[];
 }
 
 /**
@@ -815,47 +827,49 @@ interface DayReflectionInput {
  *   - `ZodError` on structured-output validation failure.
  */
 export async function generateDayReflection(
-    input: DayReflectionInput,
-    opts?: {signal?: AbortSignal}
+	input: DayReflectionInput,
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedTomoNote> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai;
 
-    const safeLevel  = sanitizeForPrompt(input.userLevel);
-    const safeNative = sanitizeForPrompt(input.nativeLanguage);
-    const safeDate   = sanitizeForPrompt(input.dateKey);
-    const safeFinger = sanitizeForPrompt(input.fingerprint);
+	const safeLevel = sanitizeForPrompt(input.userLevel);
+	const safeNative = sanitizeForPrompt(input.nativeLanguage);
+	const safeDate = sanitizeForPrompt(input.dateKey);
+	const safeFinger = sanitizeForPrompt(input.fingerprint);
 
-    const cacheKey = `reflection:${REFLECTION_PROMPT_VERSION}:${input.userId}:${safeDate}:${safeFinger}`;
+	const cacheKey = `reflection:${REFLECTION_PROMPT_VERSION}:${input.userId}:${safeDate}:${safeFinger}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedTomoNoteSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedTomoNoteSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    const minutes = Math.max(1, Math.round(input.totalTimeMs / 60_000));
-    const sessionPhrase = input.sessionCount === 1
-        ? '1 session'
-        : `${input.sessionCount} sessions`;
-    const breakdownPhrase = `Ratings: Again ${input.breakdown.again}, Hard ${input.breakdown.hard}, Good ${input.breakdown.good}, Easy ${input.breakdown.easy}.`;
-    const weakSpotPhrase = input.weakSpotWords.length > 0
-        ? `Weak spots that surfaced today: ${input.weakSpotWords.join(', ')}.`
-        : 'No weak spots surfaced today.';
-    // Short-session acknowledgement (audit-remediation v2). Mirrors the
-    // editorial framing that the deterministic frontend prose had before
-    // the aside slot was removed from the Session details card.
-    const shortSessionPhrase = input.totalCards < 5
-        ? "\nNote: this was a short session, not enough cards to read a clear pattern. A brief, honest reflection is fine."
-        : '';
+	const minutes = Math.max(1, Math.round(input.totalTimeMs / 60_000));
+	const sessionPhrase = input.sessionCount === 1
+		? "1 session"
+		: `${input.sessionCount} sessions`;
+	const breakdownPhrase = `Ratings: Again ${input.breakdown.again}, Hard ${input.breakdown.hard}, Good ${input.breakdown.good}, Easy ${input.breakdown.easy}.`;
+	const weakSpotPhrase = input.weakSpotWords.length > 0
+		? `Weak spots that surfaced today: ${input.weakSpotWords.join(", ")}.`
+		: "No weak spots surfaced today.";
+	// Short-session acknowledgement (audit-remediation v2). Mirrors the
+	// editorial framing that the deterministic frontend prose had before
+	// the aside slot was removed from the Session details card.
+	const shortSessionPhrase = input.totalCards < 5
+		? "\nNote: this was a short session, not enough cards to read a clear pattern. A brief, honest reflection is fine."
+		: "";
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `Role:
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `Role:
 You are Tomo, a calm English-speaking tutor for learners of Japanese.
 
 Task:
@@ -900,11 +914,11 @@ Quality bar:
 The reflection should sound like a tutor noticing something real from today's work.
 Prefer concrete noticing over praise.
 Prefer gentle direction over encouragement.
-The learner should feel seen, not managed.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Today's practice:
+The learner should feel seen, not managed.`,
+					},
+					{
+						role: "user",
+						content: `Today's practice:
 ${sessionPhrase} totaling ${input.totalCards} cards in ~${minutes} minutes.
 Overall accuracy: ${input.accuracyPct}%.
 ${breakdownPhrase}
@@ -913,35 +927,35 @@ ${weakSpotPhrase}${shortSessionPhrase}
 Write one reflective English note based on today's practice.
 
 Return JSON with this exact shape:
-{ "body": string }`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name    : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateDayReflection OpenAI request failed');
-            throw err;
-        }
+{ "body": string }`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateDayReflection OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedTomoNoteSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedTomoNoteSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : REFLECTION_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: REFLECTION_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }
 
 /**
@@ -962,42 +976,44 @@ Return JSON with this exact shape:
  * `GeneratedSentenceCardSchema`.
  */
 export async function generateSentenceCard(
-    topic: string,
-    userLevel: string,
-    interests: string[],
-    opts?: {signal?: AbortSignal}
+	topic: string,
+	userLevel: string,
+	interests: string[],
+	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedSentenceCard> {
-    if (openai === null) throw new AppError(500, 'OPENAI_API_KEY not configured', {code : 'OPENAI_KEY_MISSING'});
-    const client = openai;  // see generateCard for the narrowing rationale.
+	if (openai === null)
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	const client = openai; // see generateCard for the narrowing rationale.
 
-    const safeTopic = sanitizeForPrompt(topic);
-    const safeLevel = sanitizeForPrompt(userLevel);
-    const safeInterests = interests.map((s) => sanitizeForPrompt(s));
+	const safeTopic = sanitizeForPrompt(topic);
+	const safeLevel = sanitizeForPrompt(userLevel);
+	const safeInterests = interests.map(s => sanitizeForPrompt(s));
 
-    // Distinct namespace from `card:…` (vocabulary). Prompt-version segment
-    // mirrors the CARD_PROMPT_VERSION / DIAGNOSIS_PROMPT_VERSION pattern.
-    const cacheKey = `sentence-card:${SENTENCE_CARD_PROMPT_VERSION}:${safeTopic}:${safeLevel}:${hashInterests(safeInterests)}`;
+	// Distinct namespace from `card:…` (vocabulary). Prompt-version segment
+	// mirrors the CARD_PROMPT_VERSION / DIAGNOSIS_PROMPT_VERSION pattern.
+	const cacheKey = `sentence-card:${SENTENCE_CARD_PROMPT_VERSION}:${safeTopic}:${safeLevel}:${hashInterests(safeInterests)}`;
 
-    const fromCache = await readCache(cacheKey, GeneratedSentenceCardSchema);
-    if (fromCache !== null) return fromCache;
+	const fromCache = await readCache(cacheKey, GeneratedSentenceCardSchema);
+	if (fromCache !== null)
+		return fromCache;
 
-    const result = await openaiSemaphore.run({signal : opts?.signal}, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
-        let response;
-        try {
-            response = await client.chat.completions.create({
-                model : CHAT_MODEL,
-                response_format : {type : 'json_object'},
-                messages : [
-                    {
-                        role : 'system',
-                        content : `You are a Japanese language expert authoring example-sentence SRS cards.
+	const result = await openaiSemaphore.run({ signal: opts?.signal }, () => withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, async () => {
+		let response;
+		try {
+			response = await client.chat.completions.create({
+				model: CHAT_MODEL,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese language expert authoring example-sentence SRS cards.
 Always respond with valid JSON.
 User level: ${safeLevel}. User interests: ${joinInterests(safeInterests)}.
-Sentence content must be natural, level-appropriate, and lean on the user's interests when possible. The sentence is the headline content — it is not a side example; it is the card.`
-                    },
-                    {
-                        role : 'user',
-                        content : `Generate one example-sentence card for the topic or seed phrase: ${safeTopic}
+Sentence content must be natural, level-appropriate, and lean on the user's interests when possible. The sentence is the headline content — it is not a side example; it is the card.`,
+					},
+					{
+						role: "user",
+						content: `Generate one example-sentence card for the topic or seed phrase: ${safeTopic}
 
 Return JSON with these keys:
 {
@@ -1006,33 +1022,33 @@ Return JSON with these keys:
   "furigana":  string (hiragana annotation for the kanji in the sentence; readings only — keep particles and hiragana characters identical to "ja"),
   "breakdown": [{ "token": string, "reading"?: string, "meaning"?: string }] (optional; one entry per content-bearing token. Particles and punctuation may omit reading + meaning. Skip entirely if the sentence is too short to benefit from breakdown.),
   "nuance":    string (optional; 1–2 sentences on register / pragmatics — what makes this sentence noteworthy. Omit if there is nothing distinctive to say.)
-}`
-                    }
-                ]
-            }, {signal : opts?.signal});
-        } catch (err) {
-            log.error({
-                err : {
-                    name : err instanceof Error ? err.name : 'Unknown',
-                    message : scrubKeyish(err)
-                }
-            }, 'generateSentenceCard OpenAI request failed');
-            throw err;
-        }
+}`,
+					},
+				],
+			}, { signal: opts?.signal });
+		} catch (err) {
+			log.error({
+				err: {
+					name: err instanceof Error ? err.name : "Unknown",
+					message: scrubKeyish(err),
+				},
+			}, "generateSentenceCard OpenAI request failed");
+			throw err;
+		}
 
-        const raw = response.choices[0]?.message.content;
-        if (raw === null || raw === undefined) {
-            throw new AppError(502, 'OpenAI returned an empty response', {code : 'OPENAI_EMPTY_RESPONSE'});
-        }
-        return GeneratedSentenceCardSchema.parse(JSON.parse(raw));
-    }));
+		const raw = response.choices[0]?.message.content;
+		if (raw === null || raw === undefined) {
+			throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
+		}
+		return GeneratedSentenceCardSchema.parse(JSON.parse(raw));
+	}));
 
-    await redis.set(cacheKey, JSON.stringify(result), {ex : SENTENCE_CARD_CACHE_TTL})
-        .catch((err: unknown) => {
-            log.warn({
-                cacheKey,
-                err : err instanceof Error ? {name : err.name, message : err.message} : {detail : String(err)}
-            }, 'AI cache write failed; result still returned');
-        });
-    return result;
+	await redis.set(cacheKey, JSON.stringify(result), { ex: SENTENCE_CARD_CACHE_TTL })
+		.catch((err: unknown) => {
+			log.warn({
+				cacheKey,
+				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+			}, "AI cache write failed; result still returned");
+		});
+	return result;
 }

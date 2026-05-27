@@ -8,47 +8,52 @@
 // whether to skip the API. Full session data still lives in the Zustand
 // store while it's mounted.
 
-const KEY = 'tomo.lastFinishedSession.v1'
+const KEY = "tomo.lastFinishedSession.v1";
 
 export interface LastFinishedSessionRecord {
-  sessionId:    string
-  historyCount: number
-  endedEarly:   boolean
-  storedAt:     number
+	sessionId: string;
+	historyCount: number;
+	endedEarly: boolean;
+	storedAt: number;
 }
 
-export function rememberLastFinishedSession(record: Omit<LastFinishedSessionRecord, 'storedAt'>): void {
-  if (typeof window === 'undefined') return
-  try {
-    const value: LastFinishedSessionRecord = { ...record, storedAt: Date.now() }
-    window.sessionStorage.setItem(KEY, JSON.stringify(value))
-  } catch {
-    // sessionStorage may throw under quota / private-mode; the page will
-    // fall back to the API path and still render correctly.
-  }
+export function rememberLastFinishedSession(record: Omit<LastFinishedSessionRecord, "storedAt">): void {
+	if (typeof window === "undefined")
+		return;
+	try {
+		const value: LastFinishedSessionRecord = { ...record, storedAt: Date.now() };
+		window.sessionStorage.setItem(KEY, JSON.stringify(value));
+	} catch {
+		// sessionStorage may throw under quota / private-mode; the page will
+		// fall back to the API path and still render correctly.
+	}
 }
 
 export function readLastFinishedSession(): LastFinishedSessionRecord | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.sessionStorage.getItem(KEY)
-    if (raw === null) return null
-    const parsed = JSON.parse(raw) as unknown
-    if (typeof parsed !== 'object' || parsed === null) return null
-    const r = parsed as Partial<LastFinishedSessionRecord>
-    if (typeof r.sessionId === 'string'
-        && typeof r.historyCount === 'number'
-        && typeof r.endedEarly === 'boolean'
-        && typeof r.storedAt === 'number') {
-      return r as LastFinishedSessionRecord
-    }
-    return null
-  } catch {
-    return null
-  }
+	if (typeof window === "undefined")
+		return null;
+	try {
+		const raw = window.sessionStorage.getItem(KEY);
+		if (raw === null)
+			return null;
+		const parsed = JSON.parse(raw) as unknown;
+		if (typeof parsed !== "object" || parsed === null)
+			return null;
+		const r = parsed as Partial<LastFinishedSessionRecord>;
+		if (typeof r.sessionId === "string"
+			&& typeof r.historyCount === "number"
+			&& typeof r.endedEarly === "boolean"
+			&& typeof r.storedAt === "number") {
+			return r as LastFinishedSessionRecord;
+		}
+		return null;
+	} catch {
+		return null;
+	}
 }
 
 export function clearLastFinishedSession(): void {
-  if (typeof window === 'undefined') return
-  try { window.sessionStorage.removeItem(KEY) } catch { /* ignore */ }
+	if (typeof window === "undefined")
+		return;
+	try { window.sessionStorage.removeItem(KEY); } catch { /* ignore */ }
 }

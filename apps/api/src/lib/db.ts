@@ -13,5 +13,5 @@
 
 /** Coerce an update / insert / RPC payload to `never` to bypass over-strict generated types. */
 export function asPayload<T>(payload: T): never {
-  return payload as never
+	return payload as never;
 }

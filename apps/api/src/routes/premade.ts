@@ -1,18 +1,18 @@
-import { Router } from 'express'
+import { Router } from "express";
 
-import { authMiddleware }                from '../middleware/auth.ts'
+import * as premadeController from "../controllers/premade.controller.ts";
+import { authMiddleware } from "../middleware/auth.ts";
 import {
-  defaultUserRateLimitMiddleware,
-  subscribeRateLimitMiddleware,
-} from '../middleware/rateLimit.ts'
-import * as premadeController            from '../controllers/premade.controller.ts'
+	defaultUserRateLimitMiddleware,
+	subscribeRateLimitMiddleware,
+} from "../middleware/rateLimit.ts";
 
-const router = Router()
+const router = Router();
 
-router.use(authMiddleware, defaultUserRateLimitMiddleware)
+router.use(authMiddleware, defaultUserRateLimitMiddleware);
 
-router.get('/',    premadeController.list)
-router.get('/:id', premadeController.get)
+router.get("/", premadeController.list);
+router.get("/:id", premadeController.get);
 
 // Backend Completion Plan Stage 4 (copy model). Reuses
 // `subscribeRateLimitMiddleware` for the same per-user lockout the old
@@ -20,6 +20,6 @@ router.get('/:id', premadeController.get)
 // radius, so the protection still applies. The middleware export keeps
 // its historical name to avoid an unrelated rename here; the
 // /:id/subscribe and DELETE /:id/subscribe routes are gone.
-router.post('/:id/copy', subscribeRateLimitMiddleware, premadeController.copy)
+router.post("/:id/copy", subscribeRateLimitMiddleware, premadeController.copy);
 
-export default router
+export default router;

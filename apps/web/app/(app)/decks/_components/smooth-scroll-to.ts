@@ -15,30 +15,31 @@
  * Respects `prefers-reduced-motion` by snapping instantly.
  */
 export function smoothScrollTo(targetY: number, durationMs = 320): void {
-  if (typeof window === 'undefined') return
+	if (typeof window === "undefined")
+		return;
 
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
-  const startY = window.scrollY ?? window.pageYOffset ?? 0
-  const distance = targetY - startY
+	const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+	const startY = window.scrollY ?? window.pageYOffset ?? 0;
+	const distance = targetY - startY;
 
-  if (reduce || Math.abs(distance) < 2) {
-    window.scrollTo(0, targetY)
-    return
-  }
+	if (reduce || Math.abs(distance) < 2) {
+		window.scrollTo(0, targetY);
+		return;
+	}
 
-  const startTime = performance.now()
-  // cubic-bezier(0.22, 1, 0.36, 1) ≈ ease-out-quart. Closed-form analog: 1 - (1 - t)^4.
-  const ease = (t: number): number => 1 - Math.pow(1 - t, 4)
+	const startTime = performance.now();
+	// cubic-bezier(0.22, 1, 0.36, 1) ≈ ease-out-quart. Closed-form analog: 1 - (1 - t)^4.
+	const ease = (t: number): number => 1 - (1 - t) ** 4;
 
-  function step(now: number): void {
-    const elapsed = now - startTime
-    const t = Math.min(1, elapsed / durationMs)
-    const eased = ease(t)
-    window.scrollTo(0, startY + distance * eased)
-    if (t < 1) {
-      window.requestAnimationFrame(step)
-    }
-  }
+	function step(now: number): void {
+		const elapsed = now - startTime;
+		const t = Math.min(1, elapsed / durationMs);
+		const eased = ease(t);
+		window.scrollTo(0, startY + distance * eased);
+		if (t < 1) {
+			window.requestAnimationFrame(step);
+		}
+	}
 
-  window.requestAnimationFrame(step)
+	window.requestAnimationFrame(step);
 }

@@ -1,28 +1,29 @@
-'use client'
+"use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseMutationResult,
-  type UseQueryResult,
-} from '@tanstack/react-query'
 import type {
-  ApiCopyDeckResult,
-  ApiDeck,
-  ApiDeckWithStats,
-  ApiList,
-} from '@fsrs-japanese/shared-types'
+	ApiCopyDeckResult,
+	ApiDeck,
+	ApiDeckWithStats,
+	ApiList,
+} from "@fsrs-japanese/shared-types";
+import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 
+import type { DeckListView } from "../actions/decks.actions";
 import {
-  archiveDeckAction,
-  copyDeckAction,
-  listDecksAction,
-  listDecksWithStatsAction,
-  unarchiveDeckAction,
-  type DeckListView,
-} from '../actions/decks.actions'
-import { queryKeys } from './queryKeys'
+	useMutation,
+	useQuery,
+	useQueryClient,
+
+} from "@tanstack/react-query";
+import {
+	archiveDeckAction,
+	copyDeckAction,
+	listDecksAction,
+	listDecksWithStatsAction,
+	unarchiveDeckAction,
+
+} from "../actions/decks.actions";
+import { queryKeys } from "./queryKeys";
 
 /**
  * Lists decks for the current user. The optional `view` is forwarded to the
@@ -32,14 +33,14 @@ import { queryKeys } from './queryKeys'
  * tabs.
  */
 export function useDecks(
-  limit: number = 8,
-  view:  DeckListView = 'active',
+	limit: number = 8,
+	view: DeckListView = "active",
 ): UseQueryResult<ApiList<ApiDeck>, Error> {
-  return useQuery({
-    queryKey:  [...queryKeys.decks.list(), { limit, view }] as const,
-    queryFn:   () => listDecksAction({ limit, view }),
-    staleTime: 1000 * 60 * 5,
-  })
+	return useQuery({
+		queryKey: [...queryKeys.decks.list(), { limit, view }] as const,
+		queryFn: () => listDecksAction({ limit, view }),
+		staleTime: 1000 * 60 * 5,
+	});
 }
 
 /**
@@ -50,14 +51,14 @@ export function useDecks(
  * richer payload doesn't collide with the slim `useDecks` cache entry.
  */
 export function useDecksWithStats(
-  limit: number = 8,
-  view:  DeckListView = 'active',
+	limit: number = 8,
+	view: DeckListView = "active",
 ): UseQueryResult<ApiList<ApiDeckWithStats>, Error> {
-  return useQuery({
-    queryKey:  [...queryKeys.decks.list(), { limit, view, withStats: true }] as const,
-    queryFn:   () => listDecksWithStatsAction({ limit, view }),
-    staleTime: 1000 * 60 * 5,
-  })
+	return useQuery({
+		queryKey: [...queryKeys.decks.list(), { limit, view, withStats: true }] as const,
+		queryFn: () => listDecksWithStatsAction({ limit, view }),
+		staleTime: 1000 * 60 * 5,
+	});
 }
 
 /**
@@ -67,15 +68,15 @@ export function useDecksWithStats(
  * cache-busting pattern in `useCopyPremadeDeck`.
  */
 export function useCopyDeck(): UseMutationResult<ApiCopyDeckResult, Error, string> {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (deckId: string) => copyDeckAction(deckId),
-    onSuccess:  () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (deckId: string) => copyDeckAction(deckId),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() });
+		},
+	});
 }
 
 /**
@@ -89,26 +90,26 @@ export function useCopyDeck(): UseMutationResult<ApiCopyDeckResult, Error, strin
  * projection (migration 20260623000000_archive_aware_forecast_and_drill.sql).
  */
 export function useArchiveDeck(): UseMutationResult<ApiDeck, Error, string> {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (deckId: string) => archiveDeckAction(deckId),
-    onSuccess:  () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (deckId: string) => archiveDeckAction(deckId),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() });
+		},
+	});
 }
 
 /** POST /api/v1/decks/:id/unarchive. Inverse of `useArchiveDeck`. */
 export function useUnarchiveDeck(): UseMutationResult<ApiDeck, Error, string> {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (deckId: string) => unarchiveDeckAction(deckId),
-    onSuccess:  () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() })
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() })
-    },
-  })
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (deckId: string) => unarchiveDeckAction(deckId),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() });
+		},
+	});
 }

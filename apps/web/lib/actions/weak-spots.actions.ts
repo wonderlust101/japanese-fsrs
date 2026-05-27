@@ -1,50 +1,46 @@
-'use server'
+"use server";
 
+import type { ApiWeakSpotDrillAttempt, ApiWeakSpotDrillAttemptResult, ApiWeakSpotDrillSession, ApiWeakSpotDrillSessionDetail, ApiWeakSpotListItem, ApiWeakSpotListResponse } from "@fsrs-japanese/shared-types";
 import {
-  ApiWeakSpotDrillAttemptSchema,
-  ApiWeakSpotDrillSessionDetailSchema,
-  ApiWeakSpotDrillSessionSchema,
-  ApiWeakSpotListItemSchema,
-  ApiWeakSpotListResponseSchema,
-  type ApiWeakSpotDrillAttempt,
-  type ApiWeakSpotDrillAttemptResult,
-  type ApiWeakSpotDrillSession,
-  type ApiWeakSpotDrillSessionDetail,
-  type ApiWeakSpotListItem,
-  type ApiWeakSpotListResponse,
-} from '@fsrs-japanese/shared-types'
+	ApiWeakSpotDrillAttemptSchema,
+	ApiWeakSpotDrillSessionDetailSchema,
+	ApiWeakSpotDrillSessionSchema,
+	ApiWeakSpotListItemSchema,
+	ApiWeakSpotListResponseSchema,
 
-import { apiCall, apiCallSafe } from '@/lib/api/client'
+} from "@fsrs-japanese/shared-types";
+
+import { apiCall, apiCallSafe } from "@/lib/api/client";
 
 // ─── Filter / sort vocabularies (mirror apps/api/src/schemas/weak-spot.schema.ts) ─
 
-export type WeakSpotStatusFilter    = 'unresolved' | 'resolved'
-export type WeakSpotDiagnosisFilter = 'available'  | 'missing'
-export type WeakSpotSortOrder       =
-  | 'mostRecent'
-  | 'oldestUnresolved'
-  | 'mostLapses'
-  | 'deckOrder'
+export type WeakSpotStatusFilter = "unresolved" | "resolved";
+export type WeakSpotDiagnosisFilter = "available" | "missing";
+export type WeakSpotSortOrder
+	= | "mostRecent"
+		| "oldestUnresolved"
+		| "mostLapses"
+		| "deckOrder";
 
 export interface ListLeechesOptions {
-  status?:    WeakSpotStatusFilter
-  deckId?:    string
-  jlptLevel?: string
-  diagnosis?: WeakSpotDiagnosisFilter
-  sort?:      WeakSpotSortOrder
-  /** Overrides the sort mode's natural direction. Omit for the default. */
-  sortDir?:   'asc' | 'desc'
-  /** Free-text query matched against the card's word / reading / meaning. */
-  search?:    string
-  limit?:     number
-  /** 0-indexed row offset for the current page (page * limit). */
-  offset?:    number
+	status?: WeakSpotStatusFilter;
+	deckId?: string;
+	jlptLevel?: string;
+	diagnosis?: WeakSpotDiagnosisFilter;
+	sort?: WeakSpotSortOrder;
+	/** Overrides the sort mode's natural direction. Omit for the default. */
+	sortDir?: "asc" | "desc";
+	/** Free-text query matched against the card's word / reading / meaning. */
+	search?: string;
+	limit?: number;
+	/** 0-indexed row offset for the current page (page * limit). */
+	offset?: number;
 }
 
 const EMPTY_LIST: ApiWeakSpotListResponse = {
-  items:      [],
-  totalCount: 0,
-}
+	items: [],
+	totalCount: 0,
+};
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -55,54 +51,60 @@ const EMPTY_LIST: ApiWeakSpotListResponse = {
  * actions treat their non-critical reads.
  */
 export async function listWeakSpotsAction(
-  opts: ListLeechesOptions = {},
+	opts: ListLeechesOptions = {},
 ): Promise<ApiWeakSpotListResponse> {
-  const params = new URLSearchParams()
-  params.set('status', opts.status ?? 'unresolved')
-  params.set('sort',   opts.sort   ?? 'mostRecent')
-  if (opts.sortDir !== undefined) params.set('sortDir', opts.sortDir)
-  params.set('limit',  String(opts.limit ?? 50))
-  if (opts.deckId    !== undefined) params.set('deckId',    opts.deckId)
-  if (opts.jlptLevel !== undefined) params.set('jlptLevel', opts.jlptLevel)
-  if (opts.diagnosis !== undefined) params.set('diagnosis', opts.diagnosis)
-  if (opts.search    !== undefined && opts.search.trim().length > 0) params.set('search', opts.search.trim())
-  if (opts.offset    !== undefined && opts.offset > 0) params.set('offset', String(opts.offset))
+	const params = new URLSearchParams();
+	params.set("status", opts.status ?? "unresolved");
+	params.set("sort", opts.sort ?? "mostRecent");
+	if (opts.sortDir !== undefined)
+		params.set("sortDir", opts.sortDir);
+	params.set("limit", String(opts.limit ?? 50));
+	if (opts.deckId !== undefined)
+		params.set("deckId", opts.deckId);
+	if (opts.jlptLevel !== undefined)
+		params.set("jlptLevel", opts.jlptLevel);
+	if (opts.diagnosis !== undefined)
+		params.set("diagnosis", opts.diagnosis);
+	if (opts.search !== undefined && opts.search.trim().length > 0)
+		params.set("search", opts.search.trim());
+	if (opts.offset !== undefined && opts.offset > 0)
+		params.set("offset", String(opts.offset));
 
-  return apiCallSafe<ApiWeakSpotListResponse>(
-    `/api/v1/weak-spots?${params.toString()}`,
-    ApiWeakSpotListResponseSchema,
-    {},
-    EMPTY_LIST,
-  )
+	return apiCallSafe<ApiWeakSpotListResponse>(
+		`/api/v1/weak-spots?${params.toString()}`,
+		ApiWeakSpotListResponseSchema,
+		{},
+		EMPTY_LIST,
+	);
 }
 
 // ─── Detail / lifecycle / diagnosis ───────────────────────────────────────────
 
 export async function getWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
-  return apiCall<ApiWeakSpotListItem>(
-    `/api/v1/weak-spots/${id}`,
-    ApiWeakSpotListItemSchema,
-    {},
-    'Failed to load weakSpot',
-  )
+	return apiCall<ApiWeakSpotListItem>(
+		`/api/v1/weak-spots/${id}`,
+		ApiWeakSpotListItemSchema,
+		{},
+		"Failed to load weakSpot",
+	);
 }
 
 export async function resolveWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
-  return apiCall<ApiWeakSpotListItem>(
-    `/api/v1/weak-spots/${id}/resolve`,
-    ApiWeakSpotListItemSchema,
-    { method: 'POST' },
-    'Failed to resolve weakSpot',
-  )
+	return apiCall<ApiWeakSpotListItem>(
+		`/api/v1/weak-spots/${id}/resolve`,
+		ApiWeakSpotListItemSchema,
+		{ method: "POST" },
+		"Failed to resolve weakSpot",
+	);
 }
 
 export async function reopenWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
-  return apiCall<ApiWeakSpotListItem>(
-    `/api/v1/weak-spots/${id}/reopen`,
-    ApiWeakSpotListItemSchema,
-    { method: 'POST' },
-    'Failed to reopen weakSpot',
-  )
+	return apiCall<ApiWeakSpotListItem>(
+		`/api/v1/weak-spots/${id}/reopen`,
+		ApiWeakSpotListItemSchema,
+		{ method: "POST" },
+		"Failed to reopen weakSpot",
+	);
 }
 
 /**
@@ -113,58 +115,58 @@ export async function reopenWeakSpotAction(id: string): Promise<ApiWeakSpotListI
  * without a re-call even on a fresh key.
  */
 export async function diagnoseWeakSpotAction(id: string): Promise<ApiWeakSpotListItem> {
-  const idempotencyKey = crypto.randomUUID()
-  return apiCall<ApiWeakSpotListItem>(
-    `/api/v1/weak-spots/${id}/diagnose`,
-    ApiWeakSpotListItemSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': idempotencyKey },
-      body:    JSON.stringify({}),
-    },
-    'Failed to diagnose this weakSpot',
-  )
+	const idempotencyKey = crypto.randomUUID();
+	return apiCall<ApiWeakSpotListItem>(
+		`/api/v1/weak-spots/${id}/diagnose`,
+		ApiWeakSpotListItemSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": idempotencyKey },
+			body: JSON.stringify({}),
+		},
+		"Failed to diagnose this weakSpot",
+	);
 }
 
 // ─── Drill sessions (Phase 2) ────────────────────────────────────────────────
 
-export type CreateDrillSessionInput =
-  | {
-      source:        'unresolvedLeeches'
-      deckId?:       string
-      jlptLevel?:    string
-      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
-      limit?:        number
-      repeatPolicy?: 'none' | 'missedAfterLag'
-    }
-  | {
-      source:        'deckScoped'
-      deckId:        string
-      jlptLevel?:    string
-      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
-      limit?:        number
-      repeatPolicy?: 'none' | 'missedAfterLag'
-    }
-  | {
-      source:        'highLapseCandidates'
-      jlptLevel?:    string
-      minLapses?:    number
-      order?:        'mostRecent' | 'mostLapses' | 'oldestUnresolved' | 'deckOrder'
-      limit?:        number
-      repeatPolicy?: 'none' | 'missedAfterLag'
-    }
-  | {
-      source:        'currentCard'
-      cardId:        string
-      limit?:        number
-      repeatPolicy?: 'none' | 'missedAfterLag'
-    }
-  | {
-      source:        'manualSelection'
-      cardIds:       string[]
-      limit?:        number
-      repeatPolicy?: 'none' | 'missedAfterLag'
-    }
+export type CreateDrillSessionInput
+	= | {
+		source: "unresolvedLeeches";
+		deckId?: string;
+		jlptLevel?: string;
+		order?: "mostRecent" | "mostLapses" | "oldestUnresolved" | "deckOrder";
+		limit?: number;
+		repeatPolicy?: "none" | "missedAfterLag";
+	}
+	| {
+		source: "deckScoped";
+		deckId: string;
+		jlptLevel?: string;
+		order?: "mostRecent" | "mostLapses" | "oldestUnresolved" | "deckOrder";
+		limit?: number;
+		repeatPolicy?: "none" | "missedAfterLag";
+	}
+	| {
+		source: "highLapseCandidates";
+		jlptLevel?: string;
+		minLapses?: number;
+		order?: "mostRecent" | "mostLapses" | "oldestUnresolved" | "deckOrder";
+		limit?: number;
+		repeatPolicy?: "none" | "missedAfterLag";
+	}
+	| {
+		source: "currentCard";
+		cardId: string;
+		limit?: number;
+		repeatPolicy?: "none" | "missedAfterLag";
+	}
+	| {
+		source: "manualSelection";
+		cardIds: string[];
+		limit?: number;
+		repeatPolicy?: "none" | "missedAfterLag";
+	};
 
 /**
  * Create a new drill session. The backend requires an `Idempotency-Key`
@@ -173,19 +175,19 @@ export type CreateDrillSessionInput =
  * not by key, so a different payload produces a different session.
  */
 export async function createDrillSessionAction(
-  input: CreateDrillSessionInput,
+	input: CreateDrillSessionInput,
 ): Promise<ApiWeakSpotDrillSession> {
-  const idempotencyKey = crypto.randomUUID()
-  return apiCall<ApiWeakSpotDrillSession>(
-    '/api/v1/weak-spots/drill-sessions',
-    ApiWeakSpotDrillSessionSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': idempotencyKey },
-      body:    JSON.stringify(input),
-    },
-    'Failed to create drill session',
-  )
+	const idempotencyKey = crypto.randomUUID();
+	return apiCall<ApiWeakSpotDrillSession>(
+		"/api/v1/weak-spots/drill-sessions",
+		ApiWeakSpotDrillSessionSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": idempotencyKey },
+			body: JSON.stringify(input),
+		},
+		"Failed to create drill session",
+	);
 }
 
 /**
@@ -194,26 +196,26 @@ export async function createDrillSessionAction(
  * changed underneath the snapshot (a real review happened elsewhere).
  */
 export async function getDrillSessionAction(
-  sessionId: string,
+	sessionId: string,
 ): Promise<ApiWeakSpotDrillSessionDetail> {
-  return apiCall<ApiWeakSpotDrillSessionDetail>(
-    `/api/v1/weak-spots/drill-sessions/${sessionId}`,
-    ApiWeakSpotDrillSessionDetailSchema,
-    {},
-    'Failed to load drill session',
-  )
+	return apiCall<ApiWeakSpotDrillSessionDetail>(
+		`/api/v1/weak-spots/drill-sessions/${sessionId}`,
+		ApiWeakSpotDrillSessionDetailSchema,
+		{},
+		"Failed to load drill session",
+	);
 }
 
 export interface RecordDrillAttemptInput {
-  eventId:          string
-  sessionCardId:    string
-  weakSpotId?:         string
-  cardId?:          string
-  result:           ApiWeakSpotDrillAttemptResult
-  localSequence?:   number
-  responseTimeMs?:  number
-  shownAt?:         string
-  answeredAt?:      string
+	eventId: string;
+	sessionCardId: string;
+	weakSpotId?: string;
+	cardId?: string;
+	result: ApiWeakSpotDrillAttemptResult;
+	localSequence?: number;
+	responseTimeMs?: number;
+	shownAt?: string;
+	answeredAt?: string;
 }
 
 /**
@@ -224,19 +226,19 @@ export interface RecordDrillAttemptInput {
  * drill attempts, unlike create/finish).
  */
 export async function recordDrillAttemptAction(
-  sessionId: string,
-  input:     RecordDrillAttemptInput,
+	sessionId: string,
+	input: RecordDrillAttemptInput,
 ): Promise<ApiWeakSpotDrillAttempt> {
-  return apiCall<ApiWeakSpotDrillAttempt>(
-    `/api/v1/weak-spots/drill-sessions/${sessionId}/attempts`,
-    ApiWeakSpotDrillAttemptSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': input.eventId },
-      body:    JSON.stringify(input),
-    },
-    'Failed to record drill attempt',
-  )
+	return apiCall<ApiWeakSpotDrillAttempt>(
+		`/api/v1/weak-spots/drill-sessions/${sessionId}/attempts`,
+		ApiWeakSpotDrillAttemptSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": input.eventId },
+			body: JSON.stringify(input),
+		},
+		"Failed to record drill attempt",
+	);
 }
 
 /**
@@ -244,17 +246,17 @@ export async function recordDrillAttemptAction(
  * Strict-empty body per the backend's `emptyBodySchema`.
  */
 export async function finishDrillSessionAction(
-  sessionId: string,
+	sessionId: string,
 ): Promise<ApiWeakSpotDrillSessionDetail> {
-  return apiCall<ApiWeakSpotDrillSessionDetail>(
-    `/api/v1/weak-spots/drill-sessions/${sessionId}/finish`,
-    ApiWeakSpotDrillSessionDetailSchema,
-    {
-      method:  'POST',
-      body:    JSON.stringify({}),
-    },
-    'Failed to finish drill session',
-  )
+	return apiCall<ApiWeakSpotDrillSessionDetail>(
+		`/api/v1/weak-spots/drill-sessions/${sessionId}/finish`,
+		ApiWeakSpotDrillSessionDetailSchema,
+		{
+			method: "POST",
+			body: JSON.stringify({}),
+		},
+		"Failed to finish drill session",
+	);
 }
 
 /**
@@ -263,15 +265,15 @@ export async function finishDrillSessionAction(
  * cannot be resumed once aborted.
  */
 export async function abortDrillSessionAction(
-  sessionId: string,
+	sessionId: string,
 ): Promise<ApiWeakSpotDrillSessionDetail> {
-  return apiCall<ApiWeakSpotDrillSessionDetail>(
-    `/api/v1/weak-spots/drill-sessions/${sessionId}/abort`,
-    ApiWeakSpotDrillSessionDetailSchema,
-    {
-      method:  'POST',
-      body:    JSON.stringify({}),
-    },
-    'Failed to abort drill session',
-  )
+	return apiCall<ApiWeakSpotDrillSessionDetail>(
+		`/api/v1/weak-spots/drill-sessions/${sessionId}/abort`,
+		ApiWeakSpotDrillSessionDetailSchema,
+		{
+			method: "POST",
+			body: JSON.stringify({}),
+		},
+		"Failed to abort drill session",
+	);
 }

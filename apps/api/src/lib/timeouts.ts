@@ -55,25 +55,27 @@
  */
 
 export const TIMEOUTS = {
-  /** Express server-level request timeout — apps/api/src/index.ts */
-  serverRequest:     30_000,
+	/** Express server-level request timeout — apps/api/src/index.ts */
+	serverRequest: 30_000,
 
-  /** supabase-js global.fetch wrapper — apps/api/src/db/supabase.ts */
-  supabaseFetch:     10_000,
+	/** supabase-js global.fetch wrapper — apps/api/src/db/supabase.ts */
+	supabaseFetch: 10_000,
 
-  /** Postgres statement_timeout for service_role — migration 20260512000000 */
-  postgresStatement: '10s',
+	/** Postgres statement_timeout for service_role — migration 20260512000000 */
+	postgresStatement: "10s",
 
-  /** Postgres lock_timeout for service_role — migration 20260512000000 */
-  postgresLock:      '2s',
+	/** Postgres lock_timeout for service_role — migration 20260512000000 */
+	postgresLock: "2s",
 
-  /** Upstash @upstash/redis signal generator — apps/api/src/db/redis.ts */
-  upstashFetch:      2_000,
+	/** Upstash @upstash/redis signal generator — apps/api/src/db/redis.ts */
+	upstashFetch: 2_000,
 
-  /** OpenAI SDK per-client timeout — apps/api/src/lib/openai.ts */
-  openaiCall:        15_000,
+	/** OpenAI SDK per-client timeout — apps/api/src/lib/openai.ts */
+	openaiCall: 15_000,
 
-  /** Startup-probe OpenAI timeout — apps/api/src/lib/startup-probe.ts. Tighter
-   *  than the request-path budget so misconfigurations fail fast at boot. */
-  startupProbe:      10_000,
-} as const
+	/**
+	 * Startup-probe OpenAI timeout — apps/api/src/lib/startup-probe.ts. Tighter
+	 *  than the request-path budget so misconfigurations fail fast at boot.
+	 */
+	startupProbe: 10_000,
+} as const;

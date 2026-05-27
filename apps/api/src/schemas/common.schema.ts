@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod";
 
 /**
  * Cursor payload shared by every paginated list endpoint whose backing RPC
@@ -12,4 +12,4 @@ import { z } from 'zod'
  * Consolidated from three previously identical inline copies in
  * card.service.ts, deck.service.ts, premade.service.ts.
  */
-export const uuidIdCursorSchema = z.object({ id: z.string().uuid() })
+export const uuidIdCursorSchema = z.object({ id: z.string().uuid() });

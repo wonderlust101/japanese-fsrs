@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
 
-import { StatisticsView } from './_components/StatisticsView'
+import { StatisticsView } from "./_components/StatisticsView";
 
-export const metadata: Metadata = { title: 'Insights — Statistics' }
+export const metadata: Metadata = { title: "Insights — Statistics" };
 
 export default function InsightsStatisticsPage(): React.JSX.Element {
-  return <StatisticsView />
+	return <StatisticsView />;
 }

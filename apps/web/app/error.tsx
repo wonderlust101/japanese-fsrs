@@ -1,27 +1,27 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { reportError } from '@/lib/report-error'
+import { useCopyConfirmation } from "@/hooks/use-copy-confirmation";
 
-import { useCopyConfirmation } from '@/hooks/use-copy-confirmation'
+import { reportError } from "@/lib/report-error";
 
 import {
-  buildMarkdownReport,
-  DevPanel,
-  EmptyPathVisual,
-  FullReloadHint,
-  HeroKicker,
-  IdentityStrip,
-  InlinePath,
-  InlinePathsRow,
-  PageBody,
-  PageHeadline,
-  PageStateFrame,
-  PrimaryAction,
-  VisualSlot,
-} from './_components/page-state'
+	buildMarkdownReport,
+	DevPanel,
+	EmptyPathVisual,
+	FullReloadHint,
+	HeroKicker,
+	IdentityStrip,
+	InlinePath,
+	InlinePathsRow,
+	PageBody,
+	PageHeadline,
+	PageStateFrame,
+	PrimaryAction,
+	VisualSlot,
+} from "./_components/page-state";
 
 /**
  * Root error boundary. Renders full-bleed so it survives even when the
@@ -44,8 +44,8 @@ import {
  * the problem (typically a corrupted client cache or stale chunk).
  */
 interface ErrorBoundaryProps {
-  error: Error & { digest?: string }
-  reset: () => void
+	error: Error & { digest?: string };
+	reset: () => void;
 }
 
 /**
@@ -57,90 +57,92 @@ interface ErrorBoundaryProps {
  * resets on tab close, and degrades silently when storage is unavailable.
  */
 function readRetryCount(digest: string | undefined): number {
-  if (typeof sessionStorage === 'undefined') return 0
-  const raw = sessionStorage.getItem(`tomo.error.retries.${digest ?? 'unknown'}`)
-  const n   = Number(raw ?? '0')
-  return Number.isFinite(n) ? n : 0
+	if (typeof sessionStorage === "undefined")
+		return 0;
+	const raw = sessionStorage.getItem(`tomo.error.retries.${digest ?? "unknown"}`);
+	const n = Number(raw ?? "0");
+	return Number.isFinite(n) ? n : 0;
 }
 
 function writeRetryCount(digest: string | undefined, count: number): void {
-  if (typeof sessionStorage === 'undefined') return
-  sessionStorage.setItem(`tomo.error.retries.${digest ?? 'unknown'}`, String(count))
+	if (typeof sessionStorage === "undefined")
+		return;
+	sessionStorage.setItem(`tomo.error.retries.${digest ?? "unknown"}`, String(count));
 }
 
 export default function RootError({ error, reset }: ErrorBoundaryProps): React.JSX.Element {
-  const pathname = usePathname()
-  const [retries, setRetries] = useState<number>(() => readRetryCount(error.digest))
-  const { copied: reported, copy: copyReport } = useCopyConfirmation()
+	const pathname = usePathname();
+	const [retries, setRetries] = useState<number>(() => readRetryCount(error.digest));
+	const { copied: reported, copy: copyReport } = useCopyConfirmation();
 
-  // Log the boundary firing so the failure shows up in browser devtools
-  // even when the dev panel is collapsed. In production this still helps
-  // anyone with the console open during a reproduction.
-  useEffect(() => {
-    reportError(error, { source: 'root error boundary', pathname, digest: error.digest })
-  }, [error, pathname])
+	// Log the boundary firing so the failure shows up in browser devtools
+	// even when the dev panel is collapsed. In production this still helps
+	// anyone with the console open during a reproduction.
+	useEffect(() => {
+		reportError(error, { source: "root error boundary", pathname, digest: error.digest });
+	}, [error, pathname]);
 
-  function handleRetry(): void {
-    const next = retries + 1
-    setRetries(next)
-    writeRetryCount(error.digest, next)
-    reset()
-  }
+	function handleRetry(): void {
+		const next = retries + 1;
+		setRetries(next);
+		writeRetryCount(error.digest, next);
+		reset();
+	}
 
-  function handleFullReload(): void {
-    if (typeof window !== 'undefined') {
-      window.location.reload()
-    }
-  }
+	function handleFullReload(): void {
+		if (typeof window !== "undefined") {
+			window.location.reload();
+		}
+	}
 
-  function handleReport(): void {
-    // Production payload omits the stack trace: in a deployed environment
-    // stacks are minified to the point of being unhelpful, and the digest
-    // is what server-side logs are keyed by. The dev panel above carries
-    // the full stack for local repros.
-    const isDev = process.env.NODE_ENV === 'development'
-    const payload = buildMarkdownReport({
-      name:     isDev ? error.name : undefined,
-      message:  error.message,
-      digest:   error.digest,
-      stack:    isDev ? error.stack : undefined,
-      pathname,
-      time:     new Date().toISOString(),
-      browser:  typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-    })
-    copyReport(payload)
-  }
+	function handleReport(): void {
+		// Production payload omits the stack trace: in a deployed environment
+		// stacks are minified to the point of being unhelpful, and the digest
+		// is what server-side logs are keyed by. The dev panel above carries
+		// the full stack for local repros.
+		const isDev = process.env.NODE_ENV === "development";
+		const payload = buildMarkdownReport({
+			name: isDev ? error.name : undefined,
+			message: error.message,
+			digest: error.digest,
+			stack: isDev ? error.stack : undefined,
+			pathname,
+			time: new Date().toISOString(),
+			browser: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+		});
+		copyReport(payload);
+	}
 
-  return (
-    <PageStateFrame variant="fullbleed">
-      <IdentityStrip tone="error" />
-      <HeroKicker kanji="復" label="Practice paused" tone="error" />
-      <VisualSlot>
-        <EmptyPathVisual kanji="復" label="Practice paused" tone="error" />
-      </VisualSlot>
-      <PageHeadline tone="error">
-        Something went wrong loading this page.
-      </PageHeadline>
-      <PageBody>Nothing on the schedule has changed.</PageBody>
-      <PrimaryAction tone="error" onClick={handleRetry}>
-        Try again
-      </PrimaryAction>
-      <InlinePathsRow>
-        <InlinePath href="/today">Back to home</InlinePath>
-        <InlinePath onClick={handleReport}>
-          {reported ? 'Copied' : 'Report this'}
-        </InlinePath>
-      </InlinePathsRow>
-      {retries >= 2 && <FullReloadHint onClick={handleFullReload} />}
-      <DevPanel
-        error={{
-          name:    error.name,
-          message: error.message,
-          digest:  error.digest,
-          stack:   error.stack,
-        }}
-        pathname={pathname}
-      />
-    </PageStateFrame>
-  )
+	return (
+		<PageStateFrame variant="fullbleed">
+			<IdentityStrip tone="error" />
+			<HeroKicker kanji="復" label="Practice paused" tone="error" />
+			<VisualSlot>
+				<EmptyPathVisual kanji="復" label="Practice paused" tone="error" />
+			</VisualSlot>
+			<PageHeadline tone="error">
+				Something went wrong loading this page.
+			</PageHeadline>
+			<PageBody>Nothing on the schedule has changed.</PageBody>
+			<PrimaryAction tone="error" onClick={handleRetry}>
+				Try again
+			</PrimaryAction>
+			<InlinePathsRow>
+				<InlinePath href="/today">Back to home</InlinePath>
+				<InlinePath onClick={handleReport}>
+					{reported ? "Copied" : "Report this"}
+				</InlinePath>
+			</InlinePathsRow>
+			{retries >= 2 && <FullReloadHint onClick={handleFullReload} />}
+			<DevPanel
+				error={{
+					name: error.name,
+					message: error.message,
+					digest: error.digest,
+					stack: error.stack,
+				}}
+				pathname={pathname}
+			/>
+		</PageStateFrame>
+	);
 }

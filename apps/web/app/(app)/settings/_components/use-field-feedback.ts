@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Time the inline `✓ saved` tick stays visible before fading out. */
-const SAVED_FADE_MS = 1500
+const SAVED_FADE_MS = 1500;
 
 export interface FieldFeedback {
-  isSaved:    (id: string) => boolean
-  isDirty:    (id: string) => boolean
-  getError:   (id: string) => string | undefined
-  markSaved:  (id: string) => void
-  markDirty:  (id: string) => void
-  clearDirty: (id: string) => void
-  markError:  (id: string, message: string) => void
+	isSaved: (id: string) => boolean;
+	isDirty: (id: string) => boolean;
+	getError: (id: string) => string | undefined;
+	markSaved: (id: string) => void;
+	markDirty: (id: string) => void;
+	clearDirty: (id: string) => void;
+	markError: (id: string, message: string) => void;
 }
 
 /**
@@ -28,77 +28,84 @@ export interface FieldFeedback {
  * or success.
  */
 export function useFieldFeedback(): FieldFeedback {
-  const [saved,  setSaved]  = useState<Set<string>>(() => new Set())
-  const [dirty,  setDirty]  = useState<Set<string>>(() => new Set())
-  const [errors, setErrors] = useState<Map<string, string>>(() => new Map())
+	const [saved, setSaved] = useState<Set<string>>(() => new Set());
+	const [dirty, setDirty] = useState<Set<string>>(() => new Set());
+	const [errors, setErrors] = useState<Map<string, string>>(() => new Map());
 
-  // Live timer registry so the same field can re-trigger its fade without
-  // leaving an orphan timer running from the previous save.
-  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+	// Live timer registry so the same field can re-trigger its fade without
+	// leaving an orphan timer running from the previous save.
+	const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  useEffect(() => {
-    const timers = timersRef.current
-    return () => {
-      timers.forEach((t) => clearTimeout(t))
-      timers.clear()
-    }
-  }, [])
+	useEffect(() => {
+		const timers = timersRef.current;
+		return () => {
+			timers.forEach(t => clearTimeout(t));
+			timers.clear();
+		};
+	}, []);
 
-  const markSaved = useCallback((id: string): void => {
-    // The commit moment also clears dirty and any prior error: the field is
-    // now at rest.
-    setDirty((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Set(prev); next.delete(id); return next
-    })
-    setErrors((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Map(prev); next.delete(id); return next
-    })
-    setSaved((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
+	const markSaved = useCallback((id: string): void => {
+		// The commit moment also clears dirty and any prior error: the field is
+		// now at rest.
+		setDirty((prev) => {
+			if (!prev.has(id))
+				return prev;
+			const next = new Set(prev); next.delete(id); return next;
+		});
+		setErrors((prev) => {
+			if (!prev.has(id))
+				return prev;
+			const next = new Map(prev); next.delete(id); return next;
+		});
+		setSaved(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
 
-    const existing = timersRef.current.get(id)
-    if (existing !== undefined) clearTimeout(existing)
-    const t = setTimeout(() => {
-      setSaved((prev) => {
-        if (!prev.has(id)) return prev
-        const next = new Set(prev); next.delete(id); return next
-      })
-      timersRef.current.delete(id)
-    }, SAVED_FADE_MS)
-    timersRef.current.set(id, t)
-  }, [])
+		const existing = timersRef.current.get(id);
+		if (existing !== undefined)
+			clearTimeout(existing);
+		const t = setTimeout(() => {
+			setSaved((prev) => {
+				if (!prev.has(id))
+					return prev;
+				const next = new Set(prev); next.delete(id); return next;
+			});
+			timersRef.current.delete(id);
+		}, SAVED_FADE_MS);
+		timersRef.current.set(id, t);
+	}, []);
 
-  const markDirty = useCallback((id: string): void => {
-    setSaved((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Set(prev); next.delete(id); return next
-    })
-    setDirty((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
-  }, [])
+	const markDirty = useCallback((id: string): void => {
+		setSaved((prev) => {
+			if (!prev.has(id))
+				return prev;
+			const next = new Set(prev); next.delete(id); return next;
+		});
+		setDirty(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+	}, []);
 
-  const clearDirty = useCallback((id: string): void => {
-    setDirty((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Set(prev); next.delete(id); return next
-    })
-  }, [])
+	const clearDirty = useCallback((id: string): void => {
+		setDirty((prev) => {
+			if (!prev.has(id))
+				return prev;
+			const next = new Set(prev); next.delete(id); return next;
+		});
+	}, []);
 
-  const markError = useCallback((id: string, message: string): void => {
-    setSaved((prev) => {
-      if (!prev.has(id)) return prev
-      const next = new Set(prev); next.delete(id); return next
-    })
-    setErrors((prev) => new Map(prev).set(id, message))
-  }, [])
+	const markError = useCallback((id: string, message: string): void => {
+		setSaved((prev) => {
+			if (!prev.has(id))
+				return prev;
+			const next = new Set(prev); next.delete(id); return next;
+		});
+		setErrors(prev => new Map(prev).set(id, message));
+	}, []);
 
-  return {
-    isSaved:  useCallback((id: string) => saved.has(id),  [saved]),
-    isDirty:  useCallback((id: string) => dirty.has(id),  [dirty]),
-    getError: useCallback((id: string) => errors.get(id), [errors]),
-    markSaved,
-    markDirty,
-    clearDirty,
-    markError,
-  }
+	return {
+		isSaved: useCallback((id: string) => saved.has(id), [saved]),
+		isDirty: useCallback((id: string) => dirty.has(id), [dirty]),
+		getError: useCallback((id: string) => errors.get(id), [errors]),
+		markSaved,
+		markDirty,
+		clearDirty,
+		markError,
+	};
 }

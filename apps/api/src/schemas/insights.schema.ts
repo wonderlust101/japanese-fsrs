@@ -1,8 +1,8 @@
-import { z } from 'zod'
-
 import {
-  ApiMaturityHistoryDaysSchema,
-} from '@fsrs-japanese/shared-types'
+	ApiMaturityHistoryDaysSchema,
+} from "@fsrs-japanese/shared-types";
+
+import { z } from "zod";
 
 /**
  * Backend Completion Plan Stage 9 — query schema for
@@ -12,7 +12,7 @@ import {
  * the RPC.
  */
 export const maturityHistoryQuerySchema = z.object({
-  days: ApiMaturityHistoryDaysSchema,
-}).strict()
+	days: ApiMaturityHistoryDaysSchema,
+}).strict();
 
-export type MaturityHistoryQuery = z.infer<typeof maturityHistoryQuerySchema>
+export type MaturityHistoryQuery = z.infer<typeof maturityHistoryQuerySchema>;

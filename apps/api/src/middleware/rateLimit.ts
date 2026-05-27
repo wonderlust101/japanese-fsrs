@@ -1,15 +1,15 @@
-import type { NextFunction, Request, RequestHandler, Response } from 'express'
-import { Ratelimit } from '@upstash/ratelimit'
+import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { Ratelimit } from "@upstash/ratelimit";
 
-import { redis } from '../db/redis.ts'
-import { env } from '../lib/env.ts'
-import { componentLogger } from '../lib/logger.ts'
-import { AppError } from './errorHandler.ts'
+import { redis } from "../db/redis.ts";
+import { env } from "../lib/env.ts";
+import { componentLogger } from "../lib/logger.ts";
+import { AppError } from "./errorHandler.ts";
 
 // Module-scoped fallback logger. Used only when `req.log` is unexpectedly
 // missing (pino-http ran but failed to decorate, or the middleware order ever
 // changes). Mirrors the `req.log ?? apiLog` pattern in errorHandler.ts.
-const log = componentLogger('rate-limit')
+const log = componentLogger("rate-limit");
 
 /**
  * Catch-block helper for rate-limit middlewares.
@@ -33,19 +33,19 @@ const log = componentLogger('rate-limit')
  * the middleware source.
  */
 function failOpenOnInfraError(err: unknown, req: Request, next: NextFunction): void {
-  if (err instanceof AppError) {
-    next(err)
-    return
-  }
-  ;(req.log ?? log).warn(
-    {
-      err: err instanceof Error
-        ? { name: err.name, message: err.message }
-        : { detail: String(err) },
-    },
-    'rate limiter unavailable; failing open',
-  )
-  next()
+	if (err instanceof AppError) {
+		next(err);
+		return;
+	}
+	;(req.log ?? log).warn(
+		{
+			err: err instanceof Error
+				? { name: err.name, message: err.message }
+				: { detail: String(err) },
+		},
+		"rate limiter unavailable; failing open",
+	);
+	next();
 }
 
 /**
@@ -60,17 +60,17 @@ function failOpenOnInfraError(err: unknown, req: Request, next: NextFunction): v
  * In production, every middleware runs as before. Limits aren't a
  * "nice to have" outside dev — abuse protection lives at this layer.
  */
-const RATE_LIMITING_ENABLED = env.NODE_ENV === 'production'
+const RATE_LIMITING_ENABLED = env.NODE_ENV === "production";
 
 // `RatelimitResponse` is declared but not exported from @upstash/ratelimit;
 // derive it from `Ratelimit.prototype.limit`'s awaited return type so this
 // stays accurate across SDK upgrades.
-type RatelimitResponse = Awaited<ReturnType<Ratelimit['limit']>>
+type RatelimitResponse = Awaited<ReturnType<Ratelimit["limit"]>>;
 
 // Upstash's Duration string type isn't exported either; derive from the
 // `slidingWindow` parameter so a future Duration-string addition (e.g. '7 d')
 // stays type-correct without manual maintenance here.
-type SlidingWindowDuration = Parameters<typeof Ratelimit.slidingWindow>[1]
+type SlidingWindowDuration = Parameters<typeof Ratelimit.slidingWindow>[1];
 
 // ─── Header helper ────────────────────────────────────────────────────────────
 
@@ -85,18 +85,18 @@ type SlidingWindowDuration = Parameters<typeof Ratelimit.slidingWindow>[1]
  * security signal instead of being silent.
  */
 export function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitResponse, limiter: string, key: string): void {
-  res.setHeader('X-RateLimit-Limit',     String(r.limit))
-  res.setHeader('X-RateLimit-Remaining', String(Math.max(0, r.remaining)))
-  // r.reset is an epoch-ms timestamp; expose as epoch-seconds.
-  res.setHeader('X-RateLimit-Reset',     String(Math.floor(r.reset / 1000)))
-  if (!r.success) {
-    const retryAfterSec = Math.max(1, Math.ceil((r.reset - Date.now()) / 1000))
-    res.setHeader('Retry-After', String(retryAfterSec))
-    ;(req.log ?? log).warn(
-      { limiter, key, resetAt: r.reset, retryAfterSec },
-      '[rate-limit] hit',
-    )
-  }
+	res.setHeader("X-RateLimit-Limit", String(r.limit));
+	res.setHeader("X-RateLimit-Remaining", String(Math.max(0, r.remaining)));
+	// r.reset is an epoch-ms timestamp; expose as epoch-seconds.
+	res.setHeader("X-RateLimit-Reset", String(Math.floor(r.reset / 1000)));
+	if (!r.success) {
+		const retryAfterSec = Math.max(1, Math.ceil((r.reset - Date.now()) / 1000));
+		res.setHeader("Retry-After", String(retryAfterSec))
+		;(req.log ?? log).warn(
+			{ limiter, key, resetAt: r.reset, retryAfterSec },
+			"[rate-limit] hit",
+		);
+	}
 }
 
 /**
@@ -106,8 +106,9 @@ export function applyRateLimitHeaders(req: Request, res: Response, r: RatelimitR
  * whichever budget is closer to exhaustion so the client backs off correctly.
  */
 export function tighter(a: RatelimitResponse, b: RatelimitResponse): RatelimitResponse {
-  if (!a.success || !b.success) return a.success ? b : a
-  return a.remaining <= b.remaining ? a : b
+	if (!a.success || !b.success)
+		return a.success ? b : a;
+	return a.remaining <= b.remaining ? a : b;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
@@ -121,48 +122,48 @@ export function tighter(a: RatelimitResponse, b: RatelimitResponse): RatelimitRe
 // email-or-IP) — both kept as explicit handlers below.
 
 interface LimiterSpec {
-  /** Header / log label, e.g. 'ai'. */
-  readonly label: string
-  /** Redis key prefix passed to `new Ratelimit`, e.g. 'ratelimit:ai'. */
-  readonly prefix: string
-  /** Sliding-window length string, e.g. '1 m'. */
-  readonly window: SlidingWindowDuration
-  /** Sliding-window capacity. */
-  readonly max: number
-  /** Stable error code from the registry in errorHandler.ts. */
-  readonly code: string
-  /** User-facing 429 message. */
-  readonly message: string
-  /** Derives the per-request bucket key. Typically `${req.user.id}:label`. */
-  readonly keyFn: (req: Request) => string
+	/** Header / log label, e.g. 'ai'. */
+	readonly label: string;
+	/** Redis key prefix passed to `new Ratelimit`, e.g. 'ratelimit:ai'. */
+	readonly prefix: string;
+	/** Sliding-window length string, e.g. '1 m'. */
+	readonly window: SlidingWindowDuration;
+	/** Sliding-window capacity. */
+	readonly max: number;
+	/** Stable error code from the registry in errorHandler.ts. */
+	readonly code: string;
+	/** User-facing 429 message. */
+	readonly message: string;
+	/** Derives the per-request bucket key. Typically `${req.user.id}:label`. */
+	readonly keyFn: (req: Request) => string;
 }
 
 /** Convenience: every per-user limiter keys on `${userId}:label`. */
 function userKey(label: string): (req: Request) => string {
-  return (req) => `${req.user.id}:${label}`
+	return req => `${req.user.id}:${label}`;
 }
 
 function createLimiterMiddleware(spec: LimiterSpec): RequestHandler {
-  const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(spec.max, spec.window),
-    prefix:  spec.prefix,
-  })
+	const ratelimit = new Ratelimit({
+		redis,
+		limiter: Ratelimit.slidingWindow(spec.max, spec.window),
+		prefix: spec.prefix,
+	});
 
-  return async (req, res, next): Promise<void> => {
-    if (!RATE_LIMITING_ENABLED) { next(); return }
-    try {
-      const key    = spec.keyFn(req)
-      const result = await ratelimit.limit(key)
-      applyRateLimitHeaders(req, res, result, spec.label, key)
-      if (!result.success) {
-        throw new AppError(429, spec.message, { code: spec.code })
-      }
-      next()
-    } catch (err) {
-      failOpenOnInfraError(err, req, next)
-    }
-  }
+	return async (req, res, next): Promise<void> => {
+		if (!RATE_LIMITING_ENABLED) { next(); return; }
+		try {
+			const key = spec.keyFn(req);
+			const result = await ratelimit.limit(key);
+			applyRateLimitHeaders(req, res, result, spec.label, key);
+			if (!result.success) {
+				throw new AppError(429, spec.message, { code: spec.code });
+			}
+			next();
+		} catch (err) {
+			failOpenOnInfraError(err, req, next);
+		}
+	};
 }
 
 // ─── Per-user limiters (uniform pattern) ──────────────────────────────────────
@@ -178,28 +179,28 @@ function createLimiterMiddleware(spec: LimiterSpec): RequestHandler {
  * authMiddleware. Apply alongside `aiDailyQuotaMiddleware` for cost control.
  */
 export const aiRateLimitMiddleware = createLimiterMiddleware({
-  label:   'ai',
-  prefix:  'ratelimit:ai',
-  window:  '1 m',
-  max:     20,
-  code:    'RATE_LIMITED_AI_MINUTE',
-  message: 'AI rate limit exceeded. Please wait before making another request.',
-  keyFn:   userKey('ai'),
-})
+	label: "ai",
+	prefix: "ratelimit:ai",
+	window: "1 m",
+	max: 20,
+	code: "RATE_LIMITED_AI_MINUTE",
+	message: "AI rate limit exceeded. Please wait before making another request.",
+	keyFn: userKey("ai"),
+});
 
 /**
  * Daily-quota cap on AI endpoints (200/24h per user). Cost-control alongside
  * the per-minute `aiRateLimitMiddleware`. Must run after authMiddleware.
  */
 export const aiDailyQuotaMiddleware = createLimiterMiddleware({
-  label:   'ai-daily',
-  prefix:  'ratelimit:ai-daily',
-  window:  '24 h',
-  max:     200,
-  code:    'RATE_LIMITED_AI_DAILY',
-  message: 'Daily AI quota exceeded. Try again tomorrow.',
-  keyFn:   userKey('ai-daily'),
-})
+	label: "ai-daily",
+	prefix: "ratelimit:ai-daily",
+	window: "24 h",
+	max: 200,
+	code: "RATE_LIMITED_AI_DAILY",
+	message: "Daily AI quota exceeded. Try again tomorrow.",
+	keyFn: userKey("ai-daily"),
+});
 
 /**
  * Generous floor on every authenticated request. Catches scripted abuse from
@@ -208,14 +209,14 @@ export const aiDailyQuotaMiddleware = createLimiterMiddleware({
  * Must run after authMiddleware.
  */
 export const defaultUserRateLimitMiddleware = createLimiterMiddleware({
-  label:   'default-user',
-  prefix:  'ratelimit:default-user',
-  window:  '1 m',
-  max:     240,
-  code:    'RATE_LIMITED_DEFAULT_USER',
-  message: 'Request rate limit exceeded. Please slow down.',
-  keyFn:   userKey('default'),
-})
+	label: "default-user",
+	prefix: "ratelimit:default-user",
+	window: "1 m",
+	max: 240,
+	code: "RATE_LIMITED_DEFAULT_USER",
+	message: "Request rate limit exceeded. Please slow down.",
+	keyFn: userKey("default"),
+});
 
 /**
  * Batch-flush limiter (5 / 5 min / user). Bounds the worst case
@@ -223,42 +224,42 @@ export const defaultUserRateLimitMiddleware = createLimiterMiddleware({
  * for legitimate offline-buffer flushes.
  */
 export const batchRateLimitMiddleware = createLimiterMiddleware({
-  label:   'batch',
-  prefix:  'ratelimit:batch',
-  window:  '5 m',
-  max:     5,
-  code:    'RATE_LIMITED_BATCH',
-  message: 'Batch sync rate limit exceeded. Please wait before retrying.',
-  keyFn:   userKey('batch'),
-})
+	label: "batch",
+	prefix: "ratelimit:batch",
+	window: "5 m",
+	max: 5,
+	code: "RATE_LIMITED_BATCH",
+	message: "Batch sync rate limit exceeded. Please wait before retrying.",
+	keyFn: userKey("batch"),
+});
 
 /**
  * Subscribe limiter (15 / 15 min / user). The subscribe RPC clones every
  * source card into a new owned deck — most expensive write path.
  */
 export const subscribeRateLimitMiddleware = createLimiterMiddleware({
-  label:   'subscribe',
-  prefix:  'ratelimit:subscribe',
-  window:  '15 m',
-  max:     15,
-  code:    'RATE_LIMITED_SUBSCRIBE',
-  message: 'Subscription rate limit exceeded. Please wait before retrying.',
-  keyFn:   userKey('subscribe'),
-})
+	label: "subscribe",
+	prefix: "ratelimit:subscribe",
+	window: "15 m",
+	max: 15,
+	code: "RATE_LIMITED_SUBSCRIBE",
+	message: "Subscription rate limit exceeded. Please wait before retrying.",
+	keyFn: userKey("subscribe"),
+});
 
 /**
  * Single-review submit limiter (60 / min / user). Bounds review-log spam
  * without hampering active study (typical pace is 0.2–0.5 cards/sec).
  */
 export const submitRateLimitMiddleware = createLimiterMiddleware({
-  label:   'submit',
-  prefix:  'ratelimit:submit',
-  window:  '1 m',
-  max:     60,
-  code:    'RATE_LIMITED_SUBMIT',
-  message: 'Submit rate limit exceeded. Please slow down.',
-  keyFn:   userKey('submit'),
-})
+	label: "submit",
+	prefix: "ratelimit:submit",
+	window: "1 m",
+	max: 60,
+	code: "RATE_LIMITED_SUBMIT",
+	message: "Submit rate limit exceeded. Please slow down.",
+	keyFn: userKey("submit"),
+});
 
 /**
  * Password-change limiter (5 / 15 min / user). Bounds brute-force of the
@@ -266,14 +267,14 @@ export const submitRateLimitMiddleware = createLimiterMiddleware({
  * room for typo retries.
  */
 export const passwordChangeRateLimitMiddleware = createLimiterMiddleware({
-  label:   'password-change',
-  prefix:  'ratelimit:password-change',
-  window:  '15 m',
-  max:     5,
-  code:    'RATE_LIMITED_PASSWORD_CHANGE',
-  message: 'Password-change rate limit exceeded. Please wait before retrying.',
-  keyFn:   userKey('password-change'),
-})
+	label: "password-change",
+	prefix: "ratelimit:password-change",
+	window: "15 m",
+	max: 5,
+	code: "RATE_LIMITED_PASSWORD_CHANGE",
+	message: "Password-change rate limit exceeded. Please wait before retrying.",
+	keyFn: userKey("password-change"),
+});
 
 /**
  * Account-deletion limiter (3 / hour / user). Account deletion is irreversible
@@ -281,56 +282,56 @@ export const passwordChangeRateLimitMiddleware = createLimiterMiddleware({
  * on a flaky network.
  */
 export const accountDeleteRateLimitMiddleware = createLimiterMiddleware({
-  label:   'account-delete',
-  prefix:  'ratelimit:account-delete',
-  window:  '1 h',
-  max:     3,
-  code:    'RATE_LIMITED_ACCOUNT_DELETE',
-  message: 'Account deletion rate limit exceeded. Please wait before retrying.',
-  keyFn:   userKey('account-delete'),
-})
+	label: "account-delete",
+	prefix: "ratelimit:account-delete",
+	window: "1 h",
+	max: 3,
+	code: "RATE_LIMITED_ACCOUNT_DELETE",
+	message: "Account deletion rate limit exceeded. Please wait before retrying.",
+	keyFn: userKey("account-delete"),
+});
 
 /**
  * Unsubscribe limiter (10 / hour / user). Unsubscribe cascade-deletes the
  * forked deck and all of its cards — large blast radius.
  */
 export const unsubscribeRateLimitMiddleware = createLimiterMiddleware({
-  label:   'unsubscribe',
-  prefix:  'ratelimit:unsubscribe',
-  window:  '1 h',
-  max:     10,
-  code:    'RATE_LIMITED_UNSUBSCRIBE',
-  message: 'Unsubscribe rate limit exceeded. Please wait before retrying.',
-  keyFn:   userKey('unsubscribe'),
-})
+	label: "unsubscribe",
+	prefix: "ratelimit:unsubscribe",
+	window: "1 h",
+	max: 10,
+	code: "RATE_LIMITED_UNSUBSCRIBE",
+	message: "Unsubscribe rate limit exceeded. Please wait before retrying.",
+	keyFn: userKey("unsubscribe"),
+});
 
 /**
  * Costly-read limiter (120 / min / user) for pgvector cosine search. Trips
  * before the 240/min default-user backstop on this specific endpoint.
  */
 export const similarSearchRateLimitMiddleware = createLimiterMiddleware({
-  label:   'similar',
-  prefix:  'ratelimit:similar',
-  window:  '1 m',
-  max:     120,
-  code:    'RATE_LIMITED_SIMILAR',
-  message: 'Similar-card search rate limit exceeded. Please slow down.',
-  keyFn:   userKey('similar'),
-})
+	label: "similar",
+	prefix: "ratelimit:similar",
+	window: "1 m",
+	max: 120,
+	code: "RATE_LIMITED_SIMILAR",
+	message: "Similar-card search rate limit exceeded. Please slow down.",
+	keyFn: userKey("similar"),
+});
 
 /**
  * Dashboard limiter (120 / min / user) for the 5-RPC analytics bundle.
  * Trips before the 240/min default-user backstop on this endpoint.
  */
 export const analyticsDashboardRateLimitMiddleware = createLimiterMiddleware({
-  label:   'analytics-dashboard',
-  prefix:  'ratelimit:analytics-dashboard',
-  window:  '1 m',
-  max:     120,
-  code:    'RATE_LIMITED_DASHBOARD',
-  message: 'Dashboard rate limit exceeded. Please slow down.',
-  keyFn:   userKey('analytics-dashboard'),
-})
+	label: "analytics-dashboard",
+	prefix: "ratelimit:analytics-dashboard",
+	window: "1 m",
+	max: 120,
+	code: "RATE_LIMITED_DASHBOARD",
+	message: "Dashboard rate limit exceeded. Please slow down.",
+	keyFn: userKey("analytics-dashboard"),
+});
 
 /**
  * Shared limiter for cascade-DELETE endpoints (decks, cards) — 120 / min / user.
@@ -338,14 +339,14 @@ export const analyticsDashboardRateLimitMiddleware = createLimiterMiddleware({
  * the same authenticated user; one bucket is sufficient.
  */
 export const resourceDeleteRateLimitMiddleware = createLimiterMiddleware({
-  label:   'resource-delete',
-  prefix:  'ratelimit:resource-delete',
-  window:  '1 m',
-  max:     120,
-  code:    'RATE_LIMITED_RESOURCE_DELETE',
-  message: 'Resource-delete rate limit exceeded. Please slow down.',
-  keyFn:   userKey('resource-delete'),
-})
+	label: "resource-delete",
+	prefix: "ratelimit:resource-delete",
+	window: "1 m",
+	max: 120,
+	code: "RATE_LIMITED_RESOURCE_DELETE",
+	message: "Resource-delete rate limit exceeded. Please slow down.",
+	keyFn: userKey("resource-delete"),
+});
 
 /**
  * Stricter limiter for `POST /verify-otp` specifically (5 / hour / email).
@@ -360,19 +361,19 @@ export const resourceDeleteRateLimitMiddleware = createLimiterMiddleware({
  * pattern in `authRateLimitMiddleware`.
  */
 export const authOtpVerifyRateLimitMiddleware = createLimiterMiddleware({
-  label:   'auth:otp-verify',
-  prefix:  'ratelimit:auth:otp-verify',
-  window:  '1 h',
-  max:     5,
-  code:    'RATE_LIMITED_OTP_VERIFY',
-  message: 'Too many OTP attempts. Try again in an hour.',
-  keyFn:   (req) => {
-    const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
-    const ip    = req.ip ?? 'unknown'
-    return email || `ip:${ip}`
-  },
-})
+	label: "auth:otp-verify",
+	prefix: "ratelimit:auth:otp-verify",
+	window: "1 h",
+	max: 5,
+	code: "RATE_LIMITED_OTP_VERIFY",
+	message: "Too many OTP attempts. Try again in an hour.",
+	keyFn: (req) => {
+		const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email;
+		const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+		const ip = req.ip ?? "unknown";
+		return email || `ip:${ip}`;
+	},
+});
 
 // ─── Bespoke: auth (parallel email + IP limiters) ─────────────────────────────
 //
@@ -385,16 +386,16 @@ export const authOtpVerifyRateLimitMiddleware = createLimiterMiddleware({
 // rotating either axis. Keying on each axis separately means N emails or
 // N IPs no longer give a fresh budget.
 const authEmailRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '15 m'),
-  prefix: 'ratelimit:auth:email',
-})
+	redis,
+	limiter: Ratelimit.slidingWindow(5, "15 m"),
+	prefix: "ratelimit:auth:email",
+});
 
 const authIpRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(30, '15 m'),
-  prefix: 'ratelimit:auth:ip',
-})
+	redis,
+	limiter: Ratelimit.slidingWindow(30, "15 m"),
+	prefix: "ratelimit:auth:ip",
+});
 
 /**
  * Rate-limits public auth endpoints.
@@ -413,37 +414,37 @@ const authIpRatelimit = new Ratelimit({
  * system-wide. The IP limiter alone is sufficient defense for these flows.
  */
 export const authRateLimitMiddleware: RequestHandler = async (req, res, next): Promise<void> => {
-  if (!RATE_LIMITING_ENABLED) { next(); return }
-  try {
-    const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
-    const ip    = req.ip ?? 'unknown'
+	if (!RATE_LIMITING_ENABLED) { next(); return; }
+	try {
+		const rawEmail: unknown = (req.body as { email?: unknown } | undefined)?.email;
+		const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
+		const ip = req.ip ?? "unknown";
 
-    if (email) {
-      const [emailResult, ipResult] = await Promise.all([
-        authEmailRatelimit.limit(email),
-        authIpRatelimit.limit(ip),
-      ])
+		if (email) {
+			const [emailResult, ipResult] = await Promise.all([
+				authEmailRatelimit.limit(email),
+				authIpRatelimit.limit(ip),
+			]);
 
-      // Report whichever of the two budgets is closer to exhaustion. The
-      // limiter label tags whichever one tripped (or 'auth' when both pass).
-      const tighterResult = tighter(emailResult, ipResult)
-      const trippedLabel  = !emailResult.success ? 'auth:email' : !ipResult.success ? 'auth:ip' : 'auth'
-      const trippedKey    = !emailResult.success ? email : ip
-      applyRateLimitHeaders(req, res, tighterResult, trippedLabel, trippedKey)
+			// Report whichever of the two budgets is closer to exhaustion. The
+			// limiter label tags whichever one tripped (or 'auth' when both pass).
+			const tighterResult = tighter(emailResult, ipResult);
+			const trippedLabel = !emailResult.success ? "auth:email" : !ipResult.success ? "auth:ip" : "auth";
+			const trippedKey = !emailResult.success ? email : ip;
+			applyRateLimitHeaders(req, res, tighterResult, trippedLabel, trippedKey);
 
-      if (!emailResult.success || !ipResult.success) {
-        throw new AppError(429, 'Too many auth attempts. Try again later.', { code: 'RATE_LIMITED_AUTH' })
-      }
-    } else {
-      const ipResult = await authIpRatelimit.limit(ip)
-      applyRateLimitHeaders(req, res, ipResult, 'auth:ip', ip)
-      if (!ipResult.success) {
-        throw new AppError(429, 'Too many auth attempts. Try again later.', { code: 'RATE_LIMITED_AUTH' })
-      }
-    }
-    next()
-  } catch (err) {
-    failOpenOnInfraError(err, req, next)
-  }
-}
+			if (!emailResult.success || !ipResult.success) {
+				throw new AppError(429, "Too many auth attempts. Try again later.", { code: "RATE_LIMITED_AUTH" });
+			}
+		} else {
+			const ipResult = await authIpRatelimit.limit(ip);
+			applyRateLimitHeaders(req, res, ipResult, "auth:ip", ip);
+			if (!ipResult.success) {
+				throw new AppError(429, "Too many auth attempts. Try again later.", { code: "RATE_LIMITED_AUTH" });
+			}
+		}
+		next();
+	} catch (err) {
+		failOpenOnInfraError(err, req, next);
+	}
+};

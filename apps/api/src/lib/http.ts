@@ -1,7 +1,7 @@
-import type { Response } from 'express'
-import { z } from 'zod'
+import type { Response } from "express";
+import { z } from "zod";
 
-import { AppError } from '../middleware/errorHandler.ts'
+import { AppError } from "../middleware/errorHandler.ts";
 
 /**
  * Sets a `Cache-Control` header for a cacheable GET response. Express's default
@@ -19,11 +19,11 @@ import { AppError } from '../middleware/errorHandler.ts'
  *                `If-None-Match` revalidation against the ETag.
  * @param scope   `'private'` (default) or `'public'`.
  */
-export function cacheControl(res: Response, maxAge: number, scope: 'private' | 'public' = 'private'): void {
-  res.setHeader('Cache-Control', `${scope}, max-age=${maxAge}, must-revalidate`)
+export function cacheControl(res: Response, maxAge: number, scope: "private" | "public" = "private"): void {
+	res.setHeader("Cache-Control", `${scope}, max-age=${maxAge}, must-revalidate`);
 }
 
-const ifMatchVersionSchema = z.coerce.number().int().min(1)
+const ifMatchVersionSchema = z.coerce.number().int().min(1);
 
 /**
  * Parses the `If-Match` header into a positive integer version for optimistic
@@ -33,14 +33,14 @@ const ifMatchVersionSchema = z.coerce.number().int().min(1)
  * Malformed (non-integer, ≤ 0) → 400.
  */
 export function parseIfMatchVersion(rawHeader: string | undefined): number {
-  if (rawHeader === undefined) {
-    throw new AppError(428, 'If-Match header required', { code: 'IF_MATCH_REQUIRED' })
-  }
-  const result = ifMatchVersionSchema.safeParse(rawHeader)
-  if (!result.success) {
-    throw new AppError(400, 'If-Match must be a positive integer version', { code: 'IF_MATCH_INVALID' })
-  }
-  return result.data
+	if (rawHeader === undefined) {
+		throw new AppError(428, "If-Match header required", { code: "IF_MATCH_REQUIRED" });
+	}
+	const result = ifMatchVersionSchema.safeParse(rawHeader);
+	if (!result.success) {
+		throw new AppError(400, "If-Match must be a positive integer version", { code: "IF_MATCH_INVALID" });
+	}
+	return result.data;
 }
 
 // ─── Pagination cursor (opaque) ──────────────────────────────────────────────
@@ -64,7 +64,7 @@ export function parseIfMatchVersion(rawHeader: string | undefined): number {
  * and round-trip it unchanged.
  */
 export function encodeCursor(payload: unknown): string {
-  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
+	return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 }
 
 /**
@@ -75,15 +75,15 @@ export function encodeCursor(payload: unknown): string {
  * more useful than silently treating the cursor as null.
  */
 export function decodeCursor<T>(opaque: string, schema: z.ZodType<T>): T {
-  let raw: unknown
-  try {
-    raw = JSON.parse(Buffer.from(opaque, 'base64url').toString('utf8'))
-  } catch {
-    throw new AppError(400, 'Invalid pagination cursor', { code: 'CURSOR_INVALID' })
-  }
-  const result = schema.safeParse(raw)
-  if (!result.success) {
-    throw new AppError(400, 'Invalid pagination cursor', { code: 'CURSOR_INVALID' })
-  }
-  return result.data
+	let raw: unknown;
+	try {
+		raw = JSON.parse(Buffer.from(opaque, "base64url").toString("utf8"));
+	} catch {
+		throw new AppError(400, "Invalid pagination cursor", { code: "CURSOR_INVALID" });
+	}
+	const result = schema.safeParse(raw);
+	if (!result.success) {
+		throw new AppError(400, "Invalid pagination cursor", { code: "CURSOR_INVALID" });
+	}
+	return result.data;
 }

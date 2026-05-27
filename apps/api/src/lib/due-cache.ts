@@ -1,7 +1,7 @@
-import { z } from 'zod'
+import { z } from "zod";
 
-import { redis } from '../db/redis.ts'
-import { componentLogger } from './logger.ts'
+import { redis } from "../db/redis.ts";
+import { componentLogger } from "./logger.ts";
 
 /**
  * Redis-backed cache for `GET /api/v1/reviews/due` payloads.
@@ -25,12 +25,12 @@ import { componentLogger } from './logger.ts'
  * without bloating the keyspace.
  */
 
-const log = componentLogger('due-cache')
+const log = componentLogger("due-cache");
 
-const DUE_CACHE_TTL_SECONDS = 60
-const DUE_CACHE_VERSION     = 'v1'
+const DUE_CACHE_TTL_SECONDS = 60;
+const DUE_CACHE_VERSION = "v1";
 
-const dueCacheKey = (userId: string): string => `due:${DUE_CACHE_VERSION}:${userId}`
+const dueCacheKey = (userId: string): string => `due:${DUE_CACHE_VERSION}:${userId}`;
 
 /**
  * Permissive envelope schema. The inner `items` shape is validated upstream
@@ -41,15 +41,15 @@ const dueCacheKey = (userId: string): string => `due:${DUE_CACHE_VERSION}:${user
  * unchanged.
  */
 const DueCacheEnvelopeSchema = z.object({
-  items:      z.array(z.unknown()),
-  nextCursor: z.null(),
-  hasMore:    z.boolean(),
-})
+	items: z.array(z.unknown()),
+	nextCursor: z.null(),
+	hasMore: z.boolean(),
+});
 
 export interface DueCacheEnvelope<T> {
-  items:      T[]
-  nextCursor: null
-  hasMore:    boolean
+	items: T[];
+	nextCursor: null;
+	hasMore: boolean;
 }
 
 /**
@@ -58,34 +58,35 @@ export interface DueCacheEnvelope<T> {
  * next call rewrites them).
  */
 export async function readDueCache<T>(userId: string): Promise<DueCacheEnvelope<T> | null> {
-  const key = dueCacheKey(userId)
-  let raw: unknown
-  try {
-    raw = await redis.get<unknown>(key)
-  } catch (err) {
-    log.warn({
-      userId,
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'due cache read failed; treating as miss')
-    return null
-  }
-  if (raw === null) return null
+	const key = dueCacheKey(userId);
+	let raw: unknown;
+	try {
+		raw = await redis.get<unknown>(key);
+	} catch (err) {
+		log.warn({
+			userId,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "due cache read failed; treating as miss");
+		return null;
+	}
+	if (raw === null)
+		return null;
 
-  try {
-    const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw
-    const result = DueCacheEnvelopeSchema.parse(parsed)
-    // items are passed through unchanged. The caller already proved the
-    // shape via Zod on the RPC-path write, and the version prefix
-    // protects against breaking shape drift.
-    return { items: result.items as T[], nextCursor: null, hasMore: result.hasMore }
-  } catch (err) {
-    log.warn({
-      userId,
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'corrupt due cache entry; treating as miss')
-    void redis.del(key).catch(() => { /* TTL will reap if del fails */ })
-    return null
-  }
+	try {
+		const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : raw;
+		const result = DueCacheEnvelopeSchema.parse(parsed);
+		// items are passed through unchanged. The caller already proved the
+		// shape via Zod on the RPC-path write, and the version prefix
+		// protects against breaking shape drift.
+		return { items: result.items as T[], nextCursor: null, hasMore: result.hasMore };
+	} catch (err) {
+		log.warn({
+			userId,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "corrupt due cache entry; treating as miss");
+		void redis.del(key).catch(() => { /* TTL will reap if del fails */ });
+		return null;
+	}
 }
 
 /**
@@ -94,14 +95,14 @@ export async function readDueCache<T>(userId: string): Promise<DueCacheEnvelope<
  * still goes to the user.
  */
 export async function writeDueCache<T>(userId: string, payload: DueCacheEnvelope<T>): Promise<void> {
-  try {
-    await redis.set(dueCacheKey(userId), JSON.stringify(payload), { ex: DUE_CACHE_TTL_SECONDS })
-  } catch (err) {
-    log.warn({
-      userId,
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'due cache write failed')
-  }
+	try {
+		await redis.set(dueCacheKey(userId), JSON.stringify(payload), { ex: DUE_CACHE_TTL_SECONDS });
+	} catch (err) {
+		log.warn({
+			userId,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "due cache write failed");
+	}
 }
 
 /**
@@ -113,12 +114,12 @@ export async function writeDueCache<T>(userId: string, payload: DueCacheEnvelope
  * up to 60s of staleness — bounded by the TTL.
  */
 export async function invalidateDueCache(userId: string): Promise<void> {
-  try {
-    await redis.del(dueCacheKey(userId))
-  } catch (err) {
-    log.warn({
-      userId,
-      err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-    }, 'due cache invalidation failed')
-  }
+	try {
+		await redis.del(dueCacheKey(userId));
+	} catch (err) {
+		log.warn({
+			userId,
+			err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+		}, "due cache invalidation failed");
+	}
 }

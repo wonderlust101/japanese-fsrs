@@ -1,45 +1,45 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
+import type { WeakSpotFilters } from "./weak-spots-types";
 
-import { ToolbarChip } from '@/components/ui/ToolbarChip'
-import { SearchInput } from '@/components/ui/SearchInput'
-import { KbdChip } from '@/components/ui/KbdChip'
-import { IconDecks, IconSort, IconFlag, IconLightbulb } from '@/components/icons/chrome-marks'
-import { DecksMenu, MenuItem } from '@/app/(app)/decks/_components/decks-menu'
-import { useDecks } from '@/lib/api/decks'
 import type {
-  WeakSpotDiagnosisFilter,
-  WeakSpotStatusFilter,
-} from '@/lib/actions/weak-spots.actions'
+	WeakSpotDiagnosisFilter,
+	WeakSpotStatusFilter,
+} from "@/lib/actions/weak-spots.actions";
+import { useEffect, useRef, useState } from "react";
+import { DecksMenu, MenuItem } from "@/app/(app)/decks/_components/decks-menu";
+import { IconDecks, IconFlag, IconLightbulb, IconSort } from "@/components/icons/chrome-marks";
+import { KbdChip } from "@/components/ui/KbdChip";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { ToolbarChip } from "@/components/ui/ToolbarChip";
 
-import type { WeakSpotFilters } from './weak-spots-types'
+import { useDecks } from "@/lib/api/decks";
 
 interface WeakSpotsFilterRowProps {
-  value:    WeakSpotFilters
-  onChange: (next: WeakSpotFilters) => void
+	value: WeakSpotFilters;
+	onChange: (next: WeakSpotFilters) => void;
 }
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: WeakSpotStatusFilter; label: string }> = [
-  { value: 'unresolved', label: 'Unresolved' },
-  { value: 'resolved',   label: 'Resolved'   },
-]
+	{ value: "unresolved", label: "Unresolved" },
+	{ value: "resolved", label: "Resolved" },
+];
 
 const JLPT_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'all',         label: 'Any JLPT' },
-  { value: 'N5',          label: 'N5' },
-  { value: 'N4',          label: 'N4' },
-  { value: 'N3',          label: 'N3' },
-  { value: 'N2',          label: 'N2' },
-  { value: 'N1',          label: 'N1' },
-  { value: 'beyond_jlpt', label: 'Beyond JLPT' },
-]
+	{ value: "all", label: "Any JLPT" },
+	{ value: "N5", label: "N5" },
+	{ value: "N4", label: "N4" },
+	{ value: "N3", label: "N3" },
+	{ value: "N2", label: "N2" },
+	{ value: "N1", label: "N1" },
+	{ value: "beyond_jlpt", label: "Beyond JLPT" },
+];
 
-const DIAGNOSIS_OPTIONS: ReadonlyArray<{ value: WeakSpotDiagnosisFilter | 'all'; label: string }> = [
-  { value: 'all',       label: 'Any diagnosis' },
-  { value: 'available', label: 'Diagnosed'     },
-  { value: 'missing',   label: 'Undiagnosed'   },
-]
+const DIAGNOSIS_OPTIONS: ReadonlyArray<{ value: WeakSpotDiagnosisFilter | "all"; label: string }> = [
+	{ value: "all", label: "Any diagnosis" },
+	{ value: "available", label: "Diagnosed" },
+	{ value: "missing", label: "Undiagnosed" },
+];
 
 /**
  * Toolbar for the weakSpots page, a faithful port of the Cards-browser
@@ -60,98 +60,99 @@ const DIAGNOSIS_OPTIONS: ReadonlyArray<{ value: WeakSpotDiagnosisFilter | 'all';
  * uses.
  */
 export function WeakSpotsFilterRow({
-  value,
-  onChange,
+	value,
+	onChange,
 }: WeakSpotsFilterRowProps): React.JSX.Element {
-  const decksQuery = useDecks(50)
-  const decks      = decksQuery.data?.items ?? []
+	const decksQuery = useDecks(50);
+	const decks = decksQuery.data?.items ?? [];
 
-  const deckLabel = value.deckId === 'all'
-    ? 'All decks'
-    : (decks.find((d) => d.id === value.deckId)?.name ?? 'Unknown deck')
+	const deckLabel = value.deckId === "all"
+		? "All decks"
+		: (decks.find(d => d.id === value.deckId)?.name ?? "Unknown deck");
 
-  const jlptLabel = (() => {
-    if (value.jlptLevel === 'all') return 'Any JLPT'
-    const opt = JLPT_OPTIONS.find((o) => o.value === value.jlptLevel)
-    if (opt === undefined) return value.jlptLevel
-    return value.jlptLevel === 'beyond_jlpt' ? opt.label : `JLPT ${opt.label}`
-  })()
+	const jlptLabel = (() => {
+		if (value.jlptLevel === "all")
+			return "Any JLPT";
+		const opt = JLPT_OPTIONS.find(o => o.value === value.jlptLevel);
+		if (opt === undefined)
+			return value.jlptLevel;
+		return value.jlptLevel === "beyond_jlpt" ? opt.label : `JLPT ${opt.label}`;
+	})();
 
-  const statusLabel    = STATUS_OPTIONS.find((o) => o.value === value.status)?.label ?? 'Unresolved'
-  const diagnosisLabel = DIAGNOSIS_OPTIONS.find((o) => o.value === value.diagnosis)?.label ?? 'Any diagnosis'
+	const statusLabel = STATUS_OPTIONS.find(o => o.value === value.status)?.label ?? "Unresolved";
+	const diagnosisLabel = DIAGNOSIS_OPTIONS.find(o => o.value === value.diagnosis)?.label ?? "Any diagnosis";
 
-  const iconClass = 'h-3.5 w-3.5 text-faded-sumi'
+	const iconClass = "h-3.5 w-3.5 text-faded-sumi";
 
-  return (
-    <section
-      aria-label="Weak spot filters"
-      className="flex flex-col gap-3 border-b border-soft-hairline pb-4"
-    >
-      {/* Row 1: search */}
-      <div className="flex min-w-0 items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <WeakSpotsSearchBar
-            value={value.search}
-            onChange={(search) => onChange({ ...value, search })}
-          />
-        </div>
-      </div>
+	return (
+		<section
+			aria-label="Weak spot filters"
+			className="flex flex-col gap-3 border-b border-soft-hairline pb-4"
+		>
+			{/* Row 1: search */}
+			<div className="flex min-w-0 items-center gap-2">
+				<div className="min-w-0 flex-1">
+					<WeakSpotsSearchBar
+						value={value.search}
+						onChange={search => onChange({ ...value, search })}
+					/>
+				</div>
+			</div>
 
-      {/* Row 2: filter dimensions */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Status — the binary that flips the whole list's meaning. Treated as
+			{/* Row 2: filter dimensions */}
+			<div className="flex flex-wrap items-center gap-2">
+				{/* Status — the binary that flips the whole list's meaning. Treated as
             a dimension dropdown (not a tablist) so it reads like the Cards
             Status chip; `selected` whenever the non-default Resolved view is
             active. */}
-        <ChromeDropdown
-          label={statusLabel}
-          icon={<IconFlag className={iconClass} />}
-          selected={value.status === 'resolved'}
-          options={STATUS_OPTIONS}
-          activeValue={value.status}
-          onPick={(status) => onChange({ ...value, status })}
-          menuWidth="min-w-[10rem]"
-        />
+				<ChromeDropdown
+					label={statusLabel}
+					icon={<IconFlag className={iconClass} />}
+					selected={value.status === "resolved"}
+					options={STATUS_OPTIONS}
+					activeValue={value.status}
+					onPick={status => onChange({ ...value, status })}
+					menuWidth="min-w-[10rem]"
+				/>
 
-        <ChromeDropdown
-          label={deckLabel}
-          icon={<IconDecks className={iconClass} />}
-          selected={value.deckId !== 'all'}
-          options={[
-            { value: 'all', label: 'All decks' },
-            ...decks.map((d) => ({ value: d.id, label: d.name })),
-          ]}
-          activeValue={value.deckId}
-          onPick={(deckId) => onChange({ ...value, deckId })}
-          triggerClassName="max-w-[12rem]"
-          menuWidth="min-w-[14rem]"
-        />
+				<ChromeDropdown
+					label={deckLabel}
+					icon={<IconDecks className={iconClass} />}
+					selected={value.deckId !== "all"}
+					options={[
+						{ value: "all", label: "All decks" },
+						...decks.map(d => ({ value: d.id, label: d.name })),
+					]}
+					activeValue={value.deckId}
+					onPick={deckId => onChange({ ...value, deckId })}
+					triggerClassName="max-w-[12rem]"
+					menuWidth="min-w-[14rem]"
+				/>
 
-        <ChromeDropdown
-          label={jlptLabel}
-          icon={<IconSort className={iconClass} />}
-          selected={value.jlptLevel !== 'all'}
-          options={JLPT_OPTIONS}
-          activeValue={value.jlptLevel}
-          onPick={(jlptLevel) => onChange({ ...value, jlptLevel })}
-        />
+				<ChromeDropdown
+					label={jlptLabel}
+					icon={<IconSort className={iconClass} />}
+					selected={value.jlptLevel !== "all"}
+					options={JLPT_OPTIONS}
+					activeValue={value.jlptLevel}
+					onPick={jlptLevel => onChange({ ...value, jlptLevel })}
+				/>
 
-        <ChromeDropdown
-          label={diagnosisLabel}
-          icon={<IconLightbulb className={iconClass} />}
-          selected={value.diagnosis !== 'all'}
-          options={DIAGNOSIS_OPTIONS}
-          activeValue={value.diagnosis}
-          onPick={(diagnosis) =>
-            onChange({
-              ...value,
-              diagnosis: diagnosis === 'available' || diagnosis === 'missing' ? diagnosis : 'all',
-            })
-          }
-        />
-      </div>
-    </section>
-  )
+				<ChromeDropdown
+					label={diagnosisLabel}
+					icon={<IconLightbulb className={iconClass} />}
+					selected={value.diagnosis !== "all"}
+					options={DIAGNOSIS_OPTIONS}
+					activeValue={value.diagnosis}
+					onPick={diagnosis =>
+						onChange({
+							...value,
+							diagnosis: diagnosis === "available" || diagnosis === "missing" ? diagnosis : "all",
+						})}
+				/>
+			</div>
+		</section>
+	);
 }
 
 // ─── Search bar ────────────────────────────────────────────────────────────────
@@ -163,72 +164,74 @@ export function WeakSpotsFilterRow({
  * stops typing so the list doesn't refetch on every keystroke.
  */
 function WeakSpotsSearchBar({
-  value,
-  onChange,
+	value,
+	onChange,
 }: {
-  value:    string
-  onChange: (next: string) => void
+	value: string;
+	onChange: (next: string) => void;
 }): React.JSX.Element {
-  const [draft, setDraft] = useState(value)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+	const [draft, setDraft] = useState(value);
+	const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Resync when the parent clears the search externally (e.g. a return visit
-  // resets it, or a future "clear all" affordance).
-  useEffect(() => { setDraft(value) }, [value])
+	// Resync when the parent clears the search externally (e.g. a return visit
+	// resets it, or a future "clear all" affordance).
+	useEffect(() => { setDraft(value); }, [value]);
 
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      if (draft !== value) onChange(draft)
-    }, 250)
-    return () => window.clearTimeout(id)
-  }, [draft, value, onChange])
+	useEffect(() => {
+		const id = window.setTimeout(() => {
+			if (draft !== value)
+				onChange(draft);
+		}, 250);
+		return () => window.clearTimeout(id);
+	}, [draft, value, onChange]);
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent): void {
-      const meta = event.metaKey || event.ctrlKey
-      if (meta && event.key.toLowerCase() === 'k') {
-        const active = document.activeElement
-        if (active instanceof HTMLInputElement && active !== inputRef.current) return
-        event.preventDefault()
-        inputRef.current?.focus()
-        inputRef.current?.select()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+	useEffect(() => {
+		function onKey(event: KeyboardEvent): void {
+			const meta = event.metaKey || event.ctrlKey;
+			if (meta && event.key.toLowerCase() === "k") {
+				const active = document.activeElement;
+				if (active instanceof HTMLInputElement && active !== inputRef.current)
+					return;
+				event.preventDefault();
+				inputRef.current?.focus();
+				inputRef.current?.select();
+			}
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 
-  return (
-    <SearchInput
-      ref={inputRef}
-      value={draft}
-      onChange={setDraft}
-      placeholder="Search by word, reading, meaning…"
-      ariaLabel="Search weak spots"
-      trailing={
-        <KbdChip
-          placement="floating"
-          className="hidden sm:inline-flex"
-          ariaLabel="Press Cmd K to focus search"
-        >
-          ⌘K
-        </KbdChip>
-      }
-    />
-  )
+	return (
+		<SearchInput
+			ref={inputRef}
+			value={draft}
+			onChange={setDraft}
+			placeholder="Search by word, reading, meaning…"
+			ariaLabel="Search weak spots"
+			trailing={(
+				<KbdChip
+					placement="floating"
+					className="hidden sm:inline-flex"
+					ariaLabel="Press Cmd K to focus search"
+				>
+					⌘K
+				</KbdChip>
+			)}
+		/>
+	);
 }
 
 // ─── ChromeDropdown ────────────────────────────────────────────────────────────
 
 interface ChromeDropdownProps<T extends string> {
-  label:            string
-  icon?:            React.ReactNode
-  selected:         boolean
-  options:          ReadonlyArray<{ value: T; label: string }>
-  activeValue:      T
-  onPick:           (value: T) => void
-  triggerClassName?: string
-  menuWidth?:       string
+	label: string;
+	icon?: React.ReactNode;
+	selected: boolean;
+	options: ReadonlyArray<{ value: T; label: string }>;
+	activeValue: T;
+	onPick: (value: T) => void;
+	triggerClassName?: string;
+	menuWidth?: string;
 }
 
 /**
@@ -239,62 +242,68 @@ interface ChromeDropdownProps<T extends string> {
  * two surfaces' filter types would be the wrong shared boundary.
  */
 function ChromeDropdown<T extends string>({
-  label, icon, selected, options, activeValue, onPick,
-  triggerClassName, menuWidth = 'min-w-[12rem]',
+	label,
+	icon,
+	selected,
+	options,
+	activeValue,
+	onPick,
+	triggerClassName,
+	menuWidth = "min-w-[12rem]",
 }: ChromeDropdownProps<T>): React.JSX.Element {
-  return (
-    <DecksMenu
-      align="start"
-      menuClassName={menuWidth}
-      renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-        <ToolbarChip
-          ref={triggerRef}
-          onClick={onClick}
-          onKeyDown={onKeyDown}
-          aria-haspopup="menu"
-          aria-expanded={ariaExpanded}
-          state={selected ? 'selected' : 'default'}
-          {...(icon !== undefined ? { leadingNode: icon } : {})}
-          trailingNode={<Chevron />}
-          // 44px touch target on coarse pointers (the chip's default md height
-          // is 36px); collapses to the intrinsic height from sm: up.
-          className={['min-h-11 sm:min-h-0', triggerClassName ?? ''].join(' ').trim()}
-        >
-          <span className="truncate">{label}</span>
-        </ToolbarChip>
-      )}
-      renderItems={({ close }) => (
-        <>
-          {options.map((opt) => (
-            <MenuItem
-              key={opt.value}
-              selected={opt.value === activeValue}
-              onClick={() => { onPick(opt.value); close() }}
-            >
-              {opt.label}
-            </MenuItem>
-          ))}
-        </>
-      )}
-    />
-  )
+	return (
+		<DecksMenu
+			align="start"
+			menuClassName={menuWidth}
+			renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
+				<ToolbarChip
+					ref={triggerRef}
+					onClick={onClick}
+					onKeyDown={onKeyDown}
+					aria-haspopup="menu"
+					aria-expanded={ariaExpanded}
+					state={selected ? "selected" : "default"}
+					{...(icon !== undefined ? { leadingNode: icon } : {})}
+					trailingNode={<Chevron />}
+					// 44px touch target on coarse pointers (the chip's default md height
+					// is 36px); collapses to the intrinsic height from sm: up.
+					className={["min-h-11 sm:min-h-0", triggerClassName ?? ""].join(" ").trim()}
+				>
+					<span className="truncate">{label}</span>
+				</ToolbarChip>
+			)}
+			renderItems={({ close }) => (
+				<>
+					{options.map(opt => (
+						<MenuItem
+							key={opt.value}
+							selected={opt.value === activeValue}
+							onClick={() => { onPick(opt.value); close(); }}
+						>
+							{opt.label}
+						</MenuItem>
+					))}
+				</>
+			)}
+		/>
+	);
 }
 
 function Chevron(): React.JSX.Element {
-  return (
-    <svg
-      aria-hidden="true"
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-faded-sumi"
-    >
-      <path d="M2 4l3 3 3-3" />
-    </svg>
-  )
+	return (
+		<svg
+			aria-hidden="true"
+			width="10"
+			height="10"
+			viewBox="0 0 10 10"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			className="text-faded-sumi"
+		>
+			<path d="M2 4l3 3 3-3" />
+		</svg>
+	);
 }

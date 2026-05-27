@@ -1,6 +1,6 @@
-import type { RequestHandler } from 'express'
+import type { RequestHandler } from "express";
 
-import * as tomoNoteService from '../services/tomo-note.service.ts'
+import * as tomoNoteService from "../services/tomo-note.service.ts";
 
 /**
  * GET /api/v1/tomo/note
@@ -13,6 +13,6 @@ import * as tomoNoteService from '../services/tomo-note.service.ts'
  * still 404s — that's a real data issue).
  */
 export const note: RequestHandler = async (req, res): Promise<void> => {
-  const data = await tomoNoteService.getTomoNote(req.user.id)
-  res.json(data)
-}
+	const data = await tomoNoteService.getTomoNote(req.user.id);
+	res.json(data);
+};

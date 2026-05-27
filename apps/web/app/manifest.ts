@@ -1,4 +1,4 @@
-import type { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
 
 // PWA web manifest. Next serves this at `/manifest.webmanifest` and injects the
 // `<link rel="manifest">` automatically. Makes Tomo installable on mobile and
@@ -16,21 +16,21 @@ import type { MetadataRoute } from 'next'
 // on-palette. `start_url: '/today'` drops the learner straight into the daily
 // hub; unauthenticated installs fall through middleware to `/login` as usual.
 export default function manifest(): MetadataRoute.Manifest {
-  return {
-    name: 'Tomo · Japanese spaced repetition',
-    short_name: 'Tomo',
-    description:
-      'Japanese spaced repetition with calm daily reviews, smart card timing, and a teacher\'s eye for the words that need another pass.',
-    lang: 'en',
-    start_url: '/today',
-    display: 'standalone',
-    background_color: '#F4F1EC',
-    theme_color: '#F4F1EC',
-    categories: ['education', 'productivity'],
-    icons: [
-      { src: '/brand/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/brand/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/brand/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
-  }
+	return {
+		name: "Tomo · Japanese spaced repetition",
+		short_name: "Tomo",
+		description:
+      "Japanese spaced repetition with calm daily reviews, smart card timing, and a teacher's eye for the words that need another pass.",
+		lang: "en",
+		start_url: "/today",
+		display: "standalone",
+		background_color: "#F4F1EC",
+		theme_color: "#F4F1EC",
+		categories: ["education", "productivity"],
+		icons: [
+			{ src: "/brand/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+			{ src: "/brand/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+			{ src: "/brand/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+		],
+	};
 }

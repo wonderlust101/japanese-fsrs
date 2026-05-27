@@ -8,24 +8,26 @@
  * "card on the right of the rail" without any further changes.
  */
 export function SectionShell({
-  children,
-  strip,
-  heading,
+	children,
+	strip,
+	heading,
 }: {
-  children: React.ReactNode
-  strip?:   React.ReactNode
-  /** Visually-hidden page <h1> for this settings sub-route. Each leaf section
-   *  passes its page title so the document outline is h1 → h2 (SectionCard
-   *  label) → h3, instead of starting at the SectionCard's h2. */
-  heading?: string
+	children: React.ReactNode;
+	strip?: React.ReactNode;
+	/**
+	 * Visually-hidden page <h1> for this settings sub-route. Each leaf section
+	 *  passes its page title so the document outline is h1 → h2 (SectionCard
+	 *  label) → h3, instead of starting at the SectionCard's h2.
+	 */
+	heading?: string;
 }): React.JSX.Element {
-  return (
-    <>
-      <div className="min-w-0 flex-1">
-        {heading !== undefined && <h1 className="sr-only">{heading}</h1>}
-        {children}
-      </div>
-      {strip ?? null}
-    </>
-  )
+	return (
+		<>
+			<div className="min-w-0 flex-1">
+				{heading !== undefined && <h1 className="sr-only">{heading}</h1>}
+				{children}
+			</div>
+			{strip ?? null}
+		</>
+	);
 }

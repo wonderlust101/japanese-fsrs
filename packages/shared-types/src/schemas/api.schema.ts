@@ -5,71 +5,71 @@
  * validator and the type cannot drift.
  */
 
-import { z } from 'zod'
+import { State } from "ts-fsrs";
 
-import { State } from 'ts-fsrs'
+import { z } from "zod";
 
-import { JLPTLevel, LayoutType } from '../card.types.ts'
-import { DeckType } from '../deck.types.ts'
-import { FieldsDataSchema } from './field-shapes.schema.ts'
+import { JLPTLevel, LayoutType } from "../card.types.ts";
+import { DeckType } from "../deck.types.ts";
+import { FieldsDataSchema } from "./field-shapes.schema.ts";
 
 // ─── Enum schemas (mirroring the const objects in shared-types) ───────────────
 
-const layoutTypeSchema = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]])
-const jlptLevelSchema  = z.enum(Object.values(JLPTLevel)  as [JLPTLevel,  ...JLPTLevel[]])
-const deckTypeSchema   = z.enum(Object.values(DeckType)   as [DeckType,   ...DeckType[]])
+const layoutTypeSchema = z.enum(Object.values(LayoutType) as [LayoutType, ...LayoutType[]]);
+const jlptLevelSchema = z.enum(Object.values(JLPTLevel) as [JLPTLevel, ...JLPTLevel[]]);
+const deckTypeSchema = z.enum(Object.values(DeckType) as [DeckType, ...DeckType[]]);
 // ts-fsrs's State is a numeric enum — z.nativeEnum accepts numeric enums directly.
-const stateSchema      = z.nativeEnum(State)
+const stateSchema = z.nativeEnum(State);
 
 // ─── Cards ────────────────────────────────────────────────────────────────────
 
 export const ApiCardSchema = z.object({
-  id:             z.string(),
-  userId:         z.string().nullable(),
-  deckId:         z.string().nullable(),
-  premadeDeckId:  z.string().nullable(),
-  layoutType:     layoutTypeSchema,
-  fieldsData:     FieldsDataSchema,
-  parentCardId:   z.string().nullable(),
-  jlptLevel:      jlptLevelSchema.nullable(),
-  state:          stateSchema,
-  isSuspended:    z.boolean(),
-  due:            z.string(),
-  stability:      z.number(),
-  difficulty:     z.number(),
-  elapsedDays:    z.number(),
-  scheduledDays:  z.number(),
-  learningSteps:  z.number(),
-  reps:           z.number(),
-  lapses:         z.number(),
-  lastReview:     z.string().nullable(),
-  createdAt:      z.string(),
-  updatedAt:      z.string(),
-  // Optimistic-concurrency version. Bumped on every PATCH; sent back as
-  // `If-Match: <version>` to gate the next update. List / due projections
-  // intentionally omit this field — only the detail view drives PATCH.
-  version:        z.number(),
-})
+	id: z.string(),
+	userId: z.string().nullable(),
+	deckId: z.string().nullable(),
+	premadeDeckId: z.string().nullable(),
+	layoutType: layoutTypeSchema,
+	fieldsData: FieldsDataSchema,
+	parentCardId: z.string().nullable(),
+	jlptLevel: jlptLevelSchema.nullable(),
+	state: stateSchema,
+	isSuspended: z.boolean(),
+	due: z.string(),
+	stability: z.number(),
+	difficulty: z.number(),
+	elapsedDays: z.number(),
+	scheduledDays: z.number(),
+	learningSteps: z.number(),
+	reps: z.number(),
+	lapses: z.number(),
+	lastReview: z.string().nullable(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	// Optimistic-concurrency version. Bumped on every PATCH; sent back as
+	// `If-Match: <version>` to gate the next update. List / due projections
+	// intentionally omit this field — only the detail view drives PATCH.
+	version: z.number(),
+});
 
 export const ApiDueCardSchema = ApiCardSchema.pick({
-  id:         true,
-  deckId:     true,
-  jlptLevel:  true,
-  state:      true,
-  due:        true,
-  fieldsData: true,
-  layoutType: true,
-})
+	id: true,
+	deckId: true,
+	jlptLevel: true,
+	state: true,
+	due: true,
+	fieldsData: true,
+	layoutType: true,
+});
 
 export const ApiCardListItemSchema = ApiCardSchema.pick({
-  id:          true,
-  fieldsData:  true,
-  layoutType:  true,
-  jlptLevel:   true,
-  state:       true,
-  isSuspended: true,
-  due:         true,
-})
+	id: true,
+	fieldsData: true,
+	layoutType: true,
+	jlptLevel: true,
+	state: true,
+	isSuspended: true,
+	due: true,
+});
 
 // ─── Cross-deck card list ─────────────────────────────────────────────────────
 //
@@ -79,10 +79,10 @@ export const ApiCardListItemSchema = ApiCardSchema.pick({
 // can show the metric directly in the row.
 
 export const ApiCrossDeckCardListItemSchema = ApiCardListItemSchema.extend({
-  deckId:   z.string(),
-  deckName: z.string(),
-  lapses:   z.number().int().nonnegative(),
-})
+	deckId: z.string(),
+	deckName: z.string(),
+	lapses: z.number().int().nonnegative(),
+});
 
 // ─── Bulk mutation result ─────────────────────────────────────────────────────
 //
@@ -91,87 +91,87 @@ export const ApiCrossDeckCardListItemSchema = ApiCardListItemSchema.extend({
 // happy path; populated when ownership checks reject some ids.
 
 export const ApiBulkCardMutationResultSchema = z.object({
-  succeeded: z.array(z.string()),
-  failed:    z.array(z.object({
-    id:    z.string(),
-    error: z.string(),
-    code:  z.string().optional(),
-  })),
-})
+	succeeded: z.array(z.string()),
+	failed: z.array(z.object({
+		id: z.string(),
+		error: z.string(),
+		code: z.string().optional(),
+	})),
+});
 
 export const ApiSimilarCardSchema = z.object({
-  id:         z.string(),
-  deckId:     z.string(),
-  layoutType: layoutTypeSchema,
-  fieldsData: FieldsDataSchema,
-  jlptLevel:  jlptLevelSchema.nullable(),
-  similarity: z.number(),
-})
+	id: z.string(),
+	deckId: z.string(),
+	layoutType: layoutTypeSchema,
+	fieldsData: FieldsDataSchema,
+	jlptLevel: jlptLevelSchema.nullable(),
+	similarity: z.number(),
+});
 
 // ─── Decks ────────────────────────────────────────────────────────────────────
 
 export const ApiDeckSchema = z.object({
-  id:              z.string(),
-  name:            z.string(),
-  description:     z.string().nullable(),
-  deckType:        deckTypeSchema,
-  cardCount:       z.number(),
-  // `sourcePremadeId` is attribution only — non-null means "this deck was
-  // started from a premade catalogue entry". Backend Completion Plan
-  // Stage 4 (copy model) dropped the companion `is_premade_fork` boolean:
-  // under the new model all decks are owned, standalone, and delete via
-  // the same path regardless of origin.
-  sourcePremadeId: z.string().nullable(),
-  version:         z.number(),
-  createdAt:       z.string(),
-  updatedAt:       z.string(),
-  /**
-   * ISO 8601 timestamp the user archived the deck, or `null` when the deck
-   * is active. Archived decks are excluded from the default `GET /decks`
-   * listing, the `/reviews/due` queue, the review forecast, and every
-   * write path except `DELETE /decks/:id` and `POST /decks/:id/unarchive`.
-   */
-  archivedAt:      z.string().nullable(),
-})
+	id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	deckType: deckTypeSchema,
+	cardCount: z.number(),
+	// `sourcePremadeId` is attribution only — non-null means "this deck was
+	// started from a premade catalogue entry". Backend Completion Plan
+	// Stage 4 (copy model) dropped the companion `is_premade_fork` boolean:
+	// under the new model all decks are owned, standalone, and delete via
+	// the same path regardless of origin.
+	sourcePremadeId: z.string().nullable(),
+	version: z.number(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+	/**
+	 * ISO 8601 timestamp the user archived the deck, or `null` when the deck
+	 * is active. Archived decks are excluded from the default `GET /decks`
+	 * listing, the `/reviews/due` queue, the review forecast, and every
+	 * write path except `DELETE /decks/:id` and `POST /decks/:id/unarchive`.
+	 */
+	archivedAt: z.string().nullable(),
+});
 
 export const ApiDeckWithStatsSchema = ApiDeckSchema.extend({
-  /** Cards currently due (interval expired) and not suspended. */
-  dueCount:       z.number(),
-  /** Cards in state=New (never reviewed). Snapshot of the entire deck, not "new today". */
-  newCount:       z.number(),
-  /** Cards that have reached graduated maturity: state=Review AND scheduled_days >= 21 (Anki convention). */
-  matureCount:    z.number(),
-  /** Subset of dueCount: due cards in state=New. */
-  dueNewCount:    z.number(),
-  /** Subset of dueCount: due cards in state != New (Review / Learning / Relearning). */
-  dueReviewCount: z.number(),
-  /**
-   * Timestamp (ISO 8601) of the most recent review across any card in the
-   * deck — `MAX(cards.last_review)` server-side. `null` when no card in the
-   * deck has been reviewed yet (semantically distinct from a 0 count). Added
-   * by the `list_decks_paginated` rollup migration (Backend Completion Plan
-   * Stage 3) and surfaced on both GET /decks and GET /decks/:id.
-   */
-  lastReviewedAt: z.string().nullable(),
-})
+	/** Cards currently due (interval expired) and not suspended. */
+	dueCount: z.number(),
+	/** Cards in state=New (never reviewed). Snapshot of the entire deck, not "new today". */
+	newCount: z.number(),
+	/** Cards that have reached graduated maturity: state=Review AND scheduled_days >= 21 (Anki convention). */
+	matureCount: z.number(),
+	/** Subset of dueCount: due cards in state=New. */
+	dueNewCount: z.number(),
+	/** Subset of dueCount: due cards in state != New (Review / Learning / Relearning). */
+	dueReviewCount: z.number(),
+	/**
+	 * Timestamp (ISO 8601) of the most recent review across any card in the
+	 * deck — `MAX(cards.last_review)` server-side. `null` when no card in the
+	 * deck has been reviewed yet (semantically distinct from a 0 count). Added
+	 * by the `list_decks_paginated` rollup migration (Backend Completion Plan
+	 * Stage 3) and surfaced on both GET /decks and GET /decks/:id.
+	 */
+	lastReviewedAt: z.string().nullable(),
+});
 
 // ─── Premade decks ────────────────────────────────────────────────────────────
 
 export const ApiPremadeDeckSchema = z.object({
-  id:          z.string(),
-  name:        z.string(),
-  description: z.string().nullable(),
-  deckType:    deckTypeSchema,
-  jlptLevel:   jlptLevelSchema.nullable(),
-  domain:      z.string().nullable(),
-  cardCount:   z.number(),
-  // `version` removed in Backend Completion Plan Stage 4 (copy model) —
-  // there is no version drift to track once a user has copied; refreshing
-  // content means deleting the deck and copying again.
-  isActive:    z.boolean(),
-  createdAt:   z.string(),
-  updatedAt:   z.string(),
-})
+	id: z.string(),
+	name: z.string(),
+	description: z.string().nullable(),
+	deckType: deckTypeSchema,
+	jlptLevel: jlptLevelSchema.nullable(),
+	domain: z.string().nullable(),
+	cardCount: z.number(),
+	// `version` removed in Backend Completion Plan Stage 4 (copy model) —
+	// there is no version drift to track once a user has copied; refreshing
+	// content means deleting the deck and copying again.
+	isActive: z.boolean(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
 
 /**
  * Result of `POST /api/v1/premade-decks/:id/copy` — Backend Completion Plan
@@ -185,9 +185,9 @@ export const ApiPremadeDeckSchema = z.object({
  * of the same premade deck produce two independent `deckId` values.
  */
 export const ApiCopyPremadeDeckResultSchema = z.object({
-  deckId:    z.string(),
-  cardCount: z.number(),
-})
+	deckId: z.string(),
+	cardCount: z.number(),
+});
 
 /**
  * Result of `POST /api/v1/decks/:id/copy` — duplicates a user-owned deck
@@ -201,9 +201,9 @@ export const ApiCopyPremadeDeckResultSchema = z.object({
  * accidental double-clicks; deliberate duplicates use distinct keys.
  */
 export const ApiCopyDeckResultSchema = z.object({
-  deckId:    z.string(),
-  cardCount: z.number(),
-})
+	deckId: z.string(),
+	cardCount: z.number(),
+});
 
 // ─── Insights — maturity-pipeline history (Stage 9) ──────────────────────────
 //
@@ -217,21 +217,23 @@ export const ApiCopyDeckResultSchema = z.object({
 // the cards table so the chart reflects the current moment between cron
 // runs. See `supabase/migrations/20260610000000_card_state_snapshots.sql`.
 
-export const ApiMaturityHistoryDaysSchema = z.enum(['90', '180', '365'])
+export const ApiMaturityHistoryDaysSchema = z.enum(["90", "180", "365"]);
 
 export const ApiMaturitySnapshotSchema = z.object({
-  /** ISO YYYY-MM-DD in the learner's local timezone. */
-  date:            z.string(),
-  newCount:        z.number().int().nonnegative(),
-  learningCount:   z.number().int().nonnegative(),
-  reviewCount:     z.number().int().nonnegative(),
-  relearningCount: z.number().int().nonnegative(),
-  matureCount:     z.number().int().nonnegative(),
-  /** Suspended cards (not in the pipeline). Historical rows predate this and
-   *  read 0; today's row is computed live. Powers the maturity-flow bar's
-   *  "Suspended" segment on the Statistics page. */
-  suspendedCount:  z.number().int().nonnegative(),
-})
+	/** ISO YYYY-MM-DD in the learner's local timezone. */
+	date: z.string(),
+	newCount: z.number().int().nonnegative(),
+	learningCount: z.number().int().nonnegative(),
+	reviewCount: z.number().int().nonnegative(),
+	relearningCount: z.number().int().nonnegative(),
+	matureCount: z.number().int().nonnegative(),
+	/**
+	 * Suspended cards (not in the pipeline). Historical rows predate this and
+	 *  read 0; today's row is computed live. Powers the maturity-flow bar's
+	 *  "Suspended" segment on the Statistics page.
+	 */
+	suspendedCount: z.number().int().nonnegative(),
+});
 
 // ─── Insights — card-quality issue counts (Stage 8) ──────────────────────────
 //
@@ -247,19 +249,19 @@ export const ApiMaturitySnapshotSchema = z.object({
 // backend ships the plan's six types as-is.
 
 export const ApiCardQualityIssueTypeSchema = z.enum([
-  'missing_reading',
-  'missing_meaning',
-  'missing_example',
-  'missing_mnemonic',
-  'missing_picture',
-  'missing_nuance',
-])
+	"missing_reading",
+	"missing_meaning",
+	"missing_example",
+	"missing_mnemonic",
+	"missing_picture",
+	"missing_nuance",
+]);
 
 export const ApiCardQualityIssueSchema = z.object({
-  issueType: ApiCardQualityIssueTypeSchema,
-  /** Number of the user's vocabulary+grammar cards that exhibit this issue. */
-  count:     z.number().int().nonnegative(),
-})
+	issueType: ApiCardQualityIssueTypeSchema,
+	/** Number of the user's vocabulary+grammar cards that exhibit this issue. */
+	count: z.number().int().nonnegative(),
+});
 
 // ─── Tomo daily note ──────────────────────────────────────────────────────────
 //
@@ -268,13 +270,13 @@ export const ApiCardQualityIssueSchema = z.object({
 // backend service still composes this shape internally — the wire types
 // stay defined here so the API layer doesn't fork its own copy.
 
-export const ApiTomoNoteKindSchema = z.enum(['insight', 'idiom'])
+export const ApiTomoNoteKindSchema = z.enum(["insight", "idiom"]);
 
 export const ApiTomoNoteSchema = z.object({
-  body:    z.string(),
-  kind:    ApiTomoNoteKindSchema,
-  dateKey: z.string(),
-})
+	body: z.string(),
+	kind: ApiTomoNoteKindSchema,
+	dateKey: z.string(),
+});
 
 // ─── Day reflection (post-session AI note) ───────────────────────────────────
 //
@@ -285,14 +287,14 @@ export const ApiTomoNoteSchema = z.object({
 // `source` tells the client whether the body came from the AI generator or
 // from the rule-based fallback (when the AI path is unavailable).
 
-export const ApiDayReflectionSourceSchema = z.enum(['ai', 'fallback'])
+export const ApiDayReflectionSourceSchema = z.enum(["ai", "fallback"]);
 
 export const ApiDayReflectionSchema = z.object({
-  body:         z.string(),
-  source:      ApiDayReflectionSourceSchema,
-  dateKey:     z.string(),
-  sessionCount: z.number().int().nonnegative(),
-})
+	body: z.string(),
+	source: ApiDayReflectionSourceSchema,
+	dateKey: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+});
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 
@@ -302,37 +304,36 @@ export const ApiDayReflectionSchema = z.object({
  * steps). Frontend formats it for display.
  */
 export const ApiRatingPreviewSchema = z.object({
-  scheduledDays: z.number(),
-  due:           z.string(),
-})
+	scheduledDays: z.number(),
+	due: z.string(),
+});
 
 /** Anki-style "what happens if I rate this?" preview for the four ratings. */
 export const ApiRatingsPreviewSchema = z.object({
-  again: ApiRatingPreviewSchema,
-  hard:  ApiRatingPreviewSchema,
-  good:  ApiRatingPreviewSchema,
-  easy:  ApiRatingPreviewSchema,
-})
+	again: ApiRatingPreviewSchema,
+	hard: ApiRatingPreviewSchema,
+	good: ApiRatingPreviewSchema,
+	easy: ApiRatingPreviewSchema,
+});
 
 export const ApiForecastDaySchema = z.object({
-  date:         z.string(),
-  count:        z.number(),
-  backlogCount: z.number(),
-  reviewCount:  z.number(),
-  newCount:     z.number(),
-})
+	date: z.string(),
+	count: z.number(),
+	backlogCount: z.number(),
+	reviewCount: z.number(),
+	newCount: z.number(),
+});
 
 /** Generic batch result — caller passes the per-item schema. */
-export const ApiBatchResultSchema = <T>(
-  item: z.ZodType<T>,
-): z.ZodObject<{
-  results: z.ZodArray<z.ZodType<T>>
-  errors:  z.ZodArray<z.ZodObject<{ cardId: z.ZodString; error: z.ZodString }>>
-}> =>
-  z.object({
-    results: z.array(item),
-    errors:  z.array(z.object({ cardId: z.string(), error: z.string() })),
-  })
+export function ApiBatchResultSchema<T>(item: z.ZodType<T>): z.ZodObject<{
+	results: z.ZodArray<z.ZodType<T>>;
+	errors: z.ZodArray<z.ZodObject<{ cardId: z.ZodString; error: z.ZodString }>>;
+}> {
+	return z.object({
+		results: z.array(item),
+		errors: z.array(z.object({ cardId: z.string(), error: z.string() })),
+	});
+}
 
 /**
  * Universal list response envelope. Every endpoint that returns a list of
@@ -341,81 +342,82 @@ export const ApiBatchResultSchema = <T>(
  * (bounded responses, fixed-dimension analytics arrays); the shape stays
  * uniform so adding pagination later is non-breaking.
  */
-export const apiListEnvelope = <T>(
-  item: z.ZodType<T>,
-): z.ZodObject<{
-  items:      z.ZodArray<z.ZodType<T>>
-  nextCursor: z.ZodNullable<z.ZodString>
-  hasMore:    z.ZodBoolean
-  totalCount: z.ZodOptional<z.ZodNumber>
-}> =>
-  z.object({
-    items:      z.array(item),
-    nextCursor: z.string().nullable(),
-    hasMore:    z.boolean(),
-    totalCount: z.number().optional(),
-  })
+export function apiListEnvelope<T>(item: z.ZodType<T>): z.ZodObject<{
+	items: z.ZodArray<z.ZodType<T>>;
+	nextCursor: z.ZodNullable<z.ZodString>;
+	hasMore: z.ZodBoolean;
+	totalCount: z.ZodOptional<z.ZodNumber>;
+}> {
+	return z.object({
+		items: z.array(item),
+		nextCursor: z.string().nullable(),
+		hasMore: z.boolean(),
+		totalCount: z.number().optional(),
+	});
+}
 
 export const ApiReviewedCardSchema = z.object({
-  id:            z.string(),
-  /** UUID of the `review_logs` row this review created.
-   *  Nullable for service-internal callers (forget/reschedule/batch flushes)
-   *  where surfacing rollback isn't part of the contract today. The submit
-   *  path always populates it so the Review Summary can offer per-card
-   *  rollback. */
-  reviewLogId:   z.string().uuid().nullable(),
-  due:           z.string(),
-  stability:     z.number(),
-  difficulty:    z.number(),
-  scheduledDays: z.number(),
-  state:         stateSchema,
-})
+	id: z.string(),
+	/**
+	 * UUID of the `review_logs` row this review created.
+	 *  Nullable for service-internal callers (forget/reschedule/batch flushes)
+	 *  where surfacing rollback isn't part of the contract today. The submit
+	 *  path always populates it so the Review Summary can offer per-card
+	 *  rollback.
+	 */
+	reviewLogId: z.string().uuid().nullable(),
+	due: z.string(),
+	stability: z.number(),
+	difficulty: z.number(),
+	scheduledDays: z.number(),
+	state: stateSchema,
+});
 
 /**
  * Response of POST /api/v1/reviews/submit. The raw reviewed-card shape (no
  * wrapper) — kept as an exported alias so callers that imported the old
  * symbol remain compatible.
  */
-export const ApiReviewSubmitResponseSchema = ApiReviewedCardSchema
+export const ApiReviewSubmitResponseSchema = ApiReviewedCardSchema;
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const ApiHeatmapDaySchema = z.object({
-  date:         z.string(),
-  retention:    z.number(),
-  count:        z.number(),
-  /**
-   * Total time spent reviewing on this day, in seconds. Derived from
-   * `review_logs.review_time_ms` by `get_heatmap_data`; zero if no
-   * reviews carried a duration (pre-instrumentation rows COALESCE to 0).
-   * Powers the Statistics page's activity-strip total-time figure.
-   */
-  totalSeconds: z.number().int().nonnegative(),
-})
+	date: z.string(),
+	retention: z.number(),
+	count: z.number(),
+	/**
+	 * Total time spent reviewing on this day, in seconds. Derived from
+	 * `review_logs.review_time_ms` by `get_heatmap_data`; zero if no
+	 * reviews carried a duration (pre-instrumentation rows COALESCE to 0).
+	 * Powers the Statistics page's activity-strip total-time figure.
+	 */
+	totalSeconds: z.number().int().nonnegative(),
+});
 
 export const ApiLayoutAccuracySchema = z.object({
-  layoutType:  layoutTypeSchema,
-  total:       z.number(),
-  successful:  z.number(),
-  accuracyPct: z.number(),
-})
+	layoutType: layoutTypeSchema,
+	total: z.number(),
+	successful: z.number(),
+	accuracyPct: z.number(),
+});
 
 export const ApiJlptGapSchema = z.object({
-  jlptLevel:   jlptLevelSchema,
-  total:       z.number(),
-  learned:     z.number(),
-  due:         z.number(),
-  progressPct: z.number(),
-})
+	jlptLevel: jlptLevelSchema,
+	total: z.number(),
+	learned: z.number(),
+	due: z.number(),
+	progressPct: z.number(),
+});
 
 export const ApiMilestoneForecastSchema = z.object({
-  jlptLevel:               jlptLevelSchema,
-  total:                   z.number(),
-  learned:                 z.number(),
-  dailyPace:               z.number(),
-  daysRemaining:           z.number().nullable(),
-  projectedCompletionDate: z.string().nullable(),
-})
+	jlptLevel: jlptLevelSchema,
+	total: z.number(),
+	learned: z.number(),
+	dailyPace: z.number(),
+	daysRemaining: z.number().nullable(),
+	projectedCompletionDate: z.string().nullable(),
+});
 
 /**
  * Bundled response for GET /api/v1/analytics/dashboard. Combines the four
@@ -429,18 +431,18 @@ export const ApiMilestoneForecastSchema = z.object({
  * were updated in the same commit.
  */
 export const ApiAnalyticsDashboardSchema = z.object({
-  heatmap:    apiListEnvelope(ApiHeatmapDaySchema),
-  accuracy:   apiListEnvelope(ApiLayoutAccuracySchema),
-  jlptGap:    apiListEnvelope(ApiJlptGapSchema),
-  milestones: apiListEnvelope(ApiMilestoneForecastSchema),
-  /**
-   * Cards added in the learner's current calendar month (tz-aware).
-   * Powers the Progress page's "added this month" summary tile.
-   * Zero for accounts with no cards or no cards created since the
-   * month-boundary.
-   */
-  cardsAddedThisMonth: z.number().int().nonnegative(),
-})
+	heatmap: apiListEnvelope(ApiHeatmapDaySchema),
+	accuracy: apiListEnvelope(ApiLayoutAccuracySchema),
+	jlptGap: apiListEnvelope(ApiJlptGapSchema),
+	milestones: apiListEnvelope(ApiMilestoneForecastSchema),
+	/**
+	 * Cards added in the learner's current calendar month (tz-aware).
+	 * Powers the Progress page's "added this month" summary tile.
+	 * Zero for accounts with no cards or no cards created since the
+	 * month-boundary.
+	 */
+	cardsAddedThisMonth: z.number().int().nonnegative(),
+});
 
 // ─── Insights distributions (Statistics page) ─────────────────────────────────
 //
@@ -451,92 +453,92 @@ export const ApiAnalyticsDashboardSchema = z.object({
 // have to re-derive labels.
 
 export const ApiAnswerRatingDistributionSchema = z.object({
-  again: z.number().int().nonnegative(),
-  hard:  z.number().int().nonnegative(),
-  good:  z.number().int().nonnegative(),
-  easy:  z.number().int().nonnegative(),
-})
+	again: z.number().int().nonnegative(),
+	hard: z.number().int().nonnegative(),
+	good: z.number().int().nonnegative(),
+	easy: z.number().int().nonnegative(),
+});
 
 export const ApiHistogramBucketSchema = z.object({
-  label: z.string(),
-  count: z.number().int().nonnegative(),
-})
+	label: z.string(),
+	count: z.number().int().nonnegative(),
+});
 
 export const ApiInsightsDistributionsSchema = z.object({
-  ratings:    ApiAnswerRatingDistributionSchema,
-  intervals:  z.array(ApiHistogramBucketSchema),
-  stability:  z.array(ApiHistogramBucketSchema),
-  difficulty: z.array(ApiHistogramBucketSchema),
-})
+	ratings: ApiAnswerRatingDistributionSchema,
+	intervals: z.array(ApiHistogramBucketSchema),
+	stability: z.array(ApiHistogramBucketSchema),
+	difficulty: z.array(ApiHistogramBucketSchema),
+});
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const ApiAuthTokensSchema = z.object({
-  accessToken:  z.string(),
-  refreshToken: z.string(),
-  expiresIn:    z.number(),
-})
+	accessToken: z.string(),
+	refreshToken: z.string(),
+	expiresIn: z.number(),
+});
 
 export const ApiSignUpResultSchema = z.object({
-  email: z.string(),
-  // Null when the email is already registered — the API surfaces a generic
-  // success shape to avoid leaking account existence to anonymous callers.
-  userId: z.string().nullable(),
-  // Server-issued one-time secret, paired with userId, required by /cancel-signup.
-  // Null on the duplicate-email path (mirrors userId) so wire-level enumeration
-  // surfaces only what userId already does.
-  cancellationToken: z.string().nullable(),
-})
+	email: z.string(),
+	// Null when the email is already registered — the API surfaces a generic
+	// success shape to avoid leaking account existence to anonymous callers.
+	userId: z.string().nullable(),
+	// Server-issued one-time secret, paired with userId, required by /cancel-signup.
+	// Null on the duplicate-email path (mirrors userId) so wire-level enumeration
+	// surfaces only what userId already does.
+	cancellationToken: z.string().nullable(),
+});
 
 // ─── Sessions / weakSpots (live in review.types.ts; cross the wire) ─────────────
 
 export const SessionWeakSpotSchema = z.object({
-  weakSpotId:      z.string(),
-  cardId:       z.string(),
-  deckId:       z.string(),
-  word:         z.string(),
-  reading:      z.string().nullable(),
-  diagnosis:    z.string().nullable(),
-  prescription: z.string().nullable(),
-  resolved:     z.boolean(),
-  createdAt:    z.string(),
-  // Lapse count from the parent card. Optional so legacy summary payloads
-  // (and the backend until it ships the join) keep parsing. When present,
-  // the summary surface renders a HealthBadge-style chip showing the
-  // count, matching the cards-table treatment.
-  lapses:       z.number().int().nonnegative().optional(),
-  // ISO timestamp of the most recent lapse on the parent card. Optional
-  // for the same backwards-compat reason as `lapses`. Surfaced in the
-  // summary's weak-spots list as a relative "Nd ago" date so a learner
-  // can see at a glance whether each weak spot is fresh or stale.
-  lastLapseAt:  z.string().optional(),
-})
+	weakSpotId: z.string(),
+	cardId: z.string(),
+	deckId: z.string(),
+	word: z.string(),
+	reading: z.string().nullable(),
+	diagnosis: z.string().nullable(),
+	prescription: z.string().nullable(),
+	resolved: z.boolean(),
+	createdAt: z.string(),
+	// Lapse count from the parent card. Optional so legacy summary payloads
+	// (and the backend until it ships the join) keep parsing. When present,
+	// the summary surface renders a HealthBadge-style chip showing the
+	// count, matching the cards-table treatment.
+	lapses: z.number().int().nonnegative().optional(),
+	// ISO timestamp of the most recent lapse on the parent card. Optional
+	// for the same backwards-compat reason as `lapses`. Surfaced in the
+	// summary's weak-spots list as a relative "Nd ago" date so a learner
+	// can see at a glance whether each weak spot is fresh or stale.
+	lastLapseAt: z.string().optional(),
+});
 
 export const SessionSummarySchema = z.object({
-  sessionId:   z.string(),
-  totalCards:  z.number(),
-  totalTimeMs: z.number(),
-  accuracyPct: z.number(),
-  nextDueAt:   z.string().nullable(),
-  ratingBreakdown: z.object({
-    again: z.number(),
-    hard:  z.number(),
-    good:  z.number(),
-    easy:  z.number(),
-  }),
-  weakSpots: z.array(SessionWeakSpotSchema),
-  // User's total session count, capped at 2 by the RPC. 1 = first session
-  // ever (drives the "First session" copy variant); ≥2 = returning user.
-  // Optional for backwards-compat with payloads emitted before migration
-  // 2026MMDDHHMMSS_session_summary_extend; once that migration ships and
-  // any in-flight responses age out, this becomes effectively required.
-  userTotalSessions: z.number().int().nonnegative().optional(),
-  // DISTINCT session_id count for the user-local day containing this
-  // session. The closure card pluralizes its label ("Today's sessions
-  // (N)") when this is > 1. Optional for the same backwards-compat
-  // reason as `userTotalSessions`.
-  sessionsToday:     z.number().int().nonnegative().optional(),
-})
+	sessionId: z.string(),
+	totalCards: z.number(),
+	totalTimeMs: z.number(),
+	accuracyPct: z.number(),
+	nextDueAt: z.string().nullable(),
+	ratingBreakdown: z.object({
+		again: z.number(),
+		hard: z.number(),
+		good: z.number(),
+		easy: z.number(),
+	}),
+	weakSpots: z.array(SessionWeakSpotSchema),
+	// User's total session count, capped at 2 by the RPC. 1 = first session
+	// ever (drives the "First session" copy variant); ≥2 = returning user.
+	// Optional for backwards-compat with payloads emitted before migration
+	// 2026MMDDHHMMSS_session_summary_extend; once that migration ships and
+	// any in-flight responses age out, this becomes effectively required.
+	userTotalSessions: z.number().int().nonnegative().optional(),
+	// DISTINCT session_id count for the user-local day containing this
+	// session. The closure card pluralizes its label ("Today's sessions
+	// (N)") when this is > 1. Optional for the same backwards-compat
+	// reason as `userTotalSessions`.
+	sessionsToday: z.number().int().nonnegative().optional(),
+});
 
 // ─── Batch diagnose result ──────────────────────────────────────────────────
 //
@@ -546,10 +548,10 @@ export const SessionSummarySchema = z.object({
 // re-fetches the session summary on success to pick up the new prose.
 
 export const ApiBatchDiagnoseResultSchema = z.object({
-  diagnosed: z.number().int().nonnegative(),
-  skipped:   z.number().int().nonnegative(),
-  failed:    z.number().int().nonnegative(),
-})
+	diagnosed: z.number().int().nonnegative(),
+	skipped: z.number().int().nonnegative(),
+	failed: z.number().int().nonnegative(),
+});
 
 // ─── WeakSpots list (read-only feature surface) ─────────────────────────────────
 //
@@ -565,37 +567,37 @@ export const ApiBatchDiagnoseResultSchema = z.object({
 // design (migration 20260425000001).
 
 export const ApiWeakSpotListItemSchema = z.object({
-  id:           z.string().uuid(),
-  cardId:       z.string().uuid().nullable(),
-  deckId:       z.string().uuid().nullable(),
-  deckName:     z.string().nullable(),
-  word:         z.string().nullable(),
-  reading:      z.string().nullable(),
-  meaning:      z.string().nullable(),
-  layoutType:   layoutTypeSchema.nullable(),
-  jlptLevel:    jlptLevelSchema.nullable(),
-  lapses:       z.number().int().nonnegative().nullable(),
-  reps:         z.number().int().nonnegative().nullable(),
-  due:          z.string().nullable(),
-  lastReview:   z.string().nullable(),
-  diagnosis:    z.string().nullable(),
-  prescription: z.string().nullable(),
-  resolved:     z.boolean(),
-  resolvedAt:   z.string().nullable(),
-  createdAt:    z.string(),
-})
+	id: z.string().uuid(),
+	cardId: z.string().uuid().nullable(),
+	deckId: z.string().uuid().nullable(),
+	deckName: z.string().nullable(),
+	word: z.string().nullable(),
+	reading: z.string().nullable(),
+	meaning: z.string().nullable(),
+	layoutType: layoutTypeSchema.nullable(),
+	jlptLevel: jlptLevelSchema.nullable(),
+	lapses: z.number().int().nonnegative().nullable(),
+	reps: z.number().int().nonnegative().nullable(),
+	due: z.string().nullable(),
+	lastReview: z.string().nullable(),
+	diagnosis: z.string().nullable(),
+	prescription: z.string().nullable(),
+	resolved: z.boolean(),
+	resolvedAt: z.string().nullable(),
+	createdAt: z.string(),
+});
 
 export const ApiWeakSpotListResponseSchema = z.object({
-  items:      z.array(ApiWeakSpotListItemSchema),
-  // Offset pagination (aligned with the cross-deck cards list). `totalCount`
-  // is the full count of rows matching the active filters, independent of the
-  // current page window, so the client can render numbered pages and a
-  // "Showing X–Y of N" footer. The historic cursor model (`nextCursor` /
-  // `hasMore`) was dropped: two of the four sort orders sort on a joined card
-  // column and never supported keyset cursors anyway, so a single offset path
-  // is both simpler and more capable.
-  totalCount: z.number().int().nonnegative(),
-})
+	items: z.array(ApiWeakSpotListItemSchema),
+	// Offset pagination (aligned with the cross-deck cards list). `totalCount`
+	// is the full count of rows matching the active filters, independent of the
+	// current page window, so the client can render numbered pages and a
+	// "Showing X–Y of N" footer. The historic cursor model (`nextCursor` /
+	// `hasMore`) was dropped: two of the four sort orders sort on a joined card
+	// column and never supported keyset cursors anyway, so a single offset path
+	// is both simpler and more capable.
+	totalCount: z.number().int().nonnegative(),
+});
 
 // ─── Drill sessions (Stage 3) ─────────────────────────────────────────────────
 //
@@ -610,22 +612,22 @@ export const ApiWeakSpotListResponseSchema = z.object({
 // the snapshot was written.
 
 export const ApiWeakSpotDrillCardSchema = z.object({
-  sessionCardId: z.string().uuid(),
-  weakSpotId:       z.string().uuid(),
-  cardId:        z.string().uuid(),
-  ordinal:       z.number().int().nonnegative(),
-  layoutType:    layoutTypeSchema,
-  fieldsData:    FieldsDataSchema,
-  lapses:        z.number().int().nonnegative(),
-})
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid(),
+	cardId: z.string().uuid(),
+	ordinal: z.number().int().nonnegative(),
+	layoutType: layoutTypeSchema,
+	fieldsData: FieldsDataSchema,
+	lapses: z.number().int().nonnegative(),
+});
 
-export const ApiWeakSpotDrillSessionStatusSchema = z.enum(['active', 'finished', 'aborted'])
+export const ApiWeakSpotDrillSessionStatusSchema = z.enum(["active", "finished", "aborted"]);
 
 export const ApiWeakSpotDrillSessionSchema = z.object({
-  sessionId: z.string().uuid(),
-  status:    ApiWeakSpotDrillSessionStatusSchema,
-  cards:     z.array(ApiWeakSpotDrillCardSchema),
-})
+	sessionId: z.string().uuid(),
+	status: ApiWeakSpotDrillSessionStatusSchema,
+	cards: z.array(ApiWeakSpotDrillCardSchema),
+});
 
 // ─── Drill session resume (Stage 4) ───────────────────────────────────────────
 //
@@ -643,24 +645,24 @@ export const ApiWeakSpotDrillSessionSchema = z.object({
 // (card-deleted) from stale (card-reviewed-elsewhere) via the per-row flags.
 
 export const ApiWeakSpotDrillSessionDetailCardSchema = z.object({
-  sessionCardId: z.string().uuid(),
-  weakSpotId:       z.string().uuid().nullable(),
-  cardId:        z.string().uuid().nullable(),
-  ordinal:       z.number().int().nonnegative(),
-  layoutType:    layoutTypeSchema.nullable(),
-  fieldsData:    FieldsDataSchema.nullable(),
-  lapses:        z.number().int().nonnegative().nullable(),
-  isOrphaned:    z.boolean(),
-  isStale:       z.boolean(),
-})
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid().nullable(),
+	cardId: z.string().uuid().nullable(),
+	ordinal: z.number().int().nonnegative(),
+	layoutType: layoutTypeSchema.nullable(),
+	fieldsData: FieldsDataSchema.nullable(),
+	lapses: z.number().int().nonnegative().nullable(),
+	isOrphaned: z.boolean(),
+	isStale: z.boolean(),
+});
 
 export const ApiWeakSpotDrillSessionDetailSchema = z.object({
-  sessionId:             z.string().uuid(),
-  status:                ApiWeakSpotDrillSessionStatusSchema,
-  isCanonicalStateStale: z.boolean(),
-  staleCards:            z.array(z.string().uuid()),
-  cards:                 z.array(ApiWeakSpotDrillSessionDetailCardSchema),
-})
+	sessionId: z.string().uuid(),
+	status: ApiWeakSpotDrillSessionStatusSchema,
+	isCanonicalStateStale: z.boolean(),
+	staleCards: z.array(z.string().uuid()),
+	cards: z.array(ApiWeakSpotDrillSessionDetailCardSchema),
+});
 
 // ─── Drill attempts (Stage 5) ─────────────────────────────────────────────────
 //
@@ -673,41 +675,41 @@ export const ApiWeakSpotDrillSessionDetailSchema = z.object({
 // after an attempt is recorded, those references go NULL but the attempt
 // itself stays inspectable as historical learning data.
 
-export const ApiWeakSpotDrillAttemptResultSchema = z.enum(['missed', 'hesitated', 'remembered'])
+export const ApiWeakSpotDrillAttemptResultSchema = z.enum(["missed", "hesitated", "remembered"]);
 
 export const ApiWeakSpotDrillAttemptSchema = z.object({
-  attemptId:      z.string().uuid(),
-  eventId:        z.string().uuid(),
-  sessionId:      z.string().uuid(),
-  sessionCardId:  z.string().uuid(),
-  weakSpotId:        z.string().uuid().nullable(),
-  cardId:         z.string().uuid().nullable(),
-  result:         ApiWeakSpotDrillAttemptResultSchema,
-  localSequence:  z.number().int().nonnegative().nullable(),
-  responseTimeMs: z.number().int().nonnegative().nullable(),
-  shownAt:        z.string().nullable(),
-  answeredAt:     z.string(),
-  createdAt:      z.string(),
-})
+	attemptId: z.string().uuid(),
+	eventId: z.string().uuid(),
+	sessionId: z.string().uuid(),
+	sessionCardId: z.string().uuid(),
+	weakSpotId: z.string().uuid().nullable(),
+	cardId: z.string().uuid().nullable(),
+	result: ApiWeakSpotDrillAttemptResultSchema,
+	localSequence: z.number().int().nonnegative().nullable(),
+	responseTimeMs: z.number().int().nonnegative().nullable(),
+	shownAt: z.string().nullable(),
+	answeredAt: z.string(),
+	createdAt: z.string(),
+});
 
 // ─── User profile (lives in user.types.ts; crosses the wire) ──────────────────
 
 export const ProfileSchema = z.object({
-  id:                 z.string(),
-  nativeLanguage:     z.string(),
-  jlptTarget:         jlptLevelSchema.nullable(),
-  studyGoal:          z.string().nullable(),
-  interests:          z.array(z.string()),
-  dailyNewCardsLimit: z.number(),
-  dailyReviewLimit:   z.number(),
-  retentionTarget:    z.number(),
-  timezone:           z.string(),
-  version:            z.number(),
-  createdAt:          z.string(),
-  updatedAt:          z.string(),
-})
+	id: z.string(),
+	nativeLanguage: z.string(),
+	jlptTarget: jlptLevelSchema.nullable(),
+	studyGoal: z.string().nullable(),
+	interests: z.array(z.string()),
+	dailyNewCardsLimit: z.number(),
+	dailyReviewLimit: z.number(),
+	retentionTarget: z.number(),
+	timezone: z.string(),
+	version: z.number(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
 
 // ─── Helpers for void responses ──────────────────────────────────────────────
 
 /** For 204 No Content / DELETE / PATCH endpoints that don't return a body. */
-export const voidResponseSchema = z.unknown()
+export const voidResponseSchema = z.unknown();

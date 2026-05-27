@@ -1,34 +1,37 @@
-'use client'
+"use client";
 
-import { useDevStatePanel, type DevFixtureSpec } from '@/dev'
+import type { DevFixtureSpec } from "@/dev";
+import { useDevStatePanel } from "@/dev";
 
-export type ForecastFixtureKey =
-  | 'off'
-  | 'loading'
-  | 'error'
+export type ForecastFixtureKey
+	= | "off"
+		| "loading"
+		| "error";
 
 const FIXTURES: ReadonlyArray<DevFixtureSpec<ForecastFixtureKey>> = [
-  { key: 'off',     label: 'Off',     description: 'Live data — render the real forecast.' },
-  { key: 'loading', label: 'Loading', description: 'Force the loading skeleton.' },
-  { key: 'error',   label: 'Error',   description: 'Force the inline error state.' },
-]
+	{ key: "off", label: "Off", description: "Live data — render the real forecast." },
+	{ key: "loading", label: "Loading", description: "Force the loading skeleton." },
+	{ key: "error", label: "Error", description: "Force the inline error state." },
+];
 
 export interface ForecastDevState {
-  forcedState: 'loading' | 'error' | null
+	forcedState: "loading" | "error" | null;
 }
 
 export function useForecastDevState(): ForecastDevState {
-  const { fixture } = useDevStatePanel({
-    id:             'insights.forecast',
-    title:          'Insights · Forecast',
-    fixtures:       FIXTURES,
-    defaultFixture: 'off',
-  })
+	const { fixture } = useDevStatePanel({
+		id: "insights.forecast",
+		title: "Insights · Forecast",
+		fixtures: FIXTURES,
+		defaultFixture: "off",
+	});
 
-  const forcedState =
-    fixture === 'loading' ? 'loading' :
-    fixture === 'error'   ? 'error'   :
-    null
+	const forcedState
+		= fixture === "loading"
+			? "loading"
+			: fixture === "error"
+				? "error"
+				: null;
 
-  return { forcedState }
+	return { forcedState };
 }

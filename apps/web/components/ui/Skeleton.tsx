@@ -7,9 +7,9 @@
    sites for incremental cleanup; they are harmless but dead. */
 
 export function Skeleton(_props: {
-  className?: string
-  width?:     string | number
-  height?:    string | number
+	className?: string;
+	width?: string | number;
+	height?: string | number;
 }): null {
-  return null
+	return null;
 }

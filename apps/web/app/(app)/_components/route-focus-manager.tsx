@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useEffect, useRef } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 /**
  * Moves keyboard focus to the page's <main> on client-side route changes so
@@ -11,16 +11,16 @@ import { usePathname } from 'next/navigation'
  * restoration. Mounted once in the (app) layout; targets `#main-content`.
  */
 export function RouteFocusManager(): null {
-  const pathname  = usePathname()
-  const isInitial = useRef(true)
+	const pathname = usePathname();
+	const isInitial = useRef(true);
 
-  useEffect(() => {
-    if (isInitial.current) {
-      isInitial.current = false
-      return
-    }
-    document.getElementById('main-content')?.focus({ preventScroll: true })
-  }, [pathname])
+	useEffect(() => {
+		if (isInitial.current) {
+			isInitial.current = false;
+			return;
+		}
+		document.getElementById("main-content")?.focus({ preventScroll: true });
+	}, [pathname]);
 
-  return null
+	return null;
 }

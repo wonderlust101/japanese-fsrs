@@ -30,17 +30,17 @@
 // Use rawRedis (unwrapped) here — wrapping the breaker's own counter writes
 // through the upstash breaker would cause infinite recursion (every
 // recordFailure call would trigger another breaker check).
-import { rawRedis as redis } from '../db/redis.ts'
-import { componentLogger } from './logger.ts'
-import { AppError, ServiceUnavailableError } from '../middleware/errorHandler.ts'
+import { rawRedis as redis } from "../db/redis.ts";
+import { AppError, ServiceUnavailableError } from "../middleware/errorHandler.ts";
+import { componentLogger } from "./logger.ts";
 
-const log = componentLogger('circuit-breaker')
+const log = componentLogger("circuit-breaker");
 
 interface BreakerConfig {
-  /** Failures within `windowSeconds` that opens the breaker. */
-  threshold: number
-  /** Sliding-window length (seconds). Failures accumulate; success or expiry resets. */
-  windowSeconds: number
+	/** Failures within `windowSeconds` that opens the breaker. */
+	threshold: number;
+	/** Sliding-window length (seconds). Failures accumulate; success or expiry resets. */
+	windowSeconds: number;
 }
 
 /**
@@ -48,13 +48,13 @@ interface BreakerConfig {
  * dependency. Unknown names fall back to OpenAI defaults with a warn log.
  */
 const BREAKER_CONFIG: Record<string, BreakerConfig> = {
-  'openai-chat':       { threshold: 10, windowSeconds: 300 },
-  'openai-embeddings': { threshold: 10, windowSeconds: 300 },
-  'supabase':          { threshold: 50, windowSeconds: 60 },
-  'upstash':           { threshold: 30, windowSeconds: 60 },
-}
+	"openai-chat": { threshold: 10, windowSeconds: 300 },
+	"openai-embeddings": { threshold: 10, windowSeconds: 300 },
+	"supabase": { threshold: 50, windowSeconds: 60 },
+	"upstash": { threshold: 30, windowSeconds: 60 },
+};
 
-const FALLBACK_CONFIG: BreakerConfig = { threshold: 10, windowSeconds: 300 }
+const FALLBACK_CONFIG: BreakerConfig = { threshold: 10, windowSeconds: 300 };
 
 /**
  * Default `Retry-After` (seconds) when an inline call fails *before* the
@@ -62,7 +62,7 @@ const FALLBACK_CONFIG: BreakerConfig = { threshold: 10, windowSeconds: 300 }
  * that legit retries resume quickly. Once the breaker IS open, callers get the
  * remaining failure-window TTL via `getRetryAfterSeconds` instead.
  */
-const INLINE_RETRY_AFTER_SECONDS = 30
+const INLINE_RETRY_AFTER_SECONDS = 30;
 
 /**
  * Half-open probe slot lifetime (seconds). When the breaker is open, exactly
@@ -70,7 +70,7 @@ const INLINE_RETRY_AFTER_SECONDS = 30
  * the probe completes (which clears the slot) or this TTL expires (which
  * lets a new caller probe).
  */
-const PROBE_TTL_SECONDS = 5
+const PROBE_TTL_SECONDS = 5;
 
 /**
  * Maximum jitter (seconds) added to the Retry-After value returned to clients.
@@ -78,24 +78,27 @@ const PROBE_TTL_SECONDS = 5
  * this, 1000 clients all seeing `Retry-After: 245` would retry simultaneously
  * at T+245 and re-trip the breaker.
  */
-const RETRY_AFTER_JITTER_SECONDS = 30
+const RETRY_AFTER_JITTER_SECONDS = 30;
 
-const failureKey = (name: string): string => `circuit:${name}:failures`
-const probeKey   = (name: string): string => `circuit:${name}:probe`
+const failureKey = (name: string): string => `circuit:${name}:failures`;
+const probeKey = (name: string): string => `circuit:${name}:probe`;
 
-/** Names already warned-about for unknown-namespace fallback. Per-process cache
+/**
+ * Names already warned-about for unknown-namespace fallback. Per-process cache
  *  so the warn fires once per name (not on every call), keeping test logs and
- *  production logs both clean. */
-const warnedFallbackNames = new Set<string>()
+ *  production logs both clean.
+ */
+const warnedFallbackNames = new Set<string>();
 
 function configFor(name: string): BreakerConfig {
-  const config = BREAKER_CONFIG[name]
-  if (config !== undefined) return config
-  if (!warnedFallbackNames.has(name)) {
-    warnedFallbackNames.add(name)
-    log.warn({ name }, 'circuit breaker: unknown namespace; using fallback config')
-  }
-  return FALLBACK_CONFIG
+	const config = BREAKER_CONFIG[name];
+	if (config !== undefined)
+		return config;
+	if (!warnedFallbackNames.has(name)) {
+		warnedFallbackNames.add(name);
+		log.warn({ name }, "circuit breaker: unknown namespace; using fallback config");
+	}
+	return FALLBACK_CONFIG;
 }
 
 /**
@@ -106,14 +109,14 @@ function configFor(name: string): BreakerConfig {
  * closed → open transition without per-failure noise.
  */
 export async function recordFailure(name: string): Promise<void> {
-  const config = configFor(name)
-  const key    = failureKey(name)
-  await redis.set(key, 0, { ex: config.windowSeconds, nx: true })
-  const count = await redis.incr(key)
-  if (count === config.threshold) {
-    log.warn({ name, count, threshold: config.threshold }, 'circuit breaker opened')
-    invalidateIsOpenCache(name)  // refresh state for callers within the next ISOPEN_CACHE_MS
-  }
+	const config = configFor(name);
+	const key = failureKey(name);
+	await redis.set(key, 0, { ex: config.windowSeconds, nx: true });
+	const count = await redis.incr(key);
+	if (count === config.threshold) {
+		log.warn({ name, count, threshold: config.threshold }, "circuit breaker opened");
+		invalidateIsOpenCache(name); // refresh state for callers within the next ISOPEN_CACHE_MS
+	}
 }
 
 /**
@@ -126,15 +129,16 @@ export async function recordFailure(name: string): Promise<void> {
  * Single round-trip is also one fewer Redis op than the previous get+del pair.
  */
 export async function recordSuccess(name: string): Promise<void> {
-  const config = configFor(name)
-  const key    = failureKey(name)
-  const raw    = await redis.getdel<number | string>(key)
-  if (raw === null || raw === undefined) return
-  const count = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw
-  invalidateIsOpenCache(name)  // breaker may have just transitioned closed
-  if (Number.isFinite(count) && count >= config.threshold) {
-    log.warn({ name }, 'circuit breaker closed')
-  }
+	const config = configFor(name);
+	const key = failureKey(name);
+	const raw = await redis.getdel<number | string>(key);
+	if (raw === null || raw === undefined)
+		return;
+	const count = typeof raw === "string" ? Number.parseInt(raw, 10) : raw;
+	invalidateIsOpenCache(name); // breaker may have just transitioned closed
+	if (Number.isFinite(count) && count >= config.threshold) {
+		log.warn({ name }, "circuit breaker closed");
+	}
 }
 
 /**
@@ -150,25 +154,25 @@ export async function recordSuccess(name: string): Promise<void> {
  * "closed" and proceed (they may fail and trip recordFailure normally). Acceptable
  * given the alternative is materially slower normal-path latency.
  */
-const ISOPEN_CACHE_MS = 200
-const isOpenCache = new Map<string, { open: boolean; cachedAt: number }>()
+const ISOPEN_CACHE_MS = 200;
+const isOpenCache = new Map<string, { open: boolean; cachedAt: number }>();
 
 /** True when the failure count in the current window meets or exceeds the threshold. */
 export async function isOpen(name: string): Promise<boolean> {
-  const now    = Date.now()
-  const cached = isOpenCache.get(name)
-  if (cached !== undefined && (now - cached.cachedAt) < ISOPEN_CACHE_MS) {
-    return cached.open
-  }
-  const config = configFor(name)
-  const raw    = await redis.get<number | string>(failureKey(name))
-  let open = false
-  if (raw !== null && raw !== undefined) {
-    const count = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw
-    open = Number.isFinite(count) && count >= config.threshold
-  }
-  isOpenCache.set(name, { open, cachedAt: now })
-  return open
+	const now = Date.now();
+	const cached = isOpenCache.get(name);
+	if (cached !== undefined && (now - cached.cachedAt) < ISOPEN_CACHE_MS) {
+		return cached.open;
+	}
+	const config = configFor(name);
+	const raw = await redis.get<number | string>(failureKey(name));
+	let open = false;
+	if (raw !== null && raw !== undefined) {
+		const count = typeof raw === "string" ? Number.parseInt(raw, 10) : raw;
+		open = Number.isFinite(count) && count >= config.threshold;
+	}
+	isOpenCache.set(name, { open, cachedAt: now });
+	return open;
 }
 
 /**
@@ -177,7 +181,7 @@ export async function isOpen(name: string): Promise<boolean> {
  * stale state. Tests also call this directly to reset state between cases.
  */
 export function invalidateIsOpenCache(name: string): void {
-  isOpenCache.delete(name)
+	isOpenCache.delete(name);
 }
 
 /**
@@ -192,11 +196,11 @@ export function invalidateIsOpenCache(name: string): void {
  * Upstash returns `-2` for missing keys and `-1` for keys without TTL.
  */
 export async function getRetryAfterSeconds(name: string): Promise<number> {
-  const config  = configFor(name)
-  const ttl     = await redis.ttl(failureKey(name))
-  const base    = ttl > 0 ? ttl : config.windowSeconds
-  const jitter  = Math.floor(Math.random() * RETRY_AFTER_JITTER_SECONDS)
-  return base + jitter
+	const config = configFor(name);
+	const ttl = await redis.ttl(failureKey(name));
+	const base = ttl > 0 ? ttl : config.windowSeconds;
+	const jitter = Math.floor(Math.random() * RETRY_AFTER_JITTER_SECONDS);
+	return base + jitter;
 }
 
 /**
@@ -205,8 +209,8 @@ export async function getRetryAfterSeconds(name: string): Promise<number> {
  * hard-coding the names. Adding a namespace requires updating both
  * BREAKER_CONFIG above and this array.
  */
-export const BREAKER_NAMES = ['openai-chat', 'openai-embeddings', 'supabase', 'upstash'] as const
-export type BreakerName = typeof BREAKER_NAMES[number]
+export const BREAKER_NAMES = ["openai-chat", "openai-embeddings", "supabase", "upstash"] as const;
+export type BreakerName = typeof BREAKER_NAMES[number];
 
 /**
  * Snapshot of a breaker's runtime state for ops introspection (used by
@@ -215,45 +219,49 @@ export type BreakerName = typeof BREAKER_NAMES[number]
  * counters (no user PII).
  */
 export interface BreakerSnapshot {
-  /** Current failure count in the sliding window. 0 when the counter key
-   *  has expired or never existed. */
-  failures:  number
-  /** Seconds until the failure-counter key TTL expires. -2 = key missing,
-   *  -1 = no TTL set. */
-  windowTtl: number
-  /** Threshold above which the breaker opens. */
-  threshold: number
-  /** True when failures >= threshold. */
-  isOpen:    boolean
-  /** True when the half-open probe slot is currently held by some caller. */
-  probeHeld: boolean
-  /** Seconds until the probe slot TTL expires. -2 = no probe held. */
-  probeTtl:  number
+	/**
+	 * Current failure count in the sliding window. 0 when the counter key
+	 *  has expired or never existed.
+	 */
+	failures: number;
+	/**
+	 * Seconds until the failure-counter key TTL expires. -2 = key missing,
+	 *  -1 = no TTL set.
+	 */
+	windowTtl: number;
+	/** Threshold above which the breaker opens. */
+	threshold: number;
+	/** True when failures >= threshold. */
+	isOpen: boolean;
+	/** True when the half-open probe slot is currently held by some caller. */
+	probeHeld: boolean;
+	/** Seconds until the probe slot TTL expires. -2 = no probe held. */
+	probeTtl: number;
 }
 
 export async function getBreakerSnapshot(name: string): Promise<BreakerSnapshot> {
-  const config = configFor(name)
-  const fk = failureKey(name)
-  const pk = probeKey(name)
-  const [rawFailures, windowTtl, rawProbe, probeTtl] = await Promise.all([
-    redis.get<number | string>(fk),
-    redis.ttl(fk),
-    redis.get<string>(pk),
-    redis.ttl(pk),
-  ])
-  let failures = 0
-  if (rawFailures !== null && rawFailures !== undefined) {
-    const n = typeof rawFailures === 'string' ? Number.parseInt(rawFailures, 10) : rawFailures
-    failures = Number.isFinite(n) ? n : 0
-  }
-  return {
-    failures,
-    windowTtl,
-    threshold: config.threshold,
-    isOpen:    failures >= config.threshold,
-    probeHeld: rawProbe !== null && rawProbe !== undefined,
-    probeTtl,
-  }
+	const config = configFor(name);
+	const fk = failureKey(name);
+	const pk = probeKey(name);
+	const [rawFailures, windowTtl, rawProbe, probeTtl] = await Promise.all([
+		redis.get<number | string>(fk),
+		redis.ttl(fk),
+		redis.get<string>(pk),
+		redis.ttl(pk),
+	]);
+	let failures = 0;
+	if (rawFailures !== null && rawFailures !== undefined) {
+		const n = typeof rawFailures === "string" ? Number.parseInt(rawFailures, 10) : rawFailures;
+		failures = Number.isFinite(n) ? n : 0;
+	}
+	return {
+		failures,
+		windowTtl,
+		threshold: config.threshold,
+		isOpen: failures >= config.threshold,
+		probeHeld: rawProbe !== null && rawProbe !== undefined,
+		probeTtl,
+	};
 }
 
 /**
@@ -262,13 +270,13 @@ export async function getBreakerSnapshot(name: string): Promise<BreakerSnapshot>
  * (someone else is already probing — fast-fail).
  */
 async function tryAcquireProbe(name: string): Promise<boolean> {
-  const result = await redis.set(probeKey(name), '1', { ex: PROBE_TTL_SECONDS, nx: true })
-  return result === 'OK'
+	const result = await redis.set(probeKey(name), "1", { ex: PROBE_TTL_SECONDS, nx: true });
+	return result === "OK";
 }
 
 /** Release the probe slot. Called whether the probe succeeded or failed. */
 async function releaseProbe(name: string): Promise<void> {
-  await redis.del(probeKey(name))
+	await redis.del(probeKey(name));
 }
 
 /**
@@ -308,58 +316,61 @@ async function releaseProbe(name: string): Promise<void> {
  * )
  */
 export async function withBreaker<T>(
-  name:           string,
-  serviceMessage: string,
-  fn:             () => Promise<T>,
+	name: string,
+	serviceMessage: string,
+	fn: () => Promise<T>,
 ): Promise<T> {
-  // Fast-path: when the breaker is closed (the 99% case), the only Redis
-  // round-trip on the success path is this one isOpen check. recordSuccess
-  // and releaseProbe are skipped unless we actually entered the open-branch
-  // (acquiredProbe = true), which keeps per-call overhead at one Redis op
-  // for the common case. Without this guard the breaker added 3 round-trips
-  // per call (isOpen + recordSuccess + releaseProbe), which for hot paths
-  // like rate-limit middleware was prohibitive.
-  let acquiredProbe = false
-  if (await isOpen(name)) {
-    if (!(await tryAcquireProbe(name))) {
-      // Someone else is probing — fast-fail.
-      throw new ServiceUnavailableError(serviceMessage, await getRetryAfterSeconds(name))
-    }
-    acquiredProbe = true
-    // We're the prober — fall through to the inner try/catch. The probe slot
-    // is held until success/failure path releases it below.
-  }
+	// Fast-path: when the breaker is closed (the 99% case), the only Redis
+	// round-trip on the success path is this one isOpen check. recordSuccess
+	// and releaseProbe are skipped unless we actually entered the open-branch
+	// (acquiredProbe = true), which keeps per-call overhead at one Redis op
+	// for the common case. Without this guard the breaker added 3 round-trips
+	// per call (isOpen + recordSuccess + releaseProbe), which for hot paths
+	// like rate-limit middleware was prohibitive.
+	let acquiredProbe = false;
+	if (await isOpen(name)) {
+		if (!(await tryAcquireProbe(name))) {
+			// Someone else is probing — fast-fail.
+			throw new ServiceUnavailableError(serviceMessage, await getRetryAfterSeconds(name));
+		}
+		acquiredProbe = true;
+		// We're the prober — fall through to the inner try/catch. The probe slot
+		// is held until success/failure path releases it below.
+	}
 
-  try {
-    const result = await fn()
-    if (acquiredProbe) {
-      // Probe success → close the breaker and release the slot. On the
-      // closed-path success (acquiredProbe = false) we skip both: the
-      // failure-counter key auto-expires after windowSeconds, and there's
-      // no probe to release.
-      await recordSuccess(name)
-      await releaseProbe(name)
-    }
-    return result
-  } catch (err) {
-    // Skip the failure record for deterministic AppError throws — they're
-    // not infrastructure outages, just deliberate semantic errors from the
-    // inner fn that retrying won't fix. ServiceUnavailableError extends
-    // AppError, so the second clause is critical: it IS the breaker's
-    // signal of degradation and MUST count.
-    if (err instanceof AppError && !(err instanceof ServiceUnavailableError)) {
-      // Don't record a failure, but DO release the probe (we held it but
-      // the call wasn't a real test of upstream health).
-      if (acquiredProbe) await releaseProbe(name)
-      throw err
-    }
-    await recordFailure(name)
-    if (acquiredProbe) await releaseProbe(name)
-    if (err instanceof AppError) throw err
-    // Forward the original error as `cause` so the global handler's
-    // `summarizeErr` can surface it in the log line — without this the
-    // SDK / network failure that opened the breaker is invisible past
-    // this boundary.
-    throw new ServiceUnavailableError(serviceMessage, INLINE_RETRY_AFTER_SECONDS, { cause: err })
-  }
+	try {
+		const result = await fn();
+		if (acquiredProbe) {
+			// Probe success → close the breaker and release the slot. On the
+			// closed-path success (acquiredProbe = false) we skip both: the
+			// failure-counter key auto-expires after windowSeconds, and there's
+			// no probe to release.
+			await recordSuccess(name);
+			await releaseProbe(name);
+		}
+		return result;
+	} catch (err) {
+		// Skip the failure record for deterministic AppError throws — they're
+		// not infrastructure outages, just deliberate semantic errors from the
+		// inner fn that retrying won't fix. ServiceUnavailableError extends
+		// AppError, so the second clause is critical: it IS the breaker's
+		// signal of degradation and MUST count.
+		if (err instanceof AppError && !(err instanceof ServiceUnavailableError)) {
+			// Don't record a failure, but DO release the probe (we held it but
+			// the call wasn't a real test of upstream health).
+			if (acquiredProbe)
+				await releaseProbe(name);
+			throw err;
+		}
+		await recordFailure(name);
+		if (acquiredProbe)
+			await releaseProbe(name);
+		if (err instanceof AppError)
+			throw err;
+		// Forward the original error as `cause` so the global handler's
+		// `summarizeErr` can surface it in the log line — without this the
+		// SDK / network failure that opened the breaker is invisible past
+		// this boundary.
+		throw new ServiceUnavailableError(serviceMessage, INLINE_RETRY_AFTER_SECONDS, { cause: err });
+	}
 }

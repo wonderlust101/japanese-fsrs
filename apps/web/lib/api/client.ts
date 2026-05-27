@@ -1,9 +1,9 @@
-import 'server-only'
+import { z } from "zod";
 
-import { z } from 'zod'
+import { env } from "@/lib/env";
 
-import { env } from '@/lib/env'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import "server-only";
 
 /**
  * Shared helper for server actions that call the Express API.
@@ -21,7 +21,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
  */
 
 /** Tiny schema for the API's standard error envelope. Used at error paths. */
-const apiErrorBodySchema = z.object({ error: z.string() }).partial()
+const apiErrorBodySchema = z.object({ error: z.string() }).partial();
 
 /**
  * Thrown by `apiCall` on non-2xx responses. Extends `Error` so existing
@@ -30,12 +30,12 @@ const apiErrorBodySchema = z.object({ error: z.string() }).partial()
  * conflicts from 5xx) can branch without parsing the message string.
  */
 export class ApiHttpError extends Error {
-  readonly status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.name   = 'ApiHttpError'
-    this.status = status
-  }
+	readonly status: number;
+	constructor(status: number, message: string) {
+		super(message);
+		this.name = "ApiHttpError";
+		this.status = status;
+	}
 }
 
 /**
@@ -50,7 +50,7 @@ export class ApiHttpError extends Error {
  * resets the socket, so the caller still observes the server's real behaviour;
  * this 35s signal only fires for connections the server's own cap can't reach.
  */
-const API_TIMEOUT_MS = 35_000
+const API_TIMEOUT_MS = 35_000;
 
 /**
  * Builds the abort signal for a single API fetch: a fresh 35s timeout, composed
@@ -58,43 +58,45 @@ const API_TIMEOUT_MS = 35_000
  * abort wins. Mirrors the server-side compose pattern in apps/api/src/db/supabase.ts.
  */
 function apiTimeoutSignal(init: RequestInit): AbortSignal {
-  const timeout = AbortSignal.timeout(API_TIMEOUT_MS)
-  return init.signal != null ? AbortSignal.any([init.signal, timeout]) : timeout
+	const timeout = AbortSignal.timeout(API_TIMEOUT_MS);
+	return init.signal != null ? AbortSignal.any([init.signal, timeout]) : timeout;
 }
 
 export async function apiCall<T>(
-  path:           string,
-  responseSchema: z.ZodType<T>,
-  init:           RequestInit = {},
-  errorPrefix:    string = 'Request failed',
+	path: string,
+	responseSchema: z.ZodType<T>,
+	init: RequestInit = {},
+	errorPrefix: string = "Request failed",
 ): Promise<T> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) throw new Error('Not authenticated')
+	const supabase = await createSupabaseServerClient();
+	const { data: { session } } = await supabase.auth.getSession();
+	if (session === null)
+		throw new Error("Not authenticated");
 
-  const headers = new Headers(init.headers)
-  headers.set('Authorization', `Bearer ${session.access_token}`)
-  if (init.body !== undefined && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
-  }
+	const headers = new Headers(init.headers);
+	headers.set("Authorization", `Bearer ${session.access_token}`);
+	if (init.body !== undefined && !headers.has("Content-Type")) {
+		headers.set("Content-Type", "application/json");
+	}
 
-  const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
-    ...init,
-    headers,
-    cache:  init.cache ?? 'no-store',
-    signal: apiTimeoutSignal(init),
-  })
+	const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+		...init,
+		headers,
+		cache: init.cache ?? "no-store",
+		signal: apiTimeoutSignal(init),
+	});
 
-  if (!res.ok) {
-    const raw = await res.json().catch(() => ({}))
-    const body = apiErrorBodySchema.safeParse(raw).data ?? {}
-    throw new ApiHttpError(res.status, body.error ?? errorPrefix)
-  }
+	if (!res.ok) {
+		const raw = await res.json().catch(() => ({}));
+		const body = apiErrorBodySchema.safeParse(raw).data ?? {};
+		throw new ApiHttpError(res.status, body.error ?? errorPrefix);
+	}
 
-  // 204 No Content — for void responses, callers pass `voidResponseSchema`.
-  if (res.status === 204) return responseSchema.parse(undefined)
-  const body = await res.json()
-  return responseSchema.parse(body)
+	// 204 No Content — for void responses, callers pass `voidResponseSchema`.
+	if (res.status === 204)
+		return responseSchema.parse(undefined);
+	const body = await res.json();
+	return responseSchema.parse(body);
 }
 
 /**
@@ -104,40 +106,42 @@ export async function apiCall<T>(
  * state than surface an error.
  */
 export async function apiCallSafe<T>(
-  path:           string,
-  responseSchema: z.ZodType<T>,
-  init:           RequestInit = {},
-  fallback:       T,
+	path: string,
+	responseSchema: z.ZodType<T>,
+	init: RequestInit = {},
+	fallback: T,
 ): Promise<T> {
-  const supabase = await createSupabaseServerClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (session === null) return fallback
+	const supabase = await createSupabaseServerClient();
+	const { data: { session } } = await supabase.auth.getSession();
+	if (session === null)
+		return fallback;
 
-  const headers = new Headers(init.headers)
-  headers.set('Authorization', `Bearer ${session.access_token}`)
-  if (init.body !== undefined && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
-  }
+	const headers = new Headers(init.headers);
+	headers.set("Authorization", `Bearer ${session.access_token}`);
+	if (init.body !== undefined && !headers.has("Content-Type")) {
+		headers.set("Content-Type", "application/json");
+	}
 
-  const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
-    ...init,
-    headers,
-    cache:  init.cache ?? 'no-store',
-    signal: apiTimeoutSignal(init),
-  })
+	const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+		...init,
+		headers,
+		cache: init.cache ?? "no-store",
+		signal: apiTimeoutSignal(init),
+	});
 
-  if (!res.ok) {
-    const raw = await res.json().catch(() => ({}))
-    const body = apiErrorBodySchema.safeParse(raw).data ?? {}
-    console.warn(`[apiCallSafe] ${path} → ${res.status}: ${body.error ?? '(no body)'}`)
-    return fallback
-  }
-  if (res.status === 204) return fallback
-  const body = await res.json()
-  const parsed = responseSchema.safeParse(body)
-  if (!parsed.success) {
-    console.warn(`[apiCallSafe] ${path} response failed schema validation:`, parsed.error.message)
-    return fallback
-  }
-  return parsed.data
+	if (!res.ok) {
+		const raw = await res.json().catch(() => ({}));
+		const body = apiErrorBodySchema.safeParse(raw).data ?? {};
+		console.warn(`[apiCallSafe] ${path} → ${res.status}: ${body.error ?? "(no body)"}`);
+		return fallback;
+	}
+	if (res.status === 204)
+		return fallback;
+	const body = await res.json();
+	const parsed = responseSchema.safeParse(body);
+	if (!parsed.success) {
+		console.warn(`[apiCallSafe] ${path} response failed schema validation:`, parsed.error.message);
+		return fallback;
+	}
+	return parsed.data;
 }

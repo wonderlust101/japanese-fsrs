@@ -1,32 +1,32 @@
-import { createServerClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-import { env } from '@/lib/env'
+import { env } from "@/lib/env";
 
 // Untyped against the `Database` schema by design — see browser.ts for rationale.
 export async function createSupabaseServerClient(): Promise<SupabaseClient> {
-  const cookieStore = await cookies()
+	const cookieStore = await cookies();
 
-  return createServerClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options)
-            })
-          } catch {
-            // Server Component context — cookies cannot be set here.
-            // The middleware handles session token refresh instead.
-          }
-        },
-      },
-    },
-  )
+	return createServerClient(
+		env.NEXT_PUBLIC_SUPABASE_URL,
+		env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+		{
+			cookies: {
+				getAll() {
+					return cookieStore.getAll();
+				},
+				setAll(cookiesToSet) {
+					try {
+						cookiesToSet.forEach(({ name, value, options }) => {
+							cookieStore.set(name, value, options);
+						});
+					} catch {
+						// Server Component context — cookies cannot be set here.
+						// The middleware handles session token refresh instead.
+					}
+				},
+			},
+		},
+	);
 }

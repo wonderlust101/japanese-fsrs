@@ -1,9 +1,9 @@
-import { Redis } from '@upstash/redis'
-import { env } from '../lib/env.ts'
-import { TIMEOUTS } from '../lib/timeouts.ts'
-import { withBreaker } from '../lib/circuit-breaker.ts'
+import { Redis } from "@upstash/redis";
+import { withBreaker } from "../lib/circuit-breaker.ts";
+import { env } from "../lib/env.ts";
+import { TIMEOUTS } from "../lib/timeouts.ts";
 
-const UPSTASH_UNAVAILABLE_MSG = 'Cache temporarily unavailable; please retry shortly'
+const UPSTASH_UNAVAILABLE_MSG = "Cache temporarily unavailable; please retry shortly";
 
 /**
  * Underlying Upstash Redis client. Used directly by the circuit breaker
@@ -22,13 +22,13 @@ const UPSTASH_UNAVAILABLE_MSG = 'Cache temporarily unavailable; please retry sho
  *     synchronized retry storms when many callers retry the same upstream.
  */
 const realRedis = new Redis({
-  url:    env.UPSTASH_REDIS_REST_URL,
-  token:  env.UPSTASH_REDIS_REST_TOKEN,
-  signal: () => AbortSignal.timeout(TIMEOUTS.upstashFetch),
-  retry: {
-    backoff: (retryCount: number) => Math.exp(retryCount) * 50 + Math.random() * 100,
-  },
-})
+	url: env.UPSTASH_REDIS_REST_URL,
+	token: env.UPSTASH_REDIS_REST_TOKEN,
+	signal: () => AbortSignal.timeout(TIMEOUTS.upstashFetch),
+	retry: {
+		backoff: (retryCount: number) => Math.exp(retryCount) * 50 + Math.random() * 100,
+	},
+});
 
 /**
  * Raw Upstash client without breaker wrapping. ONLY for use by
@@ -40,7 +40,7 @@ const realRedis = new Redis({
  * Proxy-wrapped `redis` export below so Upstash failures count toward the
  * breaker.
  */
-export const rawRedis = realRedis
+export const rawRedis = realRedis;
 
 /**
  * Application-facing Upstash Redis client, wrapped with circuit-breaker
@@ -72,12 +72,12 @@ export const rawRedis = realRedis
  * 200ms window, not per call.
  */
 export const redis = new Proxy(realRedis, {
-  get(target, prop, receiver) {
-    const original = Reflect.get(target, prop, receiver) as unknown
-    if (typeof original !== 'function') return original
-    return (...args: unknown[]) =>
-      withBreaker('upstash', UPSTASH_UNAVAILABLE_MSG, async () =>
-        (original as (...a: unknown[]) => unknown).apply(target, args),
-      )
-  },
-})
+	get(target, prop, receiver) {
+		const original = Reflect.get(target, prop, receiver) as unknown;
+		if (typeof original !== "function")
+			return original;
+		return (...args: unknown[]) =>
+			withBreaker("upstash", UPSTASH_UNAVAILABLE_MSG, async () =>
+				(original as (...a: unknown[]) => unknown).apply(target, args));
+	},
+});

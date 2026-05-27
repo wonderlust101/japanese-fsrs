@@ -1,21 +1,21 @@
 {
-  "name": "@fsrs-japanese/shared-types",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
-  },
-  "dependencies": {
-    "ts-fsrs": "^5.3.2",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@fsrs-japanese/tsconfig": "workspace:*"
-  }
+	"name": "@fsrs-japanese/shared-types",
+	"type": "module",
+	"version": "0.0.0",
+	"private": true,
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "eslint src",
+		"lint:fix": "eslint src --fix"
+	},
+	"dependencies": {
+		"ts-fsrs": "^5.3.2",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@fsrs-japanese/tsconfig": "workspace:*"
+	}
 }

@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types.ts'
-import { env } from '../lib/env.ts'
-import { TIMEOUTS } from '../lib/timeouts.ts'
-import { withBreaker } from '../lib/circuit-breaker.ts'
-import { retry, isNetworkError, isTransientHttp, TransientHttpError } from '../lib/retry.ts'
+import type { Database } from "./database.types.ts";
+import { createClient } from "@supabase/supabase-js";
+import { withBreaker } from "../lib/circuit-breaker.ts";
+import { env } from "../lib/env.ts";
+import { isNetworkError, isTransientHttp, retry, TransientHttpError } from "../lib/retry.ts";
+import { TIMEOUTS } from "../lib/timeouts.ts";
 
-const SUPABASE_UNAVAILABLE_MSG = 'Database temporarily unavailable; please retry shortly'
+const SUPABASE_UNAVAILABLE_MSG = "Database temporarily unavailable; please retry shortly";
 
 /**
  * Per-call fetch wrapper with three layers of resilience:
@@ -38,44 +38,43 @@ const SUPABASE_UNAVAILABLE_MSG = 'Database temporarily unavailable; please retry
  * never invokes preconnect, so the cast is safe in practice.
  */
 const timeoutFetch = ((...args: Parameters<typeof fetch>) => {
-  const [input, init] = args
+	const [input, init] = args;
 
-  return withBreaker('supabase', SUPABASE_UNAVAILABLE_MSG, () =>
-    retry(
-      async () => {
-        const timeoutSignal = AbortSignal.timeout(TIMEOUTS.supabaseFetch)
-        const signal = init?.signal != null
-          ? AbortSignal.any([init.signal, timeoutSignal])
-          : timeoutSignal
-        const res = await fetch(input, { ...init, signal })
-        if (res.status >= 502 && res.status <= 504) {
-          // Cancel the body so the underlying socket releases back to the
-          // agent pool — without this, abandoned 5xx bodies pin sockets in
-          // the fetch agent pool until GC, which under sustained Supabase
-          // 5xx amplifies the outage by exhausting available sockets.
-          // Cancellation is best-effort: failure to cancel just means GC
-          // catches up later, no behavioral impact on the retry path.
-          res.body?.cancel().catch(() => undefined)
-          throw new TransientHttpError(res.status)
-        }
-        return res
-      },
-      {
-        maxAttempts: 3,
-        baseMs:      200,
-        maxMs:       2000,
-        factor:      2,
-        isRetryable: (err) => isNetworkError(err) || isTransientHttp(err),
-        label:       'supabase',
-        // Pass through the caller's signal so retry's backoff sleep is
-        // cancellable on client disconnect — without this, aborted requests
-        // still wait out the full jittered backoff before the retry loop
-        // exits.
-        signal:      init?.signal ?? undefined,
-      },
-    ),
-  )
-}) as typeof fetch
+	return withBreaker("supabase", SUPABASE_UNAVAILABLE_MSG, () =>
+		retry(
+			async () => {
+				const timeoutSignal = AbortSignal.timeout(TIMEOUTS.supabaseFetch);
+				const signal = init?.signal != null
+					? AbortSignal.any([init.signal, timeoutSignal])
+					: timeoutSignal;
+				const res = await fetch(input, { ...init, signal });
+				if (res.status >= 502 && res.status <= 504) {
+					// Cancel the body so the underlying socket releases back to the
+					// agent pool — without this, abandoned 5xx bodies pin sockets in
+					// the fetch agent pool until GC, which under sustained Supabase
+					// 5xx amplifies the outage by exhausting available sockets.
+					// Cancellation is best-effort: failure to cancel just means GC
+					// catches up later, no behavioral impact on the retry path.
+					res.body?.cancel().catch(() => undefined);
+					throw new TransientHttpError(res.status);
+				}
+				return res;
+			},
+			{
+				maxAttempts: 3,
+				baseMs: 200,
+				maxMs: 2000,
+				factor: 2,
+				isRetryable: err => isNetworkError(err) || isTransientHttp(err),
+				label: "supabase",
+				// Pass through the caller's signal so retry's backoff sleep is
+				// cancellable on client disconnect — without this, aborted requests
+				// still wait out the full jittered backoff before the retry loop
+				// exits.
+				signal: init?.signal ?? undefined,
+			},
+		));
+}) as typeof fetch;
 
 /**
  * Service-role Supabase client. Bypasses RLS — use only after the request's
@@ -93,11 +92,11 @@ const timeoutFetch = ((...args: Parameters<typeof fetch>) => {
  * three pins, passing the options bag triggers conditional inference that
  * fails to assign under `exactOptionalPropertyTypes: true`.
  */
-export const supabaseAdmin = createClient<Database, 'public', 'public'>(
-  env.SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-  { global: { fetch: timeoutFetch } },
-)
+export const supabaseAdmin = createClient<Database, "public", "public">(
+	env.SUPABASE_URL,
+	env.SUPABASE_SERVICE_ROLE_KEY,
+	{ global: { fetch: timeoutFetch } },
+);
 
 /**
  * Dedicated client for user-facing GoTrue operations (signIn / signUp /
@@ -117,8 +116,8 @@ export const supabaseAdmin = createClient<Database, 'public', 'public'>(
  * Admin operations (`auth.admin.*`) stay on `supabaseAdmin` — they use the
  * service_role key directly and do not set a session.
  */
-export const supabaseAuth = createClient<Database, 'public', 'public'>(
-  env.SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-  { global: { fetch: timeoutFetch }, auth: { persistSession: false, autoRefreshToken: false } },
-)
+export const supabaseAuth = createClient<Database, "public", "public">(
+	env.SUPABASE_URL,
+	env.SUPABASE_SERVICE_ROLE_KEY,
+	{ global: { fetch: timeoutFetch }, auth: { persistSession: false, autoRefreshToken: false } },
+);

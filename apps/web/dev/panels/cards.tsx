@@ -1,262 +1,282 @@
-'use client'
+"use client";
 
-import { useMemo } from 'react'
+import type { CardsResultRow } from "@/app/(app)/cards/_components/cards-results-table";
 
-import { State } from '@fsrs-japanese/shared-types'
+import type { DevFixtureSpec } from "@/dev";
 
-import { useDevStatePanel, type DevFixtureSpec } from '@/dev'
+import { State } from "@fsrs-japanese/shared-types";
 
-import type { CardsResultRow } from '@/app/(app)/cards/_components/cards-results-table'
+import { useMemo } from "react";
+import { useDevStatePanel } from "@/dev";
 
-export type CardsFixtureKey =
-  | 'off'
-  | 'first-run'
-  | 'empty'
-  | 'few'
-  | 'many'
-  | 'loading'
+export type CardsFixtureKey
+	= | "off"
+		| "first-run"
+		| "empty"
+		| "few"
+		| "many"
+		| "loading";
 
 export interface CardsDevState {
-  fixture: CardsFixtureKey
-  rows:    readonly CardsResultRow[]
-  /** Decks present in the fixture rows; used to populate the deck filter
-   *  dropdown so the filter actually maps to fixture data. */
-  decks:   readonly { id: string; name: string }[]
-  loading: boolean
-  /**
-   * When true, the orchestrator should render the brand-new-user empty
-   * state (kanji eyebrow + "No cards yet" + Add-a-card CTA) instead of
-   * the table chrome. Lets the dev panel exercise that branch without
-   * needing a real account with zero cards.
-   */
-  simulateFirstRun: boolean
+	fixture: CardsFixtureKey;
+	rows: readonly CardsResultRow[];
+	/**
+	 * Decks present in the fixture rows; used to populate the deck filter
+	 *  dropdown so the filter actually maps to fixture data.
+	 */
+	decks: readonly { id: string; name: string }[];
+	loading: boolean;
+	/**
+	 * When true, the orchestrator should render the brand-new-user empty
+	 * state (kanji eyebrow + "No cards yet" + Add-a-card CTA) instead of
+	 * the table chrome. Lets the dev panel exercise that branch without
+	 * needing a real account with zero cards.
+	 */
+	simulateFirstRun: boolean;
 }
 
 const FIXTURES: ReadonlyArray<DevFixtureSpec<CardsFixtureKey>> = [
-  { key: 'off',       label: 'Off',       description: 'Default empty-state shell (live data, none yet).' },
-  { key: 'first-run', label: 'First-run', description: 'Brand-new user: zero cards, no filters. Shows the onboarding empty state with the Add-a-card CTA.' },
-  { key: 'empty',     label: 'Empty',     description: 'Filters / saved view exclude every fixture row.' },
-  { key: 'few',       label: 'Few',       description: 'Eight varied cards across four decks.' },
-  { key: 'many',      label: 'Many',      description: '120 cards across eight decks. Filters wired against this set.' },
-  { key: 'loading',   label: 'Loading',   description: 'Skeleton rows.' },
-]
+	{ key: "off", label: "Off", description: "Default empty-state shell (live data, none yet)." },
+	{ key: "first-run", label: "First-run", description: "Brand-new user: zero cards, no filters. Shows the onboarding empty state with the Add-a-card CTA." },
+	{ key: "empty", label: "Empty", description: "Filters / saved view exclude every fixture row." },
+	{ key: "few", label: "Few", description: "Eight varied cards across four decks." },
+	{ key: "many", label: "Many", description: "120 cards across eight decks. Filters wired against this set." },
+	{ key: "loading", label: "Loading", description: "Skeleton rows." },
+];
 
 export function useCardsDevState(): CardsDevState {
-  const { fixture } = useDevStatePanel({
-    id:             'cards.browser',
-    title:          'Cards · Browser',
-    fixtures:       FIXTURES,
-    defaultFixture: 'off',
-  })
+	const { fixture } = useDevStatePanel({
+		id: "cards.browser",
+		title: "Cards · Browser",
+		fixtures: FIXTURES,
+		defaultFixture: "off",
+	});
 
-  const rows: readonly CardsResultRow[] =
-    fixture === 'few'  ? FEW_ROWS  :
-    fixture === 'many' ? MANY_ROWS :
-    []
+	const rows: readonly CardsResultRow[]
+		= fixture === "few"
+			? FEW_ROWS
+			: fixture === "many"
+				? MANY_ROWS
+				: [];
 
-  // Derive the fixture decks from the rows themselves so the filter dropdown
-  // is always consistent with what's renderable.
-  const decks = useMemo(() => {
-    if (rows.length === 0) return []
-    const map = new Map<string, string>()
-    for (const r of rows) map.set(r.deckId, r.deckName)
-    return Array.from(map, ([id, name]) => ({ id, name }))
-  }, [rows])
+	// Derive the fixture decks from the rows themselves so the filter dropdown
+	// is always consistent with what's renderable.
+	const decks = useMemo(() => {
+		if (rows.length === 0)
+			return [];
+		const map = new Map<string, string>();
+		for (const r of rows) map.set(r.deckId, r.deckName);
+		return Array.from(map, ([id, name]) => ({ id, name }));
+	}, [rows]);
 
-  return {
-    fixture,
-    rows,
-    decks,
-    loading:          fixture === 'loading',
-    simulateFirstRun: fixture === 'first-run',
-  }
+	return {
+		fixture,
+		rows,
+		decks,
+		loading: fixture === "loading",
+		simulateFirstRun: fixture === "first-run",
+	};
 }
 
 // ── Fixture vocabulary ──────────────────────────────────────────────────────
 
 interface VocabEntry {
-  word:         string
-  reading:      string
-  meaning:      string
-  jlpt:         CardsResultRow['jlptLevel']
-  partOfSpeech: string
+	word: string;
+	reading: string;
+	meaning: string;
+	jlpt: CardsResultRow["jlptLevel"];
+	partOfSpeech: string;
 }
 
 const VOCAB: readonly VocabEntry[] = [
-  // ── N5
-  { word: '食べる',  reading: 'たべる',     meaning: 'to eat',                jlpt: 'N5', partOfSpeech: 'る-verb' },
-  { word: '飲む',    reading: 'のむ',       meaning: 'to drink',              jlpt: 'N5', partOfSpeech: 'う-verb' },
-  { word: '行く',    reading: 'いく',       meaning: 'to go',                 jlpt: 'N5', partOfSpeech: 'う-verb' },
-  { word: '来る',    reading: 'くる',       meaning: 'to come',               jlpt: 'N5', partOfSpeech: 'irreg verb' },
-  { word: '見る',    reading: 'みる',       meaning: 'to see; to look',       jlpt: 'N5', partOfSpeech: 'る-verb' },
-  { word: '聞く',    reading: 'きく',       meaning: 'to listen; to ask',     jlpt: 'N5', partOfSpeech: 'う-verb' },
-  { word: '本',      reading: 'ほん',       meaning: 'book',                  jlpt: 'N5', partOfSpeech: 'noun' },
-  { word: '水',      reading: 'みず',       meaning: 'water',                 jlpt: 'N5', partOfSpeech: 'noun' },
-  { word: '人',      reading: 'ひと',       meaning: 'person',                jlpt: 'N5', partOfSpeech: 'noun' },
-  { word: '時間',    reading: 'じかん',     meaning: 'time; hour',            jlpt: 'N5', partOfSpeech: 'noun' },
-  { word: '学校',    reading: 'がっこう',   meaning: 'school',                jlpt: 'N5', partOfSpeech: 'noun' },
-  { word: '友達',    reading: 'ともだち',   meaning: 'friend',                jlpt: 'N5', partOfSpeech: 'noun' },
+	// ── N5
+	{ word: "食べる", reading: "たべる", meaning: "to eat", jlpt: "N5", partOfSpeech: "る-verb" },
+	{ word: "飲む", reading: "のむ", meaning: "to drink", jlpt: "N5", partOfSpeech: "う-verb" },
+	{ word: "行く", reading: "いく", meaning: "to go", jlpt: "N5", partOfSpeech: "う-verb" },
+	{ word: "来る", reading: "くる", meaning: "to come", jlpt: "N5", partOfSpeech: "irreg verb" },
+	{ word: "見る", reading: "みる", meaning: "to see; to look", jlpt: "N5", partOfSpeech: "る-verb" },
+	{ word: "聞く", reading: "きく", meaning: "to listen; to ask", jlpt: "N5", partOfSpeech: "う-verb" },
+	{ word: "本", reading: "ほん", meaning: "book", jlpt: "N5", partOfSpeech: "noun" },
+	{ word: "水", reading: "みず", meaning: "water", jlpt: "N5", partOfSpeech: "noun" },
+	{ word: "人", reading: "ひと", meaning: "person", jlpt: "N5", partOfSpeech: "noun" },
+	{ word: "時間", reading: "じかん", meaning: "time; hour", jlpt: "N5", partOfSpeech: "noun" },
+	{ word: "学校", reading: "がっこう", meaning: "school", jlpt: "N5", partOfSpeech: "noun" },
+	{ word: "友達", reading: "ともだち", meaning: "friend", jlpt: "N5", partOfSpeech: "noun" },
 
-  // ── N4
-  { word: '走る',    reading: 'はしる',     meaning: 'to run',                jlpt: 'N4', partOfSpeech: 'う-verb' },
-  { word: '泳ぐ',    reading: 'およぐ',     meaning: 'to swim',               jlpt: 'N4', partOfSpeech: 'う-verb' },
-  { word: '歌う',    reading: 'うたう',     meaning: 'to sing',               jlpt: 'N4', partOfSpeech: 'う-verb' },
-  { word: '踊る',    reading: 'おどる',     meaning: 'to dance',              jlpt: 'N4', partOfSpeech: 'う-verb' },
-  { word: '工場',    reading: 'こうじょう', meaning: 'factory',               jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '空港',    reading: 'くうこう',   meaning: 'airport',               jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '荷物',    reading: 'にもつ',     meaning: 'luggage; package',      jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '家族',    reading: 'かぞく',     meaning: 'family',                jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '映画',    reading: 'えいが',     meaning: 'movie',                 jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '料理',    reading: 'りょうり',   meaning: 'cooking; dish',         jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '冷蔵庫',  reading: 'れいぞうこ', meaning: 'refrigerator',          jlpt: 'N4', partOfSpeech: 'noun' },
-  { word: '注意',    reading: 'ちゅうい',   meaning: 'caution; attention',    jlpt: 'N4', partOfSpeech: 'noun' },
+	// ── N4
+	{ word: "走る", reading: "はしる", meaning: "to run", jlpt: "N4", partOfSpeech: "う-verb" },
+	{ word: "泳ぐ", reading: "およぐ", meaning: "to swim", jlpt: "N4", partOfSpeech: "う-verb" },
+	{ word: "歌う", reading: "うたう", meaning: "to sing", jlpt: "N4", partOfSpeech: "う-verb" },
+	{ word: "踊る", reading: "おどる", meaning: "to dance", jlpt: "N4", partOfSpeech: "う-verb" },
+	{ word: "工場", reading: "こうじょう", meaning: "factory", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "空港", reading: "くうこう", meaning: "airport", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "荷物", reading: "にもつ", meaning: "luggage; package", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "家族", reading: "かぞく", meaning: "family", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "映画", reading: "えいが", meaning: "movie", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "料理", reading: "りょうり", meaning: "cooking; dish", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "冷蔵庫", reading: "れいぞうこ", meaning: "refrigerator", jlpt: "N4", partOfSpeech: "noun" },
+	{ word: "注意", reading: "ちゅうい", meaning: "caution; attention", jlpt: "N4", partOfSpeech: "noun" },
 
-  // ── N3
-  { word: '大学',    reading: 'だいがく',     meaning: 'university; college', jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '紅葉',    reading: 'もみじ',       meaning: 'autumn leaves',       jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '経験',    reading: 'けいけん',     meaning: 'experience',          jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '質問',    reading: 'しつもん',     meaning: 'question',            jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '辞書',    reading: 'じしょ',       meaning: 'dictionary',          jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '理由',    reading: 'りゆう',       meaning: 'reason',              jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '残念',    reading: 'ざんねん',     meaning: 'regrettable; a pity', jlpt: 'N3', partOfSpeech: 'na-adj' },
-  { word: '緊張',    reading: 'きんちょう',   meaning: 'tension; nervousness', jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '優しい',  reading: 'やさしい',     meaning: 'kind; gentle',        jlpt: 'N3', partOfSpeech: 'i-adj' },
-  { word: '景色',    reading: 'けしき',       meaning: 'scenery',             jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '伝統',    reading: 'でんとう',     meaning: 'tradition',           jlpt: 'N3', partOfSpeech: 'noun' },
-  { word: '機会',    reading: 'きかい',       meaning: 'opportunity',         jlpt: 'N3', partOfSpeech: 'noun' },
+	// ── N3
+	{ word: "大学", reading: "だいがく", meaning: "university; college", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "紅葉", reading: "もみじ", meaning: "autumn leaves", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "経験", reading: "けいけん", meaning: "experience", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "質問", reading: "しつもん", meaning: "question", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "辞書", reading: "じしょ", meaning: "dictionary", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "理由", reading: "りゆう", meaning: "reason", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "残念", reading: "ざんねん", meaning: "regrettable; a pity", jlpt: "N3", partOfSpeech: "na-adj" },
+	{ word: "緊張", reading: "きんちょう", meaning: "tension; nervousness", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "優しい", reading: "やさしい", meaning: "kind; gentle", jlpt: "N3", partOfSpeech: "i-adj" },
+	{ word: "景色", reading: "けしき", meaning: "scenery", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "伝統", reading: "でんとう", meaning: "tradition", jlpt: "N3", partOfSpeech: "noun" },
+	{ word: "機会", reading: "きかい", meaning: "opportunity", jlpt: "N3", partOfSpeech: "noun" },
 
-  // ── N2
-  { word: '懐かしい', reading: 'なつかしい',   meaning: 'nostalgic; dear',     jlpt: 'N2', partOfSpeech: 'i-adj' },
-  { word: '判断',    reading: 'はんだん',     meaning: 'judgment',            jlpt: 'N2', partOfSpeech: 'noun' },
-  { word: '困難',    reading: 'こんなん',     meaning: 'difficulty',          jlpt: 'N2', partOfSpeech: 'na-adj' },
-  { word: '貴重',    reading: 'きちょう',     meaning: 'precious; valuable',  jlpt: 'N2', partOfSpeech: 'na-adj' },
-  { word: '影響',    reading: 'えいきょう',   meaning: 'influence; effect',   jlpt: 'N2', partOfSpeech: 'noun' },
-  { word: '基本',    reading: 'きほん',       meaning: 'basis; fundamental',  jlpt: 'N2', partOfSpeech: 'noun' },
-  { word: '苦労',    reading: 'くろう',       meaning: 'hardship; trouble',   jlpt: 'N2', partOfSpeech: 'noun' },
-  { word: '提案',    reading: 'ていあん',     meaning: 'proposal; suggestion', jlpt: 'N2', partOfSpeech: 'noun' },
-  { word: '徐々に',  reading: 'じょじょに',   meaning: 'gradually',           jlpt: 'N2', partOfSpeech: 'adv' },
-  { word: '結局',    reading: 'けっきょく',   meaning: 'in the end',          jlpt: 'N2', partOfSpeech: 'adv' },
+	// ── N2
+	{ word: "懐かしい", reading: "なつかしい", meaning: "nostalgic; dear", jlpt: "N2", partOfSpeech: "i-adj" },
+	{ word: "判断", reading: "はんだん", meaning: "judgment", jlpt: "N2", partOfSpeech: "noun" },
+	{ word: "困難", reading: "こんなん", meaning: "difficulty", jlpt: "N2", partOfSpeech: "na-adj" },
+	{ word: "貴重", reading: "きちょう", meaning: "precious; valuable", jlpt: "N2", partOfSpeech: "na-adj" },
+	{ word: "影響", reading: "えいきょう", meaning: "influence; effect", jlpt: "N2", partOfSpeech: "noun" },
+	{ word: "基本", reading: "きほん", meaning: "basis; fundamental", jlpt: "N2", partOfSpeech: "noun" },
+	{ word: "苦労", reading: "くろう", meaning: "hardship; trouble", jlpt: "N2", partOfSpeech: "noun" },
+	{ word: "提案", reading: "ていあん", meaning: "proposal; suggestion", jlpt: "N2", partOfSpeech: "noun" },
+	{ word: "徐々に", reading: "じょじょに", meaning: "gradually", jlpt: "N2", partOfSpeech: "adv" },
+	{ word: "結局", reading: "けっきょく", meaning: "in the end", jlpt: "N2", partOfSpeech: "adv" },
 
-  // ── N1
-  { word: '矛盾',    reading: 'むじゅん',     meaning: 'contradiction',       jlpt: 'N1', partOfSpeech: 'noun' },
-  { word: '謙遜',    reading: 'けんそん',     meaning: 'modesty; humility',   jlpt: 'N1', partOfSpeech: 'noun' },
-  { word: '抽象',    reading: 'ちゅうしょう', meaning: 'abstract',            jlpt: 'N1', partOfSpeech: 'na-adj' },
-  { word: '網羅',    reading: 'もうら',       meaning: 'comprehensiveness',   jlpt: 'N1', partOfSpeech: 'noun' },
-  { word: '頻繁',    reading: 'ひんぱん',     meaning: 'frequent',            jlpt: 'N1', partOfSpeech: 'na-adj' },
-  { word: '披露',    reading: 'ひろう',       meaning: 'unveiling; showing',  jlpt: 'N1', partOfSpeech: 'noun' },
-  { word: '潜む',    reading: 'ひそむ',       meaning: 'to lurk; to hide',    jlpt: 'N1', partOfSpeech: 'う-verb' },
-  { word: '繊細',    reading: 'せんさい',     meaning: 'delicate; sensitive', jlpt: 'N1', partOfSpeech: 'na-adj' },
+	// ── N1
+	{ word: "矛盾", reading: "むじゅん", meaning: "contradiction", jlpt: "N1", partOfSpeech: "noun" },
+	{ word: "謙遜", reading: "けんそん", meaning: "modesty; humility", jlpt: "N1", partOfSpeech: "noun" },
+	{ word: "抽象", reading: "ちゅうしょう", meaning: "abstract", jlpt: "N1", partOfSpeech: "na-adj" },
+	{ word: "網羅", reading: "もうら", meaning: "comprehensiveness", jlpt: "N1", partOfSpeech: "noun" },
+	{ word: "頻繁", reading: "ひんぱん", meaning: "frequent", jlpt: "N1", partOfSpeech: "na-adj" },
+	{ word: "披露", reading: "ひろう", meaning: "unveiling; showing", jlpt: "N1", partOfSpeech: "noun" },
+	{ word: "潜む", reading: "ひそむ", meaning: "to lurk; to hide", jlpt: "N1", partOfSpeech: "う-verb" },
+	{ word: "繊細", reading: "せんさい", meaning: "delicate; sensitive", jlpt: "N1", partOfSpeech: "na-adj" },
 
-  // ── Beyond JLPT
-  { word: '木漏れ日', reading: 'こもれび',     meaning: 'sunlight through trees', jlpt: null, partOfSpeech: 'noun' },
-  { word: '幽玄',    reading: 'ゆうげん',     meaning: 'subtle profundity',   jlpt: null, partOfSpeech: 'noun' },
-  { word: '物の哀れ', reading: 'もののあわれ', meaning: 'pathos of things',    jlpt: null, partOfSpeech: 'noun' },
-]
+	// ── Beyond JLPT
+	{ word: "木漏れ日", reading: "こもれび", meaning: "sunlight through trees", jlpt: null, partOfSpeech: "noun" },
+	{ word: "幽玄", reading: "ゆうげん", meaning: "subtle profundity", jlpt: null, partOfSpeech: "noun" },
+	{ word: "物の哀れ", reading: "もののあわれ", meaning: "pathos of things", jlpt: null, partOfSpeech: "noun" },
+];
 
 interface DeckSpec { id: string; name: string }
 
-const DECK_N5:     DeckSpec = { id: 'deck-n5',      name: 'N5 Vocab' }
-const DECK_N4:     DeckSpec = { id: 'deck-n4',      name: 'N4 Vocab' }
-const DECK_N3:     DeckSpec = { id: 'deck-n3-core', name: 'N3 Vocab Core' }
-const DECK_N2:     DeckSpec = { id: 'deck-n2',      name: 'N2 Vocab' }
-const DECK_N1:     DeckSpec = { id: 'deck-n1',      name: 'N1 Vocab' }
-const DECK_GENKI:  DeckSpec = { id: 'deck-genki-1', name: 'Genki I 5-8' }
-const DECK_KANJI:  DeckSpec = { id: 'deck-kanji',   name: 'Kanji Radicals' }
-const DECK_BEYOND: DeckSpec = { id: 'deck-beyond',  name: 'Beyond JLPT' }
+const DECK_N5: DeckSpec = { id: "deck-n5", name: "N5 Vocab" };
+const DECK_N4: DeckSpec = { id: "deck-n4", name: "N4 Vocab" };
+const DECK_N3: DeckSpec = { id: "deck-n3-core", name: "N3 Vocab Core" };
+const DECK_N2: DeckSpec = { id: "deck-n2", name: "N2 Vocab" };
+const DECK_N1: DeckSpec = { id: "deck-n1", name: "N1 Vocab" };
+const DECK_GENKI: DeckSpec = { id: "deck-genki-1", name: "Genki I 5-8" };
+const DECK_KANJI: DeckSpec = { id: "deck-kanji", name: "Kanji Radicals" };
+const DECK_BEYOND: DeckSpec = { id: "deck-beyond", name: "Beyond JLPT" };
 
 const DECKS: readonly DeckSpec[] = [
-  DECK_N5, DECK_N4, DECK_N3, DECK_N2, DECK_N1, DECK_GENKI, DECK_KANJI, DECK_BEYOND,
-]
+	DECK_N5,
+	DECK_N4,
+	DECK_N3,
+	DECK_N2,
+	DECK_N1,
+	DECK_GENKI,
+	DECK_KANJI,
+	DECK_BEYOND,
+];
 
 const STATES: readonly { state: State; isSuspended: boolean; weight: number }[] = [
-  { state: State.Review,     isSuspended: false, weight: 5 },
-  { state: State.Learning,   isSuspended: false, weight: 2 },
-  { state: State.New,        isSuspended: false, weight: 2 },
-  { state: State.Relearning, isSuspended: false, weight: 1 },
-  { state: State.Review,     isSuspended: true,  weight: 1 },
-]
+	{ state: State.Review, isSuspended: false, weight: 5 },
+	{ state: State.Learning, isSuspended: false, weight: 2 },
+	{ state: State.New, isSuspended: false, weight: 2 },
+	{ state: State.Relearning, isSuspended: false, weight: 1 },
+	{ state: State.Review, isSuspended: true, weight: 1 },
+];
 
 const LAPSE_BUCKETS: readonly { lapses: number; weight: number }[] = [
-  { lapses: 0,  weight: 8 },
-  { lapses: 1,  weight: 5 },
-  { lapses: 2,  weight: 3 },
-  { lapses: 4,  weight: 2 },
-  { lapses: 8,  weight: 1 },
-  { lapses: 12, weight: 1 },
-]
+	{ lapses: 0, weight: 8 },
+	{ lapses: 1, weight: 5 },
+	{ lapses: 2, weight: 3 },
+	{ lapses: 4, weight: 2 },
+	{ lapses: 8, weight: 1 },
+	{ lapses: 12, weight: 1 },
+];
 
 /** Deterministic PRNG so dev sessions render the same fixture every time. */
 function mulberry32(seed: number): () => number {
-  let t = seed >>> 0
-  return () => {
-    t = (t + 0x6D2B79F5) >>> 0
-    let x = t
-    x = Math.imul(x ^ (x >>> 15), x | 1)
-    x ^= x + Math.imul(x ^ (x >>> 7), x | 61)
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296
-  }
+	let t = seed >>> 0;
+	return () => {
+		t = (t + 0x6D2B79F5) >>> 0;
+		let x = t;
+		x = Math.imul(x ^ (x >>> 15), x | 1);
+		x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+		return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+	};
 }
 
 function pickWeighted<T>(rng: () => number, items: readonly { weight: number; value: T }[], fallback: T): T {
-  const total = items.reduce((sum, it) => sum + it.weight, 0)
-  let pick = rng() * total
-  for (const it of items) {
-    pick -= it.weight
-    if (pick <= 0) return it.value
-  }
-  const first = items[0]
-  return first === undefined ? fallback : first.value
+	const total = items.reduce((sum, it) => sum + it.weight, 0);
+	let pick = rng() * total;
+	for (const it of items) {
+		pick -= it.weight;
+		if (pick <= 0)
+			return it.value;
+	}
+	const first = items[0];
+	return first === undefined ? fallback : first.value;
 }
 
 function buildRows(count: number, seed: number): readonly CardsResultRow[] {
-  const rng = mulberry32(seed)
-  const rows: CardsResultRow[] = []
-  for (let i = 0; i < count; i++) {
-    const vocab = VOCAB[i % VOCAB.length] ?? VOCAB[0]
-    if (vocab === undefined) continue
-    const jlptDeck =
-      vocab.jlpt === 'N5' ? DECK_N5 :
-      vocab.jlpt === 'N4' ? (rng() < 0.5 ? DECK_N4 : DECK_GENKI) :
-      vocab.jlpt === 'N3' ? DECK_N3 :
-      vocab.jlpt === 'N2' ? DECK_N2 :
-      vocab.jlpt === 'N1' ? DECK_N1 :
-      DECK_BEYOND
-    const fallbackDeck = DECKS[Math.floor(rng() * DECKS.length)] ?? DECK_N5
-    const deck = rng() < 0.85 ? jlptDeck : fallbackDeck
+	const rng = mulberry32(seed);
+	const rows: CardsResultRow[] = [];
+	for (let i = 0; i < count; i++) {
+		const vocab = VOCAB[i % VOCAB.length] ?? VOCAB[0];
+		if (vocab === undefined)
+			continue;
+		const jlptDeck
+			= vocab.jlpt === "N5"
+				? DECK_N5
+				: vocab.jlpt === "N4"
+					? (rng() < 0.5 ? DECK_N4 : DECK_GENKI)
+					: vocab.jlpt === "N3"
+						? DECK_N3
+						: vocab.jlpt === "N2"
+							? DECK_N2
+							: vocab.jlpt === "N1"
+								? DECK_N1
+								: DECK_BEYOND;
+		const fallbackDeck = DECKS[Math.floor(rng() * DECKS.length)] ?? DECK_N5;
+		const deck = rng() < 0.85 ? jlptDeck : fallbackDeck;
 
-    const { state, isSuspended } = pickWeighted(
-      rng,
-      STATES.map((s) => ({ weight: s.weight, value: { state: s.state, isSuspended: s.isSuspended } })),
-      { state: State.Review, isSuspended: false },
-    )
+		const { state, isSuspended } = pickWeighted(
+			rng,
+			STATES.map(s => ({ weight: s.weight, value: { state: s.state, isSuspended: s.isSuspended } })),
+			{ state: State.Review, isSuspended: false },
+		);
 
-    const due = state === State.New
-      ? null
-      : new Date(Date.now() + Math.floor(rng() * 60) * 24 * 60 * 60 * 1000).toISOString()
+		const due = state === State.New
+			? null
+			: new Date(Date.now() + Math.floor(rng() * 60) * 24 * 60 * 60 * 1000).toISOString();
 
-    const lapses = pickWeighted(
-      rng,
-      LAPSE_BUCKETS.map((b) => ({ weight: b.weight, value: b.lapses })),
-      0,
-    )
+		const lapses = pickWeighted(
+			rng,
+			LAPSE_BUCKETS.map(b => ({ weight: b.weight, value: b.lapses })),
+			0,
+		);
 
-    rows.push({
-      id:           `fixture-${seed}-${i}`,
-      word:         vocab.word,
-      reading:      vocab.reading,
-      meaning:      vocab.meaning,
-      deckId:       deck.id,
-      deckName:     deck.name,
-      jlptLevel:    vocab.jlpt,
-      partOfSpeech: vocab.partOfSpeech,
-      state,
-      isSuspended,
-      lapses,
-      due,
-    })
-  }
-  return rows
+		rows.push({
+			id: `fixture-${seed}-${i}`,
+			word: vocab.word,
+			reading: vocab.reading,
+			meaning: vocab.meaning,
+			deckId: deck.id,
+			deckName: deck.name,
+			jlptLevel: vocab.jlpt,
+			partOfSpeech: vocab.partOfSpeech,
+			state,
+			isSuspended,
+			lapses,
+			due,
+		});
+	}
+	return rows;
 }
 
-const FEW_ROWS:  readonly CardsResultRow[] = buildRows(8,   1)
-const MANY_ROWS: readonly CardsResultRow[] = buildRows(120, 17)
+const FEW_ROWS: readonly CardsResultRow[] = buildRows(8, 1);
+const MANY_ROWS: readonly CardsResultRow[] = buildRows(120, 17);

@@ -1,67 +1,60 @@
-'use server'
+"use server";
 
-import { apiCall } from '@/lib/api/client'
+import type { ApiBatchDiagnoseResult, ApiBatchResult, ApiDueCard, ApiForecastDay, ApiList, ApiRatingsPreview, ApiReviewedCard, SessionSummary, SubmitReviewInput } from "@fsrs-japanese/shared-types";
 import {
-  ApiBatchResultSchema,
-  ApiDueCardSchema,
-  ApiForecastDaySchema,
-  ApiRatingsPreviewSchema,
-  ApiReviewSubmitResponseSchema,
-  ApiReviewedCardSchema,
-  ApiBatchDiagnoseResultSchema,
-  SessionSummarySchema,
-  apiListEnvelope,
-  voidResponseSchema,
-  type SessionSummary,
-  type ApiDueCard,
-  type ApiForecastDay,
-  type ApiList,
-  type ApiBatchResult,
-  type ApiBatchDiagnoseResult,
-  type ApiRatingsPreview,
-  type ApiReviewedCard,
-  type SubmitReviewInput,
-} from '@fsrs-japanese/shared-types'
+	ApiBatchDiagnoseResultSchema,
+	ApiBatchResultSchema,
+	ApiDueCardSchema,
+	ApiForecastDaySchema,
+	apiListEnvelope,
+	ApiRatingsPreviewSchema,
+	ApiReviewedCardSchema,
+	ApiReviewSubmitResponseSchema,
+	SessionSummarySchema,
+	voidResponseSchema,
+
+} from "@fsrs-japanese/shared-types";
+import { apiCall } from "@/lib/api/client";
 
 export async function getDueCardsAction(): Promise<ApiList<ApiDueCard>> {
-  return apiCall<ApiList<ApiDueCard>>(
-    '/api/v1/reviews/due',
-    apiListEnvelope(ApiDueCardSchema),
-    {},
-    'Failed to fetch due cards',
-  )
+	return apiCall<ApiList<ApiDueCard>>(
+		"/api/v1/reviews/due",
+		apiListEnvelope(ApiDueCardSchema),
+		{},
+		"Failed to fetch due cards",
+	);
 }
 
 export async function submitReviewAction(
-  cardId:          SubmitReviewInput['cardId'],
-  rating:          SubmitReviewInput['rating'],
-  reviewTimeMs?:   SubmitReviewInput['reviewTimeMs'],
-  sessionId?:      SubmitReviewInput['sessionId'],
-  idempotencyKey?: string,
+	cardId: SubmitReviewInput["cardId"],
+	rating: SubmitReviewInput["rating"],
+	reviewTimeMs?: SubmitReviewInput["reviewTimeMs"],
+	sessionId?: SubmitReviewInput["sessionId"],
+	idempotencyKey?: string,
 ): Promise<ApiReviewedCard> {
-  // Server requires the header — generate one per call when the caller doesn't
-  // supply one. Direct-from-UI submits use a fresh key per click; offline-queue
-  // retries reuse the queue entry's stored key.
-  const key = idempotencyKey ?? crypto.randomUUID()
-  return apiCall<ApiReviewedCard>(
-    '/api/v1/reviews/submit',
-    ApiReviewSubmitResponseSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': key },
-      body:    JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }),
-    },
-    'Failed to submit review',
-  )
+	// Server requires the header — generate one per call when the caller doesn't
+	// supply one. Direct-from-UI submits use a fresh key per click; offline-queue
+	// retries reuse the queue entry's stored key.
+	const key = idempotencyKey ?? crypto.randomUUID();
+	return apiCall<ApiReviewedCard>(
+		"/api/v1/reviews/submit",
+		ApiReviewSubmitResponseSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": key },
+			body: JSON.stringify({ cardId, rating, reviewTimeMs, sessionId }),
+		},
+		"Failed to submit review",
+	);
 }
 
 export async function getSessionSummaryAction(sessionId: string): Promise<SessionSummary> {
-  return apiCall<SessionSummary>(
-    `/api/v1/reviews/session-summary/${encodeURIComponent(sessionId)}`,
-    SessionSummarySchema,
-    {},
-    'Failed to fetch session summary',
-  )
+	return apiCall<SessionSummary>(
+		`/api/v1/reviews/session-summary/${encodeURIComponent(sessionId)}`,
+		SessionSummarySchema,
+		{},
+		"Failed to fetch session summary",
+	);
 }
 
 // Batch diagnose all undiagnosed weak spots for a session. Returns a tally.
@@ -70,35 +63,35 @@ export async function getSessionSummaryAction(sessionId: string): Promise<Sessio
 // query. Per-row failures are absorbed server-side; the wire response is
 // always 200 with the tally unless the auth/rate-limit gate fails.
 export async function batchDiagnoseSessionWeakSpotsAction(
-  sessionId: string,
+	sessionId: string,
 ): Promise<ApiBatchDiagnoseResult> {
-  return apiCall<ApiBatchDiagnoseResult>(
-    `/api/v1/reviews/sessions/${encodeURIComponent(sessionId)}/diagnose-weak-spots`,
-    ApiBatchDiagnoseResultSchema,
-    {
-      method: 'POST',
-      headers: { 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify({}),
-    },
-    'Failed to diagnose session weak spots',
-  )
+	return apiCall<ApiBatchDiagnoseResult>(
+		`/api/v1/reviews/sessions/${encodeURIComponent(sessionId)}/diagnose-weak-spots`,
+		ApiBatchDiagnoseResultSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": crypto.randomUUID() },
+			body: JSON.stringify({}),
+		},
+		"Failed to diagnose session weak spots",
+	);
 }
 
 export async function submitBatchAction(
-  reviews:         SubmitReviewInput[],
-  idempotencyKey?: string,
+	reviews: SubmitReviewInput[],
+	idempotencyKey?: string,
 ): Promise<ApiBatchResult<ApiReviewedCard>> {
-  const key = idempotencyKey ?? crypto.randomUUID()
-  return apiCall<ApiBatchResult<ApiReviewedCard>>(
-    '/api/v1/reviews/batch',
-    ApiBatchResultSchema(ApiReviewedCardSchema),
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': key },
-      body:    JSON.stringify({ reviews }),
-    },
-    'Failed to submit batch',
-  )
+	const key = idempotencyKey ?? crypto.randomUUID();
+	return apiCall<ApiBatchResult<ApiReviewedCard>>(
+		"/api/v1/reviews/batch",
+		ApiBatchResultSchema(ApiReviewedCardSchema),
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": key },
+			body: JSON.stringify({ reviews }),
+		},
+		"Failed to submit batch",
+	);
 }
 
 /**
@@ -110,32 +103,32 @@ export async function submitBatchAction(
  * `Error.message`.
  */
 export async function rollbackReviewAction(reviewLogId: string): Promise<void> {
-  await apiCall<unknown>(
-    `/api/v1/reviews/${encodeURIComponent(reviewLogId)}/rollback`,
-    voidResponseSchema,
-    {
-      method:  'POST',
-      headers: { 'Idempotency-Key': crypto.randomUUID() },
-      body:    JSON.stringify({}),
-    },
-    'Failed to roll back review',
-  )
+	await apiCall<unknown>(
+		`/api/v1/reviews/${encodeURIComponent(reviewLogId)}/rollback`,
+		voidResponseSchema,
+		{
+			method: "POST",
+			headers: { "Idempotency-Key": crypto.randomUUID() },
+			body: JSON.stringify({}),
+		},
+		"Failed to roll back review",
+	);
 }
 
 export async function getRatingsPreviewAction(cardId: string): Promise<ApiRatingsPreview> {
-  return apiCall<ApiRatingsPreview>(
-    `/api/v1/reviews/${encodeURIComponent(cardId)}/preview`,
-    ApiRatingsPreviewSchema,
-    {},
-    'Failed to fetch ratings preview',
-  )
+	return apiCall<ApiRatingsPreview>(
+		`/api/v1/reviews/${encodeURIComponent(cardId)}/preview`,
+		ApiRatingsPreviewSchema,
+		{},
+		"Failed to fetch ratings preview",
+	);
 }
 
 export async function getReviewForecastAction(): Promise<ApiList<ApiForecastDay>> {
-  return apiCall<ApiList<ApiForecastDay>>(
-    '/api/v1/reviews/forecast',
-    apiListEnvelope(ApiForecastDaySchema),
-    {},
-    'Failed to fetch forecast',
-  )
+	return apiCall<ApiList<ApiForecastDay>>(
+		"/api/v1/reviews/forecast",
+		apiListEnvelope(ApiForecastDaySchema),
+		{},
+		"Failed to fetch forecast",
+	);
 }

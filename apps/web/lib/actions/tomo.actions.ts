@@ -1,13 +1,14 @@
-'use server'
+"use server";
 
-import type { z } from 'zod'
+import type { ApiTomoNote } from "@fsrs-japanese/shared-types";
 
+import type { z } from "zod";
 import {
-  ApiTomoNoteSchema,
-  type ApiTomoNote,
-} from '@fsrs-japanese/shared-types'
+	ApiTomoNoteSchema,
 
-import { apiCallSafe } from '@/lib/api/client'
+} from "@fsrs-japanese/shared-types";
+
+import { apiCallSafe } from "@/lib/api/client";
 
 /**
  * Fetches today's Tomo note (`GET /api/v1/tomo/note`). One note per learner
@@ -19,14 +20,14 @@ import { apiCallSafe } from '@/lib/api/client'
  * Returns null when the call fails, the response fails schema validation, or
  * the session is unauthenticated. The caller renders nothing in those cases.
  */
-const NullableTomoNoteSchema: z.ZodType<ApiTomoNote | null> =
-  ApiTomoNoteSchema.nullable()
+const NullableTomoNoteSchema: z.ZodType<ApiTomoNote | null>
+	= ApiTomoNoteSchema.nullable();
 
 export async function getTomoNoteAction(): Promise<ApiTomoNote | null> {
-  return apiCallSafe<ApiTomoNote | null>(
-    '/api/v1/tomo/note',
-    NullableTomoNoteSchema,
-    {},
-    null,
-  )
+	return apiCallSafe<ApiTomoNote | null>(
+		"/api/v1/tomo/note",
+		NullableTomoNoteSchema,
+		{},
+		null,
+	);
 }

@@ -1,23 +1,24 @@
-import { notFound }    from 'next/navigation'
-import type { Metadata } from 'next'
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
-import { getDeckCached }   from '@/lib/data/route-reads'
-import { DeckDetailView }  from './_components/deck-detail-view'
+import { getDeckCached } from "@/lib/data/route-reads";
+import { DeckDetailView } from "./_components/deck-detail-view";
 
 interface Props {
-  params: Promise<{ id: string }>
+	params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params
-  const deck   = await getDeckCached(id)
-  return { title: deck?.name ?? 'Deck' }
+	const { id } = await params;
+	const deck = await getDeckCached(id);
+	return { title: deck?.name ?? "Deck" };
 }
 
 export default async function DeckDetailPage({ params }: Props): Promise<React.JSX.Element> {
-  const { id: deckId } = await params
-  const deck           = await getDeckCached(deckId)
-  if (deck === null) notFound()
+	const { id: deckId } = await params;
+	const deck = await getDeckCached(deckId);
+	if (deck === null)
+		notFound();
 
-  return <DeckDetailView deckId={deckId} deckName={deck.name} />
+	return <DeckDetailView deckId={deckId} deckName={deck.name} />;
 }

@@ -11,30 +11,30 @@
  */
 export interface MockAuthUser { id: string }
 export interface GetUserResult {
-  data:  { user: MockAuthUser | null }
-  error: { message: string } | null
+	data: { user: MockAuthUser | null };
+	error: { message: string } | null;
 }
 
-const INVALID = (): GetUserResult => ({ data: { user: null }, error: { message: 'Invalid JWT' } })
+const INVALID = (): GetUserResult => ({ data: { user: null }, error: { message: "Invalid JWT" } });
 
 interface SupabaseAuthMock {
-  /** Per-test override: maps a bearer token to a getUser result. */
-  impl:    (token: string) => GetUserResult
-  /** Tokens passed to getUser, in order (assert cache hits / re-verification). */
-  calls:   string[]
-  getUser: (token: string) => Promise<GetUserResult>
-  reset:   () => void
+	/** Per-test override: maps a bearer token to a getUser result. */
+	impl: (token: string) => GetUserResult;
+	/** Tokens passed to getUser, in order (assert cache hits / re-verification). */
+	calls: string[];
+	getUser: (token: string) => Promise<GetUserResult>;
+	reset: () => void;
 }
 
 export const supabaseAuthMock: SupabaseAuthMock = {
-  impl:  INVALID,
-  calls: [],
-  getUser: async (token: string): Promise<GetUserResult> => {
-    supabaseAuthMock.calls.push(token)
-    return supabaseAuthMock.impl(token)
-  },
-  reset: (): void => {
-    supabaseAuthMock.impl  = INVALID
-    supabaseAuthMock.calls = []
-  },
-}
+	impl: INVALID,
+	calls: [],
+	getUser: async (token: string): Promise<GetUserResult> => {
+		supabaseAuthMock.calls.push(token);
+		return supabaseAuthMock.impl(token);
+	},
+	reset: (): void => {
+		supabaseAuthMock.impl = INVALID;
+		supabaseAuthMock.calls = [];
+	},
+};

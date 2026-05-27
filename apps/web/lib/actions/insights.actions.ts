@@ -1,17 +1,15 @@
-'use server'
+"use server";
 
+import type { ApiCardQualityIssue, ApiInsightsDistributions, ApiList, ApiMaturitySnapshot } from "@fsrs-japanese/shared-types";
 import {
-  ApiMaturitySnapshotSchema,
-  ApiCardQualityIssueSchema,
-  ApiInsightsDistributionsSchema,
-  apiListEnvelope,
-  type ApiMaturitySnapshot,
-  type ApiCardQualityIssue,
-  type ApiInsightsDistributions,
-  type ApiList,
-} from '@fsrs-japanese/shared-types'
+	ApiCardQualityIssueSchema,
+	ApiInsightsDistributionsSchema,
+	apiListEnvelope,
+	ApiMaturitySnapshotSchema,
 
-import { apiCall, apiCallSafe } from '@/lib/api/client'
+} from "@fsrs-japanese/shared-types";
+
+import { apiCall, apiCallSafe } from "@/lib/api/client";
 
 /**
  * Backend Completion Plan Stage 9 — `GET /api/v1/insights/maturity-history`.
@@ -23,26 +21,28 @@ import { apiCall, apiCallSafe } from '@/lib/api/client'
  * downstream consumer (Statistics page, the existing Progress mature-pipeline
  * chart) already renders empty-state messaging when the array is empty.
  */
-export type MaturityHistoryWindow = '90' | '180' | '365'
+export type MaturityHistoryWindow = "90" | "180" | "365";
 
 const EMPTY_MATURITY_PAGE: ApiList<ApiMaturitySnapshot> = {
-  items: [], nextCursor: null, hasMore: false,
-}
+	items: [],
+	nextCursor: null,
+	hasMore: false,
+};
 
 export async function getMaturityHistoryAction(
-  days: MaturityHistoryWindow = '90',
+	days: MaturityHistoryWindow = "90",
 ): Promise<ReadonlyArray<ApiMaturitySnapshot>> {
-  // The endpoint returns an ApiList envelope (`{ items, nextCursor, hasMore }`),
-  // not a bare array. Validate against the envelope and unwrap `.items` —
-  // a bare-array schema here silently fails `safeParse`, and apiCallSafe then
-  // returns the empty fallback, leaving the maturity flow stuck at all-zero.
-  const page = await apiCallSafe<ApiList<ApiMaturitySnapshot>>(
-    `/api/v1/insights/maturity-history?days=${days}`,
-    apiListEnvelope(ApiMaturitySnapshotSchema),
-    {},
-    EMPTY_MATURITY_PAGE,
-  )
-  return page.items
+	// The endpoint returns an ApiList envelope (`{ items, nextCursor, hasMore }`),
+	// not a bare array. Validate against the envelope and unwrap `.items` —
+	// a bare-array schema here silently fails `safeParse`, and apiCallSafe then
+	// returns the empty fallback, leaving the maturity flow stuck at all-zero.
+	const page = await apiCallSafe<ApiList<ApiMaturitySnapshot>>(
+		`/api/v1/insights/maturity-history?days=${days}`,
+		apiListEnvelope(ApiMaturitySnapshotSchema),
+		{},
+		EMPTY_MATURITY_PAGE,
+	);
+	return page.items;
 }
 
 /**
@@ -53,18 +53,20 @@ export async function getMaturityHistoryAction(
  * shape. Auth/5xx returns an empty array so the panel reads as a positive.
  */
 const EMPTY_CARD_QUALITY_PAGE: ApiList<ApiCardQualityIssue> = {
-  items: [], nextCursor: null, hasMore: false,
-}
+	items: [],
+	nextCursor: null,
+	hasMore: false,
+};
 
 export async function getCardQualityIssuesAction(): Promise<ReadonlyArray<ApiCardQualityIssue>> {
-  // Same ApiList envelope contract as maturity-history — unwrap `.items`.
-  const page = await apiCallSafe<ApiList<ApiCardQualityIssue>>(
-    '/api/v1/insights/card-quality',
-    apiListEnvelope(ApiCardQualityIssueSchema),
-    {},
-    EMPTY_CARD_QUALITY_PAGE,
-  )
-  return page.items
+	// Same ApiList envelope contract as maturity-history — unwrap `.items`.
+	const page = await apiCallSafe<ApiList<ApiCardQualityIssue>>(
+		"/api/v1/insights/card-quality",
+		apiListEnvelope(ApiCardQualityIssueSchema),
+		{},
+		EMPTY_CARD_QUALITY_PAGE,
+	);
+	return page.items;
 }
 
 /**
@@ -74,19 +76,19 @@ export async function getCardQualityIssuesAction(): Promise<ReadonlyArray<ApiCar
  * keeps rendering calm empty-state copy instead of erroring.
  */
 const EMPTY_DISTRIBUTIONS: ApiInsightsDistributions = {
-  ratings:    { again: 0, hard: 0, good: 0, easy: 0 },
-  intervals:  [],
-  stability:  [],
-  difficulty: [],
-}
+	ratings: { again: 0, hard: 0, good: 0, easy: 0 },
+	intervals: [],
+	stability: [],
+	difficulty: [],
+};
 
 export async function getInsightsDistributionsAction(): Promise<ApiInsightsDistributions> {
-  return apiCallSafe<ApiInsightsDistributions>(
-    '/api/v1/insights/distributions',
-    ApiInsightsDistributionsSchema,
-    {},
-    EMPTY_DISTRIBUTIONS,
-  )
+	return apiCallSafe<ApiInsightsDistributions>(
+		"/api/v1/insights/distributions",
+		ApiInsightsDistributionsSchema,
+		{},
+		EMPTY_DISTRIBUTIONS,
+	);
 }
 
 // ── Strict (throwing) variants ────────────────────────────────────────────────
@@ -98,22 +100,22 @@ export async function getInsightsDistributionsAction(): Promise<ApiInsightsDistr
 // overview), preserving the app-wide fail-open behavior those surfaces rely on.
 
 export async function getInsightsDistributionsStrictAction(): Promise<ApiInsightsDistributions> {
-  return apiCall<ApiInsightsDistributions>(
-    '/api/v1/insights/distributions',
-    ApiInsightsDistributionsSchema,
-    {},
-    'Failed to fetch distributions',
-  )
+	return apiCall<ApiInsightsDistributions>(
+		"/api/v1/insights/distributions",
+		ApiInsightsDistributionsSchema,
+		{},
+		"Failed to fetch distributions",
+	);
 }
 
 export async function getMaturityHistoryStrictAction(
-  days: MaturityHistoryWindow = '90',
+	days: MaturityHistoryWindow = "90",
 ): Promise<ReadonlyArray<ApiMaturitySnapshot>> {
-  const page = await apiCall<ApiList<ApiMaturitySnapshot>>(
-    `/api/v1/insights/maturity-history?days=${days}`,
-    apiListEnvelope(ApiMaturitySnapshotSchema),
-    {},
-    'Failed to fetch maturity history',
-  )
-  return page.items
+	const page = await apiCall<ApiList<ApiMaturitySnapshot>>(
+		`/api/v1/insights/maturity-history?days=${days}`,
+		apiListEnvelope(ApiMaturitySnapshotSchema),
+		{},
+		"Failed to fetch maturity history",
+	);
+	return page.items;
 }

@@ -1,1 +1,1 @@
-export { State } from 'ts-fsrs'
+export { State } from "ts-fsrs";
