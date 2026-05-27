@@ -152,7 +152,11 @@ describe('card.service — listCardsCrossDeck', () => {
 
     expect(result.items).toHaveLength(2)
     expect(result.totalCount).toBe(42)
-    expect(result.hasMore).toBe(false)
+    // Offset pagination: hasMore = offset + shown < totalCount. Two rows shown
+    // at offset 0 out of 42 total ⇒ more pages remain. (totalCount is kept
+    // distinct from items.length so a regression that derives the footer total
+    // from the page slice — rather than the count RPC — still fails here.)
+    expect(result.hasMore).toBe(true)
     expect(result.items[0]).toHaveProperty('deckId')
     expect(result.items[0]).toHaveProperty('deckName')
     expect(result.items[0]).toHaveProperty('lapses')
