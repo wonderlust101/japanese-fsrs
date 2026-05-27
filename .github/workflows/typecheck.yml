@@ -3,7 +3,7 @@ name: typecheck
 # Catches two kinds of drift:
 # 1. Code drift: services or components that don't match committed types
 #    (always runs).
-# 2. Schema drift: committed packages/shared-types/src/database.types.ts
+# 2. Schema drift: committed apps/api/src/db/database.types.ts
 #    out of sync with the live Supabase schema (only when the
 #    SUPABASE_ACCESS_TOKEN secret is set — regenerates the type and lets
 #    the typecheck against application code fail if the schema moved).

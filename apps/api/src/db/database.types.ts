@@ -1,3 +1,5 @@
+/* GENERATED FILE - DO NOT EDIT. Source: Supabase schema. Regenerate with: bun run db:types */
+
 export type Json =
   | string
   | number

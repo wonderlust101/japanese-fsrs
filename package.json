@@ -14,7 +14,7 @@
 		"typecheck": "bun run --filter '*' typecheck",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
-		"db:types": "supabase gen types typescript --project-id kukkptyopjdtuzgzamua > apps/api/src/db/database.types.ts"
+		"db:types": "{ echo '/* GENERATED FILE - DO NOT EDIT. Source: Supabase schema. Regenerate with: bun run db:types */'; echo; supabase gen types typescript --project-id kukkptyopjdtuzgzamua; } > apps/api/src/db/database.types.ts"
 	},
 	"devDependencies": {
 		"@antfu/eslint-config": "^9.0.0",
