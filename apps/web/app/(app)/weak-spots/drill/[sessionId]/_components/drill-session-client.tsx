@@ -248,9 +248,11 @@ export function DrillSessionClient({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey) return
       if (e.target instanceof HTMLInputElement) return
       if (e.target instanceof HTMLTextAreaElement) return
       if (e.target instanceof HTMLSelectElement) return
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return
       if (!isActive) return
       if ((e.key === ' ' || e.key === 'Enter') && !showAnswer) {
         e.preventDefault()

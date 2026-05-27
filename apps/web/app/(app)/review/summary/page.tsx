@@ -93,7 +93,16 @@ export default function ReviewSummaryPage(): React.JSX.Element {
     // local state — instant, and survives a backend outage.
     const localSessionId = useSessionId();
     const localSessionHistory = useSessionHistory();
-    const lastFinished = useMemo(() => readLastFinishedSession(), []);
+    // Tab-scoped handoff: read after mount, never during render. Reading
+    // sessionStorage in render diverges between the server (null) and the first
+    // client paint (possibly a record), which would flip `skipApi` and the
+    // rendered branch — a hydration mismatch on this dynamically-rendered route.
+    // Starting null keeps SSR and the first client render in agreement.
+    const [lastFinished, setLastFinished] =
+        useState<ReturnType<typeof readLastFinishedSession>>(null);
+    useEffect(() => {
+        setLastFinished(readLastFinishedSession());
+    }, []);
     const liveStoreSaysEmpty = rawId !== null
         && rawId === localSessionId
         && localSessionHistory.length === 0;

@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getAuthUser()
 
   return (
-    <div className="flex h-screen bg-cool-paper-base overflow-hidden">
+    <div className="flex h-dvh bg-cool-paper-base overflow-hidden">
       {/* Skip link: first focusable element so keyboard users can bypass the
           sidebar nav. Visually hidden until focused; --z-toast keeps it above
           all chrome when it appears. Targets the <main> below. */}

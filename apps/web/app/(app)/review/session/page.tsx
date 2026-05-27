@@ -123,7 +123,18 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
       pool = pool.filter((c) => classifyCard(c, tk, tzz) === 'backlog')
     }
     if (tuning.reviewOrder === 'shuffle') {
-      pool = [...pool].sort(() => Math.random() - 0.5)
+      // Fisher–Yates. A sort() with a random comparator is biased and
+      // engine-dependent, which skews which cards lead a shuffled session.
+      const shuffled = [...pool]
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const a = shuffled[i]
+        const b = shuffled[j]
+        if (a === undefined || b === undefined) continue
+        shuffled[i] = b
+        shuffled[j] = a
+      }
+      pool = shuffled
     } else if (todayKey !== undefined && tz !== undefined) {
       const tk = todayKey, tzz = tz
       pool = [...pool].sort((a, b) => {
@@ -189,7 +200,9 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
           if (sessionId !== null) {
             rememberLastFinishedSession({
               sessionId,
-              historyCount: sessionHistory.length + 1, // +1: this submission just landed
+              // The just-rated last card is already in sessionHistory by the
+              // time this deferred flush fires, so the count is exact (no +1).
+              historyCount: sessionHistory.length,
               endedEarly:   false,
             })
           }
