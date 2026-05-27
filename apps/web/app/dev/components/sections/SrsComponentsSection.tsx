@@ -6,7 +6,6 @@ import { DeckSummary }                from '@/components/srs/DeckSummary'
 import { ForgettingCurve }            from '@/components/srs/ForgettingCurve'
 import { SampleCard }                 from '@/components/srs/SampleCard'
 import { SampleSentence }             from '@/components/srs/SampleSentence'
-import { ScheduleHorizon }            from '@/components/srs/ScheduleHorizon'
 import { VolumeBar }                  from '@/components/srs/VolumeBar'
 import { DashboardHero, type DashboardHeroVariant, type DueQueue, type HeroKind } from '@/app/(app)/today/_components/today-hero'
 import { ShowcaseGrid, ShowcaseItem } from '../_components/ShowcaseItem'
@@ -248,13 +247,10 @@ export function SrsComponentsSection(): React.JSX.Element {
       </div>
 
       <div>
-        <h3 className="text-xs text-faded-sumi mb-3">ForgettingCurve / ScheduleHorizon</h3>
+        <h3 className="text-xs text-faded-sumi mb-3">ForgettingCurve</h3>
         <ShowcaseGrid minColumnWidth={420}>
           <ShowcaseItem label="ForgettingCurve" caption="(no required props)" fill>
             <ForgettingCurve />
-          </ShowcaseItem>
-          <ShowcaseItem label="ScheduleHorizon" caption="totalCards={2103} paceNewPerDay={20}" fill>
-            <ScheduleHorizon totalCards={2103} paceNewPerDay={20} />
           </ShowcaseItem>
         </ShowcaseGrid>
       </div>

@@ -28,42 +28,51 @@ const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
  * pace is null shows ghost bars at base opacity.
  */
 export function DailyQuotaChart({ pace, className = '' }: DailyQuotaChartProps): React.JSX.Element {
-  const _reducedMotion = false
   const spec = pace !== null ? PACES[pace] : null
+  // No pace chosen yet: preview a representative ("steady") shape as faint
+  // ghost bars so the empty step still shows what the chart will look like.
+  const ghost         = spec === null
+  const effectiveSpec = spec ?? PACES.steady
 
   // Reviews scale with reviewMult; vary slightly per day for visual rhythm.
   const dailyReviews = DAY_LABELS.map((_, i) => {
-    if (spec === null) return 0
-    const base = spec.newPerDay * spec.reviewMult
+    const base = effectiveSpec.newPerDay * effectiveSpec.reviewMult
     const variance = 1 + ((i % 3) - 1) * 0.12
     return Math.round(base * variance)
   })
 
   const maxReviews    = Math.max(...dailyReviews, 1)
-  const maxNew        = spec?.newPerDay ?? 0
+  const maxNew        = effectiveSpec.newPerDay
   const maxStackTotal = maxReviews + maxNew
 
   return (
     <div className={['w-full', className].join(' ')}>
       <div className="flex items-end justify-between gap-2 h-[180px] border-b border-soft-hairline">
         {DAY_LABELS.map((day, i) => {
-          const newCount     = spec?.newPerDay ?? 0
-          const reviewCount  = dailyReviews[i] ?? 0
-          const _newPercent  = maxStackTotal > 0 ? (newCount    / maxStackTotal) : 0
-          const _reviewPct   = maxStackTotal > 0 ? (reviewCount / maxStackTotal) : 0
+          const newCount    = effectiveSpec.newPerDay
+          const reviewCount = dailyReviews[i] ?? 0
+          const newFrac     = maxStackTotal > 0 ? newCount    / maxStackTotal : 0
+          const reviewFrac  = maxStackTotal > 0 ? reviewCount / maxStackTotal : 0
 
           return (
-            // Each column is full-height with absolutely-positioned bars. Bars
-            // animate via transform (scaleY + translateY), not height: keeps the
-            // animation on the compositor and avoids 14 simultaneous layouts
-            // per pace change.
-            <div key={day} className="relative flex-1 max-w-[32px] h-full">
-              <div
-                className="absolute inset-0 bg-inari-vermillion origin-bottom"
-                style={{ willChange: 'transform' }}              />
+            // Full-height column with two absolutely-positioned bars sized via
+            // transform (scaleY), composited on the GPU instead of animating
+            // height. The reviews bar (sumi) anchors at the bottom; the new bar
+            // (vermillion) is scaled then translated up by the reviews' height
+            // so it stacks directly on top.
+            <div
+              key={day}
+              className="relative flex-1 max-w-[32px] h-full"
+              style={ghost ? { opacity: 0.32 } : undefined}
+            >
               <div
                 className="absolute inset-0 bg-sumi-ink/60 origin-bottom"
-                style={{ willChange: 'transform' }}              />
+                style={{ transform: `scaleY(${reviewFrac})`, willChange: 'transform' }}
+              />
+              <div
+                className="absolute inset-0 bg-inari-vermillion origin-bottom"
+                style={{ transform: `translateY(-${reviewFrac * 100}%) scaleY(${newFrac})`, willChange: 'transform' }}
+              />
             </div>
           )
         })}

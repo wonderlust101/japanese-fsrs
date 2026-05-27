@@ -223,10 +223,15 @@ function PageCenterKana(): React.JSX.Element {
   }, [reduced])
 
   return (
+    /* Fixed 2rem square, glyph centered inside: the character swaps every
+       KANJI_CYCLE_MS, but the box never resizes, so the swap can't nudge the
+       loader off-center or shift anything around it. Sized to the text-2xl em
+       (1.5rem) with headroom so any pool glyph renders without clipping,
+       independent of which font in the CJK fallback chain draws it. */
     <div
       lang="ja"
       aria-hidden="true"
-      className="text-faded-sumi/70 -mt-2 text-2xl tracking-[0.04em]"
+      className="-mt-2 flex h-8 w-8 items-center justify-center text-2xl leading-none tracking-[0.04em] text-faded-sumi/70"
     >
       {KANJI_POOL[idx]}
     </div>
@@ -261,15 +266,30 @@ function StageLabels({ labels, slowLabel, slowAfterMs }: StageLabelsProps): Reac
 
   return (
     <div className="flex flex-col items-center gap-1 text-center">
-      <div
-        key={idx}
-        className="text-faded-sumi text-sm"
-        style={{ animation: 'var(--animate-tomo-stage-fade)' }}
-      >
-        {labels[idx]}
+      {/* Two-line reserve: the active label is centered inside a fixed
+          min-height, so a longer label that wraps on a narrow width occupies
+          the same box as a single-line one and never jumps the cards above. */}
+      <div className="flex min-h-[2.5rem] items-center justify-center">
+        <div
+          key={idx}
+          className="text-faded-sumi text-sm"
+          style={{ animation: 'var(--animate-tomo-stage-fade)' }}
+        >
+          {labels[idx]}
+        </div>
       </div>
-      {slow && slowLabel ? (
-        <div className="text-faded-sumi text-xs">{slowLabel}</div>
+      {/* Reassurance keeps its slot from first paint and only fades in at
+          slowAfterMs, so its arrival never adds height. aria-hidden while
+          invisible keeps the polite live region quiet until it actually shows. */}
+      {slowLabel ? (
+        <div
+          aria-hidden={!slow}
+          className={`text-faded-sumi text-xs transition-opacity duration-500 ${
+            slow ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          {slowLabel}
+        </div>
       ) : null}
     </div>
   )

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
 import { Radio } from '@/components/ui/Radio'
 import { Time } from '@/components/ui/Time'
+import { TomoLoader } from '@/components/ui/TomoLoader'
 import { queryKeys } from '@/lib/api/queryKeys'
 import { listDecksAction } from '@/lib/actions/decks.actions'
 
@@ -119,14 +120,8 @@ export function MoveCardDialog({
       </p>
 
       {isLoading && (
-        <div className="flex flex-col gap-y-2">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              aria-hidden="true"
-              className="dashboard-skeleton block h-12 w-full rounded-xs"
-            />
-          ))}
+        <div className="flex items-center justify-center py-10">
+          <TomoLoader size="block" />
         </div>
       )}
 

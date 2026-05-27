@@ -9,7 +9,7 @@ import { TopBar } from '@/app/(app)/_components/top-bar'
 import { TopBarBackLink } from '@/app/(app)/_components/top-bar-back-link'
 import { TopBarTitle } from '@/app/(app)/_components/top-bar-title'
 import { Button } from '@/components/ui/Button'
-import { PageLoader } from '@/components/ui/TomoLoader'
+import { PageLoader, TomoLoader } from '@/components/ui/TomoLoader'
 import { Dialog } from '@/components/ui/Dialog'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { Toast, useToast } from '@/components/ui/Toast'
@@ -1037,14 +1037,8 @@ function PagerButton({
 function LoadingBody(): React.JSX.Element {
   return (
     <SectionCard kanji="例" label="Loading">
-      <div className="flex flex-col gap-y-3">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            aria-hidden="true"
-            className="dashboard-skeleton block h-4 w-full rounded-[1px]"
-          />
-        ))}
+      <div className="flex items-center justify-center py-8">
+        <TomoLoader size="block" />
       </div>
     </SectionCard>
   )

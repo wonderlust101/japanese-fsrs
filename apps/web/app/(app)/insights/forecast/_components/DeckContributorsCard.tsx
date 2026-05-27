@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { SectionCard } from '@/components/ui/SectionCard'
+import { TomoLoader } from '@/components/ui/TomoLoader'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { cn } from '@/lib/utils'
 import { useDecksWithStats } from '@/lib/api/decks'
@@ -263,17 +264,8 @@ function DeckLegend({
 
 function ContributorsSkeleton(): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-y-6">
-      <div className="dashboard-skeleton h-11 w-full rounded-xs" />
-      <ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-        {Array.from({ length: 6 }, (_, i) => (
-          <li key={i} className="flex items-baseline gap-x-3">
-            <div className="dashboard-skeleton h-3 w-3 shrink-0 rounded-xs" />
-            <div className="dashboard-skeleton h-3 w-[10rem] rounded-xs" />
-            <div className="dashboard-skeleton ml-auto h-3 w-[3rem] rounded-xs" />
-          </li>
-        ))}
-      </ul>
+    <div className="flex items-center justify-center py-10">
+      <TomoLoader size="block" />
     </div>
   )
 }
