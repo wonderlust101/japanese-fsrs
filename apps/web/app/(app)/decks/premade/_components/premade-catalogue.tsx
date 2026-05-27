@@ -1,26 +1,28 @@
 'use client'
 
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import type { ApiDeck, ApiPremadeDeck, DeckType, JLPTLevel } from '@fsrs-japanese/shared-types'
+import type { ApiDeck, ApiPremadeDeck, JLPTLevel } from '@fsrs-japanese/shared-types'
 
 import { Button } from '@/components/ui/Button'
-import { ContentTypePill, JlptPill, StatusPill, type ContentTypeTone } from '@/components/ui/Pill'
+import { StatusPill } from '@/components/ui/Pill'
 import { QuietLink } from '@/components/ui/QuietLink'
 import { PageLoader } from '@/components/ui/TomoLoader'
 import { SectionCard } from '@/components/ui/SectionCard'
+import { ToolbarChip } from '@/components/ui/ToolbarChip'
 import { Toast, useToast } from '@/components/ui/Toast'
+import { IconSort } from '@/components/icons/chrome-marks'
+import { DecksMenu, MenuItem } from '@/app/(app)/decks/_components/decks-menu'
+import { DecksPagination, type DecksPageSize } from '@/app/(app)/decks/_components/decks-pagination'
 import { useDecks } from '@/lib/api/decks'
 import { useCopyPremadeDeck, usePremadeDecks } from '@/lib/api/premade'
 import { useDecksPremadeDevState } from '@/dev/panels/decks-premade'
 
-// ── Filter dimensions ────────────────────────────────────────────────────────
+// ── Filter + sort dimensions ───────────────────────────────────────────────
 
 type JlptFilter = 'all' | JLPTLevel
-type TypeFilter = 'all' | DeckType
 
 const JLPT_ORDER: ReadonlyArray<JlptFilter> = ['all', 'N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt']
-const TYPE_OPTIONS: ReadonlyArray<TypeFilter> = ['all', 'vocabulary', 'kanji', 'mixed']
 
 const JLPT_LABEL: Record<JlptFilter, string> = {
   all:         'Any level',
@@ -32,18 +34,42 @@ const JLPT_LABEL: Record<JlptFilter, string> = {
   beyond_jlpt: 'Beyond',
 }
 
-const TYPE_LABEL: Record<TypeFilter, string> = {
-  all:        'All types',
-  vocabulary: 'Vocabulary',
-  kanji:      'Kanji',
-  mixed:      'Mixed',
+type SortKey = 'jlpt' | 'name' | 'cards-desc' | 'cards-asc'
+
+const SORT_ORDER: ReadonlyArray<SortKey> = ['jlpt', 'name', 'cards-desc', 'cards-asc']
+
+const SORT_LABEL: Record<SortKey, string> = {
+  jlpt:         'JLPT level',
+  name:         'Name',
+  'cards-desc': 'Most cards',
+  'cards-asc':  'Fewest cards',
 }
 
-const TYPE_PILL_TONE: Record<DeckType, ContentTypeTone> = {
-  vocabulary: 'vocabulary',
-  kanji:      'kanji',
-  mixed:      'mixed',
+// Curriculum order for the default sort. Level-agnostic decks (jlptLevel null,
+// e.g. a future Joyo Kanji deck) sink below N1; Beyond JLPT sits last.
+const JLPT_SORT_RANK: Record<JLPTLevel, number> = {
+  N5: 1, N4: 2, N3: 3, N2: 4, N1: 5, beyond_jlpt: 7,
 }
+
+function jlptRank(level: JLPTLevel | null): number {
+  return level === null ? 6 : JLPT_SORT_RANK[level]
+}
+
+function sortDecks(decks: ReadonlyArray<ApiPremadeDeck>, sort: SortKey): ApiPremadeDeck[] {
+  const out = [...decks]
+  switch (sort) {
+    case 'name':
+      return out.sort((a, b) => a.name.localeCompare(b.name))
+    case 'cards-desc':
+      return out.sort((a, b) => b.cardCount - a.cardCount || a.name.localeCompare(b.name))
+    case 'cards-asc':
+      return out.sort((a, b) => a.cardCount - b.cardCount || a.name.localeCompare(b.name))
+    case 'jlpt':
+      return out.sort((a, b) => jlptRank(a.jlptLevel) - jlptRank(b.jlptLevel) || a.name.localeCompare(b.name))
+  }
+}
+
+const DEFAULT_PAGE_SIZE: DecksPageSize = 12
 
 // ── Catalogue ────────────────────────────────────────────────────────────────
 
@@ -51,23 +77,30 @@ const TYPE_PILL_TONE: Record<DeckType, ContentTypeTone> = {
  * Premade deck catalogue.
  *
  * Reuses Tomo's standard page chrome — `PageHeader` rhythm via the parent
- * page, `SectionCard` for each entry, `Pill`/`JlptPill`/`ContentTypePill`
- * for metadata, and `Button`/`QuietLink` for actions. Layout mirrors the
- * Decks list: a sticky-aside-free 2-column grid on `lg+` (single column
- * below) so each card reads as a self-contained catalogue entry without
- * crowding.
+ * page, `SectionCard` for each entry, `JlptPill`/`StatusPill` for metadata,
+ * and `Button`/`QuietLink` for actions. The control row (JLPT filter + Sort)
+ * uses the same toolbar primitives as the Decks and Cards pages (`ToolbarChip`
+ * triggers + `DecksMenu`/`MenuItem` dropdowns), and the footer reuses the
+ * Decks page's `DecksPagination`, so the surface reads as a sibling of the
+ * library. Entries stack in a single full-width column so each card has room
+ * for its name, metadata, and description without crowding.
  *
- * Filters run client-side over the already-fetched list — the catalogue
- * is small enough that paginating server-side wouldn't earn its complexity.
- * Filter state stays in component state (not localStorage): the catalogue
- * is a low-frequency surface, so a fresh visit shows the full view.
+ * Filter, sort, and pagination all run client-side over the already-fetched
+ * list — the catalogue is small enough that server-side paging wouldn't earn
+ * its complexity. State stays in component state (not localStorage): the
+ * catalogue is a low-frequency surface, so a fresh visit shows the full view.
  */
 export function PremadeCatalogue(): React.JSX.Element {
   useDecksPremadeDevState()
   const { toast, showToast, dismissToast } = useToast()
 
   const [jlpt, setJlpt] = useState<JlptFilter>('all')
-  const [type, setType] = useState<TypeFilter>('all')
+  const [sort, setSort] = useState<SortKey>('jlpt')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<DecksPageSize>(DEFAULT_PAGE_SIZE)
+  // Scroll anchor for the pagination footer: a page change scrolls back to the
+  // controls, matching the Decks list behavior.
+  const toolbarRef = useRef<HTMLElement | null>(null)
 
   const decksQuery = usePremadeDecks()
   const userDecksQuery = useDecks(50)
@@ -98,13 +131,32 @@ export function PremadeCatalogue(): React.JSX.Element {
     return map
   }, [userDecksQuery.data])
 
-  const filteredDecks = useMemo(() => {
-    return allDecks.filter((deck) => {
-      if (jlpt !== 'all' && deck.jlptLevel !== jlpt) return false
-      if (type !== 'all' && deck.deckType !== type) return false
-      return true
-    })
-  }, [allDecks, jlpt, type])
+  const filteredDecks = useMemo(
+    () => (jlpt === 'all' ? allDecks : allDecks.filter((deck) => deck.jlptLevel === jlpt)),
+    [allDecks, jlpt],
+  )
+
+  const sortedDecks = useMemo(() => sortDecks(filteredDecks, sort), [filteredDecks, sort])
+
+  const totalCount = sortedDecks.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  // Clamp so a filter/sort change that shrinks the list can't strand the view
+  // on an out-of-range page before the reset effect runs.
+  const safePage   = Math.min(page, totalPages)
+  const pageItems  = useMemo(
+    () => sortedDecks.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [sortedDecks, safePage, pageSize],
+  )
+
+  // Any narrowing of the result set (filter, sort, or page-size change)
+  // returns to page 1.
+  useEffect(() => { setPage(1) }, [jlpt, sort, pageSize])
+
+  // Trigger reads 'JLPT N5' / 'Beyond JLPT' / 'Any level' so the chip is
+  // self-identifying beside the Sort chip; menu items stay short because the
+  // dropdown context already implies "JLPT". Mirrors the cards-page JlptPicker.
+  const jlptTriggerLabel =
+    jlpt === 'all' ? 'Any level' : jlpt === 'beyond_jlpt' ? 'Beyond JLPT' : `JLPT ${jlpt}`
 
   function handleCopy(deck: ApiPremadeDeck): void {
     if (pendingId !== null) return
@@ -147,20 +199,26 @@ export function PremadeCatalogue(): React.JSX.Element {
 
   return (
     <>
-      <FilterBar
-        jlpt={jlpt}
-        type={type}
-        onJlptChange={setJlpt}
-        onTypeChange={setType}
-        resultCount={filteredDecks.length}
-        totalCount={allDecks.length}
-      />
+      <section
+        ref={toolbarRef}
+        aria-label="Premade deck controls"
+        className="flex flex-wrap items-center gap-2"
+      >
+        <FilterDropdown
+          triggerLabel={jlptTriggerLabel}
+          selected={jlpt !== 'all'}
+          options={JLPT_ORDER.map((v) => ({ value: v, label: JLPT_LABEL[v] }))}
+          activeValue={jlpt}
+          onPick={setJlpt}
+        />
+        <SortDropdown value={sort} onChange={setSort} />
+      </section>
 
       <section
         aria-label="Premade decks"
-        className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-6"
+        className="mt-6 flex flex-col gap-6"
       >
-        {filteredDecks.map((deck) => (
+        {pageItems.map((deck) => (
           <CatalogueCard
             key={deck.id}
             deck={deck}
@@ -172,13 +230,21 @@ export function PremadeCatalogue(): React.JSX.Element {
         ))}
       </section>
 
-      {!decksQuery.isLoading && filteredDecks.length === 0 && (
+      {totalCount === 0 ? (
         <EmptyState
-          hasFilter={jlpt !== 'all' || type !== 'all'}
-          onResetFilter={() => {
-            setJlpt('all')
-            setType('all')
-          }}
+          hasFilter={jlpt !== 'all'}
+          onResetFilter={() => setJlpt('all')}
+        />
+      ) : (
+        <DecksPagination
+          page={safePage}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          scrollTargetEl={toolbarRef}
+          onPickPage={setPage}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPageSizeChange={setPageSize}
         />
       )}
 
@@ -194,93 +260,124 @@ export function PremadeCatalogue(): React.JSX.Element {
   )
 }
 
-// ── Filter bar ──────────────────────────────────────────────────────────────
+// ── Sort dropdown ───────────────────────────────────────────────────────────
+// Mirrors the decks-page SortDropdown: a `ToolbarChip` (icon + "Sort <value>")
+// over the headless `DecksMenu`, sitting beside the JLPT filter chip.
 
-interface FilterBarProps {
-  jlpt:          JlptFilter
-  type:          TypeFilter
-  onJlptChange:  (next: JlptFilter) => void
-  onTypeChange:  (next: TypeFilter) => void
-  resultCount:   number | null
-  totalCount:    number
-}
-
-function FilterBar({
-  jlpt, type, onJlptChange, onTypeChange, resultCount, totalCount,
-}: FilterBarProps): React.JSX.Element {
-  const jlptId = useId()
-  const typeId = useId()
-  const filterActive = jlpt !== 'all' || type !== 'all'
-
+function SortDropdown({
+  value, onChange,
+}: {
+  value:    SortKey
+  onChange: (next: SortKey) => void
+}): React.JSX.Element {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-soft-hairline pb-5">
-      <FilterSelect
-        id={jlptId}
-        label="JLPT"
-        value={jlpt}
-        onChange={(v) => onJlptChange(coerceJlpt(v))}
-        options={JLPT_ORDER.map((v) => ({ value: v, label: JLPT_LABEL[v] }))}
-      />
-
-      <FilterSelect
-        id={typeId}
-        label="Type"
-        value={type}
-        onChange={(v) => onTypeChange(coerceType(v))}
-        options={TYPE_OPTIONS.map((v) => ({ value: v, label: TYPE_LABEL[v] }))}
-      />
-
-      <div className="ml-auto flex items-center gap-x-3 font-mono text-sm text-faded-sumi tabular-nums">
-        <span aria-live="polite">
-          {resultCount === null
-            ? 'Loading'
-            : <><span className="text-sumi-ink">{resultCount}</span> of {totalCount} {totalCount === 1 ? 'deck' : 'decks'}</>
-          }
-        </span>
-        {filterActive && resultCount !== null && (
-          <button
-            type="button"
-            onClick={() => { onJlptChange('all'); onTypeChange('all') }}
-            className="ui-motion-colors underline-offset-2 hover:text-sumi-ink hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-          >
-            Clear
-          </button>
-        )}
-      </div>
-    </div>
+    <DecksMenu
+      align="start"
+      menuClassName="min-w-[12rem]"
+      renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
+        <ToolbarChip
+          ref={triggerRef}
+          onClick={onClick}
+          onKeyDown={onKeyDown}
+          aria-haspopup="menu"
+          aria-expanded={ariaExpanded}
+          leadingNode={<IconSort className="h-3.5 w-3.5 text-faded-sumi" />}
+          trailingNode={<Chevron />}
+          className="min-h-11 sm:min-h-0 active:bg-cream-inset"
+        >
+          <span className="hidden text-faded-sumi sm:inline">Sort </span>
+          <span className="text-sumi-ink">{SORT_LABEL[value]}</span>
+        </ToolbarChip>
+      )}
+      renderItems={({ close }) => (
+        <>
+          {SORT_ORDER.map((key) => (
+            <MenuItem
+              key={key}
+              selected={key === value}
+              onClick={() => { onChange(key); close() }}
+            >
+              {SORT_LABEL[key]}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    />
   )
 }
 
-interface FilterSelectProps {
-  id:       string
-  label:    string
-  value:    string
-  onChange: (next: string) => void
-  options:  ReadonlyArray<{ value: string; label: string }>
+// ── Filter dropdown (shared toolbar primitives) ──────────────────────────────
+// Mirrors the cards-page `ChromeDropdown` and the decks-page `TypeDropdown`: a
+// `ToolbarChip` trigger over the headless `DecksMenu`, so the premade filters
+// match the rest of the app's chrome (keyboard nav, click-outside, portaling)
+// exactly instead of a bespoke native <select>.
+
+interface FilterDropdownProps<T extends string> {
+  /** Self-identifying trigger text (e.g. 'JLPT N5', 'All types'). */
+  triggerLabel: string
+  /** Drives the chip's selected (vermillion-wash) treatment. */
+  selected:     boolean
+  options:      ReadonlyArray<{ value: T; label: string }>
+  activeValue:  T
+  onPick:       (value: T) => void
 }
 
-function FilterSelect({ id, label, value, onChange, options }: FilterSelectProps): React.JSX.Element {
+function FilterDropdown<T extends string>({
+  triggerLabel, selected, options, activeValue, onPick,
+}: FilterDropdownProps<T>): React.JSX.Element {
   return (
-    <div className="flex items-center gap-x-2">
-      <label
-        htmlFor={id}
-        className="font-mono text-sm text-faded-sumi"
-      >
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.currentTarget.value)}
-        className="rounded-xs border border-soft-hairline bg-warm-paper-raised px-3 py-1.5 font-mono text-sm text-sumi-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <DecksMenu
+      align="start"
+      menuClassName="min-w-[12rem]"
+      renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
+        <ToolbarChip
+          ref={triggerRef}
+          onClick={onClick}
+          onKeyDown={onKeyDown}
+          aria-haspopup="menu"
+          aria-expanded={ariaExpanded}
+          state={selected ? 'selected' : 'default'}
+          trailingNode={<Chevron />}
+          // 44px touch target on mobile, release to the default h-9 on
+          // desktop — the same sizing pattern the decks utility row uses.
+          className="min-h-11 sm:min-h-0 active:bg-cream-inset"
+        >
+          <span className="whitespace-nowrap">{triggerLabel}</span>
+        </ToolbarChip>
+      )}
+      renderItems={({ close }) => (
+        <>
+          {options.map((opt) => (
+            <MenuItem
+              key={opt.value}
+              selected={opt.value === activeValue}
+              onClick={() => { onPick(opt.value); close() }}
+            >
+              {opt.label}
+            </MenuItem>
+          ))}
+        </>
+      )}
+    />
+  )
+}
+
+function Chevron(): React.JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      width="10"
+      height="10"
+      viewBox="0 0 10 10"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-faded-sumi"
+    >
+      <path d="M2 4l3 3 3-3" />
+    </svg>
   )
 }
 
@@ -300,31 +397,33 @@ interface CatalogueCardProps {
 function CatalogueCard({
   deck, copiedDeck, onCopy, pending, disabled,
 }: CatalogueCardProps): React.JSX.Element {
-  // Domain pill (e.g. "anime", "business") appears alongside the JLPT/type
-  // pills when the catalogue carries one. Keeps the metadata cluster
-  // self-describing without forcing a description scan.
-  const domain = deck.domain
-  const cardCountLabel = `${deck.cardCount.toLocaleString()} ${deck.cardCount === 1 ? 'card' : 'cards'}`
+  const domain   = deck.domain
   const isCopied = copiedDeck !== null
+  const cardCountLabel = `${deck.cardCount.toLocaleString()} ${deck.cardCount === 1 ? 'card' : 'cards'}`
+
+  // Byline level token. Every shipping deck carries a JLPT level; a future
+  // level-agnostic deck (a Joyo Kanji set, say) falls back to its content type.
+  const levelText =
+    deck.jlptLevel === null
+      ? (deck.deckType === 'kanji' ? 'Kanji' : deck.deckType === 'mixed' ? 'Mixed' : 'Vocabulary')
+      : deck.jlptLevel === 'beyond_jlpt'
+        ? 'Beyond JLPT'
+        : `JLPT ${deck.jlptLevel}`
 
   return (
-    <SectionCard
-      kanji="集"
-      label={cardCountLabel}
-      omitTitle
-    >
-      <div className="flex flex-col gap-4">
-        {/* Header: name + metadata cluster */}
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+    <SectionCard kanji="集" label={cardCountLabel} omitTitle>
+      <article className="grid gap-x-6 gap-y-3.5 sm:grid-cols-[minmax(0,1fr)_auto]">
+        {/* Headline + byline. */}
+        <div className="flex min-w-0 flex-col gap-1.5 sm:col-start-1 sm:row-start-1">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span
               lang="ja"
               aria-hidden="true"
-              className="shrink-0 font-display text-xl leading-none text-inari-vermillion translate-y-[0.05em]"
+              className="shrink-0 font-display text-lg leading-none text-inari-vermillion translate-y-[0.06em]"
             >
               集
             </span>
-            <h2 className="min-w-0 break-words font-display text-lg font-medium text-sumi-ink">
+            <h2 className="min-w-0 text-balance break-words font-display text-xl font-medium leading-tight text-sumi-ink">
               {isCopied && copiedDeck !== null ? (
                 <Link
                   href={`/decks/${copiedDeck.id}/preview`}
@@ -346,34 +445,35 @@ function CatalogueCard({
               />
             )}
           </div>
-          <p className="font-mono text-sm text-faded-sumi tabular-nums">
+
+          {/* Byline: level · size · (domain). Quiet mono; the count is the one
+              inked figure, since size is what a learner weighs. */}
+          <p className="font-mono text-xs text-faded-sumi tabular-nums">
+            {levelText}
+            <span aria-hidden="true" className="px-1.5 text-faded-sumi/50">·</span>
             <span className="text-sumi-ink">{deck.cardCount.toLocaleString()}</span>
             {' '}{deck.cardCount === 1 ? 'card' : 'cards'}
+            {domain !== null && domain.trim().length > 0 && (
+              <>
+                <span aria-hidden="true" className="px-1.5 text-faded-sumi/50">·</span>
+                {domain}
+              </>
+            )}
           </p>
         </div>
 
-        {/* Metadata pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {deck.jlptLevel !== null && (
-            <JlptPill level={deck.jlptLevel} size="sm" />
-          )}
-          <ContentTypePill type={TYPE_PILL_TONE[deck.deckType]} size="sm" />
-          {domain !== null && domain.trim().length > 0 && (
-            <span className="inline-flex items-center rounded-full border border-soft-hairline bg-cream-inset px-2 py-0.5 text-xs font-medium text-faded-sumi">
-              {domain}
-            </span>
-          )}
-        </div>
-
-        {/* Description */}
+        {/* Body: the reason to choose this deck, set as the hero at a readable
+            measure. Ordered before the action in the DOM so it reads first when
+            the row stacks on mobile; on sm+ it drops to its own row beneath
+            both columns, leaving an intentional right margin. */}
         {deck.description !== null && deck.description.trim().length > 0 && (
-          <p className="max-w-measure text-sm leading-relaxed text-faded-sumi">
+          <p className="max-w-measure text-pretty text-base leading-relaxed text-faded-sumi line-clamp-3 sm:col-span-2 sm:row-start-2">
             {deck.description}
           </p>
         )}
 
-        {/* Actions */}
-        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-soft-hairline pt-4">
+        {/* The one action: top-right on sm+, last in the stack on mobile. */}
+        <div className="flex flex-col items-start gap-2 sm:col-start-2 sm:row-start-1 sm:items-end sm:justify-self-end">
           {isCopied && copiedDeck !== null ? (
             <>
               <Link href={`/decks/${copiedDeck.id}/preview`}>
@@ -409,7 +509,7 @@ function CatalogueCard({
             </Button>
           )}
         </div>
-      </div>
+      </article>
     </SectionCard>
   )
 }
@@ -436,9 +536,9 @@ function EmptyState({ hasFilter, onResetFilter }: EmptyStateProps): React.JSX.El
         >
           空
         </span>
-        <p className="mt-3 text-sm font-medium text-sumi-ink">No decks match these filters.</p>
+        <p className="mt-3 text-sm font-medium text-sumi-ink">No decks at this level yet.</p>
         <p className="mx-auto mt-1.5 max-w-measure-tight text-sm text-faded-sumi">
-          Try a different combination of JLPT level and content type.
+          Try a different JLPT level, or clear the filter to see every deck.
         </p>
         <div className="mt-5">
           <Button size="sm" variant="secondary" onClick={onResetFilter}>
@@ -489,15 +589,4 @@ function ErrorState({ onRetry }: ErrorStateProps): React.JSX.Element {
       </div>
     </div>
   )
-}
-
-// ── Filter coercion ─────────────────────────────────────────────────────────
-// Narrow `string` (the native select callback value) back to the typed enums.
-
-function coerceJlpt(v: string): JlptFilter {
-  return JLPT_ORDER.includes(v as JlptFilter) ? (v as JlptFilter) : 'all'
-}
-
-function coerceType(v: string): TypeFilter {
-  return TYPE_OPTIONS.includes(v as TypeFilter) ? (v as TypeFilter) : 'all'
 }
