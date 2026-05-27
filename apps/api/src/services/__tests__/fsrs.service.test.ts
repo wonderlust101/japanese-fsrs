@@ -19,6 +19,7 @@ const {
   processReviewBatch,
   forgetCard,
   rollbackReview,
+  rescheduleFromHistory,
 } = await import('../fsrs.service.ts')
 
 beforeEach(() => { sb.reset() })
@@ -402,6 +403,45 @@ describe('fsrs.service — rollbackReview', () => {
 
     await expect(rollbackReview('user-B', 'log-owned-by-A'))
       .rejects.toMatchObject({ statusCode: 404, code: 'REVIEW_LOG_NOT_FOUND' })
+  })
+})
+
+// ── rescheduleFromHistory ─────────────────────────────────────────────────────
+
+describe('fsrs.service — rescheduleFromHistory', () => {
+  it('replays eligible review logs and persists via process_review with rating "manual"', async () => {
+    sb.state.responses['cards'] = [{ data: makeFsrsRow({ state: 2 }), error: null }]
+    sb.state.responses['review_logs'] = [{ data: [
+      { rating: 'good',  reviewed_at: '2026-04-01T00:00:00.000Z' },
+      { rating: 'again', reviewed_at: '2026-04-05T00:00:00.000Z' },
+      { rating: 'good',  reviewed_at: '2026-04-12T00:00:00.000Z' },
+    ], error: null }]
+    sb.state.rpcResponses['process_review'] = [{ data: null, error: null }]
+
+    const result = await rescheduleFromHistory('card-1', 'user-1')
+
+    expect(result.id).toBe('card-1')
+    // Reschedule writes a synthetic 'manual' review log — it's an internal
+    // recompute, not a user rating.
+    const call = sb.state.rpcCalls.find((c) => c.name === 'process_review')
+    expect((call?.payload as Record<string, unknown>)['p_rating']).toBe('manual')
+  })
+
+  it('throws 409 RESCHEDULE_NO_HISTORY when no eligible logs exist', async () => {
+    sb.state.responses['cards'] = [{ data: makeFsrsRow(), error: null }]
+    sb.state.responses['review_logs'] = [{ data: [], error: null }]
+
+    await expect(rescheduleFromHistory('card-1', 'user-1'))
+      .rejects.toMatchObject({ statusCode: 409, code: 'RESCHEDULE_NO_HISTORY' })
+    expect(rpcNames()).not.toContain('process_review')
+  })
+
+  it('throws 404 CARD_NOT_FOUND when the card is absent', async () => {
+    sb.state.responses['cards'] = [{ data: null, error: null }]
+    sb.state.responses['review_logs'] = [{ data: [], error: null }]
+
+    await expect(rescheduleFromHistory('card-1', 'user-1'))
+      .rejects.toMatchObject({ statusCode: 404, code: 'CARD_NOT_FOUND' })
   })
 })
 

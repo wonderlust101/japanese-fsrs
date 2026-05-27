@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, it, expect, afterEach } from 'bun:test'
+
+import { freezeClock, restoreClock } from '../../../tests/support'
 
 // Pure-helper coverage for tomo-note.service. Backend Completion Plan
 // Stage 6. The async getTomoNote path is exercised by the integration test
@@ -21,6 +23,17 @@ const { todayDateKey, yesterdayDateKey, pickIdiomBody } =
   await import('../tomo-note.service.ts')
 
 describe('tomo-note.service — todayDateKey', () => {
+  afterEach(() => { restoreClock() })
+
+  it('resolves the correct local calendar day per timezone at a fixed instant', () => {
+    // 03:00Z on the 17th is already the 17th in Tokyo (+9) but still the 16th in
+    // Los Angeles (−7). Freezing the clock turns the previously shape-only tz
+    // assertion into a real day-boundary check.
+    freezeClock('2026-05-17T03:00:00.000Z')
+    expect(todayDateKey('Asia/Tokyo')).toBe('2026-05-17')
+    expect(todayDateKey('America/Los_Angeles')).toBe('2026-05-16')
+  })
+
   it('returns YYYY-MM-DD in the given timezone (UTC)', () => {
     const result = todayDateKey('UTC')
     // Sanity: matches the ISO date shape.

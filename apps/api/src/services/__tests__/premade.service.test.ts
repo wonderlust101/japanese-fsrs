@@ -14,21 +14,27 @@ interface RpcRow {
 }
 
 interface MockState {
-  rpcResult: RpcRow[] | null
-  rpcError:  { message: string; code?: string } | null
-  rpcCalls:  number
+  rpcResult:   RpcRow[] | null
+  rpcError:    { message: string; code?: string } | null
+  rpcCalls:    number
+  lastRpcName: string | null
+  lastRpcArgs: Record<string, unknown> | null
 }
 
 const state: MockState = {
-  rpcResult: null,
-  rpcError:  null,
-  rpcCalls:  0,
+  rpcResult:   null,
+  rpcError:    null,
+  rpcCalls:    0,
+  lastRpcName: null,
+  lastRpcArgs: null,
 }
 
 mock.module('../../db/supabase.ts', () => ({
   supabaseAdmin: {
-    rpc: mock(async () => {
+    rpc: mock(async (name: string, payload: unknown) => {
       state.rpcCalls++
+      state.lastRpcName = name
+      state.lastRpcArgs = payload as Record<string, unknown>
       return { data: state.rpcResult, error: state.rpcError }
     }),
     // copyPremadeDeck doesn't call .from(); the stub returns a thenable that
@@ -44,9 +50,11 @@ mock.module('../../db/supabase.ts', () => ({
 const { copyPremadeDeck } = await import('../premade.service.ts')
 
 beforeEach(() => {
-  state.rpcResult = null
-  state.rpcError  = null
-  state.rpcCalls  = 0
+  state.rpcResult   = null
+  state.rpcError    = null
+  state.rpcCalls    = 0
+  state.lastRpcName = null
+  state.lastRpcArgs = null
 })
 
 describe('premade.service — copyPremadeDeck', () => {
@@ -58,6 +66,11 @@ describe('premade.service — copyPremadeDeck', () => {
     expect(result.deckId).toBe('deck-new')
     expect(result.cardCount).toBe(12)
     expect(state.rpcCalls).toBe(1)
+    // Pin the RPC name + params so a wrong-RPC or swapped/dropped-arg regression
+    // fails here rather than silently copying the wrong deck for the wrong user.
+    expect(state.lastRpcName).toBe('copy_premade_deck')
+    expect(state.lastRpcArgs?.['p_user_id']).toBe('user-1')
+    expect(state.lastRpcArgs?.['p_premade_deck_id']).toBe('pre-1')
   })
 
   it('throws 404 when the RPC raises SQLSTATE 02000 with premade_deck_not_found', async () => {

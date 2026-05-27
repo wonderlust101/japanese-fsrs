@@ -5,6 +5,9 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 interface MockState {
   // Per-test override of signInWithPassword's behaviour.
   signInResult: { ok: true } | { ok: false }
+  // Captured credentials from the last signInWithPassword call (proves the
+  // service verifies the CURRENT password, not the new one).
+  lastSignInArgs: { email: string; password: string } | null
   // Per-test override of admin.updateUserById behaviour.
   updateUserError: { name: string; message: string } | null
   // Per-test override of admin.deleteUser behaviour.
@@ -28,6 +31,7 @@ interface MockState {
 
 const state: MockState = {
   signInResult: { ok: true },
+  lastSignInArgs: null,
   updateUserError: null,
   deleteUserError: null,
   signUpUser: { id: 'user-uuid-1', email: 'alice@example.com' },
@@ -44,7 +48,8 @@ const state: MockState = {
 mock.module('../../db/supabase.ts', () => ({
   supabaseAdmin: {
     auth: {
-      signInWithPassword: mock(async () => {
+      signInWithPassword: mock(async (creds: { email: string; password: string }) => {
+        state.lastSignInArgs = creds
         if (state.signInResult.ok) {
           return {
             data:  { session: { access_token: 'a', refresh_token: 'r', expires_in: 3600 } },
@@ -102,6 +107,7 @@ const authService = await import('../auth.service.ts')
 
 beforeEach(() => {
   state.signInResult = { ok: true }
+  state.lastSignInArgs = null
   state.updateUserError = null
   state.deleteUserError = null
   state.signUpUser = { id: 'user-uuid-1', email: 'alice@example.com' }
@@ -121,6 +127,10 @@ describe('auth.service — changePassword', () => {
 
     await authService.changePassword('user-1', 'alice@example.com', 'old-password', 'new-password-123')
 
+    // Verification must use the CURRENT password against the user's email. A
+    // regression that verified the NEW password would still pass the patch
+    // assertion below, so this is the line that actually guards the check.
+    expect(state.lastSignInArgs).toEqual({ email: 'alice@example.com', password: 'old-password' })
     expect(state.lastUpdateUserId).toBe('user-1')
     expect(state.lastUpdateUserPatch).toEqual({ password: 'new-password-123' })
   })

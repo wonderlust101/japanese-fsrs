@@ -1,5 +1,7 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test'
 
+import { createOpenAIHarness } from '../../../tests/support'
+
 // Both ai.service module-load and redis client need a way to function without
 // real env vars. Set a dummy OpenAI key so the SDK constructor doesn't reject.
 process.env['OPENAI_API_KEY'] = process.env['OPENAI_API_KEY'] ?? 'sk-test-dummy'
@@ -31,12 +33,26 @@ const fakeRedis = {
     return v
   }),
   ttl: mock(async (_key: string) => -2),
+  // recordSuccess() on the circuit-breaker happy path uses GETDEL; without it a
+  // successful (mocked) OpenAI call would throw 'getdel is not a function'.
+  getdel: mock(async (key: string) => {
+    const v = state.redisStore.get(key)
+    state.redisStore.delete(key)
+    return v === undefined ? null : v
+  }),
 }
 
 mock.module('../../db/redis.ts', () => ({
   redis: fakeRedis,
   rawRedis: fakeRedis,
 }))
+
+// Mock the OpenAI seam so cache-miss paths are deterministic and offline. The
+// previous suite let the real SDK make a live 401 call on every miss — both a
+// flake/latency risk and a reason the success pipeline was never tested. Queue
+// a response per-test with ai.queueChat()/ai.queueChatError().
+const ai = createOpenAIHarness()
+mock.module('../../lib/openai.ts', () => ai.module)
 
 const {
   generateCard,
@@ -48,6 +64,7 @@ const {
 
 beforeEach(() => {
   state.redisStore.clear()
+  ai.reset()
 })
 
 describe('ai.service — cache hit short-circuits OpenAI', () => {
@@ -502,5 +519,51 @@ describe('ai.service — generateSentenceCard cache', () => {
     expect(parsed.ja).toBe('猫が好きです。')
     expect(parsed.breakdown).toHaveLength(5)
     expect(parsed.breakdown?.[0]?.reading).toBe('ねこ')
+  })
+})
+
+// ─── WP-E — generator success path + sanitization (mocked OpenAI) ─────────────
+// The cache-HIT tests above never reach OpenAI. These pin the miss → call →
+// parse → map → cache-write pipeline deterministically, plus the sanitization
+// that must run before both the prompt and the cache key.
+describe('ai.service — generateCard cache miss (mocked OpenAI)', () => {
+  it('calls OpenAI, returns the parsed card, and writes it to the version-keyed cache', async () => {
+    ai.queueChat({ word: '水', reading: 'みず', meaning: 'water', mnemonic: 'flowing strokes' })
+    const { createHash } = await import('node:crypto')
+    const hash = createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)
+    const cacheKey = `card:v5:水:N5:${hash}`
+    expect(state.redisStore.has(cacheKey)).toBe(false)
+
+    const result = await generateCard('水', 'N5', [])
+
+    expect(result.word).toBe('水')
+    expect(result.reading).toBe('みず')
+    expect(result.meaning).toBe('water')
+    expect(ai.chatCalls).toHaveLength(1)
+    // Cache populated so the next equivalent request short-circuits OpenAI.
+    expect(state.redisStore.get(cacheKey)).toBe(JSON.stringify(result))
+  })
+
+  it('strips HTML from the word before it reaches the prompt and the cache key', async () => {
+    ai.queueChat({ word: '水', reading: 'みず', meaning: 'water' })
+    const { createHash } = await import('node:crypto')
+    const sanitizedKey = `card:v5:水:N5:${createHash('sha256').update(JSON.stringify([])).digest('hex').slice(0, 16)}`
+
+    await generateCard('<script>水</script>', 'N5', [])
+
+    // The model never sees the tag; the cache key is keyed off the sanitized
+    // word — defence-in-depth against prompt injection.
+    const sentToModel = JSON.stringify(ai.chatCalls[0])
+    expect(sentToModel).toContain('水')
+    expect(sentToModel).not.toContain('<script>')
+    expect(state.redisStore.has(sanitizedKey)).toBe(true)
+  })
+
+  it('surfaces a 503 (not a raw 500) when the OpenAI call fails, via the circuit breaker', async () => {
+    ai.queueChatError(new Error('ECONNRESET'))
+
+    let caught: unknown
+    try { await generateCard('火', 'N5', []) } catch (e) { caught = e }
+    expect((caught as { statusCode?: number }).statusCode).toBe(503)
   })
 })

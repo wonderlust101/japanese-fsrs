@@ -1,10 +1,15 @@
 import { describe, it, expect, mock } from 'bun:test'
 
+import { supabaseAuthMock } from '../../tests/support'
+
 // Mock external clients before any module that transitively imports them
 // loads. Otherwise the real supabase / redis modules try to parse env vars
 // at import-time and the test bootstrap rejects.
+// Shared getUser so auth.ts reads the same impl no matter which suite's mock
+// it binds to. This suite only inspects router stacks (never calls getUser),
+// so the default invalid result is irrelevant here.
 mock.module('../db/supabase.ts', () => ({
-  supabaseAdmin: { auth: { getUser: mock(async () => ({ data: { user: null }, error: null })) } },
+  supabaseAdmin: { auth: { getUser: supabaseAuthMock.getUser } },
 }))
 // Mirror the real module shape: redis.ts exports both `redis` (Proxy-wrapped
 // with the upstash breaker) and `rawRedis` (un-wrapped, used by the

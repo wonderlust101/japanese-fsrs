@@ -3,17 +3,20 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test'
 interface MockState {
   rpcResponses: Record<string, { data: unknown; error: { message: string } | null }>
   lastRpcName:  string | null
+  lastRpcArgs:  unknown
 }
 
 const state: MockState = {
   rpcResponses: {},
   lastRpcName:  null,
+  lastRpcArgs:  null,
 }
 
 mock.module('../../db/supabase.ts', () => ({
   supabaseAdmin: {
-    rpc: mock(async (name: string) => {
+    rpc: mock(async (name: string, params: unknown) => {
       state.lastRpcName = name
+      state.lastRpcArgs = params
       return state.rpcResponses[name] ?? { data: null, error: null }
     }),
     from: mock(() => ({})),
@@ -27,6 +30,7 @@ const {
 beforeEach(() => {
   state.rpcResponses = {}
   state.lastRpcName  = null
+  state.lastRpcArgs  = null
 })
 
 // The four granular service functions (getHeatmapData, getAccuracyByLayout,
@@ -153,5 +157,11 @@ describe('analytics.service — getDashboardData', () => {
     }
     await getDashboardData('user-1', 'America/New_York')
     expect(state.lastRpcName).toBe('get_dashboard_data')
+    // The test name promises the timezone is forwarded — assert it, don't just
+    // check the RPC name. A regression that dropped p_timezone would skew every
+    // tz-aware bucket (heatmap, cards-this-month) silently.
+    const args = state.lastRpcArgs as Record<string, unknown>
+    expect(args['p_user_id']).toBe('user-1')
+    expect(args['p_timezone']).toBe('America/New_York')
   })
 })

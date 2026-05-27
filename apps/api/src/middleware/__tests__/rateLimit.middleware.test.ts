@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from 'bun:test'
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 
 // rateLimit.ts constructs Ratelimit instances at module-load that touch the
 // redis client; stub the redis import so the test process doesn't try to
@@ -13,7 +13,7 @@ import type { Request, Response } from 'express'
 // self-evident at the call site.)
 mock.module('../../db/redis.ts', () => ({ redis: {} }))
 
-const { applyRateLimitHeaders, tighter } = await import('../rateLimit.ts')
+const { applyRateLimitHeaders, tighter, submitRateLimitMiddleware } = await import('../rateLimit.ts')
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,6 +157,32 @@ describe('tighter — auth limiter result selection', () => {
     // but both are equally valid by contract.
     const result = tighter(a, b)
     expect(result === a || result === b).toBe(true)
+  })
+})
+
+// ─── Dev/test bypass ──────────────────────────────────────────────────────────
+//
+// RATE_LIMITING_ENABLED is a load-time const gated on NODE_ENV === 'production',
+// so in the test env every factory limiter short-circuits to next() before any
+// Upstash call. The production enforcement paths (429 propagation, fail-open on
+// infra error) require a prod-env process and are covered by the integration
+// tier (apps/api/tests/integration/ratelimit.routes.test.ts), not here.
+describe('rate-limit middleware — non-production bypass', () => {
+  it('calls next() with no error and sets no rate-limit headers outside production', async () => {
+    const res = makeRes()
+    const req = makeReq()
+    let nextCalled = false
+    let nextArg: unknown = 'untouched'
+
+    await submitRateLimitMiddleware(
+      req as unknown as Request,
+      res as unknown as Response,
+      ((err?: unknown) => { nextCalled = true; nextArg = err }) as NextFunction,
+    )
+
+    expect(nextCalled).toBe(true)
+    expect(nextArg).toBeUndefined()
+    expect(res.headers.size).toBe(0)
   })
 })
 
