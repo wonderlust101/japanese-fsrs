@@ -48,6 +48,7 @@ import type {
     SessionWeakSpot,
     SessionSummary
 } from '@fsrs-japanese/shared-types';
+import { assertNever } from '@fsrs-japanese/shared-types';
 
 const FIXTURE_KEY_SET = new Set<FixturePattern>(SUMMARY_FIXTURE_KEYS);
 
@@ -284,6 +285,8 @@ export default function ReviewSummaryPage(): React.JSX.Element {
                 }
                 return;
             }
+            default:
+                assertNever(route);
         }
     }
 

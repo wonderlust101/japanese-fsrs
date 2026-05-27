@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { StatusPill, type StatusTone } from '@/components/ui/Pill'
 import { Time } from '@/components/ui/Time'
 import { DecksMenu, MenuItem, MenuSeparator } from '@/app/(app)/decks/_components/decks-menu'
-import { State } from '@fsrs-japanese/shared-types'
+import { State, assertNever } from '@fsrs-japanese/shared-types'
 
 export type CardRowAction = 'edit' | 'add-copy' | 'move' | 'delete'
 
@@ -534,10 +534,8 @@ function statusForState(state: State, isSuspended: boolean): { status: StatusTon
     case State.Learning:
     case State.Relearning: return { status: 'learning', label: 'Learning' }
     case State.Review:     return { status: 'review', label: 'Review' }
-    default: {
-      const _exhaustiveCheck: never = state
-      return _exhaustiveCheck
-    }
+    default:
+      return assertNever(state)
   }
 }
 

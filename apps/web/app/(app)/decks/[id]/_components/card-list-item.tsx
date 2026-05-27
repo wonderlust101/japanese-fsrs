@@ -7,7 +7,7 @@ import {
   MenuItem,
   MenuSeparator,
 } from '@/app/(app)/decks/_components/decks-menu'
-import { getWordFields, getSentenceFrontBack, State, type ApiCardListItem } from '@fsrs-japanese/shared-types'
+import { getWordFields, getSentenceFrontBack, State, assertNever, type ApiCardListItem } from '@fsrs-japanese/shared-types'
 
 // ─── State mapping ────────────────────────────────────────────────────────────
 
@@ -23,10 +23,8 @@ function chipForState(state: State, isSuspended: boolean): StateChip {
     case State.Learning:
     case State.Relearning: return { glyph: '◐', label: 'Lrn' }
     case State.Review:     return { glyph: '↻', label: 'Rev' }
-    default: {
-      const _exhaustiveCheck: never = state
-      return _exhaustiveCheck
-    }
+    default:
+      return assertNever(state)
   }
 }
 

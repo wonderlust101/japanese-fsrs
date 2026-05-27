@@ -14,6 +14,7 @@ import {
 } from 'ts-fsrs'
 
 import {
+  assertNever,
   type ReviewRating,
   type ApiReviewedCard,
   type ApiBatchResult,
@@ -240,10 +241,8 @@ function mapRatingToGrade(rating: ReviewRating): Grade {
       // corrupting schedules with plausible-but-wrong intervals. Stable
       // `code` lets log filters route this without parsing message text.
       throw new AppError(500, 'Rating "manual" is not allowed in user submissions; rejected at Zod boundary', { code: 'FSRS_MANUAL_RATING_BUG' })
-    default: {
-      const _exhaustiveCheck: never = rating
-      return _exhaustiveCheck
-    }
+    default:
+      return assertNever(rating)
   }
 }
 

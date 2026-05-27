@@ -46,8 +46,6 @@ import {
   getVocabularyFields,
   getWordFields,
   type ApiCard,
-  type ApiCardListItem,
-  type ApiDueCard,
 } from '@fsrs-japanese/shared-types'
 import { cn } from '@/lib/utils'
 
@@ -269,7 +267,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
                   )}
                   <div className="px-1 pt-5 pb-2 md:px-2 md:pt-7 md:pb-3">
                     <CardBack
-                      card={card as unknown as ApiDueCard}
+                      card={card}
                       exampleSentenceIndex={clampedSentence}
                       manageTabShortcuts
                       revealTranslation
@@ -497,7 +495,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
       </Dialog>
 
       <MoveCardDialog
-        card={activeDialog.kind === 'move' && card !== null && card !== undefined ? (card as unknown as ApiCardListItem) : null}
+        card={activeDialog.kind === 'move' && card !== null && card !== undefined ? card : null}
         currentDeckId={deckId}
         variant="move"
         isSubmitting={moveMutation.isPending}

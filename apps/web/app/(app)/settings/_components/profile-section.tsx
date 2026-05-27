@@ -144,7 +144,9 @@ export function ProfileSection({
 
     setSubmitting(true)
 
-    type CommitOutcome = { id: string; ok: boolean; error?: string }
+    type CommitOutcome =
+      | { id: string; ok: true }
+      | { id: string; ok: false; error: string }
     const tasks: Promise<CommitOutcome>[] = []
 
     if (emailDirty) {
@@ -214,7 +216,7 @@ export function ProfileSection({
         if (r.id === 'timezone')      setCommittedTimezone(trimmedTz)
         if (r.id === 'study-goal')    setCommittedStudyGoal(studyGoal)
       } else {
-        feedback.markError(r.id, r.error ?? 'Could not save.')
+        feedback.markError(r.id, r.error)
       }
     }
 

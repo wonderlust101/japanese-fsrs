@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import type { Profile } from '@fsrs-japanese/shared-types'
+import { assertNever } from '@fsrs-japanese/shared-types'
 
 // ── Store shape ───────────────────────────────────────────────────────────────
 //
@@ -56,10 +57,8 @@ export const useUserStore = create<UserStore>()(
               case 'refreshing':
                 set({ status: 'refreshing', profile: s.profile, actions: s.actions }, true)
                 return
-              default: {
-                const _exhaustiveCheck: never = s
-                throw new Error(`Unhandled user state: ${JSON.stringify(_exhaustiveCheck)}`)
-              }
+              default:
+                assertNever(s, `Unhandled user state: ${JSON.stringify(s)}`)
             }
           }
           switch (s.status) {
@@ -71,10 +70,8 @@ export const useUserStore = create<UserStore>()(
             case 'refreshing':
               set({ status: 'loaded', profile: s.profile, actions: s.actions }, true)
               return
-            default: {
-              const _exhaustiveCheck: never = s
-              throw new Error(`Unhandled user state: ${JSON.stringify(_exhaustiveCheck)}`)
-            }
+            default:
+              assertNever(s, `Unhandled user state: ${JSON.stringify(s)}`)
           }
         },
 
