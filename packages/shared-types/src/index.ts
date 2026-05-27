@@ -181,11 +181,13 @@ export type {
 } from './schemas/review.schema.ts'
 
 export {
+  passwordSchema, passwordResetRequestSchema,
   signupSchema, loginSchema, refreshSchema,
   cancelSignupSchema, verifyOtpSchema, resendOtpSchema,
   changePasswordSchema, deleteAccountSchema,
 } from './schemas/auth.schema.ts'
 export type {
+  PasswordResetRequestInput,
   SignupInput, LoginInput, RefreshInput,
   CancelSignupInput, VerifyOtpInput, ResendOtpInput,
   ChangePasswordInput, DeleteAccountInput,
@@ -197,3 +199,10 @@ export type {
 // schemas above and stay accessible via deep import inside the package.
 
 export { sanitizeForPrompt } from './sanitize.ts'
+
+// ─── Exhaustiveness guard ─────────────────────────────────────────────────────
+// `assertNever` is the single home for the discriminated-union exhaustiveness
+// check that was previously open-coded as `const _x: never = value` across
+// both apps. Use it in the `default` branch of a switch over a closed union.
+
+export { assertNever } from './assert.ts'

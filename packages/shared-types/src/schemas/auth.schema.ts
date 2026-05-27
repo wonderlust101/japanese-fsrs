@@ -2,10 +2,20 @@ import { z } from 'zod'
 
 import { safeShortText } from '../sanitize.ts'
 
+// Single source of truth for password strength, shared by signup, the new
+// password on reset, and the changed password on step-up.
+export const passwordSchema = z.string().min(8).max(128)
+
 export const signupSchema = z.object({
   email:       z.email(),
-  password:    z.string().min(8).max(128),
+  password:    passwordSchema,
   displayName: safeShortText(30, 2),
+}).strict()
+
+// Request a password-reset email. Email only; the response is identical whether
+// or not the address is registered (account-enumeration policy).
+export const passwordResetRequestSchema = z.object({
+  email: z.email(),
 }).strict()
 
 export const loginSchema = z.object({
@@ -45,6 +55,7 @@ export const deleteAccountSchema = z.object({
   currentPassword: z.string().min(1),
 }).strict()
 
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>
 export type SignupInput         = z.infer<typeof signupSchema>
 export type LoginInput          = z.infer<typeof loginSchema>
 export type RefreshInput        = z.infer<typeof refreshSchema>
