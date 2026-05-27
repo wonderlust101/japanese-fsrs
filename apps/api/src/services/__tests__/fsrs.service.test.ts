@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test'
+import { ZodError } from 'zod'
 
 import { createSupabaseHarness } from '../../../tests/support'
 
@@ -202,6 +203,18 @@ describe('fsrs.service — processReview', () => {
 
     await expect(processReview('card-1', 'good', 'user-1'))
       .rejects.toMatchObject({ statusCode: 404, code: 'CARD_NOT_FOUND' })
+  })
+
+  it('surfaces an RPC column drift as a ZodError and never calls process_review', async () => {
+    // Schema-as-source: FsrsCardRowSchema.parse runs before any scheduling.
+    // If a SELECT/RPC ever returns a drifted column type (here: `stability`
+    // arriving as text), the parse must throw loudly rather than coerce garbage
+    // into the scheduler. This is the malformed-external-response guard.
+    sb.state.responses['cards'] = [{ data: makeFsrsRow({ stability: 'not-a-number' }), error: null }]
+
+    const err = await processReview('card-1', 'good', 'user-1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ZodError)
+    expect(rpcNames()).not.toContain('process_review')
   })
 
   it('maps the process_review P0420 archive guard to 422 DECK_ARCHIVED', async () => {

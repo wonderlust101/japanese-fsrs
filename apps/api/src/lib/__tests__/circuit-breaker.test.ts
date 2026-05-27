@@ -1,4 +1,6 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test'
+import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test'
+
+import { seedRandom, restoreRandom } from '../../../tests/support'
 
 // In-memory redis stub. circuit-breaker.ts imports `redis` from `../db/redis.ts`
 // at module load; this `mock.module` swap must run BEFORE the import below.
@@ -141,6 +143,38 @@ describe('circuit-breaker — getRetryAfterSeconds (with jitter)', () => {
     const v = await getRetryAfterSeconds('test')
     expect(v).toBeGreaterThanOrEqual(300)
     expect(v).toBeLessThan(330)
+  })
+})
+
+describe('circuit-breaker — getRetryAfterSeconds (seeded jitter is exact)', () => {
+  // The range tests above pin the unseeded production contract (value stays in
+  // [base, base+30)). Seeding Math.random turns that into exact assertions,
+  // locking the formula to `base + floor(random * 30)` — a regression to
+  // `base * random` or an off-by-one in the jitter ceiling fails here.
+  // 'test' uses FALLBACK_CONFIG (window = 300s).
+  afterEach(() => { restoreRandom() })
+
+  it('adds zero jitter when random() is 0 — returns the base window TTL exactly', async () => {
+    await recordFailure('test') // failure key now carries a 300s TTL
+    seedRandom(0)
+    expect(await getRetryAfterSeconds('test')).toBe(300)
+  })
+
+  it('adds floor(random * 30) — 15s of jitter at random() = 0.5', async () => {
+    await recordFailure('test')
+    seedRandom(0.5)
+    expect(await getRetryAfterSeconds('test')).toBe(315)
+  })
+
+  it('caps jitter at 29s just below random() = 1 (never reaches a full +30)', async () => {
+    await recordFailure('test')
+    seedRandom(0.999)
+    expect(await getRetryAfterSeconds('test')).toBe(329)
+  })
+
+  it('uses the full window as the base when no failure key exists (TTL -2 ⇒ windowSeconds)', async () => {
+    seedRandom(0) // isolate the base from jitter
+    expect(await getRetryAfterSeconds('test')).toBe(300)
   })
 })
 

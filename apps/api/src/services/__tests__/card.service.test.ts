@@ -202,6 +202,47 @@ describe('card.service — listCardsCrossDeck', () => {
     expect(result.hasMore).toBe(true)
   })
 
+  // ── hasMore page-size boundary (offset + shown vs totalCount) ──────────────
+  // The matrix's empty/null/boundary cell: the off-by-one where a page lands
+  // *exactly* on totalCount must read hasMore=false, not true. Asserting the
+  // true side alone would pass a `<=`-vs-`<` regression.
+
+  it('returns hasMore=false when the first page exactly exhausts totalCount', async () => {
+    // 2 shown at offset 0, total 2 ⇒ 0 + 2 < 2 is false.
+    state.rpcResponses.list_cards_cross_deck  = [{ data: [makeListRow(), makeListRow()], error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 2, error: null }]
+
+    const result = await listCardsCrossDeck(uuid(), { limit: 25 })
+
+    expect(result.items).toHaveLength(2)
+    expect(result.totalCount).toBe(2)
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('returns hasMore=false when a later offset page lands exactly on totalCount', async () => {
+    // The offset arithmetic specifically: 25 shown at offset 25, total 50 ⇒
+    // 25 + 25 < 50 is false. A regression that ignored offset (shown < total ⇒
+    // 25 < 50 ⇒ true) would be caught here.
+    const rows = Array.from({ length: 25 }, () => makeListRow())
+    state.rpcResponses.list_cards_cross_deck  = [{ data: rows, error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 50, error: null }]
+
+    const result = await listCardsCrossDeck(uuid(), { limit: 25, offset: 25 })
+
+    expect(result.hasMore).toBe(false)
+  })
+
+  it('returns hasMore=true when one row remains past an offset page', async () => {
+    // 25 shown at offset 25, total 51 ⇒ 25 + 25 < 51 is true (one row left).
+    const rows = Array.from({ length: 25 }, () => makeListRow())
+    state.rpcResponses.list_cards_cross_deck  = [{ data: rows, error: null }]
+    state.rpcResponses.count_cards_cross_deck = [{ data: 51, error: null }]
+
+    const result = await listCardsCrossDeck(uuid(), { limit: 25, offset: 25 })
+
+    expect(result.hasMore).toBe(true)
+  })
+
   it('forwards presentField and pitchPattern to both RPCs', async () => {
     state.rpcResponses.list_cards_cross_deck  = [{ data: [], error: null }]
     state.rpcResponses.count_cards_cross_deck = [{ data: 0, error: null }]
