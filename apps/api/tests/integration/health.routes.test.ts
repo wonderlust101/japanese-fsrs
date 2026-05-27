@@ -1,4 +1,4 @@
-import { it, expect, beforeAll, afterEach } from 'bun:test'
+import { it, expect, beforeAll, beforeEach, afterEach } from 'bun:test'
 import request from 'supertest'
 
 import { describeIntegration, isIntegrationEnabled } from './_helpers'
@@ -12,6 +12,19 @@ beforeAll(async () => {
   ;({ app } = await import('../../src/app'))
   ;({ rawRedis } = await import('../../src/db/redis'))
   ;({ invalidateIsOpenCache } = await import('../../src/lib/circuit-breaker'))
+})
+
+// Other suites' card-create embeddings / AI calls fail against the dummy OpenAI
+// key and open the openai-* breakers in the SHARED Redis. /_health/ready
+// correctly reports any open breaker, so clear them before each readiness
+// assertion — otherwise cross-file pollution turns "no breaker open" red.
+beforeEach(async () => {
+  if (!isIntegrationEnabled()) return
+  for (const ns of ['openai-chat', 'openai-embeddings']) {
+    await rawRedis.del(`circuit:${ns}:failures`)
+    await rawRedis.del(`circuit:${ns}:probe`)
+    invalidateIsOpenCache(ns)
+  }
 })
 
 // Tests preset breaker state in Redis to verify the readiness endpoint

@@ -36,7 +36,9 @@ describeIntegration('POST /api/v1/auth — signup → cancel → re-signup', () 
       createdUserIds.push(first.body.userId)
       const cancel = await request(app)
         .post('/api/v1/auth/cancel-signup')
-        .send({ userId: first.body.userId })
+        // cancel-signup now requires the cancellationToken issued at signup
+        // (anti-enumeration hardening); userId alone is a 400.
+        .send({ userId: first.body.userId, cancellationToken: first.body.cancellationToken })
       expect(cancel.status).toBe(204)
     }
 

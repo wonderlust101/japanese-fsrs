@@ -1,4 +1,5 @@
 import { describe } from 'bun:test'
+import { createClient } from '@supabase/supabase-js'
 
 /**
  * Integration tests need a real Supabase instance.
@@ -13,6 +14,50 @@ export function isIntegrationEnabled(): boolean {
 export const describeIntegration: typeof describe = isIntegrationEnabled()
   ? describe
   : describe.skip
+
+/** Whether a REAL OpenAI key is configured (not absent, not the test dummy). */
+export function isOpenAIEnabled(): boolean {
+  const key = process.env['OPENAI_API_KEY']
+  return key !== undefined && key.length > 0 && key !== 'sk-test-dummy'
+}
+
+/**
+ * Like `describeIntegration`, but also requires a real OpenAI key. For suites
+ * that call OpenAI with no cache to short-circuit (embedding generation, the
+ * readiness probe's OpenAI check). Skips when no real key is set, so the
+ * integration job stays green and token-free unless OPENAI_API_KEY is supplied.
+ */
+export const describeOpenAI: typeof describe =
+  isIntegrationEnabled() && isOpenAIEnabled() ? describe : describe.skip
+
+// ─── User sign-in WITHOUT polluting the shared service-role client ───────────
+//
+// signInWithPassword sets a session on whichever client calls it. Tests import
+// ONE shared `supabaseAdmin` (the app's service-role client); signing in on it
+// leaves it acting as that user under RLS for every later `.from()` call — its
+// own AND the app's (same singleton). That makes any fixture that touches
+// another user's or system rows fail (e.g. assertDeckActive can't see user A's
+// deck while the client is signed in as B → card create 404s). Mint tokens on a
+// dedicated client instead so supabaseAdmin stays session-less = service_role.
+
+let cachedAuthClient: ReturnType<typeof createClient> | null = null
+function authClient(): ReturnType<typeof createClient> {
+  cachedAuthClient ??= createClient(
+    process.env['SUPABASE_URL'] ?? '',
+    process.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '',
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  )
+  return cachedAuthClient
+}
+
+/** Sign in and return the access token without touching supabaseAdmin's session. */
+export async function signInUser(email: string, password = 'integration-pass'): Promise<string> {
+  const { data, error } = await authClient().auth.signInWithPassword({ email, password })
+  if (error !== null || data.session === null) {
+    throw new Error(`signInUser failed: ${error?.message ?? 'no session'}`)
+  }
+  return data.session.access_token
+}
 
 // ─── Service-role seeding via raw PostgREST ──────────────────────────────────
 //

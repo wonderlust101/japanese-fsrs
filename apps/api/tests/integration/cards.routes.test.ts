@@ -2,7 +2,7 @@ import { randomUUID, createHash } from 'node:crypto'
 import { it, expect, beforeAll, afterAll } from 'bun:test'
 import request from 'supertest'
 
-import { describeIntegration, isIntegrationEnabled } from './_helpers'
+import { describeIntegration, isIntegrationEnabled, isOpenAIEnabled } from './_helpers'
 
 let app:           import('express').Express
 let supabaseAdmin: import('@supabase/supabase-js').SupabaseClient
@@ -159,17 +159,21 @@ describeIntegration('cards routes — cascading deletes', () => {
       .set('Authorization', `Bearer ${u.jwt}`)
     expect(getRes.status).toBe(404)
 
-    // Verify analytics still work (review_logs preserved)
-    const heatmapRes = await request(app)
-      .get('/api/v1/analytics/heatmap')
+    // Verify analytics still work (review_logs preserved). The granular
+    // /analytics/heatmap endpoint was retired (bundled into the dashboard RPC);
+    // the dashboard read exercises the same review_logs join.
+    const analyticsRes = await request(app)
+      .get('/api/v1/analytics/dashboard')
       .set('Authorization', `Bearer ${u.jwt}`)
-    expect(heatmapRes.status).toBe(200)
+    expect(analyticsRes.status).toBe(200)
     // Should not crash even though the card that created the review_log is gone
   })
 })
 
 describeIntegration('cards routes — regenerate-embedding', () => {
-  it('POST /api/v1/cards/:id/regenerate-embedding returns 204 for own card', async () => {
+  // Actually regenerates → calls OpenAI embeddings. Gated on a real key so CI
+  // stays token-free; the 404/400 cases below need no OpenAI and always run.
+  ;(isOpenAIEnabled() ? it : it.skip)('POST /api/v1/cards/:id/regenerate-embedding returns 204 for own card', async () => {
     const u = await seedUser(); seeded.push(u)
 
     // Create card
