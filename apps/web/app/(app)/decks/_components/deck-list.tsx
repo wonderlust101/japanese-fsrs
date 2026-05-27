@@ -411,8 +411,8 @@ export function DeckListView(): React.JSX.Element {
       onSuccess: () => {
         showToast(`Copied "${truncate(deckName, 28)}".`)
       },
-      onError: (err) => {
-        showToast(err.message || `Couldn't copy "${truncate(deckName, 28)}".`, 'error')
+      onError: () => {
+        showToast(`Couldn't copy "${truncate(deckName, 28)}". Please try again.`, 'error')
       },
     })
   }

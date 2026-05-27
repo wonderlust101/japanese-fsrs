@@ -362,7 +362,7 @@ export function CardsBrowserView(): React.JSX.Element {
         showToast(`Deleted ${label}.`, 'info')
         setConfirmDelete(null)
       },
-      onError: (err) => showToast(err.message || 'Failed to delete card.', 'error'),
+      onError: () => showToast("Couldn't delete that card. Please try again.", 'error'),
     })
   }
 
@@ -372,7 +372,7 @@ export function CardsBrowserView(): React.JSX.Element {
         showToast('Card moved.', 'info')
         setMoveTarget(null)
       },
-      onError: (err) => showToast(err.message || 'Failed to move card.', 'error'),
+      onError: () => showToast("Couldn't move that card. Please try again.", 'error'),
     })
   }
 
@@ -382,7 +382,7 @@ export function CardsBrowserView(): React.JSX.Element {
         showToast('Copy added to the deck.', 'info')
         setCopyTarget(null)
       },
-      onError: (err) => showToast(err.message || 'Failed to copy card.', 'error'),
+      onError: () => showToast("Couldn't copy that card. Please try again.", 'error'),
     })
   }
 
@@ -429,7 +429,7 @@ export function CardsBrowserView(): React.JSX.Element {
         clearSelection()
         setBulkMoveOpen(false)
       },
-      onError: (err) => showToast(err.message || 'Failed to move cards.', 'error'),
+      onError: () => showToast("Couldn't move those cards. Please try again.", 'error'),
     })
   }
 
@@ -437,7 +437,7 @@ export function CardsBrowserView(): React.JSX.Element {
     const ids = [...selected]
     bulkSuspendMutation.mutate(ids, {
       onSuccess: (result) => { reportBulkResult('Suspend', result); clearSelection() },
-      onError:   (err) => showToast(err.message || 'Failed to suspend cards.', 'error'),
+      onError:   () => showToast("Couldn't suspend those cards. Please try again.", 'error'),
     })
   }
 
@@ -449,7 +449,7 @@ export function CardsBrowserView(): React.JSX.Element {
         clearSelection()
         setBulkDeleteOpen(false)
       },
-      onError: (err) => showToast(err.message || 'Failed to delete cards.', 'error'),
+      onError: () => showToast("Couldn't delete those cards. Please try again.", 'error'),
     })
   }
 
@@ -470,6 +470,14 @@ export function CardsBrowserView(): React.JSX.Element {
   function handleNext(): void {
     if (state.page >= totalPages) return
     updateState({ ...state, page: state.page + 1 })
+  }
+  // Page size lives in local state, not the URL. Reset to page 1 on a size
+  // change so a larger window can't strand the user on an offset past the new
+  // last page (e.g. page 4 at 25/page lands beyond the data at 50/page). Page 1
+  // is always valid, which also removes the need to clamp here.
+  function handlePageSizeChange(nextSize: CardsPageSize): void {
+    setPageSize(nextSize)
+    if (state.page !== 1) updateState({ ...state, page: 1 })
   }
 
   // First-deck-id helper for the bulk Move dialog.
@@ -673,7 +681,7 @@ export function CardsBrowserView(): React.JSX.Element {
                     onPickPage={handlePickPage}
                     onPrev={handlePrev}
                     onNext={handleNext}
-                    onPageSizeChange={setPageSize}
+                    onPageSizeChange={handlePageSizeChange}
                     isPaginating={isPaginating}
                   />
                 )}

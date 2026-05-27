@@ -168,9 +168,9 @@ export function PremadeCatalogue(): React.JSX.Element {
           `Added ${result.cardCount} ${result.cardCount === 1 ? 'card' : 'cards'} from ${deck.name} to your library.`,
         )
       },
-      onError: (err) => {
+      onError: () => {
         setPendingId(null)
-        showToast(err.message || 'Could not add this deck. Try again in a moment.', 'error')
+        showToast("Couldn't add this deck. Please try again in a moment.", 'error')
       },
     })
   }

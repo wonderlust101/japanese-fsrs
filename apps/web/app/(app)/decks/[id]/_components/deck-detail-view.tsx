@@ -220,19 +220,19 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
   function handleBulkMoveConfirm(_card: ApiCardListItem, targetDeckId: string): void {
     bulkMoveMutation.mutate({ ids: [...selected], targetDeckId }, {
       onSuccess: (result) => { reportBulkResult('Move', result); clearSelection(); setBulkMoveOpen(false) },
-      onError:   (err) => showToast(err.message || 'Failed to move cards.', 'error'),
+      onError:   () => showToast("Couldn't move those cards. Please try again.", 'error'),
     })
   }
   function handleBulkSuspend(): void {
     bulkSuspendMutation.mutate([...selected], {
       onSuccess: (result) => { reportBulkResult('Suspend', result); clearSelection() },
-      onError:   (err) => showToast(err.message || 'Failed to suspend cards.', 'error'),
+      onError:   () => showToast("Couldn't suspend those cards. Please try again.", 'error'),
     })
   }
   function handleBulkDeleteConfirm(): void {
     bulkDeleteMutation.mutate([...selected], {
       onSuccess: (result) => { reportBulkResult('Delete', result); clearSelection(); setBulkDeleteOpen(false) },
-      onError:   (err) => showToast(err.message || 'Failed to delete cards.', 'error'),
+      onError:   () => showToast("Couldn't delete those cards. Please try again.", 'error'),
     })
   }
 

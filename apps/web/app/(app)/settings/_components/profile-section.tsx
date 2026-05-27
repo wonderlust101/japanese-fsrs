@@ -155,11 +155,11 @@ export function ProfileSection({
           const supabase = createSupabaseBrowserClient()
           const { error } = await supabase.auth.updateUser({ email: trimmedEmail })
           if (error !== null) {
-            return { id: 'email', ok: false, error: error.message ?? 'Could not save.' }
+            return { id: 'email', ok: false, error: friendlyAuthError(error.message) }
           }
           return { id: 'email', ok: true }
         } catch (e) {
-          return { id: 'email', ok: false, error: e instanceof Error ? e.message : 'Could not save.' }
+          return { id: 'email', ok: false, error: friendlyAuthError(e instanceof Error ? e.message : undefined) }
         }
       })())
     }
@@ -170,11 +170,11 @@ export function ProfileSection({
           const supabase = createSupabaseBrowserClient()
           const { error } = await supabase.auth.updateUser({ data: { display_name: trimmedName } })
           if (error !== null) {
-            return { id: 'display-name', ok: false, error: error.message ?? 'Could not save.' }
+            return { id: 'display-name', ok: false, error: friendlyAuthError(error.message) }
           }
           return { id: 'display-name', ok: true }
         } catch (e) {
-          return { id: 'display-name', ok: false, error: e instanceof Error ? e.message : 'Could not save.' }
+          return { id: 'display-name', ok: false, error: friendlyAuthError(e instanceof Error ? e.message : undefined) }
         }
       })())
     }
@@ -232,6 +232,7 @@ export function ProfileSection({
 
   return (
     <SectionShell
+      heading="Profile settings"
       strip={(
         <ContextStrip>
           <ContextNote eyebrow="Locale" title="How Tomo reads your day">
@@ -385,4 +386,24 @@ function isLanguageValue(v: string): v is LanguageValue {
 
 function isValidEmail(s: string): boolean {
   return /^\S+@\S+\.\S+$/.test(s)
+}
+
+// Supabase auth errors surface client-side (no RSC-boundary redaction), but
+// their default register can be techy. Soften the common cases; otherwise the
+// Supabase message is already written for end users, so pass it through with a
+// clean fallback.
+function friendlyAuthError(message: string | undefined): string {
+  const fallback = 'We couldn’t save that. Please try again.'
+  if (message === undefined || message.trim() === '') return fallback
+  const m = message.toLowerCase()
+  if (m.includes('rate limit') || m.includes('for security purposes')) {
+    return 'Too many attempts — please wait a moment and try again.'
+  }
+  if (m.includes('already registered') || (m.includes('already') && m.includes('email'))) {
+    return 'That email is already in use.'
+  }
+  if (m.includes('invalid') && m.includes('email')) {
+    return 'Enter a valid email address.'
+  }
+  return message
 }

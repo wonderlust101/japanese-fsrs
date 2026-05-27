@@ -59,16 +59,20 @@ export function RenameDeckDialog({
       onSuccess(updated.name)
       onClose()
     },
-    onError: (err) => {
-      // Fall back to local override so the user's rename still appears to
-      // stick in this device session even if the API call failed.
-      if (deck !== null) {
+    onError: () => {
+      // Optimistically keep the rename in this session ONLY when genuinely
+      // offline. We can't read the HTTP status across the server-action
+      // boundary, so navigator.onLine is the reliable signal for "the request
+      // never reached the API". A real server rejection while online is
+      // surfaced (dialog stays open) rather than masked as a successful rename.
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine
+      if (deck !== null && offline) {
         onLocalRename(deck.id, name.trim())
         onSuccess(name.trim())
         onClose()
-      } else {
-        onError(err instanceof Error ? err.message : 'Rename failed.')
+        return
       }
+      onError("We couldn't rename that deck. Please try again.")
     },
   })
 
@@ -150,8 +154,8 @@ export function DeleteDeckDialog({
       onSuccess(deleted.name)
       onClose()
     },
-    onError: (err) => {
-      onError(err instanceof Error ? err.message : 'Delete failed.')
+    onError: () => {
+      onError("We couldn't delete that deck. Please try again.")
     },
   })
 
@@ -253,9 +257,12 @@ export function EditDeckOptionsDialog({
       onSuccess('Deck options saved.')
       onClose()
     },
-    onError: (err) => {
-      // Fall back: persist locally where we can.
-      if (deck !== null) {
+    onError: () => {
+      // Optimistic local save only when genuinely offline (see the rename
+      // dialog above). A server rejection while online surfaces the error and
+      // keeps the dialog open rather than masking it as "Saved locally".
+      const offline = typeof navigator !== 'undefined' && !navigator.onLine
+      if (deck !== null && offline) {
         onLocalRename(deck.id, name.trim())
         if (archived && !isArchived) onArchive(deck.id)
         if (!archived && isArchived) onRestore(deck.id)
@@ -263,7 +270,7 @@ export function EditDeckOptionsDialog({
         onClose()
         return
       }
-      onError(err instanceof Error ? err.message : 'Save failed.')
+      onError("We couldn't save those deck options. Please try again.")
     },
   })
 

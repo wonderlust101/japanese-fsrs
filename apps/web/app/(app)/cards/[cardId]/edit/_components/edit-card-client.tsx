@@ -319,7 +319,7 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
           }))
         }
       })
-      .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Generation failed.'))
+      .catch(() => setAiError("Couldn't generate sentences. Please try again."))
       .finally(() => { setGeneratingBatch(false); setPendingCount(0) })
   }, [generatingBatch, fields.sentences, existingJa, card.id])
 
@@ -343,7 +343,7 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
           }))
         }
       })
-      .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
+      .catch(() => setAiError("Couldn't regenerate that sentence. Please try again."))
       .finally(() => setRegeneratingId(null))
   }, [regeneratingId, existingJa, card.id])
 
@@ -357,7 +357,7 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
           setFields((prev) => ({ ...prev, mnemonic: data.mnemonic }))
         }
       })
-      .catch((err: unknown) => setAiError(err instanceof Error ? err.message : 'Regeneration failed.'))
+      .catch(() => setAiError("Couldn't regenerate the mnemonic. Please try again."))
       .finally(() => setRegenMnemonic(false))
   }, [regenMnemonic, card.id])
 
@@ -400,8 +400,8 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
       // first so the cache is stale before the back-navigation resolves it.
       router.refresh()
       goBackOrDetail()
-    } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save your changes.')
+    } catch {
+      setSaveError("Couldn't save your changes. Please try again.")
       setSaving(false)
     }
     // No finally → setSaving(false): on success we navigate away, so leaving
@@ -822,7 +822,7 @@ function DeckPickerCard({
         />
         {moved && (
           <p role="status" className="mt-1 text-sm text-faded-sumi">
-            Saving moves this card to the new deck. Its review history and FSRS state come with it.
+            Saving moves this card to the new deck. Its review history and scheduling come with it.
           </p>
         )}
       </div>

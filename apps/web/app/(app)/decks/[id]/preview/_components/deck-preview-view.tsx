@@ -123,9 +123,9 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
         )
         router.push(`/decks/${result.deckId}/preview`)
       },
-      onError: (err) => {
+      onError: () => {
         showToast(
-          err.message || 'Could not add this deck. Try again in a moment.',
+          "Couldn't add this deck. Please try again in a moment.",
           'error',
         )
       },
