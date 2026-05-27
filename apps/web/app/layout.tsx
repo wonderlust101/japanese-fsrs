@@ -86,18 +86,13 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 }
 
-// TODO(seo): The following are intentionally deferred. Pick up when a public
-// marketing surface (landing page) lands.
-//   1. PWA web manifest — create app/manifest.ts so Tomo is installable on
-//      mobile/desktop. Useful for a daily-use study app. Generate maskable +
-//      monochrome icon variants from logo.svg.
-//   2. Dynamic OG images — app/decks/[id]/opengraph-image.tsx using next/og to
-//      auto-render share cards per deck. Only valuable once decks become
-//      publicly shareable (currently auth-gated, no shared URLs).
-//   3. JSON-LD structured data — Organization + SoftwareApplication schemas on
-//      a public landing page so Google can show rich results.
-//   4. Public landing page — replace the / → /onboarding redirect with a real
-//      marketing page; add /features, /privacy, /help; expand sitemap.ts.
+// SEO surface: the public (marketing) tree — landing `/`, `/privacy`, `/terms`,
+// `/help` — carries page metadata, canonicals, JSON-LD (Organization +
+// WebApplication on `/`, FAQPage on `/help`), and the sitemap. PWA install is
+// wired via `app/manifest.ts` + the generated `public/brand/icon-*.png`. The
+// one remaining deferral is dynamic per-deck OG images (next/og): decks are
+// auth-gated with no shareable public URLs, so the static `og.png` is correct
+// until that changes.
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (

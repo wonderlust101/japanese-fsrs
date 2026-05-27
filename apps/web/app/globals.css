@@ -10,6 +10,10 @@
   /* ── Brand palette: Inari Vermillion ──────────────────────────────── */
   --color-inari-vermillion:      #B03646;
   --color-inari-vermillion-deep: #7E1F2A;
+  /* Lighter/darker stops flanking the base vermillion, used by the drenched
+     brand-panel hero gradient so its color stays in lockstep with the token. */
+  --color-inari-vermillion-light: #B8424F;
+  --color-inari-vermillion-shade: #8E2632;
   --color-vermillion-wash:       #F8E5E5;
   /* Space-separated channels for alpha compositing via `rgb(var(--token) / <a>)`.
      Mirrors #7E1F2A above. Use when a fill needs per-instance opacity without
@@ -448,6 +452,51 @@ body {
 /* Noto Sans JP on any element carrying the lang attribute */
 [lang="ja"] {
   font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+/* ── Lenis smooth scroll ─────────────────────────────────────────────────
+   Lenis adds these classes to <html> while it is active (home page only, and
+   only when the visitor allows motion). The rules are inert unless those
+   classes are present, so reduced-motion users — who never get a Lenis
+   instance — fall back to native scrolling untouched. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Doc-page scroll reveals fade content in as it enters the viewport. When
+   printing, nothing scrolls, so force every reveal target fully visible and
+   un-transformed; legal and help content must print in full. */
+@media print {
+  [data-doc-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Hero entrance anti-flash: the landing hero's secondary elements are animated
+   in by GSAP on mount, but the server-rendered markup paints before hydration,
+   so without this they flash in their final position first. Hiding them at the
+   first paint (CSS ships in the HTML) closes that window; GSAP then fades them
+   in with `fromTo`. Gated to no-preference so reduced-motion users, who never
+   get the JS reveal, keep them visible. The headline words are intentionally
+   excluded (position-only animation, the LCP element). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-hero-hidden] {
+    opacity: 0;
+  }
 }
 
 /* ── Reduced motion ──────────────────────────────────────────────────── */

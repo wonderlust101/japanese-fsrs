@@ -40,19 +40,27 @@ export async function middleware(request: NextRequest) {
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/signup' ||
-    pathname === '/signup/verify'
+    pathname === '/signup/verify' ||
+    pathname === '/forgot-password'
+  // The root is the public marketing landing page. Logged-out visitors (and
+  // crawlers) must reach it; authenticated users skip the funnel and go to the
+  // app. The other public surfaces (/privacy, /terms, /help) are not in the
+  // matcher at all, so middleware never runs on them — they are public by
+  // default.
+  const isRoot = pathname === '/'
 
-  if (user && isAuthPage) {
-    // Authenticated user hitting an auth page → send straight to the app.
+  if (user && (isAuthPage || isRoot)) {
+    // Authenticated user hitting an auth page or the landing → straight to the app.
     const url = request.nextUrl.clone()
     url.pathname = '/today'
     return NextResponse.redirect(url)
   }
 
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isRoot) {
     // Unauthenticated user hitting a protected route → send to login, carrying
     // the original path+query as `next` so login can return them there after
-    // authenticating (instead of always dropping them on /today).
+    // authenticating (instead of always dropping them on /today). The landing
+    // (isRoot) is exempt: logged-out visitors fall through and see it.
     const next = request.nextUrl.pathname + request.nextUrl.search
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -66,8 +74,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Root — unauthenticated users get redirected to /login here instead of
-    // taking a two-hop journey: / → /onboarding → /login.
+    // Root — public marketing landing for logged-out visitors; authenticated
+    // users are redirected to /today (handled above).
     '/',
     // Protected (app) routes
     '/today/:path*',
@@ -88,5 +96,6 @@ export const config = {
     '/login',
     '/signup',
     '/signup/verify',
+    '/forgot-password',
   ],
 }
