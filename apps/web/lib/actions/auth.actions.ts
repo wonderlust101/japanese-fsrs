@@ -3,6 +3,7 @@
 import { voidResponseSchema, type ApiAuthTokens } from '@fsrs-japanese/shared-types'
 
 import { apiCall } from '@/lib/api/client'
+import { env } from '@/lib/env'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 // ─── Sensitive actions ────────────────────────────────────────────────────────
@@ -40,6 +41,55 @@ export async function resendOtpAction(email: string): Promise<void> {
 
   if (error !== null) {
     throw new Error(error.message ?? 'Failed to resend code')
+  }
+}
+
+// ─── Password reset (recovery OTP flow) ───────────────────────────────────────
+// Mirrors the signup → verify → done shape: request a code, verify it (which
+// establishes a recovery session), then set the new password. All three use the
+// SSR client directly, like loginAction/verifyOtpAction, so no Express round-trip.
+
+/**
+ * Sends a password-reset email carrying a 6-digit recovery code.
+ *
+ * Resolves regardless of whether the address is registered — Supabase's
+ * `resetPasswordForEmail` does not reveal account existence, and neither does
+ * this action. The caller always advances to the code-entry step (account-
+ * enumeration policy, same stance as signup).
+ */
+export async function requestPasswordResetAction(email: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  // `redirectTo` only matters for the link variant of the email; the code (OTP)
+  // path ignores it. Pointed at the reset surface for completeness.
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${env.NEXT_PUBLIC_SITE_URL}/forgot-password`,
+  })
+}
+
+/**
+ * Verifies the 6-digit recovery code. On success the SSR client persists a
+ * recovery session via its cookie handlers, so the subsequent
+ * `updatePasswordAction` is authenticated.
+ */
+export async function verifyRecoveryOtpAction(email: string, token: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
+
+  if (error !== null) {
+    throw new Error(error.message)
+  }
+}
+
+/**
+ * Sets a new password for the user authenticated by the recovery session
+ * established in `verifyRecoveryOtpAction`.
+ */
+export async function updatePasswordAction(newPassword: string): Promise<void> {
+  const supabase = await createSupabaseServerClient()
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+  if (error !== null) {
+    throw new Error(error.message ?? 'Failed to update password')
   }
 }
 

@@ -53,9 +53,9 @@ function PasswordToggle({
     <button
       type="button"
       onClick={onToggle}
-      tabIndex={-1}
       aria-label={visible ? 'Hide password' : 'Show password'}
-      className="ui-motion-colors inline-flex items-center text-xs font-medium text-faded-sumi hover:text-sumi-ink"
+      aria-pressed={visible}
+      className="ui-motion-colors inline-flex items-center rounded-xs text-xs font-medium text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
     >
       {visible ? 'Hide' : 'Show'}
     </button>

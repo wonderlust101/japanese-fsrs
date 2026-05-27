@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
 import { useMutation } from '@tanstack/react-query'
 
 import { Button }       from '@/components/ui/Button'
@@ -20,7 +21,11 @@ import { useUserStore } from '@/stores/user.store'
 import { signupSchema } from '@fsrs-japanese/shared-types'
 import { useSignupDevState } from '@/dev/panels/auth-signup'
 
-const OTP_RESEND_COOLDOWN = 60
+// Below the code's ~60s lifetime so "Resend" unlocks while the current code is
+// still usable, instead of exactly as it dies. Requires GoTrue's
+// SMTP_MAX_FREQUENCY to be ≤ this value; if not, the resend error path handles
+// the rejection gracefully.
+const OTP_RESEND_COOLDOWN = 30
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -58,6 +63,38 @@ export default function SignupPage(): React.JSX.Element {
   // independent keys and don't conflict.
   const direction: 'forward' | 'backward' = viewState.view === 'verify' ? 'forward' : 'backward'
 
+  // Orchestrate the form ↔ verify swap (a view-state change, not a route
+  // change, so the AuthShell timeline doesn't see it). Mirrors the shell's
+  // card-turn: the verify card slides in from the right, the form back from
+  // the left. First mount is handled by the shell, so skip it here.
+  const innerRef   = useRef<HTMLDivElement>(null)
+  const firstRunRef = useRef(true)
+  useEffect(() => {
+    if (firstRunRef.current) { firstRunRef.current = false; return }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (innerRef.current === null) return
+
+    const card    = innerRef.current.querySelector<HTMLElement>('[data-auth-card]')
+    const content = card?.querySelector(':scope > div')
+    const rows    = content ? Array.from(content.children) : []
+    if (card === null || card === undefined) return
+
+    const dirX = direction === 'forward' ? 34 : -34
+    gsap.set(card, { opacity: 0, y: 20, x: dirX })
+    if (rows.length > 0) gsap.set(rows, { opacity: 0, y: 12 })
+
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+    tl.to(card, { opacity: 1, y: 0, x: 0, duration: 0.55 })
+    if (rows.length > 0) {
+      tl.to(rows, { opacity: 1, y: 0, duration: 0.42, stagger: 0.07, ease: 'power2.out' }, '-=0.28')
+    }
+
+    return () => {
+      tl.kill()
+      gsap.set([card, ...rows], { clearProps: 'opacity,transform' })
+    }
+  }, [viewState.view, direction])
+
   function handleSuccess(newUserId: string | null, cancellationToken: string | null): void {
     setViewState({ view: 'verify', userId: newUserId, cancellationToken })
   }
@@ -79,17 +116,19 @@ export default function SignupPage(): React.JSX.Element {
   }
 
   return (
-    <CardStack contentKey={viewState.view} cardsBehind={0} direction={direction}>
-      {viewState.view === 'signup' ? (
-        <SignupFormView
-          email={email}
-          onEmailChange={setEmail}
-          onSuccess={handleSuccess}
-        />
-      ) : (
-        <VerifyFormView email={email} onBack={handleBack} />
-      )}
-    </CardStack>
+    <div ref={innerRef}>
+      <CardStack contentKey={viewState.view} cardsBehind={0} direction={direction}>
+        {viewState.view === 'signup' ? (
+          <SignupFormView
+            email={email}
+            onEmailChange={setEmail}
+            onSuccess={handleSuccess}
+          />
+        ) : (
+          <VerifyFormView email={email} onBack={handleBack} />
+        )}
+      </CardStack>
+    </div>
   )
 }
 
@@ -188,7 +227,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
 
 
   return (
-    <Card variant="default">
+    <Card variant="default" data-auth-card>
       <div className="flex flex-col gap-8">
         <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
@@ -204,6 +243,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
           <Input
             label="Email"
             type="email"
+            size="lg"
             autoComplete="email"
             value={email}
             onChange={(e) => {
@@ -218,6 +258,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
           <Input
             label="Display name"
             type="text"
+            size="lg"
             autoComplete="name"
             value={displayName}
             onChange={(e) => {
@@ -234,6 +275,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             <Input
               label="Password"
               type="password"
+              size="lg"
               autoComplete="new-password"
               value={password}
               onChange={(e) => {
@@ -253,6 +295,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
           <Input
             label="Confirm password"
             type="password"
+            size="lg"
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => {
@@ -273,7 +316,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
           <Button
             type="submit"
             variant="primary"
-            size="md"
+            size="lg"
             loading={signupMutation.isPending}
             trailingIcon={<ArrowGlyph direction="right" />}
             className="w-full mt-2"
@@ -287,7 +330,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             Already have an account?{' '}
             <Link
               href="/login"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+              className="inline-block py-1 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Sign in
             </Link>
@@ -296,7 +339,7 @@ function SignupFormView({ email, onEmailChange, onSuccess }: SignupFormViewProps
             Need help?{' '}
             <Link
               href="/help"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+              className="inline-block py-1 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Get help
             </Link>
@@ -353,7 +396,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
 
 
   return (
-    <Card variant="default">
+    <Card variant="default" data-auth-card>
       <div className="flex flex-col gap-8">
         <header className="flex flex-col gap-3">
           <Logo size={48} wordmarkSize="md" />
@@ -363,20 +406,21 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
           <p className="text-base text-faded-sumi leading-relaxed">
             We sent a 6-digit code to{' '}
             <span className="font-medium text-sumi-ink break-all">{email}</span>.
-            It expires in 1 minute.
+            The code is good for about a minute, so enter it soon.
           </p>
         </header>
 
         <div className="flex flex-col items-center gap-6">
           <OTPInput
-            key={otpErrorVersion}
             onComplete={handleOtpComplete}
             error={otpError}
+            errorId="otp-error"
+            errorNonce={otpErrorVersion}
             isLoading={verifyMutation.isPending}
           />
 
           {otpError !== null && (
-            <p role="alert" className="text-sm text-error text-center">
+            <p id="otp-error" role="alert" className="text-sm text-error text-center">
               {otpError}
             </p>
           )}
@@ -389,7 +433,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
                 type="button"
                 onClick={handleResend}
                 disabled={resendMutation.isPending}
-                className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+                className="inline-flex items-center min-h-11 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
               >
                 Resend code
               </button>
@@ -411,13 +455,12 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
 
         <div className="pt-2 border-t border-soft-hairline">
           <p className="text-base text-faded-sumi text-center">
-            Wrong email?{' '}
             <button
               type="button"
               onClick={onBack}
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+              className="inline-flex items-center min-h-11 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
-              Go back
+              Use a different email
             </button>
           </p>
         </div>

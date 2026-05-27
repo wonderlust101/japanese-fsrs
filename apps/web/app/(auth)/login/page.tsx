@@ -16,7 +16,7 @@ import { getJapaneseGreeting } from '@/lib/japanese-greeting'
 import { useLoginDevState }  from '@/dev/panels/auth-login'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
-  'Invalid login credentials': "That didn't match. Try again, or reset your password.",
+  'Invalid login credentials': "That email and password didn't match. Try again, or reset your password.",
   'Too many requests':         "Lots of attempts in a row. Take a moment, then come back.",
   'Email not confirmed':       "Check your email for a confirmation link first.",
   'Network request failed':    "Looks like a connection hiccup. Check your internet and try again.",
@@ -87,14 +87,20 @@ export default function LoginPage(): React.JSX.Element {
     setCapsLockOn(e.getModifierState('CapsLock'))
   }
 
-  const isCredsError    = error !== null && error.message === 'Invalid login credentials'
-  const apiPasswordError = isCredsError ? friendlyError(error.message) : undefined
-  const passwordError   = clientPasswordError ?? apiPasswordError
-  const formError       = error !== null && !isCredsError ? friendlyError(error.message) : null
+  // A failed sign-in is surfaced as a single form-level message, never pinned to
+  // the password field: pointing at the password would wrongly imply the email
+  // was fine, and the wording deliberately doesn't say which field was wrong
+  // (account-enumeration policy). The field only ever shows the client-side
+  // "enter your password" check.
+  const passwordError = clientPasswordError
+  const formError     = error !== null ? friendlyError(error.message) : null
+  // Unrecognized errors get a help affordance, since the generic fallback copy
+  // can't offer a specific next step.
+  const showHelpHint  = error !== null && !Object.hasOwn(FRIENDLY_ERRORS, error.message)
 
 
   return (
-    <Card variant="default">
+    <Card variant="default" data-auth-card>
       <div        className="flex flex-col gap-8"
       >
         <header className="flex flex-col gap-3">
@@ -111,7 +117,7 @@ export default function LoginPage(): React.JSX.Element {
               </span>
             )}
           </p>
-          <h1 className="font-display text-3xl font-medium text-sumi-ink leading-[1.1]">
+          <h1 className="font-display text-3xl font-semibold text-sumi-ink leading-[1.1]">
             <span className="block">Welcome back.</span>
             <span className="block">Ready to practice?</span>
           </h1>
@@ -121,6 +127,7 @@ export default function LoginPage(): React.JSX.Element {
           <Input
             label="Email"
             type="email"
+            size="lg"
             autoComplete="email"
             value={email}
             onChange={(e) => {
@@ -136,6 +143,7 @@ export default function LoginPage(): React.JSX.Element {
             <Input
               label="Password"
               type="password"
+              size="lg"
               autoComplete="current-password"
               value={password}
               onChange={(e) => {
@@ -154,22 +162,34 @@ export default function LoginPage(): React.JSX.Element {
           <div className="flex items-center justify-end">
             <Link
               href="/forgot-password"
-              className="text-sm text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+              className="inline-flex items-center min-h-11 text-sm text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Forgot password?
             </Link>
           </div>
 
           {formError !== null && (
-            <p role="alert" className="text-sm text-error">
-              {formError}
-            </p>
+            <div role="alert" className="flex flex-col gap-1">
+              <p className="text-sm text-error">{formError}</p>
+              {showHelpHint && (
+                <p className="text-sm text-faded-sumi">
+                  If this keeps happening,{' '}
+                  <Link
+                    href="/help"
+                    className="inline-block py-1 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+                  >
+                    get help
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
           )}
 
           <Button
             type="submit"
             variant="primary"
-            size="md"
+            size="lg"
             loading={isPending}
             trailingIcon={<ArrowGlyph direction="right" />}
             className="w-full mt-2"
@@ -183,9 +203,18 @@ export default function LoginPage(): React.JSX.Element {
             No account yet?{' '}
             <Link
               href="/signup"
-              className="text-sumi-ink font-medium underline decoration-soft-hairline decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+              className="inline-block py-1 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
             >
               Sign up
+            </Link>
+          </p>
+          <p className="text-sm text-faded-sumi">
+            Need help?{' '}
+            <Link
+              href="/help"
+              className="inline-block py-1 text-sumi-ink font-medium underline decoration-faded-sumi decoration-1 underline-offset-2 hover:decoration-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 rounded-xs transition-colors duration-150"
+            >
+              Get help
             </Link>
           </p>
         </div>

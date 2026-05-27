@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -17,14 +17,47 @@ interface OTPInputProps {
   error?: string | null
   /** Dims the inputs and disables interaction while an API call is in-flight. */
   isLoading?: boolean
+  /**
+   * id of the parent-rendered error message. When `error` is set, the digit
+   * boxes point `aria-describedby` here so the message is programmatically
+   * tied to the controls, not just announced once via the parent's `role="alert"`.
+   */
+  errorId?: string
+  /**
+   * Monotonic counter the parent bumps on each verification failure. Drives the
+   * shake + refocus without remounting the component, so the entered digits
+   * survive a wrong code — the user fixes a digit instead of re-typing all six.
+   */
+  errorNonce?: number
   className?: string
 }
 
 // ── OTPInput ──────────────────────────────────────────────────────────────────
 
-export function OTPInput({ onComplete, error, isLoading = false, className }: OTPInputProps): React.JSX.Element {
+export function OTPInput({ onComplete, error, isLoading = false, errorId, errorNonce = 0, className }: OTPInputProps): React.JSX.Element {
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''))
+  const [shaking, setShaking] = useState(false)
   const inputRefs           = useRef<(HTMLInputElement | null)[]>([])
+
+  // Focus the first box on mount so the user can type the code straight away
+  // without clicking.
+  useEffect(() => {
+    inputRefs.current[0]?.focus()
+  }, [])
+
+  // React to a verification failure: replay the shake and refocus the first box,
+  // but keep the entered digits intact. The shake is retriggered by toggling the
+  // animation class off then on across a frame (the off→on flip re-fires the CSS
+  // animation without remounting the inputs, which would wipe the digits). Skips
+  // the initial render (errorNonce starts at 0).
+  const firstNonceRef = useRef(true)
+  useEffect(() => {
+    if (firstNonceRef.current) { firstNonceRef.current = false; return }
+    setShaking(false)
+    const raf = requestAnimationFrame(() => setShaking(true))
+    inputRefs.current[0]?.focus()
+    return () => cancelAnimationFrame(raf)
+  }, [errorNonce])
 
   function updateDigit(index: number, raw: string) {
     const digit = raw.replace(/\D/g, '').slice(-1)
@@ -80,8 +113,8 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
       aria-label="One-time password"
       className={cn(
         'flex items-center gap-1.5 sm:gap-2',
-        // Shake plays on mount when the parent remounts this component on error.
-        hasError && 'animate-otp-shake',
+        // Shake is retriggered via the errorNonce effect above, not on mount.
+        shaking && 'animate-otp-shake',
         className,
       )}
     >
@@ -90,9 +123,6 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
           key={i}
           ref={(el) => {
             inputRefs.current[i] = el
-            // Focus the first box automatically when the component mounts
-            // after an error (the parent increments the key to remount).
-            if (i === 0 && el !== null && hasError) el.focus()
           }}
           type="text"
           inputMode="numeric"
@@ -101,6 +131,8 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
           value={digit}
           disabled={isLoading}
           aria-label={`Digit ${i + 1} of 6`}
+          aria-invalid={hasError || undefined}
+          aria-describedby={hasError && errorId ? errorId : undefined}
           onChange={(e) => updateDigit(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
@@ -111,9 +143,11 @@ export function OTPInput({ onComplete, error, isLoading = false, className }: OT
             // clipped by the card's overflow-hidden. min-w-0 permits the shrink.
             'flex-1 min-w-0 max-w-[52px] h-14 sm:h-[60px]',
             'font-mono text-2xl font-semibold text-center text-sumi-ink',
-            'bg-cream-inset rounded-md',
-            'ui-motion-colors outline-none',
-            'focus:ring-[3px] focus:ring-vermillion-wash focus:border-inari-vermillion',
+            'bg-cream-inset rounded-xs',
+            'ui-motion-colors',
+            // Match the system input focus treatment (Input.tsx): a 1px sumi-ink
+            // outline, not a 3px vermillion ring.
+            'focus:outline focus:outline-1 focus:outline-offset-2 focus:outline-sumi-ink',
             hasError
               ? 'border-2 border-error'
               : 'border border-soft-hairline',
