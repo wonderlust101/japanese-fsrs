@@ -9,6 +9,7 @@ import {
 } from '@/stores/onboarding.store'
 import { CardStack } from '@/components/ui/CardStack'
 import { Logo } from '@/components/ui/Logo'
+import { InariEditorialField } from '@/components/brand/InariEditorialField'
 
 // Welcome cover sits before the questionnaire. Treat it as index -1 so a
 // welcome → step-1 transition reads as forward, and step-1 → welcome reads
@@ -63,24 +64,43 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
   // and a ~570px answer column — comfortable reading without sprawl.
   const cardWidthClass = isWelcome ? 'max-w-[760px]' : 'max-w-[1080px]'
 
+  // The shared editorial field's tick rides down the rule as the deck depletes.
+  // Welcome rests it at the top (no progress to depict); the questionnaire maps
+  // it to the same fraction the step bars fill, so the ambient echo and the
+  // foreground readout always agree.
+  const fieldProgress = isWelcome ? undefined : (stepIndex + 1) / totalSteps
+
   return (
-    <div className="relative min-h-screen bg-cool-paper-base text-sumi-ink">
-      {/* Editorial top bar: full-bleed masthead, absolutely positioned so it
-          does not reserve vertical grid space. The card below centers in the
-          full viewport rather than in "viewport minus header." Two subtle
-          1px hairlines preserve the editorial-publication double-rule
-          signature without shouting. */}
-      <header className="absolute top-0 left-0 right-0 z-10 px-6 md:px-12 pt-8 md:pt-10 pb-7 md:pb-9">
-        <div className="flex items-center gap-8">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-cool-paper-base text-sumi-ink">
+      {/* The shared InariEditorialField — the same composed ink-on-paper still
+          that backs the auth pages, so signup → onboarding is one continuous
+          field. With no brand panel here, this field is the surface's only
+          brand atmosphere, so it earns restrained life: eased two-depth
+          parallax on the hand-of-light and 友 glyph, a slow brush-breath, and
+          the vermillion tick gliding the rule to the current step. */}
+      <InariEditorialField variant="full" live progress={fieldProgress} />
+
+      {/* Editorial top bar: full-bleed masthead that sits in normal flow and
+          reserves its own vertical space. The card centers in the space below
+          it (`flex-1` main) — a hair lower than dead-center, but it can never
+          slide under the masthead the way an absolutely-positioned header let
+          tall cards do. A single subtle 1px hairline gives the masthead an
+          editorial-publication rule without shouting. */}
+      <header className="relative z-10 shrink-0 px-6 md:px-12 pt-8 md:pt-10 pb-7 md:pb-9">
+        <div className="flex items-center gap-6 md:gap-8">
           <Logo size={48} wordmarkSize="xl" />
-          <div className="flex-1 flex flex-col gap-2" aria-hidden="true">
-            <span className="block h-px bg-soft-hairline" />
-            <span className="block h-px bg-soft-hairline" />
+          {/* The masthead rule echoes the editorial field's signature device:
+              a short vermillion tick (same w-10 / inari-vermillion/30 as the
+              tick crossing the field's vertical rule) leading a sumi hairline.
+              The two surfaces now share one hairline-and-tick vocabulary. */}
+          <div className="flex-1 flex items-center" aria-hidden="true">
+            <span className="block h-px w-10 shrink-0 bg-inari-vermillion/30" />
+            <span className="block h-px flex-1 bg-sumi-ink/[0.08]" />
           </div>
         </div>
       </header>
 
-      <main className="min-h-screen flex items-center justify-center px-6 md:px-12 py-12 md:py-16">
+      <main className="relative z-10 flex flex-1 items-center justify-center px-6 md:px-12 pt-2 md:pt-4 pb-12 md:pb-16">
         <div className={`w-full ${cardWidthClass}`}>
           {/* Step indicator row. Layout: `[02 / 05]  ──── full-width bars ────`.
               Counter and total live together as a single chip on the left;

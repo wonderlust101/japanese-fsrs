@@ -35,29 +35,23 @@ interface RecommendedDeck {
   count:       number
 }
 
+// JLPT levels ordered easiest → hardest. The recommendation window slides
+// along this ladder.
+const JLPT_LADDER = ['N5', 'N4', 'N3', 'N2', 'N1', 'beyond_jlpt'] as const
+
 /**
- * Maps the onboarding level (the user's self-reported current ability) to the
- * set of premade JLPT levels worth recommending. The user picks a single
- * level, so we surface that level's vocabulary deck plus any level-agnostic
- * decks (Joyo Kanji etc.). For N1, "Beyond JLPT" is folded in since an N1
- * learner is the natural audience.
- *
- * `null` in the returned set matches catalogue rows with `jlptLevel === null`
- * (Joyo Kanji etc.). 'beyond_jlpt' is a distinct JLPTLevel value, so it
- * only appears in the N1 set explicitly.
+ * Maps the onboarding level (the user's self-reported current ability) to a
+ * three-level starter window: the chosen level plus the next two levels up the
+ * JLPT ladder — e.g. N5 → {N5, N4, N3}. This gives a learner their level and
+ * the natural progression beyond it, rather than the whole catalogue. Near the
+ * top of the ladder the window is naturally shorter (N1 → {N1, beyond_jlpt}).
+ * Beginner and the no-selection fallback both anchor at N5, matching the
+ * downstream profile mapping in handleContinue.
  */
 function levelTargets(level: OnboardingLevel | null): ReadonlySet<JLPTLevel | null> {
-  // Beginner maps to N5 — same downstream mapping the page already uses when
-  // POSTing the profile (see handleContinue).
-  switch (level) {
-    case 'N5':       return new Set<JLPTLevel | null>(['N5', null])
-    case 'N4':       return new Set<JLPTLevel | null>(['N4', null])
-    case 'N3':       return new Set<JLPTLevel | null>(['N3', null])
-    case 'N2':       return new Set<JLPTLevel | null>(['N2', null])
-    case 'N1':       return new Set<JLPTLevel | null>(['N1', 'beyond_jlpt', null])
-    case 'beginner': return new Set<JLPTLevel | null>(['N5', null])
-    case null:       return new Set<JLPTLevel | null>(['N5', null])
-  }
+  const anchor: JLPTLevel = level === null || level === 'beginner' ? 'N5' : level
+  const start = JLPT_LADDER.indexOf(anchor)
+  return new Set<JLPTLevel | null>(JLPT_LADDER.slice(start, start + 3))
 }
 
 /**
@@ -136,11 +130,14 @@ export default function DecksPage(): React.JSX.Element {
   // Compute the list of recommended decks from the live catalogue, filtered
   // by the JLPT level the user just chose. `useMemo` keys on the data + level
   // so swapping levels (back-button revisit) re-derives without a refetch.
+  // Capped at the three closest decks: `rankRecommendations` already orders by
+  // proximity (the chosen JLPT level first, then level-agnostic), so the top 3
+  // are the nearest starter set — keeps the step a quick pick, not a catalogue.
   const recommendedDecks = useMemo<ReadonlyArray<RecommendedDeck>>(() => {
     const items = premadeDecksQuery.data?.items ?? []
     const target = levelTargets(level)
     const matched = items.filter((d) => target.has(d.jlptLevel))
-    return rankRecommendations(matched).map(toRecommendedDeck)
+    return rankRecommendations(matched).slice(0, 3).map(toRecommendedDeck)
   }, [premadeDecksQuery.data, level])
 
   // Default-none: the user picks; nothing is pre-decided.

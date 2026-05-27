@@ -43,8 +43,12 @@ interface StepCardProps {
  *   3. Body items stagger in tightly
  *   4. Footer arrives near the end
  *
- * On `< md`, the columns stack with the aside above the question column;
- * the stagger order is preserved.
+ * On `< lg`, the columns stack with the aside above the question column;
+ * the stagger order is preserved. The split is deferred to `lg` (not `md`)
+ * because the two-column grid only has room to breathe past ~1024px — at
+ * tablet-portrait width the 38% preview pane and answer column both cramp
+ * (headings over-wrap, inline option text truncates), so tablets get the
+ * full-width single-column stack instead.
  */
 export function StepCard({
   previewPane,
@@ -55,14 +59,18 @@ export function StepCard({
 }: StepCardProps): React.JSX.Element {
   return (
     <Card variant="default">
-      <div        className="grid grid-cols-1 md:grid-cols-[38%_1fr] gap-8 md:gap-12"
-      >
+      <div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-8 lg:gap-12">
         {/* SRS preview pane (left on md, top on mobile) */}
-        <aside          className="flex flex-col items-stretch gap-3"
-        >
-          <p className="text-xs font-mono text-faded-sumi">
-            preview
-          </p>
+        <aside className="flex flex-col items-stretch gap-3">
+          {/* Section caption for the preview pane. The preview visualizations
+              use this same mono/faded-sumi style for their own internal labels
+              ("Estimated cards to learn", day names, etc.), so a bare word would
+              read as part of the image. The trailing hairline frames "Preview"
+              as a caption sitting above the visualization, not a line within it. */}
+          <div className="flex items-center gap-3 text-xs font-mono tracking-wide text-faded-sumi">
+            <span>Preview</span>
+            <span aria-hidden="true" className="h-px flex-1 bg-soft-hairline" />
+          </div>
           <div className="flex-1">{previewPane}</div>
         </aside>
 
