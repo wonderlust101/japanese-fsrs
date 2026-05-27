@@ -53,7 +53,7 @@ jobs:
           eval "$(bunx supabase status -o env)"
           export SUPABASE_URL="$API_URL"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
-          bun test apps/api/tests/integration/
+          bun test apps/api/tests/integration/ apps/api/tests/e2e/
 
       - name: Stop Supabase
         if: always()
