@@ -34,7 +34,11 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * against open-redirect via a crafted `?next=`.
  */
 function safeNextPath(raw: string | null): string | null {
-  if (raw === null || !raw.startsWith('/') || raw.startsWith('//')) return null
+  if (raw === null || !raw.startsWith('/')) return null
+  // Reject protocol-relative (`//host`) and backslash variants (`/\host`, which
+  // some user agents normalise to `//host`) so a crafted `?next=` can't redirect
+  // off-site. A bare "/" has no second character, so it is allowed.
+  if (raw[1] === '/' || raw[1] === '\\') return null
   return raw
 }
 

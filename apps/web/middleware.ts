@@ -88,6 +88,12 @@ export const config = {
     '/cards',
     '/insights/:path*',
     '/insights',
+    // Weak-spots review surface and its drill sub-tree. Omitting these left the
+    // routes outside the auth gate entirely: middleware never ran, and
+    // (app)/layout.tsx does not redirect on its own, so logged-out visitors
+    // rendered the app shell here.
+    '/weak-spots/:path*',
+    '/weak-spots',
     '/settings/:path*',
     // Onboarding — requires authentication; unauthenticated users are sent to /login
     '/onboarding/:path*',

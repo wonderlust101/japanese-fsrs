@@ -615,9 +615,13 @@ export async function getSimilarCards(
   userId:          string,
   expectedDeckId?: string,
 ): Promise<ApiList<ApiSimilarCard>> {
-  if (expectedDeckId !== undefined) {
-    await getCard(cardId, userId, expectedDeckId)
-  }
+  // Verify the source card belongs to the caller before computing similarity.
+  // The find_similar_cards RPC scopes its *results* to p_user_id but joins the
+  // source vector by id alone (src.id = p_card_id, no owner check), so a
+  // non-owned p_card_id is usable as a similarity oracle against the caller's
+  // own cards. Pre-checking here makes the flat /cards/:id/similar mount 404 on
+  // a foreign id, matching every other :id route. (deckId still scopes when set.)
+  await getCard(cardId, userId, expectedDeckId)
 
   const { data, error } = await supabaseAdmin.rpc('find_similar_cards', {
     p_card_id: cardId,

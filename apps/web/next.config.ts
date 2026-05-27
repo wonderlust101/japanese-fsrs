@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         headers: [
+          // Force HTTPS for two years incl. subdomains; eligible for preload.
+          // Mirrors the API's Helmet HSTS (apps/api/src/app.ts). Browsers ignore
+          // this header over plain HTTP, so it is safe to send unconditionally.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           // Clickjacking — DENY because the app is never legitimately framed.
           { key: 'X-Frame-Options',         value: 'DENY' },
           // Belt-and-braces with X-Frame-Options for browsers that respect
