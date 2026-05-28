@@ -53,7 +53,9 @@ export function DrillSummaryClient({
 }: DrillSummaryClientProps): React.JSX.Element {
 	useWeakSpotDrillSummaryDevState();
 	const router = useRouter();
-	const isDev = isDevSessionId(sessionId);
+	let isDev = false;
+	if (process.env.NODE_ENV === "development")
+		isDev = isDevSessionId(sessionId);
 	const isFinished = useDrillIsFinished();
 	const exitedEarly = useDrillExitedEarly();
 	const attempts = useDrillAttempts();
@@ -65,20 +67,20 @@ export function DrillSummaryClient({
 	// set. With no seed but with `dev-` sessionId, hydrate as finished+empty so
 	// the existing empty branch renders without the network-error arm.
 	useEffect(() => {
-		if (!isDev)
-			return;
-		if (isFinished)
-			return;
-		const seed = searchParams.get("seed") as DrillAttemptsFixtureKey | null;
-		const baked = seed !== null ? buildDevAttempts(sessionId, seed) : null;
-		useWeakSpotDrillSessionStore.setState({
-			phase: "finished",
-			sessionId,
-			queue: baked?.queue ?? [],
-			attempts: baked?.attempts ?? [],
-			exitedEarly: false,
-			actions,
-		}, true);
+		// Positive `if` block so buildDevAttempts is pruned from prod (drill-fixtures
+		// tree-shaken). isDev is already false in production.
+		if (process.env.NODE_ENV === "development" && isDev && !isFinished) {
+			const seed = searchParams.get("seed") as DrillAttemptsFixtureKey | null;
+			const baked = seed !== null ? buildDevAttempts(sessionId, seed) : null;
+			useWeakSpotDrillSessionStore.setState({
+				phase: "finished",
+				sessionId,
+				queue: baked?.queue ?? [],
+				attempts: baked?.attempts ?? [],
+				exitedEarly: false,
+				actions,
+			}, true);
+		}
 	}, [isDev, isFinished, sessionId, searchParams, actions]);
 
 	const detailQuery = useDrillSessionQuery(isDev || isFinished ? null : sessionId);

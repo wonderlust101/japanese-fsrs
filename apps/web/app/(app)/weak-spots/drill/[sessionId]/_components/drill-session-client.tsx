@@ -40,6 +40,8 @@ import { DrillCardDisplay } from "../../_components/drill-card-display";
 import { buildDevSessionDetail, isDevSessionId } from "../../_components/drill-fixtures";
 import { DrillRatingBar } from "../../_components/drill-rating-bar";
 
+// ── Rating mapping ──────────────────────────────────────────────────────────
+
 // Canonical FSRS rating channels. The drill rating bar deliberately uses a
 // different 3-channel set (Missed/Hesitated/Remembered) because drill answers
 // don't change the schedule. When the learner explicitly opts into "Count as
@@ -60,6 +62,8 @@ function mapRealRatingToDrillResult(rating: RealReviewRating): ApiWeakSpotDrillA
 		return "hesitated";
 	return "remembered";
 }
+
+// ── Entry component ──────────────────────────────────────────────────────────
 
 interface DrillSessionClientProps {
 	sessionId: string;
@@ -83,13 +87,19 @@ export function DrillSessionClient({
 }: DrillSessionClientProps): React.JSX.Element {
 	useWeakSpotDrillSessionDevState();
 	const router = useRouter();
-	const isDev = isDevSessionId(sessionId);
-
-	// In dev mode, the fixture stands in for the network response so the rest
-	// of the component (store seeding, key handlers, frame rendering) is the
-	// single live code path. Mutations are skipped because the fixture session
-	// id has no row server-side.
-	const devDetail = isDev ? buildDevSessionDetail(sessionId) : null;
+	// Gate both fixture refs inside a positive `if (NODE_ENV === "development")`
+	// block so webpack's ConstPlugin prunes them in production and drill-fixtures.ts
+	// tree-shakes out. Dev session ids never occur in prod anyway.
+	let isDev = false;
+	let devDetail: ReturnType<typeof buildDevSessionDetail> | null = null;
+	if (process.env.NODE_ENV === "development") {
+		isDev = isDevSessionId(sessionId);
+		// In dev the fixture stands in for the network response so the rest of the
+		// component (store seeding, key handlers, frame rendering) is the single
+		// live code path. Mutations are skipped — the fixture id has no row.
+		if (isDev)
+			devDetail = buildDevSessionDetail(sessionId);
+	}
 
 	const sessionQuery = useDrillSessionQuery(isDev ? null : sessionId);
 	const localSessionId = useDrillSessionId();

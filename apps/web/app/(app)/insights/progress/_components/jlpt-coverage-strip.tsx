@@ -1,5 +1,5 @@
-import type { JlptCoverage, ProgressData } from "./progressTypes";
-import { buildJlptLine } from "./progressInterpretation";
+import type { JlptCoverage, ProgressData } from "./progress-types";
+import { buildJlptLine } from "./progress-interpretation";
 
 interface JlptCoverageStripProps {
 	data: ProgressData;

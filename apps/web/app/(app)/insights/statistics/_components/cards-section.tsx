@@ -2,10 +2,10 @@ import type { DeckCardCount, MaturityCounts } from "./types";
 
 import { ModuleError } from "@/components/ui/ModuleError";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { CardsByDeckBar } from "./CardsByDeckBar";
-import { MaturityFlowBar } from "./MaturityFlowBar";
+import { CardsByDeckBar } from "./cards-by-deck-bar";
+import { MaturityFlowBar } from "./maturity-flow-bar";
 import { STATISTICS_SECTIONS_BY_ID } from "./sections";
-import { StatisticsSection } from "./StatisticsSection";
+import { StatisticsSection } from "./statistics-section";
 
 interface CardsSectionProps {
 	maturity: MaturityCounts;

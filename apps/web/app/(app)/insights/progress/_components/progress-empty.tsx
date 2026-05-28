@@ -1,6 +1,6 @@
 import { KitsuneEmptyState } from "@/components/ui/KitsuneEmptyState";
 
-import { LIMITED_THRESHOLD_DAYS } from "./progressInterpretation";
+import { LIMITED_THRESHOLD_DAYS } from "./progress-interpretation";
 
 interface ProgressEmptyProps {
 	/**

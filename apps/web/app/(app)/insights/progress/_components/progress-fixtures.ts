@@ -1,8 +1,8 @@
-import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressData, RetentionPoint } from "./progressTypes";
+import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressData, RetentionPoint } from "./progress-types";
 import {
 	JLPT_TOTALS,
 
-} from "./progressTypes";
+} from "./progress-types";
 
 /**
  * Progress fixtures. Four narrative states the page is designed for:

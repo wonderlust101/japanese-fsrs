@@ -7,10 +7,10 @@ import { ModuleError } from "@/components/ui/ModuleError";
 
 import { SectionCard } from "@/components/ui/SectionCard";
 import { cn } from "@/lib/utils";
-import { AnswerButtonDistribution } from "./AnswerButtonDistribution";
-import { RetentionLongCurve } from "./RetentionLongCurve";
+import { AnswerButtonDistribution } from "./answer-button-distribution";
+import { RetentionLongCurve } from "./retention-long-curve";
 import { STATISTICS_SECTIONS_BY_ID } from "./sections";
-import { StatisticsSection } from "./StatisticsSection";
+import { StatisticsSection } from "./statistics-section";
 
 interface RetentionSectionProps {
 	days: ReadonlyArray<ActivityDay>;

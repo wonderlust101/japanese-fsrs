@@ -9,8 +9,8 @@ import { ForgettingCurve } from "@/components/srs/ForgettingCurve";
 import { SampleCard } from "@/components/srs/SampleCard";
 import { SampleSentence } from "@/components/srs/SampleSentence";
 import { VolumeBar } from "@/components/srs/VolumeBar";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const MOCK_DECKS = [
 	{ id: "core2k", name: "Core 2k", count: 2000 },

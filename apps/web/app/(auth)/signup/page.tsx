@@ -19,7 +19,7 @@ import { useSignupDevState } from "@/dev/panels/auth-signup";
 import { useCountdown } from "@/hooks/use-countdown";
 import { resendOtpAction, verifyOtpAction } from "@/lib/actions/auth.actions";
 import { env } from "@/lib/env";
-import { useUserStore } from "@/stores/user.store";
+import { useUserStore } from "@/stores/useUserStore";
 
 // Below the code's ~60s lifetime so "Resend" unlocks while the current code is
 // still usable, instead of exactly as it dies. Requires GoTrue's

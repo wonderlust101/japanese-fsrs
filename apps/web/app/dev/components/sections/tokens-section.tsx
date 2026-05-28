@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 // Token names mirror app/globals.css — keep in sync if tokens are renamed.
 const BRAND_TOKENS: ReadonlyArray<string> = [

@@ -135,21 +135,26 @@ export function DevDock(): React.JSX.Element | null {
 	const onHandleKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>): void => {
 		const h = containerRef.current?.offsetHeight ?? DOCK_HEIGHT_EST;
 		const current = ctx.position ?? computeDefaultPosition(ctx.launcherCorner);
-		if (event.key === "ArrowUp") {
-			event.preventDefault();
-			ctx.setPosition(clampToViewport(current.x, current.y - NUDGE_STEP, h));
-		} else if (event.key === "ArrowDown") {
-			event.preventDefault();
-			ctx.setPosition(clampToViewport(current.x, current.y + NUDGE_STEP, h));
-		} else if (event.key === "ArrowLeft") {
-			event.preventDefault();
-			ctx.setPosition(clampToViewport(current.x - NUDGE_STEP, current.y, h));
-		} else if (event.key === "ArrowRight") {
-			event.preventDefault();
-			ctx.setPosition(clampToViewport(current.x + NUDGE_STEP, current.y, h));
-		} else if (event.key === "Home") {
-			event.preventDefault();
-			ctx.setPosition(null);
+		switch (event.key) {
+			case "ArrowUp":
+				event.preventDefault();
+				ctx.setPosition(clampToViewport(current.x, current.y - NUDGE_STEP, h));
+				return;
+			case "ArrowDown":
+				event.preventDefault();
+				ctx.setPosition(clampToViewport(current.x, current.y + NUDGE_STEP, h));
+				return;
+			case "ArrowLeft":
+				event.preventDefault();
+				ctx.setPosition(clampToViewport(current.x - NUDGE_STEP, current.y, h));
+				return;
+			case "ArrowRight":
+				event.preventDefault();
+				ctx.setPosition(clampToViewport(current.x + NUDGE_STEP, current.y, h));
+				return;
+			case "Home":
+				event.preventDefault();
+				ctx.setPosition(null);
 		}
 	}, [ctx]);
 

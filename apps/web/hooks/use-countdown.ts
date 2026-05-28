@@ -15,12 +15,13 @@ export function useCountdown(initialSeconds: number): { remaining: number; resta
 			clearInterval(intervalRef.current);
 		intervalRef.current = setInterval(() => {
 			setRemaining((s) => {
-				if (s <= 1) {
-					if (intervalRef.current)
-						clearInterval(intervalRef.current);
-					return 0;
-				}
-				return s - 1;
+				// Happy path: decrement until we hit 1.
+				if (s > 1)
+					return s - 1;
+				// Terminal tick: clear the interval and floor at 0.
+				if (intervalRef.current)
+					clearInterval(intervalRef.current);
+				return 0;
 			});
 		}, 1000);
 	}

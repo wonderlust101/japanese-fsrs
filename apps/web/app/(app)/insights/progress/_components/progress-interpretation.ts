@@ -1,4 +1,4 @@
-import type { ProgressData, ProgressState } from "./progressTypes";
+import type { ProgressData, ProgressState } from "./progress-types";
 
 /**
  * Interpretation builders for the Progress page. The brief asks every

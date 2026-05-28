@@ -10,8 +10,8 @@ import {
 	SpeechBubble,
 	ToriiGate,
 } from "@/components/icons/study-marks";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const ICON_CLASS = "h-8 w-8 text-sumi-ink";
 

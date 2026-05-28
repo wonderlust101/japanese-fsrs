@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons/chrome-marks";
 import { Logo } from "@/components/ui/Logo";
-import { useDueCards } from "@/lib/api/reviews";
+import { useLocalStorageBoolean } from "@/hooks/use-local-storage-boolean";
 
-import { useLocalStorageBoolean } from "@/lib/hooks/useLocalStorageBoolean";
+import { useDueCards } from "@/lib/api/reviews";
 import { AddCardCta } from "./add-card-cta";
 import { HelpRow } from "./help-row";
 import { NAV_SECTIONS } from "./nav-config";

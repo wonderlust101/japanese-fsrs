@@ -2,11 +2,11 @@ import type { FsrsState } from "./types";
 
 import { ModuleError } from "@/components/ui/ModuleError";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { DesiredRetentionDial } from "./DesiredRetentionDial";
-import { FsrsHistogram } from "./FsrsHistogram";
-import { RetentionComparison } from "./RetentionComparison";
+import { DesiredRetentionDial } from "./desired-retention-dial";
+import { FsrsHistogram } from "./fsrs-histogram";
+import { RetentionComparison } from "./retention-comparison";
 import { STATISTICS_SECTIONS_BY_ID } from "./sections";
-import { StatisticsSection } from "./StatisticsSection";
+import { StatisticsSection } from "./statistics-section";
 
 interface FsrsSectionProps {
 	fsrs: FsrsState;

@@ -1,7 +1,7 @@
 import { ArrowGlyph } from "@/components/icons/arrow-glyph";
 import { Button } from "@/components/ui/Button";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const VARIANTS = ["primary", "secondary", "editorial", "ghost", "danger"] as const;
 const SIZES = ["sm", "md", "lg"] as const;

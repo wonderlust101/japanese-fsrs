@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { SideNav } from "./_components/SideNav";
-import { ButtonsSection } from "./sections/ButtonsSection";
-import { CardsSection } from "./sections/CardsSection";
-import { DialogSection } from "./sections/DialogSection";
-import { IconsSection } from "./sections/IconsSection";
-import { IconSystemSection } from "./sections/IconSystemSection";
-import { InputsSection } from "./sections/InputsSection";
-import { PillsSection } from "./sections/PillsSection";
-import { ReviewComponentsSection } from "./sections/ReviewComponentsSection";
-import { SrsComponentsSection } from "./sections/SrsComponentsSection";
-import { TextSection } from "./sections/TextSection";
-import { TokensSection } from "./sections/TokensSection";
+import { SideNav } from "./_components/side-nav";
+import { ButtonsSection } from "./sections/buttons-section";
+import { CardsSection } from "./sections/cards-section";
+import { DialogSection } from "./sections/dialog-section";
+import { IconSystemSection } from "./sections/icon-system-section";
+import { IconsSection } from "./sections/icons-section";
+import { InputsSection } from "./sections/inputs-section";
+import { PillsSection } from "./sections/pills-section";
+import { ReviewComponentsSection } from "./sections/review-components-section";
+import { SrsComponentsSection } from "./sections/srs-components-section";
+import { TextSection } from "./sections/text-section";
+import { TokensSection } from "./sections/tokens-section";
 
 export const metadata: Metadata = {
 	title: "Component showcase",

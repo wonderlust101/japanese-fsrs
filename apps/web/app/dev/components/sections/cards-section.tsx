@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { CardStack } from "@/components/ui/CardStack";
 import { RecommendedDeckCard } from "@/components/ui/RecommendedDeckCard";
 import { SelectionCard } from "@/components/ui/SelectionCard";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const CARD_VARIANTS = ["default", "compact", "surface"] as const;
 

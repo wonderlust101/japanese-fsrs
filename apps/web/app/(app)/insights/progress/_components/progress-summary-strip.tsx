@@ -1,6 +1,6 @@
-import type { ProgressData } from "./progressTypes";
+import type { ProgressData } from "./progress-types";
 import { StatTile } from "@/components/ui/StatTile";
-import { buildSummaryLine } from "./progressInterpretation";
+import { buildSummaryLine } from "./progress-interpretation";
 
 interface ProgressSummaryStripProps {
 	data: ProgressData;

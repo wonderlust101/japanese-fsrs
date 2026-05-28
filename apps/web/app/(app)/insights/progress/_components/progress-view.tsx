@@ -4,8 +4,8 @@ import type {
 	ApiAnalyticsDashboard,
 	ApiMaturitySnapshot,
 } from "@fsrs-japanese/shared-types";
-import type { ProgressRangeKey } from "./progressRange";
-import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressData, ProgressSummary, RetentionPoint } from "./progressTypes";
+import type { ProgressRangeKey } from "./progress-range";
+import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressData, ProgressSummary, RetentionPoint } from "./progress-types";
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -23,31 +23,31 @@ import { useAnalyticsDashboard } from "@/lib/api/analytics";
 import { useMaturityHistory } from "@/lib/api/insights";
 
 import { queryKeys } from "@/lib/api/queryKeys";
-import { ChartRangeToggle } from "../../_components/ChartRangeToggle";
-import { InsightsErrorAlert } from "../../_components/InsightsErrorAlert";
-import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/InsightsPageShell";
-import { JlptCoverageStrip } from "./JlptCoverageStrip";
-import { MatureStackedArea } from "./MatureStackedArea";
-import { ProgressEmpty } from "./ProgressEmpty";
+import { ChartRangeToggle } from "../../_components/chart-range-toggle";
+import { InsightsErrorAlert } from "../../_components/insights-error-alert";
+import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
+import { JlptCoverageStrip } from "./jlpt-coverage-strip";
+import { MatureStackedArea } from "./mature-stacked-area";
+import { ProgressEmpty } from "./progress-empty";
 import {
 	buildConsistencyLine,
 	buildHeaderLine,
 	buildMatureLine,
 	buildRetentionLine,
 	classifyProgress,
-} from "./progressInterpretation";
+} from "./progress-interpretation";
 import {
 	DEFAULT_PROGRESS_RANGE,
 	PROGRESS_RANGES,
 	rangeLabel,
 
-} from "./progressRange";
-import { ProgressSummaryStrip } from "./ProgressSummaryStrip";
+} from "./progress-range";
+import { ProgressSummaryStrip } from "./progress-summary-strip";
 import {
 	JLPT_TOTALS,
 
-} from "./progressTypes";
-import { RetentionRibbonChart } from "./RetentionRibbonChart";
+} from "./progress-types";
+import { RetentionRibbonChart } from "./retention-ribbon-chart";
 
 /**
  * Mature-card thresholds the Mature section marks with milestone dots. The

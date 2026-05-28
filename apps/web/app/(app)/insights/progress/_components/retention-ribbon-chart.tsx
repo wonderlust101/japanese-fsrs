@@ -1,12 +1,12 @@
 "use client";
 
-import type { ProgressRangeKey } from "./progressRange";
+import type { ProgressRangeKey } from "./progress-range";
 
-import type { RetentionPoint } from "./progressTypes";
+import type { RetentionPoint } from "./progress-types";
 
 import { useMemo } from "react";
 import { ScrollableChartFrame, smoothLinePath } from "@/components/charts";
-import { rangeDays } from "./progressRange";
+import { rangeDays } from "./progress-range";
 
 interface RetentionRibbonChartProps {
 	series: ReadonlyArray<RetentionPoint>;

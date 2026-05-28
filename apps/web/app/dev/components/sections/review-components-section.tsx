@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { RatingBreakdown } from "@/components/review/RatingBreakdown";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 export function ReviewComponentsSection(): React.JSX.Element {
 	return (

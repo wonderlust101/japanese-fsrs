@@ -2,11 +2,11 @@ import type { CumulativeDueDay, IntervalBucket, OverdueImpact } from "./types";
 
 import { ModuleError } from "@/components/ui/ModuleError";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { CumulativeDueCurve } from "./CumulativeDueCurve";
-import { IntervalHistogram } from "./IntervalHistogram";
-import { OverdueImpactCallout } from "./OverdueImpactCallout";
+import { CumulativeDueCurve } from "./cumulative-due-curve";
+import { IntervalHistogram } from "./interval-histogram";
+import { OverdueImpactCallout } from "./overdue-impact-callout";
 import { STATISTICS_SECTIONS_BY_ID } from "./sections";
-import { StatisticsSection } from "./StatisticsSection";
+import { StatisticsSection } from "./statistics-section";
 
 interface SchedulingSectionProps {
 	intervals: ReadonlyArray<IntervalBucket>;

@@ -15,14 +15,14 @@ import { useAnalyticsDashboard } from "@/lib/api/analytics";
 
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useReviewForecast } from "@/lib/api/reviews";
-import { InsightsErrorAlert } from "../../_components/InsightsErrorAlert";
-import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/InsightsPageShell";
-import { ActivitySection } from "./ActivitySection";
+import { InsightsErrorAlert } from "../../_components/insights-error-alert";
+import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
+import { ActivitySection } from "./activity-section";
 import { adaptLiveStatistics, hasMeaningfulData } from "./adapt-live";
-import { CardsSection } from "./CardsSection";
-import { FsrsSection } from "./FsrsSection";
-import { RetentionSection } from "./RetentionSection";
-import { SchedulingSection } from "./SchedulingSection";
+import { CardsSection } from "./cards-section";
+import { FsrsSection } from "./fsrs-section";
+import { RetentionSection } from "./retention-section";
+import { SchedulingSection } from "./scheduling-section";
 
 import { SectionCollapseProvider } from "./section-collapse";
 import {
@@ -30,7 +30,7 @@ import {
 	useStatisticsDistributions,
 	useStatisticsMaturityHistory,
 } from "./statistics-queries";
-import { StatisticsSectionTabs } from "./StatisticsSectionTabs";
+import { StatisticsSectionTabs } from "./statistics-section-tabs";
 
 function StatisticsTopBar(): React.JSX.Element {
 	return (

@@ -1,7 +1,7 @@
 import { FuriganaText } from "@/components/ui/FuriganaText";
 import { Logo } from "@/components/ui/Logo";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const WORDMARK_SIZES = ["sm", "md", "lg", "xl"] as const;
 

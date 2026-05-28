@@ -1,8 +1,8 @@
 "use client";
 
 import { ContentTypePill, JlptPill, Pill, PillGroup, StatusPill } from "@/components/ui/Pill";
-import { ShowcaseGrid, ShowcaseItem } from "../_components/ShowcaseItem";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseGrid, ShowcaseItem } from "../_components/showcase-item";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 const LEVEL_TONES = ["N5", "N4", "N3", "N2", "N1", "beyond_jlpt", "kana"] as const;
 const STATUS_TONES = [

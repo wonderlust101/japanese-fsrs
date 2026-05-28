@@ -1,6 +1,6 @@
 import type { ChromeMarkEntry } from "@/components/icons/chrome-marks";
 import { CHROME_MARKS, IconDashboard } from "@/components/icons/chrome-marks";
-import { ShowcaseSection } from "../_components/ShowcaseSection";
+import { ShowcaseSection } from "../_components/showcase-section";
 
 /**
  * Showcase for the canonical chrome icon system.

@@ -2,21 +2,21 @@
 
 import type { ApiForecastDay } from "@fsrs-japanese/shared-types";
 
-import type { ForecastWindow } from "./ForecastWorkloadChart";
+import type { ForecastWindow } from "./forecast-workload-chart";
 
 import { useMemo, useState } from "react";
 
 import { ChartFigcaption, LegendSwatch } from "@/components/charts";
 import { SectionCard } from "@/components/ui/SectionCard";
 
-import { ChartRangeToggle } from "../../_components/ChartRangeToggle";
+import { ChartRangeToggle } from "../../_components/chart-range-toggle";
 import {
 	BACKLOG_FILL,
 	ForecastWorkloadChart,
 	NEW_FILL,
 	REVIEW_FILL,
 
-} from "./ForecastWorkloadChart";
+} from "./forecast-workload-chart";
 
 interface WorkloadCardProps {
 	forecast: ReadonlyArray<ApiForecastDay>;

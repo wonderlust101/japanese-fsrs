@@ -20,10 +20,10 @@ import { QuietLink } from "@/components/ui/QuietLink";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useReviewSetupDevState } from "@/dev/panels/review-setup";
+import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useDecks } from "@/lib/api/decks";
 import { useDueCards } from "@/lib/api/reviews";
 import { inferDeckLevel } from "@/lib/deck-level";
-import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import {
 	estimateSessionSeconds,
 	formatSessionEstimate,
@@ -92,7 +92,7 @@ export function SetupClient({
 	// ── Dev toolbar (registered with the global dev dock) ────────────────────
 	const { controls: devControls, previewActive } = useReviewSetupDevState();
 	const previewSnapshot = useMemo(
-		() => previewActive ? buildPreviewSnapshot(devControls.state, devControls.queueShape) : null,
+		() => (process.env.NODE_ENV === "development" && previewActive ? buildPreviewSnapshot(devControls.state, devControls.queueShape) : null),
 		[previewActive, devControls.state, devControls.queueShape],
 	);
 

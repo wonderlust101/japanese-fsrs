@@ -10,14 +10,14 @@ import { PageLoader } from "@/components/ui/TomoLoader";
 import { useForecastDevState } from "@/dev/panels/insights-forecast";
 
 import { useReviewForecast } from "@/lib/api/reviews";
-import { InsightsErrorAlert } from "../../_components/InsightsErrorAlert";
-import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/InsightsPageShell";
+import { InsightsErrorAlert } from "../../_components/insights-error-alert";
+import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
 
-import { CatchUpPlannerCard } from "./CatchUpPlannerCard";
-import { DeckContributorsCard } from "./DeckContributorsCard";
-import { NewCardImpactCard } from "./NewCardImpactCard";
-import { TimeEstimateCard } from "./TimeEstimateCard";
-import { WorkloadCard } from "./WorkloadCard";
+import { CatchUpPlannerCard } from "./catch-up-planner-card";
+import { DeckContributorsCard } from "./deck-contributors-card";
+import { NewCardImpactCard } from "./new-card-impact-card";
+import { TimeEstimateCard } from "./time-estimate-card";
+import { WorkloadCard } from "./workload-card";
 
 function ForecastTopBar(): React.JSX.Element {
 	return (

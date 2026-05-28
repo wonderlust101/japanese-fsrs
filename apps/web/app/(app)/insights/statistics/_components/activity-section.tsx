@@ -2,9 +2,9 @@ import type { ActivityDay, ActivityStats } from "./types";
 
 import { YearHeatmap } from "@/components/charts";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { ActivityStatsStrip } from "./ActivityStatsStrip";
+import { ActivityStatsStrip } from "./activity-stats-strip";
 import { STATISTICS_SECTIONS_BY_ID } from "./sections";
-import { StatisticsSection } from "./StatisticsSection";
+import { StatisticsSection } from "./statistics-section";
 
 interface ActivitySectionProps {
 	days: ReadonlyArray<ActivityDay>;

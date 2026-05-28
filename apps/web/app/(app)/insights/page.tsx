@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { InsightsOverview } from "./_components/InsightsOverview";
+import { InsightsOverview } from "./_components/insights-overview";
 
 export const metadata: Metadata = { title: "Insights" };
 

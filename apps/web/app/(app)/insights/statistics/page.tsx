@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { StatisticsView } from "./_components/StatisticsView";
+import { StatisticsView } from "./_components/statistics-view";
 
 export const metadata: Metadata = { title: "Insights — Statistics" };
 
