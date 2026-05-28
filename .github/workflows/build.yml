@@ -27,3 +27,9 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:3001
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
         run: bun run build
+
+      # First Load JS budget — fails the PR if the web client bundle regresses
+      # past apps/web/.size-limit.json. Reuses the build output produced above
+      # (no second build). Catches dev/fixture/heavy-dep leakage into prod chunks.
+      - name: Size budget
+        run: bun run --filter @fsrs-japanese/web size

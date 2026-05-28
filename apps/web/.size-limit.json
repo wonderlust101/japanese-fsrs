@@ -1,0 +1,10 @@
+[
+	{
+		"name": "Web client JS (user-facing chunks, brotli; excludes dev-only /dev/components)",
+		"path": [
+			".next/static/chunks/**/*.js",
+			"!.next/static/chunks/app/dev/**"
+		],
+		"limit": "775 KB"
+	}
+]

@@ -52,8 +52,6 @@ import {
 
 } from "./_components/summary-fixtures";
 
-const FIXTURE_KEY_SET = new Set<FixturePattern>(SUMMARY_FIXTURE_KEYS);
-
 function formatTime(ms: number): string {
 	const s = Math.round(ms / 1000);
 	if (s < 60)
@@ -74,14 +72,16 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	// app is not in production, render the matching synthetic summary. Lets
 	// the dev dock preview every state without spinning a real session.
 	const fixtureSummary = useMemo<SessionSummary | null>(() => {
-		if (process.env.NODE_ENV === "production")
-			return null;
-		if (fixtureParam === null)
-			return null;
-		const key = fixtureParam as FixturePattern;
-		if (!FIXTURE_KEY_SET.has(key))
-			return null;
-		return SUMMARY_FIXTURES[key];
+		// Build-time gate in POSITIVE block form: webpack's ConstPlugin prunes the
+		// fixture refs so the 439-line summary-fixtures module tree-shakes out of
+		// the prod /review/summary chunk. (Early-return does NOT — webpack counts
+		// the refs as live before the constant is folded.)
+		if (process.env.NODE_ENV === "development" && fixtureParam !== null) {
+			const key = fixtureParam as FixturePattern;
+			if (new Set<FixturePattern>(SUMMARY_FIXTURE_KEYS).has(key))
+				return SUMMARY_FIXTURES[key];
+		}
+		return null;
 	}, [fixtureParam]);
 
 	const usingFixture = fixtureSummary !== null;
@@ -809,7 +809,7 @@ function ProblemCardsCard({
 							<li key={weakSpot.weakSpotId}>
 								<WeakSpotRow
 									weakSpot={weakSpot}
-									meaning={usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
+									meaning={process.env.NODE_ENV === "development" && usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
 									onRollback={canRollback ? onRollback : undefined}
 									rollbackPending={rollbackPending}
 								/>

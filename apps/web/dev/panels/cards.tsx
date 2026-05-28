@@ -2,12 +2,12 @@
 
 import type { CardsResultRow } from "@/app/(app)/cards/_components/cards-results-table";
 
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 
 import { State } from "@fsrs-japanese/shared-types";
 
 import { useMemo } from "react";
-import { useDevStatePanel } from "@/dev";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 export type CardsFixtureKey
 	= | "off"

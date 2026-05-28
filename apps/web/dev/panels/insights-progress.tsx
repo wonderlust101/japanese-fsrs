@@ -1,8 +1,8 @@
 "use client";
 
-import type { ProgressData } from "@/app/(app)/insights/progress/_components/progressTypes";
+import type { ProgressData } from "@/app/(app)/insights/progress/_components/progress-types";
 
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 
 import { useMemo } from "react";
 import {
@@ -10,8 +10,8 @@ import {
 	buildLimitedFixture,
 	buildPlateauFixture,
 	buildStrongFixture,
-} from "@/app/(app)/insights/progress/_components/progressFixtures";
-import { useDevStatePanel } from "@/dev";
+} from "@/app/(app)/insights/progress/_components/progress-fixtures";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 export type ProgressFixtureKey
 	= | "off"
@@ -46,14 +46,18 @@ export function useProgressDevState(): ProgressDevState {
 	});
 
 	const fixtureData = useMemo<ProgressData | null>(() => {
-		if (fixture === "strong")
-			return buildStrongFixture();
-		if (fixture === "plateau")
-			return buildPlateauFixture();
-		if (fixture === "declining")
-			return buildDecliningFixture();
-		if (fixture === "limited")
-			return buildLimitedFixture();
+		// Build-time gate (positive `if` block) so webpack prunes the builder refs
+		// and progress-fixtures.ts tree-shakes out of the prod /insights/progress chunk.
+		if (process.env.NODE_ENV === "development") {
+			if (fixture === "strong")
+				return buildStrongFixture();
+			if (fixture === "plateau")
+				return buildPlateauFixture();
+			if (fixture === "declining")
+				return buildDecliningFixture();
+			if (fixture === "limited")
+				return buildLimitedFixture();
+		}
 		return null;
 	}, [fixture]);
 

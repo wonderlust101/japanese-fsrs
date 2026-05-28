@@ -9,10 +9,10 @@ import type {
 
 import type { WeeklyReportInputs } from "@/app/(app)/insights/_components/weekly-report";
 
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 
 import { useMemo } from "react";
-import { useDevStatePanel } from "@/dev";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 // ── Public hook ──────────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@
 
 import type { ApiWeakSpotListResponse } from "@fsrs-japanese/shared-types";
 
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 import { useMemo } from "react";
 
 import {
@@ -12,7 +12,7 @@ import {
 	buildOrphanFixture,
 	buildResolvedFixture,
 } from "@/app/(app)/weak-spots/_components/weakSpotsFixtures";
-import { useDevStatePanel } from "@/dev";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 export type LeechesFixtureKey
 	= | "off"
@@ -49,16 +49,20 @@ export function useLeechesDevState(): LeechesDevState {
 	});
 
 	const fixtureData = useMemo<ApiWeakSpotListResponse | null>(() => {
-		if (fixture === "clean")
-			return buildCleanFixture();
-		if (fixture === "few")
-			return buildFewFixture();
-		if (fixture === "many")
-			return buildManyFixture();
-		if (fixture === "resolved")
-			return buildResolvedFixture();
-		if (fixture === "orphan")
-			return buildOrphanFixture();
+		// Build-time gate (positive `if` block) so webpack prunes the builder refs
+		// and weakSpotsFixtures.ts tree-shakes out of the prod /weak-spots chunk.
+		if (process.env.NODE_ENV === "development") {
+			if (fixture === "clean")
+				return buildCleanFixture();
+			if (fixture === "few")
+				return buildFewFixture();
+			if (fixture === "many")
+				return buildManyFixture();
+			if (fixture === "resolved")
+				return buildResolvedFixture();
+			if (fixture === "orphan")
+				return buildOrphanFixture();
+		}
 		return null;
 	}, [fixture]);
 

@@ -250,6 +250,8 @@ function ContinuousTake({ trackRef }: { trackRef: React.RefObject<HTMLDivElement
 	);
 }
 
+// ── Mobile fallback ──────────────────────────────────────────────────────────
+
 /**
  * Mobile counterpart to the pinned desktop take: a tap-through where one
  * persistent card morphs through the same four beats. Built from the shared
@@ -345,6 +347,8 @@ function MobileTake(): React.JSX.Element {
 		</section>
 	);
 }
+
+// ── Entry component ──────────────────────────────────────────────────────────
 
 export function LandingExperience(): React.JSX.Element {
 	const root = useRef<HTMLDivElement>(null);

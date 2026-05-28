@@ -1,5 +1,12 @@
 import type { NextConfig } from "next";
 
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+// Wraps the Next config to emit an interactive treemap of client/server chunks
+// when ANALYZE=true (`bun run --filter @fsrs-japanese/web analyze`). Disabled
+// for normal builds, so it never changes production output.
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
+
 const nextConfig: NextConfig = {
 	transpilePackages: ["@fsrs-japanese/shared-types"],
 
@@ -34,4 +41,4 @@ const nextConfig: NextConfig = {
 	},
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

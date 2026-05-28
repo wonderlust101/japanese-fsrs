@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import { useDevPanel } from "@/dev";
+import { useDevPanel } from "@/dev/useDevStatePanel";
 
 import { DockSelect } from "./today";
 

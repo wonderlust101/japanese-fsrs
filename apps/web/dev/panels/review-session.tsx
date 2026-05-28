@@ -14,7 +14,7 @@ import {
 	SUMMARY_FIXTURE_KEYS,
 	summaryFixtureLabel,
 } from "@/app/(app)/review/summary/_components/summary-fixtures";
-import { useDevPanel } from "@/dev";
+import { useDevPanel } from "@/dev/useDevStatePanel";
 
 import { useReviewSessionStore } from "@/stores/useReviewSessionStore";
 import {
@@ -56,7 +56,9 @@ const FURIGANA_OPTIONS: Array<{ value: FuriganaMode; label: string }> = [
  * state lives in Zustand stores the panel manipulates directly.
  */
 export function useReviewSessionDevState(): void {
-	const render = useCallback(() => <SessionDevBody />, []);
+	// Build-time gate: the body (and its session/summary fixture imports) is
+	// referenced only in development, so production DCE drops it from the chunk.
+	const render = useCallback(() => (process.env.NODE_ENV === "development" ? <SessionDevBody /> : null), []);
 
 	useDevPanel({
 		id: "review.session",

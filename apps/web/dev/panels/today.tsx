@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import { useDevPanel } from "@/dev";
+import { useDevPanel } from "@/dev/useDevStatePanel";
 
 import { cn } from "@/lib/utils";
 

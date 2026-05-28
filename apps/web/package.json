@@ -2,13 +2,19 @@
 	"name": "@fsrs-japanese/web",
 	"version": "0.0.0",
 	"private": true,
+	"//sideEffects": "Marks the package side-effect-free except CSS so webpack tree-shakes modules whose exports become unused after `process.env.NODE_ENV` gating (e.g. dev fixtures). globals.css is preserved by the glob; server-only is a server-side guard never in the client bundle.",
+	"sideEffects": [
+		"**/*.css"
+	],
 	"scripts": {
 		"dev": "next dev --port 3000",
 		"build": "next build",
 		"start": "next start --port 3000",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint .",
-		"lint:fix": "eslint . --fix"
+		"lint:fix": "eslint . --fix",
+		"analyze": "ANALYZE=true next build",
+		"size": "size-limit"
 	},
 	"dependencies": {
 		"@fsrs-japanese/shared-types": "workspace:*",
@@ -28,11 +34,14 @@
 	},
 	"devDependencies": {
 		"@fsrs-japanese/tsconfig": "workspace:*",
+		"@next/bundle-analyzer": "^16.2.6",
+		"@size-limit/file": "^12.1.0",
 		"@tailwindcss/postcss": "^4.1.5",
 		"@types/node": "^22",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
 		"postcss": "^8",
+		"size-limit": "^12.1.0",
 		"tailwindcss": "^4.1.5",
 		"typescript": "^5"
 	}

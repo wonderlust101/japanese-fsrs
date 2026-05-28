@@ -1,10 +1,10 @@
 "use client";
 
 import type { ApiCard } from "@fsrs-japanese/shared-types";
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 
 import { State } from "@fsrs-japanese/shared-types";
-import { useDevStatePanel } from "@/dev";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 export type CardDevFixtureKey
 	= | "off"

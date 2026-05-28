@@ -1,7 +1,7 @@
 "use client";
 
-import type { DevFixtureSpec } from "@/dev";
-import { useDevStatePanel } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 // ── Shared lifecycle vocabulary ──────────────────────────────────────────────
 //

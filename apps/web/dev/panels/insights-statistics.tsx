@@ -2,7 +2,7 @@
 
 import type { StatisticsData } from "@/app/(app)/insights/statistics/_components/types";
 
-import type { DevFixtureSpec } from "@/dev";
+import type { DevFixtureSpec } from "@/dev/DevDockContext";
 
 import { useMemo } from "react";
 import {
@@ -10,7 +10,7 @@ import {
 	buildHeavyBacklogFixture,
 	buildLimitedFixture,
 } from "@/app/(app)/insights/statistics/_components/fixtures";
-import { useDevStatePanel } from "@/dev";
+import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
 export type StatisticsFixtureKey
 	= | "off"
@@ -43,12 +43,19 @@ export function useStatisticsDevState(): StatisticsDevState {
 	});
 
 	const fixtureData = useMemo<StatisticsData | null>(() => {
-		if (fixture === "full")
-			return buildFullFixture();
-		if (fixture === "limited")
-			return buildLimitedFixture();
-		if (fixture === "heavy-backlog")
-			return buildHeavyBacklogFixture();
+		// Build-time gate in POSITIVE block form: the builder references live only
+		// inside `if (NODE_ENV === "development") { … }`, which webpack's ConstPlugin
+		// prunes in production — dropping the references so fixtures.ts tree-shakes
+		// out. (An early-return guard does NOT work: webpack counts the references
+		// as live before Terser folds the constant, so the module is kept.)
+		if (process.env.NODE_ENV === "development") {
+			if (fixture === "full")
+				return buildFullFixture();
+			if (fixture === "limited")
+				return buildLimitedFixture();
+			if (fixture === "heavy-backlog")
+				return buildHeavyBacklogFixture();
+		}
 		return null;
 	}, [fixture]);
 
