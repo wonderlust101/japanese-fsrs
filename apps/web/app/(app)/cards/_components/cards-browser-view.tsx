@@ -18,13 +18,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { MoveCardDialog } from "@/app/(app)/decks/[id]/_components/move-card-dialog";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { ModuleError } from "@/components/ui/ModuleError";
-
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
 import { Toast, useToast } from "@/components/ui/Toast";
+
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useCardsDevState } from "@/dev/panels/cards";
 import { listDecksAction } from "@/lib/actions/decks.actions";
@@ -40,7 +37,9 @@ import {
 } from "@/lib/api/cards";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { CardsActiveChips } from "./cards-active-chips";
+import { ConfirmDeleteDialog, FirstRunEmptyState } from "./cards-browser-states";
 import { CardsBulkBar } from "./cards-bulk-bar";
+import { bulkMoveSyntheticCard, toResultRow } from "./cards-card-rows";
 import { CardsCountLine } from "./cards-count-line";
 import { CardsFilterSheet } from "./cards-filter-sheet";
 import {
@@ -817,87 +816,5 @@ export function CardsBrowserView(): React.JSX.Element {
 				/>
 			)}
 		</>
-	);
-}
-
-// ─── First-run empty state ──────────────────────────────────────────────
-
-function FirstRunEmptyState(): React.JSX.Element {
-	return (
-		<EmptyState kanji="始" title="No cards yet" className="mt-10">
-			<p className="max-w-measure-tight text-sm text-faded-sumi">
-				Add your first card to start practicing across every deck.
-			</p>
-			{/* Vermillion CTA: the empty state is one of the few surfaces on /cards
-          where Tomo's brand accent is justified on a large affordance. The
-          page is otherwise restrained sumi-on-paper; the red reads as a
-          deliberate "first step" without breaking the neutral surface budget. */}
-			<ButtonLink href="/add" variant="primary" size="md">
-				Add a card
-			</ButtonLink>
-		</EmptyState>
-	);
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────
-
-function toResultRow(item: ApiCrossDeckCardListItem): CardsResultRow {
-	const wf = getWordFields(item);
-	return {
-		id: item.id,
-		word: wf?.word ?? "—",
-		reading: wf?.reading ?? "",
-		meaning: wf?.meaning ?? "",
-		deckId: item.deckId,
-		deckName: item.deckName,
-		jlptLevel: item.jlptLevel,
-		partOfSpeech: wf?.partOfSpeech ?? null,
-		state: item.state,
-		isSuspended: item.isSuspended,
-		lapses: item.lapses,
-		due: item.due,
-	};
-}
-
-function bulkMoveSyntheticCard(count: number): ApiCardListItem {
-	return {
-		id: "bulk",
-		fieldsData: { word: `${count} cards`, reading: "", meaning: "" },
-		layoutType: "vocabulary",
-		jlptLevel: null,
-		state: 0 as ApiCardListItem["state"],
-		isSuspended: false,
-		due: new Date().toISOString(),
-	};
-}
-
-function ConfirmDeleteDialog({
-	open,
-	title,
-	description,
-	isSubmitting,
-	onCancel,
-	onConfirm,
-}: {
-	open: boolean;
-	title: string;
-	description: string;
-	isSubmitting: boolean;
-	onCancel: () => void;
-	onConfirm: () => void;
-}): React.JSX.Element {
-	return (
-		<Dialog
-			open={open}
-			onClose={onCancel}
-			title={title}
-			eyebrow={{ kanji: "削", label: "Confirm delete" }}
-		>
-			<p className="text-sm text-sumi-ink/85">{description}</p>
-			<div className="mt-5 flex justify-end gap-2">
-				<Button variant="ghost" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
-				<Button variant="danger" onClick={onConfirm} loading={isSubmitting}>Delete</Button>
-			</div>
-		</Dialog>
 	);
 }
