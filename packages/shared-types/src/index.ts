@@ -39,26 +39,26 @@ export { isJlptLevel, JLPTLevel, LayoutType } from "./card.types.ts";
 
 export type { ExampleSentence, KanjiBreakdown } from "./card.types.ts";
 
+// Only `classifySession` is part of the public surface. Its threshold
+// constants (NO_PATTERN_MIN_CARDS, WEAK_SPOT_MIN_COUNT, …) were re-exported
+// for "UI copy" that never materialized — confirmed unused across both apps —
+// so they stay module-private to classify-session.ts. Re-add here if a
+// consumer ever needs the raw values.
+export { classifySession } from "./classify-session.ts";
+export type { PatternInputs, SessionPattern } from "./classify-session.ts";
+
 export { DeckType, isDeckType } from "./deck.types.ts";
 // JSONB content shape for ApiCard.fieldsData. Consumers narrow via
 // `getWordFields` / `getVocabularyFields` / `getSentenceFrontBack` instead of widening.
 export type { FieldsData, WordFields } from "./field-shapes.ts";
 
 export { getSentenceFields, getSentenceFrontBack, getVocabularyFields, getWordFields } from "./field-shapes.ts";
+
 export { State } from "./fsrs.types.ts";
 
 export { ReviewRating } from "./review.types.ts";
 
 export type { SessionSummary, SessionWeakSpot } from "./review.types.ts";
-
-// Only `classifySession` is part of the public surface. Its threshold
-// constants (NO_PATTERN_MIN_CARDS, WEAK_SPOT_MIN_COUNT, …) were re-exported
-// for "UI copy" that never materialized — confirmed unused across both apps —
-// so they stay module-private to classify-session.ts. Re-add here if a
-// consumer ever needs the raw values.
-export { classifySession } from "./review/classify-session.ts";
-
-export type { PatternInputs, SessionPattern } from "./review/classify-session.ts";
 export { sanitizeForPrompt } from "./sanitize.ts";
 
 export {
