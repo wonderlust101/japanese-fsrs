@@ -66,19 +66,19 @@ const DEFAULT_PREFS: DeckViewPrefs = {
 function migratePrefs(raw: unknown): DeckViewPrefs {
 	if (raw === null || typeof raw !== "object")
 		return DEFAULT_PREFS;
-	const obj = raw as Record<string, unknown>;
+	const legacyPrefs = raw as Record<string, unknown>;
 	// `view` (new shape) wins; fall back to the legacy `showArchived` boolean.
 	// Each field is membership-validated against its enum so a stale or
 	// hand-edited value falls back to the default instead of flowing downstream
 	// typed-but-invalid.
-	const parsedView = decksViewTabSchema.safeParse(obj.view);
+	const parsedView = decksViewTabSchema.safeParse(legacyPrefs.view);
 	const view: DecksViewTab = parsedView.success
 		? parsedView.data
-		: obj.showArchived === true
+		: legacyPrefs.showArchived === true
 			? "archived"
 			: "active";
-	const parsedSort = decksSortKeySchema.safeParse(obj.sort);
-	const parsedTypeFilter = decksTypeFilterSchema.safeParse(obj.typeFilter);
+	const parsedSort = decksSortKeySchema.safeParse(legacyPrefs.sort);
+	const parsedTypeFilter = decksTypeFilterSchema.safeParse(legacyPrefs.typeFilter);
 	return {
 		sort: parsedSort.success ? parsedSort.data : DEFAULT_PREFS.sort,
 		typeFilter: parsedTypeFilter.success ? parsedTypeFilter.data : DEFAULT_PREFS.typeFilter,

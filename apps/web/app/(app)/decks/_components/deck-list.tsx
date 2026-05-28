@@ -3,7 +3,6 @@
 import type { ApiDeck } from "@fsrs-japanese/shared-types";
 import type { HeaderVariant } from "./decks-header";
 import type { DecksPageSize } from "./decks-pagination";
-import type { DecksSortKey } from "./use-deck-prefs";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -13,7 +12,6 @@ import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { IconPlus } from "@/components/icons/chrome-marks";
 import { Button } from "@/components/ui/Button";
-import { EmptyState as EmptyStatePanel } from "@/components/ui/EmptyState";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 
@@ -21,7 +19,6 @@ import { useDecksDevState } from "@/dev/panels/decks";
 import { deleteDeckAction, listDecksAction } from "@/lib/actions/decks.actions";
 import { useCopyDeck } from "@/lib/api/decks";
 import { queryKeys } from "@/lib/api/queryKeys";
-import { inferDeckLevel } from "@/lib/deck-level";
 import { BulkDeleteDecksDialog } from "./bulk-delete-decks-dialog";
 import { CreateDeckDialog } from "./create-deck-dialog";
 import { DeckCard } from "./deck-card";
@@ -30,11 +27,14 @@ import {
 	EditDeckOptionsDialog,
 	RenameDeckDialog,
 } from "./deck-dialogs";
+import { EmptyState, ErrorState, NoMatchesState } from "./deck-list-states";
+import { compareDecks, truncate } from "./deck-sort";
 import { DecksCurateBar } from "./decks-curate-bar";
 import { DecksHeader } from "./decks-header";
 import { DecksPagination } from "./decks-pagination";
 import { DecksTabs } from "./decks-tabs";
 import { DecksUtilityRow } from "./decks-utility-row";
+
 import { MatureExplainer } from "./mature-explainer";
 import {
 	useArchiveSet,
@@ -43,7 +43,6 @@ import {
 	useViewPrefs,
 
 } from "./use-deck-prefs";
-
 import { useDeckStatsMap } from "./use-deck-stats-map";
 
 // Default page size on first load. Users can pick from
@@ -784,138 +783,4 @@ export function DeckListView(): React.JSX.Element {
 			)}
 		</>
 	);
-}
-
-// ── Sub-views ────────────────────────────────────────────────────────────
-
-function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
-	return (
-		<EmptyStatePanel kanji="空" title="Your library is empty." className="mt-10">
-			<p className="max-w-measure-tight text-sm text-faded-sumi">
-				A few minutes a day adds up. Start with a premade deck if you're not sure where to begin.
-			</p>
-			<div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-center">
-				<Button size="md" onClick={onCreate}>Build my own deck</Button>
-				<Link href="/decks/premade" className="inline-flex">
-					<Button size="md" variant="secondary" className="w-full sm:w-auto">
-						Browse premade decks
-					</Button>
-				</Link>
-			</div>
-		</EmptyStatePanel>
-	);
-}
-
-function NoMatchesState({
-	query,
-	view,
-	typeFilter,
-}: {
-	query: string;
-	view: "active" | "mature" | "archived";
-	typeFilter: string;
-}): React.JSX.Element {
-	let body: React.ReactNode;
-	if (query.length > 0) {
-		body = (
-			<>
-				No decks match
-				{" "}
-				<span className="text-sumi-ink/85">
-					'
-					{query}
-					'
-				</span>
-				. Try a different term.
-			</>
-		);
-	} else if (view === "archived") {
-		body = "No archived decks yet. Archive a deck from its options menu to hide it from the queue.";
-	} else if (view === "mature") {
-		body = "No fully-mature decks yet. A deck becomes mature once every card has reached a 21-day interval.";
-	} else if (typeFilter !== "all") {
-		body = `No ${typeFilter} decks. Adjust the Type filter to see more.`;
-	} else {
-		body = "No decks in this view.";
-	}
-
-	// Kanji eyebrow gives the empty state the same brand vocabulary the
-	// cards page uses (空 for filtered-zero, 始 for first-run). 棚 ("tana",
-	// shelf) is the natural kanji for "decks" — it's literally the noun
-	// for the rack/shelf objects of the same shape. Keeps the visual
-	// dialect consistent between sibling pages.
-	return (
-		<div className="mt-2 rounded-xs border border-soft-hairline bg-cream-inset/45 p-6 text-center">
-			<span
-				lang="ja"
-				aria-hidden="true"
-				className="font-display text-numeral leading-none text-inari-vermillion/75"
-			>
-				棚
-			</span>
-			<h2 className="mt-3 text-sm font-normal text-faded-sumi">{body}</h2>
-		</div>
-	);
-}
-
-function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
-	return (
-		<div className="mt-2 rounded-xs border border-soft-hairline bg-cream-inset/55 p-6 text-center">
-			<h2 className="text-sm font-medium text-sumi-ink">Couldn't load your decks.</h2>
-			<p className="mt-1 text-sm text-faded-sumi">
-				The library tried to read from the server and didn't get a reply. Try again in a moment.
-			</p>
-			<div className="mt-4">
-				<Button size="sm" variant="secondary" onClick={onRetry}>
-					Try again
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-function compareDecks(
-	a: ApiDeck,
-	b: ApiDeck,
-	sort: DecksSortKey,
-	slotById: ReadonlyMap<string, number>,
-	dueById: ReadonlyMap<string, number>,
-	displayNameOf: (deck: ApiDeck) => string,
-): number {
-	switch (sort) {
-		case "study-order": {
-			const ai = slotById.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-			const bi = slotById.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-			return ai - bi;
-		}
-		case "alphabetical":
-			return displayNameOf(a).localeCompare(displayNameOf(b), "en", { sensitivity: "base" });
-		case "recently-reviewed":
-			return b.updatedAt.localeCompare(a.updatedAt);
-		case "most-due-first": {
-			const ad = dueById.get(a.id) ?? 0;
-			const bd = dueById.get(b.id) ?? 0;
-			if (ad !== bd)
-				return bd - ad;
-			return displayNameOf(a).localeCompare(displayNameOf(b));
-		}
-		case "jlpt-level": {
-			const order: Record<string, number> = { N5: 1, N4: 2, N3: 3, N2: 4, N1: 5, beyond_jlpt: 6, kana: 0 };
-			const aLevel = inferDeckLevel(a) ?? "";
-			const bLevel = inferDeckLevel(b) ?? "";
-			const ai = order[aLevel] ?? 99;
-			const bi = order[bLevel] ?? 99;
-			if (ai !== bi)
-				return ai - bi;
-			return displayNameOf(a).localeCompare(displayNameOf(b));
-		}
-	}
-}
-
-function truncate(name: string, max: number): string {
-	if (name.length <= max)
-		return name;
-	return `${name.slice(0, max - 1).trimEnd()}…`;
 }

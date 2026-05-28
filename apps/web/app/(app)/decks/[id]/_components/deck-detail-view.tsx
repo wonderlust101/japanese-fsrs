@@ -1,26 +1,21 @@
 "use client";
 
-import type { ApiCardListItem, CardSortDir, CardSortField } from "@fsrs-japanese/shared-types";
+import type { ApiCardListItem, CardSortDir } from "@fsrs-japanese/shared-types";
 import type { CardPageSize } from "./card-list-pagination";
-import type { StatusFilter } from "./deck-card-toolbar";
-import type { CardRowAction, CardsResultRow } from "@/app/(app)/cards/_components/cards-results-table";
-import {
-	getSentenceFrontBack,
-	getWordFields,
+import type { DeckCardsUrlState } from "./deck-cards-url-state";
+import type { CardRowAction } from "@/app/(app)/cards/_components/cards-results-table";
 
-} from "@fsrs-japanese/shared-types";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
-import { TopBar } from "@/app/(app)/_components/top-bar";
 
+import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
 import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { CardsBulkBar } from "@/app/(app)/cards/_components/cards-bulk-bar";
+import { apiCardToRow, bulkMoveSyntheticCard, truncate } from "@/app/(app)/cards/_components/cards-card-rows";
 import { CardsCountLine } from "@/app/(app)/cards/_components/cards-count-line";
 import { naturalSortDirFor } from "@/app/(app)/cards/_components/cards-filter-state";
 import {
@@ -41,16 +36,13 @@ import {
 	useLocalNameOverrides,
 } from "@/app/(app)/decks/_components/use-deck-prefs";
 import { IconDelete, IconEdit, IconHide, IconMore, IconReveal } from "@/components/icons/chrome-marks";
-import { Button } from "@/components/ui/Button";
-import { Dialog } from "@/components/ui/Dialog";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDeckDetailDevState } from "@/dev/panels/deck-detail";
+
 import { copyCardAction, deleteCardAction, listCardsCrossDeckAction, moveCardAction } from "@/lib/actions/cards.actions";
 import { deleteDeckAction, getDeckWithStatsAction } from "@/lib/actions/decks.actions";
-
 import {
 	useBulkDeleteCardsMutation,
 	useBulkMoveCardsMutation,
@@ -59,6 +51,9 @@ import {
 import { queryKeys } from "@/lib/api/queryKeys";
 import { CardListPagination } from "./card-list-pagination";
 import { DeckCardToolbar } from "./deck-card-toolbar";
+import { parseDeckCardsUrl, serializeDeckCardsUrl, STATUS_LABEL } from "./deck-cards-url-state";
+import { BulkDeleteCardsDialog, CardDeleteDialog } from "./deck-detail-dialogs";
+import { CardListErrorState, EmptyDeckState, NoMatchState, StudyDeckCta } from "./deck-detail-states";
 import { DeckSnapshotRibbon } from "./deck-snapshot-ribbon";
 import { MoveCardDialog } from "./move-card-dialog";
 
@@ -711,323 +706,4 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 			)}
 		</>
 	);
-}
-
-// ── Sub-views ───────────────────────────────────────────────────────────
-
-/**
- * Primary "Study deck" action, shared by the desktop header slot and the
- * mobile sticky bar. When disabled it renders a bare button (no `<Link>`):
- * the Button sets `pointer-events-none` while disabled, so wrapping it in an
- * anchor would let the parent link still navigate. The `reason` surfaces as a
- * hover title; the page's archived notice / empty state carry it in-flow for
- * touch and screen-reader users.
- */
-function StudyDeckCta({
-	href,
-	disabled,
-	reason,
-	full = false,
-	size = "md",
-}: {
-	href: string;
-	disabled: boolean;
-	reason: string;
-	full?: boolean;
-	size?: "md" | "lg";
-}): React.JSX.Element {
-	const button = (
-		<Button size={size} disabled={disabled} className={full ? "w-full" : ""}>
-			Study deck
-		</Button>
-	);
-	if (disabled) {
-		return <span title={reason} className={full ? "block" : "inline-block"}>{button}</span>;
-	}
-	return <Link href={href} className={full ? "block" : ""}>{button}</Link>;
-}
-
-function BulkDeleteCardsDialog({
-	open,
-	count,
-	isSubmitting,
-	onCancel,
-	onConfirm,
-}: {
-	open: boolean;
-	count: number;
-	isSubmitting: boolean;
-	onCancel: () => void;
-	onConfirm: () => void;
-}): React.JSX.Element {
-	return (
-		<Dialog open={open} onClose={onCancel} title={`Delete ${count} ${count === 1 ? "card" : "cards"}?`}>
-			<p className="mb-5 text-sm text-faded-sumi">
-				Their review history will be removed permanently. This cannot be undone.
-			</p>
-			<div className="flex justify-end gap-2">
-				<Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>
-					Cancel
-				</Button>
-				<Button type="button" variant="danger" loading={isSubmitting} onClick={onConfirm}>
-					Delete
-					{" "}
-					{count === 1 ? "card" : "cards"}
-				</Button>
-			</div>
-		</Dialog>
-	);
-}
-
-function CardDeleteDialog({
-	target,
-	isDeleting,
-	errorMessage,
-	onCancel,
-	onConfirm,
-}: {
-	target: ApiCardListItem | null;
-	isDeleting: boolean;
-	errorMessage: string | null;
-	onCancel: () => void;
-	onConfirm: (card: ApiCardListItem) => void;
-}): React.JSX.Element {
-	const word = useMemo(() => {
-		if (target === null)
-			return "";
-		const wordFields = getWordFields(target);
-		const sentence = getSentenceFrontBack(target);
-		return wordFields?.word ?? sentence?.front ?? "this card";
-	}, [target]);
-
-	return (
-		<Dialog open={target !== null} onClose={onCancel} title="Delete card">
-			<p className="mb-5 text-sm text-faded-sumi">
-				Permanently delete
-				{" "}
-				<span lang="ja" className="font-semibold text-sumi-ink">{word}</span>
-				{" "}
-				from this deck? This cannot be undone.
-			</p>
-			{errorMessage !== null && (
-				<p role="alert" className="mb-3 text-sm text-inari-vermillion-deep">{errorMessage}</p>
-			)}
-			<div className="flex justify-end gap-2">
-				<Button type="button" variant="ghost" onClick={onCancel} disabled={isDeleting}>
-					Cancel
-				</Button>
-				<Button
-					type="button"
-					variant="danger"
-					loading={isDeleting}
-					onClick={() => {
-						if (target !== null)
-							onConfirm(target);
-					}}
-				>
-					Delete card
-				</Button>
-			</div>
-		</Dialog>
-	);
-}
-
-function EmptyDeckState({ deckId }: { deckId: string }): React.JSX.Element {
-	return (
-		<EmptyState kanji="空" title="This deck is empty">
-			<p className="max-w-measure-tight text-sm text-faded-sumi">
-				Add your first card to start studying, or browse premade starter decks.
-			</p>
-			<div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-				<Link href={`/add?deck=${encodeURIComponent(deckId)}`}>
-					<Button size="md">Add Japanese</Button>
-				</Link>
-				<Link href="/decks/premade">
-					<Button size="md" variant="secondary">Browse premade decks</Button>
-				</Link>
-			</div>
-		</EmptyState>
-	);
-}
-
-function NoMatchState({
-	searchValue,
-	selectedStatusLabel,
-	onClearSearch,
-}: {
-	searchValue: string;
-	selectedStatusLabel: string;
-	onClearSearch: () => void;
-}): React.JSX.Element {
-	return (
-		<EmptyState kanji="空" density="quiet">
-			<p className="max-w-measure-tight text-sm text-faded-sumi">
-				{searchValue.length > 0
-					? (
-							<>
-								No cards match
-								{" "}
-								<span className="font-medium text-sumi-ink">
-									'
-									{searchValue}
-									'
-								</span>
-								.
-								{" "}
-								<button
-									type="button"
-									onClick={onClearSearch}
-									className="text-sumi-ink underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-								>
-									Clear search
-								</button>
-								.
-							</>
-						)
-					: (
-							<>
-								No
-								{selectedStatusLabel.toLowerCase()}
-								{" "}
-								cards in this deck.
-							</>
-						)}
-			</p>
-		</EmptyState>
-	);
-}
-
-function CardListErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
-	return (
-		<EmptyState density="quiet" role="alert">
-			<div>
-				<p className="text-sm font-medium text-sumi-ink">Couldn't load this deck's cards.</p>
-				<p className="mt-1 max-w-measure-tight text-sm text-faded-sumi">
-					The list tried to read from the server and didn't get a reply. Try again in a moment.
-				</p>
-			</div>
-			<Button size="sm" variant="secondary" onClick={onRetry}>
-				Try again
-			</Button>
-		</EmptyState>
-	);
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────
-
-const STATUS_LABEL: Record<StatusFilter, string> = {
-	all: "All",
-	new: "New",
-	learning: "Learning",
-	review: "Review",
-	suspended: "Suspended",
-};
-
-// ── URL-canonical filter state ──────────────────────────────────────────
-// Three deep-linkable params on the deck route: `status`, `q` (search), and
-// `page` (1-indexed). Defaults (All / empty / page 1) are omitted from the URL
-// so a clean deck link stays clean. `pageSize` is intentionally absent — it's
-// a viewing preference held in local state, matching cards-browser-view.
-
-interface DeckCardsUrlState {
-	status: StatusFilter;
-	search: string;
-	/** Sort axis. Default 'recent' (newest added first). */
-	sort: CardSortField;
-	/** Explicit direction override, or null to mean "the axis's natural default." */
-	sortDir: CardSortDir | null;
-	page: number;
-}
-
-const STATUS_VALUES: readonly StatusFilter[] = ["all", "new", "learning", "review", "suspended"];
-const SORT_VALUES: readonly CardSortField[] = ["recent", "due", "lapses"];
-const DEFAULT_SORT: CardSortField = "recent";
-
-function parseDeckCardsUrl(get: (key: string) => string | null): DeckCardsUrlState {
-	const rawStatus = get("status");
-	const status = rawStatus !== null && (STATUS_VALUES as readonly string[]).includes(rawStatus)
-		? (rawStatus as StatusFilter)
-		: "all";
-
-	const search = get("q") ?? "";
-
-	const rawSort = get("sort");
-	const sort = rawSort !== null && (SORT_VALUES as readonly string[]).includes(rawSort)
-		? (rawSort as CardSortField)
-		: DEFAULT_SORT;
-
-	const rawDir = get("dir");
-	const sortDir: CardSortDir | null = rawDir === "asc" || rawDir === "desc" ? rawDir : null;
-
-	const rawPage = Number(get("page"));
-	const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
-
-	return { status, search, sort, sortDir, page };
-}
-
-function serializeDeckCardsUrl(state: DeckCardsUrlState): URLSearchParams {
-	const params = new URLSearchParams();
-	if (state.status !== "all")
-		params.set("status", state.status);
-	if (state.search.trim().length > 0)
-		params.set("q", state.search);
-	if (state.sort !== DEFAULT_SORT)
-		params.set("sort", state.sort);
-	if (state.sortDir !== null)
-		params.set("dir", state.sortDir);
-	if (state.page > 1)
-		params.set("page", String(state.page));
-	return params;
-}
-
-/**
- * Synthetic single-card payload so the bulk Move flow can reuse MoveCardDialog
- * (which is built around one card). Only the display label matters here; the
- * actual ids come from the live selection set at confirm time.
- */
-function bulkMoveSyntheticCard(count: number): ApiCardListItem {
-	return {
-		id: "bulk",
-		fieldsData: { word: `${count} ${count === 1 ? "card" : "cards"}`, reading: "", meaning: "" },
-		layoutType: "vocabulary",
-		jlptLevel: null,
-		state: 0 as ApiCardListItem["state"],
-		isSuspended: false,
-		due: new Date().toISOString(),
-	};
-}
-
-function truncate(name: string, max: number): string {
-	if (name.length <= max)
-		return name;
-	return `${name.slice(0, max - 1).trimEnd()}…`;
-}
-
-/**
- * Maps the deck-list shape onto the Cards browser table's row shape
- * so the two pages can share the same rendering primitive. Sentence
- * cards fall back to front/back text for the headword/meaning so the
- * row still says *something* useful even though the table is tuned
- * for vocabulary cards. `lapses` defaults to 0 because
- * `ApiCardListItem` doesn't yet pick that column — the health badge
- * will activate on this page once `lapses` is added to the picked
- * schema (the backend service already projects it).
- */
-function apiCardToRow(card: ApiCardListItem, deckId: string, deckName: string): CardsResultRow {
-	const wordFields = getWordFields(card);
-	const sentence = getSentenceFrontBack(card);
-	return {
-		id: card.id,
-		word: wordFields?.word ?? sentence?.front ?? "—",
-		reading: wordFields?.reading ?? "",
-		meaning: wordFields?.meaning ?? sentence?.back ?? "",
-		deckId,
-		deckName,
-		jlptLevel: card.jlptLevel,
-		partOfSpeech: wordFields?.partOfSpeech ?? null,
-		state: card.state,
-		isSuspended: card.isSuspended,
-		lapses: 0,
-		due: card.due,
-	};
 }

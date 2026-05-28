@@ -1,13 +1,7 @@
 "use client";
 
-import type { ApiCardListItem } from "@fsrs-japanese/shared-types";
 import type { CardPageSize } from "../../_components/card-list-pagination";
-import type { CardsResultRow } from "@/app/(app)/cards/_components/cards-results-table";
-import {
-	getSentenceFrontBack,
-	getWordFields,
 
-} from "@fsrs-japanese/shared-types";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { useRouter } from "next/navigation";
@@ -15,6 +9,7 @@ import { useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
+import { apiCardToRow } from "@/app/(app)/cards/_components/cards-card-rows";
 import { CardsResultsTable } from "@/app/(app)/cards/_components/cards-results-table";
 import { Button } from "@/components/ui/Button";
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
@@ -324,25 +319,4 @@ function PreviewMessage({ title, body, action }: PreviewMessageProps): React.JSX
 			{action !== undefined && <div className="mt-4">{action}</div>}
 		</div>
 	);
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function apiCardToRow(card: ApiCardListItem, deckId: string, deckName: string): CardsResultRow {
-	const wordFields = getWordFields(card);
-	const sentence = getSentenceFrontBack(card);
-	return {
-		id: card.id,
-		word: wordFields?.word ?? sentence?.front ?? "—",
-		reading: wordFields?.reading ?? "",
-		meaning: wordFields?.meaning ?? sentence?.back ?? "",
-		deckId,
-		deckName,
-		jlptLevel: card.jlptLevel,
-		partOfSpeech: wordFields?.partOfSpeech ?? null,
-		state: card.state,
-		isSuspended: card.isSuspended,
-		lapses: 0,
-		due: card.due,
-	};
 }
