@@ -282,25 +282,47 @@ export async function backfillPremadeEmbeddings(): Promise<{
 
 	const rows = z.array(PremadeEmbedRowSchema).parse(data ?? []);
 
-	// OpenAI calls stay sequential to respect rate limits; the DB writes are
-	// collected and flushed once via bulk_update_card_embeddings.
+	// Embed in batches: one OpenAI request per chunk (array input) instead of one
+	// per card. On large seeds (e.g. the 7,370-card JLPT decks) this cuts
+	// wall-clock dramatically while still respecting rate limits via fewer, larger
+	// calls. DB writes are collected and flushed once via bulk_update_card_embeddings.
+	//
+	// Granularity trade-off: a chunk-level OpenAI error fails its whole chunk
+	// rather than a single card. The function stays idempotent (the SELECT filters
+	// `embedding IS NULL`), so a failed chunk's cards are simply retried on re-run.
+	const EMBED_BATCH_SIZE = 96;
 	const updates: Array<{ id: string; embedding: string }> = [];
 	let failed = 0;
 
+	// Build (id, text) pairs up front, dropping rows with no embeddable text.
+	const embeddable: Array<{ id: string; text: string }> = [];
 	for (const row of rows) {
-		try {
-			const text = buildEmbeddingText(row.fields_data);
-			if (text === null) {
-				failed++;
-				continue;
-			}
-			const embedding = await generateEmbedding(text);
-			// pgvector accepts the literal-array form as TEXT and casts at the SQL
-			// boundary inside bulk_update_card_embeddings.
-			updates.push({ id: row.id, embedding: `[${embedding.join(",")}]` });
-		} catch (err) {
-			adminLog.error({ cardId: row.id, err }, "failed to embed premade card");
+		const text = buildEmbeddingText(row.fields_data);
+		if (text === null) {
 			failed++;
+			continue;
+		}
+		embeddable.push({ id: row.id, text });
+	}
+
+	for (let i = 0; i < embeddable.length; i += EMBED_BATCH_SIZE) {
+		const chunk = embeddable.slice(i, i + EMBED_BATCH_SIZE);
+		try {
+			const embeddings = await generateEmbeddingsBatch(chunk.map(c => c.text));
+			for (let j = 0; j < chunk.length; j++) {
+				const embedding = embeddings[j];
+				const item = chunk[j];
+				if (embedding === undefined || item === undefined) {
+					failed++;
+					continue;
+				}
+				// pgvector accepts the literal-array form as TEXT and casts at the SQL
+				// boundary inside bulk_update_card_embeddings.
+				updates.push({ id: item.id, embedding: `[${embedding.join(",")}]` });
+			}
+		} catch (err) {
+			adminLog.error({ chunkStart: i, chunkSize: chunk.length, err }, "failed to embed premade card chunk");
+			failed += chunk.length;
 		}
 	}
 
@@ -348,4 +370,39 @@ export async function generateEmbedding(
 	}
 
 	return first.embedding;
+}
+
+/**
+ * Batch variant of generateEmbedding: embeds an array of texts in ONE OpenAI
+ * request (the embeddings API accepts an array `input`). Used by the premade
+ * backfill to cut wall-clock from one request per card to one per chunk — a
+ * large win on big seeds (e.g. the 7,370-card JLPT decks). Embeddings are
+ * returned in the same order as `texts`.
+ */
+export async function generateEmbeddingsBatch(
+	texts: string[],
+	opts?: { signal?: AbortSignal },
+): Promise<number[][]> {
+	if (openai === null) {
+		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
+	}
+	if (texts.length === 0)
+		return [];
+
+	const response = await openai.embeddings.create({
+		model: EMBEDDING_MODEL,
+		input: texts,
+	}, { signal: opts?.signal });
+
+	if (response.data.length !== texts.length) {
+		throw new AppError(502, "OpenAI returned a mismatched embedding count", {
+			code: "OPENAI_EMBEDDING_COUNT_MISMATCH",
+		});
+	}
+
+	// The API returns items carrying an `index`; sort defensively so callers can
+	// rely on positional alignment with `texts`.
+	return [...response.data]
+		.sort((a, b) => a.index - b.index)
+		.map(item => item.embedding);
 }

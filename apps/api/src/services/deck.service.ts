@@ -197,19 +197,19 @@ export async function listDecks(
 	};
 }
 
-/**
- * Returns a single deck with computed review stats.
- *
- * Throws 404 if the deck does not exist or does not belong to the user.
- * Seven parallel queries: the deck row, total due, total new, mature,
- * due/new split, due/review split, and last-reviewed timestamp.
- *
- * The list endpoint computes the same rollups via `list_decks_paginated`
- * (Backend Completion Plan Stage 3). For a single deck, keeping the
- * direct-table-query path is simpler than narrowing the RPC to one row —
- * the index coverage on (deck_id, user_id) handles each filter cheaply.
- */
-export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
+// ── getDeck helpers ──────────────────────────────────────────────────────────
+
+interface DeckStatRollups {
+	deckRow: unknown;
+	dueCount: number;
+	newCount: number;
+	matureCount: number;
+	dueNewCount: number;
+	dueReviewCount: number;
+	lastReviewedAt: string | null;
+}
+
+async function fetchDeckStatRollups(deckId: string, userId: string): Promise<DeckStatRollups> {
 	const now = new Date().toISOString();
 
 	// Seven parallel queries: deck row, total due, total new, mature
@@ -302,16 +302,40 @@ export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWi
 	if (lastReviewedResult.error !== null) {
 		throw dbError("read deck last_review", lastReviewedResult.error);
 	}
-	const lastReviewedAt = (lastReviewedResult.data?.last_review ?? null) as string | null;
 
 	return {
-		...toRow(DeckListRpcRowSchema.parse(deckResult.data)),
+		deckRow: deckResult.data,
 		dueCount: dueResult.count ?? 0,
 		newCount: newResult.count ?? 0,
 		matureCount: matureResult.count ?? 0,
 		dueNewCount: dueNewResult.count ?? 0,
 		dueReviewCount: dueReviewResult.count ?? 0,
-		lastReviewedAt,
+		lastReviewedAt: (lastReviewedResult.data?.last_review ?? null) as string | null,
+	};
+}
+
+/**
+ * Returns a single deck with computed review stats.
+ *
+ * Throws 404 if the deck does not exist or does not belong to the user.
+ * Seven parallel queries: the deck row, total due, total new, mature,
+ * due/new split, due/review split, and last-reviewed timestamp.
+ *
+ * The list endpoint computes the same rollups via `list_decks_paginated`
+ * (Backend Completion Plan Stage 3). For a single deck, keeping the
+ * direct-table-query path is simpler than narrowing the RPC to one row —
+ * the index coverage on (deck_id, user_id) handles each filter cheaply.
+ */
+export async function getDeck(deckId: string, userId: string): Promise<ApiDeckWithStats> {
+	const rollups = await fetchDeckStatRollups(deckId, userId);
+	return {
+		...toRow(DeckListRpcRowSchema.parse(rollups.deckRow)),
+		dueCount: rollups.dueCount,
+		newCount: rollups.newCount,
+		matureCount: rollups.matureCount,
+		dueNewCount: rollups.dueNewCount,
+		dueReviewCount: rollups.dueReviewCount,
+		lastReviewedAt: rollups.lastReviewedAt,
 	};
 }
 

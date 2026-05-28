@@ -406,7 +406,26 @@ export async function getCard(
  * or from the manual request body) before calling this function.
  * Throws 404 if the deck does not exist or belongs to a different user.
  */
-export async function createCard(
+// ── createCard helpers ───────────────────────────────────────────────────────
+
+async function assertParentCardOwnership(parentCardId: string, userId: string): Promise<void> {
+	// Reject parent_card_id pointing to a card the caller doesn't own. Without
+	// this, an attacker who learned a victim's card UUID could create a child
+	// card whose parent_card_id points into the victim's row (security audit
+	// FIND-A-01). Sibling-sync is already user-scoped, so the practical impact
+	// is small, but the integrity gap is worth closing.
+	const { data: parent, error: parentError } = await supabaseAdmin
+		.from("cards")
+		.select("id")
+		.eq("id", parentCardId)
+		.eq("user_id", userId)
+		.maybeSingle();
+	if (parentError !== null || parent === null) {
+		throw new AppError(404, "Parent card not found", { code: "CARD_NOT_FOUND" });
+	}
+}
+
+async function insertCardRow(
 	deckId: string,
 	userId: string,
 	// Accepts one of three shapes:
@@ -420,25 +439,6 @@ export async function createCard(
 	fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard,
 	meta: CreateCardMeta,
 ): Promise<ApiCard> {
-	await assertDeckOwnership(deckId, userId);
-
-	// Reject parent_card_id pointing to a card the caller doesn't own. Without
-	// this, an attacker who learned a victim's card UUID could create a child
-	// card whose parent_card_id points into the victim's row (security audit
-	// FIND-A-01). Sibling-sync is already user-scoped, so the practical impact
-	// is small, but the integrity gap is worth closing.
-	if (meta.parentCardId !== undefined) {
-		const { data: parent, error: parentError } = await supabaseAdmin
-			.from("cards")
-			.select("id")
-			.eq("id", meta.parentCardId)
-			.eq("user_id", userId)
-			.maybeSingle();
-		if (parentError !== null || parent === null) {
-			throw new AppError(404, "Parent card not found", { code: "CARD_NOT_FOUND" });
-		}
-	}
-
 	const fsrs = getInitialFsrsState();
 
 	const { data, error } = await supabaseAdmin
@@ -470,8 +470,14 @@ export async function createCard(
 		throw dbError("create card", error);
 	}
 
-	const created = toCardRow(CardDbRowSchema.parse(data));
+	return toCardRow(CardDbRowSchema.parse(data));
+}
 
+function enqueueCardEmbedding(
+	cardId: string,
+	userId: string,
+	fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard,
+): void {
 	// Async embedding backfill. Fire-and-forget — failures (no OpenAI key,
 	// network error, malformed fields) must not block card creation. The card
 	// remains usable for FSRS; only similarity search is delayed.
@@ -480,13 +486,29 @@ export async function createCard(
 	// breaker surfaces as a `ServiceUnavailableError` here. We branch on it in
 	// the catch so expected outage-time skips log at warn (no Sentry alert)
 	// while genuine failures stay at error.
-	void backfillEmbedding(created.id, userId, fieldsData).catch((err: unknown) => {
+	void backfillEmbedding(cardId, userId, fieldsData).catch((err: unknown) => {
 		if (err instanceof ServiceUnavailableError) {
-			log.warn({ cardId: created.id }, "embedding backfill skipped: breaker open or call failed");
+			log.warn({ cardId }, "embedding backfill skipped: breaker open or call failed");
 			return;
 		}
-		log.error({ cardId: created.id, err }, "embedding backfill failed");
+		log.error({ cardId, err }, "embedding backfill failed");
 	});
+}
+
+export async function createCard(
+	deckId: string,
+	userId: string,
+	fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard,
+	meta: CreateCardMeta,
+): Promise<ApiCard> {
+	await assertDeckOwnership(deckId, userId);
+	if (meta.parentCardId !== undefined) {
+		await assertParentCardOwnership(meta.parentCardId, userId);
+	}
+
+	const created = await insertCardRow(deckId, userId, fieldsData, meta);
+
+	enqueueCardEmbedding(created.id, userId, fieldsData);
 
 	// A new card enters the New pool, so the cached due set is now stale.
 	// Fire-and-forget, mirroring the FSRS write paths in fsrs.service.ts —

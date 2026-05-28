@@ -269,21 +269,10 @@ function mapRatingStringToEnum(rating: string): Rating {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/**
- * Processes a single review rating and updates the card's FSRS scheduling state.
- *
- * This is the **only** function that writes FSRS state fields to `cards`.
- * Card update, review log, and weakSpot detection are executed inside a single
- * PostgreSQL transaction via the `process_review` RPC.
- */
-export async function processReview(
-	cardId: string,
-	rating: ReviewRating,
-	userId: string,
-	reviewTimeMs?: number,
-	sessionId?: string,
-): Promise<ProcessReviewResult> {
-	// ── 1. Fetch card — filter by user_id to exclude premade source cards ────────
+// ── Single-review helpers ────────────────────────────────────────────────────
+
+async function fetchSingleCardForReview(cardId: string, userId: string): Promise<FsrsCardRow> {
+	// Filter by user_id to exclude premade source cards (which carry user_id NULL).
 	const { data, error: fetchError } = await supabaseAdmin
 		.from("cards")
 		.select(FSRS_SELECT_COLUMNS)
@@ -303,22 +292,23 @@ export async function processReview(
 	if (row.user_id === null) {
 		throw new AppError(403, "Cannot review a premade source card", { code: "PREMADE_CARD_NOT_REVIEWABLE" });
 	}
-
 	if (row.is_suspended) {
 		throw new AppError(409, "Card is suspended; unsuspend it before reviewing", { code: "CARD_SUSPENDED" });
 	}
 
-	// Archive gate moved into the process_review RPC in migration
-	// 20260625000000 — saves the pre-RPC round-trip. The TS-side error
-	// mapping below detects SQLSTATE 'P0420' and surfaces the same 422 +
-	// DECK_ARCHIVED shape the frontend already handles from the batch path.
+	return row;
+}
 
-	// ── 2. Schedule via ts-fsrs ────────────────────────────────────────────────
-	const grade = mapRatingToGrade(rating);
-	const reviewedAt = new Date();
-	const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade);
-
-	// ── 3. Atomically persist FSRS state, review log, and weakSpot detection ─────
+async function persistSingleReview(
+	cardId: string,
+	userId: string,
+	row: FsrsCardRow,
+	updated: RecordLogItem["card"],
+	rating: ReviewRating,
+	reviewedAt: Date,
+	reviewTimeMs: number | undefined,
+	sessionId: string | undefined,
+): Promise<string | null> {
 	// Args cast: nullable RPC params (p_review_time_ms, p_last_review_before,
 	// p_session_id) are typed as non-nullable in the generated Database type
 	// because the migration declares them without DEFAULT NULL. The DB accepts
@@ -372,9 +362,47 @@ export async function processReview(
 		throw dbError("persist review", rpcError);
 	}
 
+	return reviewLogId;
+}
+
+/**
+ * Processes a single review rating and updates the card's FSRS scheduling state.
+ *
+ * This is the **only** function that writes FSRS state fields to `cards`.
+ * Card update, review log, and weakSpot detection are executed inside a single
+ * PostgreSQL transaction via the `process_review` RPC. The archive gate lives
+ * inside that RPC (migration 20260625000000); persistSingleReview maps SQLSTATE
+ * 'P0420' back to the 422 + DECK_ARCHIVED shape.
+ */
+export async function processReview(
+	cardId: string,
+	rating: ReviewRating,
+	userId: string,
+	reviewTimeMs?: number,
+	sessionId?: string,
+): Promise<ProcessReviewResult> {
+	const row = await fetchSingleCardForReview(cardId, userId);
+
+	const reviewedAt = new Date();
+	const { card: updated }: RecordLogItem = scheduler.next(
+		buildFsrsCard(row),
+		reviewedAt,
+		mapRatingToGrade(rating),
+	);
+
+	const reviewLogId = await persistSingleReview(
+		cardId,
+		userId,
+		row,
+		updated,
+		rating,
+		reviewedAt,
+		reviewTimeMs,
+		sessionId,
+	);
+
 	// Invalidate the user's cached due list. Fire-and-forget so the response
-	// isn't blocked on Redis. The card we just rated must not reappear in the
-	// next /reviews/due fetch — see lib/due-cache.ts.
+	// isn't blocked on Redis — see lib/due-cache.ts.
 	void invalidateDueCache(userId);
 
 	return {
@@ -388,6 +416,141 @@ export async function processReview(
 	};
 }
 
+// ── Batch-review helpers ─────────────────────────────────────────────────────
+
+// RPC payload row mirrors the per-review fields process_review takes,
+// packed flat per the JSONB shape declared in the migration.
+interface BatchRpcRow {
+	card_id: string;
+	rating: ReviewRating;
+	review_time_ms: number | null;
+	session_id: string | null;
+	p_state: number;
+	p_due: string;
+	p_stability: number;
+	p_difficulty: number;
+	p_elapsed_days: number;
+	p_scheduled_days: number;
+	p_learning_steps: number;
+	p_reps: number;
+	p_lapses: number;
+	p_last_review: string;
+	p_state_before: number;
+	p_stability_before: number;
+	p_difficulty_before: number;
+	p_due_before: string;
+	p_scheduled_days_before: number;
+	p_learning_steps_before: number;
+	p_elapsed_days_before: number;
+	p_last_review_before: string | null;
+	p_reps_before: number;
+	p_lapses_before: number;
+}
+
+async function fetchCardsForBatch(cardIds: string[], userId: string): Promise<Map<string, FsrsCardRow>> {
+	const { data, error: fetchError } = await supabaseAdmin
+		.from("cards")
+		.select(FSRS_SELECT_COLUMNS)
+		.in("id", cardIds)
+		.eq("user_id", userId);
+
+	if (fetchError !== null) {
+		throw dbError("fetch cards for batch review", fetchError);
+	}
+
+	return new Map<string, FsrsCardRow>(
+		z.array(FsrsCardRowSchema).parse(data ?? []).map(r => [r.id, r]),
+	);
+}
+
+// Returns a discriminated result so the caller can narrow `row` to non-null on
+// success without a type assertion. Mirrors the throw-per-guard structure of
+// processReview but in soft-fail-per-row form (the batch contract preserves
+// the contract of the previous serial implementation — see processReviewBatch
+// docstring).
+function validateBatchReview(
+	cardId: string,
+	row: FsrsCardRow | undefined,
+	archivedCardIds: ReadonlySet<string>,
+): { ok: true; row: FsrsCardRow } | { ok: false; cardId: string; error: string } {
+	if (row === undefined) {
+		return { ok: false, cardId, error: "Card not found" };
+	}
+	if (row.user_id === null) {
+		return { ok: false, cardId, error: "Cannot review a premade source card" };
+	}
+	if (row.is_suspended) {
+		return { ok: false, cardId, error: "Card is suspended; unsuspend it before reviewing" };
+	}
+	if (archivedCardIds.has(cardId)) {
+		// Soft-fail per-row, same as suspend/missing — the rest of the batch
+		// proceeds. Single-card processReview throws 422 DECK_ARCHIVED; here
+		// we surface a sibling error string the controller already echoes.
+		return { ok: false, cardId, error: "Deck is archived; unarchive it before reviewing" };
+	}
+	return { ok: true, row };
+}
+
+function computeBatchPayloadRow(review: SubmitReviewInput, row: FsrsCardRow): BatchRpcRow {
+	const reviewedAt = new Date();
+	const { card: updated }: RecordLogItem = scheduler.next(
+		buildFsrsCard(row),
+		reviewedAt,
+		mapRatingToGrade(review.rating),
+	);
+
+	return {
+		card_id: review.cardId,
+		rating: review.rating,
+		review_time_ms: review.reviewTimeMs ?? null,
+		session_id: review.sessionId ?? null,
+		p_state: updated.state,
+		p_due: updated.due.toISOString(),
+		p_stability: updated.stability,
+		p_difficulty: updated.difficulty,
+		p_elapsed_days: updated.elapsed_days,
+		p_scheduled_days: updated.scheduled_days,
+		p_learning_steps: updated.learning_steps,
+		p_reps: updated.reps,
+		p_lapses: updated.lapses,
+		p_last_review: reviewedAt.toISOString(),
+		p_state_before: row.state,
+		p_stability_before: row.stability,
+		p_difficulty_before: row.difficulty,
+		p_due_before: row.due,
+		p_scheduled_days_before: row.scheduled_days,
+		p_learning_steps_before: row.learning_steps,
+		p_elapsed_days_before: row.elapsed_days,
+		p_last_review_before: row.last_review ?? null,
+		p_reps_before: row.reps,
+		p_lapses_before: row.lapses,
+	};
+}
+
+function appendBatchResult(
+	rpcRow: z.infer<typeof BatchResultRowSchema>,
+	results: ProcessReviewResult[],
+	errors: Array<{ cardId: string; error: string }>,
+): void {
+	if (rpcRow.success && rpcRow.due !== null && rpcRow.stability !== null && rpcRow.difficulty !== null
+		&& rpcRow.scheduled_days !== null && rpcRow.state !== null) {
+		results.push({
+			id: rpcRow.card_id,
+			reviewLogId: rpcRow.review_log_id,
+			due: rpcRow.due,
+			stability: rpcRow.stability,
+			difficulty: rpcRow.difficulty,
+			scheduledDays: rpcRow.scheduled_days,
+			state: rpcRow.state,
+		});
+	} else {
+		errors.push({
+			cardId: rpcRow.card_id,
+			error: rpcRow.error_message ?? "Unknown error",
+		});
+	}
+}
+
 /**
  * Processes a batch of reviews in a single round-trip via the
  * `process_review_batch` RPC. Pre-fetches all target cards in one query,
@@ -397,7 +560,8 @@ export async function processReview(
  * Per-review failures are caught inside the RPC's per-iteration EXCEPTION
  * block and surfaced via the `errors` array, preserving the contract of
  * the previous serial implementation. Pre-RPC validation failures (missing
- * card, suspended card) skip the RPC entry and go straight to `errors`.
+ * card, suspended card, archived deck) skip the RPC entry and go straight
+ * to `errors` via validateBatchReview.
  */
 export async function processReviewBatch(
 	reviews: SubmitReviewInput[],
@@ -409,56 +573,11 @@ export async function processReviewBatch(
 	}
 
 	const cardIds = reviews.map(r => r.cardId);
-
-	const { data: cardData, error: fetchError } = await supabaseAdmin
-		.from("cards")
-		.select(FSRS_SELECT_COLUMNS)
-		.in("id", cardIds)
-		.eq("user_id", userId);
-
-	if (fetchError !== null) {
-		throw dbError("fetch cards for batch review", fetchError);
-	}
-
-	const cardMap = new Map<string, FsrsCardRow>(
-		z.array(FsrsCardRowSchema).parse(cardData ?? []).map(r => [r.id, r]),
-	);
-
+	const cardMap = await fetchCardsForBatch(cardIds, userId);
 	// Pre-resolve which of the requested cards live in archived decks. One
-	// small query — bounded by the batch size — and we use the resulting
-	// Set to fail those reviews per-row with a structured error (same shape
-	// as the "card_not_found" / "card_suspended" branches below). Pulled
-	// out of the per-review loop so it costs one round-trip, not N.
+	// small query — bounded by the batch size — so it costs one round-trip,
+	// not N.
 	const archivedCardIds = await getArchivedCardIds(userId, cardIds);
-
-	// RPC payload row mirrors the per-review fields process_review takes,
-	// packed flat per the JSONB shape declared in the migration.
-	interface BatchRpcRow {
-		card_id: string;
-		rating: ReviewRating;
-		review_time_ms: number | null;
-		session_id: string | null;
-		p_state: number;
-		p_due: string;
-		p_stability: number;
-		p_difficulty: number;
-		p_elapsed_days: number;
-		p_scheduled_days: number;
-		p_learning_steps: number;
-		p_reps: number;
-		p_lapses: number;
-		p_last_review: string;
-		p_state_before: number;
-		p_stability_before: number;
-		p_difficulty_before: number;
-		p_due_before: string;
-		p_scheduled_days_before: number;
-		p_learning_steps_before: number;
-		p_elapsed_days_before: number;
-		p_last_review_before: string | null;
-		p_reps_before: number;
-		p_lapses_before: number;
-	}
 
 	const batch: BatchRpcRow[] = [];
 	const errors: Array<{ cardId: string; error: string }> = [];
@@ -469,65 +588,21 @@ export async function processReviewBatch(
 			// applying the partial batch: the persist RPC below runs only on a
 			// clean, complete build. We throw a transient (5xx) error so
 			// withIdempotency drops the stored placeholder instead of caching a
-			// partial result — the offline queue's same-key retry then re-runs the
-			// full batch cleanly. (Falling through here would apply + cache the
-			// partial head: lost on a same-key replay, double-applied on a new-key
-			// retry, since process_review is not idempotent across distinct keys.)
+			// partial result — the offline queue's same-key retry then re-runs
+			// the full batch cleanly. (Falling through here would apply + cache
+			// the partial head: lost on a same-key replay, double-applied on a
+			// new-key retry, since process_review is not idempotent across
+			// distinct keys.)
 			throw new AppError(503, "Batch review aborted before completion; retry the full batch", {
 				code: "BATCH_REVIEW_ABORTED",
 			});
 		}
-		const row = cardMap.get(review.cardId);
-		if (row === undefined) {
-			errors.push({ cardId: review.cardId, error: "Card not found" });
+		const v = validateBatchReview(review.cardId, cardMap.get(review.cardId), archivedCardIds);
+		if (!v.ok) {
+			errors.push({ cardId: v.cardId, error: v.error });
 			continue;
 		}
-		if (row.user_id === null) {
-			errors.push({ cardId: review.cardId, error: "Cannot review a premade source card" });
-			continue;
-		}
-		if (row.is_suspended) {
-			errors.push({ cardId: review.cardId, error: "Card is suspended; unsuspend it before reviewing" });
-			continue;
-		}
-		if (archivedCardIds.has(review.cardId)) {
-			// Soft-fail per-row, same as suspend/missing — the rest of the batch
-			// proceeds. Single-card processReview throws 422 DECK_ARCHIVED; here
-			// we surface a sibling error string the controller already echoes.
-			errors.push({ cardId: review.cardId, error: "Deck is archived; unarchive it before reviewing" });
-			continue;
-		}
-
-		const grade = mapRatingToGrade(review.rating);
-		const reviewedAt = new Date();
-		const { card: updated }: RecordLogItem = scheduler.next(buildFsrsCard(row), reviewedAt, grade);
-
-		batch.push({
-			card_id: review.cardId,
-			rating: review.rating,
-			review_time_ms: review.reviewTimeMs ?? null,
-			session_id: review.sessionId ?? null,
-			p_state: updated.state,
-			p_due: updated.due.toISOString(),
-			p_stability: updated.stability,
-			p_difficulty: updated.difficulty,
-			p_elapsed_days: updated.elapsed_days,
-			p_scheduled_days: updated.scheduled_days,
-			p_learning_steps: updated.learning_steps,
-			p_reps: updated.reps,
-			p_lapses: updated.lapses,
-			p_last_review: reviewedAt.toISOString(),
-			p_state_before: row.state,
-			p_stability_before: row.stability,
-			p_difficulty_before: row.difficulty,
-			p_due_before: row.due,
-			p_scheduled_days_before: row.scheduled_days,
-			p_learning_steps_before: row.learning_steps,
-			p_elapsed_days_before: row.elapsed_days,
-			p_last_review_before: row.last_review ?? null,
-			p_reps_before: row.reps,
-			p_lapses_before: row.lapses,
-		});
+		batch.push(computeBatchPayloadRow(review, v.row));
 	}
 
 	const results: ProcessReviewResult[] = [];
@@ -551,52 +626,22 @@ export async function processReviewBatch(
 		// /reviews/due fetch reflects the new state. Fire-and-forget.
 		void invalidateDueCache(userId);
 
-		const rows = z.array(BatchResultRowSchema).parse(rpcData ?? []);
-		for (const r of rows) {
-			if (r.success && r.due !== null && r.stability !== null && r.difficulty !== null
-				&& r.scheduled_days !== null && r.state !== null) {
-				results.push({
-					id: r.card_id,
-					reviewLogId: r.review_log_id,
-					due: r.due,
-					stability: r.stability,
-					difficulty: r.difficulty,
-					scheduledDays: r.scheduled_days,
-					state: r.state,
-				});
-			} else {
-				errors.push({
-					cardId: r.card_id,
-					error: r.error_message ?? "Unknown error",
-				});
-			}
+		const rpcRows = z.array(BatchResultRowSchema).parse(rpcData ?? []);
+		for (const r of rpcRows) {
+			appendBatchResult(r, results, errors);
 		}
 	}
 
 	return { results, errors };
 }
 
-/**
- * Undoes a specific review log entry and restores the card to its pre-review state.
- *
- * Requires non-null before-snapshot fields on the log. Logs written before
- * migration 20260502000001 have null snapshots and return 409.
- * The log entry itself is preserved as an immutable audit trail — only the
- * card row is updated.
- *
- * Stage 8 changed the signature from `(cardId, userId, reviewLogId)` to
- * `(userId, reviewLogId)` so the public `POST /api/v1/reviews/:reviewLogId/rollback`
- * endpoint has a natural URL shape. The card_id is read from the review_log
- * row, which already references it via FK — no extra round-trip vs the prior
- * signature (the log fetch still runs).
- */
-export async function rollbackReview(
+// ── Rollback helpers ─────────────────────────────────────────────────────────
+
+async function fetchReviewLogForRollback(
 	userId: string,
 	reviewLogId: string,
-): Promise<ProcessReviewResult> {
-	// 1. Fetch the review_log first — it carries the card_id we need for the
-	//    card fetch and the rollback. Ownership filter on user_id makes the
-	//    cross-user case 404.
+): Promise<{ log: z.infer<typeof ReviewLogRowSchema>; cardId: string }> {
+	// Ownership filter on user_id makes the cross-user case 404.
 	const { data: logData, error: logError } = await supabaseAdmin
 		.from("review_logs")
 		.select(REVIEW_LOG_FULL_COLUMNS)
@@ -619,7 +664,10 @@ export async function rollbackReview(
 		throw new AppError(404, "Card not found", { code: "CARD_NOT_FOUND" });
 	}
 
-	// 2. Fetch the card row using the log's card_id.
+	return { log, cardId };
+}
+
+async function fetchCardForRollback(cardId: string, userId: string): Promise<FsrsCardRow> {
 	const { data: cardData, error: cardError } = await supabaseAdmin
 		.from("cards")
 		.select(FSRS_SELECT_COLUMNS)
@@ -634,19 +682,22 @@ export async function rollbackReview(
 		throw new AppError(404, "Card not found", { code: "CARD_NOT_FOUND" });
 	}
 
-	const row = FsrsCardRowSchema.parse(cardData);
+	return FsrsCardRowSchema.parse(cardData);
+}
 
+function buildRollbackLogInput(log: z.infer<typeof ReviewLogRowSchema>): ReviewLogInput {
 	if (
 		log.state_before === null
 		|| log.due_before === null
 		|| log.stability_before === null
 		|| log.difficulty_before === null
 	) {
+		// Logs written before migration 20260502000001 have null snapshots.
 		throw new AppError(409, "This review cannot be rolled back", { code: "ROLLBACK_NOT_AVAILABLE" });
 	}
 
 	// The four _before fields above are written atomically — narrowed together by the guard.
-	const reviewLogInput: ReviewLogInput = {
+	return {
 		rating: mapRatingStringToEnum(log.rating),
 		state: log.state_before as State,
 		due: new Date(log.due_before),
@@ -658,10 +709,14 @@ export async function rollbackReview(
 		learning_steps: log.learning_steps_before ?? 0,
 		review: new Date(log.reviewed_at),
 	};
+}
 
-	const restored: TsFsrsCard = scheduler.rollback(buildFsrsCard(row), reviewLogInput);
-	const now = new Date();
-
+async function persistRollback(
+	cardId: string,
+	userId: string,
+	restored: TsFsrsCard,
+	now: Date,
+): Promise<void> {
 	const { error: updateError } = await supabaseAdmin
 		.from("cards")
 		.update({
@@ -683,10 +738,35 @@ export async function rollbackReview(
 	if (updateError !== null) {
 		throw dbError("rollback card", updateError);
 	}
+}
+
+/**
+ * Undoes a specific review log entry and restores the card to its pre-review state.
+ *
+ * Requires non-null before-snapshot fields on the log. Logs written before
+ * migration 20260502000001 have null snapshots and return 409.
+ * The log entry itself is preserved as an immutable audit trail — only the
+ * card row is updated.
+ *
+ * Stage 8 changed the signature from `(cardId, userId, reviewLogId)` to
+ * `(userId, reviewLogId)` so the public `POST /api/v1/reviews/:reviewLogId/rollback`
+ * endpoint has a natural URL shape. The card_id is read from the review_log
+ * row, which already references it via FK — no extra round-trip vs the prior
+ * signature (the log fetch still runs).
+ */
+export async function rollbackReview(
+	userId: string,
+	reviewLogId: string,
+): Promise<ProcessReviewResult> {
+	const { log, cardId } = await fetchReviewLogForRollback(userId, reviewLogId);
+	const row = await fetchCardForRollback(cardId, userId);
+	const reviewLogInput = buildRollbackLogInput(log);
+	const restored: TsFsrsCard = scheduler.rollback(buildFsrsCard(row), reviewLogInput);
+
+	await persistRollback(cardId, userId, restored, new Date());
 
 	return {
 		id: cardId,
-		// ^ cardId is non-null per the orphan-log guard above; safe to use.
 		reviewLogId: null,
 		due: restored.due.toISOString(),
 		stability: restored.stability,
@@ -835,20 +915,12 @@ export async function previewCardRatings(
 	return previewNextStates(row);
 }
 
-/**
- * Replays the card's full review history to recompute the schedule.
- * Use this after changing FSRS weights (e.g. after running computeParameters()).
- *
- * Only review_logs with non-null state_before are included (post-migration entries).
- * 'manual' rating entries (forget / reschedule ops) are excluded from the history
- * replay since FSRSHistory only accepts user-facing grades.
- *
- * Persists the result via process_review RPC with rating='manual'.
- */
-export async function rescheduleFromHistory(
+// ── Reschedule helpers ───────────────────────────────────────────────────────
+
+async function fetchCardAndRescheduleHistory(
 	cardId: string,
 	userId: string,
-): Promise<ProcessReviewResult> {
+): Promise<{ row: FsrsCardRow; logs: z.infer<typeof ReviewLogHistoryRowSchema>[] }> {
 	const [cardResult, logsResult] = await Promise.all([
 		supabaseAdmin
 			.from("cards")
@@ -880,23 +952,31 @@ export async function rescheduleFromHistory(
 		throw new AppError(409, "No eligible review logs to reschedule from", { code: "RESCHEDULE_NO_HISTORY" });
 	}
 
-	// FSRSHistory.rating excludes Rating.Manual; the SELECT above filters
+	return { row, logs };
+}
+
+function computeRescheduledCard(logs: z.infer<typeof ReviewLogHistoryRowSchema>[]): TsFsrsCard {
+	// FSRSHistory.rating excludes Rating.Manual; the caller's SELECT filters
 	// .neq('rating', 'manual'), so mapRatingStringToEnum never returns Manual here.
 	const history: FSRSHistory[] = logs.map(log => ({
 		rating: mapRatingStringToEnum(log.rating) as Grade,
 		review: new Date(log.reviewed_at),
 	}));
 
-	const emptyCard = createEmptyCard();
-	const result = scheduler.reschedule(emptyCard, history);
-
+	const result = scheduler.reschedule(createEmptyCard(), history);
 	if (result.reschedule_item === null) {
 		throw new AppError(409, "Reschedule produced no result", { code: "RESCHEDULE_NO_RESULT" });
 	}
+	return result.reschedule_item.card;
+}
 
-	const updated: TsFsrsCard = result.reschedule_item.card;
-	const now = new Date();
-
+async function persistRescheduledCard(
+	cardId: string,
+	userId: string,
+	row: FsrsCardRow,
+	updated: TsFsrsCard,
+	now: Date,
+): Promise<void> {
 	const { error: rpcError } = await supabaseAdmin.rpc("process_review", asPayload({
 		p_card_id: cardId,
 		p_user_id: userId,
@@ -933,9 +1013,29 @@ export async function rescheduleFromHistory(
 	if (rpcError !== null) {
 		throw dbError("reschedule card", rpcError);
 	}
+}
 
-	// Reschedule rewrote the card's due date; refresh the cached due list.
-	// Fire-and-forget.
+/**
+ * Replays the card's full review history to recompute the schedule.
+ * Use this after changing FSRS weights (e.g. after running computeParameters()).
+ *
+ * Only review_logs with non-null state_before are included (post-migration entries).
+ * 'manual' rating entries (forget / reschedule ops) are excluded from the history
+ * replay since FSRSHistory only accepts user-facing grades.
+ *
+ * Persists the result via process_review RPC with rating='manual'.
+ */
+export async function rescheduleFromHistory(
+	cardId: string,
+	userId: string,
+): Promise<ProcessReviewResult> {
+	const { row, logs } = await fetchCardAndRescheduleHistory(cardId, userId);
+	const updated = computeRescheduledCard(logs);
+	const now = new Date();
+
+	await persistRescheduledCard(cardId, userId, row, updated, now);
+
+	// Reschedule rewrote the card's due date; refresh the cached due list. Fire-and-forget.
 	void invalidateDueCache(userId);
 
 	return {

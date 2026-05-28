@@ -19,7 +19,10 @@ const PREMADE_MAX_AGE_SECONDS = 600;
 export const list: RequestHandler = async (req, res): Promise<void> => {
 	const filters = listPremadeDecksQuerySchema.parse(req.query);
 	const data = await premadeService.listPremadeDecks(filters);
-	cacheControl(res, PREMADE_MAX_AGE_SECONDS);
+	// `public`: premade decks are global (user_id IS NULL, no per-user fields in
+	// listPremadeDecks/getPremadeDeck), so a shared CDN/proxy may cache one copy
+	// for every authenticated caller. Per-user endpoints stay `private`.
+	cacheControl(res, PREMADE_MAX_AGE_SECONDS, "public");
 	res.json(data);
 };
 
@@ -30,7 +33,10 @@ export const list: RequestHandler = async (req, res): Promise<void> => {
 export const get: RequestHandler = async (req, res): Promise<void> => {
 	const { id } = premadeDeckIdParamSchema.parse(req.params);
 	const data = await premadeService.getPremadeDeck(id);
-	cacheControl(res, PREMADE_MAX_AGE_SECONDS);
+	// `public`: premade decks are global (user_id IS NULL, no per-user fields in
+	// listPremadeDecks/getPremadeDeck), so a shared CDN/proxy may cache one copy
+	// for every authenticated caller. Per-user endpoints stay `private`.
+	cacheControl(res, PREMADE_MAX_AGE_SECONDS, "public");
 	res.json(data);
 };
 
