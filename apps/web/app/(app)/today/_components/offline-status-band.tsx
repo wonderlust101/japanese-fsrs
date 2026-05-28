@@ -1,7 +1,7 @@
 "use client";
 
+import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useOfflineQueueStatus } from "@/lib/api/reviews";
-import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 
 /**
  * Offline / queued-sync band. Visually anchored on the Tomo "card on a desk"

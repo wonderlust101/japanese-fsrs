@@ -185,8 +185,15 @@ export function DashboardClient({
 		resume,
 	]);
 
-	const previewHeroVariant = useMemo(() => buildPreviewHeroVariant(heroControls), [heroControls]);
-	const heroVariant = previewActive ? previewHeroVariant : liveHeroVariant;
+	// `process.env.NODE_ENV === "development"` short-circuits the preview builder
+	// out of production: the dev controls are always default in prod, so this only
+	// ever returns null there — and the compile-time constant lets the bundler
+	// drop `buildPreviewHeroVariant` (and today-preview-data.ts) from the chunk.
+	const previewHeroVariant = useMemo(
+		() => (process.env.NODE_ENV === "development" ? buildPreviewHeroVariant(heroControls) : null),
+		[heroControls],
+	);
+	const heroVariant = previewActive && previewHeroVariant !== null ? previewHeroVariant : liveHeroVariant;
 
 	// ── Week review strip ──────────────────────────────────────────────────────
 	// Week rhythm strip only carries 'default' on today now; the strip's
@@ -235,10 +242,10 @@ export function DashboardClient({
 	}
 
 	const previewWeekRhythmDays = useMemo(
-		() => buildPreviewForecastDays(moduleControls.weekPattern, calendar.todayKey),
+		() => (process.env.NODE_ENV === "development" ? buildPreviewForecastDays(moduleControls.weekPattern, calendar.todayKey) : null),
 		[moduleControls.weekPattern, calendar.todayKey],
 	);
-	const weekRhythmDays = previewActive ? previewWeekRhythmDays : (forecastQuery.data?.items ?? []);
+	const weekRhythmDays = previewActive && previewWeekRhythmDays !== null ? previewWeekRhythmDays : (forecastQuery.data?.items ?? []);
 
 	// Page-level wait-then-reveal gate. Holds the content area until every
 	// critical query has resolved (or errored). Preview mode opens the gate

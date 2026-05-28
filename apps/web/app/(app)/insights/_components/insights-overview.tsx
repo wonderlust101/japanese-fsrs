@@ -1,6 +1,6 @@
 "use client";
 
-import type { NoteWeight } from "./RankedNote";
+import type { NoteWeight } from "./ranked-note";
 
 import type { FigureKind, NoteTone, ReportNote, WeeklyReport, WeeklyReportInputs } from "./weekly-report";
 import { useMemo } from "react";
@@ -12,16 +12,16 @@ import { useInsightsDevState } from "@/dev/panels/insights-overview";
 import { useAnalyticsDashboard } from "@/lib/api/analytics";
 import { useReviewForecast } from "@/lib/api/reviews";
 import { cn } from "@/lib/utils";
-import { EmptyInsights } from "./EmptyInsights";
-import { ForecastChart } from "./ForecastChart";
-import { InsightsErrorAlert } from "./InsightsErrorAlert";
-import { InsightsMasthead } from "./InsightsMasthead";
-import { InsightsPageShell } from "./InsightsPageShell";
-import { MistakeBudgetChart } from "./MistakeBudgetChart";
-import { RankedNote } from "./RankedNote";
-import { ReportRecommendation } from "./ReportRecommendation";
+import { EmptyInsights } from "./empty-insights";
+import { ForecastChart } from "./forecast-chart";
+import { InsightsErrorAlert } from "./insights-error-alert";
+import { InsightsMasthead } from "./insights-masthead";
+import { InsightsPageShell } from "./insights-page-shell";
+import { MistakeBudgetChart } from "./mistake-budget-chart";
+import { RankedNote } from "./ranked-note";
+import { ReportRecommendation } from "./report-recommendation";
 
-import { RetentionChart } from "./RetentionChart";
+import { RetentionChart } from "./retention-chart";
 import {
 	buildWeeklyReport,
 	buildWeeklyReportInputs,
