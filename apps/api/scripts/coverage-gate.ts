@@ -15,7 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 
-const FLOOR = Number(process.env.COVERAGE_FLOOR ?? "58");
+const FLOOR = Number(process.env.COVERAGE_FLOOR ?? "65");
 const lcovPath = process.argv[2] ?? "coverage/lcov.info";
 
 let report: string;
