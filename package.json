@@ -13,11 +13,11 @@
 	"scripts": {
 		"dev": "bun run --filter '*' dev",
 		"build": "bun run --filter '*' build",
-		"test": "bun test",
+		"test": "bun run --filter '*' test",
 		"typecheck": "bun run --filter '*' typecheck",
-		"lint": "eslint .",
+		"lint": "eslint . --max-warnings 0",
 		"lint:fix": "eslint . --fix",
-		"db:types": "{ echo '/* GENERATED FILE - DO NOT EDIT. Source: Supabase schema. Regenerate with: bun run db:types */'; echo; supabase gen types typescript --project-id kukkptyopjdtuzgzamua; } > apps/api/src/db/database.types.ts"
+		"db:types": "{ echo '/* GENERATED FILE - DO NOT EDIT. Source: committed migrations (supabase gen types --local). Regenerate: bun run db:types */'; echo; supabase gen types typescript --local; } > apps/api/src/db/database.types.ts"
 	},
 	"devDependencies": {
 		"@antfu/eslint-config": "^9.0.0",

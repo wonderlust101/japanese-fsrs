@@ -1,4 +1,4 @@
-/* GENERATED FILE - DO NOT EDIT. Source: Supabase schema. Regenerate with: bun run db:types */
+/* GENERATED FILE - DO NOT EDIT. Source: committed migrations (supabase gen types --local). Regenerate: bun run db:types */
 
 export type Json =
   | string
@@ -9,13 +9,77 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
+      card_state_snapshots: {
+        Row: {
+          learning_count: number
+          mature_count: number
+          new_count: number
+          recorded_at: string
+          relearning_count: number
+          review_count: number
+          snapshot_date: string
+          suspended_count: number
+          user_id: string
+        }
+        Insert: {
+          learning_count?: number
+          mature_count?: number
+          new_count?: number
+          recorded_at?: string
+          relearning_count?: number
+          review_count?: number
+          snapshot_date: string
+          suspended_count?: number
+          user_id: string
+        }
+        Update: {
+          learning_count?: number
+          mature_count?: number
+          new_count?: number
+          recorded_at?: string
+          relearning_count?: number
+          review_count?: number
+          snapshot_date?: string
+          suspended_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_state_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cards: {
         Row: {
           created_at: string
@@ -39,7 +103,6 @@ export type Database = {
           scheduled_days: number
           stability: number
           state: number
-          tags: string[]
           updated_at: string
           user_id: string | null
           version: number
@@ -66,7 +129,6 @@ export type Database = {
           scheduled_days?: number
           stability?: number
           state?: number
-          tags?: string[]
           updated_at?: string
           user_id?: string | null
           version?: number
@@ -93,7 +155,6 @@ export type Database = {
           scheduled_days?: number
           stability?: number
           state?: number
-          tags?: string[]
           updated_at?: string
           user_id?: string | null
           version?: number
@@ -122,50 +183,6 @@ export type Database = {
           },
           {
             foreignKeyName: "cards_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      card_state_snapshots: {
-        Row: {
-          user_id:          string
-          snapshot_date:    string
-          new_count:        number
-          learning_count:   number
-          review_count:     number
-          relearning_count: number
-          mature_count:     number
-          suspended_count:  number
-          recorded_at:      string
-        }
-        Insert: {
-          user_id:           string
-          snapshot_date:     string
-          new_count?:        number
-          learning_count?:   number
-          review_count?:     number
-          relearning_count?: number
-          mature_count?:     number
-          suspended_count?:  number
-          recorded_at?:      string
-        }
-        Update: {
-          user_id?:          string
-          snapshot_date?:    string
-          new_count?:        number
-          learning_count?:   number
-          review_count?:     number
-          relearning_count?: number
-          mature_count?:     number
-          suspended_count?:  number
-          recorded_at?:      string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "card_state_snapshots_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -262,289 +279,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      weak_spot_drill_attempts: {
-        Row: {
-          answered_at: string
-          card_id: string | null
-          created_at: string
-          event_id: string
-          id: string
-          weak_spot_id: string | null
-          local_sequence: number | null
-          response_time_ms: number | null
-          result: string
-          session_card_id: string
-          session_id: string
-          shown_at: string | null
-          user_id: string
-        }
-        Insert: {
-          answered_at?: string
-          card_id?: string | null
-          created_at?: string
-          event_id: string
-          id?: string
-          weak_spot_id?: string | null
-          local_sequence?: number | null
-          response_time_ms?: number | null
-          result: string
-          session_card_id: string
-          session_id: string
-          shown_at?: string | null
-          user_id: string
-        }
-        Update: {
-          answered_at?: string
-          card_id?: string | null
-          created_at?: string
-          event_id?: string
-          id?: string
-          weak_spot_id?: string | null
-          local_sequence?: number | null
-          response_time_ms?: number | null
-          result?: string
-          session_card_id?: string
-          session_id?: string
-          shown_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weak_spot_drill_attempts_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_attempts_weak_spot_id_fkey"
-            columns: ["weak_spot_id"]
-            isOneToOne: false
-            referencedRelation: "weak_spots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_attempts_session_card_fk"
-            columns: ["session_card_id", "session_id"]
-            isOneToOne: false
-            referencedRelation: "weak_spot_drill_session_cards"
-            referencedColumns: ["id", "session_id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_attempts_session_fk"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "weak_spot_drill_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_attempts_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weak_spot_drill_session_cards: {
-        Row: {
-          baseline_difficulty: number
-          baseline_due: string
-          baseline_elapsed_days: number
-          baseline_lapses: number
-          baseline_last_review: string | null
-          baseline_learning_steps: number
-          baseline_reps: number
-          baseline_scheduled_days: number
-          baseline_stability: number
-          baseline_state: number
-          canonical_state_fingerprint: string
-          card_id: string | null
-          created_at: string
-          id: string
-          weak_spot_id: string | null
-          ordinal: number
-          session_id: string
-          source_reason: string
-          user_id: string
-        }
-        Insert: {
-          baseline_difficulty: number
-          baseline_due: string
-          baseline_elapsed_days: number
-          baseline_lapses: number
-          baseline_last_review?: string | null
-          baseline_learning_steps: number
-          baseline_reps: number
-          baseline_scheduled_days: number
-          baseline_stability: number
-          baseline_state: number
-          canonical_state_fingerprint: string
-          card_id?: string | null
-          created_at?: string
-          id?: string
-          weak_spot_id?: string | null
-          ordinal: number
-          session_id: string
-          source_reason: string
-          user_id: string
-        }
-        Update: {
-          baseline_difficulty?: number
-          baseline_due?: string
-          baseline_elapsed_days?: number
-          baseline_lapses?: number
-          baseline_last_review?: string | null
-          baseline_learning_steps?: number
-          baseline_reps?: number
-          baseline_scheduled_days?: number
-          baseline_stability?: number
-          baseline_state?: number
-          canonical_state_fingerprint?: string
-          card_id?: string | null
-          created_at?: string
-          id?: string
-          weak_spot_id?: string | null
-          ordinal?: number
-          session_id?: string
-          source_reason?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weak_spot_drill_session_cards_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_session_cards_weak_spot_id_fkey"
-            columns: ["weak_spot_id"]
-            isOneToOne: false
-            referencedRelation: "weak_spots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_session_cards_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "weak_spot_drill_sessions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spot_drill_session_cards_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weak_spot_drill_sessions: {
-        Row: {
-          created_at: string
-          finished_at: string | null
-          id: string
-          mode: string
-          repeat_policy: string
-          source: string
-          source_query: Json
-          started_at: string
-          status: string
-          stop_rule: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          finished_at?: string | null
-          id?: string
-          mode?: string
-          repeat_policy?: string
-          source: string
-          source_query?: Json
-          started_at?: string
-          status?: string
-          stop_rule?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          finished_at?: string | null
-          id?: string
-          mode?: string
-          repeat_policy?: string
-          source?: string
-          source_query?: Json
-          started_at?: string
-          status?: string
-          stop_rule?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weak_spot_drill_sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weak_spots: {
-        Row: {
-          card_id: string | null
-          created_at: string
-          diagnosis: string | null
-          id: string
-          prescription: string | null
-          resolved: boolean
-          resolved_at: string | null
-          session_id: string | null
-          user_id: string
-        }
-        Insert: {
-          card_id?: string | null
-          created_at?: string
-          diagnosis?: string | null
-          id?: string
-          prescription?: string | null
-          resolved?: boolean
-          resolved_at?: string | null
-          session_id?: string | null
-          user_id: string
-        }
-        Update: {
-          card_id?: string | null
-          created_at?: string
-          diagnosis?: string | null
-          id?: string
-          prescription?: string | null
-          resolved?: boolean
-          resolved_at?: string | null
-          session_id?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "weak_spots_card_id_fkey"
-            columns: ["card_id"]
-            isOneToOne: false
-            referencedRelation: "cards"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "weak_spots_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       premade_decks: {
         Row: {
@@ -737,11 +471,314 @@ export type Database = {
           },
         ]
       }
+      weak_spot_drill_attempts: {
+        Row: {
+          answered_at: string
+          card_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          local_sequence: number | null
+          response_time_ms: number | null
+          result: string
+          session_card_id: string
+          session_id: string
+          shown_at: string | null
+          user_id: string
+          weak_spot_id: string | null
+        }
+        Insert: {
+          answered_at?: string
+          card_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          local_sequence?: number | null
+          response_time_ms?: number | null
+          result: string
+          session_card_id: string
+          session_id: string
+          shown_at?: string | null
+          user_id: string
+          weak_spot_id?: string | null
+        }
+        Update: {
+          answered_at?: string
+          card_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          local_sequence?: number | null
+          response_time_ms?: number | null
+          result?: string
+          session_card_id?: string
+          session_id?: string
+          shown_at?: string | null
+          user_id?: string
+          weak_spot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weak_spot_drill_attempts_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_attempts_session_card_fk"
+            columns: ["session_card_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "weak_spot_drill_session_cards"
+            referencedColumns: ["id", "session_id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_attempts_session_fk"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weak_spot_drill_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_attempts_weak_spot_id_fkey"
+            columns: ["weak_spot_id"]
+            isOneToOne: false
+            referencedRelation: "weak_spots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weak_spot_drill_session_cards: {
+        Row: {
+          baseline_difficulty: number
+          baseline_due: string
+          baseline_elapsed_days: number
+          baseline_lapses: number
+          baseline_last_review: string | null
+          baseline_learning_steps: number
+          baseline_reps: number
+          baseline_scheduled_days: number
+          baseline_stability: number
+          baseline_state: number
+          canonical_state_fingerprint: string
+          card_id: string | null
+          created_at: string
+          id: string
+          ordinal: number
+          session_id: string
+          source_reason: string
+          user_id: string
+          weak_spot_id: string | null
+        }
+        Insert: {
+          baseline_difficulty: number
+          baseline_due: string
+          baseline_elapsed_days: number
+          baseline_lapses: number
+          baseline_last_review?: string | null
+          baseline_learning_steps: number
+          baseline_reps: number
+          baseline_scheduled_days: number
+          baseline_stability: number
+          baseline_state: number
+          canonical_state_fingerprint: string
+          card_id?: string | null
+          created_at?: string
+          id?: string
+          ordinal: number
+          session_id: string
+          source_reason: string
+          user_id: string
+          weak_spot_id?: string | null
+        }
+        Update: {
+          baseline_difficulty?: number
+          baseline_due?: string
+          baseline_elapsed_days?: number
+          baseline_lapses?: number
+          baseline_last_review?: string | null
+          baseline_learning_steps?: number
+          baseline_reps?: number
+          baseline_scheduled_days?: number
+          baseline_stability?: number
+          baseline_state?: number
+          canonical_state_fingerprint?: string
+          card_id?: string | null
+          created_at?: string
+          id?: string
+          ordinal?: number
+          session_id?: string
+          source_reason?: string
+          user_id?: string
+          weak_spot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weak_spot_drill_session_cards_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_session_cards_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "weak_spot_drill_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_session_cards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spot_drill_session_cards_weak_spot_id_fkey"
+            columns: ["weak_spot_id"]
+            isOneToOne: false
+            referencedRelation: "weak_spots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weak_spot_drill_sessions: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          mode: string
+          repeat_policy: string
+          source: string
+          source_query: Json
+          started_at: string
+          status: string
+          stop_rule: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          repeat_policy?: string
+          source: string
+          source_query?: Json
+          started_at?: string
+          status?: string
+          stop_rule?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          repeat_policy?: string
+          source?: string
+          source_query?: Json
+          started_at?: string
+          status?: string
+          stop_rule?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weak_spot_drill_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weak_spots: {
+        Row: {
+          card_id: string | null
+          created_at: string
+          diagnosis: string | null
+          id: string
+          prescription: string | null
+          resolved: boolean
+          resolved_at: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          card_id?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          id?: string
+          prescription?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          card_id?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          id?: string
+          prescription?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weak_spots_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weak_spots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      bulk_delete_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
+      bulk_move_cards: {
+        Args: {
+          p_card_ids: string[]
+          p_target_deck_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      bulk_suspend_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
+      bulk_unsuspend_cards: {
+        Args: { p_card_ids: string[]; p_user_id: string }
+        Returns: Json
+      }
       bulk_update_card_embeddings: {
         Args: { p_updates: Json }
         Returns: number
@@ -769,40 +806,72 @@ export type Database = {
         }
         Returns: string
       }
-      create_weak_spot_drill_session:
+      copy_card: {
+        Args: { p_card_id: string; p_target_deck_id: string; p_user_id: string }
+        Returns: string
+      }
+      copy_premade_deck: {
+        Args: { p_premade_deck_id: string; p_user_id: string }
+        Returns: {
+          card_count: number
+          deck_id: string
+        }[]
+      }
+      copy_user_deck: {
+        Args: {
+          p_source_deck_id: string
+          p_target_name: string
+          p_user_id: string
+        }
+        Returns: {
+          card_count: number
+          deck_id: string
+        }[]
+      }
+      count_cards_cross_deck:
         | {
             Args: {
-              p_deck_id: string
-              p_jlpt_level: string
-              p_limit: number
-              p_mode: string
-              p_order: string
-              p_repeat_policy: string
-              p_source: string
-              p_source_query: Json
-              p_stop_rule: Json
+              p_deck_id?: string
+              p_jlpt_level?: string
+              p_missing_field?: string
+              p_search?: string
+              p_status?: string
               p_user_id: string
             }
-            Returns: Json
+            Returns: number
           }
         | {
             Args: {
-              p_card_id: string
-              p_card_ids: string[]
-              p_deck_id: string
-              p_jlpt_level: string
-              p_limit: number
-              p_min_lapses: number
-              p_mode: string
-              p_order: string
-              p_repeat_policy: string
-              p_source: string
-              p_source_query: Json
-              p_stop_rule: Json
+              p_deck_id?: string
+              p_jlpt_level?: string
+              p_missing_field?: string
+              p_pitch_pattern?: string
+              p_present_field?: string
+              p_search?: string
+              p_status?: string
               p_user_id: string
             }
-            Returns: Json
+            Returns: number
           }
+      count_moras: { Args: { p_reading: string }; Returns: number }
+      create_weak_spot_drill_session: {
+        Args: {
+          p_card_id: string
+          p_card_ids: string[]
+          p_deck_id: string
+          p_jlpt_level: string
+          p_limit: number
+          p_min_lapses: number
+          p_mode: string
+          p_order: string
+          p_repeat_policy: string
+          p_source: string
+          p_source_query: Json
+          p_stop_rule: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
       delete_idempotency_key: {
         Args: { p_key: string; p_user_id: string }
         Returns: undefined
@@ -816,7 +885,6 @@ export type Database = {
           jlpt_level: Database["public"]["Enums"]["jlpt_level"]
           layout_type: Database["public"]["Enums"]["layout_type"]
           similarity: number
-          tags: string[]
         }[]
       }
       get_accuracy_by_layout_type: {
@@ -827,9 +895,39 @@ export type Database = {
           total: number
         }[]
       }
+      get_answer_rating_distribution: {
+        Args: { p_user_id: string }
+        Returns: {
+          count: number
+          rating: string
+        }[]
+      }
+      get_card_quality_issues: {
+        Args: { p_user_id: string }
+        Returns: {
+          count: number
+          issue_type: string
+        }[]
+      }
+      get_cards_added_this_month: {
+        Args: { p_timezone: string; p_user_id: string }
+        Returns: number
+      }
       get_dashboard_data: {
         Args: { p_timezone?: string; p_user_id: string }
         Returns: Json
+      }
+      get_day_review_aggregate: {
+        Args: { p_session_id: string; p_timezone: string; p_user_id: string }
+        Returns: Json
+      }
+      get_difficulty_distribution: {
+        Args: { p_user_id: string }
+        Returns: {
+          bucket: string
+          count: number
+          sort_key: number
+        }[]
       }
       get_due_cards: {
         Args: {
@@ -851,34 +949,19 @@ export type Database = {
       get_heatmap_data: {
         Args: { p_timezone?: string; p_user_id: string }
         Returns: {
-          count:         number
-          date:          string
-          retention:     number
+          count: number
+          date: string
+          retention: number
           total_seconds: number
         }[]
       }
-      get_card_quality_issues: {
+      get_interval_distribution: {
         Args: { p_user_id: string }
         Returns: {
-          issue_type: string
-          count:      number
+          bucket: string
+          count: number
+          sort_key: number
         }[]
-      }
-      get_maturity_pipeline_history: {
-        Args: { p_days: number; p_user_id: string }
-        Returns: {
-          snapshot_date:    string
-          new_count:        number
-          learning_count:   number
-          review_count:     number
-          relearning_count: number
-          mature_count:     number
-          suspended_count:  number
-        }[]
-      }
-      record_card_state_snapshots: {
-        Args: Record<string, never>
-        Returns: undefined
       }
       get_jlpt_gap: {
         Args: { p_user_id: string }
@@ -889,9 +972,17 @@ export type Database = {
           total: number
         }[]
       }
-      get_weak_spot_drill_session: {
-        Args: { p_session_id: string; p_user_id: string }
-        Returns: Json
+      get_maturity_pipeline_history: {
+        Args: { p_days: number; p_user_id: string }
+        Returns: {
+          learning_count: number
+          mature_count: number
+          new_count: number
+          relearning_count: number
+          review_count: number
+          snapshot_date: string
+          suspended_count: number
+        }[]
       }
       get_milestone_forecast: {
         Args: { p_user_id: string }
@@ -921,12 +1012,16 @@ export type Database = {
         }[]
       }
       get_session_summary: {
-        Args: { p_session_id: string; p_user_id: string; p_timezone: string }
+        Args: { p_session_id: string; p_timezone: string; p_user_id: string }
         Returns: Json
       }
-      get_day_review_aggregate: {
-        Args: { p_session_id: string; p_user_id: string; p_timezone: string }
-        Returns: Json
+      get_stability_distribution: {
+        Args: { p_user_id: string }
+        Returns: {
+          bucket: string
+          count: number
+          sort_key: number
+        }[]
       }
       get_stale_embedding_cards: {
         Args: { p_user_id: string }
@@ -948,9 +1043,41 @@ export type Database = {
           scheduled_days: number
           stability: number
           state: number
-          tags: string[]
           updated_at: string
           user_id: string
+        }[]
+      }
+      get_weak_spot_drill_session: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
+      list_cards_cross_deck: {
+        Args: {
+          p_deck_id?: string
+          p_jlpt_level?: string
+          p_limit: number
+          p_missing_field?: string
+          p_offset?: number
+          p_pitch_pattern?: string
+          p_present_field?: string
+          p_search?: string
+          p_sort?: string
+          p_sort_dir?: string
+          p_status?: string
+          p_user_id: string
+        }
+        Returns: {
+          created_at: string
+          deck_id: string
+          deck_name: string
+          due: string
+          fields_data: Json
+          id: string
+          is_suspended: boolean
+          jlpt_level: Database["public"]["Enums"]["jlpt_level"]
+          lapses: number
+          layout_type: Database["public"]["Enums"]["layout_type"]
+          state: number
         }[]
       }
       list_cards_paginated: {
@@ -969,37 +1096,32 @@ export type Database = {
           jlpt_level: Database["public"]["Enums"]["jlpt_level"]
           layout_type: Database["public"]["Enums"]["layout_type"]
           state: number
-          tags: string[]
         }[]
       }
-      // 20260622000000_deck_archive.sql — adds p_view parameter and
-      // archived_at to RETURNS TABLE. The hand-maintained typing was already
-      // stale (missing the Stage 3 rollups and the Stage 4 is_premade_fork
-      // drop); this update gets it back in sync with the live RPC signature.
       list_decks_paginated: {
         Args: {
           p_cursor?: string
-          p_limit:   number
+          p_limit: number
           p_user_id: string
-          p_view?:   string
+          p_view?: string
         }
         Returns: {
-          id:                string
-          name:              string
-          description:       string | null
-          deck_type:         Database["public"]["Enums"]["deck_type"]
-          source_premade_id: string | null
-          card_count:        number
-          version:           number
-          created_at:        string
-          updated_at:        string
-          archived_at:       string | null
-          due_count:         number
-          new_count:         number
-          mature_count:      number
-          due_new_count:     number
-          due_review_count:  number
-          last_reviewed_at:  string | null
+          archived_at: string
+          card_count: number
+          created_at: string
+          deck_type: Database["public"]["Enums"]["deck_type"]
+          description: string
+          due_count: number
+          due_new_count: number
+          due_review_count: number
+          id: string
+          last_reviewed_at: string
+          mature_count: number
+          name: string
+          new_count: number
+          source_premade_id: string
+          updated_at: string
+          version: number
         }[]
       }
       list_premade_decks_paginated: {
@@ -1021,8 +1143,11 @@ export type Database = {
           jlpt_level: Database["public"]["Enums"]["jlpt_level"]
           name: string
           updated_at: string
-          version: number
         }[]
+      }
+      move_card: {
+        Args: { p_card_id: string; p_target_deck_id: string; p_user_id: string }
+        Returns: string
       }
       process_forget: {
         Args: {
@@ -1065,7 +1190,6 @@ export type Database = {
           p_last_review_before?: string
           p_learning_steps: number
           p_learning_steps_before?: number
-          p_leech_threshold: number
           p_rating: Database["public"]["Enums"]["review_rating"]
           p_reps: number
           p_reps_before?: number
@@ -1081,25 +1205,29 @@ export type Database = {
           p_state_before?: number
           p_updated_at: string
           p_user_id: string
+          p_weak_spot_threshold: number
         }
-        // 20260706000000_process_review_return_log_id.sql — RETURNS the inserted
-        // review_logs id (was VOID). Mirrors process_review_batch.review_log_id.
         Returns: string
       }
       process_review_batch: {
-        Args: { p_leech_threshold: number; p_reviews: Json; p_user_id: string }
+        Args: {
+          p_reviews: Json
+          p_user_id: string
+          p_weak_spot_threshold: number
+        }
         Returns: {
           card_id: string
           difficulty: number
           due: string
           error_message: string
-          review_log_id: string | null
+          review_log_id: string
           scheduled_days: number
           stability: number
           state: number
           success: boolean
         }[]
       }
+      record_card_state_snapshots: { Args: never; Returns: undefined }
       record_weak_spot_drill_attempt: {
         Args: {
           p_answered_at: string
@@ -1125,26 +1253,9 @@ export type Database = {
         }
         Returns: undefined
       }
-      copy_premade_deck: {
-        Args: { p_premade_deck_id: string; p_user_id: string }
-        Returns: {
-          card_count: number
-          deck_id: string
-        }[]
-      }
-      // 20260621000000_copy_user_deck_rpc.sql — duplicates a user's own deck.
-      // Same return shape as copy_premade_deck; the wire-facing camelCase types
-      // diverge so the two routes' semantics stay distinct.
-      copy_user_deck: {
-        Args: {
-          p_source_deck_id: string
-          p_target_name:    string | null
-          p_user_id:        string
-        }
-        Returns: {
-          card_count: number
-          deck_id:    string
-        }[]
+      suspend_card: {
+        Args: { p_card_id: string; p_user_id: string }
+        Returns: string
       }
       transition_weak_spot_drill_session: {
         Args: {
@@ -1154,6 +1265,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      unsuspend_card: {
+        Args: { p_card_id: string; p_user_id: string }
+        Returns: string
+      }
       update_card_with_sibling_sync: {
         Args: {
           p_card_id: string
@@ -1161,7 +1276,6 @@ export type Database = {
           p_fields_data?: Json
           p_jlpt_level?: Database["public"]["Enums"]["jlpt_level"]
           p_layout_type?: Database["public"]["Enums"]["layout_type"]
-          p_tags?: string[]
           p_user_id: string
         }
         Returns: {
@@ -1184,7 +1298,6 @@ export type Database = {
           scheduled_days: number
           stability: number
           state: number
-          tags: string[]
           updated_at: string
           user_id: string
           version: number
@@ -1197,10 +1310,8 @@ export type Database = {
           p_patch: Json
           p_user_id: string
         }
-        // 20260705000000_fix_update_deck_drop_premade_fork.sql — drop
-        // is_premade_fork (gone in the copy model), add archived_at.
         Returns: {
-          archived_at: string | null
+          archived_at: string
           card_count: number
           created_at: string
           deck_type: Database["public"]["Enums"]["deck_type"]
@@ -1220,122 +1331,6 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
-      }
-      // ─── pending regeneration ─────────────────────────────────────────
-      // The block below mirrors the signatures introduced by migrations
-      // 20260617000000_list_cards_cross_deck_rpc.sql,
-      // 20260617000001_card_move_copy_suspend_rpcs.sql, and
-      // 20260624000000_cards_browser_presence_filters.sql. They are added
-      // by hand so the codebase type-checks before the next
-      // `bun run db:types` regenerates this file from a database that has
-      // these migrations applied. Replace this block with the generator's
-      // output once the migrations are deployed remotely.
-      count_moras: {
-        Args: { p_reading: string }
-        Returns: number
-      }
-      list_cards_cross_deck: {
-        Args: {
-          p_user_id:        string
-          p_limit:          number
-          p_cursor?:        string
-          p_deck_id?:       string
-          p_status?:        string
-          p_jlpt_level?:    string
-          p_search?:        string
-          p_missing_field?: string
-          p_sort?:          string
-          p_present_field?: string
-          p_pitch_pattern?: string
-        }
-        Returns: {
-          id:           string
-          deck_id:      string
-          deck_name:    string
-          fields_data:  Json
-          layout_type:  Database["public"]["Enums"]["layout_type"]
-          jlpt_level:   Database["public"]["Enums"]["jlpt_level"]
-          state:        number
-          is_suspended: boolean
-          due:          string
-          tags:         string[]
-          lapses:       number
-          created_at:   string
-        }[]
-      }
-      count_cards_cross_deck: {
-        Args: {
-          p_user_id:        string
-          p_deck_id?:       string
-          p_status?:        string
-          p_jlpt_level?:    string
-          p_search?:        string
-          p_missing_field?: string
-          p_present_field?: string
-          p_pitch_pattern?: string
-        }
-        Returns: number
-      }
-      move_card: {
-        Args: { p_card_id: string; p_user_id: string; p_target_deck_id: string }
-        Returns: string
-      }
-      copy_card: {
-        Args: { p_card_id: string; p_user_id: string; p_target_deck_id: string }
-        Returns: string
-      }
-      suspend_card: {
-        Args: { p_card_id: string; p_user_id: string }
-        Returns: string
-      }
-      unsuspend_card: {
-        Args: { p_card_id: string; p_user_id: string }
-        Returns: string
-      }
-      bulk_move_cards: {
-        Args: { p_card_ids: string[]; p_user_id: string; p_target_deck_id: string }
-        Returns: Json
-      }
-      bulk_suspend_cards: {
-        Args: { p_card_ids: string[]; p_user_id: string }
-        Returns: Json
-      }
-      bulk_unsuspend_cards: {
-        Args: { p_card_ids: string[]; p_user_id: string }
-        Returns: Json
-      }
-      bulk_delete_cards: {
-        Args: { p_card_ids: string[]; p_user_id: string }
-        Returns: Json
-      }
-      bulk_tag_cards: {
-        Args: {
-          p_card_ids:    string[]
-          p_user_id:     string
-          p_add_tags:    string[]
-          p_remove_tags: string[]
-        }
-        Returns: Json
-      }
-      get_answer_rating_distribution: {
-        Args: { p_user_id: string }
-        Returns: { rating: string; count: number }[]
-      }
-      get_interval_distribution: {
-        Args: { p_user_id: string }
-        Returns: { bucket: string; sort_key: number; count: number }[]
-      }
-      get_stability_distribution: {
-        Args: { p_user_id: string }
-        Returns: { bucket: string; sort_key: number; count: number }[]
-      }
-      get_difficulty_distribution: {
-        Args: { p_user_id: string }
-        Returns: { bucket: string; sort_key: number; count: number }[]
-      }
-      get_cards_added_this_month: {
-        Args: { p_user_id: string; p_timezone: string }
-        Returns: number
       }
     }
     Enums: {
@@ -1468,6 +1463,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       deck_type: ["vocabulary", "kanji", "mixed"],
@@ -1477,3 +1475,4 @@ export const Constants = {
     },
   },
 } as const
+
