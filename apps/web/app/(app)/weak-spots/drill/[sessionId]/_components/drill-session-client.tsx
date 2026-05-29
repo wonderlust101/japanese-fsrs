@@ -266,7 +266,7 @@ export function DrillSessionClient({
 	// Collapse the override panel automatically whenever a new card surfaces
 	// so a held-open state from card N doesn't carry into card N+1.
 	useEffect(() => {
-		setOverrideOpen(false);
+		setOverrideOpen(false); // eslint-disable-line react/set-state-in-effect -- collapses the override panel when a new card surfaces
 	}, [currentIndex]);
 
 	useEffect(() => {

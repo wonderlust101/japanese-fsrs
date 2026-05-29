@@ -9,7 +9,7 @@ import type {
 } from "@fsrs-japanese/shared-types";
 import type { UseMutationResult, UseQueryResult } from "@tanstack/react-query";
 
-import type { CreateDrillSessionInput, ListLeechesOptions, RecordDrillAttemptInput } from "../actions/weak-spots.actions";
+import type { CreateDrillSessionInput, ListWeakSpotsOptions, RecordDrillAttemptInput } from "../actions/weak-spots.actions";
 import {
 	keepPreviousData,
 	useMutation,
@@ -50,7 +50,7 @@ import { queryKeys } from "./queryKeys";
  * refetch (`isFetching`) to drive its pagination-busy affordance.
  */
 export function useWeakSpotsQuery(
-	opts: ListLeechesOptions = {},
+	opts: ListWeakSpotsOptions = {},
 ): UseQueryResult<ApiWeakSpotListResponse, Error> {
 	return useQuery({
 		queryKey: queryKeys.weakSpots.list(opts),
@@ -132,7 +132,7 @@ export function useUnresolvedWeakSpotCount(): {
  * keys, not all review or analytics data" rule applies equally to these
  * lifecycle mutations.
  */
-function invalidateLeeches(queryClient: ReturnType<typeof useQueryClient>): void {
+function invalidateWeakSpots(queryClient: ReturnType<typeof useQueryClient>): void {
 	queryClient.invalidateQueries({ queryKey: queryKeys.weakSpots.all() });
 }
 
@@ -146,7 +146,7 @@ export function useResolveWeakSpotMutation(): UseMutationResult<
 		mutationFn: resolveWeakSpotAction,
 		onSuccess: (weakSpot) => {
 			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
-			invalidateLeeches(queryClient);
+			invalidateWeakSpots(queryClient);
 		},
 	});
 }
@@ -161,7 +161,7 @@ export function useReopenWeakSpotMutation(): UseMutationResult<
 		mutationFn: reopenWeakSpotAction,
 		onSuccess: (weakSpot) => {
 			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
-			invalidateLeeches(queryClient);
+			invalidateWeakSpots(queryClient);
 		},
 	});
 }
@@ -176,7 +176,7 @@ export function useDiagnoseWeakSpotMutation(): UseMutationResult<
 		mutationFn: diagnoseWeakSpotAction,
 		onSuccess: (weakSpot) => {
 			queryClient.setQueryData(queryKeys.weakSpots.detail(weakSpot.id), weakSpot);
-			invalidateLeeches(queryClient);
+			invalidateWeakSpots(queryClient);
 		},
 	});
 }

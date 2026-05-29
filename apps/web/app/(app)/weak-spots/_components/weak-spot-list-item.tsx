@@ -15,9 +15,9 @@ interface WeakSpotListItemProps {
 	isMutating: boolean;
 }
 
-// Lapse-count threshold at which a card is treated as a leech. Mirrors the
-// backend `LEECH_THRESHOLD` default (8); used here only to tint the count.
-const LEECH_THRESHOLD = 8;
+// Lapse-count threshold at which a card is treated as a weak spot. Mirrors the
+// backend `WEAK_SPOT_THRESHOLD` default (8); used here only to tint the count.
+const WEAK_SPOT_THRESHOLD = 8;
 
 /**
  * Single weakSpot row, three tiers of decreasing weight:
@@ -29,7 +29,7 @@ const LEECH_THRESHOLD = 8;
  *      faded meta.
  *   3. Meta — a diagnosis-state dot, the lapse count as the row's one accent
  *      (colored text by severity, no box: faded → ink → vermillion past the
- *      leech threshold), and the deck. Timestamps and diagnosis prose live in
+ *      weak spot threshold), and the deck. Timestamps and diagnosis prose live in
  *      the detail dialog.
  *
  * Action cluster: the resolve/reopen action as a visible button (44px touch
@@ -213,12 +213,12 @@ function DiagnosisDot({ diagnosed }: { diagnosed: boolean }): React.JSX.Element 
 
 /**
  * Tint the lapse count by severity within the restrained palette: faded below
- * 5, ink at 5–7, vermillion at/above the leech threshold so the worst
+ * 5, ink at 5–7, vermillion at/above the weak spot threshold so the worst
  * offenders read first. Text only, no box, so it stays the row's single quiet
  * accent without competing with the JLPT pill in the hero.
  */
 function lapseToneClass(count: number): string {
-	if (count >= LEECH_THRESHOLD)
+	if (count >= WEAK_SPOT_THRESHOLD)
 		return "text-inari-vermillion-deep";
 	if (count >= 5)
 		return "text-sumi-ink";

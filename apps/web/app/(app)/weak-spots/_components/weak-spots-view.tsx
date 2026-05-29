@@ -4,7 +4,7 @@ import type { ApiWeakSpotListItem, ApiWeakSpotListResponse } from "@fsrs-japanes
 import type { WeakSpotFilters } from "./weak-spots-types";
 
 import type { CardsPageSize } from "@/app/(app)/cards/_components/cards-pagination";
-import type { ListLeechesOptions } from "@/lib/actions/weak-spots.actions";
+import type { ListWeakSpotsOptions } from "@/lib/actions/weak-spots.actions";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
@@ -17,7 +17,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 
 import { PageLoader } from "@/components/ui/TomoLoader";
 
-import { useLeechesDevState } from "@/dev/panels/insights-weak-spots";
+import { useWeakSpotsDevState } from "@/dev/panels/insights-weak-spots";
 import {
 	useDiagnoseWeakSpotMutation,
 	useReopenWeakSpotMutation,
@@ -60,7 +60,7 @@ const PAGE_CONTAINER_CLASS = "mx-auto w-full max-w-[1440px] px-4 pt-4 pb-20 md:p
  * those branches without a live API. Pattern matches `MistakesView`.
  */
 export function WeakSpotsView(): React.JSX.Element {
-	const dev = useLeechesDevState();
+	const dev = useWeakSpotsDevState();
 	// Filter/sort/search state lives in the URL (mirrors the Cards browser) so a
 	// narrowed view is shareable and deep-linkable. `filters` derives from the
 	// query string; `setFilters` writes back via router.replace (scroll:false, no
@@ -116,8 +116,8 @@ export function WeakSpotsView(): React.JSX.Element {
 
 	// Translate the UI filter shape to the wire shape (drops 'all' sentinels)
 	// and add the offset window for the active page.
-	const queryOpts = useMemo<ListLeechesOptions>(() => {
-		const opts: ListLeechesOptions = {
+	const queryOpts = useMemo<ListWeakSpotsOptions>(() => {
+		const opts: ListWeakSpotsOptions = {
 			status: filters.status,
 			sort: filters.sort,
 			limit: pageSize,

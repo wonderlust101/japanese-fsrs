@@ -9,7 +9,7 @@ interface PageProps {
 	params: Promise<{ sessionId: string }>;
 }
 
-export default async function LeechDrillSummaryPage({
+export default async function WeakSpotDrillSummaryPage({
 	params,
 }: PageProps): Promise<React.JSX.Element> {
 	const { sessionId } = await params;

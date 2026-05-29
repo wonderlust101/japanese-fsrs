@@ -133,7 +133,7 @@ export type WeakSpotLapsesCursor = z.infer<typeof weakSpotLapsesCursorSchema>;
 // admits the same five; the service-layer mapper translates camelCase here
 // to snake_case for the RPC.
 export const weakSpotDrillSourceEnum = z.enum([
-	"unresolvedLeeches",
+	"unresolvedWeakSpots",
 	"deckScoped",
 	"highLapseCandidates",
 	"manualSelection",
@@ -147,7 +147,7 @@ export type WeakSpotDrillMode = z.infer<typeof weakSpotDrillModeEnum>;
 export type WeakSpotDrillRepeatPolicy = z.infer<typeof weakSpotDrillRepeatPolicyEnum>;
 
 export const createDrillSessionSchema = z.object({
-	source: weakSpotDrillSourceEnum.default("unresolvedLeeches"),
+	source: weakSpotDrillSourceEnum.default("unresolvedWeakSpots"),
 	deckId: z.string().uuid("Invalid deck ID").optional(),
 	jlptLevel: jlptLevelEnum.optional(),
 	// manualSelection-only: explicit list of card IDs to drill. Bounded 1-50

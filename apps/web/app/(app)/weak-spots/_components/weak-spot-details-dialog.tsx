@@ -127,7 +127,7 @@ export function WeakSpotDetailsDialog({
 							<Stat
 								label="Lapses"
 								value={weakSpot.lapses === null ? "—" : String(weakSpot.lapses)}
-								tone={!weakSpot.resolved && (weakSpot.lapses ?? 0) >= LEECH_THRESHOLD ? "severe" : "default"}
+								tone={!weakSpot.resolved && (weakSpot.lapses ?? 0) >= WEAK_SPOT_THRESHOLD ? "severe" : "default"}
 							/>
 							<Stat label="Reps" value={weakSpot.reps === null ? "—" : String(weakSpot.reps)} />
 						</StatCluster>
@@ -213,9 +213,9 @@ export function WeakSpotDetailsDialog({
 
 // ─── Clusters / stats / status / skeleton / helpers ──────────────────────────
 
-// Lapse-count threshold treated as a leech; mirrors the backend
-// `LEECH_THRESHOLD` default (8). Used only to tint the lapse value.
-const LEECH_THRESHOLD = 8;
+// Lapse-count threshold treated as a weak spot; mirrors the backend
+// `WEAK_SPOT_THRESHOLD` default (8). Used only to tint the lapse value.
+const WEAK_SPOT_THRESHOLD = 8;
 
 /**
  * A labeled group of stats. The small uppercase subhead gives the section

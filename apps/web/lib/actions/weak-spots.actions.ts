@@ -22,7 +22,7 @@ export type WeakSpotSortOrder
 		| "mostLapses"
 		| "deckOrder";
 
-export interface ListLeechesOptions {
+export interface ListWeakSpotsOptions {
 	status?: WeakSpotStatusFilter;
 	deckId?: string;
 	jlptLevel?: string;
@@ -51,7 +51,7 @@ const EMPTY_LIST: ApiWeakSpotListResponse = {
  * actions treat their non-critical reads.
  */
 export async function listWeakSpotsAction(
-	opts: ListLeechesOptions = {},
+	opts: ListWeakSpotsOptions = {},
 ): Promise<ApiWeakSpotListResponse> {
 	const params = new URLSearchParams();
 	params.set("status", opts.status ?? "unresolved");
@@ -132,7 +132,7 @@ export async function diagnoseWeakSpotAction(id: string): Promise<ApiWeakSpotLis
 
 export type CreateDrillSessionInput
 	= | {
-		source: "unresolvedLeeches";
+		source: "unresolvedWeakSpots";
 		deckId?: string;
 		jlptLevel?: string;
 		order?: "mostRecent" | "mostLapses" | "oldestUnresolved" | "deckOrder";

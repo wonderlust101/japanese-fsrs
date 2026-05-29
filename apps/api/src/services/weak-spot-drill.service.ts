@@ -14,7 +14,9 @@ const log = componentLogger("weakSpot.service");
 
 const DrillSessionCardRowSchema = z.object({
 	sessionCardId: z.string().uuid(),
-	weakSpotId: z.string().uuid(),
+	// Nullable: the `high_lapse_candidates` source queues cards that have no
+	// associated weak-spot row yet, so the RPC returns weakSpotId = null for them.
+	weakSpotId: z.string().uuid().nullable(),
 	cardId: z.string().uuid(),
 	ordinal: z.number().int().nonnegative(),
 	layoutType: z.enum(["vocabulary", "grammar", "sentence"]),
@@ -40,7 +42,7 @@ const DrillSessionResponseSchema = z.object({
  */
 function sourceToDb(source: CreateDrillSessionInput["source"]): string {
 	switch (source) {
-		case "unresolvedLeeches": return "unresolved_leeches";
+		case "unresolvedWeakSpots": return "unresolved_weak_spots";
 		case "deckScoped": return "deck_scoped";
 		case "highLapseCandidates": return "high_lapse_candidates";
 		case "manualSelection": return "manual_selection";

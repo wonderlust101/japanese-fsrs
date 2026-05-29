@@ -123,13 +123,15 @@ export const ApiWeakSpotListResponseSchema = z.object({
 // composite FK against (id, session_id) on weak_spot_drill_session_cards makes
 // cross-session attempt forgery structurally impossible.
 //
-// Card-derived fields are non-nullable on this shape — the RPC's WHERE clause
-// already excluded orphan weakSpots (card_id NULL) and suspended cards before
-// the snapshot was written.
+// Card-derived fields (cardId, layoutType, fieldsData, lapses) are non-nullable
+// on this shape — the RPC's WHERE clause already excluded orphan weakSpots
+// (card_id NULL) and suspended cards before the snapshot was written.
+// `weakSpotId` is the exception: the `high_lapse_candidates` source queues cards
+// that have no associated weak-spot row yet, so the RPC returns it as null there.
 
 export const ApiWeakSpotDrillCardSchema = z.object({
 	sessionCardId: z.string().uuid(),
-	weakSpotId: z.string().uuid(),
+	weakSpotId: z.string().uuid().nullable(),
 	cardId: z.string().uuid(),
 	ordinal: z.number().int().nonnegative(),
 	layoutType: layoutTypeSchema,

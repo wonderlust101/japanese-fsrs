@@ -269,7 +269,7 @@ export async function resolveWeakSpot(userId: string, id: string): Promise<ApiWe
  * Idempotent on the happy path; throws 409 WEAK_SPOT_ALREADY_OPEN when another
  * unresolved weakSpot for the same (card_id, user_id) already exists. That
  * conflict is enforced at the DB layer by the partial unique index
- * `leeches_card_user_unresolved_idx` (migration 20260425000001) — we catch
+ * `weak_spots_card_user_unresolved_idx` (originally `leeches_card_user_unresolved_idx`, migration 20260425000001) — we catch
  * SQLSTATE 23505 from the UPDATE and translate it before it falls through to
  * the generic `dbError` mapper. A pre-check would race; the only correct
  * pattern is "UPDATE optimistically, catch 23505, translate to 409".

@@ -739,7 +739,7 @@ const SAMPLE_DRILL_ENVELOPE = {
 describe("createDrillSession schema", () => {
 	it("parses an empty body with the documented defaults", () => {
 		const parsed = createDrillSessionSchema.parse({});
-		expect(parsed.source).toBe("unresolvedLeeches");
+		expect(parsed.source).toBe("unresolvedWeakSpots");
 		expect(parsed.order).toBe("mostLapses");
 		expect(parsed.limit).toBe(20);
 		expect(parsed.mode).toBe("practice");
@@ -764,7 +764,7 @@ describe("createDrillSession schema", () => {
 	});
 
 	it("accepts all five spec source values (Stage 6 expanded from two)", () => {
-		expect(createDrillSessionSchema.safeParse({ source: "unresolvedLeeches" }).success).toBe(true);
+		expect(createDrillSessionSchema.safeParse({ source: "unresolvedWeakSpots" }).success).toBe(true);
 		// Stage 6 wired through `highLapseCandidates`, `manualSelection` (needs
 		// cardIds), and `currentCard` (needs cardId). See the Stage 6 source
 		// expansion describe block below for the full per-source coverage.
@@ -792,7 +792,7 @@ describe("weakSpot.service — createDrillSession", () => {
 		expect(call?.name).toBe("create_weak_spot_drill_session");
 		const payload = call?.payload as Record<string, unknown>;
 		expect(payload.p_user_id).toBe("user-1");
-		expect(payload.p_source).toBe("unresolved_leeches"); // ← camelCase→snake_case
+		expect(payload.p_source).toBe("unresolved_weak_spots"); // ← camelCase→snake_case
 		expect(payload.p_repeat_policy).toBe("missed_after_lag"); // ← camelCase→snake_case
 		expect(payload.p_mode).toBe("practice");
 		expect(payload.p_limit).toBe(20);
@@ -1497,7 +1497,7 @@ describe("scheduler invariance — drill code path must never touch FSRS tables"
 	});
 
 	it("50 randomized createDrillSession invocations issue zero .from() calls", async () => {
-		const sources = ["unresolvedLeeches", "deckScoped"] as const;
+		const sources = ["unresolvedWeakSpots", "deckScoped"] as const;
 		const orders = ["mostRecent", "oldestUnresolved", "mostLapses", "deckOrder"] as const;
 
 		for (let i = 0; i < 50; i++) {
@@ -1540,7 +1540,7 @@ describe("scheduler invariance — drill code path must never touch FSRS tables"
 
 describe("createDrillSessionSchema — Stage 6 source expansion", () => {
 	it("parses all five source values", () => {
-		expect(createDrillSessionSchema.safeParse({ source: "unresolvedLeeches" }).success).toBe(true);
+		expect(createDrillSessionSchema.safeParse({ source: "unresolvedWeakSpots" }).success).toBe(true);
 		expect(createDrillSessionSchema.safeParse({ source: "deckScoped", deckId: DECK_ID }).success).toBe(true);
 		expect(createDrillSessionSchema.safeParse({ source: "highLapseCandidates" }).success).toBe(true);
 		expect(createDrillSessionSchema.safeParse({ source: "manualSelection", cardIds: [CARD_ID] }).success).toBe(true);
@@ -1814,7 +1814,7 @@ describe("scheduler invariance — Stage 6 additions", () => {
 	});
 
 	it("50 randomized createDrillSession invocations across all five sources issue zero .from() calls", async () => {
-		const sources = ["unresolvedLeeches", "deckScoped", "highLapseCandidates", "manualSelection", "currentCard"] as const;
+		const sources = ["unresolvedWeakSpots", "deckScoped", "highLapseCandidates", "manualSelection", "currentCard"] as const;
 		const orders = ["mostRecent", "oldestUnresolved", "mostLapses", "deckOrder"] as const;
 
 		for (let i = 0; i < 50; i++) {
@@ -2146,7 +2146,7 @@ describe("weakSpot.service — diagnoseWeakSpot compliance (Stage 7.1)", () => {
 		// Sample data shapes copied from the weakSpots-suite fixtures. Both side
 		// queues hold exactly one entry each; after Promise.all drains them
 		// (regardless of resolution order), both arrays should be empty.
-		const FRESH_LEECH = {
+		const FRESH_WEAK_SPOT = {
 			id: WEAK_SPOT_ID,
 			card_id: CARD_ID,
 			diagnosis: null,
@@ -2160,7 +2160,7 @@ describe("weakSpot.service — diagnoseWeakSpot compliance (Stage 7.1)", () => {
 		};
 
 		state.responses.weakSpots = [
-			{ data: FRESH_LEECH, error: null },
+			{ data: FRESH_WEAK_SPOT, error: null },
 			{ data: null, error: null }, // UPDATE
 			{ data: SAMPLE_WEAK_SPOT_ROW, error: null }, // getWeakSpotById
 		];

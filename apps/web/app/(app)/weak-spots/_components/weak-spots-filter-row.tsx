@@ -175,7 +175,7 @@ function WeakSpotsSearchBar({
 
 	// Resync when the parent clears the search externally (e.g. a return visit
 	// resets it, or a future "clear all" affordance).
-	useEffect(() => { setDraft(value); }, [value]);
+	useEffect(() => { setDraft(value); }, [value]); // eslint-disable-line react/set-state-in-effect -- resyncs the local draft when the parent clears/changes the search value
 
 	useEffect(() => {
 		const id = window.setTimeout(() => {

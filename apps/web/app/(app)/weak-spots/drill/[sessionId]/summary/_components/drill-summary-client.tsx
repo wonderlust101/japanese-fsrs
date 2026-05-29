@@ -92,6 +92,7 @@ export function DrillSummaryClient({
 			if (isFinished)
 				actions.reset();
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only store reset; actions is a stable Zustand action. Listing deps would fire reset() via cleanup on every change, not just unmount.
 	}, []);
 
 	const metrics = useMemo(() => deriveMetrics(attempts), [attempts]);

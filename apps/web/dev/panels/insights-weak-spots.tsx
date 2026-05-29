@@ -14,7 +14,7 @@ import {
 } from "@/app/(app)/weak-spots/_components/weakSpotsFixtures";
 import { useDevStatePanel } from "@/dev/useDevStatePanel";
 
-export type LeechesFixtureKey
+export type WeakSpotsFixtureKey
 	= | "off"
 		| "clean"
 		| "few"
@@ -24,12 +24,12 @@ export type LeechesFixtureKey
 		| "loading"
 		| "error";
 
-export interface LeechesDevState {
+export interface WeakSpotsDevState {
 	fixtureData: ApiWeakSpotListResponse | null;
 	forcedState: "loading" | "error" | null;
 }
 
-const FIXTURES: ReadonlyArray<DevFixtureSpec<LeechesFixtureKey>> = [
+const FIXTURES: ReadonlyArray<DevFixtureSpec<WeakSpotsFixtureKey>> = [
 	{ key: "off", label: "Off", description: "Live data — render the real weak-spot list." },
 	{ key: "clean", label: "Clean", description: "No weak spots in the current window; empty state." },
 	{ key: "few", label: "A few", description: "Three weak spots across two decks." },
@@ -40,7 +40,7 @@ const FIXTURES: ReadonlyArray<DevFixtureSpec<LeechesFixtureKey>> = [
 	{ key: "error", label: "Error", description: "Show the inline error alert." },
 ];
 
-export function useLeechesDevState(): LeechesDevState {
+export function useWeakSpotsDevState(): WeakSpotsDevState {
 	const { fixture } = useDevStatePanel({
 		id: "insights.weak-spots",
 		title: "Insights · Weak spots",

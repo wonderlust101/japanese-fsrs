@@ -43,7 +43,7 @@ export const createDrillSession: RequestHandler = async (req, res): Promise<void
 
 	// Sources that name an explicit deck/card hard-fail on an archived target —
 	// the user picked it, so a silent skip would be confusing. The other two
-	// sources (`unresolvedLeeches`, `highLapseCandidates`) span the whole
+	// sources (`unresolvedWeakSpots`, `highLapseCandidates`) span the whole
 	// library; archived-deck cards are silently excluded inside the RPC
 	// (migration 20260623000000) so a partial drill is still useful.
 	//

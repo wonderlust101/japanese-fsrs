@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 // ── Source picker shapes ──────────────────────────────────────────────────────
 
 type DrillSource
-	= | { kind: "unresolvedLeeches" }
+	= | { kind: "unresolvedWeakSpots" }
 		| { kind: "deckScoped"; deckId: string }
 		| { kind: "highLapseCandidates"; minLapses: number }
 		| { kind: "currentCard"; cardId: string };
@@ -57,7 +57,7 @@ export function DrillSetupClient(): React.JSX.Element {
 	const [source, setSource] = useState<DrillSource>(
 		deeplinkCardId !== null
 			? { kind: "currentCard", cardId: deeplinkCardId }
-			: { kind: "unresolvedLeeches" },
+			: { kind: "unresolvedWeakSpots" },
 	);
 	const [limit, setLimit] = useState<LimitOption>(10);
 
@@ -136,8 +136,8 @@ export function DrillSetupClient(): React.JSX.Element {
 							<fieldset className="flex flex-col gap-2">
 								<legend className="sr-only">Drill source</legend>
 								<SourceOption
-									checked={source.kind === "unresolvedLeeches"}
-									onSelect={() => setSource({ kind: "unresolvedLeeches" })}
+									checked={source.kind === "unresolvedWeakSpots"}
+									onSelect={() => setSource({ kind: "unresolvedWeakSpots" })}
 									label="Unresolved weak spots"
 									description={unresolvedLabel}
 								/>
@@ -431,8 +431,8 @@ function SourceOption({
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 
 function buildPayload(source: DrillSource, limit: LimitOption): CreateDrillSessionInput {
-	if (source.kind === "unresolvedLeeches") {
-		return { source: "unresolvedLeeches", limit, repeatPolicy: "missedAfterLag", order: "mostLapses" };
+	if (source.kind === "unresolvedWeakSpots") {
+		return { source: "unresolvedWeakSpots", limit, repeatPolicy: "missedAfterLag", order: "mostLapses" };
 	}
 	if (source.kind === "deckScoped") {
 		return {
@@ -465,7 +465,7 @@ function estimateSize(
 	unresolvedCount: number,
 	limit: LimitOption,
 ): number {
-	if (source.kind === "unresolvedLeeches")
+	if (source.kind === "unresolvedWeakSpots")
 		return Math.min(unresolvedCount, limit);
 	if (source.kind === "currentCard")
 		return 1;
