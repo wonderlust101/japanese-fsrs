@@ -44,6 +44,18 @@ jobs:
       - name: Start Supabase
         run: bunx supabase start
 
+      # Schema drift sentinel (audit C2): regenerate the Database type from the
+      # locally-migrated DB and fail if it differs from the committed file. This
+      # is what makes the committed migrations the single source of truth — a
+      # hand-edit on the remote (the mechanism that hid the C1 42703 bug) can no
+      # longer diverge silently, because the committed types must match a
+      # migrations-only rebuild.
+      - name: Schema drift sentinel
+        run: |
+          bun run db:types
+          git diff --exit-code apps/api/src/db/database.types.ts \
+            || { echo "::error::database.types.ts is out of sync with the committed migrations. Run 'bun run db:types' locally and commit the result."; exit 1; }
+
       - name: Run integration tests
         env:
           UPSTASH_REDIS_REST_URL: http://127.0.0.1:8079

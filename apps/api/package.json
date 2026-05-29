@@ -11,7 +11,8 @@
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
 		"embeddings:backfill": "bun run scripts/backfill-premade-embeddings.ts",
-		"premade:seed:generate": "bun run scripts/generate-premade-seed.ts"
+		"premade:seed:generate": "bun run scripts/generate-premade-seed.ts",
+		"seed:e2e": "bun run scripts/seed-e2e-user.ts"
 	},
 	"dependencies": {
 		"@fsrs-japanese/shared-types": "workspace:*",

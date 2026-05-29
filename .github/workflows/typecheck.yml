@@ -1,12 +1,13 @@
 name: typecheck
 
-# Catches two kinds of drift:
-# 1. Code drift: services or components that don't match committed types
-#    (always runs).
-# 2. Schema drift: committed apps/api/src/db/database.types.ts
-#    out of sync with the live Supabase schema (only when the
-#    SUPABASE_ACCESS_TOKEN secret is set — regenerates the type and lets
-#    the typecheck against application code fail if the schema moved).
+# Catches code drift: services or components that don't match the committed
+# apps/api/src/db/database.types.ts. The committed types are used as-is here.
+#
+# Schema drift (committed types vs the actual migrations) is caught separately
+# by the drift sentinel in integration.yml, which regenerates the type from a
+# locally-migrated DB (`bun run db:types`, now --local) and fails on any diff.
+# CI no longer regenerates from a hardcoded remote project — that was the blind
+# spot that let migration ≠ types drift (audit C2) ship undetected.
 
 on:
   pull_request:
@@ -21,15 +22,6 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
-
-      # Optional: regenerate Database type from the live schema. Skipped if
-      # the SUPABASE_ACCESS_TOKEN secret is not configured, in which case
-      # the committed type is used as-is (still catches code-level drift).
-      - name: Regenerate Database type from live schema
-        if: env.SUPABASE_ACCESS_TOKEN != ''
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: bun run db:types
 
       - name: Typecheck
         run: bun run typecheck

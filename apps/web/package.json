@@ -14,7 +14,13 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"analyze": "ANALYZE=true next build",
-		"size": "size-limit"
+		"size": "size-limit",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
+		"test:coverage": "vitest run --coverage",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui"
 	},
 	"dependencies": {
 		"@fsrs-japanese/shared-types": "workspace:*",
@@ -35,14 +41,26 @@
 	"devDependencies": {
 		"@fsrs-japanese/tsconfig": "workspace:*",
 		"@next/bundle-analyzer": "^16.2.6",
+		"@playwright/test": "^1.60.0",
 		"@size-limit/file": "^12.1.0",
 		"@tailwindcss/postcss": "^4.1.5",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/react": "^16.3.2",
+		"@testing-library/user-event": "^14.6.1",
+		"@types/jest-axe": "^3.5.9",
 		"@types/node": "^22",
 		"@types/react": "^19",
 		"@types/react-dom": "^19",
+		"@vitejs/plugin-react": "^6.0.2",
+		"@vitest/coverage-v8": "^4.1.7",
+		"jest-axe": "^10.0.0",
+		"jsdom": "^29.1.1",
+		"msw": "^2.14.6",
 		"postcss": "^8",
 		"size-limit": "^12.1.0",
 		"tailwindcss": "^4.1.5",
-		"typescript": "^5"
+		"typescript": "^5",
+		"vite-tsconfig-paths": "^6.1.1",
+		"vitest": "^4.1.7"
 	}
 }
