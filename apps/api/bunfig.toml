@@ -1,2 +1,15 @@
 [test]
 preload = [ "./tests/setup.ts" ]
+
+# NOTE: bun 1.3.14's built-in `coverageThreshold` is intentionally NOT used.
+# The object form (`{ line, function }`) is silently ignored, and the
+# single-number form is applied PER FILE — so any 0%-covered file (the
+# type-only shared-types modules are pulled in transitively) makes every
+# positive floor fail. The coverage gate instead runs on the weighted lcov
+# aggregate via `scripts/coverage-gate.ts`, wired through the `test:coverage`
+# + `coverage:gate` scripts and the api-unit-test CI job. Plain `bun test`
+# stays fast and ungated for local iteration.
+#
+# Separately, bun only instruments files the test graph imports, so a file no
+# test touches (e.g. card.embeddings.ts) is absent from the lcov denominator
+# entirely — close that with a real test, not a higher floor.
