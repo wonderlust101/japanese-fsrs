@@ -30,7 +30,7 @@ Summary counts below cover the five legend statuses only. Two ad-hoc statuses ap
 | Backend and Data | 30 | 1 | 0 | 0 | 0 |
 | AI and Japanese Content | 10 | 0 | 1 | 0 | 0 |
 | Frontend | 12 | 10 | 1 | 0 | 0 |
-| Testing | 3 | 0 | 1 | 0 | 1 |
+| Testing | 4 | 0 | 0 | 0 | 1 |
 
 ## Archive
 
