@@ -69,10 +69,19 @@ export function createOpenAIHarness(): OpenAIHarness {
 			},
 		},
 		embeddings: {
+			// Models the real API for both single-string and array `input`: returns
+			// one `data` item per input element, each carrying its `index` (callers
+			// like generateEmbeddingsBatch sort on it). Vectors drain from the queue,
+			// defaulting to a 1536-dim zero vector.
 			create: async (params: ChatParams): Promise<unknown> => {
 				embeddingCalls.push(params);
-				const vector = embeddingQueue.shift() ?? Array.from({ length: 1536 }).fill(0);
-				return { data: [{ embedding: vector }] };
+				const input = (params as { input?: unknown }).input;
+				const count = Array.isArray(input) ? input.length : 1;
+				const data = Array.from({ length: count }, (_v, index) => ({
+					index,
+					embedding: embeddingQueue.shift() ?? Array.from({ length: 1536 }).fill(0),
+				}));
+				return { data };
 			},
 		},
 	};
