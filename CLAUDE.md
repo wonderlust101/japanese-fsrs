@@ -42,11 +42,11 @@ fsrs-japanese/
 │           ├── routes/         # Path → controller mapping only
 │           ├── controllers/    # Request parsing, response sending
 │           ├── services/       # Business logic, DB queries
-│           ├── schemas/        # Zod validation schemas
+│           ├── schemas/        # Endpoint-local Zod schemas (shared contracts → packages/shared-types)
 │           ├── middleware/     # Auth, rate limiting, error handler
 │           └── db/             # Supabase + Redis clients
 ├── packages/
-│   ├── shared-types/           # Shared TypeScript interfaces
+│   ├── shared-types/           # Shared TS interfaces + Zod request (*.schema) / response (api-*.schema) contracts
 │   └── tsconfig/               # Shared tsconfig base
 ├── supabase/
 │   └── migrations/             # SQL migration files (run in order)
@@ -85,13 +85,13 @@ bun test                        # All workspaces
 bun --filter api test           # API tests only
 ```
 
-The frontend does not currently define a `test` script. Until the frontend test
-runner is added, use the web verification scripts:
+The frontend uses **Vitest** (jsdom + MSW), not Bun's runner:
 
 ```bash
+bun run --filter @fsrs-japanese/web test            # run the web suite
+bun run --filter @fsrs-japanese/web test:coverage   # with coverage thresholds (CI gates on this)
 bun run --filter @fsrs-japanese/web typecheck
 bun run --filter @fsrs-japanese/web lint
-bun run --filter @fsrs-japanese/web build
 ```
 
 Detailed testing policy, mocking rules, and integration-test requirements live in [docs/TESTING.md](./docs/TESTING.md).
@@ -131,7 +131,7 @@ UPSTASH_REDIS_REST_TOKEN=
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=
 OPENAI_EMBEDDING_MODEL=
-LEECH_THRESHOLD=8
+WEAK_SPOT_THRESHOLD=8
 CORS_ORIGIN=http://localhost:3000
 LOG_LEVEL=debug
 ```
@@ -241,13 +241,13 @@ Before finishing code work:
 - Furigana rendering uses the `<FuriganaText>` component. Do not use raw `<ruby>` tags elsewhere.
 
 ### AI Prompts
-- All prompts live in `apps/api/src/services/ai.service.ts`. Do not inline prompts in route handlers.
+- All prompts live in the per-generator modules under `apps/api/src/services/ai/` (one file per generator — `card.ts`, `sentences.ts`, `sentence-card.ts`, `mnemonic.ts`, `diagnosis.ts`, `tomo-note.ts`, `day-reflection.ts` — re-exported via `apps/api/src/services/ai.service.ts`; shared infra in `ai/shared.ts`). Do not inline prompts in route handlers.
 - Card generation must use `response_format: { type: 'json_object' }` and parse the response. Always validate the shape before returning to the client.
 - Never pass raw user input directly into a prompt without sanitization. Strip HTML and trim whitespace first.
 - **Keep the generator in sync with `fields_data`.** Any time a new field is added to `WordFieldsSchema`, `ExampleSentenceSchema`, `VocabularyFieldsDataSchema`, `GrammarFieldsDataSchema`, or `SentenceFieldsDataSchema` (`packages/shared-types/src/schemas/field-shapes.schema.ts`), the corresponding generator must be updated in the same PR:
   1. Extend the matching `Generated*Schema` in `packages/shared-types/src/schemas/ai.schema.ts` so structured-output validation admits the field.
-  2. Update the prompt body in `apps/api/src/services/ai.service.ts` so the model is instructed to produce the field (or explicitly told to omit it when the field requires assets the backend can't host yet, e.g. audio URLs).
-  3. Bump the relevant prompt version constant (`CARD_PROMPT_VERSION`, `SENTENCE_CARD_PROMPT_VERSION`, `MNEMONIC_PROMPT_VERSION`, `DIAGNOSIS_PROMPT_VERSION`, …) so cached Redis responses for the old prompt are not served after deploy. Mirror the pattern established by `DIAGNOSIS_PROMPT_VERSION` at `ai.service.ts:62`.
+  2. Update the prompt body in the matching generator under `apps/api/src/services/ai/` so the model is instructed to produce the field (or explicitly told to omit it when the field requires assets the backend can't host yet, e.g. audio URLs).
+  3. Bump the relevant prompt version constant (`CARD_PROMPT_VERSION`, `SENTENCE_CARD_PROMPT_VERSION`, `MNEMONIC_PROMPT_VERSION`, `DIAGNOSIS_PROMPT_VERSION`, …) so cached Redis responses for the old prompt are not served after deploy. Mirror the pattern established by `DIAGNOSIS_PROMPT_VERSION` in `apps/api/src/services/ai/diagnosis.ts`.
   4. Cover the new field with at least one test fixture in `apps/api/src/services/__tests__/ai.service.test.ts` that asserts the field is admitted on the wire (or correctly omitted when intentionally unmapped).
   A field that ships on the schema without a generator update will only ever be populated through manual card editing — the AI path will continue producing cards without it, and the UI slot will keep rendering empty in production. Treat the schema and the generator as one unit.
 
@@ -258,7 +258,7 @@ Before finishing code work:
 - **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
 - **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
 - **Linked Card Sync:** When updating content fields (`word`, `reading`, `meaning`) on a card, those shared values must propagate to sibling cards through the `update_card_with_sibling_sync` RPC used by `card.service.ts`.
-- **Leech detection runs inside `processReview` in `fsrs.service.ts`.** Do not add leech checks elsewhere or you will get duplicate leech records.
+- **Weak spot detection runs inside `processReview` in `fsrs.service.ts`.** Do not add weak spot checks elsewhere or you will get duplicate weak spot records.
 - **TanStack Query cache keys must be arrays.** `queryKey: 'due'` is wrong; `queryKey: ['reviews', 'due']` is correct.
 - **Zustand actions must be inside the `actions` sub-object** in each store definition. Do not add actions at the top level of the store interface.
 - **pgvector queries use `<=>` (cosine distance), not `<->` (L2 distance).** The embedding index is built for cosine. Switching operators will not use the index.
@@ -285,4 +285,4 @@ Always refer to the canonical docs before suggesting architectural changes, prod
 
 ---
 
-*Last updated: 2026-05-14*
+*Last updated: 2026-05-28*

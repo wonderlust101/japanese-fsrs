@@ -77,7 +77,7 @@ function ruleBasedReflection(args: {
 		hard: args.hard,
 		good: args.good,
 		easy: args.easy,
-		leechCount: args.weakSpotCount,
+		weakSpotCount: args.weakSpotCount,
 		endedEarly: false,
 	});
 	switch (pattern) {

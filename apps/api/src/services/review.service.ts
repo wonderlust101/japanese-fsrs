@@ -60,7 +60,7 @@ const SessionSummaryEnvelopeSchema = z.object({
 	// 20260615000000 carried the SQL key over snake-cased; this schema
 	// must match the wire literally.
 	weak_spots: z.array(z.object({
-		leech_id: z.string(),
+		weak_spot_id: z.string(),
 		card_id: z.string(),
 		deck_id: z.string().nullable(),
 		word: z.string().nullable(),
@@ -248,7 +248,7 @@ export async function getSessionSummary(
 		: Math.round(((env.breakdown.good + env.breakdown.easy) / env.total) * 1000) / 10;
 
 	const weakSpots: SessionWeakSpot[] = env.weak_spots.map(l => ({
-		weakSpotId: l.leech_id,
+		weakSpotId: l.weak_spot_id,
 		cardId: l.card_id,
 		deckId: l.deck_id ?? "",
 		word: l.word ?? "",

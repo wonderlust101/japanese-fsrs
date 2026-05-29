@@ -176,7 +176,7 @@ describe("fsrs.service — processReview", () => {
 		expect(p.p_state_before).toBe(2);
 		expect(p.p_stability_before).toBe(10);
 		expect(p.p_due_before).toBe("2026-05-01T00:00:00.000Z");
-		expect(p.p_leech_threshold).toBe(8); // env default WEAK_SPOT_THRESHOLD
+		expect(p.p_weak_spot_threshold).toBe(8); // env default WEAK_SPOT_THRESHOLD
 	});
 
 	it("rejects a premade source card (user_id null) with 403 and never calls process_review", async () => {
@@ -309,9 +309,9 @@ describe("fsrs.service — processReviewBatch", () => {
 		expect(out.results[0]?.reviewLogId).toBe("a1f5b2c3-4d5e-4f6a-9b8c-7d6e5f4a3b2c");
 
 		const call = sb.state.rpcCalls.find(c => c.name === "process_review_batch");
-		const p = call?.payload as { p_user_id: string; p_leech_threshold: number; p_reviews: Array<Record<string, unknown>> };
+		const p = call?.payload as { p_user_id: string; p_weak_spot_threshold: number; p_reviews: Array<Record<string, unknown>> };
 		expect(p.p_user_id).toBe("user-1");
-		expect(p.p_leech_threshold).toBe(8);
+		expect(p.p_weak_spot_threshold).toBe(8);
 		expect(p.p_reviews[0]?.p_state_before).toBe(2); // before-snapshot wired per row
 	});
 });

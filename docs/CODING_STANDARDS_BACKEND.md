@@ -31,6 +31,7 @@ The conventions here are not preferences — they're requirements. If a change y
   - 404 (not found) vs 409 (conflict) vs 410 (gone).
   - Don't return 200 with `{ success: false }` on errors.
 - **Validate every public endpoint.** Body, query, params, headers — all validated at the boundary, before any work. No reading from request input without a schema run first.
+- **Schema layout — where Zod schemas live.** Request/input schemas are the bare `*.schema.ts` files in `packages/shared-types/src/schemas/`; they are `.strict()` (reject unknown keys) and shared by api + web. Response/wire schemas are the `api-*.schema.ts` files in the same directory and stay non-strict (forward-compatible). Endpoint-local schemas not shared with the web app live in `apps/api/src/schemas/*.schema.ts`. A new cross-boundary contract goes in shared-types; api-only shapes stay in `apps/api/src/schemas`.
 - **Coerce string-typed input.** Query strings and path params arrive as strings. Numbers, booleans, dates, and enums must be coerced and validated before use.
 - **Pagination, filtering, sorting are consistent.** Pick one pagination scheme (cursor for large tables, offset for small/admin) and one parameter convention. Sortable and filterable fields are allow-listed per endpoint — never accept arbitrary column names.
 - **Bound page size.** Every paginated endpoint has a max page size. Never accept arbitrary limit values.
