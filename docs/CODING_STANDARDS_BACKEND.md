@@ -21,6 +21,14 @@ The conventions here are not preferences — they're requirements. If a change y
 
 ---
 
+## Service module organization
+
+- **One service per domain; split only when it grows.** A service starts as a single `name.service.ts` in `apps/api/src/services/`. Once it outgrows that (many exports / well past a few hundred lines), promote it to a `name/` directory of focused modules with a `name.service.ts` **facade** that re-exports the public surface — so callers keep importing from `"../services/name.service.ts"` unchanged. `ai/`, `card/`, `deck/`, and `fsrs/` follow this pattern; `analytics`, `auth`, `insights`, `premade`, `profile`, `review`, and `tomo-note` are still single-file. Shared helpers for a split service go in `name/shared.ts`.
+- **Two known deviations — normalize when next touched.** The weak-spot services are flat hyphenated siblings (`weak-spot.service.ts`, `weak-spot-diagnosis.service.ts`, `weak-spot-drill.service.ts`, `weak-spot.shared.ts`) rather than a `weak-spot/` directory + facade; and embeddings live in `card.embeddings.ts` (dot-namespaced) rather than `card/embeddings.ts`. Don't add new variants of these shapes.
+- **`fsrs.service.ts` vs `review.service.ts`.** `fsrs.service.ts` is the per-card FSRS engine — state transitions and projections (`processReview`/`processReviewBatch`, `previewCardRatings`, `rescheduleFromHistory`, `forgetCard`/`rollbackReview`, `getInitialFsrsState`). `review.service.ts` is review-session orchestration and reporting — the due-card queue (daily caps + learner timezone), the forecast, offline batch submission, and session summaries. New per-card scheduling math goes in `fsrs/`; new queue / session / reporting logic goes in `review.service.ts`.
+
+---
+
 ## API design
 
 - **Match the codebase's API conventions.** Status codes, error envelope shape, naming (camelCase over HTTP, snake_case in SQL), date format (ISO 8601 with timezone), and numeric precision rules. Follow the dominant pattern.
