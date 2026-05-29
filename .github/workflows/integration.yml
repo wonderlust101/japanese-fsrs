@@ -7,8 +7,11 @@ name: integration
 # Requirements to go fully green:
 #   - secrets.OPENAI_API_KEY — the embedding / AI-dispatch suites call OpenAI.
 #     Without it those specific tests fail with a 503 (breaker), not a crash.
-#   - the update_deck path bug (references the dropped `is_premade_fork` column)
-#     must be fixed; until then the deck If-Match suite is correctly red.
+#
+# (The update_deck / dropped `is_premade_fork` 42703 was fixed in
+#  20260705000000_fix_update_deck_drop_premade_fork.sql; the deck If-Match suite
+#  is no longer expected red. The "Function-body schema lint" step below now
+#  guards that whole class of dropped-column regression.)
 
 on:
   pull_request:
@@ -55,6 +58,17 @@ jobs:
           bun run db:types
           git diff --exit-code apps/api/src/db/database.types.ts \
             || { echo "::error::database.types.ts is out of sync with the committed migrations. Run 'bun run db:types' locally and commit the result."; exit 1; }
+
+      # Function-body schema guard (audit H1). The drift sentinel above only
+      # compares generated *types* — function signatures and table shapes. A
+      # plpgsql function whose BODY references a dropped column is late-bound:
+      # CREATE OR REPLACE accepts it and it only throws 42703 at call time, so
+      # it sails past the type diff. Three such stragglers shipped reactively
+      # (20260613 list_decks, 20260705 update_deck, 20260708 drill/copy_card)
+      # before this guard existed. `supabase db lint` runs plpgsql_check over
+      # every public function body and fails on any error-level finding.
+      - name: Function-body schema lint
+        run: bun run db:lint
 
       - name: Run integration tests
         env:

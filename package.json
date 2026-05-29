@@ -17,7 +17,8 @@
 		"typecheck": "bun run --filter '*' typecheck",
 		"lint": "eslint . --max-warnings 0",
 		"lint:fix": "eslint . --fix",
-		"db:types": "{ echo '/* GENERATED FILE - DO NOT EDIT. Source: committed migrations (supabase gen types --local). Regenerate: bun run db:types */'; echo; supabase gen types typescript --local; } > apps/api/src/db/database.types.ts"
+		"db:types": "{ echo '/* GENERATED FILE - DO NOT EDIT. Source: committed migrations (supabase gen types --local). Regenerate: bun run db:types */'; echo; supabase gen types typescript --local; } > apps/api/src/db/database.types.ts",
+		"db:lint": "supabase db lint --level error --fail-on error --schema public"
 	},
 	"devDependencies": {
 		"@antfu/eslint-config": "^9.0.0",

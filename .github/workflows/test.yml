@@ -67,9 +67,10 @@ jobs:
           retention-days: 7
 
   # ── API unit tests (bun:test) ─────────────────────────────────────────────
-  # Restricted to `src/` so the integration tier (apps/api/tests/integration)
-  # — which requires a live Supabase + Upstash — stays out of CI for now.
-  # Wiring those services up is a Phase 2 follow-up.
+  # Restricted to `src/` (fast, no external services). The integration tier
+  # (apps/api/tests/integration) runs separately in `integration.yml`, which
+  # boots a real Supabase + Upstash-REST shim on pull_request / push to main
+  # and also runs the schema-drift + function-body schema guards.
   api-unit-test:
     runs-on: ubuntu-latest
     steps:
