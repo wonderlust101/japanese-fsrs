@@ -117,8 +117,14 @@ export async function getCardByIdAction(cardId: string): Promise<ApiCard | null>
  * Updates a card's content fields. PATCH semantics: only the keys present in
  * `payload` are written. Optimistic concurrency is enforced via the
  * `If-Match: <version>` header — pass the `version` read from the card being
- * edited. A stale version surfaces as an `ApiHttpError` with status 412 so
- * the editor can prompt the user to reload, distinct from a 5xx.
+ * edited. A stale version makes the API respond 412, surfaced here as an
+ * `ApiHttpError` with status 412.
+ *
+ * NOTE: to drive a "someone else edited this — reload" prompt, branch on the
+ * 412 HERE (server-side) and return a typed result — `err.status` does not
+ * survive to client components in production (see `ApiHttpError`). No caller
+ * distinguishes 412 today, so a stale version currently surfaces as a generic
+ * update failure.
  *
  * Returns the freshly-updated `ApiCard` (with a bumped `version`).
  */

@@ -28,6 +28,17 @@ const apiErrorBodySchema = z.object({ error: z.string() }).partial();
  * `err instanceof Error` / `err.message` callers keep working unchanged;
  * adds `status` so callers that need to distinguish (e.g. 412 If-Match
  * conflicts from 5xx) can branch without parsing the message string.
+ *
+ * IMPORTANT — `status` is reliable ONLY server-side. This module is
+ * `server-only`, so an `ApiHttpError` is always thrown inside a Server Action
+ * or RSC read. When such an error propagates across the Server Action → client
+ * boundary, Next.js (in production) replaces it with a generic `Error` + a
+ * `digest`, stripping both `message` and `status`. So do NOT branch on
+ * `err.status` (or `err instanceof ApiHttpError`) in client components — it
+ * works in dev and silently fails in prod. Handle status-dependent cases
+ * inside the action: map them there, or RETURN a typed result (e.g.
+ * `{ ok: false, conflict: true }`), which serializes intact, instead of
+ * throwing.
  */
 export class ApiHttpError extends Error {
 	readonly status: number;
