@@ -39,7 +39,7 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
 	// its target width. Stored in state (not derived from `deck`) so a TanStack
 	// refetch — which re-renders without remounting — never restarts the fill.
 	const [mounted, setMounted] = useState(false);
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- flips true one tick after mount so the mature bar can transition from 0
 
 	const dueCount = deck?.dueCount ?? 0;
 	const caughtUp = !loading && dueCount === 0;

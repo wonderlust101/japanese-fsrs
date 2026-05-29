@@ -36,6 +36,7 @@ import { DecksTabs } from "./decks-tabs";
 import { DecksUtilityRow } from "./decks-utility-row";
 
 import { MatureExplainer } from "./mature-explainer";
+import { useDeckDragReorder } from "./use-deck-drag-reorder";
 import {
 	useArchiveSet,
 	useLocalNameOverrides,
@@ -56,13 +57,6 @@ type ActiveDialog
 		| { kind: "edit"; deck: ApiDeck }
 		| { kind: "create" }
 		| { kind: "bulk-delete" };
-
-interface DragState {
-	draggedId: string;
-	draggedIndex: number;
-	overIndex: number | null;
-	pointerY: number;
-}
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -114,8 +108,7 @@ export function DeckListView(): React.JSX.Element {
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState<DecksPageSize>(DEFAULT_DECKS_PAGE_SIZE);
 	const [curateMode, setCurateMode] = useState(false);
-	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-	const [dragState, setDragState] = useState<DragState | null>(null);
+	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
 	const [liveMessage, setLiveMessage] = useState("");
 	const { toast, showToast, dismissToast } = useToast();
@@ -147,7 +140,7 @@ export function DeckListView(): React.JSX.Element {
 		return () => window.clearTimeout(id);
 	}, [searchInputValue]);
 
-	useEffect(() => { setPage(1); }, [prefs.sort, prefs.typeFilter, prefs.view, searchQuery, pageSize]);
+	useEffect(() => { setPage(1); }, [prefs.sort, prefs.typeFilter, prefs.view, searchQuery, pageSize]); // eslint-disable-line react/set-state-in-effect -- returns to page 1 when filters/sort/page-size narrow the result set
 
 	// ── Derived data ──────────────────────────────────────────────────────
 
@@ -198,6 +191,7 @@ export function DeckListView(): React.JSX.Element {
 			}
 			return true;
 		});
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- isFullyMature is a pure reader of matureByDeckId, which is already listed; depending on the function identity would recompute every render.
 	}, [allDecks, prefs.typeFilter, prefs.view, searchQuery, archiveSet, displayNameOf, matureByDeckId]);
 
 	const sortedDecks: ApiDeck[] = useMemo(() => {
@@ -218,6 +212,14 @@ export function DeckListView(): React.JSX.Element {
 	// when viewing the mature or archived subsets.
 	const canReorder = prefs.sort === "study-order" && prefs.view === "active";
 
+	const { dragState, handleDragHandleDown } = useDeckDragReorder({
+		canReorder,
+		visibleDecks,
+		studyOrder,
+		announceMove,
+		displayNameOf,
+	});
+
 	const archivedCount = useMemo(
 		() => allDecks.filter(d => archiveSet.isArchived(d.id)).length,
 		[allDecks, archiveSet],
@@ -235,6 +237,7 @@ export function DeckListView(): React.JSX.Element {
 				n += 1;
 		});
 		return n;
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- isFullyMature is a pure reader of matureByDeckId, which is already listed; depending on the function identity would recompute every render.
 	}, [allDecks, archiveSet, matureByDeckId]);
 
 	// Roll up due workload across all active decks for the header status line.
@@ -283,117 +286,10 @@ export function DeckListView(): React.JSX.Element {
 		};
 	}, [isLoading, isError, allDecks.length, searchQuery, totalCount, activeCount, archivedCount, priorityDeckName, totalDueCount, decksWithDueCount]);
 
-	// ── Drag-to-reorder pointer state machine ─────────────────────────────
-	const handleDragHandleDown = useCallback(
-		(deckId: string, viewIndex: number) =>
-			(event: React.PointerEvent<HTMLButtonElement>) => {
-				if (!canReorder)
-					return;
-				event.preventDefault();
-				setDragState({
-					draggedId: deckId,
-					draggedIndex: viewIndex,
-					overIndex: viewIndex,
-					pointerY: event.clientY,
-				});
-			},
-		[canReorder],
-	);
-
-	useEffect(() => {
-		if (dragState === null)
-			return;
-
-		// Snapshot row centerlines once at drag start. Recompute on scroll
-		// and resize while the drag is active. Doing this work per pointermove
-		// (querySelectorAll + N × getBoundingClientRect) was the page's hottest
-		// path on long lists; the per-move work is now a numeric scan.
-		let midpoints: number[] = [];
-		function snapshot(): void {
-			const els = document.querySelectorAll<HTMLElement>("[data-deck-id]");
-			midpoints = Array.from({ length: els.length });
-			for (let i = 0; i < els.length; i++) {
-				const el = els[i];
-				if (el === undefined)
-					continue;
-				const rect = el.getBoundingClientRect();
-				midpoints[i] = rect.top + rect.height / 2;
-			}
-		}
-		snapshot();
-
-		// Coalesce pointermove into a single rAF tick so we never do more work
-		// than the display can paint. Latest clientY wins.
-		let pending = false;
-		let latestY = dragState.pointerY;
-		function onMove(event: PointerEvent): void {
-			latestY = event.clientY;
-			if (pending)
-				return;
-			pending = true;
-			requestAnimationFrame(() => {
-				pending = false;
-				let bestIndex = 0;
-				let bestDistance = Infinity;
-				for (let i = 0; i < midpoints.length; i++) {
-					const mid = midpoints[i];
-					if (mid === undefined)
-						continue;
-					const distance = Math.abs(latestY - mid);
-					if (distance < bestDistance) {
-						bestDistance = distance;
-						bestIndex = i;
-					}
-				}
-				setDragState(prev => (prev === null ? null : { ...prev, overIndex: bestIndex, pointerY: latestY }));
-			});
-		}
-
-		function onUp(): void {
-			setDragState((prev) => {
-				if (prev === null)
-					return null;
-				if (prev.overIndex === null || prev.overIndex === prev.draggedIndex)
-					return null;
-				const fromVisible = visibleDecks[prev.draggedIndex];
-				const toVisible = visibleDecks[prev.overIndex];
-				if (fromVisible === undefined || toVisible === undefined)
-					return null;
-
-				const order = [...studyOrder.resolvedOrder];
-				const fromIdx = order.indexOf(fromVisible.id);
-				const toIdx = order.indexOf(toVisible.id);
-				if (fromIdx === -1 || toIdx === -1)
-					return null;
-
-				const moved = order.splice(fromIdx, 1)[0];
-				if (moved !== undefined) {
-					order.splice(toIdx, 0, moved);
-					studyOrder.setOrder(order);
-					announceMove(fromVisible.id, displayNameOf(fromVisible), order);
-				}
-				return null;
-			});
-		}
-
-		window.addEventListener("pointermove", onMove);
-		window.addEventListener("pointerup", onUp);
-		window.addEventListener("pointercancel", onUp);
-		window.addEventListener("scroll", snapshot, { passive: true });
-		window.addEventListener("resize", snapshot);
-		return () => {
-			window.removeEventListener("pointermove", onMove);
-			window.removeEventListener("pointerup", onUp);
-			window.removeEventListener("pointercancel", onUp);
-			window.removeEventListener("scroll", snapshot);
-			window.removeEventListener("resize", snapshot);
-		};
-	}, [dragState, visibleDecks, studyOrder, announceMove, displayNameOf]);
-
 	// ── Curate-mode lifecycle ─────────────────────────────────────────────
 	useEffect(() => {
 		if (!curateMode)
-			setSelectedIds(new Set());
+			setSelectedIds(new Set()); // eslint-disable-line react/set-state-in-effect -- clears the bulk selection when leaving curate mode
 	}, [curateMode]);
 
 	function toggleSelected(deckId: string): void {

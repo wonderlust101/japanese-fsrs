@@ -41,7 +41,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDeckDetailDevState } from "@/dev/panels/deck-detail";
 
-import { copyCardAction, deleteCardAction, listCardsCrossDeckAction, moveCardAction } from "@/lib/actions/cards.actions";
+import { listCardsCrossDeckAction } from "@/lib/actions/cards.actions";
 import { deleteDeckAction, getDeckWithStatsAction } from "@/lib/actions/decks.actions";
 import {
 	useBulkDeleteCardsMutation,
@@ -56,6 +56,7 @@ import { BulkDeleteCardsDialog, CardDeleteDialog } from "./deck-detail-dialogs";
 import { CardListErrorState, EmptyDeckState, NoMatchState, StudyDeckCta } from "./deck-detail-states";
 import { DeckSnapshotRibbon } from "./deck-snapshot-ribbon";
 import { MoveCardDialog } from "./move-card-dialog";
+import { useDeckCardMutations } from "./use-deck-card-mutations";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 		placeholderData: keepPreviousData,
 	});
 
-	const visibleCards = data?.items ?? [];
+	const visibleCards = useMemo(() => data?.items ?? [], [data]);
 
 	// Pagination affordance state.
 	const hasPrev = pageIndex > 0;
@@ -179,7 +180,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	// / sort / page size). Page navigation is intentionally excluded: selection
 	// is id-keyed, so paging keeps prior picks. Mirrors cards-browser-view.
 	useEffect(() => {
-		setSelected(new Set());
+		setSelected(new Set()); // eslint-disable-line react/set-state-in-effect -- drops the id-keyed selection when the result set changes (filter/search/sort/page size)
 	}, [status, trimmedSearch, sort, sortDir, pageSize]);
 
 	function toggleSelection(id: string): void {
@@ -237,44 +238,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 		});
 	}
 
-	// ── Card-delete mutation ──────────────────────────────────────────────
-	const deleteCardMutation = useMutation({
-		mutationFn: (cardId: string) => deleteCardAction(cardId),
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
-		},
-	});
-
-	// ── Card-move mutation ────────────────────────────────────────────────
-	const moveCardMutation = useMutation({
-		mutationFn: ({ cardId, targetDeckId }: { cardId: string; targetDeckId: string }) =>
-			moveCardAction(cardId, targetDeckId),
-		onSuccess: (_data, { targetDeckId }) => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(targetDeckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
-		},
-	});
-
-	// ── Card-copy mutation ────────────────────────────────────────────────
-	// Cloning leaves the source card untouched, so this mutation only refreshes
-	// the target deck's caches plus the shared decks list and review queue (the
-	// copy lands in state=0 and is due immediately).
-	const copyCardMutation = useMutation({
-		mutationFn: ({ cardId, targetDeckId }: { cardId: string; targetDeckId: string }) =>
-			copyCardAction(cardId, targetDeckId),
-		onSuccess: (_data, { targetDeckId }) => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(targetDeckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(targetDeckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.list() });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.forecast() });
-		},
-	});
+	const { deleteCardMutation, moveCardMutation, copyCardMutation } = useDeckCardMutations(deckId);
 
 	function handlePageSizeChange(next: CardPageSize): void {
 		setPageSize(next);

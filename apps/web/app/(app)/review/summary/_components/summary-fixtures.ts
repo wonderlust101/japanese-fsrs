@@ -28,7 +28,7 @@ function daysAgo(n: number): string {
 	return new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
 }
 
-const SAMPLE_LEECHES: SessionWeakSpot[] = [
+const SAMPLE_WEAK_SPOTS: SessionWeakSpot[] = [
 	{
 		weakSpotId: "weakSpot-1",
 		cardId: "card-hiraku",
@@ -294,11 +294,11 @@ const UNDIAGNOSED_FIXTURE_CARD_IDS: ReadonlySet<string> = new Set([
 	"card-tomaru",
 ]);
 
-// Patch SAMPLE_LEECHES with the pre-baked diagnoses so fixtures look
+// Patch SAMPLE_WEAK_SPOTS with the pre-baked diagnoses so fixtures look
 // fully populated without firing batch-diagnose. Cards in
 // UNDIAGNOSED_FIXTURE_CARD_IDS are deliberately skipped so the list
 // renders a realistic mix of diagnosed + pending rows.
-const SAMPLE_LEECHES_WITH_DIAGNOSIS: SessionWeakSpot[] = SAMPLE_LEECHES.map((l) => {
+const SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS: SessionWeakSpot[] = SAMPLE_WEAK_SPOTS.map((l) => {
 	if (UNDIAGNOSED_FIXTURE_CARD_IDS.has(l.cardId))
 		return l;
 	const entry = FIXTURE_DIAGNOSES[l.cardId];
@@ -324,7 +324,7 @@ export const SUMMARY_FIXTURES: Record<FixturePattern, SessionSummary> = {
 		totalTimeMs: 11 * 60 * 1000 + 20 * 1000,
 		accuracyPct: 81,
 		ratingBreakdown: { again: 4, hard: 5, good: 24, easy: 9 },
-		weakSpots: SAMPLE_LEECHES_WITH_DIAGNOSIS.slice(0, 2),
+		weakSpots: SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS.slice(0, 2),
 		userTotalSessions: 2,
 		sessionsToday: 1,
 	},
@@ -334,7 +334,7 @@ export const SUMMARY_FIXTURES: Record<FixturePattern, SessionSummary> = {
 		totalTimeMs: 14 * 60 * 1000,
 		accuracyPct: 58,
 		ratingBreakdown: { again: 12, hard: 8, good: 12, easy: 3 },
-		weakSpots: SAMPLE_LEECHES_WITH_DIAGNOSIS.slice(0, 2),
+		weakSpots: SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS.slice(0, 2),
 		userTotalSessions: 2,
 		sessionsToday: 1,
 	},
@@ -344,7 +344,7 @@ export const SUMMARY_FIXTURES: Record<FixturePattern, SessionSummary> = {
 		totalTimeMs: 13 * 60 * 1000,
 		accuracyPct: 72,
 		ratingBreakdown: { again: 6, hard: 6, good: 26, easy: 6 },
-		weakSpots: SAMPLE_LEECHES_WITH_DIAGNOSIS,
+		weakSpots: SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS,
 		userTotalSessions: 2,
 		sessionsToday: 1,
 	},
@@ -354,7 +354,7 @@ export const SUMMARY_FIXTURES: Record<FixturePattern, SessionSummary> = {
 		totalTimeMs: 4 * 60 * 1000,
 		accuracyPct: 79,
 		ratingBreakdown: { again: 2, hard: 2, good: 8, easy: 2 },
-		weakSpots: SAMPLE_LEECHES_WITH_DIAGNOSIS.slice(0, 1),
+		weakSpots: SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS.slice(0, 1),
 		userTotalSessions: 2,
 		sessionsToday: 1,
 	},
@@ -388,7 +388,7 @@ export const SUMMARY_FIXTURES: Record<FixturePattern, SessionSummary> = {
 		totalTimeMs: 7 * 60 * 1000,
 		accuracyPct: 77,
 		ratingBreakdown: { again: 3, hard: 2, good: 14, easy: 3 },
-		weakSpots: SAMPLE_LEECHES_WITH_DIAGNOSIS.slice(0, 2),
+		weakSpots: SAMPLE_WEAK_SPOTS_WITH_DIAGNOSIS.slice(0, 2),
 		userTotalSessions: 2,
 		sessionsToday: 3,
 	},

@@ -33,7 +33,7 @@ function getTodayParts(): DateParts {
 export function TodayStripExpanded(): React.JSX.Element {
 	const [parts, setParts] = useState<DateParts>(getTodayParts);
 	useEffect(() => {
-		setParts(getTodayParts());
+		setParts(getTodayParts()); // eslint-disable-line react/set-state-in-effect -- re-reads the date client-side on mount to correct SSR/timezone drift
 	}, []);
 
 	const jaWeekday = JA_WEEKDAYS[parts.weekdayIndex] ?? "月曜日";
@@ -76,7 +76,7 @@ export function TodayStripExpanded(): React.JSX.Element {
 export function TodayStripCollapsed(): React.JSX.Element {
 	const [parts, setParts] = useState<DateParts>(getTodayParts);
 	useEffect(() => {
-		setParts(getTodayParts());
+		setParts(getTodayParts()); // eslint-disable-line react/set-state-in-effect -- re-reads the date client-side on mount to correct SSR/timezone drift
 	}, []);
 
 	const jaWeekdayShort = JA_WEEKDAY_SHORT[parts.weekdayIndex] ?? "月";

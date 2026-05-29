@@ -70,6 +70,7 @@ export function SettingsField({
 	const feedbackId = `${id}-feedback`;
 	const hasFeedback = error !== undefined || hint !== undefined;
 	const control = isValidElement(children) && hasFeedback
+		// eslint-disable-next-line react/no-clone-element -- forwards a11y props (aria-describedby/aria-invalid) into a single unknown child control; cloneElement is the correct tool for this.
 		? cloneElement(
 				children as ReactElement<{ "aria-describedby"?: string; "aria-invalid"?: boolean }>,
 				{

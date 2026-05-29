@@ -156,7 +156,7 @@ function ForecastPreview(): React.JSX.Element {
 			<div className="relative z-10 flex h-20 items-end gap-2 pt-3">
 				{bars.map((bar, index) => (
 					<span
-						key={index}
+						key={bar}
 						className={`today-empty-preview-meter flex-1 rounded-t-[1px] ${bar}`}
 						style={{ transitionDelay: `${index * 8}ms` }}
 					/>
@@ -213,7 +213,7 @@ function FocusPreview(): React.JSX.Element {
 }
 
 function WeakSpotsPreview(): React.JSX.Element {
-	const leechCards = [
+	const weakSpotCards = [
 		{
 			word: "必要",
 			misses: "Missed 8x",
@@ -240,7 +240,7 @@ function WeakSpotsPreview(): React.JSX.Element {
 	return (
 		<PreviewStage tone="weak" className="min-h-[10.75rem]">
 			<div className="relative z-10 mx-auto h-[10.5rem] max-w-[20.5rem] pt-1">
-				{leechCards.map(card => (
+				{weakSpotCards.map(card => (
 					<div
 						key={card.word}
 						aria-hidden="true"
@@ -340,7 +340,7 @@ export function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): Re
 					<div className="relative z-10 flex h-20 items-end gap-2 pt-5">
 						{[26, 40, 18, 54, 24, 36, 12].map((height, index) => (
 							<span
-								key={index}
+								key={height}
 								className={[
 									"flex-1 origin-bottom rounded-t-[1px]",
 									index === 3 ? "bg-error" : "bg-error/25",
@@ -381,9 +381,9 @@ export function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): Re
 			return (
 				<ErrorPreviewStage label="drill paused">
 					<div className="relative z-10 flex h-20 items-center justify-center gap-2 pt-5">
-						{["覚", "!", "書"].map((label, index) => (
+						{["覚", "!", "書"].map(label => (
 							<span
-								key={`${label}-${index}`}
+								key={label}
 								lang={label === "!" ? undefined : "ja"}
 								className={[
 									"flex h-12 w-12 items-center justify-center rounded-[1px] border font-display text-lg",
@@ -403,7 +403,7 @@ export function ErrorSignalPreview({ visual }: { visual: ErrorStateVisual }): Re
 				<ErrorPreviewStage label="history gap">
 					<div className="relative z-10 grid h-20 grid-cols-7 items-end gap-2 pt-5">
 						{[7, 10, 4, 12, 8, 3, 9].map((height, index) => (
-							<span key={index} className="flex min-w-0 flex-col items-center gap-2">
+							<span key={height} className="flex min-w-0 flex-col items-center gap-2">
 								<span
 									className={[
 										"w-full max-w-9 rounded-t-[1px]",

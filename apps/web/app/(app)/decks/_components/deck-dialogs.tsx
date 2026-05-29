@@ -45,7 +45,7 @@ export function RenameDeckDialog({
 
 	useEffect(() => {
 		if (open)
-			setName(currentName);
+			setName(currentName); // eslint-disable-line react/set-state-in-effect -- resets the name field when the rename dialog (re)opens
 	}, [open, currentName]);
 
 	const mutation = useMutation({
@@ -243,11 +243,11 @@ export function EditDeckOptionsDialog({
 	useEffect(() => {
 		if (deck === null)
 			return;
-		setName(deck.name);
-		setDescription(deck.description ?? "");
+		setName(deck.name); // eslint-disable-line react/set-state-in-effect -- repopulates the edit-deck form when the dialog opens on a deck
+		setDescription(deck.description ?? ""); // eslint-disable-line react/set-state-in-effect -- repopulates the edit-deck form when the dialog opens on a deck
 		if (isDeckType(deck.deckType))
-			setDeckType(deck.deckType);
-		setArchived(isArchived);
+			setDeckType(deck.deckType); // eslint-disable-line react/set-state-in-effect -- repopulates the edit-deck form when the dialog opens on a deck
+		setArchived(isArchived); // eslint-disable-line react/set-state-in-effect -- repopulates the edit-deck form when the dialog opens on a deck
 	}, [deck, isArchived, open]);
 
 	const mutation = useMutation({

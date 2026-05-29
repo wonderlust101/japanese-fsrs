@@ -78,7 +78,7 @@ function WindowTabs({
 	value: RetentionWindow;
 	onChange: (next: RetentionWindow) => void;
 }): React.JSX.Element {
-	const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+	const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
 	const focusTab = (index: number): void => {
 		const clamped = (index + WINDOW_OPTIONS.length) % WINDOW_OPTIONS.length;
@@ -86,7 +86,7 @@ function WindowTabs({
 		if (opt === undefined)
 			return;
 		onChange(opt);
-		tabRefs.current[clamped]?.focus();
+		tabsRef.current[clamped]?.focus();
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent, index: number): void => {
@@ -125,7 +125,7 @@ function WindowTabs({
 				return (
 					<button
 						key={opt}
-						ref={(el) => { tabRefs.current[i] = el; }}
+						ref={(el) => { tabsRef.current[i] = el; }}
 						type="button"
 						role="tab"
 						id={TAB_ID(opt)}

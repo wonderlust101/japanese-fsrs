@@ -1,7 +1,6 @@
 "use client";
 
 import type { ApiCardListItem, ApiCrossDeckCardListItem } from "@fsrs-japanese/shared-types";
-import type { CardsFilterState } from "./cards-filter-state";
 import type { CardsPageSize } from "./cards-pagination";
 import type { CardQualityIssue, CardQualityIssueKind } from "./cards-quality-data";
 
@@ -13,7 +12,7 @@ import {
 
 } from "@fsrs-japanese/shared-types";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
@@ -44,13 +43,9 @@ import { CardsCountLine } from "./cards-count-line";
 import { CardsFilterSheet } from "./cards-filter-sheet";
 import {
 	chipsFromState,
-	DEFAULT_FILTER_STATE,
 	effectiveSortDir,
 	hasAnyFilter,
-	mergeViewRecipe,
 	naturalSortDirFor,
-	parseFiltersFromURL,
-	serializeFiltersToURL,
 	stateMatchesRecipe,
 
 } from "./cards-filter-state";
@@ -62,111 +57,21 @@ import {
 import { CardsToolbar } from "./cards-toolbar";
 import {
 	findViewById,
-	useSavedViewPersistence,
 } from "./saved-views-storage";
+import { useCardsUrlFilterState } from "./use-cards-url-filter-state";
 
 const DEFAULT_PAGE_SIZE: CardsPageSize = 25;
 
 export function CardsBrowserView(): React.JSX.Element {
 	const router = useRouter();
-	const searchParams = useSearchParams();
 
-	// ── URL-canonical filter state. ──────────────────────────────────────
-	// The URL is the single source of truth. Filter state is DERIVED from
-	// `searchParams` via useMemo, not stored in a separate React state.
-	// Previously we kept both a local useState and a useEffect that
-	// re-parsed from URL on change — that pattern raced with
-	// `router.replace()` and caused symptoms like "sort dropdown changes
-	// visually but table doesn't refetch until you reload." With a single
-	// source, the chain is: user picks sort → router.replace → searchParams
-	// updates → useMemo recomputes → queryOpts recomputes → TanStack
-	// refetches. No race, no dual write.
-	const state = useMemo<CardsFilterState>(
-		() => parseFiltersFromURL(k => searchParams.get(k)),
-		[searchParams],
-	);
-
-	// Persist last-picked view id so a cold visit lands on the user's
-	// preferred starting point when the URL is otherwise clean.
-	const { remember: rememberView, lastActiveId } = useSavedViewPersistence();
-	const hydratedOnceRef = useRef(false);
-	useEffect(() => {
-		if (hydratedOnceRef.current)
-			return;
-		hydratedOnceRef.current = true;
-		if (state.viewId !== null)
-			return;
-		if (lastActiveId === null)
-			return;
-		if (hasAnyFilter(state))
-			return; // user already filtered via URL
-		const view = findViewById(lastActiveId);
-		if (view === undefined)
-			return;
-		// Push the persisted view into the URL on hydration so the URL
-		// remains the canonical state source. Avoids the previous
-		// setState-based approach which fought the URL-derived state.
-		const next = mergeViewRecipe({ ...state, viewId: view.id }, view.recipe);
-		const params = serializeFiltersToURL(next);
-		const qs = params.toString();
-		router.replace(qs.length > 0 ? `/cards?${qs}` : "/cards", { scroll: false });
-	}, [lastActiveId, state, router]);
-
-	const updateState = useCallback((next: CardsFilterState) => {
-		// Auto-reset to page 1 whenever any field OTHER than `page`
-		// changed. Filter children (toolbar pickers, chip editors) call
-		// updateState with `{ ...state, jlpt: 'N3' }` patterns and would
-		// otherwise keep the user pinned on a stale page index that
-		// doesn't make sense against the new result set. Page-navigation
-		// handlers (handlePrev/Next/PickPage) explicitly change ONLY
-		// `page` and pass through unchanged.
-		const onlyPageChanged
-			= next.search === state.search
-				&& next.deckId === state.deckId
-				&& next.jlpt === state.jlpt
-				&& next.status === state.status
-				&& next.sort === state.sort
-				&& next.sortDir === state.sortDir
-				&& next.viewId === state.viewId
-				&& next.missingField === state.missingField
-				&& next.presentField === state.presentField
-				&& next.pitchPattern === state.pitchPattern;
-		const finalNext: CardsFilterState = onlyPageChanged ? next : { ...next, page: 1 };
-		// Update via the URL — searchParams change triggers the useMemo
-		// above, which re-derives `state`. No local React state to keep
-		// in sync separately. Single source of truth.
-		const params = serializeFiltersToURL(finalNext);
-		const qs = params.toString();
-		router.replace(qs.length > 0 ? `/cards?${qs}` : "/cards", { scroll: false });
-	}, [state, router]);
-
-	const handleSearchChange = useCallback((nextSearch: string) => {
-		updateState({ ...state, search: nextSearch });
-	}, [state, updateState]);
-
-	const handlePickView = useCallback((nextViewId: string | null) => {
-		const view = findViewById(nextViewId);
-		rememberView(nextViewId);
-		if (view === undefined) {
-			updateState({ ...DEFAULT_FILTER_STATE });
-			return;
-		}
-		// Picking a view resets all dimensions to the view's defaults so
-		// moving between views feels like a clean transition rather than
-		// accreting filters across them. Search is preserved if the user
-		// already typed something on the previous view.
-		const seed: CardsFilterState = {
-			...DEFAULT_FILTER_STATE,
-			search: state.search,
-			viewId: view.id,
-		};
-		updateState(mergeViewRecipe(seed, view.recipe));
-	}, [state.search, updateState, rememberView]);
-
-	const handleClearAll = useCallback(() => {
-		rememberView(null);
-		updateState({ ...DEFAULT_FILTER_STATE });
-	}, [updateState, rememberView]);
+	const {
+		state,
+		updateState,
+		handleSearchChange,
+		handlePickView,
+		handleClearAll,
+	} = useCardsUrlFilterState();
 
 	// ── Pagination + selection state. ────────────────────────────────────
 	// `state.page` is the source of truth for the current page (lives in
@@ -305,7 +210,7 @@ export function CardsBrowserView(): React.JSX.Element {
 	// tracked by id, not row position). State.page changes drop into
 	// the selection-stability bucket.
 	useEffect(() => {
-		setSelected(new Set());
+		setSelected(new Set()); // eslint-disable-line react/set-state-in-effect -- drops the id-keyed selection when the result set changes (filters), not on page nav
 	}, [
 		state.search,
 		state.deckId,

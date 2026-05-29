@@ -1,6 +1,7 @@
 import type { ApiForecastDay } from "@fsrs-japanese/shared-types";
 
 import { addDays, AxisText, DATA_INK,	dayLetter, dayOfMonth, isoFromDate, isWeekEnd, niceCeil, ScrollableChartFrame } from "@/components/charts";
+import { currentDate } from "@/lib/runtime";
 
 export type ForecastWindow = 7 | 14 | 28;
 
@@ -61,7 +62,7 @@ export function ForecastWorkloadChart({
 	// as zero so the visible window stays consistent regardless of how
 	// sparsely the API populates the forecast.
 	const ordered = sortAsc(forecast);
-	const startIso = ordered[0]?.date ?? isoFromDate(new Date());
+	const startIso = ordered[0]?.date ?? isoFromDate(currentDate());
 	const byDate = new Map(ordered.map(d => [d.date, d]));
 
 	const bars: Bar[] = [];
@@ -106,7 +107,7 @@ export function ForecastWorkloadChart({
 				{yTicks.map((tick, idx) => {
 					const y = yFor(tick);
 					return (
-						<g key={idx}>
+						<g key={tick}>
 							<line
 								x1={PAD_LEFT}
 								x2={VIEW_W - PAD_RIGHT}

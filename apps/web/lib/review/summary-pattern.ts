@@ -26,7 +26,7 @@ export function inputsFromSummary(
 		hard: summary.ratingBreakdown.hard,
 		good: summary.ratingBreakdown.good,
 		easy: summary.ratingBreakdown.easy,
-		leechCount: summary.weakSpots.length,
+		weakSpotCount: summary.weakSpots.length,
 		endedEarly,
 	};
 }
@@ -40,7 +40,7 @@ export function inputsFromSummary(
 export type ActionRoute
 	= | { kind: "today" }
 		| { kind: "repair" }
-		| { kind: "review-problem"; cardIds: string[] }
+		| { kind: "review-weak-spots"; cardIds: string[] }
 		| { kind: "insights" };
 
 export interface SummaryContent {
@@ -53,15 +53,15 @@ export interface SummaryContent {
 	rationale: string;
 	primary: { label: string; route: ActionRoute };
 	secondary?: { label: string; route: ActionRoute } | undefined;
-	showProblemCards: boolean;
+	showWeakSpots: boolean;
 	showTomorrowGlance: boolean;
 }
 
 interface ContentInputs {
 	inputs: PatternInputs;
 	pattern: SessionPattern;
-	leechIds: string[];
-	leechTokens: string[];
+	weakSpotIds: string[];
+	weakSpotTokens: string[];
 }
 
 export function buildSummaryContent(
@@ -70,20 +70,20 @@ export function buildSummaryContent(
 ): SummaryContent {
 	const inputs = inputsFromSummary(summary, endedEarly);
 	const pattern = classifySession(inputs);
-	const leechIds = summary.weakSpots.map(l => l.cardId);
-	const leechTokens = summary.weakSpots.slice(0, 3).map(l => l.word);
-	return mapPattern({ inputs, pattern, leechIds, leechTokens });
+	const weakSpotIds = summary.weakSpots.map(l => l.cardId);
+	const weakSpotTokens = summary.weakSpots.slice(0, 3).map(l => l.word);
+	return mapPattern({ inputs, pattern, weakSpotIds, weakSpotTokens });
 }
 
-function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): SummaryContent {
+function mapPattern({ inputs, pattern, weakSpotIds, weakSpotTokens }: ContentInputs): SummaryContent {
 	const baseShow = {
-		showProblemCards: inputs.leechCount > 0,
+		showWeakSpots: inputs.weakSpotCount > 0,
 		showTomorrowGlance: true,
 	};
 
 	// Inline-Japanese specifics line. Stays null when there are no weakSpots.
-	const specifics = leechTokens.length > 0
-		? `${formatTokens(leechTokens)} showed up in repeated misses.`
+	const specifics = weakSpotTokens.length > 0
+		? `${formatTokens(weakSpotTokens)} showed up in repeated misses.`
 		: null;
 
 	switch (pattern) {
@@ -98,7 +98,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
 				rationale: "Today reads as a strong session. The deck is settled; leave the rest for tomorrow.",
 				primary: { label: "Leave for today", route: { kind: "today" } },
 				secondary: undefined,
-				showProblemCards: false,
+				showWeakSpots: false,
 				showTomorrowGlance: true,
 			};
 
@@ -112,7 +112,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
 				diagnosisAside: specifics,
 				rationale: "Most of the session held together. The few rough spots can wait until tomorrow.",
 				primary: { label: "Leave for today", route: { kind: "today" } },
-				secondary: inputs.leechCount > 0
+				secondary: inputs.weakSpotCount > 0
 					? { label: "Improve weak spots", route: { kind: "repair" } }
 					: undefined,
 				...baseShow,
@@ -127,8 +127,8 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
 				diagnosisLead: "Recall sat lower than usual. A short focused drill will help.",
 				diagnosisAside: specifics,
 				rationale: "A short drill on the cards below settles the rough spots without restarting the day.",
-				primary: leechIds.length > 0
-					? { label: "Review weak spots", route: { kind: "review-problem", cardIds: leechIds } }
+				primary: weakSpotIds.length > 0
+					? { label: "Review weak spots", route: { kind: "review-weak-spots", cardIds: weakSpotIds } }
 					: { label: "Open Insights", route: { kind: "insights" } },
 				secondary: { label: "Leave for today", route: { kind: "today" } },
 				...baseShow,
@@ -154,13 +154,13 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
 				kicker: { kanji: "中", label: "Paused for now" },
 				heroHeadline: "Stopped at a good spot.",
 				heroSubcopy: "Partial sessions still count.",
-				diagnosisLead: inputs.leechCount > 0
+				diagnosisLead: inputs.weakSpotCount > 0
 					? "A short stop is fine; the rough spots will come back around."
 					: "A short stop is fine. The schedule adjusts.",
 				diagnosisAside: specifics,
 				rationale: "Stopping at a reasonable point is part of the practice. The remaining cards are still scheduled.",
 				primary: { label: "Leave for today", route: { kind: "today" } },
-				secondary: inputs.leechCount > 0
+				secondary: inputs.weakSpotCount > 0
 					? { label: "Improve weak spots", route: { kind: "repair" } }
 					: undefined,
 				...baseShow,
@@ -177,7 +177,7 @@ function mapPattern({ inputs, pattern, leechIds, leechTokens }: ContentInputs): 
 				rationale: "Nothing requires action. Leave the rest for tomorrow.",
 				primary: { label: "Leave for today", route: { kind: "today" } },
 				secondary: undefined,
-				showProblemCards: inputs.leechCount > 0,
+				showWeakSpots: inputs.weakSpotCount > 0,
 				showTomorrowGlance: false,
 			};
 

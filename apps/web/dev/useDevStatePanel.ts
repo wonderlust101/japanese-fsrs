@@ -96,7 +96,7 @@ export function useDevStatePanel<T extends string>({
 		return (first !== undefined ? first.key : "") as T;
 	};
 
-	const [fixture, setFixtureState] = useState<T>(initial);
+	const [fixtureState, setFixtureState] = useState<T>(initial);
 
 	const setFixture = useCallback((next: T): void => {
 		setFixtureState(next);
@@ -107,26 +107,26 @@ export function useDevStatePanel<T extends string>({
 	// reflects the current fixture. Unregister on unmount keeps the dock from
 	// showing stale panels after route changes.
 	useEffect(() => {
-		const active = fixtures.find(f => f.key === fixture);
+		const active = fixtures.find(f => f.key === fixtureState);
 		const registration: DevPanelRegistration = {
 			id,
 			title,
 			mode: "fixtures",
 			fixtures,
-			fixture,
+			fixture: fixtureState,
 			setFixture: (next: string) => setFixture(next as T),
 			activeLabel: active !== undefined ? active.label : "Default",
 			...(footer !== undefined ? { footer } : {}),
 		};
 		register({ registration });
 		return () => unregister(id);
-	}, [register, unregister, id, title, fixtures, fixture, setFixture, footer]);
+	}, [register, unregister, id, title, fixtures, fixtureState, setFixture, footer]);
 
 	const defaultKey = defaultFixture ?? (fixtures[0] !== undefined ? fixtures[0].key : "");
 	return {
-		fixture,
+		fixture: fixtureState,
 		setFixture,
-		isActive: fixture !== defaultKey,
+		isActive: fixtureState !== defaultKey,
 	};
 }
 

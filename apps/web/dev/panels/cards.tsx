@@ -52,12 +52,10 @@ export function useCardsDevState(): CardsDevState {
 		defaultFixture: "off",
 	});
 
-	const rows: readonly CardsResultRow[]
-		= fixture === "few"
-			? FEW_ROWS
-			: fixture === "many"
-				? MANY_ROWS
-				: [];
+	const rows = useMemo<readonly CardsResultRow[]>(
+		() => (fixture === "few" ? FEW_ROWS : fixture === "many" ? MANY_ROWS : []),
+		[fixture],
+	);
 
 	// Derive the fixture decks from the rows themselves so the filter dropdown
 	// is always consistent with what's renderable.

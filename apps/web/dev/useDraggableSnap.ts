@@ -81,7 +81,7 @@ export function useDraggableSnap({
 	// Hydrate corner from localStorage after mount. Keeping this out of useState's
 	// initializer keeps SSR markup deterministic — the server has no localStorage.
 	useEffect(() => {
-		setCorner(readStoredCorner(storageKey, defaultCorner));
+		setCorner(readStoredCorner(storageKey, defaultCorner)); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; keeps SSR markup deterministic
 	}, [storageKey, defaultCorner]);
 
 	const handlePointerMove = useCallback((event: PointerEvent): void => {

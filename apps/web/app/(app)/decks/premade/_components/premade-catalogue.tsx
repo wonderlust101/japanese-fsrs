@@ -157,7 +157,7 @@ export function PremadeCatalogue(): React.JSX.Element {
 
 	// Any narrowing of the result set (filter, sort, or page-size change)
 	// returns to page 1.
-	useEffect(() => { setPage(1); }, [jlpt, sort, pageSize]);
+	useEffect(() => { setPage(1); }, [jlpt, sort, pageSize]); // eslint-disable-line react/set-state-in-effect -- returns to page 1 when filters/sort/page-size narrow the result set
 
 	// Trigger reads 'JLPT N5' / 'Beyond JLPT' / 'Any level' so the chip is
 	// self-identifying beside the Sort chip; menu items stay short because the

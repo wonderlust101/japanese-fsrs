@@ -55,7 +55,7 @@ export default function LoginPage(): React.JSX.Element {
 	const [japaneseGreeting, setJapaneseGreeting] = useState<string | null>(null);
 
 	useEffect(() => {
-		setJapaneseGreeting(getJapaneseGreeting(new Date().getHours()));
+		setJapaneseGreeting(getJapaneseGreeting(new Date().getHours())); // eslint-disable-line react/set-state-in-effect -- browser-hour greeting is hydration-only; cannot run during SSR render
 	}, []);
 
 	useEffect(() => {

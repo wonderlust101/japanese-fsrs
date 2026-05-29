@@ -5,8 +5,8 @@ import type { Corner } from "./useDraggableSnap";
 
 import {
 	createContext,
+	use,
 	useCallback,
-	useContext,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -142,7 +142,7 @@ const NO_OP_CONTEXT: DevDockContextValue = {
 const DevDockContext = createContext<DevDockContextValue>(NO_OP_CONTEXT);
 
 export function useDevDockContext(): DevDockContextValue {
-	return useContext(DevDockContext);
+	return use(DevDockContext);
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -167,9 +167,9 @@ export function DevDockContextProvider({
 	launcherCorner,
 }: DevDockProviderProps): React.JSX.Element {
 	const [panels, setPanels] = useState<DevPanelRegistration[]>([]);
-	const [position, setPositionState] = useState<{ x: number; y: number } | null>(null);
-	const [collapsed, setCollapsedState] = useState(false);
-	const [closed, setClosedState] = useState(false);
+	const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+	const [collapsed, setCollapsed] = useState(false);
+	const [closed, setClosed] = useState(false);
 	const [sections, setSections] = useState<Record<string, { collapsed: boolean }>>({});
 	const [hydrated, setHydrated] = useState(false);
 	const sectionsRef = useRef(sections);
@@ -179,11 +179,11 @@ export function DevDockContextProvider({
 	// after hydration already has the correct position, avoiding a jump.
 	useLayoutEffect(() => {
 		const stored = readDockChrome();
-		setPositionState(stored.position);
-		setCollapsedState(stored.collapsed);
-		setClosedState(stored.closed);
-		setSections(stored.sections);
-		setHydrated(true);
+		setPosition(stored.position); // eslint-disable-line react/set-state-in-effect -- one-shot localStorage hydration on mount; cannot run during SSR render
+		setCollapsed(stored.collapsed); // eslint-disable-line react/set-state-in-effect -- one-shot localStorage hydration on mount; cannot run during SSR render
+		setClosed(stored.closed); // eslint-disable-line react/set-state-in-effect -- one-shot localStorage hydration on mount; cannot run during SSR render
+		setSections(stored.sections); // eslint-disable-line react/set-state-in-effect -- one-shot localStorage hydration on mount; cannot run during SSR render
+		setHydrated(true); // eslint-disable-line react/set-state-in-effect -- one-shot localStorage hydration on mount; cannot run during SSR render
 	}, []);
 
 	// Debounce chrome writes. Dragging fires ~60 updates per second; without
@@ -227,22 +227,10 @@ export function DevDockContextProvider({
 		});
 	}, []);
 
-	const setPosition = useCallback((xy: { x: number; y: number } | null): void => {
-		setPositionState(xy);
-	}, []);
-
-	const setCollapsed = useCallback((v: boolean): void => {
-		setCollapsedState(v);
-	}, []);
-
-	const setClosed = useCallback((v: boolean): void => {
-		setClosedState(v);
-	}, []);
-
 	const resetDock = useCallback((): void => {
-		setPositionState(null);
-		setCollapsedState(false);
-		setClosedState(false);
+		setPosition(null);
+		setCollapsed(false);
+		setClosed(false);
 	}, []);
 
 	const value = useMemo<DevDockContextValue>(() => ({
@@ -263,8 +251,8 @@ export function DevDockContextProvider({
 	}), [panels, register, unregister, isSectionOpen, setSectionOpen, position, setPosition, collapsed, setCollapsed, closed, setClosed, hydrated, launcherCorner, resetDock]);
 
 	return (
-		<DevDockContext.Provider value={value}>
+		<DevDockContext value={value}>
 			{children}
-		</DevDockContext.Provider>
+		</DevDockContext>
 	);
 }

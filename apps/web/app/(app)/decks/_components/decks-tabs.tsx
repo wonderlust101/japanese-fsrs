@@ -43,14 +43,14 @@ export function DecksTabs({
 	panelId: string;
 	onChange: (next: DecksViewTab) => void;
 }): React.JSX.Element {
-	const refs = useRef<Map<DecksViewTab, HTMLButtonElement | null>>(new Map());
+	const tabsRef = useRef<Map<DecksViewTab, HTMLButtonElement | null>>(new Map());
 
 	function focusTab(next: DecksViewTab): void {
 		onChange(next);
 		// Move focus to the now-selected tab so SRs announce the change and
 		// keyboard users stay anchored in the tablist.
 		requestAnimationFrame(() => {
-			refs.current.get(next)?.focus();
+			tabsRef.current.get(next)?.focus();
 		});
 	}
 
@@ -97,7 +97,7 @@ export function DecksTabs({
 					panelId={panelId}
 					onClick={() => onChange(key)}
 					onKeyDown={onKeyDown}
-					registerRef={el => refs.current.set(key, el)}
+					registerRef={el => tabsRef.current.set(key, el)}
 				/>
 			))}
 		</div>

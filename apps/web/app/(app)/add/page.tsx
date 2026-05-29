@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { buildDashboardCalendarContext } from "@/app/(app)/today/_components/today-calendar";
 import { getProfileAction } from "@/lib/actions/profile.actions";
+import { currentDate } from "@/lib/runtime";
 
 import { TopBar } from "../_components/top-bar";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = { title: "Add Japanese — capture" };
 
 export default async function AddJapanesePage(): Promise<React.JSX.Element> {
 	const profile = await getProfileAction();
-	const calendar = buildDashboardCalendarContext(new Date(), profile?.timezone);
+	const calendar = buildDashboardCalendarContext(currentDate(), profile?.timezone);
 
 	return (
 		<>

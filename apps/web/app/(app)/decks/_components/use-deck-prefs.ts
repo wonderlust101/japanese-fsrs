@@ -125,7 +125,7 @@ export function useViewPrefs(): {
 	useEffect(() => {
 		// `migratePrefs` is itself the shape validator for this key (it tolerates
 		// legacy `showArchived`), so the read stays permissive with `z.unknown()`.
-		setPrefs(migratePrefs(safeRead(VIEW_PREFS_KEY, z.unknown(), null)));
+		setPrefs(migratePrefs(safeRead(VIEW_PREFS_KEY, z.unknown(), null))); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; cannot run during SSR render
 	}, []);
 
 	const persist = useCallback((next: DeckViewPrefs) => {
@@ -161,7 +161,7 @@ export function useStudyOrder(knownDeckIds: ReadonlyArray<string>): {
 	const [studyOrder, setStudyOrder] = useState<ReadonlyArray<string>>([]);
 
 	useEffect(() => {
-		setStudyOrder(safeRead(STUDY_ORDER_KEY, z.array(z.string()), []));
+		setStudyOrder(safeRead(STUDY_ORDER_KEY, z.array(z.string()), [])); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; cannot run during SSR render
 	}, []);
 
 	// Resolved order: start from the stored order, drop any IDs no longer in
@@ -252,7 +252,7 @@ export function useArchiveSet(): {
 	const decksQuery = useDecks(50, "all");
 	const archiveMut = useArchiveDeck();
 	const unarchiveMut = useUnarchiveDeck();
-	const migrationFired = useRef(false);
+	const migrationFiredRef = useRef(false);
 
 	const archivedIds = useMemo<ReadonlySet<string>>(() => {
 		const items = decksQuery.data?.items ?? [];
@@ -268,7 +268,7 @@ export function useArchiveSet(): {
 	// list has resolved (so we can intersect the LS set against decks the
 	// user actually owns — guards against stale IDs from deleted decks).
 	useEffect(() => {
-		if (migrationFired.current)
+		if (migrationFiredRef.current)
 			return;
 		if (typeof window === "undefined")
 			return;
@@ -282,7 +282,7 @@ export function useArchiveSet(): {
 			safeWrite(ARCHIVED_KEY_MIGRATED, true);
 			return;
 		}
-		migrationFired.current = true;
+		migrationFiredRef.current = true;
 		const ownIds = new Set(decksQuery.data.items.map(d => d.id));
 		const toArchive = legacy.filter(id => ownIds.has(id));
 		void Promise.allSettled(toArchive.map(id => archiveMut.mutateAsync(id)))
@@ -318,7 +318,7 @@ export function useLocalNameOverrides(): {
 	const [overrides, setOverrides] = useState<Record<string, string>>({});
 
 	useEffect(() => {
-		setOverrides(safeRead(RESERVED_LOCAL_NAME_KEY, z.record(z.string(), z.string()), {}));
+		setOverrides(safeRead(RESERVED_LOCAL_NAME_KEY, z.record(z.string(), z.string()), {})); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; cannot run during SSR render
 	}, []);
 
 	return {

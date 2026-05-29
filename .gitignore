@@ -42,5 +42,13 @@ supabase/.branches/
 supabase/volumes/
 supabase/functions/.deploy/
 
+# Playwright
+apps/web/e2e/.auth/
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Test coverage (vitest --coverage)
+coverage/
+
 # Other
 .impeccable

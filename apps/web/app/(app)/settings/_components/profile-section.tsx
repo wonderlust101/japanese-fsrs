@@ -65,7 +65,7 @@ export function ProfileSection({
 	const [emailValue, setEmailValue] = useState(email);
 	const [displayName, setDisplayName] = useState(initialDisplayName);
 	const [native, setNative] = useState<LanguageValue>(
-		isLanguageValue(initialNativeLanguage) ? initialNativeLanguage : "en",
+		() => isLanguageValue(initialNativeLanguage) ? initialNativeLanguage : "en",
 	);
 	const [timezone, setTimezone] = useState(initialTimezone);
 	const [studyGoal, setStudyGoal] = useState(initialStudyGoal);

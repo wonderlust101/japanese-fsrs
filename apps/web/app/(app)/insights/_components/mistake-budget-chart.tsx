@@ -149,7 +149,7 @@ export function MistakeBudgetChart({
 				>
 					{/* Cards-axis gridlines + labels. The zero line is the on-target
             reference and is drawn heavier; the rest are quiet hairlines. */}
-					{yTicks.map((tick, idx) => {
+					{yTicks.map((tick) => {
 						const y = yFor(tick);
 						const isZero = tick === 0;
 						// Label only the poles and the reference line, and label them in
@@ -163,7 +163,7 @@ export function MistakeBudgetChart({
 										? `${Math.round(devMax)} more`
 										: null;
 						return (
-							<g key={idx}>
+							<g key={tick}>
 								<line
 									x1={PAD_LEFT}
 									x2={VIEW_W - PAD_RIGHT}

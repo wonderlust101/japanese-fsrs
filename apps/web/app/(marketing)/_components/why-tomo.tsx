@@ -30,7 +30,7 @@ function useReducedMotion(): boolean {
 	const [reduced, setReduced] = useState(false);
 	useEffect(() => {
 		const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-		const sync = (): void => setReduced(mq.matches);
+		const sync = (): void => setReduced(mq.matches); // eslint-disable-line react/set-state-in-effect -- reflects the matchMedia(prefers-reduced-motion) subscription into state
 		sync();
 		mq.addEventListener("change", sync);
 		return () => mq.removeEventListener("change", sync);
@@ -340,24 +340,24 @@ function UnderstandProof(): React.JSX.Element {
 	const reduced = useReducedMotion();
 	const [active, setActive] = useState<FacetKey>("reading");
 	const [shown, setShown] = useState<string>(FACETS[0].note);
-	const timer = useRef<number | undefined>(undefined);
+	const timerRef = useRef<number | undefined>(undefined);
 
-	useEffect(() => () => window.clearInterval(timer.current), []);
+	useEffect(() => () => window.clearInterval(timerRef.current), []);
 
 	const select = (facet: (typeof FACETS)[number]): void => {
 		setActive(facet.key);
-		window.clearInterval(timer.current);
+		window.clearInterval(timerRef.current);
 		if (reduced) {
 			setShown(facet.note);
 			return;
 		}
 		let i = 0;
 		setShown("");
-		timer.current = window.setInterval(() => {
+		timerRef.current = window.setInterval(() => {
 			i += 1;
 			setShown(facet.note.slice(0, i));
 			if (i >= facet.note.length)
-				window.clearInterval(timer.current);
+				window.clearInterval(timerRef.current);
 		}, 16);
 	};
 

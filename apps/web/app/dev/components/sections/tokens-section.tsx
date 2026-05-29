@@ -81,10 +81,10 @@ export function TokensSection(): React.JSX.Element {
 	// Resolve on mount so swatches reflect the live CSS source rather than a
 	// hand-mirrored copy. Stays in sync if globals.css changes.
 	useEffect(() => {
-		setBrand(resolveTokens(BRAND_TOKENS));
-		setNeutral(resolveTokens(NEUTRAL_TOKENS));
-		setJlpt(resolveTokens(JLPT_TOKENS));
-		setDeck(resolveTokens(DECK_TOKENS));
+		setBrand(resolveTokens(BRAND_TOKENS)); // eslint-disable-line react/set-state-in-effect -- resolves live CSS token values on mount (client-only)
+		setNeutral(resolveTokens(NEUTRAL_TOKENS)); // eslint-disable-line react/set-state-in-effect -- resolves live CSS token values on mount (client-only)
+		setJlpt(resolveTokens(JLPT_TOKENS)); // eslint-disable-line react/set-state-in-effect -- resolves live CSS token values on mount (client-only)
+		setDeck(resolveTokens(DECK_TOKENS)); // eslint-disable-line react/set-state-in-effect -- resolves live CSS token values on mount (client-only)
 	}, []);
 
 	return (

@@ -55,7 +55,7 @@ export function DeckStack({
 		<div className="today-hero-deck-stack relative z-10 h-[17.25rem] w-full max-w-[28rem]" aria-hidden="true">
 			{visibleDecks.map((deck, index) => (
 				<DeckStackCard
-					key={`${deck.id}-${index}`}
+					key={deck.id}
 					deck={deck}
 					index={index}
 					visibleDeckCount={visibleDeckCount}

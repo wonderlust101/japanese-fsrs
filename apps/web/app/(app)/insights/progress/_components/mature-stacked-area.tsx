@@ -184,6 +184,7 @@ export function MatureStackedArea({
 				return { count: m.count, x: xOf(i), y: yOf(cumMature) };
 			})
 			.filter((p): p is { count: number; x: number; y: number } => p !== null);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- xOf/yOf are pure functions of view.length and yMax (both derived from the listed data); their per-render identity is irrelevant.
 	}, [milestones, view, layers]);
 
 	// Y ticks.
@@ -194,6 +195,7 @@ export function MatureStackedArea({
 			out.push({ value: Math.round(v), y: yOf(v) });
 		}
 		return out;
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- yOf is a pure function of yMax, which is listed; its per-render identity is irrelevant.
 	}, [yMax]);
 
 	const xTicks = useMemo(() => pickXTicks(view.map(p => p.date), 5), [view]);

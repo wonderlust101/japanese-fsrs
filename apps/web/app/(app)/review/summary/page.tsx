@@ -7,7 +7,7 @@ import type {
 import type { FixturePattern } from "./_components/summary-fixtures";
 
 import type { WeekRhythmState } from "@/app/(app)/today/_components/week-rhythm-strip";
-import type { ActionRoute, SummaryContent } from "@/lib/review/summary-pattern";
+import type { ActionRoute } from "@/lib/review/summary-pattern";
 import { assertNever } from "@fsrs-japanese/shared-types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,21 +17,14 @@ import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { buildDashboardCalendarContext } from "@/app/(app)/today/_components/today-calendar";
 import { WeekRhythmStrip } from "@/app/(app)/today/_components/week-rhythm-strip";
-import { RatingDistributionBar } from "@/components/review/summary/RatingDistributionBar";
-import { WeakSpotRow } from "@/components/review/summary/WeakSpotRow";
-import { TeacherQuotation } from "@/components/review/TeacherQuotation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { QuietLink } from "@/components/ui/QuietLink";
-import { SectionCard } from "@/components/ui/SectionCard";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useReviewSummaryDevState } from "@/dev/panels/review-summary";
 import { useDayReflectionQuery } from "@/lib/api/reflections";
 import { useBatchDiagnoseSessionWeakSpots, useReviewForecast, useRollbackReviewMutation, useSessionSummary, useSubmitReview } from "@/lib/api/reviews";
 
-import { useUnresolvedWeakSpotCount } from "@/lib/api/weak-spots";
 import { readLastFinishedSession } from "@/lib/review/last-finished-session";
 
 import {
@@ -39,25 +32,20 @@ import {
 
 } from "@/lib/review/summary-pattern";
 
-import { cn } from "@/lib/utils";
 import {
 	useSessionActions,
 	useSessionHistory,
 	useSessionId,
 } from "@/stores/useReviewSessionStore";
+import { ClosureCard, ClosureHeader } from "./_components/closure-card";
+import { SessionDetailsCard } from "./_components/session-details-card";
 import {
-	FIXTURE_MEANINGS,
 	SUMMARY_FIXTURE_KEYS,
 	SUMMARY_FIXTURES,
 
 } from "./_components/summary-fixtures";
-
-function formatTime(ms: number): string {
-	const s = Math.round(ms / 1000);
-	if (s < 60)
-		return `${s}s`;
-	return `${Math.floor(s / 60)}m ${s % 60}s`;
-}
+import { WeakSpotsBacklogNudge } from "./_components/weak-spots-backlog-nudge";
+import { WeakSpotsCard } from "./_components/weak-spots-card";
 
 export default function ReviewSummaryPage(): React.JSX.Element {
 	const router = useRouter();
@@ -107,7 +95,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	const [lastFinished, setLastFinished]
 		= useState<ReturnType<typeof readLastFinishedSession>>(null);
 	useEffect(() => {
-		setLastFinished(readLastFinishedSession());
+		setLastFinished(readLastFinishedSession()); // eslint-disable-line react/set-state-in-effect -- reads the local-session handoff on mount; null on SSR keeps hydration in agreement
 	}, []);
 	const liveStoreSaysEmpty = rawId !== null
 		&& rawId === localSessionId
@@ -153,7 +141,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	const [todayKey, setTodayKey] = useState<string | null>(null);
 	useEffect(() => {
 		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		setTodayKey(buildDashboardCalendarContext(new Date(), tz).todayKey);
+		setTodayKey(buildDashboardCalendarContext(new Date(), tz).todayKey); // eslint-disable-line react/set-state-in-effect -- resolves the browser-timezone todayKey on mount (client-only)
 	}, []);
 
 	// Synthetic empty-session payload used when the user ended early before
@@ -222,6 +210,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 		// diagnoseMutation is intentionally omitted from deps: it is stable
 		// across renders (React Query handles its identity), and the
 		// diagnoseFiredRef guard above makes this effect fire at most once.
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- diagnoseMutation is stable (React Query owns its identity) and the diagnoseFiredRef guard fires this at most once; see comment above.
 	}, [summary, usingFixture, skipApi]);
 
 	if (!usingFixture && !skipApi && query.isLoading && summary === undefined) {
@@ -270,7 +259,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	const resolved: SessionSummary = summary ?? emptyEndedEarlySummary;
 	const content = buildSummaryContent(resolved, endedEarly || resolved.totalCards === 0);
 
-	const showProblemCards = content.showProblemCards && resolved.weakSpots.length > 0;
+	const showWeakSpots = content.showWeakSpots && resolved.weakSpots.length > 0;
 
 	function handlePrimary(): void {
 		runAction(content.primary.route);
@@ -297,7 +286,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 				router.push("/weak-spots");
 				return;
 			}
-			case "review-problem": {
+			case "review-weak-spots": {
 				// Single-card repair routes to the card detail page, which now
 				// hosts the Forget / Reschedule actions; multiples fall back to
 				// the weak-spots list because there's no batch-repair view.
@@ -417,9 +406,9 @@ export default function ReviewSummaryPage(): React.JSX.Element {
                         the tallest row sibling regardless of which
                         component is rendered inside. */}
 					<div className="order-2 flex h-full flex-col xl:order-1 [&>section]:h-full">
-						{showProblemCards
+						{showWeakSpots
 							? (
-									<ProblemCardsCard
+									<WeakSpotsCard
 										weakSpots={resolved.weakSpots}
 										usingFixture={usingFixture}
 										reviewLogByCardId={reviewLogByCardId}
@@ -441,7 +430,7 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 					</div>
 				</div>
 
-				{showProblemCards && weekStrip}
+				{showWeakSpots && weekStrip}
 
 				{!usingFixture && <WeakSpotsBacklogNudge />}
 
@@ -455,369 +444,5 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 				)}
 			</PageFrame>
 		</>
-	);
-}
-
-// ── Weak-spots backlog nudge ────────────────────────────────────────────────
-// Calm cumulative-backlog signal at session close. Distinct from the in-card
-// ProblemCardsCard above, which lists weak spots *triggered this session*;
-// this nudge surfaces the total unresolved backlog (which may include earlier
-// sessions' weak spots) and points to the drill setup so the learner can
-// follow through without hunting through nav. Silent during loading; DOM-
-// absent when no unresolved weak spots exist.
-
-function WeakSpotsBacklogNudge(): React.JSX.Element | null {
-	const { count, hasMore, isLoading } = useUnresolvedWeakSpotCount();
-	if (isLoading)
-		return null;
-	if (count === 0)
-		return null;
-
-	const display = hasMore ? `${count}+` : String(count);
-	const noun = count === 1 ? "weak spot" : "weak spots";
-
-	return (
-		<div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-soft-hairline pt-6">
-			<span
-				lang="ja"
-				aria-hidden="true"
-				className="font-display text-lg leading-none text-inari-vermillion opacity-60"
-			>
-				弱
-			</span>
-			<p className="text-sm leading-relaxed text-faded-sumi">
-				<span className="font-mono tabular-nums text-sumi-ink">{display}</span>
-				{" "}
-				{noun}
-				{" "}
-				still
-				{count === 1 ? "needs" : "need"}
-				{" "}
-				a look.
-			</p>
-			<QuietLink
-				href="/weak-spots/drill/setup"
-				tone="brand"
-				size="sm"
-				trailingArrow
-			>
-				Drill them
-			</QuietLink>
-		</div>
-	);
-}
-
-// ── Closure card ────────────────────────────────────────────────────────────
-// Full-width SectionCard. Internal 2-col on lg+: text-left (kicker comes from
-// SectionCard's own header, so the card body holds headline + receipt +
-// rationale + action), mark-right at responsive 96 / 144px.
-
-function ClosureHeader({
-	content,
-	userTotalSessions,
-}: {
-	content: SummaryContent;
-	userTotalSessions: number;
-}): React.JSX.Element {
-	// First-session copy variant — only when the user has exactly one
-	// session in their history. Softer headline, orientation subtitle.
-	const isFirstSession = userTotalSessions === 1;
-	const kicker = isFirstSession
-		? { kanji: "初", label: "First session" }
-		: content.kicker;
-	const headline = isFirstSession
-		? "You're underway."
-		: content.heroHeadline;
-	const subtitle = isFirstSession
-		? "This page closes each session. The diagnosis below adapts to what just happened."
-		: content.heroSubcopy;
-
-	return (
-		<PageHeader
-			kanji={kicker.kanji}
-			label={kicker.label}
-			title={headline}
-			{...(subtitle !== undefined && { subtitle })}
-		/>
-	);
-}
-
-function ClosureCard({
-	content,
-	resolved,
-	breakdown,
-	onPrimary,
-	onSecondary,
-	sessionsToday,
-}: {
-	content: SummaryContent;
-	resolved: SessionSummary;
-	breakdown: { again: number; hard: number; good: number; easy: number };
-	onPrimary: () => void;
-	onSecondary: () => void;
-	sessionsToday: number;
-}): React.JSX.Element {
-	const cardsWord = resolved.totalCards === 1 ? "card" : "cards";
-	const timeLabel = formatTime(resolved.totalTimeMs);
-
-	return (
-		<SectionCard
-			id="summary-closure"
-			kanji="今"
-			label={sessionsToday > 1 ? `Today's sessions (${sessionsToday})` : "Today's session"}
-			stripeTone="brand"
-		>
-			<div>
-				<div className="min-w-0">
-					{/* Rating breakdown leads: the distribution is the richest
-                     read on "how did the session go?", so it gets the prime
-                     first-glance slot. Suppressed for zero-card sessions; an
-                     empty distribution bar would just be visual noise. */}
-					{resolved.totalCards > 0 && (
-						<div className="flex flex-col gap-3">
-							<p className="font-mono text-sm text-faded-sumi">
-								Rating breakdown
-							</p>
-							<RatingDistributionBar
-								breakdown={breakdown}
-								total={resolved.totalCards}
-							/>
-						</div>
-					)}
-
-					{/* Total + Time stats. Shares the Review Setup summary card's
-                     visual language so the practice loop closes on the same
-                     type sizes + grid it opened with. */}
-					<dl
-						className={cn(
-							"grid grid-cols-1 sm:grid-cols-2",
-							"gap-x-6 gap-y-4",
-							"max-w-[28rem]",
-							resolved.totalCards > 0 && "mt-7",
-						)}
-					>
-						<ClosureStat
-							label="Total"
-							value={String(resolved.totalCards)}
-							suffix={cardsWord}
-						/>
-						<ClosureStat
-							label="Time"
-							value={resolved.totalCards === 0 ? "0s" : timeLabel}
-						/>
-					</dl>
-
-					<div className="mt-7 flex flex-col gap-4">
-						<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-							<Button variant="primary" size="lg" onClick={onPrimary}>
-								{content.primary.label}
-							</Button>
-							{content.secondary !== undefined && (
-								<Button variant="editorial" size="lg" onClick={onSecondary}>
-									{content.secondary.label}
-								</Button>
-							)}
-						</div>
-					</div>
-				</div>
-
-			</div>
-		</SectionCard>
-	);
-}
-
-function ClosureStat({
-	label,
-	value,
-	suffix,
-}: {
-	label: string;
-	value: string;
-	suffix?: string;
-}): React.JSX.Element {
-	return (
-		<div className="flex items-baseline gap-2 min-w-0 sm:justify-self-start">
-			<dt className="font-mono text-sm text-faded-sumi">
-				{label}
-			</dt>
-			<dd className="flex items-baseline gap-2 min-w-0">
-				<span className="font-display text-stat tabular-nums text-sumi-ink">
-					{value}
-				</span>
-				{suffix !== undefined && (
-					<span className="font-display text-sm text-faded-sumi">
-						{suffix}
-					</span>
-				)}
-			</dd>
-		</div>
-	);
-}
-
-// ── Session details card ────────────────────────────────────────────────────
-// Two sub-sections inside one SectionCard, separated by a hairline. Top:
-// "What to notice" diagnosis prose. Bottom: "Rating breakdown" with the
-// existing distribution bar. The card's outer kanji header (詳 / Session
-// details) labels the whole moment.
-
-function SessionDetailsCard({
-	content,
-	reflectionBody,
-	reflectionLoading,
-}: {
-	content: SummaryContent;
-	/**
-	 * AI-generated post-session reflection body. When present, replaces the
-	 *  deterministic `content.diagnosisLead` inside the bracketed quote.
-	 *  When undefined and `reflectionLoading` is false, the rule-based lead
-	 *  is used as a silent fallback.
-	 */
-	reflectionBody?: string | undefined;
-	reflectionLoading?: boolean;
-}): React.JSX.Element {
-	// Prefer AI reflection when loaded. While loading on first fetch, show
-	// a quiet skeleton — the deterministic lead is fallback, not a teaser,
-	// so the user doesn't see prose A change to prose B mid-read.
-	const showSkeleton = reflectionLoading === true && reflectionBody === undefined;
-	const leadText = reflectionBody !== undefined && reflectionBody.length > 0
-		? reflectionBody
-		: content.diagnosisLead;
-	return (
-		<SectionCard
-			id="summary-details"
-			kanji="詳"
-			label="Session details"
-			description="A closer read on how this session went."
-			className="flex h-full flex-col"
-		>
-			<div className="flex flex-1 flex-col justify-center mb-5">
-				{showSkeleton ? (
-					<ReflectionSkeleton />
-				) : (
-				// Keyed wrapper triggers React's mount cycle when the lead
-				// text changes (skeleton → resolved AI body → fallback). The
-				// `animate-card-reveal` keyframe defined in globals.css is a
-				// 250ms cubic-bezier opacity+translate fade — the project's
-				// canonical reveal motion. Reduced-motion users get an instant
-				// cut via the standard `motion-reduce:animate-none` guard.
-					<div
-						key={leadText}
-						className="animate-card-reveal motion-reduce:animate-none"
-					>
-						<TeacherQuotation lead={leadText} />
-					</div>
-				)}
-			</div>
-		</SectionCard>
-	);
-}
-
-// Soft skeleton placeholder shown only on the AI reflection's first load.
-// Mirrors the bracket-and-prose silhouette of TeacherQuotation so the swap
-// doesn't shift surrounding layout when the real text arrives. The faded
-// background pulse is purely visual; the layout height is set by the same
-// `min-h-[200px]` floor TeacherQuotation uses.
-function ReflectionSkeleton(): React.JSX.Element {
-	return (
-		<div className="relative flex h-full min-h-[200px] flex-col justify-center py-6" aria-busy="true" aria-live="polite">
-			<div className="mx-auto flex w-full max-w-measure-tight flex-col gap-3 px-4">
-				<div className="h-4 w-5/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-				<div className="h-4 w-4/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-				<div className="h-4 w-3/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-			</div>
-		</div>
-	);
-}
-
-// ── Weak spots card ──────────────────────────────────────────────────────
-// SectionCard with the weakSpot list inside. Divide-y between rows; no
-// top/bottom borders since the card chrome already contains the list.
-
-// Lapses-first ordering with recency as the tiebreaker. The list is now
-// primarily a "what's failing hardest" view; within an identical lapse
-// count, newer weak spots float above older ones so a learner can still
-// tell what just slipped vs. what has been failing for weeks. Legacy
-// payloads without `lapses` sort to the bottom (treated as 0).
-function sortedWeakSpots(weakSpots: SessionWeakSpot[]): SessionWeakSpot[] {
-	return [...weakSpots].sort((a, b) => {
-		const aLapses = a.lapses ?? 0;
-		const bLapses = b.lapses ?? 0;
-		if (aLapses !== bLapses)
-			return bLapses - aLapses;
-		const aTime = Date.parse(a.createdAt);
-		const bTime = Date.parse(b.createdAt);
-		return bTime - aTime;
-	});
-}
-
-function ProblemCardsCard({
-	weakSpots,
-	usingFixture,
-	reviewLogByCardId,
-	rolledBackIds,
-	rollbackPendingCardId,
-	onRollback,
-}: {
-	weakSpots: SessionWeakSpot[];
-	usingFixture: boolean;
-	reviewLogByCardId: ReadonlyMap<string, string>;
-	rolledBackIds: ReadonlySet<string>;
-	rollbackPendingCardId: string | null;
-	onRollback: (weakSpot: SessionWeakSpot) => void;
-}): React.JSX.Element {
-	return (
-		<SectionCard
-			id="summary-problem-cards"
-			kanji="困"
-			label="Weak spots"
-			description="Cards that keep slipping. Ordered by lapse count."
-			count={weakSpots.length}
-			stripeTone="error"
-			kanjiTone="error"
-			className="flex h-full flex-col"
-		>
-			{/* Tier-system explainer. Always-visible mono caption sitting just
-             above the row list. Teaches the kanji-and-label combination so
-             a first-time viewer doesn't have to infer Mark / Drift / Weak
-             from lapse counts alone. `tabular-nums` keeps the ranges aligned
-             across the three groups. */}
-			<p
-				aria-hidden="true"
-				className="mt-3 font-mono text-sm text-faded-sumi tabular-nums"
-			>
-				<span className="text-sumi-ink">Mark</span>
-				{" "}
-				· 1–3 lapses
-				<span className="mx-3 text-faded-sumi/60">·</span>
-				<span className="text-warning">Drift</span>
-				{" "}
-				· 4–7
-				<span className="mx-3 text-faded-sumi/60">·</span>
-				<span className="text-inari-vermillion-deep">Weak</span>
-				{" "}
-				· 8+
-			</p>
-
-			<div className="mt-3 max-h-[22rem] overflow-y-auto pr-1">
-				<ul className="flex flex-col gap-2">
-					{sortedWeakSpots(weakSpots).map((weakSpot) => {
-						const logId = reviewLogByCardId.get(weakSpot.cardId);
-						const alreadyRolled = rolledBackIds.has(weakSpot.cardId);
-						const canRollback = logId !== undefined && !alreadyRolled;
-						const rollbackPending = rollbackPendingCardId === logId;
-						return (
-							<li key={weakSpot.weakSpotId}>
-								<WeakSpotRow
-									weakSpot={weakSpot}
-									meaning={process.env.NODE_ENV === "development" && usingFixture ? FIXTURE_MEANINGS[weakSpot.cardId] : undefined}
-									onRollback={canRollback ? onRollback : undefined}
-									rollbackPending={rollbackPending}
-								/>
-							</li>
-						);
-					})}
-				</ul>
-			</div>
-		</SectionCard>
 	);
 }

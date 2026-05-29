@@ -110,7 +110,7 @@ function heroVariantFor(kind: HeroKind, deckMode: HeroDeckPreviewMode): Dashboar
 
 export function SrsComponentsSection(): React.JSX.Element {
 	const [pace, setPace] = useState<"light" | "steady" | "intensive" | null>("steady");
-	const [subscribedIds, setSubscribedIds] = useState<ReadonlySet<string>>(new Set(["core2k", "kanji-n5"]));
+	const [subscribedIds, setSubscribedIds] = useState<ReadonlySet<string>>(() => new Set(["core2k", "kanji-n5"]));
 	const [volume, setVolume] = useState<"beginner" | "N5" | "N4" | "N3" | "N2" | "N1" | null>("N4");
 	const [heroKind, setHeroKind] = useState<HeroKind>("due");
 	const [heroDeckMode, setHeroDeckMode] = useState<HeroDeckPreviewMode>("stack");

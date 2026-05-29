@@ -107,7 +107,7 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
 					{yTicks.map((tick, idx) => {
 						const y = yFor(tick);
 						return (
-							<g key={idx}>
+							<g key={tick}>
 								<line
 									x1={PAD_LEFT}
 									x2={VIEW_W - PAD_RIGHT}
@@ -160,6 +160,7 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
 							return null;
 						return (
 							<circle
+								// eslint-disable-next-line react/no-array-index-key -- positional per-day point; index is the day identity (matches recent.i tracking).
 								key={i}
 								cx={p[0]}
 								cy={p[1]}

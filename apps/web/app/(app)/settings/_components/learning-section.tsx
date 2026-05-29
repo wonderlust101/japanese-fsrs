@@ -60,7 +60,7 @@ export function LearningSection({
 	const feedback = useFieldFeedback();
 
 	const [jlpt, setJlpt] = useState<JlptLevel>(
-		isJlptLevel(initialJlptTarget) ? initialJlptTarget : "N5",
+		() => isJlptLevel(initialJlptTarget) ? initialJlptTarget : "N5",
 	);
 	const [dailyNew, setDailyNew] = useState(initialDailyNew);
 	const [dailyReview, setDailyReview] = useState(initialDailyReview);

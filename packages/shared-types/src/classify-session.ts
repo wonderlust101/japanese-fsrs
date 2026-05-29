@@ -25,7 +25,7 @@ export interface PatternInputs {
 	hard: number;
 	good: number;
 	easy: number;
-	leechCount: number;
+	weakSpotCount: number;
 	endedEarly: boolean;
 }
 
@@ -48,7 +48,7 @@ export function classifySession(i: PatternInputs): SessionPattern {
 		return "no-pattern";
 	if (i.endedEarly)
 		return "ended-early";
-	if (i.leechCount >= WEAK_SPOT_MIN_COUNT)
+	if (i.weakSpotCount >= WEAK_SPOT_MIN_COUNT)
 		return "weakSpot";
 	if (i.accuracyPct < DIFFICULT_MAX_ACCURACY)
 		return "difficult";
@@ -56,7 +56,7 @@ export function classifySession(i: PatternInputs): SessionPattern {
 		return "difficult";
 	if (
 		i.accuracyPct >= STRONG_MIN_ACCURACY
-		&& i.leechCount === 0
+		&& i.weakSpotCount === 0
 		&& i.again === 0
 	) {
 		return "strong";

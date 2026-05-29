@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getProfileAction } from "@/lib/actions/profile.actions";
+import { currentDate } from "@/lib/runtime";
 import { getAuthUser } from "@/lib/supabase/get-auth-user";
 import { getUserDisplayName } from "@/lib/supabase/user-metadata";
 
@@ -21,7 +22,7 @@ function firstName(displayName: string | undefined): string | null {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage(): Promise<React.JSX.Element> {
-	const today = new Date();
+	const today = currentDate();
 	const [user, profile] = await Promise.all([
 		getAuthUser(),
 		getProfileAction(),

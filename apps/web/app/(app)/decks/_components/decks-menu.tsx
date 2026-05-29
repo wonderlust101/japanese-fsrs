@@ -147,8 +147,8 @@ export function DecksMenu({
 		const rect = trigger.getBoundingClientRect();
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const spaceAbove = rect.top;
-		setDirection(spaceBelow < 240 && spaceAbove > spaceBelow ? "up" : "down");
-		setTriggerPos({
+		setDirection(spaceBelow < 240 && spaceAbove > spaceBelow ? "up" : "down"); // eslint-disable-line react/set-state-in-effect -- post-layout trigger measurement decides flip direction
+		setTriggerPos({ // eslint-disable-line react/set-state-in-effect -- post-layout trigger measurement (getBoundingClientRect)
 			top: rect.top,
 			bottom: rect.bottom,
 			left: rect.left,
@@ -181,7 +181,7 @@ export function DecksMenu({
 	// on close so the next open re-measures in case the content changed.
 	useEffect(() => {
 		if (!open) {
-			setMenuWidth(null);
+			setMenuWidth(null); // eslint-disable-line react/set-state-in-effect -- resets the measured width on close so the next open re-measures
 			return;
 		}
 		if (triggerPos === null)

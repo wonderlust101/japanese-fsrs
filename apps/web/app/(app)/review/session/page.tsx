@@ -18,6 +18,7 @@ import { queryKeys } from "@/lib/api/queryKeys";
 import { useDueCards, useOfflineSync, useSubmitReview } from "@/lib/api/reviews";
 import { rememberLastFinishedSession } from "@/lib/review/last-finished-session";
 import { classifyCard, priorityForKind } from "@/lib/review/queue-classify";
+import { currentMs } from "@/lib/runtime";
 
 import {
 	useCurrentCard,
@@ -55,7 +56,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 	const [bootstrapFailed, setBootstrapFailed] = useState(false);
 	const [endDialogOpen, setEndDialogOpen] = useState(false);
 	const processedRef = useRef(0);
-	const cardShownAtRef = useRef<number>(Date.now());
+	const cardShownAtRef = useRef<number>(currentMs());
 
 	// Deferred-submit + undo state. Bounded to a single pending entry; the
 	// next rating flushes the prior one before scheduling its own timer.
@@ -175,7 +176,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 			return;
 		if (todayKey === undefined || tz === undefined)
 			return;
-		if (dueQuery.isError) { setBootstrapFailed(true); return; }
+		if (dueQuery.isError) { setBootstrapFailed(true); return; } // eslint-disable-line react/set-state-in-effect -- latches the bootstrap-failed flag from the due-query error state
 		if (queuedCards.length === 0) {
 			// Skip the redirect when dev tools are forcing a state — designers may
 			// want to land on /review/session and seed a fixture from the dock.
@@ -201,7 +202,7 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 			pendingTimerRef.current = null;
 		}
 		pendingPayloadRef.current = null;
-		setCanUndo(false);
+		setCanUndo(false); // eslint-disable-line react/set-state-in-effect -- deferred-submit flush clears the undo-window flag (event-driven, not render-phase)
 
 		if (p.isLastCard) {
 			submitReview(p.payload, {
@@ -355,8 +356,8 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 		};
 
 		pendingPayloadRef.current = { payload, isLastCard };
-		setPendingGeneration(g => g + 1);
-		setCanUndo(true);
+		setPendingGeneration(g => g + 1); // eslint-disable-line react/set-state-in-effect -- rating-submit handler queues a deferred submission (event-driven, not render-phase)
+		setCanUndo(true); // eslint-disable-line react/set-state-in-effect -- rating-submit handler opens the undo window (event-driven, not render-phase)
 		pendingTimerRef.current = window.setTimeout(flushPending, UNDO_WINDOW_MS);
 	}, [sessionHistory, currentCard, sessionId, flushPending]);
 
@@ -373,12 +374,13 @@ export default function ReviewSessionPage(): React.JSX.Element | null {
 		if (currentCard !== undefined) {
 			cardShownAtRef.current = Date.now();
 		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on currentCard?.id so the timer resets only when the card changes, not on every currentCard object-identity change.
 	}, [currentCard?.id]);
 
 	// Track cumulative submission failures so the banner stays visible
 	useEffect(() => {
 		if (isError)
-			setHasSyncError(true);
+			setHasSyncError(true); // eslint-disable-line react/set-state-in-effect -- latches the sync-error banner from the mutation error state
 	}, [isError]);
 
 	const showBootstrapFailed = bootstrapFailed || overrides.forceBootstrapFailed;

@@ -135,7 +135,7 @@ export function ForecastChart({
 					{yTicks.map((tick, idx) => {
 						const y = yFor(tick);
 						return (
-							<g key={idx}>
+							<g key={tick}>
 								<line
 									x1={PAD_LEFT}
 									x2={VIEW_W - PAD_RIGHT}

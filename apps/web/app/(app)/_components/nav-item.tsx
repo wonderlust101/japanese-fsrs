@@ -9,11 +9,11 @@ import {
 	IconChevronRight,
 	IconDecks,
 	IconForecast,
-	IconLeeches,
 	IconOverview,
 	IconProgress,
 	IconReviews,
 	IconStatistics,
+	IconWeakSpots,
 } from "@/components/icons/chrome-marks";
 import { useUnresolvedWeakSpotCount } from "@/lib/api/weak-spots";
 import { EXACT_MATCH_HREFS } from "./nav-config";
@@ -30,7 +30,7 @@ import { OfflineQueueBadge } from "./offline-queue-badge";
  */
 const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => React.JSX.Element> = {
 	reviews: IconReviews,
-	weakSpots: IconLeeches,
+	weakSpots: IconWeakSpots,
 	decks: IconDecks,
 	cards: IconCards,
 	overview: IconOverview,
@@ -181,16 +181,16 @@ export function NavItem({
 	// First-entry-only auto-expand: when the user enters a child route for the
 	// first time this session, the section opens once so they can see where
 	// they are. After that, the user's manual collapse choice is respected.
-	// hasAutoExpanded ref tracks the one-time event.
+	// hasAutoExpandedRef ref tracks the one-time event.
 	const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-	const hasAutoExpanded = useRef(false);
+	const hasAutoExpandedRef = useRef(false);
 
 	useEffect(() => {
 		if (!hasChildren)
 			return;
-		if (childMatches && !hasAutoExpanded.current) {
+		if (childMatches && !hasAutoExpandedRef.current) {
 			setManualExpanded(true);
-			hasAutoExpanded.current = true;
+			hasAutoExpandedRef.current = true;
 		}
 	}, [childMatches, hasChildren]);
 
@@ -198,7 +198,7 @@ export function NavItem({
 	// close when the user opens another link, regardless of section.
 	useEffect(() => {
 		if (!childMatches)
-			setManualExpanded(null);
+			setManualExpanded(null); // eslint-disable-line react/set-state-in-effect -- resets the manual expand override when the route changes externally
 	}, [pathname, childMatches]);
 
 	const isExpanded = manualExpanded ?? childMatches;

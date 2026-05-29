@@ -89,7 +89,7 @@ export function DashboardClient({
 	// across midnight without a full page reload.
 	useEffect(() => {
 		function sync(): void {
-			setCalendar((current) => {
+			setCalendar((current) => { // eslint-disable-line react/set-state-in-effect -- once-a-minute tick keeps the calendar context accurate across midnight
 				const next = buildDashboardCalendarContext(new Date(), timeZone);
 				return calendarContextsEqual(current, next) ? current : next;
 			});
@@ -356,7 +356,7 @@ function GreetingHeader({ greetingName }: { greetingName: string | null }): Reac
 	// hour, so they're hydration-only. Reserve their vertical space ahead of
 	// mount so the headline doesn't reflow when they fade in.
 	const [hour, setHour] = useState<number | null>(null);
-	useEffect(() => { setHour(new Date().getHours()); }, []);
+	useEffect(() => { setHour(new Date().getHours()); }, []); // eslint-disable-line react/set-state-in-effect -- browser-hour greeting is hydration-only; cannot run during SSR render
 
 	const japaneseGreeting = hour !== null ? getJapaneseGreeting(hour) : null;
 	const warmClause = hour !== null ? getEnglishWelcomeClause(getGreetingBucket(hour)) : null;

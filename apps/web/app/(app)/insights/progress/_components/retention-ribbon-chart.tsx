@@ -229,6 +229,7 @@ export function RetentionRibbonChart({
 			return [{ value: yDomain.hi, y: yOf(yDomain.hi) }];
 		const stops = [yDomain.lo, Math.round((yDomain.lo + yDomain.hi) / 2), yDomain.hi];
 		return stops.map(v => ({ value: v, y: yOf(v) }));
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- yOf is a pure function of yDomain, which is listed; its per-render identity is irrelevant.
 	}, [yDomain]);
 
 	const xTicks = useMemo(() => pickXTicks(view.map(p => p.date), 5), [view]);

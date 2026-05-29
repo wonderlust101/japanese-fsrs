@@ -55,7 +55,7 @@ export function DocShell({
 	toc,
 	children,
 }: DocShellProps): React.JSX.Element {
-	const root = useRef<HTMLDivElement>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
 
 	useGSAP(
 		() => {
@@ -82,11 +82,11 @@ export function DocShell({
 			});
 			return () => mm.revert();
 		},
-		{ scope: root },
+		{ scope: rootRef },
 	);
 
 	return (
-		<div ref={root}>
+		<div ref={rootRef}>
 			{/* Header band — the home hero's quieter cousin: full-bleed tint, ghosted
           kanji bleeding off the right, display title, mono kicker. */}
 			<header className="relative overflow-hidden border-b border-soft-hairline bg-warm-paper-base">

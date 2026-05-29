@@ -34,12 +34,12 @@ export function MatureExplainer({
 		try {
 			const seen = window.localStorage.getItem(STORAGE_KEY);
 			if (seen !== "1")
-				setVisible(true);
+				setVisible(true); // eslint-disable-line react/set-state-in-effect -- first-visit gate read from localStorage on mount
 		} catch {
 			// Storage disabled (private mode, etc). Show once per session as a
 			// graceful fallback; without the flag it'll show again next time,
 			// which is acceptable given the popover is a one-sentence note.
-			setVisible(true);
+			setVisible(true); // eslint-disable-line react/set-state-in-effect -- localStorage unavailable; show once as a graceful fallback
 		}
 	}, []);
 
@@ -63,7 +63,7 @@ export function MatureExplainer({
 			const clampedLeft = Math.max(8, Math.min(idealLeft, maxLeft));
 			const arrowLeft = anchorCenter - wrapperRect.left - clampedLeft;
 			const top = anchorRect.bottom - wrapperRect.top + 8;
-			setCoords({ left: clampedLeft, top, arrowLeft });
+			setCoords({ left: clampedLeft, top, arrowLeft }); // eslint-disable-line react/set-state-in-effect -- post-layout anchor measurement; only available after paint
 		}
 		reposition();
 		window.addEventListener("resize", reposition);
@@ -111,6 +111,7 @@ export function MatureExplainer({
 			window.removeEventListener("keydown", onKey);
 			window.removeEventListener("pointerdown", onPointer);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- dismiss closes over anchorId (listed) and stable setters; listeners rebind on visible/anchorId change, so dismiss identity is irrelevant.
 	}, [visible, anchorId]);
 
 	if (!visible)

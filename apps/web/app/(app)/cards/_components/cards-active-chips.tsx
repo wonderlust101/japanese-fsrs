@@ -264,7 +264,7 @@ function ChipEditorPopover({
 	const [mounted, setMounted] = useState(false);
 	const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- client mount/portal gate; runs once after mount
 
 	useLayoutEffect(() => {
 		const update = (): void => {
@@ -272,7 +272,7 @@ function ChipEditorPopover({
 			if (trigger === null)
 				return;
 			const rect = trigger.getBoundingClientRect();
-			setPosition({ top: rect.bottom + 6, left: rect.left });
+			setPosition({ top: rect.bottom + 6, left: rect.left }); // eslint-disable-line react/set-state-in-effect -- post-layout anchor measurement; only available after paint
 		};
 		update();
 		window.addEventListener("resize", update);

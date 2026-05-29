@@ -401,7 +401,7 @@ function SaveShortcutHint(): React.JSX.Element | null {
 	useEffect(() => {
 		const finePointer = window.matchMedia("(pointer: fine)").matches;
 		const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
-		setHint({ show: finePointer, isMac });
+		setHint({ show: finePointer, isMac }); // eslint-disable-line react/set-state-in-effect -- reads pointer/platform on mount (client-only); starts hidden for deterministic SSR
 	}, []);
 	if (!hint.show)
 		return null;

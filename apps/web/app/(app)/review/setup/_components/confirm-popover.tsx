@@ -68,7 +68,7 @@ export function ConfirmPopover({
 	// Captures the trigger that opened the popover so we can return focus to
 	// it on close. Without this the keyboard user lands at the top of the
 	// document after dismiss.
-	const previouslyFocused = useRef<HTMLElement | null>(null);
+	const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 	const [position, setPosition] = useState<Position | null>(null);
 	const [mounted, setMounted] = useState(false);
 	// Two-phase reveal flag. First paint uses the estimate-based position
@@ -80,7 +80,7 @@ export function ConfirmPopover({
 
 	// createPortal target is only safe to compute on the client; React 18+
 	// hydration is fine if we gate the portal call on mount.
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- client mount/portal gate; runs once after mount
 
 	// Compute position from anchor rect. Prefers above; flips below when the
 	// popover would clip the top of the viewport.
@@ -88,8 +88,8 @@ export function ConfirmPopover({
 		if (!open) {
 			// Reset on close so the next open starts from a known state and
 			// doesn't inherit a stale position from the previous trigger.
-			setPosition(null);
-			setMeasured(false);
+			setPosition(null); // eslint-disable-line react/set-state-in-effect -- resets popover position on close so the next open starts clean
+			setMeasured(false); // eslint-disable-line react/set-state-in-effect -- resets the measured flag on close
 			return;
 		}
 		function reposition(): void {
@@ -110,7 +110,7 @@ export function ConfirmPopover({
 			// viewport so the popover never escapes the window.
 			const maxLeft = window.innerWidth - width - VIEWPORT_MARGIN;
 			const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.left, maxLeft));
-			setPosition({ top, left, width, flipped });
+			setPosition({ top, left, width, flipped }); // eslint-disable-line react/set-state-in-effect -- post-layout anchor measurement (getBoundingClientRect); only available after paint
 		}
 		// First pass: estimate-based, popover renders hidden via `measured`.
 		reposition();
@@ -133,7 +133,7 @@ export function ConfirmPopover({
 	useEffect(() => {
 		if (!open)
 			return;
-		previouslyFocused.current = document.activeElement as HTMLElement | null;
+		previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
 
 		function handleKey(e: KeyboardEvent): void {
 			if (e.key === "Escape") {
@@ -162,7 +162,7 @@ export function ConfirmPopover({
 			document.removeEventListener("mousedown", handleClickOutside);
 			// Restore focus on close. Guarded by isConnected so a re-render that
 			// unmounts the trigger doesn't throw.
-			const prev = previouslyFocused.current;
+			const prev = previouslyFocusedRef.current;
 			if (prev && prev.isConnected)
 				prev.focus();
 		};

@@ -112,11 +112,13 @@ function renderEmphasis(text: string, tone: NoteTone): React.ReactNode {
 	return parts.map((p, i) =>
 		p.kind === "em"
 			? (
+					// eslint-disable-next-line react/no-array-index-key -- positional prose segment (text may repeat); index is the stable identity.
 					<span key={i} className={emphasisClass}>
 						{p.text}
 					</span>
 				)
 			: (
+					// eslint-disable-next-line react/no-array-index-key -- positional prose segment (text may repeat); index is the stable identity.
 					<span key={i}>{p.text}</span>
 				),
 	);

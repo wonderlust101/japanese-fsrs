@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Logo } from "@/components/ui/Logo";
+import { currentDate } from "@/lib/runtime";
 
 import { MarketingNav } from "./_components/marketing-nav";
 
@@ -59,7 +60,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 				<div className="mx-auto w-full max-w-5xl px-6 pb-8 sm:px-8">
 					<p className="text-xs text-faded-sumi">
 						©
-						{new Date().getFullYear()}
+						{currentDate().getFullYear()}
 						{" "}
 						Tomo
 					</p>

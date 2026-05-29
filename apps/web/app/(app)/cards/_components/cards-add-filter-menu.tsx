@@ -43,11 +43,11 @@ export function CardsAddFilterMenu({
 	const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 	const [query, setQuery] = useState("");
 
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- client mount/portal gate; runs once after mount
 
 	useEffect(() => {
 		if (open) {
-			setQuery("");
+			setQuery(""); // eslint-disable-line react/set-state-in-effect -- resets the filter query when the menu opens
 			const t = window.setTimeout(() => inputRef.current?.focus(), 0);
 			return () => window.clearTimeout(t);
 		}
@@ -64,7 +64,7 @@ export function CardsAddFilterMenu({
 			const rect = trigger.getBoundingClientRect();
 			const width = 320;
 			const left = Math.max(8, rect.right - width);
-			setPosition({ top: rect.bottom + 8, left });
+			setPosition({ top: rect.bottom + 8, left }); // eslint-disable-line react/set-state-in-effect -- post-layout anchor measurement; only available after paint
 		};
 		update();
 		window.addEventListener("resize", update);

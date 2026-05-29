@@ -223,7 +223,7 @@ export function useSavedViewPersistence(): {
 	const [lastActiveId, setLastActiveId] = useState<string | null>(null);
 
 	useEffect(() => {
-		setLastActiveId(safeRead(ACTIVE_KEY, z.string().nullable(), null));
+		setLastActiveId(safeRead(ACTIVE_KEY, z.string().nullable(), null)); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; cannot run during SSR render
 	}, []);
 
 	const remember = useCallback((next: string | null) => {

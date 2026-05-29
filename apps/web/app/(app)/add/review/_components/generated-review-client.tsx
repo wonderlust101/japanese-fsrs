@@ -2,7 +2,7 @@
 
 import type { JLPTLevel } from "@fsrs-japanese/shared-types";
 import type { ChangeEvent } from "react";
-import type { CardFields, SentenceEntry } from "./card-editor-fields";
+import type { CardFields } from "./card-editor-fields";
 import type { TomoSelectOption } from "@/components/ui/TomoSelect";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,8 +34,6 @@ import { TomoSelect } from "@/components/ui/TomoSelect";
 import { useAddReviewDevState } from "@/dev/panels/add-review";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import {
-	generateCardPreviewAction,
-	generateSentencesByWordAction,
 	saveCardAction,
 } from "@/lib/actions/cards.actions";
 import { useDecks } from "@/lib/api/decks";
@@ -46,6 +44,7 @@ import {
 } from "@/stores/useCaptureDraftStore";
 import { buildFieldsData, buildPreviewCard, JLPT_OPTIONS, makeEmptyFields, MAX_SENTENCES, nextRowKey, PITCH_OPTIONS, POS_OPTIONS, SENTENCE_BATCH } from "./card-editor-fields";
 import { CollapsibleSection, DeckCard, Frame, PreviewBlock, SaveBlock, SectionRequirement, SuccessBlock } from "./card-editor-sections";
+import { useAiCardGeneration } from "./use-ai-card-generation";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -91,16 +90,26 @@ export function GeneratedReviewClient(): React.JSX.Element {
 	const [previewSentenceIdx, setPreviewSentenceIdx] = useState<number>(0);
 
 	const isAiPath = draft.mode === "generate";
-	const needsSeed = isAiPath && draft.reading === "";
-	const [generating, setGenerating] = useState<boolean>(needsSeed);
-	const [aiError, setAiError] = useState<string | null>(null);
-	// Batch sentence generation: `pendingCount` drives the skeleton placeholder
-	// rows so the author sees how many sentences are inbound.
-	const [generatingBatch, setGeneratingBatch] = useState<boolean>(false);
-	const [pendingCount, setPendingCount] = useState<number>(0);
-	// Id of the single row being regenerated in place (null = none).
-	const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
-	const [regenMnemonic, setRegenMnemonic] = useState<boolean>(false);
+
+	// AI generation concern (seed-on-mount preview + batch/row/mnemonic regen)
+	// lives in its own hook; it owns the AI-progress state and writes results
+	// into `fields` via setFields. The editing + save flow stays here.
+	const {
+		generating,
+		aiError,
+		generatingBatch,
+		pendingCount,
+		regeneratingId,
+		regenMnemonic,
+		onGenerateExamples,
+		onRegenerateRow,
+		onRegenMnemonic,
+	} = useAiCardGeneration({
+		draftWord: draft.word,
+		needsSeed: isAiPath && draft.reading === "",
+		fields,
+		setFields,
+	});
 
 	// The save flow as one discriminated union: impossible combinations (saving
 	// *and* saved, or error *and* saving) are unrepresentable, and each terminal
@@ -139,52 +148,6 @@ export function GeneratedReviewClient(): React.JSX.Element {
 		const match = decksQuery.data?.items.find(d => d.id === deckId);
 		return match?.name ?? null;
 	}, [deckId, decksQuery.data]);
-
-	// ── Seed once on mount in AI path ─────────────────────────────────────
-	// StrictMode (dev) and any future remount run this effect more than once.
-	// The cancelled flag below guards the async setState, but not the call
-	// itself — so without a persistent guard the billable generateCardPreviewAction
-	// fires twice on first mount. A ref survives the remount, pinning the request
-	// to exactly one dispatch.
-	const seedFiredRef = useRef(false);
-	useEffect(() => {
-		if (!generating || seedFiredRef.current)
-			return;
-		seedFiredRef.current = true;
-		let cancelled = false;
-		void generateCardPreviewAction(draft.word.trim())
-			.then((data) => {
-				if (cancelled)
-					return;
-				// Seed every generated sentence (capped) only when the author hasn't
-				// already typed their own; never clobber an in-progress edit.
-				const generated = (data.exampleSentences ?? [])
-					.slice(0, MAX_SENTENCES)
-					.map(s => ({ id: nextRowKey(), ja: s.ja, en: s.en, furigana: s.furigana }));
-				setFields(prev => ({
-					...prev,
-					reading: data.reading,
-					meaning: data.meaning,
-					partOfSpeech: data.partOfSpeech ?? prev.partOfSpeech,
-					mnemonic: data.mnemonic ?? prev.mnemonic,
-					pitchAccent: data.pitchAccent ?? prev.pitchAccent,
-					sentences: prev.sentences.length > 0 ? prev.sentences : generated,
-					kanjiBreakdown: prev.kanjiBreakdown.length > 0
-						? prev.kanjiBreakdown
-						: (data.kanjiBreakdown ?? []).map(k => ({ id: nextRowKey(), kanji: k.kanji, meaning: k.meaning, reading: "" })),
-				}));
-			})
-			.catch((err: unknown) => {
-				if (cancelled)
-					return;
-				setAiError(err instanceof Error ? err.message : "Generation failed.");
-			})
-			.finally(() => {
-				if (!cancelled)
-					setGenerating(false);
-			});
-		return () => { cancelled = true; };
-	}, []);
 
 	// ── Derived ───────────────────────────────────────────────────────────
 	const previewCard = useMemo(() => buildPreviewCard(fields), [fields]);
@@ -235,104 +198,6 @@ export function GeneratedReviewClient(): React.JSX.Element {
 		setDeckId(next);
 		setAttemptedSave(prev => (prev ? false : prev));
 	}, []);
-
-	// ── Regenerate ────────────────────────────────────────────────────────
-	//
-	// All regeneration runs pre-save: no card exists yet, so the dedicated
-	// cardId endpoints can't help (they look the card up server-side to extract
-	// `word`). Sentences route through `generateSentencesByWordAction`; the
-	// mnemonic re-runs the full preview generator and slices the field. Once the
-	// card is saved the form is replaced by the success screen, so there is no
-	// post-save regeneration path to feed.
-
-	// Snapshot of the current non-empty Japanese lines. Sent as `avoid` so the
-	// server prompts for fresh, distinct sentences (and caches per-context), and
-	// reused to dedupe what comes back.
-	const existingJa = useCallback(
-		(): string[] => fields.sentences.map(s => s.ja.trim()).filter(s => s.length > 0),
-		[fields.sentences],
-	);
-
-	// Generate a batch in one call and append the new, deduped sentences (up to
-	// the cap), routed by `word`.
-	const onGenerateExamples = useCallback((): void => {
-		if (generatingBatch || generating)
-			return;
-		const word = fields.word.trim();
-		if (word.length === 0)
-			return;
-		const remaining = MAX_SENTENCES - fields.sentences.length;
-		if (remaining <= 0)
-			return;
-
-		const want = Math.min(SENTENCE_BATCH, remaining);
-		const avoid = existingJa();
-		setGeneratingBatch(true); setPendingCount(want); setAiError(null);
-
-		void generateSentencesByWordAction(word, want, avoid)
-			.then((data) => {
-				const seen = new Set(avoid);
-				const fresh: SentenceEntry[] = [];
-				for (const s of data.sentences) {
-					const ja = s.ja.trim();
-					if (ja.length === 0 || seen.has(ja))
-						continue;
-					seen.add(ja);
-					fresh.push({ id: nextRowKey(), ja: s.ja, en: s.en, furigana: s.furigana });
-				}
-				if (fresh.length > 0) {
-					setFields(prev => ({
-						...prev,
-						sentences: [...prev.sentences, ...fresh].slice(0, MAX_SENTENCES),
-					}));
-				}
-			})
-			.catch((err: unknown) => setAiError(err instanceof Error ? err.message : "Generation failed."))
-			.finally(() => { setGeneratingBatch(false); setPendingCount(0); });
-	}, [generatingBatch, generating, fields.word, fields.sentences, existingJa]);
-
-	// Replace a single sentence in place with a fresh AI generation, telling the
-	// model to avoid every current sentence so it doesn't echo what's there.
-	const onRegenerateRow = useCallback((id: string): void => {
-		if (regeneratingId !== null || generating)
-			return;
-		const word = fields.word.trim();
-		if (word.length === 0)
-			return;
-
-		const avoid = existingJa();
-		setRegeneratingId(id); setAiError(null);
-
-		void generateSentencesByWordAction(word, 1, avoid)
-			.then((data) => {
-				const first = data.sentences[0];
-				if (first !== undefined) {
-					// Match by id and spread the old entry so the row keeps its key.
-					setFields(prev => ({
-						...prev,
-						sentences: prev.sentences.map(s =>
-							s.id === id ? { ...s, ja: first.ja, en: first.en, furigana: first.furigana } : s),
-					}));
-				}
-			})
-			.catch((err: unknown) => setAiError(err instanceof Error ? err.message : "Regeneration failed."))
-			.finally(() => setRegeneratingId(null));
-	}, [regeneratingId, generating, fields.word, existingJa]);
-
-	const onRegenMnemonic = useCallback((): void => {
-		if (regenMnemonic || generating)
-			return;
-		setRegenMnemonic(true); setAiError(null);
-
-		void generateCardPreviewAction(fields.word.trim())
-			.then((data) => {
-				if (data.mnemonic !== undefined && data.mnemonic.length > 0) {
-					setFields(prev => ({ ...prev, mnemonic: data.mnemonic ?? prev.mnemonic }));
-				}
-			})
-			.catch((err: unknown) => setAiError(err instanceof Error ? err.message : "Regeneration failed."))
-			.finally(() => setRegenMnemonic(false));
-	}, [fields.word, regenMnemonic, generating]);
 
 	// ── Save ──────────────────────────────────────────────────────────────
 	//

@@ -10,6 +10,7 @@ import { addDays, AxisText, DATA_INK,	dayLetter, dayOfMonth, isoFromDate, isWeek
 import { QuietLink } from "@/components/ui/QuietLink";
 import { SectionCard } from "@/components/ui/SectionCard";
 
+import { currentDate } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
 
 interface NewCardImpactCardProps {
@@ -62,7 +63,7 @@ export function NewCardImpactCard({
 		[forecast],
 	);
 
-	const startIso = ordered[0]?.date ?? isoFromDate(new Date());
+	const startIso = ordered[0]?.date ?? isoFromDate(currentDate());
 	const byDate = useMemo(
 		() => new Map(ordered.map(d => [d.date, d])),
 		[ordered],
@@ -196,7 +197,7 @@ export function NewCardImpactCard({
 						{yTicks.map((tick, idx) => {
 							const y = yFor(tick);
 							return (
-								<g key={idx}>
+								<g key={tick}>
 									<line
 										x1={PAD_LEFT}
 										x2={VIEW_W - PAD_RIGHT}

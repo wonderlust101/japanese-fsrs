@@ -351,8 +351,8 @@ function MobileTake(): React.JSX.Element {
 // ── Entry component ──────────────────────────────────────────────────────────
 
 export function LandingExperience(): React.JSX.Element {
-	const root = useRef<HTMLDivElement>(null);
-	const takeTrack = useRef<HTMLDivElement>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
+	const takeTrackRef = useRef<HTMLDivElement>(null);
 
 	useGSAP(
 		() => {
@@ -426,7 +426,7 @@ export function LandingExperience(): React.JSX.Element {
 				});
 
 				// Stat count-up: 0 → 7,370 once the coverage block is in view.
-				const counter = root.current?.querySelector<HTMLElement>("[data-count]");
+				const counter = rootRef.current?.querySelector<HTMLElement>("[data-count]");
 				if (counter) {
 					const proxy = { v: 0 };
 					gsap.to(proxy, {
@@ -445,7 +445,7 @@ export function LandingExperience(): React.JSX.Element {
 				// scroll parallax (yPercent) and this tilt (rotationX/Y) are different
 				// transform channels, so GSAP composes them without conflict.
 				let teardownTilt = (): void => {};
-				const heroCard = root.current?.querySelector<HTMLElement>("[data-hero=\"card\"]");
+				const heroCard = rootRef.current?.querySelector<HTMLElement>("[data-hero=\"card\"]");
 				if (heroCard) {
 					gsap.set(heroCard, { transformPerspective: 900, transformOrigin: "center" });
 					const rotX = gsap.quickTo(heroCard, "rotationX", { duration: 0.5, ease: "power3.out" });
@@ -482,7 +482,7 @@ export function LandingExperience(): React.JSX.Element {
 
 			// ── Desktop, motion allowed: arm the pinned continuous take ───────────
 			mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
-				const track = takeTrack.current;
+				const track = takeTrackRef.current;
 				if (!track)
 					return;
 				const acts = gsap.utils.toArray<HTMLElement>("[data-act]");
@@ -591,11 +591,11 @@ export function LandingExperience(): React.JSX.Element {
 
 			return () => mm.revert();
 		},
-		{ scope: root },
+		{ scope: rootRef },
 	);
 
 	return (
-		<div ref={root}>
+		<div ref={rootRef}>
 			{/* ── Hero: full-bleed 100vh opening. A WebGL sumi-ink shader breathes
           behind edge-to-edge type, a giant 友 bleeds off the right edge, and the
           nav floats transparent over the top. ── */}
@@ -631,6 +631,7 @@ export function LandingExperience(): React.JSX.Element {
                 purpose — the headline is the hero, not a column of it. */}
 						<h1 className="font-display font-semibold leading-[0.95] tracking-[-0.02em] text-sumi-ink text-[clamp(2.75rem,8.4vw,8rem)]">
 							{HEADLINE_WORDS.map((word, i) => (
+								// eslint-disable-next-line react/no-array-index-key -- positional headline words (a word may repeat); index disambiguates.
 								<Fragment key={`${word}-${i}`}>
 									<span data-hero="word" data-hero-hidden className="inline-block">
 										{word}
@@ -714,7 +715,7 @@ export function LandingExperience(): React.JSX.Element {
           lives on the wrapper so it resolves on both (each variant hides at the
           other's breakpoint). ──────────────────────────────────────────────── */}
 			<div id="features" className="scroll-mt-16">
-				<ContinuousTake trackRef={takeTrack} />
+				<ContinuousTake trackRef={takeTrackRef} />
 				<MobileTake />
 			</div>
 

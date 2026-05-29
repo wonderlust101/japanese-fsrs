@@ -27,7 +27,7 @@ export function UndoPill({ generation, windowMs, onUndo }: UndoPillProps): React
 	const [progress, setProgress] = useState(1);
 
 	useEffect(() => {
-		setProgress(1);
+		setProgress(1); // eslint-disable-line react/set-state-in-effect -- resets the undo-countdown bar when the generation changes (rAF animation)
 		const start = performance.now();
 		let raf = 0;
 		function tick(now: number): void {

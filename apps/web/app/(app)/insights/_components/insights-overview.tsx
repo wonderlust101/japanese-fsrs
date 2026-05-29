@@ -230,6 +230,7 @@ function Headline({ tone, text }: HeadlineProps): React.JSX.Element {
 				p.kind === "em"
 					? (
 							<span
+								// eslint-disable-next-line react/no-array-index-key -- positional prose segment (text may repeat); index is the stable identity.
 								key={i}
 								className={cn("font-semibold", HEADLINE_TONE_CLASS[tone])}
 							>
@@ -237,6 +238,7 @@ function Headline({ tone, text }: HeadlineProps): React.JSX.Element {
 							</span>
 						)
 					: (
+							// eslint-disable-next-line react/no-array-index-key -- positional prose segment (text may repeat); index is the stable identity.
 							<span key={i}>{p.text}</span>
 						),
 			)}

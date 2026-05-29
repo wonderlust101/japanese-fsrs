@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import { CopyButton } from "@/components/ui/CopyButton";
 import { useCopyConfirmation } from "@/hooks/use-copy-confirmation";
+import { currentDate } from "@/lib/runtime";
 
 interface DevPanelProps {
 	/**
@@ -62,7 +63,7 @@ export function DevPanel({ error, pathname, referrer }: DevPanelProps): React.JS
 		return null;
 	}
 
-	const time = new Date().toISOString();
+	const time = currentDate().toISOString();
 	const browser = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
 
 	const fields: { label: string; value: string }[] = [

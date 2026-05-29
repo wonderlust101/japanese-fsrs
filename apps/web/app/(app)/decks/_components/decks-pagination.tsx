@@ -126,6 +126,7 @@ export function DecksPagination({
 						token === "…"
 							? (
 									<span
+										// eslint-disable-next-line react/no-array-index-key -- two identical ellipsis gap tokens distinguished only by position; index is the disambiguator.
 										key={`gap-${idx}`}
 										aria-hidden="true"
 										className="shrink-0 px-1.5 font-mono text-xs text-faded-sumi/60"

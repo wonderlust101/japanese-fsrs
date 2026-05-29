@@ -2,7 +2,7 @@
 
 import type { StatisticsSectionId } from "./sections";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * Shared collapse state for the Statistics page's sections. The page is the
@@ -43,7 +43,7 @@ export function SectionCollapseProvider({ children }: { children: React.ReactNod
 	const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
 	useEffect(() => {
-		setCollapsed(readPersisted());
+		setCollapsed(readPersisted()); // eslint-disable-line react/set-state-in-effect -- hydrates persisted collapse state after mount; starts all-expanded to match SSR
 	}, []);
 
 	const persist = useCallback((next: Record<string, boolean>): void => {
@@ -68,9 +68,9 @@ export function SectionCollapseProvider({ children }: { children: React.ReactNod
 	}), [collapsed, persist]);
 
 	return (
-		<SectionCollapseContext.Provider value={value}>
+		<SectionCollapseContext value={value}>
 			{children}
-		</SectionCollapseContext.Provider>
+		</SectionCollapseContext>
 	);
 }
 
@@ -82,7 +82,7 @@ export function useSectionCollapse(id: StatisticsSectionId): {
 	collapsed: boolean;
 	toggle: () => void;
 } {
-	const ctx = useContext(SectionCollapseContext);
+	const ctx = use(SectionCollapseContext);
 	if (ctx === null)
 		return { collapsed: false, toggle: () => {} };
 	return { collapsed: ctx.isCollapsed(id), toggle: () => ctx.toggle(id) };
@@ -90,6 +90,6 @@ export function useSectionCollapse(id: StatisticsSectionId): {
 
 /** Imperative expand, used by the section-nav before it scrolls to a target. */
 export function useExpandSection(): (id: StatisticsSectionId) => void {
-	const ctx = useContext(SectionCollapseContext);
+	const ctx = use(SectionCollapseContext);
 	return ctx?.expand ?? (() => {});
 }

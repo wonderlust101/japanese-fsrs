@@ -75,7 +75,7 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 			const t = window.setTimeout(setRenderCollapsed, 300, true);
 			return () => window.clearTimeout(t);
 		}
-		setRenderCollapsed(false);
+		setRenderCollapsed(false); // eslint-disable-line react/set-state-in-effect -- expanding is immediate; collapsing defers 300ms (handled in the if branch above)
 		return undefined;
 	}, [widthCollapsed]);
 

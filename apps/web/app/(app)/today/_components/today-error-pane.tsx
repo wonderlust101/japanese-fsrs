@@ -58,6 +58,7 @@ export function TodayWeekRhythmSilhouette(): React.JSX.Element {
 						style={{ height: "56px" }}
 					>
 						{[28, 36, 32, 40, 32, 28, 24].map((height, i) => (
+							// eslint-disable-next-line react/no-array-index-key -- fixed decorative bar heights (static array, never reorders); index is the identity.
 							<li key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end">
 								<span
 									className="block w-full max-w-[44px] origin-bottom rounded-t-[1px] bg-error-tint sm:max-w-[56px] lg:max-w-[72px]"

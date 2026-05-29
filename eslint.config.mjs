@@ -128,11 +128,24 @@ export default antfu(
 	// ── Test files: permit testing conveniences ──
 	{
 		name: "project/test-files",
-		files: ["**/*.test.{ts,tsx}", "**/tests/**/*.ts"],
+		// Covers both Bun test files (`*.test.ts`, `tests/`) and the web
+		// Vitest infrastructure (`apps/web/test/**`: factories, MSW handlers,
+		// the axe helper). Factories use casts to land on the shared-types
+		// wire shape; non-null assertions are an everyday convenience inside
+		// assertions.
+		files: [
+			"**/*.test.{ts,tsx}",
+			"**/tests/**/*.ts",
+			"**/test/**/*.{ts,tsx}",
+		],
 		rules: {
 			"ts/no-non-null-assertion": "off",
 			"ts/no-explicit-any": "off",
 			"ts/consistent-type-imports": "off",
+			// Test setup / fixture factories use top-level `vi.mock(...)`,
+			// `expect.extend(...)`, and arrow-function returns; explicit
+			// boundary types add noise without correctness gain.
+			"ts/explicit-module-boundary-types": "off",
 		},
 	},
 

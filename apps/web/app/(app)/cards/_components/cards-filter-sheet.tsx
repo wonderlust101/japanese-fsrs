@@ -55,7 +55,7 @@ export function CardsFilterSheet({
 	onClose,
 }: Props): React.JSX.Element | null {
 	const [mounted, setMounted] = useState(false);
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- client mount/portal gate; runs once after mount
 
 	// Focus management. The native <dialog>/showModal() we replaced (for an iOS
 	// WebKit layout bug) gave focus trap + initial focus + Escape + focus-restore

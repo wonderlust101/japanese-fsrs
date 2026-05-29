@@ -104,7 +104,7 @@ export function MoveCardDialog({
 	// or when the target deck list changes underneath us.
 	useEffect(() => {
 		if (!open)
-			setSelectedDeckId(null);
+			setSelectedDeckId(null); // eslint-disable-line react/set-state-in-effect -- resets the selection when the dialog reopens or the target deck list changes
 	}, [open, card?.id]);
 
 	const word = useMemo(() => {

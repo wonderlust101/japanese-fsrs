@@ -12,11 +12,11 @@ import { useEffect, useRef } from "react";
  */
 export function RouteFocusManager(): null {
 	const pathname = usePathname();
-	const isInitial = useRef(true);
+	const isInitialRef = useRef(true);
 
 	useEffect(() => {
-		if (isInitial.current) {
-			isInitial.current = false;
+		if (isInitialRef.current) {
+			isInitialRef.current = false;
 			return;
 		}
 		document.getElementById("main-content")?.focus({ preventScroll: true });

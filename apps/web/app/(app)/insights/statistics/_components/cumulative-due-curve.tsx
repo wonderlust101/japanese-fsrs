@@ -104,7 +104,7 @@ export function CumulativeDueCurve({
 							const y = yFor(tick);
 							return (
 								<line
-									key={idx}
+									key={tick}
 									x1={PAD_LEFT}
 									x2={VIEW_W - PAD_RIGHT}
 									y1={y}
@@ -139,9 +139,9 @@ export function CumulativeDueCurve({
 
 					{/* HTML label overlay — crisp at any width */}
 					<div className="pointer-events-none absolute inset-0 font-mono tabular-nums text-faded-sumi">
-						{yTicks.map((tick, idx) => (
+						{yTicks.map(tick => (
 							<span
-								key={idx}
+								key={tick}
 								className="absolute -translate-x-full -translate-y-1/2 pr-2 text-right text-sm"
 								style={{ left: leftPct(PAD_LEFT), top: topPct(yFor(tick)) }}
 							>
@@ -149,13 +149,13 @@ export function CumulativeDueCurve({
 							</span>
 						))}
 
-						{tickIndices.map((i, idx) => {
+						{tickIndices.map((i) => {
 							const d = data[i];
 							if (d === undefined)
 								return null;
 							return (
 								<span
-									key={`xt-${idx}`}
+									key={d.date}
 									className="absolute -translate-x-1/2 text-sm"
 									style={{ left: leftPct(xFor(i)), top: topPct(VIEW_H - PAD_BOTTOM + 8) }}
 								>

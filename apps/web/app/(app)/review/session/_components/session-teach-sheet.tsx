@@ -133,7 +133,7 @@ export function SessionTeachSheet({
 						<li key={s.label} className="flex items-baseline gap-3">
 							<span className="flex flex-shrink-0 items-center gap-1">
 								{s.keys.map((k, i) => (
-									<span key={`${s.label}-${k}-${i}`} className="flex items-center gap-1">
+									<span key={`${s.label}-${k}`} className="flex items-center gap-1">
 										<KbdChip size="xs" className="inline-flex min-w-[20px] justify-center">{k}</KbdChip>
 										{i < s.keys.length - 1 && (
 											<span aria-hidden="true" className="text-faded-sumi/60 text-xs">·</span>
