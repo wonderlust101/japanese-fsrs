@@ -2,7 +2,6 @@
 
 import type { ButtonHTMLAttributes, MouseEventHandler, ReactNode } from "react";
 import Link from "next/link";
-import { forwardRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -23,6 +22,7 @@ interface MenuItemSharedProps {
 
 interface MenuItemButtonProps extends MenuItemSharedProps, Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
 	children: ReactNode;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 interface MenuItemLinkProps extends MenuItemSharedProps {
@@ -44,6 +44,7 @@ interface MenuItemLinkProps extends MenuItemSharedProps {
 	 *  (`noopener noreferrer`). Passed through to the underlying `<a>`.
 	 */
 	rel?: string;
+	ref?: React.Ref<HTMLAnchorElement>;
 }
 
 function buildClass({
@@ -137,49 +138,39 @@ function Body({
  * For navigation entries, prefer `MenuItem.Link`, which renders as Next.js
  * `<Link>` with the same styling.
  */
-const MenuItemButton = forwardRef<HTMLButtonElement, MenuItemButtonProps>(
-	(
-		{ leading, trailing, selected, density = "compact", danger = false, className, children, ...rest },
-		ref,
-	) => {
-		return (
-			<button
-				ref={ref}
-				type="button"
-				role="menuitem"
-				className={buildClass({ density, danger, extra: className })}
-				{...rest}
-			>
-				<Body leading={leading} trailing={trailing} selected={selected} danger={danger}>
-					{children}
-				</Body>
-			</button>
-		);
-	},
-);
+function MenuItemButton({ leading, trailing, selected, density = "compact", danger = false, className, children, ref, ...rest }: MenuItemButtonProps): React.JSX.Element {
+	return (
+		<button
+			ref={ref}
+			type="button"
+			role="menuitem"
+			className={buildClass({ density, danger, extra: className })}
+			{...rest}
+		>
+			<Body leading={leading} trailing={trailing} selected={selected} danger={danger}>
+				{children}
+			</Body>
+		</button>
+	);
+}
 
-const MenuItemLink = forwardRef<HTMLAnchorElement, MenuItemLinkProps>(
-	(
-		{ leading, trailing, selected, density = "compact", danger = false, className, children, href, onClick, target, rel },
-		ref,
-	) => {
-		return (
-			<Link
-				ref={ref}
-				href={href}
-				role="menuitem"
-				className={buildClass({ density, danger, extra: className })}
-				{...(onClick !== undefined && { onClick })}
-				{...(target !== undefined && { target })}
-				{...(rel !== undefined && { rel })}
-			>
-				<Body leading={leading} trailing={trailing} selected={selected} danger={danger}>
-					{children}
-				</Body>
-			</Link>
-		);
-	},
-);
+function MenuItemLink({ leading, trailing, selected, density = "compact", danger = false, className, children, href, onClick, target, rel, ref }: MenuItemLinkProps): React.JSX.Element {
+	return (
+		<Link
+			ref={ref}
+			href={href}
+			role="menuitem"
+			className={buildClass({ density, danger, extra: className })}
+			{...(onClick !== undefined && { onClick })}
+			{...(target !== undefined && { target })}
+			{...(rel !== undefined && { rel })}
+		>
+			<Body leading={leading} trailing={trailing} selected={selected} danger={danger}>
+				{children}
+			</Body>
+		</Link>
+	);
+}
 
 function Separator(): React.JSX.Element {
 	return <div aria-hidden="true" className="my-1 h-px bg-soft-hairline" />;

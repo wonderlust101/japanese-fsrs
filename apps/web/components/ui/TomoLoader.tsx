@@ -247,7 +247,7 @@ function PageCenterKana(): React.JSX.Element {
 		if (typeof window === "undefined")
 			return;
 		const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-		setReduced(mq.matches);
+		setReduced(mq.matches); // eslint-disable-line react/set-state-in-effect -- reflects the matchMedia(prefers-reduced-motion) subscription into state
 		const onChange = (e: MediaQueryListEvent): void => setReduced(e.matches);
 		mq.addEventListener("change", onChange);
 		return () => mq.removeEventListener("change", onChange);
@@ -257,7 +257,7 @@ function PageCenterKana(): React.JSX.Element {
 		// Randomize the first shown glyph after mount (avoids always opening on the
 		// same pool[0] character). Under reduced motion this single swap is the
 		// whole animation; no interval runs.
-		setIdx(i => randomKanjiIndex(i));
+		setIdx(i => randomKanjiIndex(i)); // eslint-disable-line react/set-state-in-effect -- randomizes the first shown glyph after mount
 		if (reduced)
 			return;
 		const t = window.setInterval(() => {
@@ -442,7 +442,7 @@ export function PageGate({
 
 	useEffect(() => {
 		if (ready && !opened)
-			setOpened(true);
+			setOpened(true); // eslint-disable-line react/set-state-in-effect -- latches the page gate open once ready (one-way)
 	}, [ready, opened]);
 
 	if (opened)

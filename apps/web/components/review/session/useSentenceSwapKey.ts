@@ -14,17 +14,17 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useSentenceSwapKey(token: number | undefined): number {
 	const [swapKey, setSwapKey] = useState(0);
-	const prevToken = useRef(token);
-	const mounted = useRef(false);
+	const prevTokenRef = useRef(token);
+	const mountedRef = useRef(false);
 
 	useEffect(() => {
-		if (!mounted.current) {
-			mounted.current = true;
-			prevToken.current = token;
+		if (!mountedRef.current) {
+			mountedRef.current = true;
+			prevTokenRef.current = token;
 			return;
 		}
-		if (token !== undefined && prevToken.current !== token) {
-			prevToken.current = token;
+		if (token !== undefined && prevTokenRef.current !== token) {
+			prevTokenRef.current = token;
 			setSwapKey(k => k + 1);
 		}
 	}, [token]);

@@ -114,8 +114,8 @@ export function ReviewCard({ liveSyncError = false, canUndo = false, onUndo, onE
 			return;
 		const seen = window.localStorage.getItem(TEACH_FLAG_KEY) === "true";
 		if (!seen) {
-			setTeachMode("auto");
-			setTeachOpen(true);
+			setTeachMode("auto"); // eslint-disable-line react/set-state-in-effect -- auto-opens the teach sheet on first session (localStorage gate, mount-only)
+			setTeachOpen(true); // eslint-disable-line react/set-state-in-effect -- auto-opens the teach sheet on first session (localStorage gate, mount-only)
 		}
 	}, []);
 

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { forwardRef } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "editorial" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -11,6 +10,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 	leadingIcon?: React.ReactNode;
 	trailingIcon?: React.ReactNode;
 	loading?: boolean;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 function DefaultDangerIcon(): React.JSX.Element {
@@ -110,90 +110,84 @@ export function buttonClasses({
 	return [BUTTON_BASE, variantClasses[variant], sizeStyle, className].join(" ");
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-	(
-		{
-			variant = "primary",
-			size = "md",
-			type = "button",
-			iconOnly = false,
-			leadingIcon,
-			trailingIcon,
-			loading = false,
-			disabled,
-			className = "",
-			children,
-			...rest
-		},
-		ref,
-	) => {
-		if (
-			process.env.NODE_ENV === "development"
-			&& variant === "danger"
-			&& leadingIcon === undefined
-			&& !iconOnly
-		) {
-			console.warn("[Button] variant=\"danger\" should be passed a `leadingIcon` prop. Falling back to default seal-mark glyph.");
-		}
+export function Button({
+	variant = "primary",
+	size = "md",
+	type = "button",
+	iconOnly = false,
+	leadingIcon,
+	trailingIcon,
+	loading = false,
+	disabled,
+	className = "",
+	children,
+	ref,
+	...rest
+}: ButtonProps): React.JSX.Element {
+	if (
+		process.env.NODE_ENV === "development"
+		&& variant === "danger"
+		&& leadingIcon === undefined
+		&& !iconOnly
+	) {
+		console.warn("[Button] variant=\"danger\" should be passed a `leadingIcon` prop. Falling back to default seal-mark glyph.");
+	}
 
-		if (
-			process.env.NODE_ENV === "development"
-			&& iconOnly
-			&& rest["aria-label"] === undefined
-			&& rest["aria-labelledby"] === undefined
-		) {
-			console.warn("[Button] iconOnly buttons need an `aria-label` (or `aria-labelledby`); the icon is `aria-hidden`, so there is otherwise no accessible name.");
-		}
+	if (
+		process.env.NODE_ENV === "development"
+		&& iconOnly
+		&& rest["aria-label"] === undefined
+		&& rest["aria-labelledby"] === undefined
+	) {
+		console.warn("[Button] iconOnly buttons need an `aria-label` (or `aria-labelledby`); the icon is `aria-hidden`, so there is otherwise no accessible name.");
+	}
 
-		const resolvedLeadingIcon
-			= variant === "danger" && leadingIcon === undefined
-				? <DefaultDangerIcon />
-				: leadingIcon;
+	const resolvedLeadingIcon
+		= variant === "danger" && leadingIcon === undefined
+			? <DefaultDangerIcon />
+			: leadingIcon;
 
-		return (
-			<button
-				ref={ref}
-				type={type}
-				disabled={disabled || loading}
-				aria-busy={loading ? true : undefined}
-				className={buttonClasses({ variant, size, iconOnly, className })}
-				{...rest}
+	return (
+		<button
+			ref={ref}
+			type={type}
+			disabled={disabled || loading}
+			aria-busy={loading ? true : undefined}
+			className={buttonClasses({ variant, size, iconOnly, className })}
+			{...rest}
+		>
+			<span
+				className={[
+					"ui-motion-soft inline-flex items-center justify-center",
+					iconOnly ? "" : gapClasses[size],
+					loading ? "opacity-0" : "",
+				].join(" ")}
 			>
-				<span
-					className={[
-						"ui-motion-soft inline-flex items-center justify-center",
-						iconOnly ? "" : gapClasses[size],
-						loading ? "opacity-0" : "",
-					].join(" ")}
-				>
-					{!iconOnly && resolvedLeadingIcon !== undefined && (
-						<span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
-							{resolvedLeadingIcon}
-						</span>
-					)}
-					{iconOnly ? (resolvedLeadingIcon ?? children) : children}
-					{!iconOnly && trailingIcon !== undefined && (
-						<span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
-							{trailingIcon}
-						</span>
-					)}
-				</span>
-				{loading && (
-					<span
-						className="ui-motion-soft absolute inset-0 inline-flex items-center justify-center gap-1"
-						aria-hidden="true"
-					>
-						<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse" />
-						<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:150ms]" />
-						<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:300ms]" />
+				{!iconOnly && resolvedLeadingIcon !== undefined && (
+					<span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
+						{resolvedLeadingIcon}
 					</span>
 				)}
-			</button>
-		);
-	},
-);
-
-Button.displayName = "Button";
+				{iconOnly ? (resolvedLeadingIcon ?? children) : children}
+				{!iconOnly && trailingIcon !== undefined && (
+					<span className="ui-motion-icon shrink-0 inline-flex" aria-hidden="true">
+						{trailingIcon}
+					</span>
+				)}
+			</span>
+			{loading && (
+				<span
+					className="ui-motion-soft absolute inset-0 inline-flex items-center justify-center gap-1"
+					aria-hidden="true"
+				>
+					<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse" />
+					<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:150ms]" />
+					<span className="h-1.5 w-1.5 rounded-full bg-current animate-button-dot-pulse [animation-delay:300ms]" />
+				</span>
+			)}
+		</button>
+	);
+}
 
 interface ButtonLinkProps
 	extends Omit<React.ComponentProps<typeof Link>, "className"> {

@@ -61,6 +61,7 @@ function hashString(s: string): number {
 }
 
 /**
+ * @param card The due card whose display fields to resolve.
  * @param sentenceIndex Optional explicit example-sentence index. When
  *   provided (e.g. the /add/review preview pager), it overrides rotation and
  *   shows exactly that sentence. When omitted, the back rotates: one sentence

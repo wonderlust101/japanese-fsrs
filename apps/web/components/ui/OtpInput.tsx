@@ -35,14 +35,14 @@ interface OTPInputProps {
 // ── OTPInput ──────────────────────────────────────────────────────────────────
 
 export function OTPInput({ onComplete, error, isLoading = false, errorId, errorNonce = 0, className }: OTPInputProps): React.JSX.Element {
-	const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
+	const [digits, setDigits] = useState<string[]>(() => Array(6).fill(""));
 	const [shaking, setShaking] = useState(false);
-	const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+	const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
 	// Focus the first box on mount so the user can type the code straight away
 	// without clicking.
 	useEffect(() => {
-		inputRefs.current[0]?.focus();
+		inputsRef.current[0]?.focus();
 	}, []);
 
 	// React to a verification failure: replay the shake and refocus the first box,
@@ -53,9 +53,9 @@ export function OTPInput({ onComplete, error, isLoading = false, errorId, errorN
 	const firstNonceRef = useRef(true);
 	useEffect(() => {
 		if (firstNonceRef.current) { firstNonceRef.current = false; return; }
-		setShaking(false);
+		setShaking(false); // eslint-disable-line react/set-state-in-effect -- retriggers the shake animation (off→on across a frame) on a verification failure
 		const raf = requestAnimationFrame(() => setShaking(true));
-		inputRefs.current[0]?.focus();
+		inputsRef.current[0]?.focus();
 		return () => cancelAnimationFrame(raf);
 	}, [errorNonce]);
 
@@ -67,7 +67,7 @@ export function OTPInput({ onComplete, error, isLoading = false, errorId, errorN
 		setDigits(next);
 
 		if (digit && index < 5) {
-			inputRefs.current[index + 1]?.focus();
+			inputsRef.current[index + 1]?.focus();
 		}
 
 		if (next.every(d => d !== "")) {
@@ -77,7 +77,7 @@ export function OTPInput({ onComplete, error, isLoading = false, errorId, errorN
 
 	function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
 		if (e.key === "Backspace" && digits[index] === "" && index > 0) {
-			inputRefs.current[index - 1]?.focus();
+			inputsRef.current[index - 1]?.focus();
 			return;
 		}
 		if (
@@ -99,7 +99,7 @@ export function OTPInput({ onComplete, error, isLoading = false, errorId, errorN
 		const next = Array<string>(6).fill("").map((_, i) => pasted[i] ?? "");
 		setDigits(next);
 
-		inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+		inputsRef.current[Math.min(pasted.length, 5)]?.focus();
 
 		if (pasted.length === 6) {
 			onComplete(pasted);
@@ -121,9 +121,10 @@ export function OTPInput({ onComplete, error, isLoading = false, errorId, errorN
 		>
 			{digits.map((digit, i) => (
 				<input
+					// eslint-disable-next-line react/no-array-index-key -- fixed-length positional OTP inputs; the index is the stable identity (boxes never reorder, digit values repeat).
 					key={i}
 					ref={(el) => {
-						inputRefs.current[i] = el;
+						inputsRef.current[i] = el;
 					}}
 					type="text"
 					inputMode="numeric"

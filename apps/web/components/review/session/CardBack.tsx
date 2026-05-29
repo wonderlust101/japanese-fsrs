@@ -2,6 +2,7 @@
 
 import type { ApiDueCard } from "@fsrs-japanese/shared-types";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -58,9 +59,9 @@ export function CardBack({
 	const [stage, setStage] = useState(0);
 
 	useEffect(() => {
-		setStage(0);
+		setStage(0); // eslint-disable-line react/set-state-in-effect -- resets the reveal animation to stage 0 when the card changes
 		if (overrides.prefersReducedMotion) {
-			setStage(3);
+			setStage(3); // eslint-disable-line react/set-state-in-effect -- skips straight to the final stage under reduced motion
 			return;
 		}
 		const t1 = window.setTimeout(() => setStage(s => Math.max(s, 1)), 0);
@@ -170,11 +171,14 @@ function Picture({ src, alt }: { src: string; alt: string }): React.JSX.Element 
 	// without guessing each image's ratio.
 	return (
 		<div className="flex min-h-[200px] w-full items-center justify-center md:justify-end">
-			<img
+			<Image
 				src={src}
 				alt={alt}
+				width={300}
+				height={300}
 				loading="lazy"
-				className="max-h-[260px] md:max-h-[300px] w-auto rounded-xs border border-soft-hairline bg-cream-inset/30 object-contain"
+				unoptimized
+				className="max-h-[260px] md:max-h-[300px] h-auto w-auto rounded-xs border border-soft-hairline bg-cream-inset/30 object-contain"
 			/>
 		</div>
 	);

@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useId, useState } from "react";
+import { useId, useState } from "react";
 
 type InputSize = "sm" | "md" | "lg";
 type InputScript = "latin" | "kana" | "kanji" | "mixed";
@@ -24,6 +24,7 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "
 	 * (accessibility/IME), and `script` still controls font + spacing.
 	 */
 	script?: InputScript;
+	ref?: React.Ref<HTMLInputElement>;
 }
 
 function ErrorGlyph(): React.JSX.Element {
@@ -92,119 +93,113 @@ const scriptConfig: Record<InputScript, { lang: string; fontClass: string; spaci
 	mixed: { lang: "ja", fontClass: "font-japanese", spacingClass: "" },
 };
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-	(
-		{
-			label,
-			size = "md",
-			error,
-			hint,
-			leadingNode,
-			trailingNode,
-			script,
-			lang: langProp,
-			id: idProp,
-			type,
-			className = "",
-			...rest
-		},
-		ref,
-	) => {
-		const generatedId = useId();
-		const id = idProp ?? generatedId;
-		const errorId = `${id}-error`;
-		const hintId = `${id}-hint`;
-		const [showPassword, setShowPassword] = useState(false);
+export function Input({
+	label,
+	size = "md",
+	error,
+	hint,
+	leadingNode,
+	trailingNode,
+	script,
+	lang: langProp,
+	id: idProp,
+	type,
+	className = "",
+	ref,
+	...rest
+}: InputProps): React.JSX.Element {
+	const generatedId = useId();
+	const id = idProp ?? generatedId;
+	const errorId = `${id}-error`;
+	const hintId = `${id}-hint`;
+	const [showPassword, setShowPassword] = useState(false);
 
-		const isPassword = type === "password";
-		const resolvedType = isPassword ? (showPassword ? "text" : "password") : type;
+	const isPassword = type === "password";
+	const resolvedType = isPassword ? (showPassword ? "text" : "password") : type;
 
-		const describedBy = [error ? errorId : "", hint && !error ? hintId : ""]
-			.filter(Boolean)
-			.join(" ") || undefined;
+	const describedBy = [error ? errorId : "", hint && !error ? hintId : ""]
+		.filter(Boolean)
+		.join(" ") || undefined;
 
-		const scriptCfg = script !== undefined ? scriptConfig[script] : null;
-		const resolvedLang = langProp ?? scriptCfg?.lang;
-		const fontClass = scriptCfg?.fontClass ?? "";
-		const spacingClass = scriptCfg?.spacingClass ?? "";
+	const scriptCfg = script !== undefined ? scriptConfig[script] : null;
+	const resolvedLang = langProp ?? scriptCfg?.lang;
+	const fontClass = scriptCfg?.fontClass ?? "";
+	const spacingClass = scriptCfg?.spacingClass ?? "";
 
-		const resolvedTrailingNode
-			= isPassword && trailingNode === undefined
-				? <PasswordToggle visible={showPassword} onToggle={() => setShowPassword(v => !v)} />
-				: trailingNode;
+	const resolvedTrailingNode
+		= isPassword && trailingNode === undefined
+			? <PasswordToggle visible={showPassword} onToggle={() => setShowPassword(v => !v)} />
+			: trailingNode;
 
-		const sizeStyle = sizeClasses[size];
-		const inputPL = leadingNode !== undefined ? "pl-9" : sizePaddingLeft[size];
-		const inputPR = resolvedTrailingNode !== undefined ? "pr-9" : sizePaddingRight[size];
+	const sizeStyle = sizeClasses[size];
+	const inputPL = leadingNode !== undefined ? "pl-9" : sizePaddingLeft[size];
+	const inputPR = resolvedTrailingNode !== undefined ? "pr-9" : sizePaddingRight[size];
 
-		return (
-			<div className="flex flex-col gap-2">
-				{label !== undefined && (
-					<label htmlFor={id} className={`${sizeStyle.labelSize} font-medium text-sumi-ink/85`}>
-						{label}
-					</label>
+	return (
+		<div className="flex flex-col gap-2">
+			{label !== undefined && (
+				<label htmlFor={id} className={`${sizeStyle.labelSize} font-medium text-sumi-ink/85`}>
+					{label}
+				</label>
+			)}
+
+			<div className="relative">
+				{leadingNode !== undefined && (
+					<span
+						className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center text-faded-sumi"
+						aria-hidden="true"
+					>
+						{leadingNode}
+					</span>
 				)}
 
-				<div className="relative">
-					{leadingNode !== undefined && (
-						<span
-							className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center text-faded-sumi"
-							aria-hidden="true"
-						>
-							{leadingNode}
-						</span>
-					)}
+				<input
+					ref={ref}
+					id={id}
+					type={resolvedType}
+					lang={resolvedLang}
+					aria-invalid={error ? true : undefined}
+					aria-describedby={describedBy}
+					className={[
+						"w-full bg-cream-inset border rounded-xs",
+						"text-sumi-ink placeholder:text-faded-sumi",
+						"ui-motion-colors",
+						"focus:outline focus:outline-1 focus:outline-offset-2",
+						"disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none",
+						"read-only:border-transparent read-only:bg-transparent",
+						error
+							? "border-error focus:border-error focus:outline-error-deep"
+							: "border-soft-hairline hover:border-faded-sumi focus:outline-sumi-ink",
+						sizeStyle.height,
+						sizeStyle.fontSize,
+						fontClass,
+						spacingClass,
+						inputPL,
+						inputPR,
+						className,
+					].join(" ")}
+					{...rest}
+				/>
 
-					<input
-						ref={ref}
-						id={id}
-						type={resolvedType}
-						lang={resolvedLang}
-						aria-invalid={error ? true : undefined}
-						aria-describedby={describedBy}
-						className={[
-							"w-full bg-cream-inset border rounded-xs",
-							"text-sumi-ink placeholder:text-faded-sumi",
-							"ui-motion-colors",
-							"focus:outline focus:outline-1 focus:outline-offset-2",
-							"disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none",
-							"read-only:border-transparent read-only:bg-transparent",
-							error
-								? "border-error focus:border-error focus:outline-error-deep"
-								: "border-soft-hairline hover:border-faded-sumi focus:outline-sumi-ink",
-							sizeStyle.height,
-							sizeStyle.fontSize,
-							fontClass,
-							spacingClass,
-							inputPL,
-							inputPR,
-							className,
-						].join(" ")}
-						{...rest}
-					/>
-
-					{resolvedTrailingNode !== undefined && (
-						<span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center">
-							{resolvedTrailingNode}
-						</span>
-					)}
-				</div>
-
-				{hint && !error && (
-					<p id={hintId} className="text-sm text-faded-sumi">
-						{hint}
-					</p>
-				)}
-
-				{error && (
-					<p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
-						<ErrorGlyph />
-						<span>{error}</span>
-					</p>
+				{resolvedTrailingNode !== undefined && (
+					<span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center">
+						{resolvedTrailingNode}
+					</span>
 				)}
 			</div>
-		);
-	},
-);
 
-Input.displayName = "Input";
+			{hint && !error && (
+				<p id={hintId} className="text-sm text-faded-sumi">
+					{hint}
+				</p>
+			)}
+
+			{error && (
+				<p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
+					<ErrorGlyph />
+					<span>{error}</span>
+				</p>
+			)}
+		</div>
+	);
+}

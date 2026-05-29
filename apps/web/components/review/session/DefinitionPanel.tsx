@@ -56,6 +56,7 @@ export function DefinitionPanel({
 	const prefs = useSessionPreferences();
 	const actions = useSessionPreferencesActions();
 
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- tabs is rebuilt each render, but tabsFingerprint (listed in both effects below) is its content identity and gates them; the array reference is intentionally not the dependency.
 	const tabs: Tab[] = [];
 
 	if (nuance !== null && nuance !== undefined && nuance !== "") {
@@ -91,8 +92,8 @@ export function DefinitionPanel({
 			shortcut: "K",
 			render: () => (
 				<ul className="flex flex-col gap-3">
-					{kanjiBreakdown.map((k, i) => (
-						<li key={`${k.kanji}-${i}`} className="flex items-baseline gap-4 max-w-measure">
+					{kanjiBreakdown.map(k => (
+						<li key={k.kanji} className="flex items-baseline gap-4 max-w-measure">
 							<span lang="ja" className="font-japanese text-2xl text-sumi-ink leading-none w-10 shrink-0">{k.kanji}</span>
 							<div className="flex-1 leading-relaxed">
 								{k.reading !== undefined && k.reading !== "" && (

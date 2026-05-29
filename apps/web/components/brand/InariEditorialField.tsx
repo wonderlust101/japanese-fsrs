@@ -87,6 +87,7 @@ export function InariEditorialField({
 				lightX(nx * 16); lightY(ny * 16);
 				glyphX(nx * 8); glyphY(ny * 8);
 			}
+			// eslint-disable-next-line react/web-api-no-leaked-event-listener -- cleanup is present (removeEventListener in the useGSAP teardown return below); the rule only recognizes useEffect cleanup, not useGSAP's.
 			window.addEventListener("pointermove", onMove, { passive: true });
 
 			// Slow brush-breath on the glyph; a separate transform channel (yPercent)

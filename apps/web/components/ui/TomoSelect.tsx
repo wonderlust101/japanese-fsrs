@@ -88,7 +88,7 @@ export function TomoSelect<T extends string>({
 	const [position, setPosition] = useState<{ top: number; left: number; width: number; flipped: boolean } | null>(null);
 	const [mounted, setMounted] = useState(false);
 
-	useEffect(() => { setMounted(true); }, []);
+	useEffect(() => { setMounted(true); }, []); // eslint-disable-line react/set-state-in-effect -- client mount/portal gate; runs once after mount
 
 	const selectedIndex = options.findIndex(o => o.value === value);
 	const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : undefined;
@@ -103,7 +103,7 @@ export function TomoSelect<T extends string>({
 		const spaceBelow = window.innerHeight - rect.bottom;
 		const flipped = spaceBelow < maxPopoverHeight + 8 && rect.top > maxPopoverHeight + 8;
 
-		setPosition({
+		setPosition({ // eslint-disable-line react/set-state-in-effect -- post-layout trigger measurement (getBoundingClientRect)
 			top: flipped ? rect.top - 4 : rect.bottom + 4,
 			left: rect.left,
 			width: rect.width,
@@ -117,7 +117,7 @@ export function TomoSelect<T extends string>({
 		if (!isOpen)
 			return;
 		updatePosition();
-		setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+		setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0); // eslint-disable-line react/set-state-in-effect -- sets initial focus to the selected option when the menu opens
 
 		function handleScroll(): void {
 			// Recompute position rather than closing — keeps the dropdown usable

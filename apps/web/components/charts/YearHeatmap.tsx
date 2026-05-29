@@ -263,9 +263,9 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 						className="block h-auto w-full rounded-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
 					>
 						{/* Month labels */}
-						{monthMarks.map(({ week, month }, i) => (
+						{monthMarks.map(({ week, month }) => (
 							<AxisText
-								key={`m-${i}`}
+								key={`m-${week}`}
 								x={xFor(week)}
 								y={PAD_T - 8}
 								anchor="start"
@@ -284,7 +284,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 							if (cell === null) {
 								return (
 									<rect
-										key={i}
+										key={`${week}-${row}`}
 										aria-hidden="true"
 										x={xFor(week)}
 										y={yFor(row)}
@@ -298,7 +298,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 							const isActive = sel !== null && sel.i === i;
 							return (
 								<rect
-									key={i}
+									key={`${week}-${row}`}
 									id={cellId(i)}
 									role="gridcell"
 									aria-label={cellLabel(cell)}
@@ -366,9 +366,9 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 				<span className="flex items-center gap-x-2">
 					<span className="text-faded-sumi/80">less</span>
 					<span className="flex items-center gap-x-0.5">
-						{[0.2, 0.4, 0.6, 0.8, 1.0].map((a, i) => (
+						{[0.2, 0.4, 0.6, 0.8, 1.0].map(a => (
 							<span
-								key={i}
+								key={a}
 								aria-hidden="true"
 								className="block h-[10px] w-[10px] rounded-xs"
 								style={{ backgroundColor: vermillionAlpha(a) }}

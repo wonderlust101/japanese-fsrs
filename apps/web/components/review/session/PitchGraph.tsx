@@ -129,6 +129,7 @@ export function PitchGraph({
 					const isDrop = m.state === "drop";
 					return (
 						<span
+							// eslint-disable-next-line react/no-array-index-key -- positional mora sequence; index is the mora's position identity.
 							key={i}
 							className="relative inline-flex flex-col items-center"
 							style={{ minWidth: "1.85em" }}

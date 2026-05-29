@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useId } from "react";
+import { useId } from "react";
 
 type TextareaScript = "latin" | "kana" | "kanji" | "mixed";
 
@@ -23,6 +23,7 @@ interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaEl
 	 *  internal padding (sentence-as-block). Default: false.
 	 */
 	block?: boolean;
+	ref?: React.Ref<HTMLTextAreaElement>;
 }
 
 function ErrorGlyph(): React.JSX.Element {
@@ -50,87 +51,81 @@ const scriptConfig: Record<TextareaScript, { lang: string; fontClass: string; sp
 	mixed: { lang: "ja", fontClass: "font-japanese", spacingClass: "" },
 };
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-	(
-		{
-			label,
-			rows = 4,
-			error,
-			hint,
-			script,
-			block = false,
-			lang: langProp,
-			id: idProp,
-			className = "",
-			...rest
-		},
-		ref,
-	) => {
-		const generatedId = useId();
-		const id = idProp ?? generatedId;
-		const errorId = `${id}-error`;
-		const hintId = `${id}-hint`;
+export function Textarea({
+	label,
+	rows = 4,
+	error,
+	hint,
+	script,
+	block = false,
+	lang: langProp,
+	id: idProp,
+	className = "",
+	ref,
+	...rest
+}: TextareaProps): React.JSX.Element {
+	const generatedId = useId();
+	const id = idProp ?? generatedId;
+	const errorId = `${id}-error`;
+	const hintId = `${id}-hint`;
 
-		const describedBy = [error ? errorId : "", hint && !error ? hintId : ""]
-			.filter(Boolean)
-			.join(" ") || undefined;
+	const describedBy = [error ? errorId : "", hint && !error ? hintId : ""]
+		.filter(Boolean)
+		.join(" ") || undefined;
 
-		const scriptCfg = script !== undefined ? scriptConfig[script] : null;
-		const resolvedLang = langProp ?? scriptCfg?.lang;
-		const fontClass = scriptCfg?.fontClass ?? "";
-		const spacingClass = scriptCfg?.spacingClass ?? "";
+	const scriptCfg = script !== undefined ? scriptConfig[script] : null;
+	const resolvedLang = langProp ?? scriptCfg?.lang;
+	const fontClass = scriptCfg?.fontClass ?? "";
+	const spacingClass = scriptCfg?.spacingClass ?? "";
 
-		const padding = block ? "px-4 py-3.5 leading-7" : "px-3 py-2 leading-6";
+	const padding = block ? "px-4 py-3.5 leading-7" : "px-3 py-2 leading-6";
 
-		return (
-			<div className="flex flex-col gap-2">
-				{label !== undefined && (
-					<label htmlFor={id} className="text-sm font-medium text-sumi-ink/85">
-						{label}
-					</label>
-				)}
+	return (
+		<div className="flex flex-col gap-2">
+			{label !== undefined && (
+				<label htmlFor={id} className="text-sm font-medium text-sumi-ink/85">
+					{label}
+				</label>
+			)}
 
-				<textarea
-					ref={ref}
-					id={id}
-					rows={rows}
-					lang={resolvedLang}
-					aria-invalid={error ? true : undefined}
-					aria-describedby={describedBy}
-					className={[
-						"w-full bg-cream-inset border rounded-xs resize-y",
-						"text-sumi-ink placeholder:text-faded-sumi",
-						"ui-motion-colors",
-						"focus:outline focus:outline-1 focus:outline-offset-2",
-						"disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none",
-						"read-only:border-transparent read-only:bg-warm-paper-raised",
-						error
-							? "border-error focus:border-error focus:outline-error-deep"
-							: "border-soft-hairline hover:border-faded-sumi focus:outline-sumi-ink",
-						"text-base",
-						padding,
-						fontClass,
-						spacingClass,
-						className,
-					].join(" ")}
-					{...rest}
-				/>
+			<textarea
+				ref={ref}
+				id={id}
+				rows={rows}
+				lang={resolvedLang}
+				aria-invalid={error ? true : undefined}
+				aria-describedby={describedBy}
+				className={[
+					"w-full bg-cream-inset border rounded-xs resize-y",
+					"text-sumi-ink placeholder:text-faded-sumi",
+					"ui-motion-colors",
+					"focus:outline focus:outline-1 focus:outline-offset-2",
+					"disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none",
+					"read-only:border-transparent read-only:bg-warm-paper-raised",
+					error
+						? "border-error focus:border-error focus:outline-error-deep"
+						: "border-soft-hairline hover:border-faded-sumi focus:outline-sumi-ink",
+					"text-base",
+					padding,
+					fontClass,
+					spacingClass,
+					className,
+				].join(" ")}
+				{...rest}
+			/>
 
-				{hint && !error && (
-					<p id={hintId} className="text-sm text-faded-sumi">
-						{hint}
-					</p>
-				)}
+			{hint && !error && (
+				<p id={hintId} className="text-sm text-faded-sumi">
+					{hint}
+				</p>
+			)}
 
-				{error && (
-					<p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
-						<ErrorGlyph />
-						<span>{error}</span>
-					</p>
-				)}
-			</div>
-		);
-	},
-);
-
-Textarea.displayName = "Textarea";
+			{error && (
+				<p id={errorId} role="alert" className="flex items-center gap-2 text-sm text-error">
+					<ErrorGlyph />
+					<span>{error}</span>
+				</p>
+			)}
+		</div>
+	);
+}

@@ -64,7 +64,7 @@ export function Tabs<V extends string>({
 }: TabsProps<V>): React.JSX.Element {
 	const fallbackId = useId();
 	const ns = idBase ?? fallbackId;
-	const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+	const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
 	const handleKey = useCallback((event: React.KeyboardEvent<HTMLDivElement>): void => {
 		const key = event.key;
@@ -84,7 +84,7 @@ export function Tabs<V extends string>({
 		const nextItem = items[next];
 		if (nextItem !== undefined) {
 			onChange(nextItem.value);
-			tabRefs.current[next]?.focus();
+			tabsRef.current[next]?.focus();
 		}
 	}, [items, value, onChange]);
 
@@ -106,7 +106,7 @@ export function Tabs<V extends string>({
 				return (
 					<button
 						key={item.value}
-						ref={(el) => { tabRefs.current[i] = el; }}
+						ref={(el) => { tabsRef.current[i] = el; }}
 						id={triggerId}
 						type="button"
 						role="tab"

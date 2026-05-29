@@ -199,6 +199,7 @@ function SentenceSkeletons({ count }: { count: number }): React.JSX.Element {
 	return (
 		<div className="flex flex-col" aria-hidden="true">
 			{Array.from({ length: count }).map((_, i) => (
+				// eslint-disable-next-line react/no-array-index-key -- fixed-count skeleton placeholders; no data to key by, order is stable.
 				<div key={i} className="flex items-center gap-2 border-t border-soft-hairline py-2.5">
 					<span className="h-1.5 w-1.5 shrink-0 rounded-full bg-faded-sumi/25" />
 					<span className="h-3 w-1/2 rounded bg-cream-inset/70 animate-pulse" />

@@ -48,6 +48,7 @@ export function InariBrandPanel({ className = "" }: { className?: string }): Rea
 				markX(nx * 22); markY(ny * 22);
 				wordX(nx * 9); wordY(ny * 9);
 			}
+			// eslint-disable-next-line react/web-api-no-leaked-event-listener -- cleanup is present (removeEventListener in the useGSAP teardown return below); the rule only recognizes useEffect cleanup, not useGSAP's.
 			window.addEventListener("pointermove", onMove, { passive: true });
 
 			// Slow breath on the mark; transform-only, no layout properties.

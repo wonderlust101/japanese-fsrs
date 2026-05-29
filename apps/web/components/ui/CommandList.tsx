@@ -116,15 +116,15 @@ export function CommandList<TValue extends string>({
 	// typeahead filter narrows results).
 	useEffect(() => {
 		if (items.length === 0) {
-			setActiveIndex(-1);
+			setActiveIndex(-1); // eslint-disable-line react/set-state-in-effect -- clamps the active index when the items list empties
 			return;
 		}
 		if (activeIndex >= items.length || activeIndex < 0) {
-			setActiveIndex(firstSelectable);
+			setActiveIndex(firstSelectable); // eslint-disable-line react/set-state-in-effect -- clamps the active index when the list shrinks out of range
 			return;
 		}
 		if (items[activeIndex]?.disabled === true) {
-			setActiveIndex(firstSelectable);
+			setActiveIndex(firstSelectable); // eslint-disable-line react/set-state-in-effect -- clamps the active index when the highlighted item becomes disabled
 		}
 	}, [items, activeIndex, firstSelectable]);
 
@@ -203,6 +203,7 @@ export function CommandList<TValue extends string>({
 		// We intentionally re-bind whenever items or active index change so
 		// the closure captures up-to-date state. `handleKey` is recreated
 		// each render but the cleanup above runs before the next attach.
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- handleKey is intentionally recreated each render; the listed state deps re-bind the native listener with fresh closure state (see comment above).
 	}, [inputRef, items, activeIndex, firstSelectable]);
 
 	// When there's no input ref, the list itself needs to receive the

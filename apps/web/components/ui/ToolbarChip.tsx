@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { forwardRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -20,6 +19,7 @@ interface ToolbarChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 	 *  rendered between the label and the trailing node.
 	 */
 	meta?: ReactNode;
+	ref?: React.Ref<HTMLButtonElement>;
 }
 
 const SIZE_CLASS: Record<ChipSize, string> = {
@@ -67,50 +67,44 @@ const BASE = [
  * `onFocus`, etc.) or ARIA attribute passes through naturally. Use directly
  * inside dropdown trigger renderprops without re-enumerating event types.
  */
-export const ToolbarChip = forwardRef<HTMLButtonElement, ToolbarChipProps>(
-	(
-		{
-			size = "md",
-			state = "default",
-			leadingNode,
-			trailingNode,
-			meta,
-			children,
-			className,
-			type = "button",
-			...rest
-		},
-		ref,
-	) => {
-		return (
-			<button
-				ref={ref}
-				type={type}
-				className={cn(
-					BASE,
-					SIZE_CLASS[size],
-					STATE_CLASS[state],
-					className,
-				)}
-				{...rest}
-			>
-				{leadingNode !== undefined && (
-					<span aria-hidden="true" className="inline-flex shrink-0">
-						{leadingNode}
-					</span>
-				)}
-				<span className="truncate">{children}</span>
-				{meta !== undefined && (
-					<span className="ml-auto tabular-nums text-faded-sumi">{meta}</span>
-				)}
-				{trailingNode !== undefined && (
-					<span aria-hidden="true" className="inline-flex shrink-0">
-						{trailingNode}
-					</span>
-				)}
-			</button>
-		);
-	},
-);
-
-ToolbarChip.displayName = "ToolbarChip";
+export function ToolbarChip({
+	size = "md",
+	state = "default",
+	leadingNode,
+	trailingNode,
+	meta,
+	children,
+	className,
+	type = "button",
+	ref,
+	...rest
+}: ToolbarChipProps): React.JSX.Element {
+	return (
+		<button
+			ref={ref}
+			type={type}
+			className={cn(
+				BASE,
+				SIZE_CLASS[size],
+				STATE_CLASS[state],
+				className,
+			)}
+			{...rest}
+		>
+			{leadingNode !== undefined && (
+				<span aria-hidden="true" className="inline-flex shrink-0">
+					{leadingNode}
+				</span>
+			)}
+			<span className="truncate">{children}</span>
+			{meta !== undefined && (
+				<span className="ml-auto tabular-nums text-faded-sumi">{meta}</span>
+			)}
+			{trailingNode !== undefined && (
+				<span aria-hidden="true" className="inline-flex shrink-0">
+					{trailingNode}
+				</span>
+			)}
+		</button>
+	);
+}

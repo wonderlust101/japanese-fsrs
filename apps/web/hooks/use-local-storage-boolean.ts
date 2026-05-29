@@ -23,13 +23,13 @@ export function useLocalStorageBoolean(
 		try {
 			const stored = window.localStorage.getItem(key);
 			if (stored !== null) {
-				setValue(stored === "true");
+				setValue(stored === "true"); // eslint-disable-line react/set-state-in-effect -- localStorage hydration on mount; cannot run during SSR render
 			}
 		} catch {
 			// localStorage may be unavailable (privacy mode, SSR edge cases).
 			// Silent fallback to the in-memory default.
 		}
-		setHydrated(true);
+		setHydrated(true); // eslint-disable-line react/set-state-in-effect -- marks hydration complete after the mount-time localStorage read
 	}, [key]);
 
 	useEffect(() => {

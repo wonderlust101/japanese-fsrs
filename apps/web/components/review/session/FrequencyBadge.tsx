@@ -88,8 +88,8 @@ export function FrequencyBadge({ rank, sources }: FrequencyBadgeProps): React.JS
 						Frequency
 					</p>
 					<ul>
-						{list.map((s, i) => (
-							<li key={`${s.label}-${i}`} className="flex items-baseline justify-between gap-3 px-3 py-1">
+						{list.map(s => (
+							<li key={s.label} className="flex items-baseline justify-between gap-3 px-3 py-1">
 								<span className="text-sm text-sumi-ink">{s.label}</span>
 								<span className="font-mono tabular-nums text-sm text-faded-sumi">{s.rank.toLocaleString("en-US")}</span>
 							</li>

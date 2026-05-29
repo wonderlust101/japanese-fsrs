@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Children, forwardRef } from "react";
+import { Children } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ type PillCommonProps = {
 	ariaLabel?: string;
 	className?: string;
 	children: ReactNode;
+	ref?: React.Ref<HTMLSpanElement>;
 } & (
 	| { variant: "interactive"; onClick: () => void; ariaPressed?: boolean }
 	| { variant?: Exclude<PillVariantProps["variant"], "interactive">; onClick?: never; ariaPressed?: never }
@@ -161,7 +162,8 @@ function renderChildren(children: ReactNode, size: PillSize): React.JSX.Element 
 	);
 }
 
-export const Pill = forwardRef<HTMLSpanElement, PillProps>((props, ref) => {
+export function Pill(props: PillProps): React.JSX.Element {
+	const ref = props.ref;
 	const size = props.size ?? "md";
 	const sized = sizeClasses[size];
 	const base = "inline-flex max-w-full items-center rounded-full border font-medium leading-none whitespace-nowrap";
@@ -262,9 +264,7 @@ export const Pill = forwardRef<HTMLSpanElement, PillProps>((props, ref) => {
 			{renderChildren(props.children, size)}
 		</span>
 	);
-});
-
-Pill.displayName = "Pill";
+}
 
 export function JlptPill({
 	level,
@@ -353,6 +353,7 @@ export function PillGroup({
 	wrap?: boolean;
 	className?: string;
 }): React.JSX.Element {
+	// eslint-disable-next-line react/no-children-to-array -- needs an array of children to slice by maxVisible and count overflow; Children.toArray is the right tool.
 	const items = Children.toArray(children).filter(Boolean);
 	const visibleItems = maxVisible === undefined ? items : items.slice(0, maxVisible);
 	const hiddenCount = maxVisible === undefined ? 0 : Math.max(0, items.length - maxVisible);

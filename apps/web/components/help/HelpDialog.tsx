@@ -114,7 +114,7 @@ function ShortcutKeys({
 	return (
 		<span className="flex flex-shrink-0 items-center gap-1">
 			{keys.map((k, i) => (
-				<span key={`${k}-${i}`} className="flex items-center gap-1">
+				<span key={k} className="flex items-center gap-1">
 					<KbdChip size="xs" className="inline-flex min-w-[20px] justify-center">{k}</KbdChip>
 					{i < keys.length - 1 && (
 						<span aria-hidden="true" className="text-xs text-faded-sumi/60">{separator}</span>

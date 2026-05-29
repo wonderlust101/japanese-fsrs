@@ -80,7 +80,7 @@ export function IconMistakes({ className = "" }: IconProps): React.JSX.Element {
  *  that won't let go. Heavier shaft to read as weight; baseline as the
  *  surface it's pinned into.
  */
-export function IconLeeches({ className = "" }: IconProps): React.JSX.Element {
+export function IconWeakSpots({ className = "" }: IconProps): React.JSX.Element {
 	return (
 		<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" className={className}>
 			<circle cx="20" cy="11" r="4" {...COMMON_PROPS} />

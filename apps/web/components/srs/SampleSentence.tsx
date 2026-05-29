@@ -57,8 +57,8 @@ export function SampleSentence({
 					<p lang="ja" className="font-japanese text-base text-sumi-ink leading-relaxed">
 						{chunks.map((chunk, i) => {
 							if (typeof chunk === "string")
-								return <span key={i}>{chunk}</span>;
-							return <FuriganaText key={i} text={chunk.base} reading={chunk.reading} rtSize="0.45em" />;
+								return <span key={i}>{chunk}</span>; // eslint-disable-line react/no-array-index-key -- positional sentence chunk (a word can repeat)
+							return <FuriganaText key={i} text={chunk.base} reading={chunk.reading} rtSize="0.45em" />; // eslint-disable-line react/no-array-index-key -- positional sentence chunk (a word can repeat)
 						})}
 					</p>
 					<p className="mt-2 text-sm text-faded-sumi italic">{translation}</p>

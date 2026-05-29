@@ -13,6 +13,7 @@ export function JsonLd({
 	schema: Record<string, unknown> | Record<string, unknown>[];
 }): React.JSX.Element {
 	const json = JSON.stringify(schema).replace(/</g, "\\u003c");
+	// eslint-disable-next-line react/dom-no-dangerously-set-innerhtml -- author-controlled JSON-LD; `<` escaped above so a literal </script> cannot break out (see header).
 	return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />;
 }
 
