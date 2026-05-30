@@ -4,11 +4,10 @@ import type {
 	ApiWeakSpotDrillAttemptResult,
 	SubmitReviewInput,
 } from "@fsrs-japanese/shared-types";
-import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { SessionOverlay } from "@/app/(app)/_components/session-overlay";
 import { SessionTopBar } from "@/app/(app)/review/session/_components/session-top-bar";
 import { Button } from "@/components/ui/Button";
@@ -17,8 +16,6 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useWeakSpotDrillSessionDevState } from "@/dev/panels/weak-spot-drill-session";
-import { queryKeys } from "@/lib/api/queryKeys";
-import { useSubmitReview } from "@/lib/api/reviews";
 import {
 	useAbortDrillSessionMutation,
 	useDrillSessionQuery,
@@ -39,6 +36,7 @@ import {
 import { DrillCardDisplay } from "../../_components/drill-card-display";
 import { buildDevSessionDetail, isDevSessionId } from "../../_components/drill-fixtures";
 import { DrillRatingBar } from "../../_components/drill-rating-bar";
+import { useDrillOverride } from "./use-drill-override";
 import { useDrillSessionKeyboard } from "./use-drill-session-keyboard";
 
 // ── Rating mapping ──────────────────────────────────────────────────────────
@@ -49,20 +47,6 @@ import { useDrillSessionKeyboard } from "./use-drill-session-keyboard";
 // a real review," we surface the full 4-channel set since this *does* hit
 // process_review() and update the canonical FSRS state.
 type RealReviewRating = SubmitReviewInput["rating"];
-
-// When the override succeeds, the queue still needs to advance locally. The
-// drill summary distinguishes "rated as drill" from "counted as review" via
-// the record's `countedAsReview` flag, so the local attempt is preserved with
-// the closest equivalent drill bucket — this is local accounting only, not a
-// wire write (the network drill-attempt mutation is skipped on the override
-// path).
-function mapRealRatingToDrillResult(rating: RealReviewRating): ApiWeakSpotDrillAttemptResult {
-	if (rating === "again")
-		return "missed";
-	if (rating === "hard")
-		return "hesitated";
-	return "remembered";
-}
 
 // ── Entry component ──────────────────────────────────────────────────────────
 
@@ -114,16 +98,17 @@ export function DrillSessionClient({
 	const recordMutation = useRecordDrillAttemptMutation();
 	const finishMutation = useFinishDrillSessionMutation();
 	const abortMutation = useAbortDrillSessionMutation();
-	const submitReviewMutation = useSubmitReview();
-	const queryClient = useQueryClient();
 	const { toast, showToast, dismissToast } = useToast();
 
-	// Override panel state. Opens when the learner clicks "Count this as a real
-	// review"; collapses on cancel, on success, or whenever a new card surfaces.
-	const [overrideOpen, setOverrideOpen] = useState(false);
-	// Lock the override panel while the canonical review submission is in
-	// flight so a double-click doesn't fire two reviews for the same card.
-	const overrideBusy = submitReviewMutation.isPending;
+	// Real-review override sub-feature (panel state + submit/open/cancel).
+	// See use-drill-override.
+	const {
+		overrideOpen,
+		overrideBusy,
+		handleSubmitAsReview,
+		handleOpenOverride,
+		handleCancelOverride,
+	} = useDrillOverride({ isActive, showAnswer, currentCard, currentIndex, isDev, actions, showToast });
 
 	const queueLength = queue.length;
 	const reachedEnd = isActive && currentIndex >= queueLength;
@@ -191,84 +176,6 @@ export function DrillSessionClient({
 			return;
 		actions.flipCard();
 	}, [isActive, showAnswer, actions]);
-
-	// ── Real-review override ──────────────────────────────────────────────────
-	//
-	// Spec §"Explicit Real-Review Override" lines 482-491: the learner can opt
-	// an answer into the canonical schedule. We:
-	//   1. Submit a fresh canonical review via the existing mutation — this
-	//      hits process_review() and produces a real `review_logs` row.
-	//   2. Advance the local drill queue with countedAsReview=true so the
-	//      drill summary can label the card distinctly without a wire write.
-	//   3. Skip the drill-attempt network mutation for this card so we don't
-	//      pollute `weak_spot_drill_attempts` with a marker we can't tell
-	//      apart server-side.
-	//   4. Invalidate the weak-spots query family so the unresolved count
-	//      badge updates (a canonical review may resolve this weak spot or
-	//      flag a new one inside the RPC).
-	// Errors keep the panel open and surface via the global toast queue; the
-	// mutation's onError already enqueues for offline retry.
-
-	const handleSubmitAsReview = useCallback(
-		(rating: RealReviewRating) => {
-			if (!isActive)
-				return;
-			if (currentCard === undefined)
-				return;
-			const cardId = currentCard.cardId;
-			if (cardId === null) {
-				showToast("This card has been deleted and can't be counted as a review.", "error");
-				return;
-			}
-			if (isDev) {
-				actions.recordAttempt(mapRealRatingToDrillResult(rating), true);
-				setOverrideOpen(false);
-				showToast("Counted as a real review.", "info");
-				return;
-			}
-			submitReviewMutation.mutate(
-				{ cardId, rating },
-				{
-					onSuccess: () => {
-						actions.recordAttempt(mapRealRatingToDrillResult(rating), true);
-						setOverrideOpen(false);
-						void queryClient.invalidateQueries({ queryKey: queryKeys.weakSpots.all() });
-						showToast("Counted as a real review.", "info");
-					},
-					onError: (err) => {
-						showToast(err.message ?? "Couldn't submit that review.", "error");
-					},
-				},
-			);
-		},
-		[
-			isActive,
-			currentCard,
-			isDev,
-			actions,
-			submitReviewMutation,
-			queryClient,
-			showToast,
-		],
-	);
-
-	const handleOpenOverride = useCallback(() => {
-		if (!isActive || !showAnswer || overrideBusy)
-			return;
-		setOverrideOpen(true);
-	}, [isActive, showAnswer, overrideBusy]);
-
-	const handleCancelOverride = useCallback(() => {
-		if (overrideBusy)
-			return;
-		setOverrideOpen(false);
-	}, [overrideBusy]);
-
-	// Collapse the override panel automatically whenever a new card surfaces
-	// so a held-open state from card N doesn't carry into card N+1.
-	useEffect(() => {
-		setOverrideOpen(false); // eslint-disable-line react/set-state-in-effect -- collapses the override panel when a new card surfaces
-	}, [currentIndex]);
 
 	// Keyboard routing (reveal / rate / override). See use-drill-session-keyboard.
 	useDrillSessionKeyboard({

@@ -1,18 +1,22 @@
+import type { ApiReviewedCard, ApiWeakSpotDrillSessionDetail } from "@fsrs-japanese/shared-types";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { submitReviewAction } from "@/lib/actions/reviews.actions";
+
 import { getDrillSessionAction } from "@/lib/actions/weak-spots.actions";
+
+import { useWeakSpotDrillSessionStore } from "@/stores/useWeakSpotDrillSessionStore";
 
 import { renderWithProviders, screen } from "@/test/test-utils";
 
 import { DrillSessionClient } from "../drill-session-client";
 
-// Characterization test (added 2026-05-30 ahead of the keyboard-effect
-// extraction). The active drill state is driven by the Zustand drill store
-// (seeded by the bootstrap effect from the session query) and needs drill-card
-// fixtures to exercise. This pins the cold-boot path: the component mounts, the
-// query wires, and the shared `DrillFrame` chrome (the "End drill" control)
-// renders. The keyboard extraction is a pure effect move within the active
-// state, which this branch doesn't reach.
+// Characterization test. Covers the cold-boot frame and the active drill state
+// (driven by the Zustand store, which the bootstrap effect seeds from the
+// session query). The active cases pin the real-review override sub-feature
+// ahead of its extraction into use-drill-override; behaviour must survive the
+// extraction unchanged.
 
 vi.hoisted(() => {
 	class MemoryStorage {
@@ -79,20 +83,94 @@ vi.mock("@/lib/actions/reviews.actions", () => ({
 }));
 
 const mockedGetSession = vi.mocked(getDrillSessionAction);
+const mockedSubmitReview = vi.mocked(submitReviewAction);
+
+const SESSION_ID = "11111111-1111-4111-8111-111111111111";
+
+// Two active cards so submitting card 0 advances to card 1 (still active) rather
+// than exhausting the queue, which would trigger auto-finish + navigation and
+// unmount the success toast before it can be asserted.
+function makeActiveDetail(): ApiWeakSpotDrillSessionDetail {
+	return {
+		sessionId: SESSION_ID,
+		status: "active",
+		isCanonicalStateStale: false,
+		staleCards: [],
+		cards: [
+			{
+				sessionCardId: "22222222-2222-4222-8222-222222222222",
+				weakSpotId: "33333333-3333-4333-8333-333333333333",
+				cardId: "44444444-4444-4444-8444-444444444444",
+				ordinal: 0,
+				layoutType: "vocabulary",
+				fieldsData: { word: "猫", reading: "ねこ", meaning: "cat" },
+				lapses: 8,
+				isOrphaned: false,
+				isStale: false,
+			},
+			{
+				sessionCardId: "55555555-5555-4555-8555-555555555555",
+				weakSpotId: "66666666-6666-4666-8666-666666666666",
+				cardId: "77777777-7777-4777-8777-777777777777",
+				ordinal: 1,
+				layoutType: "vocabulary",
+				fieldsData: { word: "犬", reading: "いぬ", meaning: "dog" },
+				lapses: 8,
+				isOrphaned: false,
+				isStale: false,
+			},
+		],
+	};
+}
 
 afterEach(() => {
 	mockedGetSession.mockReset();
+	mockedSubmitReview.mockReset();
+	// The drill store is a module-level singleton; reset to idle so an active
+	// session from one test can't leak into the next.
+	useWeakSpotDrillSessionStore.getState().actions.reset();
 });
 
 describe("drillSessionClient", () => {
 	it("mounts and renders the drill frame on a cold-boot load failure", async () => {
 		mockedGetSession.mockRejectedValueOnce(new Error("offline"));
 
-		renderWithProviders(<DrillSessionClient sessionId="11111111-1111-4111-8111-111111111111" />);
+		renderWithProviders(<DrillSessionClient sessionId={SESSION_ID} />);
 
 		// DrillFrame wraps every state via the shared SessionTopBar; its
-		// "End drill" control (rendered as desktop + mobile variants) is the
-		// reliable signal that the component mounted.
+		// "End drill" control (desktop + mobile variants) signals the mount.
 		expect((await screen.findAllByRole("button", { name: /end drill/i })).length).toBeGreaterThan(0);
+	});
+
+	it("seeds the store and renders the active card with a reveal control", async () => {
+		mockedGetSession.mockResolvedValue(makeActiveDetail());
+
+		renderWithProviders(<DrillSessionClient sessionId={SESSION_ID} />);
+
+		expect(await screen.findByRole("button", { name: /show answer/i })).toBeInTheDocument();
+	});
+
+	it("opens the real-review override panel after revealing the answer", async () => {
+		mockedGetSession.mockResolvedValue(makeActiveDetail());
+		const { user } = renderWithProviders(<DrillSessionClient sessionId={SESSION_ID} />);
+
+		await user.click(await screen.findByRole("button", { name: /show answer/i }));
+		await user.click(await screen.findByRole("button", { name: /count this drill answer as a real review/i }));
+
+		// RealReviewConfirmBar headline.
+		expect(await screen.findByText(/counts as a real review/i)).toBeInTheDocument();
+	});
+
+	it("submits a drill answer as a real review and shows the confirmation toast", async () => {
+		mockedGetSession.mockResolvedValue(makeActiveDetail());
+		// onSuccess ignores the resolved value; cast a minimal stand-in.
+		mockedSubmitReview.mockResolvedValue({} as ApiReviewedCard);
+		const { user } = renderWithProviders(<DrillSessionClient sessionId={SESSION_ID} />);
+
+		await user.click(await screen.findByRole("button", { name: /show answer/i }));
+		await user.click(await screen.findByRole("button", { name: /count this drill answer as a real review/i }));
+		await user.click(await screen.findByRole("button", { name: /again \(press 1\)/i }));
+
+		expect(await screen.findByText(/counted as a real review/i)).toBeInTheDocument();
 	});
 });
