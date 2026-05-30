@@ -51,7 +51,11 @@ export async function previewCardRatings(
 		.select(FSRS_SELECT_COLUMNS)
 		.eq("id", cardId)
 		.eq("user_id", userId)
-		.single();
+		// .maybeSingle() (NOT .single()): a missing / wrong-owner card must resolve
+		// to null-without-error so the `data === null` branch returns 404. .single()
+		// emits a PGRST116 *error* on zero rows that the error branch would mis-map
+		// to a 500.
+		.maybeSingle();
 
 	if (error !== null) {
 		throw dbError("fetch card for preview", error);

@@ -62,7 +62,11 @@ async function fetchSingleCardForReview(cardId: string, userId: string): Promise
 		.select(FSRS_SELECT_COLUMNS)
 		.eq("id", cardId)
 		.eq("user_id", userId)
-		.single();
+		// .maybeSingle() (NOT .single()): a missing / wrong-owner card must resolve
+		// to null-without-error so the `data === null` branch returns 404
+		// CARD_NOT_FOUND. .single() emits a PGRST116 *error* on zero rows, which the
+		// fetchError branch would mis-map to a generic 500.
+		.maybeSingle();
 
 	if (fetchError !== null) {
 		throw dbError("fetch card", fetchError);

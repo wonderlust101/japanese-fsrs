@@ -38,7 +38,6 @@ export interface SupabaseHarnessState {
 	/** Every `rpc(name, payload)` invocation. */
 	rpcCalls: RpcCall[];
 	lastTable: string | null;
-	terminalShape: "list" | "maybeSingle";
 }
 
 export interface SupabaseHarness {
@@ -54,6 +53,20 @@ function toCamelTable(table: string): string {
 	return table.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase());
 }
 
+// supabase-js `.single()` resolves zero rows to a PGRST116 *error* (not the
+// null-without-error that `.maybeSingle()` returns). Modeling that here means a
+// service that uses `.single()` and mishandles the not-found error path is
+// caught by tests instead of only misbehaving in production (see the M1 fix).
+const PGRST116: QueryResult = {
+	data: null,
+	error: { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" },
+};
+
+/** True for a null/undefined scalar or an empty array — i.e. "zero rows". */
+function isEmptyData(data: unknown): boolean {
+	return data == null || (Array.isArray(data) && data.length === 0);
+}
+
 export function createSupabaseHarness(): SupabaseHarness {
 	const state: SupabaseHarnessState = {
 		responses: {},
@@ -61,25 +74,42 @@ export function createSupabaseHarness(): SupabaseHarness {
 		calls: [],
 		rpcCalls: [],
 		lastTable: null,
-		terminalShape: "list",
 	};
 
 	function makeBuilder(table: string): unknown {
 		const queue = state.responses[table] ?? state.responses[toCamelTable(table)] ?? [];
+		// Per-builder terminal shape (NOT shared state): each `.from()` starts a
+		// fresh query, so a `.single()` on one query must never influence a
+		// parallel (Promise.all) or subsequent query's default or zero-rows handling.
+		let terminalShape: "list" | "maybeSingle" | "single" = "list";
 
 		const handler: ProxyHandler<{ then: unknown }> = {
 			get(_target, prop) {
 				if (prop === "then") {
-					const next = queue.shift() ?? {
-						data: state.terminalShape === "maybeSingle" ? null : [],
-						error: null,
-					};
+					let next = queue.shift();
+					if (next === undefined) {
+						// No queued response — synthesize a per-terminal default.
+						next = terminalShape === "single"
+							? PGRST116
+							: { data: terminalShape === "maybeSingle" ? null : [], error: null };
+					} else if (terminalShape === "single" && next.error === null && isEmptyData(next.data)) {
+						// A queued null/empty result on a `.single()` terminal models
+						// zero rows, which supabase-js surfaces as a PGRST116 error.
+						next = PGRST116;
+					}
 					return (resolve: (v: unknown) => void): void => { resolve(next); };
 				}
-				if (prop === "maybeSingle" || prop === "single") {
+				if (prop === "single") {
 					return (...args: readonly unknown[]): unknown => {
-						state.calls.push({ method: String(prop), args });
-						state.terminalShape = "maybeSingle";
+						state.calls.push({ method: "single", args });
+						terminalShape = "single";
+						return builder;
+					};
+				}
+				if (prop === "maybeSingle") {
+					return (...args: readonly unknown[]): unknown => {
+						state.calls.push({ method: "maybeSingle", args });
+						terminalShape = "maybeSingle";
 						return builder;
 					};
 				}
@@ -115,7 +145,6 @@ export function createSupabaseHarness(): SupabaseHarness {
 			state.calls = [];
 			state.rpcCalls = [];
 			state.lastTable = null;
-			state.terminalShape = "list";
 		},
 	};
 }

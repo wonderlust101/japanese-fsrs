@@ -15,9 +15,14 @@ interface CacheEntry { user: User; expiresAt: number }
 
 // ─── L2 (Redis) token cache ───────────────────────────────────────────────────
 // L1 (the in-process Map below) handles same-pod repeat auth in <1ms. L2
-// extends the same 30s staleness contract across pods: when pod A verifies a
-// token and pod B serves the user's next request before either L1 entry
-// refreshes, B reads from Redis instead of hitting Supabase auth again.
+// extends caching across pods: when pod A verifies a token and pod B serves the
+// user's next request before either L1 entry refreshes, B reads from Redis
+// instead of hitting Supabase auth again.
+//
+// Staleness note: L2 is written ONLY on a full Supabase verification (never
+// refreshed on an L2 hit), so the chain can't extend indefinitely. But a late-
+// life L2 read can seed a fresh 30s L1 entry on another pod, so the FLEET-WIDE
+// worst case for a revoked token is up to ~2×TTL (~60s), not a flat 30s.
 //
 // Gated by NODE_ENV !== 'test' so the existing auth.middleware.test.ts suite
 // (which mocks supabaseAdmin but not redis) keeps passing without changes.
@@ -39,9 +44,10 @@ const CachedUserSchema = z.looseObject({ id: z.string() });
  * Per-process in-memory cache for verified bearer tokens. Keyed by SHA-256 of
  * the raw token so the JWT itself never lives on the heap as a Map key.
  *
- * TTL of 30 seconds bounds the staleness window: a token revoked in Supabase
- * remains accepted by this process for up to 30s. Acceptable trade-off for the
- * latency win — typical session lifetimes are ~1h and revocations are rare.
+ * TTL of 30 seconds bounds the per-process staleness window: a token revoked in
+ * Supabase remains accepted by THIS process for up to 30s. Across pods the worst
+ * case is ~2×TTL (~60s) — see the L2 staleness note above. Acceptable trade-off
+ * for the latency win — typical session lifetimes are ~1h and revocations are rare.
  *
  * Bounded at 5000 entries (~ 5000 unique active tokens × ~200B = ~1MB) to keep
  * the cache from growing unbounded under abuse. Eviction drops the oldest
