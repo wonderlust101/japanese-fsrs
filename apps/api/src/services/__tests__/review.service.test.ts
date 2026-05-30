@@ -146,7 +146,11 @@ describe("getDueCards", () => {
 
 		const out = await getDueCards("user-1", profile);
 
-		expect(out).toEqual({ items: [{ id: "c1" }], nextCursor: null, hasMore: true });
+		// Cast to a loose shape: the cached items are a test stub, not full
+		// ApiDueCard rows, so `toEqual` against the typed result would not compile.
+		expect(out.items as unknown[]).toEqual([{ id: "c1" }]);
+		expect(out.nextCursor).toBeNull();
+		expect(out.hasMore).toBe(true);
 		expect(sb.state.rpcCalls).toHaveLength(0);
 	});
 
