@@ -20,6 +20,7 @@ These rules apply to any modern component framework (React, Vue, Svelte, Solid, 
 - **Forms have validated state.** Server-side validation always (client-side is for UX feedback). Loading, error, success, and empty states are wired up on every async surface. Submit is guarded against double-submit.
 - **Optimistic updates roll back on failure.** When the UI shows a state before the server confirms it, failure must restore the previous state visibly to the user.
 - **File naming follows location.** Shared, reusable components under `apps/web/components/**` use PascalCase filenames matching the exported component (`FuriganaText.tsx`, `TomoLoader.tsx`). Route-local components under an `app/**/_components/` folder use kebab-case (`deck-list.tsx`, `setup-client.tsx`). Asset-style modules — icon sets and chart primitives in `components/icons/` and `components/charts/` — use kebab-case (`chrome-marks.tsx`, `primitives.tsx`). Rule of thumb: a thing rendered as `<Foo />` from many routes is PascalCase in `components/`; a thing tied to one route is kebab-case in that route's `_components/`.
+- **A client-component page puts its `metadata` in the sibling `layout.tsx`.** A `"use client"` `page.tsx` can't export `metadata`, so its title is declared in a server `layout.tsx` next to it (the `review/*` routes do this: `layout.tsx` → `{ title: "…" }`). Don't declare the title in both the layout and the page (it's redundant — they merge), and never add `title.template` to a child layout — it replaces the root `%s | Tomo` template entirely rather than nesting.
 
 ---
 

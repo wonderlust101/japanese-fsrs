@@ -1,14 +1,10 @@
-import type { Metadata } from "next";
-
 import { ReviewSessionClient } from "./_components/review-session-client";
 
-// Thin server shell (audit L4). The route was previously a 524-line
-// `"use client"` page, so it could not export metadata. The interactive
-// session now lives in ReviewSessionClient; this server entry supplies the
-// page title and matches the thin-page pattern every other (app) route uses
-// (cards, decks, today, review/setup, …).
-export const metadata: Metadata = { title: "Review session" };
-
+// Thin server shell. The interactive session lives in ReviewSessionClient
+// (extracted from a former 524-line `"use client"` page). The route's <title>
+// is owned by the sibling `layout.tsx` (`{ title: "Review session" }`), per
+// this segment's convention of layout-owned metadata for client pages — so
+// this entry deliberately does not redeclare it.
 export default function ReviewSessionPage(): React.JSX.Element {
 	return <ReviewSessionClient />;
 }
