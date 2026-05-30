@@ -2,7 +2,7 @@
 
 This document describes every table in the Supabase (PostgreSQL) database, the purpose of each column, and the constraints, indexes, triggers, and RPCs that govern them.
 
-> **Generated from:** migrations in `supabase/migrations/` through `20260623000000`.
+> **Generated from:** migrations in `supabase/migrations/` through `20260709000000` (HEAD).
 > **Database:** Supabase PostgreSQL with the `pgvector` extension.
 > **Convention:** All wire formats are camelCase; all DB columns are snake_case. The transform happens at the service layer (`toRow` / `toCardRow` / `toPremadeRow` for responses; explicit patch maps for inputs).
 
@@ -20,11 +20,12 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`decks`](#table-decks)
   - [`cards`](#table-cards)
   - [`review_logs`](#table-review_logs)
-  - [`weak spots`](#table-weak spots)
+  - [`weak_spots`](#table-weak_spots)
   - [`weak_spot_drill_sessions`](#table-weak_spot_drill_sessions)
   - [`weak_spot_drill_session_cards`](#table-weak_spot_drill_session_cards)
   - [`weak_spot_drill_attempts`](#table-weak_spot_drill_attempts)
   - [`idempotency_keys`](#table-idempotency_keys)
+  - [`card_state_snapshots`](#table-card_state_snapshots)
 - [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
 - [Triggers](#triggers)
 - [Relationships Overview](#relationships-overview)
@@ -91,10 +92,11 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `decks` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `cards` | ALL | SELECT, INSERT, UPDATE, DELETE | — |
 | `review_logs` | ALL | SELECT, INSERT | — |
-| `weak spots` | ALL | SELECT, INSERT, UPDATE | — |
+| `weak_spots` | ALL | SELECT, INSERT, UPDATE | — |
 | `weak_spot_drill_sessions` | ALL | SELECT, INSERT, UPDATE | — |
 | `weak_spot_drill_session_cards` | ALL | SELECT, INSERT | — |
 | `weak_spot_drill_attempts` | ALL | SELECT, INSERT | — |
+| `card_state_snapshots` | ALL | SELECT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
 
@@ -248,7 +250,8 @@ This is the **hottest write table** in the system — every review is an UPDATE 
 | `fields_data` | `JSONB` | NO | `'{}'` | Card content as a typed JSON object. Shape depends on `layout_type`. For vocabulary/grammar: `{ word, reading, meaning, ...optional fields }`. Validated by `cards_fields_data_shape` CHECK. |
 | `parent_card_id` | `UUID` | YES | `NULL` | Self-referential FK to `cards(id)`. Links sibling cards generated from the same vocabulary item. When `word`, `reading`, or `meaning` change on one sibling, they propagate to all siblings via `update_card_with_sibling_sync()`. `SET NULL` on parent deletion. |
 | `jlpt_level` | `jlpt_level` | YES | `NULL` | JLPT classification of the card's vocabulary. Use `beyond_jlpt` for native/domain-specific vocabulary not on any JLPT list — never `NULL` to mean "not on JLPT". |
-| `tags` | `TEXT[]` | NO | `'{}'` | User-defined or AI-assigned tags for filtering (e.g. `['N2', 'keigo', 'jlpt-prep']`). |
+
+> The `tags TEXT[]` column was **dropped** in migration `20260630000004_drop_cards_tags_feature.sql` (no service code filtered by it; the `bulk_tag_cards` RPC was dropped in the same migration). The historical `cards_tags_gin_idx` had already been removed in `20260517000000`.
 
 **Shape CHECK:** `cards_fields_data_shape`:
 ```sql
@@ -392,7 +395,7 @@ FSRS state *before* this review was applied. Required for `rollbackReview()` in 
 
 ---
 
-### Table: `weak spots`
+### Table: `weak_spots`
 
 Tracks cards that have lapsed too many times (≥ `WEAK_SPOT_THRESHOLD`, default 8 — set via `WEAK_SPOT_THRESHOLD` env var). A weak spot record is created atomically inside `process_review()` / `process_review_batch()` when the threshold is crossed. The AI then asynchronously fills `diagnosis` and `prescription`.
 
@@ -566,6 +569,8 @@ Per-user replay store for idempotent POST endpoints. Required by:
 
 Callers include an `Idempotency-Key: <uuid>` header. The same key + same request body → replays the stored response. Same key + different body → 422 conflict. Same key + still in-flight → 409. Keys expire after 24 hours; expired rows are cleaned up lazily on the next `claim_idempotency_key` call for the same user (no pg_cron required at this scale).
 
+An in-flight row older than **2 minutes** is treated as orphaned (the reserving worker died before storing a response) and is reclaimed as `'fresh'` rather than returning 409. The 30s API request cap (`apps/api/src/index.ts`) guarantees no live worker holds a claim that long. Bounds the worst-case lockout for a wedged key from 24h to ~2 min (migration `20260710000000`). Accepted trade-off: a worker crash between work-commit and response-store can cause one re-run on reclaim (recoverable via review rollback).
+
 This table is accessed **only** by three `SECURITY DEFINER` RPCs — there is no direct read/write path via the user-scoped JWT.
 
 | Column | Type | Nullable | Default | Purpose |
@@ -575,7 +580,7 @@ This table is accessed **only** by three `SECURITY DEFINER` RPCs — there is no
 | `request_hash` | `TEXT` | NO | — | Hash of the canonical request body. Used to detect same-key-different-body conflicts (→ 422). |
 | `response_status` | `INT` | YES | `NULL` | HTTP status code of the completed response. `NULL` while the request is in-flight. Populated by `store_idempotency_response()`. |
 | `response_body` | `JSONB` | YES | `NULL` | Serialized response body. `NULL` while in-flight. Replayed verbatim on duplicate requests. |
-| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the key was first claimed. |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the key was claimed. Also drives stale-orphan reclaim: an in-flight row with `created_at < now() - 2 min` is reclaimed as `'fresh'`. Reset to `now()` on reclaim so the reclaiming worker owns a fresh window. |
 | `expires_at` | `TIMESTAMPTZ` | NO | `NOW() + INTERVAL '24 hours'` | TTL. Rows are deleted lazily when `expires_at < NOW()` during the next `claim_idempotency_key` call for the same user. |
 
 **Indexes:**
@@ -586,12 +591,36 @@ This table is accessed **only** by three `SECURITY DEFINER` RPCs — there is no
 
 **Lifecycle:**
 1. Service handler calls `claim_idempotency_key(p_user_id, p_key, p_request_hash)`. Returns one of:
-   - `'fresh'` → caller proceeds to run the worker.
+   - `'fresh'` → caller proceeds to run the worker. (Also returned when an in-flight row older than 2 min is reclaimed as orphaned.)
    - `'replay'` → caller returns `(stored_status, stored_body)` to client.
    - `'conflict'` → caller responds 422.
-   - `'in_flight'` → caller responds 409.
+   - `'in_flight'` → caller responds 409 (claim is fresh enough to still belong to a live worker).
 2. On worker success: `store_idempotency_response(user_id, key, status, body)` writes the result.
 3. On worker failure (non-`AppError` exception): `delete_idempotency_key(user_id, key)` releases the placeholder so the caller can retry.
+
+---
+
+### Table: `card_state_snapshots`
+
+Per-day maturity-pipeline snapshot — one row per (user, learner-local day). Powers `GET /api/v1/insights/maturity-history?days=90|180|365` (the Progress page's stacked-area chart). Added in `20260610000000_card_state_snapshots.sql`; `suspended_count` added in `20260701000000`. Rows are written **only** by the `record_card_state_snapshots()` cron function (see the RPC section) — there is no request-path write.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `user_id` | `UUID` | NO | — | Part of composite PK. FK to `profiles(id)` — cascades on user deletion. |
+| `snapshot_date` | `DATE` | NO | — | Part of composite PK. The learner-local calendar day the snapshot represents. |
+| `new_count` | `INT` | NO | `0` | Cards in `state = 0` (FSRS New). |
+| `learning_count` | `INT` | NO | `0` | Cards in `state = 1` (FSRS Learning). |
+| `review_count` | `INT` | NO | `0` | Cards in `state = 2 AND scheduled_days < 21` (graduated, pre-mature — Anki convention). |
+| `relearning_count` | `INT` | NO | `0` | Cards in `state = 3` (FSRS Relearning). |
+| `mature_count` | `INT` | NO | `0` | Cards in `state = 2 AND scheduled_days >= 21` (Anki mature). |
+| `suspended_count` | `INT` | NO | `0` | Suspended cards (excluded from every other bucket). Added `20260701000000`. |
+| `recorded_at` | `TIMESTAMPTZ` | NO | `NOW()` | When the snapshot row was last written/refreshed. |
+
+**Primary key:** `(user_id, snapshot_date)` — also serves the history RPC's `WHERE user_id = ? AND snapshot_date BETWEEN ? AND ?` range scan; no additional indexes.
+
+**RLS policies:**
+- SELECT: `auth.uid() = user_id`.
+- INSERT/UPDATE/DELETE: **No policy.** Rows are written exclusively by the `SECURITY DEFINER` cron function (which bypasses RLS).
 
 ---
 
@@ -611,10 +640,16 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 
 | Function | Purpose | Notes |
 |---|---|---|
-| `update_card_with_sibling_sync(p_card_id, p_user_id, p_expected_version, p_fields_data, p_layout_type, p_tags, p_jlpt_level)` | Atomic target UPDATE + sibling sync of shared fields (`word`, `reading`, `meaning`). Raises `card_version_mismatch` (→ 412) if `version` doesn't match. | Sibling sync only fires when `fields_data` is patched and contains at least one shared key. Increments `version` on the target AND every touched sibling. |
+| `update_card_with_sibling_sync(p_card_id, p_user_id, p_expected_version, p_fields_data, p_layout_type, p_jlpt_level)` | Atomic target UPDATE + sibling sync of shared fields (`word`, `reading`, `meaning`). Raises `card_version_mismatch` (→ 412) if `version` doesn't match. | Sibling sync only fires when `fields_data` is patched and contains at least one shared key. Increments `version` on the target AND every touched sibling. |
 | `bulk_update_card_embeddings(p_updates JSONB)` | Ops-only path used by `backfillPremadeEmbeddings`. Flushes all newly-computed embeddings in one UPDATE. | Skips `SET search_path` because the `vector` type lives in the extensions schema. |
 | `get_stale_embedding_cards(p_user_id)` | Returns cards where `embedding_updated_at < updated_at` (content changed after embedding was computed). | Replaces a broken PostgREST `.filter()` call that didn't support column-vs-column comparison. |
 | `find_similar_cards(p_card_id, p_user_id, p_limit)` | Cosine-similarity search over the user's own cards. | Uses `<=>` (cosine distance, **not** `<->` L2). Backed by the partial HNSW index. |
+| `move_card(p_card_id, p_target_deck_id, p_user_id)` | Re-parents one owned card to another owned, **active** deck (`assertDeckActive` at the service layer). Migration `20260617000001`. | Returns the card id (uuid). |
+| `copy_card(p_card_id, p_target_deck_id, p_user_id)` | Clones one card into a target deck with fresh FSRS state (`state = 0`, `due = NOW()`); embedding carried over, `parent_card_id` / `is_suspended` dropped. | Returns the new card id. Fails closed on missing/foreign card or deck. |
+| `suspend_card(p_card_id, p_user_id)` / `unsuspend_card(p_card_id, p_user_id)` | Toggle `cards.is_suspended` on one owned card (orthogonal to FSRS `state`). | Returns the card id. |
+| `bulk_move_cards(p_card_ids, p_target_deck_id, p_user_id)` | Batch `move_card` over an id array into one target deck. | `JSONB` envelope reporting moved vs skipped ids. |
+| `bulk_suspend_cards(p_card_ids, p_user_id)` / `bulk_unsuspend_cards(p_card_ids, p_user_id)` | Batch suspend/unsuspend over an id array. | `JSONB` envelope (per-id outcome). |
+| `bulk_delete_cards(p_card_ids, p_user_id)` | Batch hard-delete of owned cards; `review_logs` / `weak_spots` history preserved via `card_id` `SET NULL`. | `JSONB` envelope (deleted vs skipped). |
 
 ### Deck / profile / premade-copy writes
 
@@ -631,7 +666,7 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 |---|---|---|
 | `get_due_cards(p_user_id, p_daily_review_limit, p_daily_new_cards_limit, p_timezone DEFAULT 'UTC')` | Single-query replacement for the 2-counts + 2-selects review-queue load. Counts today's reviews from learner-local midnight, then returns overdue cards ordered by `due ASC` followed by new cards ordered by `created_at ASC`, both capped by daily limits. Migration `20260622000000_deck_archive.sql` added an `archived_decks` CTE (`SELECT id FROM public.decks WHERE user_id = p_user_id AND archived_at IS NOT NULL`) and `c.deck_id NOT IN (SELECT id FROM archived_decks)` to every card-source CTE so cards in archived decks are silently elided from the queue. | `(id, deck_id, jlpt_level, state, due, fields_data, layout_type)` |
 | `list_cards_paginated(p_user_id, p_deck_id, p_limit, p_cursor, p_status_filter)` | Tuple-cursor pagination over a deck's cards. Uses `(created_at, id) < (cursor_at, cursor_id)` so same-`created_at` neighbours don't straddle page boundaries. | Card detail rows. |
-| `list_cards_cross_deck(p_user_id, p_limit, p_cursor, p_deck_id, p_status, p_jlpt_level, p_search, p_missing_field, p_sort, p_present_field, p_pitch_pattern)` | Cross-deck cards-browser listing (`GET /api/v1/cards/cross-deck`). Returns the caller's personal cards across all decks (JOIN `decks` for `deck_name`), with sort modes `recent` / `due` / `lapses` and tuple-cursor pagination. Migration `20260624000000_cards_browser_presence_filters.sql` added `p_present_field` (positive presence: `picture` / `pitch`), extended `p_missing_field` to also admit `pitch`, and added `p_pitch_pattern` (`heiban` / `atamadaka` / `nakadaka` / `odaka`). As of migration `20260624000001_cards_browser_filter_relax_mutual_exclusion.sql`, `p_missing_field` and `p_present_field` can be set simultaneously to express cross-dimension combinations like "has picture AND missing pitch"; same-dimension contradictions are impossible by widget design on the client. The `audio` arm (positive + missing) was removed in migration `20260630000005_remove_audio_collocations_homophones.sql` when the audio fields were dropped. Premade source rows (`user_id IS NULL`) never returned. | Card row + `deck_id`, `deck_name`. |
+| `list_cards_cross_deck(p_user_id, p_limit, p_offset, p_deck_id, p_status, p_jlpt_level, p_search, p_missing_field, p_sort, p_sort_dir, p_present_field, p_pitch_pattern)` | Cross-deck cards-browser listing (`GET /api/v1/cards/cross-deck`). Returns the caller's personal cards across all decks (JOIN `decks` for `deck_name`), with sort modes `recent` / `due` / `lapses`, a `p_sort_dir` (`asc`/`desc`, migration `20260630000001`), and **offset** pagination (`p_offset`, migration `20260630000003_cards_browser_offset_pagination.sql`, which replaced the original tuple cursor for this RPC — note `list_cards_paginated` and `list_decks_paginated` still use tuple cursors). Migration `20260624000000_cards_browser_presence_filters.sql` added `p_present_field` (positive presence: `picture` / `pitch`), extended `p_missing_field` to also admit `pitch`, and added `p_pitch_pattern` (`heiban` / `atamadaka` / `nakadaka` / `odaka`). As of migration `20260624000001_cards_browser_filter_relax_mutual_exclusion.sql`, `p_missing_field` and `p_present_field` can be set simultaneously to express cross-dimension combinations like "has picture AND missing pitch"; same-dimension contradictions are impossible by widget design on the client. The `audio` arm (positive + missing) was removed in migration `20260630000005_remove_audio_collocations_homophones.sql` when the audio fields were dropped. Premade source rows (`user_id IS NULL`) never returned. | Card row + `deck_id`, `deck_name`. |
 | `count_cards_cross_deck(p_user_id, p_deck_id, p_status, p_jlpt_level, p_search, p_missing_field, p_present_field, p_pitch_pattern)` | Total-count companion for `list_cards_cross_deck`. Filter surface kept in lockstep so the table footer never drifts from the page slice. | `INT`. |
 | `count_moras(p_reading)` | Helper. Counts moras of a hiragana/katakana reading; small kana (ゃゅょぁぃぅぇぉ + katakana equivalents) and the long-vowel mark ー attach to the preceding mora rather than starting one. Used by `list_cards_cross_deck` / `count_cards_cross_deck` to evaluate the pitch-pattern predicate. Migration `20260624000000_cards_browser_presence_filters.sql`. `IMMUTABLE PARALLEL SAFE`. | `INT`. |
 | `list_decks_paginated(p_user_id, p_limit, p_cursor, p_view DEFAULT 'active')` | Tuple-cursor pagination over the user's decks, ORDER BY `(updated_at DESC, id DESC)`. Migration `20260606000000_list_decks_paginated_rollups.sql` added rollup columns (`due_count`, `new_count`, `mature_count`, `due_new_count`, `due_review_count`, `last_reviewed_at`). Migration `20260622000000_deck_archive.sql` added `p_view TEXT DEFAULT 'active'` (accepted values: `'active'` excludes `archived_at IS NOT NULL`; `'archived'` only includes them; `'all'` returns both), defensively validated with `RAISE EXCEPTION 'invalid_view_filter'` (SQLSTATE `22023`); `archived_at` also added to the `RETURNS TABLE` shape so the wire layer surfaces the timestamp without a second round-trip. | Deck rows including rollup counts + `archived_at`. |
@@ -648,12 +683,32 @@ All RPCs live in the `public` schema and are granted `EXECUTE` to `service_role`
 | `get_accuracy_by_layout_type(p_user_id)` | Total reviews and successful reviews grouped by `layout_type` (`vocabulary` / `grammar` / `sentence`). Renamed from `get_accuracy_by_layout` in migration `20260614000000` (the old name was a misnomer — it grouped by the now-dropped `card_type`). | `(layout_type TEXT, total BIGINT, successful BIGINT)` |
 | `get_jlpt_gap(p_user_id)` | Per-JLPT-level totals, learned (state ≥ 2), and currently-due counts. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, due BIGINT)` |
 | `get_milestone_forecast(p_user_id)` | Per-JLPT-level projected completion based on 30-day daily learning pace. | `(jlpt_level TEXT, total BIGINT, learned BIGINT, daily_pace NUMERIC, days_remaining INT, projected_completion_date DATE)` |
+| `get_card_quality_issues(p_user_id)` | Stage 8. Six issue-type counts derived from `fields_data` key presence on vocabulary/grammar cards (e.g. missing picture / nuance). Feeds the cards-browser quality nudges. | `(issue_type TEXT, count BIGINT)` × 6 |
+| `get_cards_added_this_month(p_user_id, p_timezone)` | Count of cards created in the learner-local current month. Also bundled into `get_dashboard_data`. Migration `20260618000000`. | `INT` |
+| `get_answer_rating_distribution(p_user_id)` | Statistics page: review counts grouped by rating (`again`/`hard`/`good`/`easy`). Migration `20260618000000`. | `(rating TEXT, count BIGINT)` |
+| `get_interval_distribution(p_user_id)` | Statistics page: card counts bucketed by current scheduled interval. | `(bucket TEXT, count BIGINT, sort_key INT)` |
+| `get_stability_distribution(p_user_id)` | Statistics page: card counts bucketed by FSRS stability. | `(bucket TEXT, count BIGINT, sort_key INT)` |
+| `get_difficulty_distribution(p_user_id)` | Statistics page: card counts bucketed by FSRS difficulty. | `(bucket TEXT, count BIGINT, sort_key INT)` |
+| `get_maturity_pipeline_history(p_user_id, p_days)` | Progress page maturity chart. `p_days ∈ {90,180,365}` (else raises `invalid_days_parameter`, SQLSTATE 22023). Historical rows come from `card_state_snapshots`; today's row is computed **live** so the chart stays current between cron runs. | `(snapshot_date DATE, new_count, learning_count, review_count, relearning_count, mature_count INT)` |
+| `get_day_review_aggregate(p_session_id, p_user_id, p_timezone)` | Aggregates all `review_logs` for the learner-local calendar day containing the session + the top-3 weak-spot words that day. Feeds the post-session day-reflection AI generator. Migration `20260627000000`. | `JSONB` envelope |
+
+> **`get_dashboard_data` was extended** in `20260618000000` to add `total_seconds` per heatmap day and to bundle `get_cards_added_this_month` (tz-aware), consolidating an accidental dual-overload created by earlier migrations.
+
+### Scheduled / maintenance functions
+
+| Function | Purpose |
+|---|---|
+| `record_card_state_snapshots()` | `SECURITY DEFINER`, no args. Upserts one `card_state_snapshots` row per profile per learner-local day (per-state `FILTER` aggregates over non-suspended cards). Idempotent (`ON CONFLICT … DO UPDATE`). Intended to run **daily via `pg_cron`**. |
+
+> ⚠️ **Operational caveat (production-readiness, finding P1):** the daily schedule in `20260610000000` is wrapped in a defensive `DO` block that **only registers the `cron.schedule(...)` job when the `pg_cron` extension is already present** — and `pg_cron` is **not enabled by any migration**, nor does any application code call `record_card_state_snapshots()`. Until an operator enables `pg_cron` and schedules the job (Supabase dashboard or a follow-up migration), `card_state_snapshots` is never populated, so `get_maturity_pipeline_history` returns **only today's live point** with no historical trend. (Migration `20260707000000` separately fixed a `GROUP BY` bug under which the recorder errored on every invocation.)
+>
+> **MVP decision (2026-05-29): accepted as a known limitation.** The maturity chart ships showing today's live point; the historical trend backfills automatically once `pg_cron` is enabled. No scheduling migration is added for MVP. **Post-launch follow-up:** enable `pg_cron` in the Supabase dashboard and run `SELECT cron.schedule('record_card_state_snapshots_daily', '15 2 * * *', $$SELECT public.record_card_state_snapshots();$$);` (or land a follow-up migration) to start accumulating history.
 
 ### Idempotency RPCs
 
 | Function | Purpose |
 |---|---|
-| `claim_idempotency_key(p_user_id, p_key, p_request_hash)` | Returns `'fresh'`, `'replay'`, `'conflict'`, or `'in_flight'`. Lazily deletes expired rows for the user. |
+| `claim_idempotency_key(p_user_id, p_key, p_request_hash)` | Returns `'fresh'`, `'replay'`, `'conflict'`, or `'in_flight'`. Lazily deletes expired rows for the user. Reclaims an in-flight row older than 2 min as `'fresh'` (orphaned-worker recovery). |
 | `store_idempotency_response(p_user_id, p_key, p_status, p_body)` | Writes the final status + body for a previously-claimed key. |
 | `delete_idempotency_key(p_user_id, p_key)` | Releases a placeholder so the caller can retry after a non-`AppError` exception. |
 
@@ -695,7 +750,7 @@ auth.users
             ├── decks                       (1:N, cascade)
             │       └── cards               (1:N, cascade)  ←── parent_card_id (self-ref, SET NULL)
             ├── review_logs                 (1:N, cascade)        [card_id is SET NULL on card delete]
-            ├── weak spots                     (1:N, cascade)        [card_id is SET NULL on card delete]
+            ├── weak_spots                  (1:N, cascade)        [card_id is SET NULL on card delete]
             └── idempotency_keys            (1:N, no FK — accessed via RPCs)
 
 premade_decks (system-owned, never hard-deleted in normal ops)
@@ -704,7 +759,7 @@ premade_decks (system-owned, never hard-deleted in normal ops)
 ```
 
 **Notable cascade asymmetries:**
-- `review_logs.card_id` and `weak spots.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
+- `review_logs.card_id` and `weak_spots.card_id`: `SET NULL` to preserve analytics/AI-generated text after a card is deleted.
 - `decks.source_premade_id`: `SET NULL` so user copies survive a premade hard-delete with attribution severed. The deck and the user's FSRS progress are unaffected because user cards live under `deck_id`, not `premade_deck_id`.
 
 ---

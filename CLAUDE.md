@@ -70,8 +70,8 @@ bun dev
 
 ### Run individually
 ```bash
-bun --filter web dev       # Next.js on :3000
-bun --filter api dev       # Express on :3001
+bun run --filter @fsrs-japanese/web dev   # Next.js on :3000
+bun run --filter @fsrs-japanese/api dev   # Express on :3001
 ```
 
 ### Build for production
@@ -81,8 +81,8 @@ bun run build
 
 ### Run tests (Bun's built-in test runner)
 ```bash
-bun test                        # All workspaces
-bun --filter api test           # API tests only
+bun test                                  # All workspaces
+bun run --filter @fsrs-japanese/api test   # API tests only
 ```
 
 The frontend uses **Vitest** (jsdom + MSW), not Bun's runner:
@@ -147,7 +147,7 @@ LOG_LEVEL=debug
 After deploying changes that introduce new premade source cards, run the embedding backfill once so `find_similar_cards` returns results for those new cards:
 
 ```
-bun --filter api run embeddings:backfill
+bun run --filter @fsrs-japanese/api embeddings:backfill
 ```
 
 Idempotent — only operates on rows where `embedding IS NULL`. Uses the existing `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `OPENAI_API_KEY` env vars; no additional secrets required.
