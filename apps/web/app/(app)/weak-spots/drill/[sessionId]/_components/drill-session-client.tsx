@@ -39,6 +39,7 @@ import {
 import { DrillCardDisplay } from "../../_components/drill-card-display";
 import { buildDevSessionDetail, isDevSessionId } from "../../_components/drill-fixtures";
 import { DrillRatingBar } from "../../_components/drill-rating-bar";
+import { useDrillSessionKeyboard } from "./use-drill-session-keyboard";
 
 // ── Rating mapping ──────────────────────────────────────────────────────────
 
@@ -269,47 +270,17 @@ export function DrillSessionClient({
 		setOverrideOpen(false); // eslint-disable-line react/set-state-in-effect -- collapses the override panel when a new card surfaces
 	}, [currentIndex]);
 
-	useEffect(() => {
-		function onKey(e: KeyboardEvent): void {
-			if (e.isComposing || e.metaKey || e.ctrlKey || e.altKey)
-				return;
-			if (e.target instanceof HTMLInputElement)
-				return;
-			if (e.target instanceof HTMLTextAreaElement)
-				return;
-			if (e.target instanceof HTMLSelectElement)
-				return;
-			if (e.target instanceof HTMLElement && e.target.isContentEditable)
-				return;
-			if (!isActive)
-				return;
-			if ((e.key === " " || e.key === "Enter") && !showAnswer) {
-				e.preventDefault();
-				handleReveal();
-				return;
-			}
-			if (!showAnswer)
-				return;
-			// Override panel hijacks the keymap while open so digits 1-4 map to
-			// the canonical rating buttons rather than the drill bar's 1-3.
-			if (overrideOpen) {
-				if (e.key === "Escape") { e.preventDefault(); handleCancelOverride(); } else if (e.key === "1") { e.preventDefault(); handleSubmitAsReview("again"); } else if (e.key === "2") { e.preventDefault(); handleSubmitAsReview("hard"); } else if (e.key === "3") { e.preventDefault(); handleSubmitAsReview("good"); } else if (e.key === "4") { e.preventDefault(); handleSubmitAsReview("easy"); }
-				return;
-			}
-			if (e.key === "1") { e.preventDefault(); handleRate("missed"); } else if (e.key === "2") { e.preventDefault(); handleRate("hesitated"); } else if (e.key === "3") { e.preventDefault(); handleRate("remembered"); } else if (e.key === "r" || e.key === "R") { e.preventDefault(); handleOpenOverride(); }
-		}
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [
+	// Keyboard routing (reveal / rate / override). See use-drill-session-keyboard.
+	useDrillSessionKeyboard({
 		isActive,
 		showAnswer,
-		handleReveal,
-		handleRate,
 		overrideOpen,
-		handleOpenOverride,
-		handleCancelOverride,
-		handleSubmitAsReview,
-	]);
+		onReveal: handleReveal,
+		onRate: handleRate,
+		onOpenOverride: handleOpenOverride,
+		onCancelOverride: handleCancelOverride,
+		onSubmitAsReview: handleSubmitAsReview,
+	});
 
 	// Reset shown-at when a new card arrives (the store already does this on
 	// rate; this useEffect is the safety net for resume / direct-mount cases).

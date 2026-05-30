@@ -24,16 +24,11 @@ import { useOnlineStatus } from "@/hooks/use-online-status";
 import { useDecks } from "@/lib/api/decks";
 import { useDueCards } from "@/lib/api/reviews";
 import { inferDeckLevel } from "@/lib/deck-level";
-import {
-	estimateSessionSeconds,
-	formatSessionEstimate,
-} from "@/lib/review/estimate-time";
 
 import {
 	countQueueBreakdown,
 
 } from "@/lib/review/queue-classify";
-import { randomSeed } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
 
 import { useSessionActions } from "@/stores/useReviewSessionStore";
@@ -50,8 +45,9 @@ import {
 import { ConfirmPopover } from "./confirm-popover";
 import { SetupControls } from "./setup-controls";
 import { buildPreviewSnapshot } from "./setup-preview-data";
-import { filterCardsForSession } from "./setup-session-filter";
 import { SetupSummary } from "./setup-summary";
+import { useSetupKeyboard } from "./use-setup-keyboard";
+import { useSetupPreview } from "./use-setup-preview";
 
 interface SetupClientProps {
 	initialTodayKey: string;
@@ -158,40 +154,17 @@ export function SetupClient({
 	);
 
 	// ── Filter preview ───────────────────────────────────────────────────────
-	// Shuffle seed is stable per mount, so toggling an unrelated tuning
-	// (e.g. session size) doesn't re-randomize the shuffled order on every
-	// recompute. The seed is regenerated only when the consumer explicitly
-	// remounts the page.
-	const shuffleSeedRef = useRef<number>(randomSeed());
-	const previewCards = useMemo<ApiDueCard[]>(() => {
-		if (previewSnapshot !== null)
-			return [];
-		return filterCardsForSession(dueItems, tuning, {
-			todayKey: initialTodayKey,
-			timeZone: initialTimeZone,
-			decks: allDecks,
-			shuffleSeed: shuffleSeedRef.current,
-		});
-	}, [dueItems, tuning, initialTodayKey, initialTimeZone, allDecks, previewSnapshot]);
-
-	const previewBreakdown: QueueBreakdown = useMemo(() => {
-		if (previewSnapshot !== null)
-			return previewSnapshot.breakdown;
-		return countQueueBreakdown(previewCards, initialTodayKey, initialTimeZone);
-	}, [previewCards, initialTodayKey, initialTimeZone, previewSnapshot]);
-
-	const previewTotal = previewBreakdown.reviewCount + previewBreakdown.newCount + previewBreakdown.backlogCount;
-
-	const timeEstimate = useMemo(() => {
-		if (previewSnapshot !== null) {
-			const secs
-				= previewBreakdown.reviewCount * 15
-					+ previewBreakdown.newCount * 25
-					+ previewBreakdown.backlogCount * 15;
-			return formatSessionEstimate(secs);
-		}
-		return formatSessionEstimate(estimateSessionSeconds(previewCards));
-	}, [previewSnapshot, previewBreakdown, previewCards]);
+	// Applies the live tuning to the due queue → session cards + breakdown +
+	// time estimate (short-circuits to the dev snapshot when active). See
+	// use-setup-preview.
+	const { previewCards, previewBreakdown, previewTotal, timeEstimate } = useSetupPreview({
+		dueItems,
+		tuning,
+		allDecks,
+		initialTodayKey,
+		initialTimeZone,
+		previewSnapshot,
+	});
 
 	// ── Handlers ─────────────────────────────────────────────────────────────
 	const handleStart = useCallback((): void => {
@@ -224,48 +197,16 @@ export function SetupClient({
 		tuningDefaultsActions.save(tuning);
 	}, [tuningDefaultsActions, tuning]);
 
-	// Power-user keyboard parity with /today:
-	//   R / Enter — start the session (when previewable cards exist)
-	//   S         — save current tuning as the user's default (when modified)
-	// Suppressed when focus is inside a form control or a modifier key is held,
-	// so segmented controls, checkboxes, and the deck list keep their behavior.
-	useEffect(() => {
-		function handleKey(event: KeyboardEvent): void {
-			if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
-				return;
-			const target = event.target as HTMLElement | null;
-			if (target !== null) {
-				const tag = target.tagName;
-				if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT")
-					return;
-				if (target.isContentEditable)
-					return;
-			}
-			const key = event.key.toLowerCase();
-			if (key === "r" || key === "enter") {
-				if (isLoading || previewActive || previewTotal === 0)
-					return;
-				event.preventDefault();
-				handleStart();
-				return;
-			}
-			if (key === "s") {
-				if (!modified || previewActive)
-					return;
-				event.preventDefault();
-				handleSaveAsDefault();
-			}
-		}
-		window.addEventListener("keydown", handleKey);
-		return () => window.removeEventListener("keydown", handleKey);
-	}, [
-		handleStart,
-		handleSaveAsDefault,
+	// Power-user keyboard parity with /today: R/Enter starts the session, S
+	// saves the current tuning as default (when modified). See use-setup-keyboard.
+	useSetupKeyboard({
+		onStart: handleStart,
+		onSaveAsDefault: handleSaveAsDefault,
 		isLoading,
 		previewActive,
 		previewTotal,
 		modified,
-	]);
+	});
 
 	// ── Zero-state recovery hint ────────────────────────────────────────────
 	// The user has decks and the underlying queue has cards (so this isn't
