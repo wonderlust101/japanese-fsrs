@@ -6,10 +6,10 @@ import {
 	getWordFields,
 
 } from "@fsrs-japanese/shared-types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
@@ -22,23 +22,15 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader, TomoLoader } from "@/components/ui/TomoLoader";
 import { useCardDevState } from "@/dev/panels/card-detail";
-import {
-	deleteCardAction,
-	getCardByIdAction,
-} from "@/lib/actions/cards.actions";
-import {
-	useForgetCardMutation,
-	useMoveCardMutation,
-	useRescheduleCardMutation,
-	useSuspendCardMutation,
-	useUnsuspendCardMutation,
-} from "@/lib/api/cards";
+import { getCardByIdAction } from "@/lib/actions/cards.actions";
 import { queryKeys } from "@/lib/api/queryKeys";
 
 import { CardActionsStrip } from "./card-actions-strip";
 import { CardHistoryPanel } from "./card-history-panel";
 import { CardIdentityHeader } from "./card-identity-header";
 import { PagerButton } from "./card-tools";
+import { useCardDetailMutations } from "./use-card-detail-mutations";
+import { useCardDetailShortcuts } from "./use-card-detail-shortcuts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,7 +52,6 @@ type ActiveDialog
 
 export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.Element {
 	const router = useRouter();
-	const queryClient = useQueryClient();
 
 	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
 	const [showHistory, setShowHistory] = useState(false);
@@ -110,34 +101,19 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 	const isPremadeSource = card !== null && card !== undefined && (card as { userId?: string | null }).userId === null;
 	const isSuspended = card?.isSuspended === true;
 
-	// ── Card-delete mutation ──────────────────────────────────────────────
-	const deleteMutation = useMutation({
-		mutationFn: () => deleteCardAction(cardId),
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.cards.byDeck(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.detail(deckId) });
-			void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.due() });
-			router.push(`/decks/${deckId}`);
-		},
-	});
-
-	// ── Suspend / unsuspend / move mutations ──────────────────────────────
-	// The hooks invalidate cards.all() + decks.all() so the liveCard query
-	// re-reads after suspend/unsuspend (driving the `isSuspended` chrome) and
-	// every list view that includes this card refreshes after a move.
-	const suspendMutation = useSuspendCardMutation();
-	const unsuspendMutation = useUnsuspendCardMutation();
-	const moveMutation = useMoveCardMutation();
-	const suspendPending = isSuspended ? unsuspendMutation.isPending : suspendMutation.isPending;
-	const suspendError = isSuspended
-		? (unsuspendMutation.isError ? (unsuspendMutation.error?.message ?? "Unknown error") : null)
-		: (suspendMutation.isError ? (suspendMutation.error?.message ?? "Unknown error") : null);
-
-	// ── Repair mutations (folded in from the retired /repair route) ───────
-	// Both already invalidate the card caches, so the live `liveCard` query
-	// refetches and the card preview + memory popup update in place. No navigation.
-	const forgetMutation = useForgetCardMutation();
-	const rescheduleMutation = useRescheduleCardMutation();
+	// ── Mutations: delete / suspend / unsuspend / move / forget / reschedule,
+	// plus the suspend-direction-aware pending + error projection. See
+	// use-card-detail-mutations.
+	const {
+		deleteMutation,
+		suspendMutation,
+		unsuspendMutation,
+		moveMutation,
+		forgetMutation,
+		rescheduleMutation,
+		suspendPending,
+		suspendError,
+	} = useCardDetailMutations({ cardId, deckId, isSuspended });
 
 	function closeRepairDialog(): void {
 		if (forgetMutation.isPending || rescheduleMutation.isPending)
@@ -149,34 +125,9 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 
 	const editHref = `/cards/${cardId}/edit`;
 
-	// ── Page-level keyboard shortcuts: E edits, Shift+M opens the memory
-	// popup. Bare M is the in-card mnemonic tab, so memory takes Shift+M.
-	// Suppressed while typing or while any dialog is open (the memory popup
-	// and the others all close via Esc); E is a no-op on premade cards.
-	useEffect(() => {
-		function onKey(e: KeyboardEvent): void {
-			if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing)
-				return;
-			const t = e.target as HTMLElement | null;
-			if (t !== null && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable))
-				return;
-			if (typeof document !== "undefined" && document.querySelector("dialog[open]") !== null)
-				return;
-
-			const key = e.key.toLowerCase();
-			if (e.shiftKey && key === "m") {
-				e.preventDefault();
-				setShowHistory(v => !v);
-				return;
-			}
-			if (!e.shiftKey && key === "e" && !isPremadeSource) {
-				e.preventDefault();
-				router.push(editHref);
-			}
-		}
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [router, editHref, isPremadeSource]);
+	// Page-level shortcuts: E edits (no-op on premade), Shift+M toggles the
+	// memory popup. See use-card-detail-shortcuts.
+	useCardDetailShortcuts({ editHref, isPremadeSource, setShowHistory });
 
 	if (isLoading) {
 		return (

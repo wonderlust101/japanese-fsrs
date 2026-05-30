@@ -1,13 +1,11 @@
 "use client";
 
 import type { ApiCardListItem, CardSortDir } from "@fsrs-japanese/shared-types";
-import type { CardPageSize } from "./card-list-pagination";
-import type { DeckCardsUrlState } from "./deck-cards-url-state";
 import type { CardRowAction } from "@/app/(app)/cards/_components/cards-results-table";
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
 
 import { TopBar } from "@/app/(app)/_components/top-bar";
@@ -43,20 +41,20 @@ import { useDeckDetailDevState } from "@/dev/panels/deck-detail";
 
 import { listCardsCrossDeckAction } from "@/lib/actions/cards.actions";
 import { deleteDeckAction, getDeckWithStatsAction } from "@/lib/actions/decks.actions";
-import {
-	useBulkDeleteCardsMutation,
-	useBulkMoveCardsMutation,
-	useBulkSuspendCardsMutation,
-} from "@/lib/api/cards";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { CardListPagination } from "./card-list-pagination";
 import { DeckCardToolbar } from "./deck-card-toolbar";
-import { parseDeckCardsUrl, serializeDeckCardsUrl, STATUS_LABEL } from "./deck-cards-url-state";
+import { STATUS_LABEL } from "./deck-cards-url-state";
 import { BulkDeleteCardsDialog, CardDeleteDialog } from "./deck-detail-dialogs";
 import { CardListErrorState, EmptyDeckState, NoMatchState, StudyDeckCta } from "./deck-detail-states";
 import { DeckSnapshotRibbon } from "./deck-snapshot-ribbon";
 import { MoveCardDialog } from "./move-card-dialog";
-import { useDeckCardMutations } from "./use-deck-card-mutations";
+import {
+	useDeckCardMutations,
+} from "./use-deck-card-mutations";
+import { useDeckCardsBulkActions } from "./use-deck-cards-bulk-actions";
+import { useDeckCardsSelection } from "./use-deck-cards-selection";
+import { useDeckCardsUrlState } from "./use-deck-cards-url-state";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,15 +71,11 @@ type ActiveDialog
 		| { kind: "move-card"; card: ApiCardListItem }
 		| { kind: "add-card"; card: ApiCardListItem };
 
-const DEFAULT_PAGE_SIZE: CardPageSize = 25;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	useDeckDetailDevState();
 	const router = useRouter();
-	const pathname = usePathname();
-	const searchParams = useSearchParams();
 	const queryClient = useQueryClient();
 
 	// Local archive + name override state (shared with Decks page via localStorage).
@@ -90,41 +84,22 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	const isArchived = archiveSet.isArchived(deckId);
 	const displayName = nameOverrides.nameFor(deckId, deckName);
 
-	// ── URL-canonical filter state ───────────────────────────────────────
-	// status / search / page live in the URL so the filtered view is
-	// deep-linkable and survives reload. Mirrors cards-browser-view: the URL
-	// is the single source of truth (derived via useMemo), not a duplicated
-	// useState that would race router.replace. `pageSize` stays local — it's a
-	// viewing preference, not part of the view definition.
-	const urlState = useMemo(() => parseDeckCardsUrl(k => searchParams.get(k)), [searchParams]);
-	const status = urlState.status;
-	const searchValue = urlState.search;
-	const sort = urlState.sort;
-	const sortDir = urlState.sortDir;
-	const pageIndex = urlState.page - 1; // 0-indexed for internal use
+	// URL-canonical filter state (status / search / sort / page) + the local
+	// pageSize preference + its single writer. These live in the URL so the
+	// filtered view is deep-linkable; see use-deck-cards-url-state.
+	const {
+		status,
+		searchValue,
+		sort,
+		sortDir,
+		pageIndex,
+		pageSize,
+		updateUrlState,
+		handlePageSizeChange,
+	} = useDeckCardsUrlState();
 
-	const [pageSize, setPageSize] = useState<CardPageSize>(DEFAULT_PAGE_SIZE);
 	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
-	// Bulk-select state for mass editing. Tracked by card id, local (never in the
-	// URL). Cleared whenever the result set itself changes (below); flipping pages
-	// keeps the selection since it's id-based, not row-position based.
-	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 	const { toast, showToast, dismissToast } = useToast();
-
-	// Single writer for the URL state. Accepts a partial patch merged onto the
-	// current state. Resets to page 1 whenever a field that changes the result
-	// set or its order (status / search / sort) changes, so the user never lands
-	// on a stale page; page-only navigation passes through unchanged.
-	function updateUrlState(patch: Partial<DeckCardsUrlState>): void {
-		const current: DeckCardsUrlState = { status, search: searchValue, sort, sortDir, page: pageIndex + 1 };
-		const next = { ...current, ...patch };
-		const onlyPageChanged
-			= next.status === current.status && next.search === current.search
-				&& next.sort === current.sort && next.sortDir === current.sortDir;
-		const finalNext = onlyPageChanged ? next : { ...next, page: 1 };
-		const qs = serializeDeckCardsUrl(finalNext).toString();
-		router.replace(qs.length > 0 ? `${pathname}?${qs}` : pathname, { scroll: false });
-	}
 
 	// Deck header stats.
 	const { data: deck, isLoading: deckLoading } = useQuery({
@@ -173,79 +148,28 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	const filteredEmpty = !cardsLoading && cardCount > 0 && visibleCards.length === 0;
 	const selectedStatusLabel = STATUS_LABEL[status];
 
-	// ── Bulk selection ────────────────────────────────────────────────────
-	const visibleIds = useMemo(() => visibleCards.map(c => c.id), [visibleCards]);
+	// ── Bulk selection (id-keyed; clears on result-set change). See
+	// use-deck-cards-selection.
+	const { selected, toggleSelection, toggleAllVisible, clearSelection } = useDeckCardsSelection(
+		visibleCards,
+		{ status, trimmedSearch, sort, sortDir, pageSize },
+	);
 
-	// Drop the selection whenever the result set itself changes (filter / search
-	// / sort / page size). Page navigation is intentionally excluded: selection
-	// is id-keyed, so paging keeps prior picks. Mirrors cards-browser-view.
-	useEffect(() => {
-		setSelected(new Set()); // eslint-disable-line react/set-state-in-effect -- drops the id-keyed selection when the result set changes (filter/search/sort/page size)
-	}, [status, trimmedSearch, sort, sortDir, pageSize]);
-
-	function toggleSelection(id: string): void {
-		setSelected((prev) => {
-			const next = new Set(prev);
-			if (next.has(id))
-				next.delete(id); else next.add(id);
-			return next;
-		});
-	}
-	function toggleAllVisible(): void {
-		setSelected((prev) => {
-			const allChecked = visibleIds.length > 0 && visibleIds.every(id => prev.has(id));
-			const next = new Set(prev);
-			for (const id of visibleIds) {
-				if (allChecked)
-					next.delete(id); else next.add(id);
-			}
-			return next;
-		});
-	}
-	function clearSelection(): void { setSelected(new Set()); }
-
-	// ── Bulk mutations (shared hooks; invalidate cards.* + decks.*) ────────
-	const bulkMoveMutation = useBulkMoveCardsMutation();
-	const bulkSuspendMutation = useBulkSuspendCardsMutation();
-	const bulkDeleteMutation = useBulkDeleteCardsMutation();
-	const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
-	const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-
-	function reportBulkResult(label: string, result: { succeeded: readonly string[]; failed: readonly { id: string; error: string }[] }): void {
-		const ok = result.succeeded.length;
-		const no = result.failed.length;
-		if (no === 0)
-			showToast(`${label}: ${ok} ${ok === 1 ? "card" : "cards"} updated.`);
-		else showToast(`${label}: ${ok} updated, ${no} failed.`, "error");
-	}
-
-	function handleBulkMoveConfirm(_card: ApiCardListItem, targetDeckId: string): void {
-		bulkMoveMutation.mutate({ ids: [...selected], targetDeckId }, {
-			onSuccess: (result) => { reportBulkResult("Move", result); clearSelection(); setBulkMoveOpen(false); },
-			onError: () => showToast("Couldn't move those cards. Please try again.", "error"),
-		});
-	}
-	function handleBulkSuspend(): void {
-		bulkSuspendMutation.mutate([...selected], {
-			onSuccess: (result) => { reportBulkResult("Suspend", result); clearSelection(); },
-			onError: () => showToast("Couldn't suspend those cards. Please try again.", "error"),
-		});
-	}
-	function handleBulkDeleteConfirm(): void {
-		bulkDeleteMutation.mutate([...selected], {
-			onSuccess: (result) => { reportBulkResult("Delete", result); clearSelection(); setBulkDeleteOpen(false); },
-			onError: () => showToast("Couldn't delete those cards. Please try again.", "error"),
-		});
-	}
+	// ── Bulk actions (move / suspend / delete + confirm-dialog state). See
+	// use-deck-cards-bulk-actions.
+	const {
+		bulkMoveMutation,
+		bulkDeleteMutation,
+		bulkMoveOpen,
+		setBulkMoveOpen,
+		bulkDeleteOpen,
+		setBulkDeleteOpen,
+		handleBulkMoveConfirm,
+		handleBulkSuspend,
+		handleBulkDeleteConfirm,
+	} = useDeckCardsBulkActions({ selected, clearSelection, showToast });
 
 	const { deleteCardMutation, moveCardMutation, copyCardMutation } = useDeckCardMutations(deckId);
-
-	function handlePageSizeChange(next: CardPageSize): void {
-		setPageSize(next);
-		// Changing page size changes how the result set paginates, so jump back
-		// to page 1 (pageSize itself is local, not a URL param).
-		updateUrlState({ page: 1 });
-	}
 
 	function handleNextPage(): void {
 		if (hasNext && !isCardsFetching) {

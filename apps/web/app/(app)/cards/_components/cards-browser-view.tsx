@@ -1,10 +1,9 @@
 "use client";
 
-import type { ApiCardListItem, ApiCrossDeckCardListItem } from "@fsrs-japanese/shared-types";
 import type { CardsPageSize } from "./cards-pagination";
 import type { CardQualityIssue, CardQualityIssueKind } from "./cards-quality-data";
 
-import type { CardRowAction, CardsResultRow } from "./cards-results-table";
+import type { CardsResultRow } from "./cards-results-table";
 import type { DeckOption } from "./cards-toolbar";
 import type { CrossDeckCardsActionOptions } from "@/lib/actions/cards.actions";
 import {
@@ -12,8 +11,7 @@ import {
 
 } from "@fsrs-japanese/shared-types";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { MoveCardDialog } from "@/app/(app)/decks/[id]/_components/move-card-dialog";
@@ -25,14 +23,8 @@ import { PageLoader } from "@/components/ui/TomoLoader";
 import { useCardsDevState } from "@/dev/panels/cards";
 import { listDecksAction } from "@/lib/actions/decks.actions";
 import {
-	useBulkDeleteCardsMutation,
-	useBulkMoveCardsMutation,
-	useBulkSuspendCardsMutation,
 	useCardQualityIssuesQuery,
 	useCardsCrossDeckQuery,
-	useCopyCardMutation,
-	useDeleteCardMutation,
-	useMoveCardMutation,
 } from "@/lib/api/cards";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { CardsActiveChips } from "./cards-active-chips";
@@ -58,13 +50,14 @@ import { CardsToolbar } from "./cards-toolbar";
 import {
 	findViewById,
 } from "./saved-views-storage";
+import { useCardsKeyboardShortcuts } from "./use-cards-keyboard-shortcuts";
+import { useCardsRowActions } from "./use-cards-row-actions";
+import { useCardsSelection } from "./use-cards-selection";
 import { useCardsUrlFilterState } from "./use-cards-url-filter-state";
 
 const DEFAULT_PAGE_SIZE: CardsPageSize = 25;
 
 export function CardsBrowserView(): React.JSX.Element {
-	const router = useRouter();
-
 	const {
 		state,
 		updateState,
@@ -73,55 +66,17 @@ export function CardsBrowserView(): React.JSX.Element {
 		handleClearAll,
 	} = useCardsUrlFilterState();
 
-	// ── Pagination + selection state. ────────────────────────────────────
+	// ── Pagination state. ────────────────────────────────────────────────
 	// `state.page` is the source of truth for the current page (lives in
 	// URL via cards-filter-state). The cursor stack is gone since the
 	// backend switched to offset pagination in 20260630000003.
 	const [pageSize, setPageSize] = useState<CardsPageSize>(DEFAULT_PAGE_SIZE);
-	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 	const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 	const pageIndex = state.page - 1; // 0-indexed internal use only
-	// Add-filter popover state lives here (lifted from CardsToolbar) so a
-	// page-level F-keybinding can open the menu without prop-drilling a
-	// ref through the toolbar.
-	const [addFilterOpen, setAddFilterOpen] = useState(false);
-	// View dropdown imperative open. The DecksMenu primitive that wraps
-	// the View chip already manages its own open state, but we expose a
-	// setter via a small synthetic ref so V can route a click. The
-	// simplest portable approach: a ref to a hidden button-shaped trigger
-	// exposed by CardsViewDropdown.
-	const viewTriggerClickRef = useRef<(() => void) | null>(null);
 
-	// ── Cards-page keyboard shortcuts (F: add filter, V: view picker).
-	// Guard against inputs so typing 'f' or 'v' inside the search field
-	// doesn't trip the shortcut. The HelpDialog at apps/web/components/
-	// help/HelpDialog.tsx documents these bindings.
-	useEffect(() => {
-		function onKey(e: KeyboardEvent): void {
-			// Ignore modified keys (Cmd-F should still trigger browser find).
-			if (e.metaKey || e.ctrlKey || e.altKey)
-				return;
-			const active = document.activeElement;
-			if (active instanceof HTMLElement) {
-				const tag = active.tagName;
-				if (tag === "INPUT" || tag === "TEXTAREA")
-					return;
-				if (active.isContentEditable)
-					return;
-			}
-			if (e.key === "f" || e.key === "F") {
-				e.preventDefault();
-				setAddFilterOpen(true);
-				return;
-			}
-			if (e.key === "v" || e.key === "V") {
-				e.preventDefault();
-				viewTriggerClickRef.current?.();
-			}
-		}
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
+	// Page-level F (add-filter) / V (view-picker) keyboard shortcuts. The
+	// popover open-state + view-trigger ref are surfaced for the toolbar.
+	const { addFilterOpen, setAddFilterOpen, viewTriggerClickRef } = useCardsKeyboardShortcuts();
 
 	const { toast, showToast, dismissToast } = useToast();
 
@@ -204,26 +159,9 @@ export function CardsBrowserView(): React.JSX.Element {
 		? false
 		: (liveQuery.isFetching && !liveQuery.isLoading);
 
-	// Clear selection whenever any filter or page-size change happens.
-	// Page itself is intentionally NOT in the dep list — flipping pages
-	// shouldn't drop the current selection on screen (selection is
-	// tracked by id, not row position). State.page changes drop into
-	// the selection-stability bucket.
-	useEffect(() => {
-		setSelected(new Set()); // eslint-disable-line react/set-state-in-effect -- drops the id-keyed selection when the result set changes (filters), not on page nav
-	}, [
-		state.search,
-		state.deckId,
-		state.jlpt,
-		state.status,
-		state.missingField,
-		state.presentField,
-		state.pitchPattern,
-		state.viewId,
-		state.sort,
-		state.sortDir,
-		pageSize,
-	]);
+	// Id-keyed bulk selection (+ clear-on-filter-change, NOT on page nav).
+	// See use-cards-selection.
+	const { selected, toggleSelection, toggleAllVisible, clearSelection } = useCardsSelection(rows, state, pageSize);
 
 	// ── Quality issues — maps backend kinds to the view-count enum. ──────
 	const qualityIssues: ReadonlyArray<CardQualityIssue> = useMemo(() => {
@@ -243,149 +181,33 @@ export function CardsBrowserView(): React.JSX.Element {
 		return !stateMatchesRecipe(state, activeView.recipe);
 	}, [activeView, state]);
 
-	// ── Row action wiring (unchanged behavior). ──────────────────────────
-	const deleteMutation = useDeleteCardMutation();
-	const moveMutation = useMoveCardMutation();
-	const copyMutation = useCopyCardMutation();
-	const bulkMoveMutation = useBulkMoveCardsMutation();
-	const bulkSuspendMutation = useBulkSuspendCardsMutation();
-	const bulkDeleteMutation = useBulkDeleteCardsMutation();
-
-	const [confirmDelete, setConfirmDelete] = useState<ApiCrossDeckCardListItem | null>(null);
-	const [moveTarget, setMoveTarget] = useState<ApiCrossDeckCardListItem | null>(null);
-	const [copyTarget, setCopyTarget] = useState<ApiCrossDeckCardListItem | null>(null);
-	const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
-	const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-
-	const wireItemById = useCallback(
-		(cardId: string): ApiCrossDeckCardListItem | undefined => {
-			const items = liveQuery.data?.items;
-			if (items === undefined)
-				return undefined;
-			return items.find(i => i.id === cardId);
-		},
-		[liveQuery.data],
-	);
-
-	function handleRowAction(cardId: string, action: CardRowAction): void {
-		const item = wireItemById(cardId);
-		if (action === "edit") {
-			router.push(`/cards/${cardId}`);
-			return;
-		}
-		if (item === undefined) {
-			showToast("Dev-fixture row: real actions require live data.", "info");
-			return;
-		}
-		switch (action) {
-			case "add-copy": setCopyTarget(item); return;
-			case "move": setMoveTarget(item); return;
-			case "delete": setConfirmDelete(item);
-		}
-	}
-
-	function confirmRowDelete(): void {
-		if (confirmDelete === null)
-			return;
-		const card = confirmDelete;
-		const wf = getWordFields(card);
-		const label = wf?.word ?? "card";
-		deleteMutation.mutate(card.id, {
-			onSuccess: () => {
-				showToast(`Deleted ${label}.`, "info");
-				setConfirmDelete(null);
-			},
-			onError: () => showToast("Couldn't delete that card. Please try again.", "error"),
-		});
-	}
-
-	function handleMoveConfirm(card: ApiCardListItem, targetDeckId: string): void {
-		moveMutation.mutate({ cardId: card.id, targetDeckId }, {
-			onSuccess: () => {
-				showToast("Card moved.", "info");
-				setMoveTarget(null);
-			},
-			onError: () => showToast("Couldn't move that card. Please try again.", "error"),
-		});
-	}
-
-	function handleCopyConfirm(card: ApiCardListItem, targetDeckId: string): void {
-		copyMutation.mutate({ cardId: card.id, targetDeckId }, {
-			onSuccess: () => {
-				showToast("Copy added to the deck.", "info");
-				setCopyTarget(null);
-			},
-			onError: () => showToast("Couldn't copy that card. Please try again.", "error"),
-		});
-	}
-
-	// ── Selection helpers. ───────────────────────────────────────────────
-	const visibleIds = useMemo(() => rows.map(r => r.id), [rows]);
-	function toggleSelection(id: string): void {
-		setSelected((prev) => {
-			const next = new Set(prev);
-			if (next.has(id))
-				next.delete(id); else next.add(id);
-			return next;
-		});
-	}
-	function toggleAllVisible(): void {
-		setSelected((prev) => {
-			const allChecked = visibleIds.length > 0 && visibleIds.every(id => prev.has(id));
-			if (allChecked) {
-				const next = new Set(prev);
-				for (const id of visibleIds) next.delete(id);
-				return next;
-			}
-			const next = new Set(prev);
-			for (const id of visibleIds) next.add(id);
-			return next;
-		});
-	}
-	function clearSelection(): void { setSelected(new Set()); }
-
-	// ── Bulk actions. ────────────────────────────────────────────────────
-	function reportBulkResult(label: string, result: { succeeded: string[]; failed: { id: string; error: string }[] }): void {
-		const succeeded = result.succeeded.length;
-		const failed = result.failed.length;
-		if (failed === 0) {
-			showToast(`${label}: ${succeeded} ${succeeded === 1 ? "card" : "cards"} updated.`, "info");
-		} else {
-			showToast(`${label}: ${succeeded} updated, ${failed} failed.`, "error");
-		}
-	}
-
-	function handleBulkMoveConfirm(_card: ApiCardListItem, targetDeckId: string): void {
-		const ids = [...selected];
-		bulkMoveMutation.mutate({ ids, targetDeckId }, {
-			onSuccess: (result) => {
-				reportBulkResult("Move", result);
-				clearSelection();
-				setBulkMoveOpen(false);
-			},
-			onError: () => showToast("Couldn't move those cards. Please try again.", "error"),
-		});
-	}
-
-	function handleBulkSuspend(): void {
-		const ids = [...selected];
-		bulkSuspendMutation.mutate(ids, {
-			onSuccess: (result) => { reportBulkResult("Suspend", result); clearSelection(); },
-			onError: () => showToast("Couldn't suspend those cards. Please try again.", "error"),
-		});
-	}
-
-	function handleBulkDeleteConfirm(): void {
-		const ids = [...selected];
-		bulkDeleteMutation.mutate(ids, {
-			onSuccess: (result) => {
-				reportBulkResult("Delete", result);
-				clearSelection();
-				setBulkDeleteOpen(false);
-			},
-			onError: () => showToast("Couldn't delete those cards. Please try again.", "error"),
-		});
-	}
+	// ── Row + bulk actions: the six card mutations, the dialog-target state
+	// each action drives, and their handlers. The router + mutations live in
+	// the hook; the render reads `isPending`/`error` + dialog state off this.
+	const {
+		deleteMutation,
+		moveMutation,
+		copyMutation,
+		bulkMoveMutation,
+		bulkDeleteMutation,
+		confirmDelete,
+		setConfirmDelete,
+		moveTarget,
+		setMoveTarget,
+		copyTarget,
+		setCopyTarget,
+		bulkMoveOpen,
+		setBulkMoveOpen,
+		bulkDeleteOpen,
+		setBulkDeleteOpen,
+		handleRowAction,
+		confirmRowDelete,
+		handleMoveConfirm,
+		handleCopyConfirm,
+		handleBulkMoveConfirm,
+		handleBulkSuspend,
+		handleBulkDeleteConfirm,
+	} = useCardsRowActions({ items: liveQuery.data?.items, selected, clearSelection, showToast });
 
 	// ── Pagination handlers. ─────────────────────────────────────────────
 	// All three handlers mutate `state.page` via `updateState`, which

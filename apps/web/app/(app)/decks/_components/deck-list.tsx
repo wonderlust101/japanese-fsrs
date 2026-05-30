@@ -1,23 +1,21 @@
 "use client";
 
 import type { ApiDeck } from "@fsrs-japanese/shared-types";
-import type { HeaderVariant } from "./decks-header";
-import type { DecksPageSize } from "./decks-pagination";
 
+import type { ActiveDialog } from "./use-deck-list-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { IconPlus } from "@/components/icons/chrome-marks";
 import { Button } from "@/components/ui/Button";
-import { Toast, useToast } from "@/components/ui/Toast";
-import { PageLoader } from "@/components/ui/TomoLoader";
+import { Toast } from "@/components/ui/Toast";
 
+import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDecksDevState } from "@/dev/panels/decks";
-import { deleteDeckAction, listDecksAction } from "@/lib/actions/decks.actions";
-import { useCopyDeck } from "@/lib/api/decks";
+import { listDecksAction } from "@/lib/actions/decks.actions";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { BulkDeleteDecksDialog } from "./bulk-delete-decks-dialog";
 import { CreateDeckDialog } from "./create-deck-dialog";
@@ -28,37 +26,28 @@ import {
 	RenameDeckDialog,
 } from "./deck-dialogs";
 import { EmptyState, ErrorState, NoMatchesState } from "./deck-list-states";
-import { compareDecks, truncate } from "./deck-sort";
+import { truncate } from "./deck-sort";
 import { DecksCurateBar } from "./decks-curate-bar";
 import { DecksHeader } from "./decks-header";
 import { DecksPagination } from "./decks-pagination";
 import { DecksTabs } from "./decks-tabs";
 import { DecksUtilityRow } from "./decks-utility-row";
-
 import { MatureExplainer } from "./mature-explainer";
 import { useDeckDragReorder } from "./use-deck-drag-reorder";
-import {
-	useArchiveSet,
-	useLocalNameOverrides,
-	useStudyOrder,
-	useViewPrefs,
-
-} from "./use-deck-prefs";
+import { useDeckListActions } from "./use-deck-list-actions";
+import { useDeckListFiltering } from "./use-deck-list-filtering";
+import { useDeckListSelection } from "./use-deck-list-selection";
+import { useDeckListSummary } from "./use-deck-list-summary";
+import { useArchiveSet, useLocalNameOverrides, useStudyOrder, useViewPrefs } from "./use-deck-prefs";
 import { useDeckStatsMap } from "./use-deck-stats-map";
 
-// Default page size on first load. Users can pick from
-// DECKS_PAGE_SIZE_OPTIONS via the per-page selector in the footer.
-const DEFAULT_DECKS_PAGE_SIZE: DecksPageSize = 12;
-
-type ActiveDialog
-	= | { kind: "none" }
-		| { kind: "rename"; deck: ApiDeck }
-		| { kind: "delete"; deck: ApiDeck }
-		| { kind: "edit"; deck: ApiDeck }
-		| { kind: "create" }
-		| { kind: "bulk-delete" };
-
 // ─── Component ────────────────────────────────────────────────────────────
+//
+// Thin orchestrator: it wires data + per-device persistent state into four
+// co-located hooks — selection (curate mode), filtering (search/sort/paginate
+// → visible decks), summary (header counts + variant), and actions (mutations,
+// toasts, a11y announcements) — then renders. The logic those hooks own used to
+// live inline here; see the `use-deck-list-*` files beside this one.
 
 export function DeckListView(): React.JSX.Element {
 	const queryClient = useQueryClient();
@@ -83,13 +72,6 @@ export function DeckListView(): React.JSX.Element {
 	const { dueByDeckId, matureByDeckId, pending: detailsPending } = useDeckStatsMap(allDecks);
 	const isLoading = dev.forcedState === "loading" ? true : (queryLoading || detailsPending);
 
-	function isFullyMature(deckId: string): boolean {
-		const m = matureByDeckId.get(deckId);
-		if (m === undefined)
-			return false;
-		return m.total > 0 && m.mature >= m.total;
-	}
-
 	// ── Persistent state ──────────────────────────────────────────────────
 	// View prefs + study order still live in localStorage (no backend
 	// representation yet). Archive state migrated to the server in 2026-05-19;
@@ -100,331 +82,61 @@ export function DeckListView(): React.JSX.Element {
 	const archiveSet = useArchiveSet();
 	const nameOverrides = useLocalNameOverrides();
 
-	const copyMutation = useCopyDeck();
-
-	// ── Local UI state ────────────────────────────────────────────────────
-	const [searchInputValue, setSearchInputValue] = useState("");
-	const [searchQuery, setSearchQuery] = useState("");
-	const [page, setPage] = useState(1);
-	const [pageSize, setPageSize] = useState<DecksPageSize>(DEFAULT_DECKS_PAGE_SIZE);
-	const [curateMode, setCurateMode] = useState(false);
-	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
-	const [liveMessage, setLiveMessage] = useState("");
-	const { toast, showToast, dismissToast } = useToast();
-
-	// Polite announcer for ordering changes (pointer-drag, kebab move-up/down,
-	// bulk move-to-top). Appending a zero-width space when the message repeats
-	// forces SRs to re-announce identical text on consecutive moves.
-	const announceOrder = useCallback((message: string) => {
-		setLiveMessage(prev => (prev === message ? `${message}​` : message));
-	}, []);
-
-	// Announce the new position of `deckId` against the resolved study order
-	// *after* it's been mutated. Caller passes the post-mutation order so the
-	// index reflects the user-visible state.
-	const announceMove = useCallback(
-		(deckId: string, deckName: string, postOrder: ReadonlyArray<string>) => {
-			const idx = postOrder.indexOf(deckId);
-			if (idx === -1)
-				return;
-			announceOrder(`Moved ${deckName} to position ${idx + 1} of ${postOrder.length}.`);
-		},
-		[announceOrder],
-	);
-
-	const utilityRowRef = useRef<HTMLElement | null>(null);
-
-	useEffect(() => {
-		const id = window.setTimeout(() => setSearchQuery(searchInputValue.trim()), 180);
-		return () => window.clearTimeout(id);
-	}, [searchInputValue]);
-
-	useEffect(() => { setPage(1); }, [prefs.sort, prefs.typeFilter, prefs.view, searchQuery, pageSize]); // eslint-disable-line react/set-state-in-effect -- returns to page 1 when filters/sort/page-size narrow the result set
-
-	// ── Derived data ──────────────────────────────────────────────────────
-
-	const slotByDeckId = useMemo(() => {
-		const map = new Map<string, number>();
-		let slot = 1;
-		for (const deckId of studyOrder.resolvedOrder) {
-			if (archiveSet.isArchived(deckId))
-				continue;
-			map.set(deckId, slot++);
-		}
-		return map;
-	}, [studyOrder.resolvedOrder, archiveSet]);
-
 	const displayNameOf = useCallback(
 		(deck: ApiDeck) => nameOverrides.nameFor(deck.id, deck.name),
 		[nameOverrides],
 	);
 
-	const filteredDecks: ApiDeck[] = useMemo(() => {
-		const q = searchQuery.toLowerCase();
-		return allDecks.filter((deck) => {
-			const archived = archiveSet.isArchived(deck.id);
-			// Tab filter: Active = non-archived; Mature = non-archived AND fully mature;
-			// Archived = archived only. Mature is a sub-filter on Active.
-			switch (prefs.view) {
-				case "active":
-					if (archived)
-						return false;
-					break;
-				case "mature":
-					if (archived)
-						return false;
-					if (!isFullyMature(deck.id))
-						return false;
-					break;
-				case "archived":
-					if (!archived)
-						return false;
-					break;
-			}
-			if (prefs.typeFilter !== "all" && deck.deckType !== prefs.typeFilter)
-				return false;
-			if (q.length > 0) {
-				const haystack = `${displayNameOf(deck)} ${deck.description ?? ""}`.toLowerCase();
-				if (!haystack.includes(q))
-					return false;
-			}
-			return true;
-		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- isFullyMature is a pure reader of matureByDeckId, which is already listed; depending on the function identity would recompute every render.
-	}, [allDecks, prefs.typeFilter, prefs.view, searchQuery, archiveSet, displayNameOf, matureByDeckId]);
-
-	const sortedDecks: ApiDeck[] = useMemo(() => {
-		const list = [...filteredDecks];
-		list.sort((a, b) => compareDecks(a, b, prefs.sort, slotByDeckId, dueByDeckId, displayNameOf));
-		return list;
-	}, [filteredDecks, prefs.sort, slotByDeckId, dueByDeckId, displayNameOf]);
-
-	const totalCount = sortedDecks.length;
-	const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-	const safePage = Math.min(page, totalPages);
-	const pageStart = (safePage - 1) * pageSize;
-	const pageEnd = Math.min(pageStart + pageSize, totalCount);
-	const visibleDecks = useMemo(() => sortedDecks.slice(pageStart, pageEnd), [sortedDecks, pageStart, pageEnd]);
-
-	// Drag-to-reorder is enabled in study-order sort on the active-decks view.
-	// Reordering only makes sense while looking at the live study queue — not
-	// when viewing the mature or archived subsets.
-	const canReorder = prefs.sort === "study-order" && prefs.view === "active";
-
-	const { dragState, handleDragHandleDown } = useDeckDragReorder({
-		canReorder,
-		visibleDecks,
+	// ── Derived view model + interactions (co-located hooks) ────────────────
+	const filtering = useDeckListFiltering({
+		allDecks,
+		prefs,
+		archiveSet,
 		studyOrder,
-		announceMove,
+		dueByDeckId,
+		matureByDeckId,
 		displayNameOf,
 	});
 
-	const archivedCount = useMemo(
-		() => allDecks.filter(d => archiveSet.isArchived(d.id)).length,
-		[allDecks, archiveSet],
-	);
-	const activeCount = allDecks.length - archivedCount;
+	const summary = useDeckListSummary({
+		allDecks,
+		archiveSet,
+		studyOrder,
+		dueByDeckId,
+		matureByDeckId,
+		displayNameOf,
+		isLoading,
+		isError,
+		searchQuery: filtering.searchQuery,
+		totalCount: filtering.totalCount,
+	});
 
-	// Mature-tab population: non-archived decks at 100% mature. Hidden from the
-	// count until stats arrive — same behavior as the filter itself.
-	const matureTabCount = useMemo(() => {
-		let n = 0;
-		allDecks.forEach((d) => {
-			if (archiveSet.isArchived(d.id))
-				return;
-			if (isFullyMature(d.id))
-				n += 1;
-		});
-		return n;
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- isFullyMature is a pure reader of matureByDeckId, which is already listed; depending on the function identity would recompute every render.
-	}, [allDecks, archiveSet, matureByDeckId]);
+	const { curateMode, setCurateMode, selectedIds, toggleSelected } = useDeckListSelection();
 
-	// Roll up due workload across all active decks for the header status line.
-	const { totalDueCount, decksWithDueCount } = useMemo(() => {
-		let total = 0;
-		let decks = 0;
-		allDecks.forEach((d) => {
-			if (archiveSet.isArchived(d.id))
-				return;
-			const due = dueByDeckId.get(d.id) ?? 0;
-			if (due > 0)
-				decks += 1;
-			total += due;
-		});
-		return { totalDueCount: total, decksWithDueCount: decks };
-	}, [allDecks, archiveSet, dueByDeckId]);
+	// Dialog state stays local — the render branches on it directly. The actions
+	// hook closes/opens it (bulk-delete) via the setter passed below.
+	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
+	const utilityRowRef = useRef<HTMLElement | null>(null);
+
+	const actions = useDeckListActions({
+		archiveSet,
+		studyOrder,
+		displayNameOf,
+		selectedIds,
+		setCurateMode,
+		setActiveDialog,
+	});
+
+	// Drag-to-reorder reads the visible slice + the actions announcer.
+	const { dragState, handleDragHandleDown } = useDeckDragReorder({
+		canReorder: filtering.canReorder,
+		visibleDecks: filtering.visibleDecks,
+		studyOrder,
+		announceMove: actions.announceMove,
+		displayNameOf,
+	});
 
 	const priorityDeckId = studyOrder.priorityDeckId;
-	const priorityDeckName = useMemo(() => {
-		if (priorityDeckId === null)
-			return null;
-		if (archiveSet.isArchived(priorityDeckId))
-			return null;
-		const deck = allDecks.find(d => d.id === priorityDeckId);
-		return deck === undefined ? null : displayNameOf(deck);
-	}, [priorityDeckId, allDecks, archiveSet, displayNameOf]);
-
-	// ── Header variant ────────────────────────────────────────────────────
-	const headerVariant: HeaderVariant = useMemo(() => {
-		if (isLoading)
-			return { kind: "loading" };
-		if (isError)
-			return { kind: "error" };
-		if (allDecks.length === 0)
-			return { kind: "empty" };
-		if (searchQuery.length > 0) {
-			return { kind: "search", query: searchQuery, matchedCount: totalCount, totalCount: allDecks.length };
-		}
-		return {
-			kind: "default",
-			activeCount,
-			archivedCount,
-			priorityDeckName,
-			totalDueCount,
-			decksWithDueCount,
-		};
-	}, [isLoading, isError, allDecks.length, searchQuery, totalCount, activeCount, archivedCount, priorityDeckName, totalDueCount, decksWithDueCount]);
-
-	// ── Curate-mode lifecycle ─────────────────────────────────────────────
-	useEffect(() => {
-		if (!curateMode)
-			setSelectedIds(new Set()); // eslint-disable-line react/set-state-in-effect -- clears the bulk selection when leaving curate mode
-	}, [curateMode]);
-
-	function toggleSelected(deckId: string): void {
-		setSelectedIds((prev) => {
-			const next = new Set(prev);
-			if (next.has(deckId))
-				next.delete(deckId);
-			else next.add(deckId);
-			return next;
-		});
-	}
-
-	// ── Action handlers ───────────────────────────────────────────────────
-	function handleSetAsPriority(deckId: string, deckName: string): void {
-		if (archiveSet.isArchived(deckId)) {
-			archiveSet.restore(deckId);
-		}
-		studyOrder.setAsPriority(deckId);
-		showToast(`Pinned "${truncate(deckName, 28)}" as priority.`);
-	}
-
-	function handleArchive(deckId: string, deckName: string): void {
-		// Capture priority status BEFORE mutating; archive demotes the priority
-		// deck silently, so the toast carries the warning instead of a modal.
-		const wasPriority = deckId === priorityDeckId;
-		archiveSet.archive(deckId);
-		const suffix = wasPriority ? " (your priority deck)" : "";
-		showToast(
-			`Archived "${truncate(deckName, 28)}"${suffix}.`,
-			"info",
-			{ label: "Undo", onClick: () => archiveSet.restore(deckId) },
-		);
-	}
-
-	function handleRestore(deckId: string, deckName: string): void {
-		archiveSet.restore(deckId);
-		showToast(
-			`Restored "${truncate(deckName, 28)}".`,
-			"info",
-			{ label: "Undo", onClick: () => archiveSet.archive(deckId) },
-		);
-	}
-
-	function handleCopy(deckId: string, deckName: string): void {
-		copyMutation.mutate(deckId, {
-			onSuccess: () => {
-				showToast(`Copied "${truncate(deckName, 28)}".`);
-			},
-			onError: () => {
-				showToast(`Couldn't copy "${truncate(deckName, 28)}". Please try again.`, "error");
-			},
-		});
-	}
-
-	function handleBulkArchive(): void {
-		const ids = [...selectedIds];
-		// Capture priority inclusion BEFORE mutating; mirrors the single-row
-		// archive flow so power users get the same safety net (warning copy
-		// + Undo) when curate-mode bulk-archive happens to include slot 01.
-		const includesPriority = priorityDeckId !== null && ids.includes(priorityDeckId);
-		archiveSet.archiveMany(ids);
-		const suffix = includesPriority ? " (including your priority deck)" : "";
-		showToast(
-			`Archived ${ids.length} deck${ids.length === 1 ? "" : "s"}${suffix}.`,
-			"info",
-			{ label: "Undo", onClick: () => { for (const id of ids) archiveSet.restore(id); } },
-		);
-		setCurateMode(false);
-	}
-
-	function handleBulkCopy(): void {
-		const ids = [...selectedIds];
-		setCurateMode(false);
-		void Promise.allSettled(
-			ids.map(id => copyMutation.mutateAsync(id)),
-		).then((results) => {
-			const failures = results.filter(r => r.status === "rejected").length;
-			if (failures === 0) {
-				showToast(`Copied ${ids.length} deck${ids.length === 1 ? "" : "s"}.`);
-			} else if (failures === ids.length) {
-				showToast(`Couldn't copy ${ids.length} deck${ids.length === 1 ? "" : "s"}.`, "error");
-			} else {
-				showToast(`Copied ${ids.length - failures}. ${failures} failed.`, "error");
-			}
-		});
-	}
-
-	function handleBulkDelete(): void {
-		const ids = [...selectedIds];
-		setCurateMode(false);
-		setActiveDialog({ kind: "none" });
-		void Promise.allSettled(
-			ids.map(id => deleteDeckAction(id)),
-		).then((results) => {
-			void queryClient.invalidateQueries({ queryKey: queryKeys.decks.all() });
-			const failures = results.filter(r => r.status === "rejected").length;
-			if (failures === 0) {
-				showToast(`Deleted ${ids.length} deck${ids.length === 1 ? "" : "s"}.`);
-			} else if (failures === ids.length) {
-				showToast(`Couldn't delete ${ids.length} deck${ids.length === 1 ? "" : "s"}.`, "error");
-			} else {
-				showToast(`Deleted ${ids.length - failures}. ${failures} failed.`, "error");
-			}
-		});
-	}
-
-	function handleBulkMoveToTop(): void {
-		const ids = [...selectedIds];
-		studyOrder.moveToTop(ids);
-		showToast(`Moved ${ids.length} deck${ids.length === 1 ? "" : "s"} to the top of the study order.`);
-		announceOrder(`Moved ${ids.length} deck${ids.length === 1 ? "" : "s"} to the top of the study order.`);
-		setCurateMode(false);
-	}
-
-	function handleMoveUp(deck: ApiDeck): void {
-		studyOrder.moveUp(deck.id);
-		const order = [...studyOrder.resolvedOrder];
-		const idx = order.indexOf(deck.id);
-		if (idx > 0) {
-			const above = order[idx - 1];
-			if (above !== undefined) { order[idx - 1] = deck.id; order[idx] = above; }
-		}
-		announceMove(deck.id, displayNameOf(deck), order);
-	}
-
-	function handleMoveDown(deck: ApiDeck): void {
-		studyOrder.moveDown(deck.id);
-		const order = [...studyOrder.resolvedOrder];
-		const idx = order.indexOf(deck.id);
-		if (idx >= 0 && idx < order.length - 1) {
-			const below = order[idx + 1];
-			if (below !== undefined) { order[idx + 1] = deck.id; order[idx] = below; }
-		}
-		announceMove(deck.id, displayNameOf(deck), order);
-	}
 
 	// ── Render ────────────────────────────────────────────────────────────
 
@@ -470,16 +182,16 @@ export function DeckListView(): React.JSX.Element {
 				].join(" ")}
 			>
 				<div className="relative mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
-					<DecksHeader variant={headerVariant} />
+					<DecksHeader variant={summary.headerVariant} />
 
 					{/* Top-level tabs and curate bar. Hidden in the empty state because
               there's nothing to sort, filter, or page through yet. */}
-					{!(headerVariant.kind === "empty") && (
+					{!(summary.headerVariant.kind === "empty") && (
 						<>
 							<div className="relative mt-4">
 								<DecksTabs
 									view={prefs.view}
-									counts={{ active: activeCount, mature: matureTabCount, archived: archivedCount }}
+									counts={{ active: summary.activeCount, mature: summary.matureTabCount, archived: summary.archivedCount }}
 									panelId="decks-list-panel"
 									onChange={setView}
 								/>
@@ -491,11 +203,11 @@ export function DeckListView(): React.JSX.Element {
 								<DecksUtilityRow
 									sort={prefs.sort}
 									typeFilter={prefs.typeFilter}
-									searchQuery={searchInputValue}
+									searchQuery={filtering.searchInputValue}
 									curateActive={curateMode}
 									onSort={setSort}
 									onTypeFilter={setTypeFilter}
-									onSearchQuery={setSearchInputValue}
+									onSearchQuery={filtering.setSearchInputValue}
 									onCurate={() => setCurateMode(v => !v)}
 								/>
 							</section>
@@ -519,7 +231,7 @@ export function DeckListView(): React.JSX.Element {
                 Move up / Move down, bulk Move to top). Hidden visually,
                 spoken by SRs. */}
 						<p className="sr-only" aria-live="polite" aria-atomic="true">
-							{liveMessage}
+							{actions.liveMessage}
 						</p>
 
 						{!isLoading && isError && (
@@ -534,17 +246,17 @@ export function DeckListView(): React.JSX.Element {
 							<EmptyState onCreate={() => setActiveDialog({ kind: "create" })} />
 						)}
 
-						{!isLoading && !isError && allDecks.length > 0 && visibleDecks.length === 0 && (
+						{!isLoading && !isError && allDecks.length > 0 && filtering.visibleDecks.length === 0 && (
 							<NoMatchesState
-								query={searchQuery}
+								query={filtering.searchQuery}
 								view={prefs.view}
 								typeFilter={prefs.typeFilter}
 							/>
 						)}
 
-						{!isLoading && !isError && visibleDecks.map((deck, viewIndex) => {
+						{!isLoading && !isError && filtering.visibleDecks.map((deck, viewIndex) => {
 							const isPriority = !archiveSet.isArchived(deck.id) && deck.id === priorityDeckId;
-							const slotIndex = slotByDeckId.get(deck.id) ?? null;
+							const slotIndex = filtering.slotByDeckId.get(deck.id) ?? null;
 							const isArchived = archiveSet.isArchived(deck.id);
 							const isDragging = dragState?.draggedId === deck.id;
 							const isDropTarget = dragState?.overIndex === viewIndex && dragState?.draggedId !== deck.id;
@@ -561,37 +273,37 @@ export function DeckListView(): React.JSX.Element {
 									isArchived={isArchived}
 									curateMode={curateMode}
 									selected={selectedIds.has(deck.id)}
-									dragEnabled={canReorder && !isArchived}
+									dragEnabled={filtering.canReorder && !isArchived}
 									isDragging={isDragging}
 									isDropTarget={isDropTarget}
 									canMoveUp={!isArchived && orderIndex > 0}
 									canMoveDown={!isArchived && orderIndex >= 0 && orderIndex < studyOrder.resolvedOrder.length - 1}
 									onToggleSelect={() => toggleSelected(deck.id)}
-									onSetAsPriority={() => handleSetAsPriority(deck.id, displayNameOf(deck))}
+									onSetAsPriority={() => actions.handleSetAsPriority(deck.id, displayNameOf(deck))}
 									onRename={() => setActiveDialog({ kind: "rename", deck })}
-									onCopy={() => handleCopy(deck.id, displayNameOf(deck))}
+									onCopy={() => actions.handleCopy(deck.id, displayNameOf(deck))}
 									onEditOptions={() => setActiveDialog({ kind: "edit", deck })}
-									onArchive={() => handleArchive(deck.id, displayNameOf(deck))}
-									onRestore={() => handleRestore(deck.id, displayNameOf(deck))}
+									onArchive={() => actions.handleArchive(deck.id, displayNameOf(deck))}
+									onRestore={() => actions.handleRestore(deck.id, displayNameOf(deck))}
 									onDelete={() => setActiveDialog({ kind: "delete", deck })}
-									onMoveUp={() => handleMoveUp(deck)}
-									onMoveDown={() => handleMoveDown(deck)}
+									onMoveUp={() => actions.handleMoveUp(deck)}
+									onMoveDown={() => actions.handleMoveDown(deck)}
 									onDragHandleDown={handleDragHandleDown(deck.id, viewIndex)}
 								/>
 							);
 						})}
 					</section>
 
-					{!isLoading && !isError && visibleDecks.length > 0 && (
+					{!isLoading && !isError && filtering.visibleDecks.length > 0 && (
 						<DecksPagination
-							page={safePage}
-							pageSize={pageSize}
-							totalCount={totalCount}
+							page={filtering.safePage}
+							pageSize={filtering.pageSize}
+							totalCount={filtering.totalCount}
 							scrollTargetEl={utilityRowRef as React.RefObject<HTMLElement | null>}
-							onPickPage={setPage}
-							onPrev={() => setPage(p => Math.max(1, p - 1))}
-							onNext={() => setPage(p => Math.min(totalPages, p + 1))}
-							onPageSizeChange={setPageSize}
+							onPickPage={filtering.setPage}
+							onPrev={() => filtering.setPage(p => Math.max(1, p - 1))}
+							onNext={() => filtering.setPage(p => Math.min(filtering.totalPages, p + 1))}
+							onPageSizeChange={filtering.setPageSize}
 						/>
 					)}
 
@@ -607,11 +319,11 @@ export function DeckListView(): React.JSX.Element {
 					<DecksCurateBar
 						selectedCount={selectedIds.size}
 						totalCount={allDecks.length}
-						canReorder={canReorder}
+						canReorder={filtering.canReorder}
 						onDone={() => setCurateMode(false)}
-						onMoveToTop={handleBulkMoveToTop}
-						onArchive={handleBulkArchive}
-						onCopy={handleBulkCopy}
+						onMoveToTop={actions.handleBulkMoveToTop}
+						onArchive={actions.handleBulkArchive}
+						onCopy={actions.handleBulkCopy}
 						onDelete={() => setActiveDialog({ kind: "bulk-delete" })}
 					/>
 				)}
@@ -626,7 +338,7 @@ export function DeckListView(): React.JSX.Element {
 				open={activeDialog.kind === "bulk-delete"}
 				selectedCount={selectedIds.size}
 				onClose={() => setActiveDialog({ kind: "none" })}
-				onConfirm={() => handleBulkDelete()}
+				onConfirm={() => actions.handleBulkDelete()}
 			/>
 
 			<RenameDeckDialog
@@ -635,8 +347,8 @@ export function DeckListView(): React.JSX.Element {
 				currentName={activeDialog.kind === "rename" ? displayNameOf(activeDialog.deck) : ""}
 				onClose={() => setActiveDialog({ kind: "none" })}
 				onLocalRename={(id, name) => nameOverrides.setNameOverride(id, name)}
-				onError={msg => showToast(msg, "error")}
-				onSuccess={name => showToast(`Renamed to "${truncate(name, 28)}".`)}
+				onError={msg => actions.showToast(msg, "error")}
+				onSuccess={name => actions.showToast(`Renamed to "${truncate(name, 28)}".`)}
 			/>
 
 			<DeleteDeckDialog
@@ -644,13 +356,13 @@ export function DeckListView(): React.JSX.Element {
 				deck={activeDialog.kind === "delete" ? activeDialog.deck : null}
 				cardCount={activeDialog.kind === "delete" ? activeDialog.deck.cardCount : 0}
 				onClose={() => setActiveDialog({ kind: "none" })}
-				onError={msg => showToast(msg, "error")}
+				onError={msg => actions.showToast(msg, "error")}
 				onSuccess={(name) => {
 					if (activeDialog.kind === "delete") {
 						nameOverrides.setNameOverride(activeDialog.deck.id, null);
 						archiveSet.restore(activeDialog.deck.id);
 					}
-					showToast(`Deleted "${truncate(name, 28)}".`);
+					actions.showToast(`Deleted "${truncate(name, 28)}".`);
 				}}
 			/>
 
@@ -662,19 +374,19 @@ export function DeckListView(): React.JSX.Element {
 				onLocalRename={(id, name) => nameOverrides.setNameOverride(id, name)}
 				onArchive={id => archiveSet.archive(id)}
 				onRestore={id => archiveSet.restore(id)}
-				onError={msg => showToast(msg, "error")}
-				onSuccess={msg => showToast(msg)}
+				onError={msg => actions.showToast(msg, "error")}
+				onSuccess={msg => actions.showToast(msg)}
 			/>
 
-			{toast !== null && (
+			{actions.toast !== null && (
 				<Toast
-					key={toast.key}
-					message={toast.message}
-					kind={toast.kind}
-					onDismiss={dismissToast}
+					key={actions.toast.key}
+					message={actions.toast.message}
+					kind={actions.toast.kind}
+					onDismiss={actions.dismissToast}
 					// 5s window when there's an Undo affordance, otherwise the
 					// Toast component's default (3.2s for info, persist for error).
-					{...(toast.action !== undefined ? { action: toast.action, durationMs: 5000 } : {})}
+					{...(actions.toast.action !== undefined ? { action: actions.toast.action, durationMs: 5000 } : {})}
 				/>
 			)}
 		</>
