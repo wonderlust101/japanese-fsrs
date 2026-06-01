@@ -4,6 +4,7 @@ import { jlptLevelEnum } from "@fsrs-japanese/shared-types";
 import { z } from "zod";
 import { supabaseAdmin } from "../db/supabase.ts";
 import { asPayload } from "../lib/db.ts";
+import { invalidateProfileCache, readProfileCache, writeProfileCache } from "../lib/profile-cache.ts";
 import { AppError, dbError } from "../middleware/errorHandler.ts";
 
 export type { Profile };
@@ -84,15 +85,14 @@ async function fetchInterests(userId: string): Promise<string[]> {
 // ─── Service functions ────────────────────────────────────────────────────────
 
 /**
- * Fetches the profile row for the given user, joined with user_interests.
+ * Raw DB fetch: the profile row joined with user_interests. The single source
+ * of truth both `getProfile` (uncached) and `getProfileCached` build on.
  *
  * Under normal operation this cannot return 404 — the `on_auth_user_created`
  * trigger inserts a default profile row on every signup. A 404 here indicates
  * the trigger was bypassed (test seed, migration rollback, manual deletion).
- *
- * @param userId - The authenticated user's UUID from auth.users
  */
-export async function getProfile(userId: string): Promise<Profile> {
+async function fetchProfileFromDb(userId: string): Promise<Profile> {
 	const [profileResult, interests] = await Promise.all([
 		supabaseAdmin
 			.from("profiles")
@@ -107,6 +107,41 @@ export async function getProfile(userId: string): Promise<Profile> {
 	}
 
 	return toProfile(ProfileDbRowSchema.parse(profileResult.data), interests);
+}
+
+/**
+ * Fetches the profile straight from the DB (no cache). Use where the live
+ * optimistic-concurrency `version` matters: the settings `GET /profile` and
+ * `updateProfile`'s return. Read-heavy callers should prefer
+ * {@link getProfileCached}.
+ *
+ * @param userId - The authenticated user's UUID from auth.users
+ */
+export async function getProfile(userId: string): Promise<Profile> {
+	return fetchProfileFromDb(userId);
+}
+
+/**
+ * Cached variant of {@link getProfile}. Reads a short-lived Redis entry
+ * (`profile:v1:${userId}`); on miss, fetches from the DB and populates the
+ * cache fire-and-forget. Invalidated by `updateProfile`.
+ *
+ * Use for read-heavy / AI paths (reviews, analytics, card generation,
+ * day-reflection) where the profile's scheduling/content fields are needed but
+ * the live `version` is not — the cached copy can be up to its TTL stale across
+ * devices. PATCH stays correct regardless: the update RPC checks `version`
+ * against the DB, and the client's If-Match comes from the uncached
+ * `GET /profile`.
+ */
+export async function getProfileCached(userId: string): Promise<Profile> {
+	const cached = await readProfileCache(userId);
+	if (cached !== null)
+		return cached;
+
+	const profile = await fetchProfileFromDb(userId);
+	// Fire-and-forget — a Redis hiccup must not delay the response.
+	void writeProfileCache(userId, profile);
+	return profile;
 }
 
 /**
@@ -164,5 +199,10 @@ export async function updateProfile(
 		throw dbError("update profile", error);
 	}
 
+	// Bust the cached copy so the next read reflects the write. Awaited (it
+	// never throws — failures are swallowed inside) so the uncached re-fetch
+	// below can't race a concurrent reader onto a stale entry.
+	await invalidateProfileCache(userId);
+	// Uncached on purpose: returns the just-written row with the bumped version.
 	return getProfile(userId);
 }
