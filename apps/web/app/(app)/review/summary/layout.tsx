@@ -1,9 +1,5 @@
-import type { Metadata } from "next";
-
-// Holds metadata for the client-component page.tsx in this segment (metadata
-// can't be exported from a 'use client' file).
-export const metadata: Metadata = { title: "Session summary" };
-
+// Outer layout for the /review/summary segment. The nested [sessionId]/layout.tsx
+// holds the actual metadata and Suspense boundary for all real + fixture views.
 export default function Layout({ children }: { children: React.ReactNode }): React.JSX.Element {
 	return <>{children}</>;
 }

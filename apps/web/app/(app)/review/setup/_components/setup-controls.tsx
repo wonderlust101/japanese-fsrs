@@ -111,6 +111,7 @@ export function SetupControls({
 			description="Anything you change here lasts for this session only, unless you save it as your default."
 			stripeTone="aizome"
 			kanjiTone="aizome"
+			reveal
 			// Scoped accent swap. Any descendant painted in the vermillion
 			// accent is retinted to aizome for this surface only. The descendant
 			// variants compile with specificity (0,2,0) which naturally beats
@@ -274,6 +275,7 @@ function DecksSection({
 					{includedCount}
 					{" "}
 					of
+					{" "}
 					{decks.length}
 					{" "}
 					decks,

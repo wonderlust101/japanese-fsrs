@@ -1,12 +1,8 @@
 import type { ApiDueCard } from "@fsrs-japanese/shared-types";
 
-import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	useResumeContext,
-	useReviewSessionStore,
-} from "../useReviewSessionStore";
+import { useReviewSessionStore } from "../useReviewSessionStore";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 //
@@ -260,6 +256,34 @@ describe("useReviewSessionStore", () => {
 		});
 	});
 
+	describe("attachReviewTimeMs", () => {
+		it("patches the most recent entry for the given cardId", () => {
+			actions.startSession(CARDS);
+			actions.submitRating("good"); // c1
+			actions.submitRating("hard"); // c2
+
+			actions.attachReviewTimeMs("c2", 4200);
+
+			const s = useReviewSessionStore.getState();
+			if (s.phase !== "active")
+				throw new Error("expected active");
+			expect(s.sessionHistory[1]?.reviewTimeMs).toBe(4200);
+			expect(s.sessionHistory[0]?.reviewTimeMs).toBeUndefined();
+		});
+
+		it("is a no-op when the matching entry already has a time recorded", () => {
+			actions.startSession(CARDS);
+			actions.submitRating("good");
+			actions.attachReviewTimeMs("c1", 1000);
+			actions.attachReviewTimeMs("c1", 9999); // ignored — already timed
+
+			const s = useReviewSessionStore.getState();
+			if (s.phase !== "active")
+				throw new Error("expected active");
+			expect(s.sessionHistory[0]?.reviewTimeMs).toBe(1000);
+		});
+	});
+
 	describe("endSession", () => {
 		it("transitions active → finished and preserves sessionId + history", () => {
 			actions.startSession(CARDS);
@@ -296,36 +320,6 @@ describe("useReviewSessionStore", () => {
 			actions.endSession();
 			actions.reset();
 			expect(useReviewSessionStore.getState().phase).toBe("idle");
-		});
-	});
-
-	describe("useResumeContext selector", () => {
-		it("returns null when phase is idle", () => {
-			const { result } = renderHook(() => useResumeContext());
-			expect(result.current).toBeNull();
-		});
-
-		it("returns { sessionId, remaining } when phase is active with remaining cards", () => {
-			actions.startSession(CARDS);
-			const { result } = renderHook(() => useResumeContext());
-			expect(result.current).not.toBeNull();
-			expect(result.current?.remaining).toBe(3);
-			expect(typeof result.current?.sessionId).toBe("string");
-		});
-
-		it("returns null when all cards in active session have been rated", () => {
-			actions.startSession([CARDS[0]!]);
-			actions.submitRating("good"); // queue exhausted but not yet ended
-			const { result } = renderHook(() => useResumeContext());
-			expect(result.current).toBeNull();
-		});
-
-		it("returns null when phase is finished", () => {
-			actions.startSession([CARDS[0]!]);
-			actions.submitRating("good");
-			actions.endSession();
-			const { result } = renderHook(() => useResumeContext());
-			expect(result.current).toBeNull();
 		});
 	});
 });

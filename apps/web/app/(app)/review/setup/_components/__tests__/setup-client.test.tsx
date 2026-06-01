@@ -64,6 +64,7 @@ vi.mock("@/lib/actions/reviews.actions", () => ({
 	submitReviewAction: vi.fn(),
 	getSessionSummaryAction: vi.fn(),
 	batchDiagnoseSessionWeakSpotsAction: vi.fn(),
+	closeSessionAction: vi.fn(),
 	submitBatchAction: vi.fn(),
 	rollbackReviewAction: vi.fn(),
 	getRatingsPreviewAction: vi.fn(),

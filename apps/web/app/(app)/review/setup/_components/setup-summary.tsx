@@ -50,6 +50,7 @@ export function SetupSummary({
 			label="Today's session"
 			description={description}
 			stripeTone="brand"
+			reveal
 			{...(flag !== undefined && { flag })}
 		>
 			<div className="flex flex-col gap-3">

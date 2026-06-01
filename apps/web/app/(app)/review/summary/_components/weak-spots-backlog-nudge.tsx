@@ -18,7 +18,7 @@ export function WeakSpotsBacklogNudge(): React.JSX.Element | null {
 	const noun = count === 1 ? "weak spot" : "weak spots";
 
 	return (
-		<div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-soft-hairline pt-6">
+		<div className="animate-page-enter flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-soft-hairline pt-6">
 			<span
 				lang="ja"
 				aria-hidden="true"
@@ -32,6 +32,7 @@ export function WeakSpotsBacklogNudge(): React.JSX.Element | null {
 				{noun}
 				{" "}
 				still
+				{" "}
 				{count === 1 ? "needs" : "need"}
 				{" "}
 				a look.

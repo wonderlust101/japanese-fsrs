@@ -1,6 +1,7 @@
 import type { SummaryContent } from "@/lib/review/summary-pattern";
 import { TeacherQuotation } from "@/components/review/TeacherQuotation";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { TomoLoader } from "@/components/ui/TomoLoader";
 
 // ── Session details card ────────────────────────────────────────────────────
 // Two sub-sections inside one SectionCard, separated by a hairline. Top:
@@ -60,19 +61,14 @@ export function SessionDetailsCard({
 	);
 }
 
-// Soft skeleton placeholder shown only on the AI reflection's first load.
-// Mirrors the bracket-and-prose silhouette of TeacherQuotation so the swap
-// doesn't shift surrounding layout when the real text arrives. The faded
-// background pulse is purely visual; the layout height is set by the same
-// `min-h-[200px]` floor TeacherQuotation uses.
+// Loading placeholder shown only on the AI reflection's first load. Uses the
+// canonical card-stack TomoLoader (the app's single loading motif) centered in
+// the same `min-h-[200px]` floor TeacherQuotation uses, so the swap to real
+// prose doesn't shift surrounding layout.
 function ReflectionSkeleton(): React.JSX.Element {
 	return (
-		<div className="relative flex h-full min-h-[200px] flex-col justify-center py-6" aria-busy="true" aria-live="polite">
-			<div className="mx-auto flex w-full max-w-measure-tight flex-col gap-3 px-4">
-				<div className="h-4 w-5/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-				<div className="h-4 w-4/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-				<div className="h-4 w-3/6 animate-pulse rounded-xs bg-cream-inset/80 motion-reduce:animate-none" />
-			</div>
+		<div className="relative flex h-full min-h-[200px] flex-col items-center justify-center py-6" aria-busy="true" aria-live="polite">
+			<TomoLoader size="block" />
 		</div>
 	);
 }

@@ -21,6 +21,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useReviewSetupDevState } from "@/dev/panels/review-setup";
 import { useOnlineStatus } from "@/hooks/use-online-status";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useDecks } from "@/lib/api/decks";
 import { useDueCards } from "@/lib/api/reviews";
 import { inferDeckLevel } from "@/lib/deck-level";
@@ -60,6 +61,12 @@ export function SetupClient({
 }: SetupClientProps): React.JSX.Element {
 	const router = useRouter();
 	const { startSession } = useSessionActions();
+
+	// Page-level section reveal (mount mode — no ScrollTrigger). Header lead +
+	// the setup SectionCards (summary, settings, or the first-time / all-clear
+	// moment card) cascade in. Attaches to PageFrame's content grid; re-runs when
+	// the resolved branch changes so the cascade fires once the sections mount.
+	const contentRef = useRef<HTMLDivElement | null>(null);
 
 	// ── Tuning state ─────────────────────────────────────────────────────────
 	const tuning = useSessionTuningStore(useShallow((s): SessionTuning => ({
@@ -261,6 +268,13 @@ export function SetupClient({
 		/>
 	);
 
+	// Fire the reveal once the content branch (any of first-time / no-reviews /
+	// summary+controls) is the one that will render. The loading/error branches
+	// return before the PageFrame, so the cascade never runs over them; keying
+	// the dep on the branch makes it re-run when sections first mount.
+	const revealBranch = isLoading || isError ? "chrome" : isFirstTime ? "first" : isNoReviews ? "clear" : "session";
+	useRevealMount(contentRef, { deps: [revealBranch] });
+
 	if (isLoading) {
 		return <PageLoader />;
 	}
@@ -277,12 +291,13 @@ export function SetupClient({
 	}
 
 	return (
-		<PageFrame desktopCentered>
+		<PageFrame desktopCentered contentRef={contentRef}>
 			<PageHeader
 				kanji="備"
 				label="Review setup"
 				title="Tune today's session."
 				subtitle="Your deck defaults stay the same. These choices only apply today."
+				revealLead
 			/>
 
 			{isFirstTime && <FirstTimeState />}
@@ -423,7 +438,7 @@ function ActionArea({
           baseline. The confirm popover is portaled out of this subtree
           entirely, so opening it cannot shift any surrounding layout. */}
 				{modified && (
-					<div className="order-first w-full sm:order-none sm:w-auto flex flex-wrap items-center gap-2 text-sm">
+					<div className="animate-page-enter order-first w-full sm:order-none sm:w-auto flex flex-wrap items-center gap-2 text-sm">
 						{/* aria-live wraps the swap so screen-reader users hear "Saved"
               when the link briefly replaces itself with the confirmation
               microcopy. Polite (not assertive) — this is a quiet success
@@ -431,7 +446,7 @@ function ActionArea({
 						<span aria-live="polite" className="inline-flex items-center">
 							{savedFlash
 								? (
-										<span className="inline-flex items-center pointer-coarse:min-h-11 font-mono text-sm text-inari-vermillion-deep">
+										<span className="animate-page-enter inline-flex items-center pointer-coarse:min-h-11 font-mono text-sm text-inari-vermillion-deep">
 											Saved
 										</span>
 									)
@@ -478,7 +493,7 @@ function ActionArea({
 			{hint !== undefined && (
 				<p
 					aria-live="polite"
-					className="text-sm leading-relaxed text-faded-sumi"
+					className="animate-page-enter text-sm leading-relaxed text-faded-sumi"
 				>
 					{hint}
 				</p>
@@ -489,7 +504,7 @@ function ActionArea({
 
 function NoReviewsState(): React.JSX.Element {
 	return (
-		<SectionCard kanji="済" label="All clear">
+		<SectionCard kanji="済" label="All clear" reveal>
 			<div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
 				<Logo size={80} showWordmark={false} />
 				<h2
@@ -525,7 +540,7 @@ function NoReviewsState(): React.JSX.Element {
 
 function FirstTimeState(): React.JSX.Element {
 	return (
-		<SectionCard kanji="始" label="Begin">
+		<SectionCard kanji="始" label="Begin" reveal>
 			<div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
 				<Logo size={80} showWordmark={false} />
 				<div>

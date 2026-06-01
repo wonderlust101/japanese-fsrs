@@ -2,8 +2,6 @@ import type { ApiDueCard, SubmitReviewInput } from "@fsrs-japanese/shared-types"
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
-import { useShallow } from "zustand/react/shallow";
-
 import { randomUUID } from "@/lib/random-uuid";
 
 // User-grade rating (excludes 'manual'). The session store only ever holds
@@ -34,6 +32,13 @@ interface SessionHistoryEntry {
 	 *  this to offer per-card rollback within the just-finished session.
 	 */
 	reviewLogId?: string | null;
+	/**
+	 * Time the learner spent on this card, in ms (`shown → rated`). Captured by
+	 *  the session client when it builds the deferred-submit payload. Lets the
+	 *  Review Summary render `totalTimeMs` instantly from local state for the
+	 *  just-finished session, without waiting on the server summary.
+	 */
+	reviewTimeMs?: number;
 }
 
 interface IdleState {
@@ -71,6 +76,12 @@ interface ReviewSessionActions {
 	 *  by undo) — the rollback affordance simply won't appear for that card.
 	 */
 	attachReviewLogId: (cardId: string, reviewLogId: string) => void;
+	/**
+	 * Patches the most recent history entry for `cardId` with the elapsed
+	 *  review time. Called from the session client when it builds the
+	 *  deferred-submit payload (where the timing is computed).
+	 */
+	attachReviewTimeMs: (cardId: string, reviewTimeMs: number) => void;
 	endSession: () => void;
 	reset: () => void;
 }
@@ -158,6 +169,23 @@ export const useReviewSessionStore = create<ReviewSessionStore>()(
 					}
 				},
 
+				attachReviewTimeMs: (cardId, reviewTimeMs) => {
+					// Patch the most recent entry for this card that has no time yet —
+					// same tail-search rationale as attachReviewLogId.
+					const s = get();
+					if (s.phase !== "active" && s.phase !== "finished")
+						return;
+					const next = s.sessionHistory.slice();
+					for (let i = next.length - 1; i >= 0; i -= 1) {
+						const entry = next[i];
+						if (entry !== undefined && entry.card.id === cardId && entry.reviewTimeMs === undefined) {
+							next[i] = { ...entry, reviewTimeMs };
+							set({ ...s, sessionHistory: next }, true);
+							return;
+						}
+					}
+				},
+
 				endSession: () => {
 					const s = get();
 					if (s.phase !== "active")
@@ -217,6 +245,15 @@ export function useIsSessionStarted(): boolean {
 	return useReviewSessionStore(s => s.phase === "active");
 }
 
+/**
+ * Raw session phase. Used by the session client to bootstrap a new session only
+ * from `idle` (never re-bootstrap a `finished` one) and to stop observing the
+ * due queue once a session is `active`/`finished`.
+ */
+export function useSessionPhase(): ReviewSessionState["phase"] {
+	return useReviewSessionStore(s => s.phase);
+}
+
 export function useSessionId(): string | null {
 	return useReviewSessionStore(s =>
 		s.phase === "active" || s.phase === "finished" ? s.sessionId : null,
@@ -225,31 +262,4 @@ export function useSessionId(): string | null {
 
 export function useSessionActions(): ReviewSessionActions {
 	return useReviewSessionStore(s => s.actions);
-}
-
-// ── Resume context ────────────────────────────────────────────────────────────
-// Today reads this to decide whether to render the 'resume' hero variant. Only
-// `phase === 'active'` counts — `finished` has no cards left to review.
-
-export interface ResumeContext {
-	sessionId: string;
-	remaining: number;
-}
-
-// useShallow: the projection builds a fresh object literal when the session
-// is active, and `useSyncExternalStore` would otherwise see every call as a
-// new snapshot and trigger React's tearing-detection loop ("Maximum update
-// depth exceeded"). The shallow comparator caches the projected reference
-// when sessionId + remaining are unchanged.
-export function useResumeContext(): ResumeContext | null {
-	return useReviewSessionStore(
-		useShallow((s) => {
-			if (s.phase !== "active")
-				return null;
-			const remaining = Math.max(0, s.queue.length - s.currentIndex);
-			if (remaining === 0)
-				return null;
-			return { sessionId: s.sessionId, remaining };
-		}),
-	);
 }

@@ -14,7 +14,7 @@ import {
 	voidResponseSchema,
 
 } from "@fsrs-japanese/shared-types";
-import { apiCall } from "@/lib/api/client";
+import { apiCall, apiCallSafe } from "@/lib/api/client";
 
 export async function getDueCardsAction(): Promise<ApiList<ApiDueCard>> {
 	return apiCall<ApiList<ApiDueCard>>(
@@ -54,6 +54,22 @@ export async function getSessionSummaryAction(sessionId: string): Promise<Sessio
 		SessionSummarySchema,
 		{},
 		"Failed to fetch session summary",
+	);
+}
+
+/**
+ * Session-close signal — fire-and-forget. Tells the API the session is finished
+ * so it can precompute the day-reflection + weak-spot diagnoses server-side
+ * (the API returns 202 immediately). The caller voids this; the result is
+ * unused and a failure is harmless (the summary load path regenerates on a
+ * miss), so it uses the safe client and never throws.
+ */
+export async function closeSessionAction(sessionId: string): Promise<void> {
+	await apiCallSafe<unknown>(
+		`/api/v1/reviews/sessions/${encodeURIComponent(sessionId)}/close`,
+		voidResponseSchema,
+		{ method: "POST", body: JSON.stringify({}) },
+		null,
 	);
 }
 

@@ -18,10 +18,11 @@
  * fresh seed. The full-suite seed CLI re-runs reset between Playwright
  * invocations, so a single attempt per invocation is correct.
  *
- * The 3-second undo-window (UNDO_WINDOW_MS in session/page.tsx) is *not*
- * polled with a sleep — we anchor on UI conditions (rating bar present, then
- * gone) instead, so the spec stays robust to any future tweak of that
- * window.
+ * The mid-session undo-window (UNDO_WINDOW_MS in
+ * session/_components/review-session-client.tsx) is *not* polled with a sleep —
+ * we anchor on UI conditions (rating bar present, then gone) instead, so the
+ * spec stays robust to any future tweak of that window. The final card skips
+ * the window entirely: it submits immediately and navigates on settle.
  */
 import { expect, test } from "@playwright/test";
 
@@ -91,21 +92,21 @@ test.describe("review: full session drain", () => {
 			await goodButton.click();
 			ratingsApplied += 1;
 
-			// After clicking Good, the session.page advances the local Zustand
-			// queue immediately, then defers the API submit for the 3s undo
-			// window. The next reveal-or-summary state lands as soon as the
-			// queue index advances; we let the next iteration's checks handle
-			// the wait.
+			// After clicking Good, the client advances the local Zustand queue
+			// immediately. Mid-session cards defer their API submit for the undo
+			// window; the final card submits immediately. Either way the next
+			// reveal-or-summary state lands as the queue index advances; we let
+			// the next iteration's checks handle the wait.
 		}
 
 		// The session must have rated at least the 3 seeded cards before
 		// landing on the summary.
 		expect(ratingsApplied).toBeGreaterThanOrEqual(3);
 
-		// Wait for the navigation to summary. The session page calls
-		// router.replace(`/review/summary?id=${sessionId}`) once the last
-		// deferred submit settles, so we need a generous wait to cover
-		// the 3s undo window plus the API round-trip.
+		// Wait for the navigation to summary. The client calls
+		// router.replace(`/review/summary/${sessionId}`) once the final
+		// card's submit settles (it's no longer deferred), so a single API
+		// round-trip is the real wait; the generous timeout is slack for CI.
 		await expect(page).toHaveURL(/\/review\/summary/, { timeout: 15_000 });
 	});
 });

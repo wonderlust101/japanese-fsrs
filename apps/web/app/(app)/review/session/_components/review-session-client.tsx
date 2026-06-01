@@ -15,7 +15,7 @@ import { useReviewSessionDevState } from "@/dev/panels/review-session";
 import { getProfileAction } from "@/lib/actions/profile.actions";
 import { useDecks } from "@/lib/api/decks";
 import { queryKeys } from "@/lib/api/queryKeys";
-import { useDueCards, useOfflineSync, useSubmitReview } from "@/lib/api/reviews";
+import { useDueCards, useFinishedSessionWarmup, useOfflineSync, useSubmitReview } from "@/lib/api/reviews";
 import { rememberLastFinishedSession } from "@/lib/review/last-finished-session";
 import { classifyCard, priorityForKind } from "@/lib/review/queue-classify";
 import { currentMs } from "@/lib/runtime";
@@ -26,6 +26,7 @@ import {
 	useSessionActions,
 	useSessionHistory,
 	useSessionId,
+	useSessionPhase,
 } from "@/stores/useReviewSessionStore";
 import { useSessionDevOverrides } from "@/stores/useSessionDevOverridesStore";
 
@@ -47,11 +48,15 @@ interface PendingSubmission {
 export function ReviewSessionClient(): React.JSX.Element | null {
 	const router = useRouter();
 	const isStarted = useIsSessionStarted();
+	const phase = useSessionPhase();
 	const currentCard = useCurrentCard();
 	const sessionHistory = useSessionHistory();
 	const sessionId = useSessionId();
-	const { startSession, endSession, undoLastRating, attachReviewLogId } = useSessionActions();
+	// `attachReviewLogId` is no longer called here — it moved to useSubmitReview's
+	// hook-level onSuccess so it survives the optimistic last-card unmount.
+	const { startSession, endSession, undoLastRating, attachReviewTimeMs } = useSessionActions();
 	const { mutate: submitReview, isError } = useSubmitReview();
+	const warmupFinishedSession = useFinishedSessionWarmup();
 	const [hasSyncError, setHasSyncError] = useState(false);
 	const [bootstrapFailed, setBootstrapFailed] = useState(false);
 	const [endDialogOpen, setEndDialogOpen] = useState(false);
@@ -77,7 +82,11 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 	// the current session tuning. Driven by the IA decision that Today's
 	// primary CTA navigates directly here, with /review/setup reserved as the
 	// optional customization detour.
-	const dueQuery = useDueCards();
+	// Only observe the due queue while idle (i.e. to bootstrap a session). Once a
+	// session is active/finished the client stops re-fetching it; the nav badge
+	// remains the always-on observer. Prevents the session client from adding to
+	// any due-refetch churn during/after a session.
+	const dueQuery = useDueCards({ enabled: phase === "idle" });
 	const decksQuery = useDecks(50);
 
 	// Calendar context for backlog classification needs the learner's timezone.
@@ -170,7 +179,10 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 
 	// Bootstrap the session once data is ready; redirect when there's nothing to do.
 	useEffect(() => {
-		if (isStarted)
+		// Only bootstrap from idle. Guarding on `isStarted` alone let a just-
+		// finished session (phase 'finished', isStarted false) fall through and
+		// re-bootstrap a phantom session when due cards remained.
+		if (phase !== "idle")
 			return;
 		if (dueQuery.isLoading || decksQuery.isLoading)
 			return;
@@ -188,7 +200,7 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 			return;
 		}
 		startSession([...queuedCards]);
-	}, [isStarted, dueQuery.isLoading, dueQuery.isError, decksQuery.isLoading, todayKey, tz, queuedCards, startSession, router, overrides.forceBootstrapFailed]);
+	}, [phase, dueQuery.isLoading, dueQuery.isError, decksQuery.isLoading, todayKey, tz, queuedCards, startSession, router, overrides.forceBootstrapFailed]);
 
 	// Flush the pending submission to the API. Cancels the deferred timer
 	// and fires submitReview now. Wraps the last-card navigation logic so
@@ -205,36 +217,30 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 		setCanUndo(false); // eslint-disable-line react/set-state-in-effect -- deferred-submit flush clears the undo-window flag (event-driven, not render-phase)
 
 		if (p.isLastCard) {
-			submitReview(p.payload, {
-				onSuccess: (data) => {
-					if (data.reviewLogId !== null) {
-						attachReviewLogId(p.payload.cardId, data.reviewLogId);
-					}
-				},
-				onSettled: () => {
-					if (sessionId !== null) {
-						rememberLastFinishedSession({
-							sessionId,
-							// The just-rated last card is already in sessionHistory by the
-							// time this deferred flush fires, so the count is exact (no +1).
-							historyCount: sessionHistory.length,
-							endedEarly: false,
-						});
-					}
-					endSession();
-					router.replace(`/review/summary?id=${sessionId}`);
-				},
-			});
+			// Optimistic finish: fire the final submit and navigate to the summary
+			// immediately — don't block the route change on the round-trip. The
+			// summary paints correct numbers from local session state right away
+			// (its `localProvisional`), then gates its server read until this write
+			// is confirmed persisted (the final entry's reviewLogId, attached by
+			// useSubmitReview's hook-level onSuccess). `warmupSummary` makes that
+			// hook fire the post-persist warm-up even though we unmount here.
+			submitReview({ ...p.payload, warmupSummary: true });
+			if (sessionId !== null) {
+				rememberLastFinishedSession({
+					sessionId,
+					// The just-rated last card is already in sessionHistory, so the
+					// count is exact (no +1).
+					historyCount: sessionHistory.length,
+					endedEarly: false,
+				});
+			}
+			endSession();
+			router.replace(`/review/summary/${sessionId}`);
 		} else {
-			submitReview(p.payload, {
-				onSuccess: (data) => {
-					if (data.reviewLogId !== null) {
-						attachReviewLogId(p.payload.cardId, data.reviewLogId);
-					}
-				},
-			});
+			// reviewLogId is attached by useSubmitReview's hook-level onSuccess.
+			submitReview(p.payload);
 		}
-	}, [submitReview, endSession, router, sessionId, sessionHistory.length, attachReviewLogId]);
+	}, [submitReview, endSession, router, sessionId, sessionHistory.length]);
 
 	// Cancel the deferred submission entirely and rewind the local session
 	// state by one rating. The API call never fires, so no rollback endpoint
@@ -279,10 +285,17 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 					historyCount: sessionHistory.length,
 					endedEarly: true,
 				});
+				// R2: warm the summary + forecast, but only when cards were rated.
+				// Mirrors the summary page's skipApi short-circuit, which renders
+				// ended-early-with-no-reviews from local state (no API call) — so
+				// prefetching a zero-row session would waste a call and 404.
+				if (sessionHistory.length > 0) {
+					warmupFinishedSession(sessionId);
+				}
 			}
 			endSession();
 			if (sessionId !== null) {
-				router.push(`/review/summary?id=${sessionId}&ended=early`);
+				router.push(`/review/summary/${sessionId}?ended=early`);
 			} else {
 				router.push("/today");
 			}
@@ -296,19 +309,18 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 			}
 			pendingPayloadRef.current = null;
 			setCanUndo(false);
+			// reviewLogId is attached by useSubmitReview's hook-level onSuccess.
+			// This path navigates in onSettled (after persist) and stays mounted
+			// until then, so the deferred-write race the comment above describes
+			// is still handled.
 			submitReview(pending.payload, {
-				onSuccess: (data) => {
-					if (data.reviewLogId !== null) {
-						attachReviewLogId(pending.payload.cardId, data.reviewLogId);
-					}
-				},
 				onSettled: navigateToSummary,
 			});
 			return;
 		}
 
 		navigateToSummary();
-	}, [submitReview, endSession, router, sessionId, sessionHistory.length, attachReviewLogId]);
+	}, [submitReview, endSession, router, sessionId, sessionHistory.length, warmupFinishedSession]);
 
 	// Mobile-only confirm escalation: tapping the icon-only End button on
 	// mobile routes through a confirm dialog unless the session has no rated
@@ -347,6 +359,9 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 
 		processedRef.current = sessionHistory.length;
 		const reviewTimeMs = Date.now() - cardShownAtRef.current;
+		// Record the elapsed time on the local history entry so the Review
+		// Summary can render totalTimeMs instantly from local state.
+		attachReviewTimeMs(last.card.id, reviewTimeMs);
 		const isLastCard = currentCard === undefined;
 		const payload: SubmitReviewInput = {
 			cardId: last.card.id,
@@ -356,10 +371,21 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 		};
 
 		pendingPayloadRef.current = { payload, isLastCard };
+
+		if (isLastCard) {
+			// R1: the final card has no subsequent rating to flush it early, so the
+			// deferred-submit timer would add ~3s of dead "Wrapping up." time before
+			// navigation (which lives in flushPending's onSettled). Submit immediately
+			// instead; a last-card misclick stays recoverable via the summary's Roll
+			// back affordance. No undo pill for this card (canUndo stays false).
+			flushPending();
+			return;
+		}
+
 		setPendingGeneration(g => g + 1); // eslint-disable-line react/set-state-in-effect -- rating-submit handler queues a deferred submission (event-driven, not render-phase)
 		setCanUndo(true); // eslint-disable-line react/set-state-in-effect -- rating-submit handler opens the undo window (event-driven, not render-phase)
 		pendingTimerRef.current = window.setTimeout(flushPending, UNDO_WINDOW_MS);
-	}, [sessionHistory, currentCard, sessionId, flushPending]);
+	}, [sessionHistory, currentCard, sessionId, flushPending, attachReviewTimeMs]);
 
 	// Clean up any pending timer on unmount.
 	useEffect(() => {
@@ -411,13 +437,15 @@ export function ReviewSessionClient(): React.JSX.Element | null {
 					|| todayKey === undefined
 					|| tz === undefined));
 
-	// End-of-session window: the last card was just rated, queue index has
-	// advanced past the end (currentCard undefined), but the deferred submit
-	// and route change haven't fired yet. UndoPill still renders so the user
-	// keeps the 3s rewind window during the wrap-up.
+	// End-of-session window: either the last card was just rated (queue index
+	// advanced past the end, currentCard undefined) or endSession() has already
+	// been called (phase "finished") but the async router navigation hasn't
+	// unmounted this component yet. Without the `finished` branch there's a
+	// blank-page flash between endSession() and the route change completing.
 	const isEndingSession
 		= overrides.forceEndingSession
-			|| (isStarted && currentCard === undefined && sessionHistory.length > 0);
+			|| (isStarted && currentCard === undefined && sessionHistory.length > 0)
+			|| (phase === "finished" && sessionHistory.length > 0);
 
 	if (isBootstrapping) {
 		return <PageLoader stageLabels={["Preparing your reviews."]} />;
