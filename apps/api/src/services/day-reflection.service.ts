@@ -13,6 +13,7 @@ import { componentLogger } from "../lib/logger.ts";
 import { normalizeTimeZone } from "../lib/timezone.ts";
 import { AppError, ServiceUnavailableError } from "../middleware/errorHandler.ts";
 import { generateDayReflection } from "./ai.service.ts";
+import { getProfileCached } from "./profile.service.ts";
 
 const log = componentLogger("day-reflection.service");
 
@@ -33,12 +34,6 @@ const AggregateEnvelopeSchema = z.object({
 		easy: z.number().int().nonnegative(),
 	}),
 	weak_spot_words: z.array(z.string()),
-});
-
-const ProfileRowSchema = z.object({
-	timezone: z.string(),
-	jlpt_target: z.string().nullable(),
-	native_language: z.string(),
 });
 
 /**
@@ -91,6 +86,43 @@ function ruleBasedReflection(args: {
 	}
 }
 
+// Durable row shape for `day_reflections` (migration 20260712000000). `source`
+// mirrors the table's CHECK; `fingerprint` is compared against the current
+// day's session-set fingerprint to decide serve-stored vs. regenerate.
+const StoredReflectionRowSchema = z.object({
+	body: z.string(),
+	source: z.enum(["ai", "fallback"]),
+	fingerprint: z.string(),
+});
+
+/**
+ * Upserts the generated reflection into `day_reflections` (keyed user+date).
+ * Best-effort: a write failure is logged but never fails the request — the
+ * caller already holds the body to return, and the next read just regenerates.
+ */
+async function persistDayReflection(args: {
+	userId: string;
+	dateKey: string;
+	body: string;
+	source: "ai" | "fallback";
+	fingerprint: string;
+	sessionCount: number;
+}): Promise<void> {
+	const { error } = await supabaseAdmin
+		.from("day_reflections")
+		.upsert({
+			user_id: args.userId,
+			date_key: args.dateKey,
+			body: args.body,
+			source: args.source,
+			fingerprint: args.fingerprint,
+			session_count: args.sessionCount,
+		}, { onConflict: "user_id,date_key" });
+	if (error !== null) {
+		log.warn({ userId: args.userId, dateKey: args.dateKey, err: { code: error.code, message: error.message } }, "day_reflections upsert failed; result still returned");
+	}
+}
+
 /**
  * Returns one Tomo-voice reflection over the user's review work for the
  * local calendar day that contains the given session. Aggregates ALL
@@ -109,16 +141,10 @@ export async function getDayReflection(
 	sessionId: string,
 	userId: string,
 ): Promise<ApiDayReflection> {
-	// 1) Load profile (timezone, JLPT target, native language).
-	const { data: profileData, error: profileError } = await supabaseAdmin
-		.from("profiles")
-		.select("timezone, jlpt_target, native_language")
-		.eq("id", userId)
-		.single();
-	if (profileError !== null || profileData === null) {
-		throw new AppError(404, "Profile not found", { code: "PROFILE_NOT_FOUND" });
-	}
-	const profile = ProfileRowSchema.parse(profileData);
+	// 1) Load profile (timezone, JLPT target, native language) through the
+	//    shared cached read, so the summary view's profile reads collapse to
+	//    ≤1 DB hit. Still throws 404 PROFILE_NOT_FOUND on a missing row.
+	const profile = await getProfileCached(userId);
 	const timeZone = normalizeTimeZone(profile.timezone);
 
 	// 2) Aggregate the day's review work via the new RPC. SECURITY DEFINER +
@@ -148,15 +174,39 @@ export async function getDayReflection(
 		? 0
 		: Math.round(((agg.breakdown.good + agg.breakdown.easy) / agg.total_cards) * 1000) / 10;
 
-	// 3) AI generation with fallback. The catch surfaces an explicit
-	//    `source: 'fallback'` so the UI can subtly indicate provenance.
+	// 3) Durable read (migration 20260712000000): serve the stored row with
+	//    zero AI cost when it exists AND its fingerprint matches the current
+	//    session set. A new same-day session changes the fingerprint and forces
+	//    a regenerate below. A read error degrades to regeneration — it never
+	//    fails the endpoint.
+	const fingerprint = fingerprintSessions(agg.session_ids);
+	const { data: storedRow, error: readError } = await supabaseAdmin
+		.from("day_reflections")
+		.select("body, source, fingerprint")
+		.eq("user_id", userId)
+		.eq("date_key", agg.date_key)
+		.maybeSingle();
+	if (readError !== null) {
+		log.warn({ userId, dateKey: agg.date_key, err: { code: readError.code, message: readError.message } }, "day_reflections read failed; regenerating");
+	} else if (storedRow !== null) {
+		const parsed = StoredReflectionRowSchema.parse(storedRow);
+		if (parsed.fingerprint === fingerprint) {
+			return { body: parsed.body, source: parsed.source, dateKey: agg.date_key, sessionCount: agg.session_count };
+		}
+	}
+
+	// 4) Generate (AI with rule-based fallback), then persist so the next read
+	//    — including the one the session-close precompute warms — is a row hit.
+	//    The `source` tag lets the UI subtly indicate provenance.
+	let body: string;
+	let source: "ai" | "fallback";
 	try {
 		const generated = await generateDayReflection({
 			userId,
 			dateKey: agg.date_key,
-			fingerprint: fingerprintSessions(agg.session_ids),
-			userLevel: profile.jlpt_target ?? "N5",
-			nativeLanguage: profile.native_language,
+			fingerprint,
+			userLevel: profile.jlptTarget ?? "N5",
+			nativeLanguage: profile.nativeLanguage,
 			totalCards: agg.total_cards,
 			totalTimeMs: agg.total_time_ms,
 			accuracyPct,
@@ -164,12 +214,8 @@ export async function getDayReflection(
 			sessionCount: agg.session_count,
 			weakSpotWords: agg.weak_spot_words,
 		});
-		return {
-			body: generated.body,
-			source: "ai",
-			dateKey: agg.date_key,
-			sessionCount: agg.session_count,
-		};
+		body = generated.body;
+		source = "ai";
 	} catch (err) {
 		if (err instanceof ServiceUnavailableError) {
 			log.warn({ userId, dateKey: agg.date_key }, "AI breaker open; serving rule-based day-reflection");
@@ -179,19 +225,26 @@ export async function getDayReflection(
 			const message = err instanceof Error ? err.message : String(err);
 			log.error({ userId, dateKey: agg.date_key, err: { message } }, "generateDayReflection failed; serving rule-based day-reflection");
 		}
-		return {
-			body: ruleBasedReflection({
-				totalCards: agg.total_cards,
-				accuracyPct,
-				again: agg.breakdown.again,
-				hard: agg.breakdown.hard,
-				good: agg.breakdown.good,
-				easy: agg.breakdown.easy,
-				weakSpotCount: agg.weak_spot_words.length,
-			}),
-			source: "fallback",
-			dateKey: agg.date_key,
-			sessionCount: agg.session_count,
-		};
+		body = ruleBasedReflection({
+			totalCards: agg.total_cards,
+			accuracyPct,
+			again: agg.breakdown.again,
+			hard: agg.breakdown.hard,
+			good: agg.breakdown.good,
+			easy: agg.breakdown.easy,
+			weakSpotCount: agg.weak_spot_words.length,
+		});
+		source = "fallback";
 	}
+
+	await persistDayReflection({
+		userId,
+		dateKey: agg.date_key,
+		body,
+		source,
+		fingerprint,
+		sessionCount: agg.session_count,
+	});
+
+	return { body, source, dateKey: agg.date_key, sessionCount: agg.session_count };
 }

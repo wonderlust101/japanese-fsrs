@@ -32,6 +32,10 @@
  *             (req.signal aborts the in-flight SDK call when
  *             server.requestTimeout fires; the SDK propagates abort
  *             through its internal AbortController).
+ *   OpenAI (enhancement): 2 attempts × 8s timeout = ~16s worst case. Used by
+ *             the day-reflection + weak-spot-diagnosis generators (per-request
+ *             override; see openaiEnhancementCall above) because both have a
+ *             fast fallback and front the closing screen.
  *   Upstash:  6 attempts × 2s timeout + ~5s jittered backoff ≈ 17s.
  *             SDK default RetryConfig with our jittered backoff override
  *             in db/redis.ts.
@@ -72,6 +76,20 @@ export const TIMEOUTS = {
 
 	/** OpenAI SDK per-client timeout — apps/api/src/lib/openai.ts */
 	openaiCall: 15_000,
+
+	/**
+	 * Per-request OpenAI timeout for *advisory* generators that have an instant
+	 *  fallback and run on a latency-sensitive surface — the post-session
+	 *  day-reflection and the weak-spot diagnosis (apps/api/src/services/ai/
+	 *  {day-reflection,diagnosis}.ts, via `ENHANCEMENT_REQUEST_OPTS` in
+	 *  ai/shared.ts). Tighter than `openaiCall` (15s) on purpose: these calls
+	 *  back the review-summary closing screen, where a 15s × 3-attempt budget
+	 *  (~30s) reads as a hang. 8s + maxRetries:1 caps the tail at ~16s and
+	 *  degrades to rule-based prose / a still-pulsing row in seconds. NOT for
+	 *  card/sentence generation, where the user is actively waiting on the
+	 *  result with no fallback — those keep the full `openaiCall` budget.
+	 */
+	openaiEnhancementCall: 8_000,
 
 	/**
 	 * Startup-probe OpenAI timeout — apps/api/src/lib/startup-probe.ts. Tighter

@@ -7,7 +7,7 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, ENHANCEMENT_REQUEST_OPTS, log, readCache } from "./shared.ts";
 
 // Day reflection (post-session AI note over the user's local-day aggregate
 // of reviews). Versioned independently of the morning Tomo note so the two
@@ -20,6 +20,12 @@ import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, log, readCache } from "
 // one regeneration per active user per day.
 const REFLECTION_PROMPT_VERSION = "v2";
 const REFLECTION_CACHE_TTL = 60 * 60 * 36;
+
+// In-process single-flight for concurrent identical generations (keyed by the
+// Redis cacheKey). Collapses the summary-page read + the session-close precompute
+// race into one OpenAI call. Entries are short-lived: added on a cache miss and
+// removed the moment the generation settles.
+const inFlightReflections = new Map<string, Promise<GeneratedTomoNote>>();
 
 interface DayReflectionInput {
 	userId: string;
@@ -104,6 +110,13 @@ async function callDayReflectionGenerator(
 		response = await client.chat.completions.create({
 			model: CHAT_MODEL,
 			response_format: { type: "json_object" },
+			// The output is a single { "body": string } under 220 chars (~60-70
+			// tokens). Capping completion tokens bounds tail latency on this
+			// closing-screen call without touching the 8s timeout (which would
+			// otherwise abort the ~3s successful generation into fallback prose).
+			// 256 leaves generous headroom for the JSON envelope so the body is
+			// never truncated below GeneratedTomoNoteSchema's expectations.
+			max_completion_tokens: 256,
 			messages: [
 				{
 					role: "system",
@@ -168,7 +181,7 @@ Return JSON with this exact shape:
 { "body": string }`,
 				},
 			],
-		}, { signal });
+		}, { signal, ...ENHANCEMENT_REQUEST_OPTS });
 	} catch (err) {
 		log.error({
 			err: {
@@ -211,16 +224,37 @@ export async function generateDayReflection(
 	if (fromCache !== null)
 		return fromCache;
 
-	const reflection = await openaiSemaphore.run({ signal: opts?.signal }, () =>
-		withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, () =>
-			callDayReflectionGenerator(client, inputs, opts?.signal)));
+	// Single-flight: a freshly-finished session triggers two near-simultaneous
+	// reads for the same reflection — the summary page's day-reflection query and
+	// the server-side session-close precompute. Both miss the Redis cache (it's
+	// not written until generation finishes), so without coordination each spends
+	// its own OpenAI generation. Share one in-flight promise per cacheKey so the
+	// second caller awaits the first instead of double-spending the AI quota.
+	const existing = inFlightReflections.get(cacheKey);
+	if (existing !== undefined)
+		return existing;
 
-	await redis.set(cacheKey, JSON.stringify(reflection), { ex: REFLECTION_CACHE_TTL })
-		.catch((err: unknown) => {
-			log.warn({
-				cacheKey,
-				err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
-			}, "AI cache write failed; result still returned");
-		});
-	return reflection;
+	const pending = (async (): Promise<GeneratedTomoNote> => {
+		const reflection = await openaiSemaphore.run({ signal: opts?.signal }, () =>
+			withBreaker(CHAT_BREAKER, CHAT_UNAVAILABLE_MSG, () =>
+				callDayReflectionGenerator(client, inputs, opts?.signal)));
+
+		await redis.set(cacheKey, JSON.stringify(reflection), { ex: REFLECTION_CACHE_TTL })
+			.catch((err: unknown) => {
+				log.warn({
+					cacheKey,
+					err: err instanceof Error ? { name: err.name, message: err.message } : { detail: String(err) },
+				}, "AI cache write failed; result still returned");
+			});
+		return reflection;
+	})();
+
+	inFlightReflections.set(cacheKey, pending);
+	try {
+		return await pending;
+	} finally {
+		// Clear the slot once settled (success or failure) so a later read after a
+		// failed generation retries fresh rather than replaying the rejection.
+		inFlightReflections.delete(cacheKey);
+	}
 }

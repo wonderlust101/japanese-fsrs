@@ -7,7 +7,7 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, ENHANCEMENT_REQUEST_OPTS, log, readCache } from "./shared.ts";
 
 // Diagnosis is weakSpot-specific (driven by lapse pattern) and stays valid only
 // while the underlying card and review history are stable. 30 days is the
@@ -110,7 +110,7 @@ Constraints:
 - Do not mention "AI" or apologize for being a model.`,
 				},
 			],
-		}, { signal });
+		}, { signal, ...ENHANCEMENT_REQUEST_OPTS });
 	} catch (err) {
 		log.error({
 			err: {

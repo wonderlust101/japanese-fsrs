@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { redis } from "../../db/redis.ts";
 import { env } from "../../lib/env.ts";
 import { componentLogger } from "../../lib/logger.ts";
+import { TIMEOUTS } from "../../lib/timeouts.ts";
 
 /**
  * Shared breaker namespace for chat-completion calls (card / sentences / mnemonic
@@ -23,6 +24,20 @@ export const log = componentLogger("ai.service");
 // `openai` is the shared OpenAI client from lib/openai.ts — same instance
 // used by card.service.ts for embeddings. Null when OPENAI_API_KEY is unset.
 export const CHAT_MODEL = env.OPENAI_CHAT_MODEL;
+
+/**
+ * Per-request OpenAI options for *advisory* generators (day-reflection,
+ * weak-spot diagnosis) that have an instant fallback and front a
+ * latency-sensitive surface (the review-summary closing screen). Spread into
+ * the `chat.completions.create(..., { signal, ...ENHANCEMENT_REQUEST_OPTS })`
+ * call so it overrides the client-wide 15s / 2-retry defaults from
+ * lib/openai.ts with a tighter 8s / 1-retry budget (~16s worst case instead
+ * of ~30s). See `TIMEOUTS.openaiEnhancementCall` for the full rationale.
+ */
+export const ENHANCEMENT_REQUEST_OPTS = {
+	timeout: TIMEOUTS.openaiEnhancementCall,
+	maxRetries: 1,
+} as const;
 
 // Hard cap on the joined interests fragment when it lands in a prompt — even
 // 20 individually-bounded interests can produce a 1KB+ string that crowds out
