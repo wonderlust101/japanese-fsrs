@@ -5,9 +5,8 @@ import type { ApiDeck } from "@fsrs-japanese/shared-types";
 import type { ActiveDialog } from "./use-deck-list-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
+import { SetTopBar } from "@/app/(app)/_components/set-top-bar";
 import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { IconPlus } from "@/components/icons/chrome-marks";
 import { Button } from "@/components/ui/Button";
 import { Toast } from "@/components/ui/Toast";
@@ -66,8 +65,12 @@ export function DeckListView(): React.JSX.Element {
 	// Subscribe to per-deck stats. The `combine` option inside the hook
 	// produces stable `Map` references so the memos below don't churn
 	// every render. Shares cache with each DeckCard's own useQuery.
-	const { dueByDeckId, matureByDeckId, pending: detailsPending } = useDeckStatsMap(allDecks);
-	const isLoading = dev.forcedState === "loading" || detailsPending;
+	// Note: `pending` is intentionally not used to gate the page —
+	// useSuspenseDecks already ensures the deck list is ready before this
+	// component renders, and DeckCard fetches its own stats independently.
+	// Gating on detailsPending caused a visible second loading flash.
+	const { dueByDeckId, matureByDeckId } = useDeckStatsMap(allDecks);
+	const isLoading = dev.forcedState === "loading";
 
 	// ── Persistent state ──────────────────────────────────────────────────
 	// View prefs + study order still live in localStorage (no backend
@@ -146,31 +149,27 @@ export function DeckListView(): React.JSX.Element {
 	useRevealMount(contentRef, { deps: [isLoading] });
 
 	if (isLoading) {
-		return (
-			<>
-				<TopBar>
-					<TopBarTitle kanji="束" label="Decks" />
-				</TopBar>
-				<PageLoader />
-			</>
-		);
+		return <PageLoader />;
 	}
 
 	return (
 		<>
-			<TopBar>
-				<TopBarTitle kanji="束" label="Decks" />
-				<TopBarActions>
-					<Button
-						size="sm"
-						variant="secondary"
-						onClick={() => setActiveDialog({ kind: "create" })}
-						leadingIcon={<IconPlus className="h-3.5 w-3.5" />}
-					>
-						New deck
-					</Button>
-				</TopBarActions>
-			</TopBar>
+			<SetTopBar
+				kanji="束"
+				label="Decks"
+				actions={(
+					<TopBarActions>
+						<Button
+							size="sm"
+							variant="secondary"
+							onClick={() => setActiveDialog({ kind: "create" })}
+							leadingIcon={<IconPlus className="h-3.5 w-3.5" />}
+						>
+							New deck
+						</Button>
+					</TopBarActions>
+				)}
+			/>
 
 			<div
 				className={[
