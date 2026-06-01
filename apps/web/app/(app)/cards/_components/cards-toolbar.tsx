@@ -45,6 +45,13 @@ interface Props {
 	/** Optional override: when the parent wants to render a mobile-only "Filter" button. */
 	onOpenMobileSheet?: (() => void) | undefined;
 	mobileChipCount?: number | undefined;
+	/**
+	 * Opt-in page-level reveal participation. When `true`, emits `data-reveal`
+	 * on the toolbar's `<section>` so the cards page's `useRevealMount` cascade
+	 * fades the toolbar chrome in behind the header lead (NOT the results table
+	 * — that stays static for instant scanning). Default `false`.
+	 */
+	reveal?: boolean;
 }
 
 /**
@@ -74,12 +81,14 @@ export function CardsToolbar({
 	viewTriggerRef,
 	onOpenMobileSheet,
 	mobileChipCount = 0,
+	reveal = false,
 }: Props): React.JSX.Element {
 	const addFilterRef = useRef<HTMLButtonElement | null>(null);
 
 	return (
 		<section
 			aria-label="Cards toolbar"
+			{...(reveal && { "data-reveal": "" })}
 			// Deliberate two-row layout on desktop. Row 1 = identity + search
 			// ("where am I, what am I searching for"); Row 2 = filter
 			// dimensions ("how am I narrowing"). Splitting along the

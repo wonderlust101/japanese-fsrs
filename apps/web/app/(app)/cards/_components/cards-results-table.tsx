@@ -78,6 +78,26 @@ const GRID_CLASS_READ_ONLY = [
 	"lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_11rem]",
 ].join(" ");
 
+// Status-less grid: GRID_CLASS minus the Status column. Used by the premade
+// preview, where every source card is "New" so a Status column carries no
+// signal — Due and the actions spacer stay so the layout still tracks GRID_CLASS.
+const GRID_CLASS_NO_STATUS = [
+	// Base (md): Word · Meaning · Due · Actions
+	"md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_4.5rem_2.25rem]",
+	// lg: + Type
+	"lg:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_11rem_4.5rem_2.25rem]",
+].join(" ");
+
+/**
+ * Column template for the header + each row, kept in lockstep. Read-only drops
+ * Status/Due; otherwise Status is present unless `showStatusColumn` is false.
+ */
+function bodyGridClass(readOnly: boolean, showStatusColumn: boolean): string {
+	if (readOnly)
+		return GRID_CLASS_READ_ONLY;
+	return showStatusColumn ? GRID_CLASS : GRID_CLASS_NO_STATUS;
+}
+
 interface Props {
 	rows: readonly CardsResultRow[];
 	/**
@@ -110,6 +130,27 @@ interface Props {
 	 */
 	readOnly?: boolean;
 	/**
+	 * When false, rows render as static content instead of links to
+	 * `/cards/[id]`. Premade-deck source cards have no per-user card-detail
+	 * page (they're unowned, `user_id IS NULL`), so the premade catalogue
+	 * preview turns row links off. Defaults to true.
+	 */
+	linkRows?: boolean;
+	/**
+	 * Per-row action kebab. Decoupled from `readOnly` so a surface can show the
+	 * full FSRS columns (Status / Due) while still suppressing editing — the
+	 * premade preview shows the deck-detail columns but can't mutate unowned
+	 * source cards. Defaults to `!readOnly`.
+	 */
+	showActions?: boolean;
+	/**
+	 * Status column (header cell + per-row pill, desktop and mobile). The
+	 * premade preview hides it because every source card is "New" — a column of
+	 * identical pills is noise. Only meaningful when `readOnly` is false (the
+	 * read-only grid drops Status regardless). Defaults to true.
+	 */
+	showStatusColumn?: boolean;
+	/**
 	 * Selection mode. When `selectedIds` is provided, each row renders a
 	 * checkbox at the leading edge (mirroring the kebab pattern as an
 	 * absolute sibling of the Link, so it isn't nested inside the Link's
@@ -134,6 +175,9 @@ export function CardsResultsTable({
 	paginating = false,
 	cardHrefSuffix = "",
 	readOnly = false,
+	linkRows = true,
+	showActions = !readOnly,
+	showStatusColumn = true,
 	selectedIds,
 	onToggleSelection,
 	onToggleAllVisible,
@@ -203,7 +247,7 @@ export function CardsResultsTable({
 				<div
 					className={[
 						"grid flex-1 items-center gap-2",
-						readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
+						bodyGridClass(readOnly, showStatusColumn),
 					].join(" ")}
 				>
 					<span>Word</span>
@@ -211,7 +255,7 @@ export function CardsResultsTable({
 					<span className="hidden lg:block">Type</span>
 					{!readOnly && (
 						<>
-							<span>Status</span>
+							{showStatusColumn && <span>Status</span>}
 							<span className="text-right">Due</span>
 							<span className="sr-only">Actions</span>
 						</>
@@ -259,6 +303,9 @@ export function CardsResultsTable({
 							row={row}
 							hrefSuffix={cardHrefSuffix}
 							readOnly={readOnly}
+							linkRow={linkRows}
+							showActions={showActions}
+							showStatusColumn={showStatusColumn}
 							onAction={action => onRowAction?.(row.id, action)}
 							{...(selectionMode
 								? { selected: selectedIds.has(row.id), onToggleSelected: () => onToggleSelection(row.id) }
@@ -277,6 +324,9 @@ function ResultRow({
 	row,
 	hrefSuffix,
 	readOnly,
+	linkRow,
+	showActions,
+	showStatusColumn,
 	onAction,
 	selected,
 	onToggleSelected,
@@ -284,6 +334,9 @@ function ResultRow({
 	row: CardsResultRow;
 	hrefSuffix: string;
 	readOnly: boolean;
+	linkRow: boolean;
+	showActions: boolean;
+	showStatusColumn: boolean;
 	onAction: (action: CardRowAction) => void;
 	selected?: boolean;
 	onToggleSelected?: () => void;
@@ -324,16 +377,19 @@ function ResultRow({
           is a peer of the Link, not a descendant — avoids nested
           interactive elements while still visually occupying the final
           grid cell. Suppressed entirely in read-only mode. */}
-			{!readOnly && (
+			{showActions && (
 				<div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
 					<CardRowMenu onAction={onAction} />
 				</div>
 			)}
 
-			<Link
+			<RowShell
+				linkRow={linkRow}
 				href={`/cards/${row.id}${hrefSuffix}`}
 				className={[
-					"block py-4 sm:py-5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]",
+					"block py-4 sm:py-5",
+					// Focus ring only applies when the row is an interactive link.
+					linkRow ? "focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-[-1px]" : "",
 					// `pl-11` in selection mode mirrors the header's
 					//   px-4 (16px) + checkbox (16px) + gap-3 (12px) = 44px
 					// so the row's column grid starts on the same x-axis as the header's.
@@ -346,7 +402,7 @@ function ResultRow({
             absolute kebab above visually fills it. */}
 				<div className={[
 					"hidden md:grid",
-					readOnly ? GRID_CLASS_READ_ONLY : GRID_CLASS,
+					bodyGridClass(readOnly, showStatusColumn),
 					"items-center gap-2",
 				].join(" ")}
 				>
@@ -378,10 +434,12 @@ function ResultRow({
 					</span>
 					{!readOnly && (
 						<>
-							<span>
-								<span className="sr-only">Status: </span>
-								<StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
-							</span>
+							{showStatusColumn && (
+								<span>
+									<span className="sr-only">Status: </span>
+									<StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
+								</span>
+							)}
 							<span className="text-right font-mono text-xs tabular-nums text-faded-sumi">
 								<span className="sr-only">Due: </span>
 								{row.due === null ? dueLabel : <Time value={row.due}>{dueLabel}</Time>}
@@ -406,7 +464,7 @@ function ResultRow({
 							</span>
 						)}
 						{!readOnly && <HealthBadge tier={lapseTier} />}
-						{!readOnly && (
+						{!readOnly && showStatusColumn && (
 							<span className="ml-auto shrink-0">
 								<StatusPill status={statusTone.status} label={statusTone.label} size="sm" className="!rounded-xs !leading-tight" />
 							</span>
@@ -431,9 +489,35 @@ function ResultRow({
 						)}
 					</div>
 				</div>
-			</Link>
+			</RowShell>
 		</li>
 	);
+}
+
+/**
+ * Row wrapper that is either a `<Link>` to the card-detail page or a static
+ * `<div>`. The premade-deck preview renders unowned source cards that have no
+ * per-user detail route, so it opts out of linking via `linkRow={false}`.
+ */
+function RowShell({
+	linkRow,
+	href,
+	className,
+	children,
+}: {
+	linkRow: boolean;
+	href: string;
+	className: string;
+	children: React.ReactNode;
+}): React.JSX.Element {
+	if (linkRow) {
+		return (
+			<Link href={href} className={className}>
+				{children}
+			</Link>
+		);
+	}
+	return <div className={className}>{children}</div>;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────

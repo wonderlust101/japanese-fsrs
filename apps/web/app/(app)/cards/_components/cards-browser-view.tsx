@@ -11,7 +11,7 @@ import {
 
 } from "@fsrs-japanese/shared-types";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { MoveCardDialog } from "@/app/(app)/decks/[id]/_components/move-card-dialog";
@@ -21,6 +21,7 @@ import { Toast, useToast } from "@/components/ui/Toast";
 
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useCardsDevState } from "@/dev/panels/cards";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { listDecksAction } from "@/lib/actions/decks.actions";
 import {
 	useCardQualityIssuesQuery,
@@ -240,6 +241,14 @@ export function CardsBrowserView(): React.JSX.Element {
 			updateState({ ...state, page: 1 });
 	}
 
+	// Page-level reveal (mount mode). Reveals the HEADER lead + the TOOLBAR
+	// chrome only — never the results table/rows (they stay static for instant
+	// scanning + find-in-page; spec §P2.6). Attaches to the content column;
+	// re-runs when the main branch (vs cold-boot loader / error) mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const mainBranchShowing = !((!usingFixture && liveQuery.isError && liveQuery.data === undefined) || coldBoot);
+	useRevealMount(contentRef, { deps: [mainBranchShowing] });
+
 	// First-deck-id helper for the bulk Move dialog.
 	const bulkMoveCurrentDeckId = useMemo(() => {
 		const firstId = [...selected][0];
@@ -321,7 +330,7 @@ export function CardsBrowserView(): React.JSX.Element {
           scroll. The inner content column keeps its own `pb-20` for
           spacing between the table and the bar. */}
 			<div className="flex min-h-screen flex-col bg-cool-paper-base">
-				<div className="mx-auto w-full max-w-[1440px] flex-1 px-4 pt-4 pb-20 md:px-12 lg:px-16">
+				<div ref={contentRef} className="mx-auto w-full max-w-[1440px] flex-1 px-4 pt-4 pb-20 md:px-12 lg:px-16">
 
 					{/* ── Page header ───────────────────────────────────────── */}
 					<div className={PAGE_HEADER_PADDING}>
@@ -330,6 +339,7 @@ export function CardsBrowserView(): React.JSX.Element {
 							label="Cards"
 							title="All cards"
 							subtitle="Every card across every deck. Pick a view, refine with chips."
+							revealLead
 						/>
 					</div>
 
@@ -347,6 +357,7 @@ export function CardsBrowserView(): React.JSX.Element {
 						viewTriggerRef={viewTriggerClickRef}
 						onOpenMobileSheet={() => setMobileSheetOpen(true)}
 						mobileChipCount={mobileChipCount}
+						reveal
 					/>
 
 					{/* ── Active filter chips ─────────────────────────────────
@@ -379,7 +390,9 @@ export function CardsBrowserView(): React.JSX.Element {
 					)}
 
 					{firstRunEmpty ? (
-						<FirstRunEmptyState />
+						<div className="animate-memory-fade-in">
+							<FirstRunEmptyState />
+						</div>
 					) : (
 						<>
 							{/* ── Result count + Sort dropdown ───────────────────────
@@ -388,7 +401,7 @@ export function CardsBrowserView(): React.JSX.Element {
                   matches the Linear / Vercel pattern. The "Clear all"
                   affordance lives only inside the chip strip now to avoid
                   the duplicate-control noise the critique flagged. */}
-							<div className="mt-4">
+							<div className="mt-4" data-reveal="">
 								<CardsCountLine
 									totalCount={totalCount}
 									sort={state.sort}
@@ -428,7 +441,7 @@ export function CardsBrowserView(): React.JSX.Element {
 							</div>
 
 							{/* ── Results ──────────────────────────────────────────── */}
-							<div className="mt-3">
+							<div className="mt-3" data-reveal="">
 								<CardsResultsTable
 									rows={rows}
 									onRowAction={handleRowAction}

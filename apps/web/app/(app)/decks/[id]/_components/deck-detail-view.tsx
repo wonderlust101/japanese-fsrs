@@ -3,9 +3,9 @@
 import type { ApiCardListItem, CardSortDir } from "@fsrs-japanese/shared-types";
 import type { CardRowAction } from "@/app/(app)/cards/_components/cards-results-table";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
 
 import { TopBar } from "@/app/(app)/_components/top-bar";
@@ -38,6 +38,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDeckDetailDevState } from "@/dev/panels/deck-detail";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 
 import { listCardsCrossDeckAction } from "@/lib/actions/cards.actions";
 import { deleteDeckAction, getDeckWithStatsAction } from "@/lib/actions/decks.actions";
@@ -101,10 +102,12 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	const [activeDialog, setActiveDialog] = useState<ActiveDialog>({ kind: "none" });
 	const { toast, showToast, dismissToast } = useToast();
 
-	// Deck header stats.
-	const { data: deck, isLoading: deckLoading } = useQuery({
+	// Deck header stats. `gcTime: 0` pairs with `useSuspenseQuery` to evict the
+	// cache on unmount so navigation back always fetches fresh data.
+	const { data: deck } = useSuspenseQuery({
 		queryKey: queryKeys.decks.detail(deckId),
 		queryFn: () => getDeckWithStatsAction(deckId),
+		gcTime: 0,
 	});
 
 	// Card list — offset-paginated against the cross-deck endpoint with
@@ -227,6 +230,14 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 		showToast(`Restored "${truncate(displayName, 28)}".`);
 	}
 
+	// Page-level reveal (mount mode). Three beats: the header group (PageHeader
+	// + Study CTA) lands as the lead, the snapshot ribbon settles second, and the
+	// cards section (toolbar + count + table as a block) arrives third. Individual
+	// card rows stay static (spec §P2.6). Re-runs once the loaded view mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const detailLoading = cardsLoading;
+	useRevealMount(contentRef, { deps: [detailLoading] });
+
 	// ── Render ────────────────────────────────────────────────────────────
 	const studyHref = `/review/setup?deck=${encodeURIComponent(deckId)}`;
 	// Study is unavailable when the deck has no cards, or when it's archived
@@ -236,7 +247,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 		? "Restore this deck to study it."
 		: "Add a card to study this deck.";
 
-	if (deckLoading || cardsLoading) {
+	if (cardsLoading) {
 		return (
 			<>
 				<TopBar>
@@ -311,7 +322,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 				</TopBarActions>
 			</TopBar>
 
-			<PageFrame>
+			<PageFrame contentRef={contentRef}>
 
 				{/* ── Page hero + primary action ─────────────────────────────
               Header and the Study CTA are grouped into one grid child with a
@@ -320,7 +331,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
               the title instead of floating in a full grid gap. The CTA is
               left-aligned on the reading edge and desktop-only (phones use the
               sticky bottom bar). */}
-				<div className="flex flex-col gap-4">
+				<div className="flex flex-col gap-4" data-reveal-lead>
 					<PageHeader
 						kanji="棚"
 						label="Decks"
@@ -348,8 +359,8 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
               inter-section gap so the ledger sits as close under the Study
               CTA as the CTA sits under the title (a balanced `gap-4` band on
               both sides of the button). */}
-				<div className="-mt-4 lg:-mt-6">
-					<DeckSnapshotRibbon deck={deck} loading={deckLoading} />
+				<div className="-mt-4 lg:-mt-6" data-reveal="">
+					<DeckSnapshotRibbon deck={deck} loading={false} />
 					{isArchived && (
 						<p className="mt-4 text-xs text-faded-sumi">
 							Archived on this device. It's set aside from your Decks list and daily review queue. Restore it to study again.
@@ -360,7 +371,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 				{/* ── Cards ──────────────────────────────────────────────────
               Deck-level actions (rename, archive, delete, open in Cards) live
               in the top-bar overflow menu, so this view is just the card list. */}
-				<section aria-label="Cards in this deck" className="min-w-0">
+				<section aria-label="Cards in this deck" className="min-w-0" data-reveal="">
 					<DeckCardToolbar
 						status={status}
 						onStatusChange={next => updateUrlState({ status: next })}
@@ -398,11 +409,13 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 									)
 								: filteredEmpty
 									? (
-											<NoMatchState
-												searchValue={searchValue}
-												selectedStatusLabel={selectedStatusLabel}
-												onClearSearch={() => updateUrlState({ search: "" })}
-											/>
+											<div className="animate-memory-fade-in">
+												<NoMatchState
+													searchValue={searchValue}
+													selectedStatusLabel={selectedStatusLabel}
+													onClearSearch={() => updateUrlState({ search: "" })}
+												/>
+											</div>
 										)
 									: (
 											<CardsResultsTable

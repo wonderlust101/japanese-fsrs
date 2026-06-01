@@ -1,31 +1,27 @@
 "use client";
 
+import type { CardSortDir, CardSortField } from "@fsrs-japanese/shared-types";
 import type { CardPageSize } from "../../_components/card-list-pagination";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { apiCardToRow } from "@/app/(app)/cards/_components/cards-card-rows";
+import { CardsCountLine } from "@/app/(app)/cards/_components/cards-count-line";
+import { naturalSortDirFor } from "@/app/(app)/cards/_components/cards-filter-state";
 import { CardsResultsTable } from "@/app/(app)/cards/_components/cards-results-table";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDeckPreviewDevState } from "@/dev/panels/deck-preview";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { listCardsCrossDeckAction } from "@/lib/actions/cards.actions";
 import { getDeckWithStatsAction } from "@/lib/actions/decks.actions";
-import { useCopyPremadeDeck } from "@/lib/api/premade";
-
 import { queryKeys } from "@/lib/api/queryKeys";
-import {
-	CardListPagination,
-
-} from "../../_components/card-list-pagination";
+import { CardListPagination } from "../../_components/card-list-pagination";
 
 const DEFAULT_PAGE_SIZE: CardPageSize = 25;
 
@@ -35,40 +31,44 @@ interface Props {
 }
 
 /**
- * Deck preview surface. Reuses the regular deck-detail chrome — PageHeader,
- * search, CardsResultsTable, pagination — but strips every surface that
- * exposes personal stats or editing: the TopBar kebab, the "Study deck" CTA,
- * per-row kebab, FSRS status pill, due date, snapshot aside, and Options
- * panel. The single deck-level action is "Add to my library", which copies
- * the underlying premade source so the learner ends up with a fresh deck
- * to study from.
+ * Read-only preview of a premade deck the user *has* copied, reached from the
+ * premade catalogue's "View deck" action and routed at `/decks/[id]/preview`.
  *
- * Reached via the premade catalogue's "View deck" action for any premade
- * entry the user has already copied. Routed at `/decks/[id]/preview`.
+ * Deliberately a mirror image of the not-yet-copied preview
+ * (`PremadePreviewView` at `/decks/premade/[id]`): identical chrome — the same
+ * search toolbar, `CardsCountLine` (sort), `CardsResultsTable` (Word / Meaning
+ * / Type — Status column and row links both suppressed, exactly like the
+ * uncopied preview), `CardListPagination` footer, and the deck-detail CTA
+ * placement (left-aligned primary on desktop, sticky bottom bar on phones).
+ * The *only* intended difference is the CTA: where the uncopied preview offers
+ * "Add to my library", this one — the deck already lives in the library —
+ * offers "View deck", linking to the owned deck-detail page to study from.
+ *
+ * It sources cards from the cross-deck listing scoped to `deckId` (the owned
+ * copy), so the search input is a real backend search.
  */
 export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element {
 	useDeckPreviewDevState();
-	const router = useRouter();
-	const { toast, showToast, dismissToast } = useToast();
-	const copyMutation = useCopyPremadeDeck();
 
 	const [searchValue, setSearchValue] = useState("");
+	const [sort, setSort] = useState<CardSortField>("recent");
+	const [sortDir, setSortDir] = useState<CardSortDir | null>(null);
 	const [pageSize, setPageSize] = useState<CardPageSize>(DEFAULT_PAGE_SIZE);
 	const [pageIndex, setPageIndex] = useState(0);
 
-	// Deck metadata. Drives the attribution chip and the empty/error states.
+	// Deck metadata. Drives the header subtitle and the empty/error states.
 	// Reused query key so a fresh detail-page fetch hydrates this view too.
-	const { data: deck } = useQuery({
+	// `gcTime: 0` evicts on unmount so navigation back fetches fresh data.
+	const { data: deck } = useSuspenseQuery({
 		queryKey: queryKeys.decks.detail(deckId),
 		queryFn: () => getDeckWithStatsAction(deckId),
+		gcTime: 0,
 	});
 
 	// Card list — pulls from the cross-deck endpoint with `deckId` as the
-	// scope filter so the search input becomes a real backend search.
-	// Status filter intentionally omitted — read-only mode doesn't expose
-	// the FSRS status pill, so a filter on it would be confusing. Key
-	// intentionally distinct from the deck-detail page's so a search-
-	// filtered cache there doesn't accidentally satisfy this query.
+	// scope filter so the search input becomes a real backend search. Key
+	// intentionally distinct from the deck-detail page's so a search-filtered
+	// cache there doesn't accidentally satisfy this query.
 	const trimmedSearch = searchValue.trim();
 	const {
 		data,
@@ -77,65 +77,57 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
 		isLoading: cardsLoading,
 		isError: cardsError,
 	} = useQuery({
-		queryKey: [...queryKeys.cards.byDeck(deckId), "preview", pageSize, trimmedSearch, pageIndex],
+		queryKey: [...queryKeys.cards.byDeck(deckId), "preview", pageSize, trimmedSearch, sort, sortDir, pageIndex],
 		queryFn: () => listCardsCrossDeckAction({
 			deckId,
 			limit: pageSize,
+			sort,
+			...(sortDir !== null ? { sortDir } : {}),
 			...(pageIndex > 0 ? { offset: pageIndex * pageSize } : {}),
 			...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
 		}),
 		placeholderData: keepPreviousData,
 	});
 
-	const searchActive = trimmedSearch.length > 0;
 	const visibleCards = data?.items ?? [];
-
+	const totalMatching = data?.totalCount ?? 0;
 	const hasPrev = pageIndex > 0;
 	const hasNext = (data?.hasMore ?? false) === true;
+
+	// `deck.cardCount` is the *unfiltered* deck size, so an empty result with
+	// cards in the deck means the filter/search narrowed to zero — distinct
+	// from a genuinely empty deck.
 	const cardCount = deck?.cardCount ?? 0;
-	const isCardListEmpty = !cardsLoading && cardCount === 0;
+	const isDeckEmpty = !cardsLoading && cardCount === 0;
 	const filteredEmpty = !cardsLoading && cardCount > 0 && visibleCards.length === 0;
-	const sourcePremadeId = deck?.sourcePremadeId ?? null;
+	const searchActive = trimmedSearch.length > 0;
+
+	// Any filter/sort change invalidates the current offset, so jump back to
+	// page 1 rather than stranding the user past the new last page.
+	function resetToFirstPage(): void {
+		setPageIndex(0);
+	}
 
 	function handleNextPage(): void {
-		if (hasNext && !isCardsFetching) {
+		if (hasNext && !isCardsFetching)
 			setPageIndex(i => i + 1);
-		}
 	}
 
 	function handlePrevPage(): void {
 		setPageIndex(i => Math.max(0, i - 1));
 	}
 
-	// Adds another copy of the underlying premade source, mirroring the
-	// catalogue's "Add another copy" affordance. The CTA only renders when
-	// `sourcePremadeId !== null` (see rightSlot below), so the mutation has a
-	// real id to work with; the guard here is defensive against stale clicks
-	// after the deck row is unloaded.
-	function handleAddToLibrary(): void {
-		if (sourcePremadeId === null || copyMutation.isPending)
-			return;
-		copyMutation.mutate(sourcePremadeId, {
-			onSuccess: (result) => {
-				showToast(
-					`Added ${result.cardCount} ${result.cardCount === 1 ? "card" : "cards"} to your library.`,
-				);
-				router.push(`/decks/${result.deckId}/preview`);
-			},
-			onError: () => {
-				showToast(
-					"Couldn't add this deck. Please try again in a moment.",
-					"error",
-				);
-			},
-		});
-	}
+	// Page-level reveal — header chrome only (mount, single lead beat). The
+	// preview card LIST stays static (spec §P2.6: list rows never revealed).
+	// Re-runs once the loaded view (vs loader) mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, { deps: [cardsLoading] });
 
 	if (cardsLoading) {
 		return (
 			<>
 				<TopBar>
-					<TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
+					<TopBarBackLink href="/decks/premade" ariaLabel="Back to Premade decks" />
 				</TopBar>
 				<PageLoader />
 			</>
@@ -145,125 +137,173 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
 	return (
 		<>
 			<TopBar>
-				<TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
-				<TopBarTitle kanji="棚" label={deckName} />
+				<TopBarBackLink href="/decks/premade" ariaLabel="Back to Premade decks" />
+				<TopBarTitle kanji="集" label={deckName} />
 			</TopBar>
 
 			<div className="min-h-screen bg-cool-paper-base pb-32">
-				<div className="mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+				<div ref={contentRef} className="mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+					{/* ── Page hero + primary action ──────────────────────────────
+              Header and the View CTA are grouped with a tight internal gap so
+              the button sits close under the title. The CTA is left-aligned
+              and desktop-only (phones use the sticky bottom bar below), exactly
+              like the deck-detail Study CTA and the uncopied premade preview. */}
 					<div className={PAGE_HEADER_PADDING}>
-						<PageHeader
-							kanji="棚"
-							label="Deck preview"
-							title={deckName}
-							{...(deck?.description !== null && deck?.description !== undefined && deck.description.length > 0
-								? { subtitle: deck.description }
-								: {})}
-							rightSlot={
-								sourcePremadeId !== null
-									? (
-											<Button
-												type="button"
-												size="sm"
-												variant="primary"
-												onClick={handleAddToLibrary}
-												loading={copyMutation.isPending}
-												aria-label={`Add ${deckName} to your library`}
-											>
-												Add to my library
-											</Button>
-										)
-									: undefined
-							}
-						/>
+						<div className="flex flex-col gap-4" data-reveal-lead>
+							<PageHeader
+								kanji="集"
+								label="Deck preview · premade"
+								title={deckName}
+								{...(deck?.description != null && deck.description.length > 0
+									? { subtitle: deck.description }
+									: {})}
+							/>
+							<div className="hidden justify-start sm:flex">
+								<ViewDeckCta deckId={deckId} deckName={deckName} size="lg" />
+							</div>
+						</div>
 					</div>
 
-					<div className="flex flex-col gap-y-6">
-						<section aria-label="Cards in this deck" className="min-w-0">
-							<SearchOnlyToolbar
-								value={searchValue}
-								onChange={setSearchValue}
-							/>
+					<section aria-label="Cards in this deck" className="min-w-0">
+						<SearchOnlyToolbar
+							value={searchValue}
+							onChange={(next) => { setSearchValue(next); resetToFirstPage(); }}
+						/>
 
+						{/* Count + sort line — the same control the Cards browser, Deck
+                Detail, and the uncopied premade preview use, so count, sort
+                axis, and direction read as one sentence. */}
+						{!isDeckEmpty && !cardsError && (
 							<div className="mt-4">
-								{cardsError
-									? (
-											<PreviewMessage
-												title="Couldn't load this deck's cards."
-												body="The list tried to read from the server and didn't get a reply. Try again in a moment."
-												action={(
-													<Button size="sm" variant="secondary" onClick={() => void refetch()}>
-														Try again
-													</Button>
-												)}
-											/>
-										)
-									: isCardListEmpty
-										? (
-												<PreviewMessage
-													title="This deck has no cards yet."
-													body="Cards added to the source deck will appear here."
-												/>
-											)
-										: filteredEmpty
-											? (
-													<PreviewMessage
-														title={searchActive
-															? `No cards match '${searchValue}'.`
-															: "No cards to show."}
-														body={searchActive
-															? "Try a different search term, or clear the search."
-															: "Try loading more cards."}
-														action={searchActive
-															? (
-																	<Button size="sm" variant="secondary" onClick={() => setSearchValue("")}>
-																		Clear search
-																	</Button>
-																)
-															: undefined}
-													/>
-												)
-											: (
-													<CardsResultsTable
-														rows={visibleCards.map(card => apiCardToRow(card, deckId, deckName))}
-														loading={cardsLoading}
-														readOnly
-														cardHrefSuffix="?from=preview"
-													/>
-												)}
-							</div>
-
-							{!cardsLoading && !cardsError && cardCount > 0 && (
-								<CardListPagination
-									pageIndex={pageIndex}
-									pageSize={pageSize}
-									pageItemCount={visibleCards.length}
-									hasPrev={hasPrev}
-									hasNext={hasNext}
-									isFetchingNext={isCardsFetching && !cardsLoading}
-									totalCount={data?.totalCount}
-									onPrev={handlePrevPage}
-									onNext={handleNextPage}
-									onPageSizeChange={(next) => {
-										setPageSize(next);
-										setPageIndex(0);
+								<CardsCountLine
+									totalCount={totalMatching}
+									sort={sort}
+									sortDir={sortDir}
+									onPickSort={(nextSort) => { setSort(nextSort); setSortDir(null); resetToFirstPage(); }}
+									onToggleSortDir={() => {
+										const natural = naturalSortDirFor(sort);
+										const current = sortDir ?? natural;
+										const flipped: CardSortDir = current === "asc" ? "desc" : "asc";
+										setSortDir(flipped === natural ? null : flipped);
+										resetToFirstPage();
 									}}
 								/>
-							)}
-						</section>
-					</div>
+							</div>
+						)}
+
+						<div className="mt-4">
+							{cardsError
+								? (
+										<PreviewMessage
+											title="Couldn't load this deck's cards."
+											body="The list tried to read from the server and didn't get a reply. Try again in a moment."
+											action={(
+												<Button size="sm" variant="secondary" onClick={() => void refetch()}>
+													Try again
+												</Button>
+											)}
+										/>
+									)
+								: isDeckEmpty
+									? (
+											<PreviewMessage
+												title="This deck has no cards yet."
+												body="Cards in this deck will appear here."
+											/>
+										)
+									: filteredEmpty
+										? (
+												<PreviewMessage
+													title={searchActive ? `No cards match '${searchValue}'.` : "No cards to show."}
+													body={searchActive
+														? "Try a different search term, or clear the search."
+														: "Try loading more cards."}
+													action={searchActive
+														? (
+																<Button
+																	size="sm"
+																	variant="secondary"
+																	onClick={() => { setSearchValue(""); resetToFirstPage(); }}
+																>
+																	Clear search
+																</Button>
+															)
+														: undefined}
+												/>
+											)
+										: (
+												<CardsResultsTable
+													rows={visibleCards.map(card => apiCardToRow(card, deckId, deckName))}
+													loading={cardsLoading}
+													readOnly={false}
+													showActions={false}
+													showStatusColumn={false}
+													linkRows={false}
+												/>
+											)}
+						</div>
+
+						{!cardsLoading && !cardsError && !isDeckEmpty && (
+							<CardListPagination
+								pageIndex={pageIndex}
+								pageSize={pageSize}
+								pageItemCount={visibleCards.length}
+								hasPrev={hasPrev}
+								hasNext={hasNext}
+								isFetchingNext={isCardsFetching && !cardsLoading}
+								totalCount={totalMatching}
+								onPrev={handlePrevPage}
+								onNext={handleNextPage}
+								onPageSizeChange={(next) => {
+									setPageSize(next);
+									resetToFirstPage();
+								}}
+							/>
+						)}
+					</section>
 				</div>
 			</div>
 
-			{toast !== null && (
-				<Toast
-					key={toast.key}
-					message={toast.message}
-					kind={toast.kind}
-					onDismiss={dismissToast}
-				/>
-			)}
+			{/* ── Mobile-only sticky View CTA ──────────────────────────────────
+          The header's View button is desktop-only; phones get the primary
+          action pinned to the bottom edge so it's always reachable while
+          scrolling the card list. Mirrors the deck-detail sticky Study bar and
+          the uncopied premade preview's sticky Add bar. */}
+			<div
+				className="fixed inset-x-0 bottom-0 z-[var(--z-bar)] border-t border-soft-hairline bg-cool-paper-base px-4 pt-3 sm:hidden"
+				style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+			>
+				<ViewDeckCta deckId={deckId} deckName={deckName} full />
+			</div>
 		</>
+	);
+}
+
+// ─── View-deck CTA ───────────────────────────────────────────────────────────
+
+interface ViewDeckCtaProps {
+	deckId: string;
+	deckName: string;
+	size?: "md" | "lg";
+	full?: boolean;
+}
+
+/**
+ * The copied-deck preview's primary action, standing in for the uncopied
+ * preview's "Add to my library". The deck already lives in the user's library,
+ * so this navigates to the owned deck-detail page to study from.
+ */
+function ViewDeckCta({ deckId, deckName, size = "md", full = false }: ViewDeckCtaProps): React.JSX.Element {
+	return (
+		<ButtonLink
+			href={`/decks/${deckId}`}
+			variant="primary"
+			size={size}
+			aria-label={`View ${deckName} in deck`}
+			className={full ? "w-full" : ""}
+		>
+			View in deck
+		</ButtonLink>
 	);
 }
 
@@ -281,7 +321,7 @@ interface SearchOnlyToolbarProps {
  * the loaded cards by word/meaning/reading) without exposing personal
  * state dimensions.
  */
-function SearchOnlyToolbar({
+export function SearchOnlyToolbar({
 	value,
 	onChange,
 }: SearchOnlyToolbarProps): React.JSX.Element {
@@ -308,7 +348,7 @@ interface PreviewMessageProps {
 	action?: React.ReactNode;
 }
 
-function PreviewMessage({ title, body, action }: PreviewMessageProps): React.JSX.Element {
+export function PreviewMessage({ title, body, action }: PreviewMessageProps): React.JSX.Element {
 	return (
 		<div
 			role="status"

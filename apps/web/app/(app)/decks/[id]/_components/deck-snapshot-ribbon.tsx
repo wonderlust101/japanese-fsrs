@@ -5,6 +5,7 @@ import type { ApiDeckWithStats } from "@fsrs-japanese/shared-types";
 import { useEffect, useState } from "react";
 
 import { Time } from "@/components/ui/Time";
+import { TomoLoader } from "@/components/ui/TomoLoader";
 
 interface Props {
 	deck: ApiDeckWithStats | null | undefined;
@@ -47,6 +48,20 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
 		? Math.round((deck.matureCount / deck.cardCount) * 100)
 		: null;
 
+	// One loader for the whole ribbon (it's backed by a single deck query), so
+	// the zones reveal together instead of three placeholders resolving in step.
+	if (loading) {
+		return (
+			<section
+				aria-label="Deck snapshot"
+				aria-busy="true"
+				className="flex items-center justify-center border-y border-soft-hairline py-8"
+			>
+				<TomoLoader size="block" />
+			</section>
+		);
+	}
+
 	return (
 		<section
 			aria-label="Deck snapshot"
@@ -54,46 +69,36 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
 		>
 			{/* ── 今 Due now ─ the one actionable zone ─────────────────────── */}
 			<Zone kanji="今" caption="Due now" tone={caughtUp ? "calm" : "hot"}>
-				{loading
+				{caughtUp
 					? (
-							<LeadSkeleton />
+							<div className="flex items-baseline gap-2">
+								<Lead tone="calm" aria-hidden="true">✓</Lead>
+								<span className="text-sm font-medium text-aizome-indigo">Clear</span>
+								<span className="text-xs text-faded-sumi">nothing due</span>
+							</div>
 						)
-					: caughtUp
-						? (
-								<div className="flex items-baseline gap-2">
-									<Lead tone="calm" aria-hidden="true">✓</Lead>
-									<span className="text-sm font-medium text-aizome-indigo">Clear</span>
-									<span className="text-xs text-faded-sumi">nothing due</span>
-								</div>
-							)
-						: (
-								<div className="flex items-baseline gap-3">
-									<Lead tone="hot">{dueCount}</Lead>
-									<Supporting>
-										<Figure value={deck?.dueNewCount ?? 0} label="new" />
-										<Figure value={deck?.dueReviewCount ?? 0} label="review" />
-									</Supporting>
-								</div>
-							)}
+					: (
+							<div className="flex items-baseline gap-3">
+								<Lead tone="hot">{dueCount}</Lead>
+								<Supporting>
+									<Figure value={deck?.dueNewCount ?? 0} label="new" />
+									<Figure value={deck?.dueReviewCount ?? 0} label="review" />
+								</Supporting>
+							</div>
+						)}
 			</Zone>
 
 			<Divider />
 
 			{/* ── 蔵 Library ─ what the deck holds ─────────────────────────── */}
 			<Zone kanji="蔵" caption="Library" tone="neutral">
-				{loading
-					? (
-							<LeadSkeleton />
-						)
-					: (
-							<div className="flex items-baseline gap-3">
-								<Lead tone="ink">{deck?.cardCount ?? 0}</Lead>
-								<Supporting>
-									<Figure value={deck?.newCount ?? 0} label="new" />
-									{maturePct !== null && <MatureFigure pct={maturePct} mounted={mounted} />}
-								</Supporting>
-							</div>
-						)}
+				<div className="flex items-baseline gap-3">
+					<Lead tone="ink">{deck?.cardCount ?? 0}</Lead>
+					<Supporting>
+						<Figure value={deck?.newCount ?? 0} label="new" />
+						{maturePct !== null && <MatureFigure pct={maturePct} mounted={mounted} />}
+					</Supporting>
+				</div>
 			</Zone>
 
 			<Divider />
@@ -103,30 +108,24 @@ export function DeckSnapshotRibbon({ deck, loading }: Props): React.JSX.Element 
           has been reviewed yet, which reads as "Not yet" rather than a date —
           a more learner-relevant signal than the deck-row edit date. */}
 			<Zone kanji="習" caption="Last studied" tone="neutral">
-				{loading
-					? (
-							<span aria-hidden="true" className="inline-block h-6 w-28 animate-pulse rounded-[1px] bg-cream-inset" />
-						)
-					: (
-							<div className="flex items-baseline gap-3">
-								{deck?.lastReviewedAt != null
-									? (
-											<span className="text-[1.375rem] font-medium leading-none text-sumi-ink/90">
-												<Time value={deck.lastReviewedAt}>{formatRelativeDay(deck.lastReviewedAt)}</Time>
-											</span>
-										)
-									: (
-											<span className="text-[1.375rem] font-medium leading-none text-faded-sumi">
-												Not yet
-											</span>
-										)}
-								<span className="text-xs text-faded-sumi">
-									created
-									{" "}
-									{deck?.createdAt ? <Time value={deck.createdAt}>{formatMonthYear(deck.createdAt)}</Time> : "—"}
+				<div className="flex items-baseline gap-3">
+					{deck?.lastReviewedAt != null
+						? (
+								<span className="text-[1.375rem] font-medium leading-none text-sumi-ink/90">
+									<Time value={deck.lastReviewedAt}>{formatRelativeDay(deck.lastReviewedAt)}</Time>
 								</span>
-							</div>
-						)}
+							)
+						: (
+								<span className="text-[1.375rem] font-medium leading-none text-faded-sumi">
+									Not yet
+								</span>
+							)}
+					<span className="text-xs text-faded-sumi">
+						created
+						{" "}
+						{deck?.createdAt ? <Time value={deck.createdAt}>{formatMonthYear(deck.createdAt)}</Time> : "—"}
+					</span>
+				</div>
 			</Zone>
 		</section>
 	);
@@ -255,10 +254,6 @@ function MatureFigure({ pct, mounted }: { pct: number; mounted: boolean }): Reac
 			</span>
 		</span>
 	);
-}
-
-function LeadSkeleton(): React.JSX.Element {
-	return <span aria-hidden="true" className="inline-block h-6 w-12 animate-pulse rounded-[1px] bg-cream-inset" />;
 }
 
 /**

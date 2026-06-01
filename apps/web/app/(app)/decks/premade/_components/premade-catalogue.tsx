@@ -9,6 +9,7 @@ import { DecksMenu, MenuItem } from "@/app/(app)/decks/_components/decks-menu";
 import { DecksPagination } from "@/app/(app)/decks/_components/decks-pagination";
 import { IconSort } from "@/components/icons/chrome-marks";
 import { Button } from "@/components/ui/Button";
+import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
 import { StatusPill } from "@/components/ui/Pill";
 import { QuietLink } from "@/components/ui/QuietLink";
 import { SectionCard } from "@/components/ui/SectionCard";
@@ -16,6 +17,7 @@ import { Toast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { ToolbarChip } from "@/components/ui/ToolbarChip";
 import { useDecksPremadeDevState } from "@/dev/panels/decks-premade";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useDecks } from "@/lib/api/decks";
 import { usePremadeDecks } from "@/lib/api/premade";
 import { usePremadeCopy } from "./use-premade-copy";
@@ -49,6 +51,16 @@ export function PremadeCatalogue(): React.JSX.Element {
 	// Scroll anchor for the pagination footer: a page change scrolls back to the
 	// controls, matching the Decks list behavior.
 	const toolbarRef = useRef<HTMLElement | null>(null);
+
+	// Page-level reveal — MOUNT-NO-STAGGER fallback (orchestrator decision): a
+	// single header settle, NOT scroll mode. Choosing scroll would pull
+	// ScrollTrigger (~10kB) into a route that otherwise carries none, and we're
+	// tight on the size budget. The catalogue cards are scannable list rows and
+	// stay static (spec §P2.6 + §P2.5 premade flag). Re-runs once the loaded
+	// shell mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const loaded = !decksQuery.isLoading && !decksQuery.isError;
+	useRevealMount(contentRef, { deps: [loaded] });
 
 	const allDecks = useMemo(() => decksQuery.data?.items ?? [], [decksQuery.data]);
 
@@ -94,9 +106,19 @@ export function PremadeCatalogue(): React.JSX.Element {
 
 	// ── States ────────────────────────────────────────────────────────────────
 
+	// Loading owns the whole shell: no header, loader centered in the content
+	// area below the TopBar (`h-full` spans the `flex-1` shell from the page).
+	if (decksQuery.isLoading) {
+		return (
+			<div className="flex h-full items-center justify-center px-6">
+				<PageLoader />
+			</div>
+		);
+	}
+
 	if (decksQuery.isError) {
 		return (
-			<>
+			<CatalogueShell>
 				<ErrorState onRetry={() => void decksQuery.refetch()} />
 				{toast !== null && (
 					<Toast
@@ -106,20 +128,17 @@ export function PremadeCatalogue(): React.JSX.Element {
 						onDismiss={dismissToast}
 					/>
 				)}
-			</>
+			</CatalogueShell>
 		);
 	}
 
-	if (decksQuery.isLoading) {
-		return <PageLoader />;
-	}
-
 	return (
-		<>
+		<CatalogueShell contentRef={contentRef} revealLead>
 			<section
 				ref={toolbarRef}
 				aria-label="Premade deck controls"
 				className="flex flex-wrap items-center gap-2"
+				data-reveal=""
 			>
 				<FilterDropdown
 					triggerLabel={jlptTriggerLabel}
@@ -149,10 +168,12 @@ export function PremadeCatalogue(): React.JSX.Element {
 
 			{totalCount === 0
 				? (
-						<EmptyState
-							hasFilter={jlpt !== "all"}
-							onResetFilter={() => setJlpt("all")}
-						/>
+						<div className="animate-memory-fade-in">
+							<EmptyState
+								hasFilter={jlpt !== "all"}
+								onResetFilter={() => setJlpt("all")}
+							/>
+						</div>
 					)
 				: (
 						<DecksPagination
@@ -175,7 +196,37 @@ export function PremadeCatalogue(): React.JSX.Element {
 					onDismiss={dismissToast}
 				/>
 			)}
-		</>
+		</CatalogueShell>
+	);
+}
+
+// ── Shell ─────────────────────────────────────────────────────────────────────
+// Header + reading container for the catalogue's loaded and error states. Held
+// here (not in the page) so the loading state can skip it and center the loader
+// in the bare shell. Mirrors the Decks / Cards page header rhythm.
+
+function CatalogueShell({
+	children,
+	contentRef,
+	revealLead = false,
+}: {
+	children: React.ReactNode;
+	contentRef?: React.RefObject<HTMLDivElement | null>;
+	revealLead?: boolean;
+}): React.JSX.Element {
+	return (
+		<div ref={contentRef} className="relative mx-auto w-full max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+			<div className={PAGE_HEADER_PADDING}>
+				<PageHeader
+					kanji="集"
+					label="Premade decks · curated by Tomo"
+					title="Find a deck to start with."
+					subtitle="Curated starter decks for JLPT N5 through N1, plus thematic collections. Add one to your library and Tomo creates a personal copy you can study, edit, and pause."
+					revealLead={revealLead}
+				/>
+			</div>
+			{children}
+		</div>
 	);
 }
 
@@ -341,7 +392,7 @@ function CatalogueCard({
 				: `JLPT ${deck.jlptLevel}`;
 
 	return (
-		<SectionCard kanji="集" label={cardCountLabel} omitTitle>
+		<SectionCard kanji="集" label={cardCountLabel} omitTitle reveal>
 			<article className="grid gap-x-6 gap-y-3.5 sm:grid-cols-[minmax(0,1fr)_auto]">
 				{/* Headline + byline. */}
 				<div className="flex min-w-0 flex-col gap-1.5 sm:col-start-1 sm:row-start-1">
@@ -354,19 +405,19 @@ function CatalogueCard({
 							集
 						</span>
 						<h2 className="min-w-0 text-balance break-words font-display text-xl font-medium leading-tight text-sumi-ink">
-							{isCopied && copiedDeck !== null
-								? (
-										<Link
-											href={`/decks/${copiedDeck.id}/preview`}
-											aria-label={`Preview ${deck.name}`}
-											className="ui-motion-colors rounded-xs underline-offset-4 hover:text-inari-vermillion hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-										>
-											{deck.name}
-										</Link>
-									)
-								: (
-										deck.name
-									)}
+							{/* Both states link to a read-only preview: copied decks open the
+                user's own copy at /decks/[id]/preview; uncopied decks open the
+                premade source preview at /decks/premade/[id] so a learner can
+                browse the cards before adding. */}
+							<Link
+								href={isCopied && copiedDeck !== null
+									? `/decks/${copiedDeck.id}/preview`
+									: `/decks/premade/${deck.id}`}
+								aria-label={`Preview ${deck.name}`}
+								className="ui-motion-colors rounded-xs underline-offset-4 hover:text-inari-vermillion hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
+							>
+								{deck.name}
+							</Link>
 						</h2>
 						{isCopied && (
 							<StatusPill
@@ -431,17 +482,28 @@ function CatalogueCard({
 								</>
 							)
 						: (
-								<Button
-									type="button"
-									variant="primary"
-									size="sm"
-									onClick={onCopy}
-									loading={pending}
-									disabled={disabled}
-									aria-label={`Add ${deck.name} to your library`}
-								>
-									Add to my library
-								</Button>
+								<>
+									<Button
+										type="button"
+										variant="primary"
+										size="sm"
+										onClick={onCopy}
+										loading={pending}
+										disabled={disabled}
+										aria-label={`Add ${deck.name} to your library`}
+									>
+										Add to my library
+									</Button>
+									<QuietLink
+										href={`/decks/premade/${deck.id}`}
+										tone="sumi"
+										size="sm"
+										trailingArrow
+										ariaLabel={`Preview ${deck.name} before adding`}
+									>
+										Preview deck
+									</QuietLink>
+								</>
 							)}
 				</div>
 			</article>

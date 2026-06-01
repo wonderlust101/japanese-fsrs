@@ -95,7 +95,10 @@ export function NoMatchState({
 					: (
 							<>
 								No
+								{" "}
 								{selectedStatusLabel.toLowerCase()}
+								{" "}
+								{" "}
 								{" "}
 								cards in this deck.
 							</>

@@ -14,6 +14,8 @@ import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
 
 export interface DecksHeaderProps {
 	variant: HeaderVariant;
+	/** Opt-in page-level reveal lead — forwarded to the inner PageHeader. */
+	revealLead?: boolean;
 }
 
 export type HeaderVariant
@@ -30,7 +32,7 @@ export type HeaderVariant
 			decksWithDueCount: number;
 		};
 
-export function DecksHeader({ variant }: DecksHeaderProps): React.JSX.Element {
+export function DecksHeader({ variant, revealLead = false }: DecksHeaderProps): React.JSX.Element {
 	const subtitle = buildSubtitleText(variant);
 
 	return (
@@ -40,6 +42,7 @@ export function DecksHeader({ variant }: DecksHeaderProps): React.JSX.Element {
 				label="Decks"
 				title="Decks"
 				subtitle={subtitle}
+				revealLead={revealLead}
 			/>
 		</div>
 	);

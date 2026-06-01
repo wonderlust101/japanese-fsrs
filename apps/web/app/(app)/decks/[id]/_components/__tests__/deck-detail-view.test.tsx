@@ -110,7 +110,7 @@ afterEach(() => {
 
 describe("deckDetailView", () => {
 	describe("loading state", () => {
-		it("renders a PageLoader while the deck + card queries are in flight", () => {
+		it("suspends (shows Suspense fallback) while the deck query is in flight", () => {
 			mockedGetDeck.mockReturnValueOnce(new Promise(() => {}));
 			mockedList.mockReturnValueOnce(new Promise(() => {}));
 			mockedListDecks.mockResolvedValue({
@@ -123,9 +123,10 @@ describe("deckDetailView", () => {
 				<DeckDetailView deckId="deck-1" deckName="N5 Vocabulary" />,
 			);
 
-			// PageLoader is rendered alongside the top bar; the deck name appears
-			// in the top bar even during loading.
-			expect(screen.getAllByText("N5 Vocabulary").length).toBeGreaterThan(0);
+			// With useSuspenseQuery the deck query suspends; the Suspense boundary
+			// fires and the component content is not rendered until data resolves.
+			expect(screen.getByTestId("suspense-fallback")).toBeInTheDocument();
+			expect(screen.queryByRole("heading", { name: "N5 Vocabulary" })).not.toBeInTheDocument();
 		});
 	});
 

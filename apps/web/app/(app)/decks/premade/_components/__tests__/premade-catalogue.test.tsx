@@ -122,4 +122,20 @@ describe("premadeCatalogue", () => {
 		// Accessible name comes from the button's aria-label ("Add <name> to your library").
 		expect(screen.getByRole("button", { name: /add .* to your library/i })).toBeInTheDocument();
 	});
+
+	it("offers a preview link to the premade source for an uncopied deck", async () => {
+		mockedPremade.mockResolvedValue({
+			items: [makePremadeDeck({ id: "p1", name: "Core N5 Vocabulary" })],
+			nextCursor: null,
+			hasMore: false,
+		});
+		// No user decks copied from p1, so the deck is uncopied → preview routes
+		// to the premade source preview, not an owned-deck preview.
+		mockedUserDecks.mockResolvedValue({ ...EMPTY_LIST });
+
+		renderWithProviders(<PremadeCatalogue />);
+
+		const previewLink = await screen.findByRole("link", { name: /preview core n5 vocabulary before adding/i });
+		expect(previewLink).toHaveAttribute("href", "/decks/premade/p1");
+	});
 });

@@ -3,8 +3,7 @@
 import type { ApiDeck } from "@fsrs-japanese/shared-types";
 
 import type { ActiveDialog } from "./use-deck-list-actions";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
@@ -15,7 +14,8 @@ import { Toast } from "@/components/ui/Toast";
 
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useDecksDevState } from "@/dev/panels/decks";
-import { listDecksAction } from "@/lib/actions/decks.actions";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
+import { useSuspenseDecks } from "@/lib/api/decks";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { BulkDeleteDecksDialog } from "./bulk-delete-decks-dialog";
 import { CreateDeckDialog } from "./create-deck-dialog";
@@ -54,13 +54,10 @@ export function DeckListView(): React.JSX.Element {
 
 	// ── Data ──────────────────────────────────────────────────────────────
 	const dev = useDecksDevState();
-	const { data, isLoading: queryLoading, isError: queryError } = useQuery({
-		queryKey: queryKeys.decks.list(),
-		queryFn: () => listDecksAction(),
-	});
-	const isError = dev.forcedState === "error" ? true : queryError;
+	const { data } = useSuspenseDecks();
+	const isError = dev.forcedState === "error";
 	const allDecks: ApiDeck[] = useMemo(
-		() => dev.forcedState === "empty" ? [] : (data?.items ?? []),
+		() => dev.forcedState === "empty" ? [] : data.items,
 		[data, dev.forcedState],
 	);
 
@@ -70,7 +67,7 @@ export function DeckListView(): React.JSX.Element {
 	// produces stable `Map` references so the memos below don't churn
 	// every render. Shares cache with each DeckCard's own useQuery.
 	const { dueByDeckId, matureByDeckId, pending: detailsPending } = useDeckStatsMap(allDecks);
-	const isLoading = dev.forcedState === "loading" ? true : (queryLoading || detailsPending);
+	const isLoading = dev.forcedState === "loading" || detailsPending;
 
 	// ── Persistent state ──────────────────────────────────────────────────
 	// View prefs + study order still live in localStorage (no backend
@@ -142,6 +139,12 @@ export function DeckListView(): React.JSX.Element {
 
 	const showCurateMode = curateMode && allDecks.length > 0;
 
+	// Page-level reveal (mount mode). Reveals the HEADER lead → the tabs block;
+	// the deck rows (#decks-list-panel) stay static for instant scanning + drag
+	// (spec §P2.6). Re-runs once the list (vs loader) mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, { deps: [isLoading] });
+
 	if (isLoading) {
 		return (
 			<>
@@ -158,12 +161,6 @@ export function DeckListView(): React.JSX.Element {
 			<TopBar>
 				<TopBarTitle kanji="束" label="Decks" />
 				<TopBarActions>
-					<Link
-						href="/decks/premade"
-						className="ui-motion-colors hidden h-8 items-center rounded-xs px-3 font-mono text-xs text-faded-sumi hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2 sm:inline-flex"
-					>
-						Browse premade
-					</Link>
 					<Button
 						size="sm"
 						variant="secondary"
@@ -181,14 +178,14 @@ export function DeckListView(): React.JSX.Element {
 					showCurateMode ? "bg-cool-paper-shade" : "bg-cool-paper-base",
 				].join(" ")}
 			>
-				<div className="relative mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
-					<DecksHeader variant={summary.headerVariant} />
+				<div ref={contentRef} className="relative mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
+					<DecksHeader variant={summary.headerVariant} revealLead />
 
 					{/* Top-level tabs and curate bar. Hidden in the empty state because
               there's nothing to sort, filter, or page through yet. */}
 					{!(summary.headerVariant.kind === "empty") && (
 						<>
-							<div className="relative mt-4">
+							<div className="relative mt-4" data-reveal>
 								<DecksTabs
 									view={prefs.view}
 									counts={{ active: summary.activeCount, mature: summary.matureTabCount, archived: summary.archivedCount }}
