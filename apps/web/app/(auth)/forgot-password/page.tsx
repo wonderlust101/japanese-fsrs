@@ -300,6 +300,7 @@ function VerifyView({
 							? (
 									<span>
 										Resend in
+										{" "}
 										{remaining}
 										s
 									</span>

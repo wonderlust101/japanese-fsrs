@@ -62,7 +62,7 @@ export function WeakSpotDiagnosisPanel({
 
 			{hasContent
 				? (
-						<div className="flex flex-col gap-3">
+						<div className="animate-diagnosis-content-in flex flex-col gap-3">
 							<p className="text-base leading-relaxed text-sumi-ink">
 								{diagnosis}
 							</p>

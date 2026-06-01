@@ -42,7 +42,16 @@ export function MaturityFlowBar({ counts }: MaturityFlowBarProps): React.JSX.Ele
 		.filter(s => s.key !== "suspended")
 		.reduce((acc, s) => acc + counts[s.key], 0);
 	const totalCards = activeTotal + counts.suspended;
-	const safeTotal = Math.max(1, totalCards);
+
+	if (totalCards === 0) {
+		return (
+			<p className="text-sm leading-[1.55] text-faded-sumi">
+				No card maturity data yet. Add cards and start reviewing to see how your collection flows through the SRS pipeline.
+			</p>
+		);
+	}
+
+	const safeTotal = totalCards;
 
 	return (
 		<figure className="flex flex-col gap-y-6">

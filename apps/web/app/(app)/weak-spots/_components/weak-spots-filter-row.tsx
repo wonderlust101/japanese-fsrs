@@ -18,6 +18,13 @@ import { useDecks } from "@/lib/api/decks";
 interface WeakSpotsFilterRowProps {
 	value: WeakSpotFilters;
 	onChange: (next: WeakSpotFilters) => void;
+	/**
+	 * Opt-in page-level reveal participation. When `true`, emits `data-reveal`
+	 * on the toolbar's `<section>` so the weak-spots `useRevealMount` cascade
+	 * fades the filter chrome in behind the header lead (NOT the list rows).
+	 * Default `false`.
+	 */
+	reveal?: boolean;
 }
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: WeakSpotStatusFilter; label: string }> = [
@@ -62,6 +69,7 @@ const DIAGNOSIS_OPTIONS: ReadonlyArray<{ value: WeakSpotDiagnosisFilter | "all";
 export function WeakSpotsFilterRow({
 	value,
 	onChange,
+	reveal = false,
 }: WeakSpotsFilterRowProps): React.JSX.Element {
 	const decksQuery = useDecks(50);
 	const decks = decksQuery.data?.items ?? [];
@@ -88,6 +96,7 @@ export function WeakSpotsFilterRow({
 		<section
 			aria-label="Weak spot filters"
 			className="flex flex-col gap-3 border-b border-soft-hairline pb-4"
+			{...(reveal && { "data-reveal": "" })}
 		>
 			{/* Row 1: search */}
 			<div className="flex min-w-0 items-center gap-2">

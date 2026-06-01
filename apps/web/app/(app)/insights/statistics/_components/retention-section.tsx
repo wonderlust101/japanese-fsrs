@@ -38,6 +38,7 @@ export function RetentionSection({
 	return (
 		<StatisticsSection
 			section={SECTION}
+			reveal
 			rightSlot={<WindowTabs value={windowDays} onChange={setWindowDays} />}
 		>
 			<div className="flex flex-col gap-y-6 lg:gap-y-6">

@@ -25,6 +25,7 @@ export default async function SettingsProfilePage(): Promise<React.JSX.Element> 
 	return (
 		<ProfileSection
 			email={user.email ?? ""}
+			initialVersion={profile.version}
 			initialDisplayName={displayName}
 			initialNativeLanguage={profile.nativeLanguage}
 			initialTimezone={profile.timezone}

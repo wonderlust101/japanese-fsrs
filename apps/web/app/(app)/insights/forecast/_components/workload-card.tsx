@@ -48,6 +48,7 @@ export function WorkloadCard({ forecast }: WorkloadCardProps): React.JSX.Element
 		<SectionCard
 			kanji="次"
 			label="Upcoming load"
+			reveal
 			rightContent={(
 				<ChartRangeToggle
 					label="Forecast window"
@@ -66,6 +67,7 @@ export function WorkloadCard({ forecast }: WorkloadCardProps): React.JSX.Element
 						<span className="text-sumi-ink/70">·</span>
 						{" "}
 						next
+						{" "}
 						{windowDays}
 						{" "}
 						days

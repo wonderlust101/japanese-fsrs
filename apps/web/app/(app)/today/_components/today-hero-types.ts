@@ -13,11 +13,7 @@ export const WEAK_SPOT_QUERY_LIMIT = WEAK_SPOT_PEEK_LIMIT + 1;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type HeroKind = "due" | "caught-up" | "first-time" | "resume";
-
-export interface ResumeContextSnapshot {
-	remaining: number;
-}
+export type HeroKind = "due" | "caught-up" | "first-time";
 
 export type HeroDeckTag
 	= | { kind: "level"; level: JlptPillLevel }
@@ -44,10 +40,9 @@ export interface DueQueue {
 }
 
 export type DashboardHeroVariant
-	= | { kind: "due"; queue: DueQueue }
+	= | { kind: "due"; queue: DueQueue; isFirstVisit: boolean }
 		| { kind: "caught-up" }
-		| { kind: "first-time" }
-		| { kind: "resume"; context: ResumeContextSnapshot };
+		| { kind: "first-time" };
 
 /**
  * CTA descriptor for each hero variant. Used by the route-level
@@ -66,6 +61,5 @@ export function getHeroCta(variant: DashboardHeroVariant): HeroCta {
 		case "due": return { href: "/review/session", label: "Start reviews", tone: "primary" };
 		case "caught-up": return { href: "/add", label: "Add Japanese", tone: "secondary" };
 		case "first-time": return { href: "/decks", label: "Browse decks", tone: "primary" };
-		case "resume": return { href: "/review/session", label: "Resume review", tone: "primary" };
 	}
 }

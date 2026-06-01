@@ -63,7 +63,7 @@ function pickPreparationLine(seed: string): string {
 // Elevated visual weight (sumi-ink, slightly larger than body) is deliberate
 // — this is the orientation the learner reads before starting, not filler.
 
-export function HeroPreSessionNote({ dateKey }: { dateKey: string | undefined }): React.JSX.Element {
+export function HeroPreSessionNote({ dateKey, isFirstVisit = false }: { dateKey: string | undefined; isFirstVisit?: boolean }): React.JSX.Element {
 	// Both queries are awaited at the route level by today-client's PageGate
 	// (see today-client.tsx, `pageReady`). By the time this component
 	// mounts, the TanStack Query cache is warm and these hooks return
@@ -77,12 +77,19 @@ export function HeroPreSessionNote({ dateKey }: { dateKey: string | undefined })
 	const hasWeakSpots = weakSpotItems.length > 0;
 
 	// Only spend the AI quota on calm days. The route gate mirrors this
-	// exact condition (see `tomoNoteEnabled` in today-client).
-	const tomoNoteEnabled = !hasWeakSpots && dateKey !== undefined && !weakSpotsQuery.isError;
+	// exact condition (see `tomoNoteEnabled` in today-client). Disabled for
+	// first-visit users who have no review history to reflect on.
+	const tomoNoteEnabled = !isFirstVisit && !hasWeakSpots && dateKey !== undefined && !weakSpotsQuery.isError;
 	const tomoNoteQuery = useTomoNoteQuery({
 		dateKey: dateKey ?? "",
 		enabled: tomoNoteEnabled,
 	});
+
+	// First-time users have no review history to reflect on. Skip the AI path
+	// entirely and show a static orientation note instead.
+	if (isFirstVisit) {
+		return <FirstVisitNote />;
+	}
 
 	if (hasWeakSpots) {
 		return (
@@ -211,4 +218,12 @@ function FallbackPreparationRow({ dateKey }: { dateKey: string | undefined }): R
 		? pickPreparationLine(dateKey)
 		: DEFAULT_PREPARATION_LINE;
 	return <TeacherNote kanji="言" label="For today">{line}</TeacherNote>;
+}
+
+function FirstVisitNote(): React.JSX.Element {
+	return (
+		<TeacherNote kanji="始" label="First session">
+			Your first session. Rate each card honestly — the schedule learns from your answers, not your speed.
+		</TeacherNote>
+	);
 }

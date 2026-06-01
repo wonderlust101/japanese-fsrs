@@ -250,7 +250,7 @@ export function RetentionRibbonChart({
 				</span>
 			</p>
 
-			<ScrollableChartFrame minWidth={640}>
+			<ScrollableChartFrame minWidth={640} drawOnDeps={[view, yDomain]}>
 				<svg
 					role="img"
 					aria-label="Retention over time with confidence ribbon"
@@ -273,11 +273,11 @@ export function RetentionRibbonChart({
 
 					{/* SD ribbon (outer, faded sumi) */}
 					{sdPath !== "" && (
-						<path d={sdPath} fill="color-mix(in oklch, var(--color-retention-uncertainty), transparent 90%)" stroke="none" />
+						<path data-chart-area d={sdPath} fill="color-mix(in oklch, var(--color-retention-uncertainty), transparent 90%)" stroke="none" />
 					)}
 					{/* SE ribbon (inner, vermillion) */}
 					{sePath !== "" && (
-						<path d={sePath} fill="color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 82%)" stroke="none" />
+						<path data-chart-area d={sePath} fill="color-mix(in oklch, var(--color-inari-vermillion-deep), transparent 82%)" stroke="none" />
 					)}
 
 					{/* Target line (dotted) */}
@@ -304,6 +304,7 @@ export function RetentionRibbonChart({
 					{/* Mean line */}
 					{linePath !== "" && (
 						<path
+							data-chart-line
 							d={linePath}
 							fill="none"
 							stroke="var(--color-inari-vermillion-deep)"

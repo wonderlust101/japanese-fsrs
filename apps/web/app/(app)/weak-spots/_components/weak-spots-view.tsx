@@ -6,18 +6,18 @@ import type { WeakSpotFilters } from "./weak-spots-types";
 import type { CardsPageSize } from "@/app/(app)/cards/_components/cards-pagination";
 import type { ListWeakSpotsOptions } from "@/lib/actions/weak-spots.actions";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { CardsPagination } from "@/app/(app)/cards/_components/cards-pagination";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { Toast, useToast } from "@/components/ui/Toast";
 
 import { PageLoader } from "@/components/ui/TomoLoader";
 
 import { useWeakSpotsDevState } from "@/dev/panels/insights-weak-spots";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import {
 	useDiagnoseWeakSpotMutation,
 	useReopenWeakSpotMutation,
@@ -39,8 +39,18 @@ const DEFAULT_PAGE_SIZE: CardsPageSize = 25;
 // the inner container (no second pad on the shell), and `w-full` before the
 // max-width clamp. Header padding reuses the shared PAGE_HEADER_PADDING token
 // rather than a local copy so the three Study surfaces stay in lockstep.
-const PAGE_SHELL_CLASS = "min-h-screen bg-cool-paper-base";
+// `flex-1` (not `min-h-screen`): the shell is a flex child of the (app)
+// layout's `<main>`, sitting below the sticky 64px TopBar. `min-h-screen`
+// forced a full 100vh, so TopBar + shell overflowed the viewport by ~64px and
+// the page scrolled even with little content. Filling the remaining main
+// height instead keeps short pages from scrolling while tall content still
+// grows and scrolls naturally.
+const PAGE_SHELL_CLASS = "flex-1 bg-cool-paper-base";
 const PAGE_CONTAINER_CLASS = "mx-auto w-full max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16";
+// Centered fill region for the loading state. `h-full` spans the shell's full
+// available height (the area below the TopBar), so the loader sits at the
+// center of the content viewport rather than below the header chrome.
+const PAGE_FILL_CLASS = "flex h-full items-center justify-center px-6";
 
 // ─── View ────────────────────────────────────────────────────────────────────
 
@@ -148,6 +158,18 @@ export function WeakSpotsView(): React.JSX.Element {
 
 	const { toast, showToast, dismissToast } = useToast();
 
+	// Page-level reveal (mount mode). Reveals the HEADER lead + the FILTER row
+	// chrome; the list rows + pagination stay static for instant scanning (spec
+	// §P2.6). Attaches to the main PageShell content container; re-runs when the
+	// main (data) branch mounts vs the loading/error branches.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const mainBranchShowing
+		= dev.forcedState !== "error"
+			&& dev.forcedState !== "loading"
+			&& !(dev.fixtureData === null && liveQuery.isError)
+			&& !(dev.fixtureData === null && liveQuery.isLoading);
+	useRevealMount(contentRef, { deps: [mainBranchShowing] });
+
 	function openWeakSpot(id: string): void {
 		setSelectedId(id);
 	}
@@ -192,10 +214,8 @@ export function WeakSpotsView(): React.JSX.Element {
 
 	if (dev.forcedState === "loading") {
 		return (
-			<PageShell>
-				<WeakSpotsHeader status={filters.status} count={null} />
-				<WeakSpotsFilterRow value={filters} onChange={handleFiltersChange} />
-				<ListSkeleton />
+			<PageShell fill>
+				<PageLoader />
 			</PageShell>
 		);
 	}
@@ -213,7 +233,7 @@ export function WeakSpotsView(): React.JSX.Element {
 
 	if (dev.fixtureData === null && liveQuery.isLoading) {
 		return (
-			<PageShell>
+			<PageShell fill>
 				<PageLoader />
 			</PageShell>
 		);
@@ -252,14 +272,14 @@ export function WeakSpotsView(): React.JSX.Element {
 
 	return (
 		<>
-			<PageShell>
+			<PageShell contentRef={contentRef}>
 				{/* Hero + primary action, grouped exactly like the deck-detail
             header: PageHeader and the CTA share one `flex flex-col gap-4`
             child so the button sits tight under the title. The CTA only
             surfaces when there's something to drill (hidden on the resolved
             tab and when the unresolved list is empty — the WeakSpotsEmpty
             kitsune owns that state). */}
-				<WeakSpotsHeader status={filters.status} count={totalCount} narrowed={isNarrowed}>
+				<WeakSpotsHeader status={filters.status} count={totalCount} narrowed={isNarrowed} revealLead>
 					{WEAK_SPOT_DRILL_ENABLED && filters.status === "unresolved" && !isEmpty && (
 						<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
 							<ButtonLink href="/weak-spots/drill/setup" variant="primary" size="lg">
@@ -272,17 +292,23 @@ export function WeakSpotsView(): React.JSX.Element {
 					)}
 				</WeakSpotsHeader>
 
-				<WeakSpotsFilterRow value={filters} onChange={handleFiltersChange} />
+				<WeakSpotsFilterRow value={filters} onChange={handleFiltersChange} reveal />
 
 				{isEmpty && isNarrowed ? (
-					<NoMatches onClear={() => handleFiltersChange({ ...INITIAL_WEAK_SPOT_FILTERS, status: filters.status })} />
+					<div className="animate-memory-fade-in">
+						<NoMatches onClear={() => handleFiltersChange({ ...INITIAL_WEAK_SPOT_FILTERS, status: filters.status })} />
+					</div>
 				) : isEmpty ? (
-					<WeakSpotsEmpty variant={filters.status} />
+					<div className="animate-memory-fade-in">
+						<WeakSpotsEmpty variant={filters.status} />
+					</div>
 				) : (
 					<>
 						{/* Result count + Sort, paired so the ordering control sits next
-                to the number it affects (the Cards-browser pattern). */}
-						<div className="mt-4">
+                to the number it affects (the Cards-browser pattern). The
+                `data-reveal` includes this line in the GSAP mount cascade so
+                it fades in alongside the header and filter row on first load. */}
+						<div className="mt-4" data-reveal="">
 							<WeakSpotsCountLine
 								totalCount={totalCount}
 								status={filters.status}
@@ -293,7 +319,7 @@ export function WeakSpotsView(): React.JSX.Element {
 							/>
 						</div>
 
-						<div className="mt-3 overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised">
+						<div className="mt-3 overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised" data-reveal="">
 							<span aria-hidden="true" className="block h-0.5 w-full bg-inari-vermillion" />
 							<ul role="list" className="flex flex-col">
 								{items.map(weakSpot => (
@@ -379,9 +405,11 @@ interface WeakSpotsHeaderProps {
 	 *  shared `flex flex-col gap-4` group (the deck-detail header pattern).
 	 */
 	children?: React.ReactNode;
+	/** Opt-in page-level reveal lead — forwarded to the inner PageHeader. */
+	revealLead?: boolean;
 }
 
-function WeakSpotsHeader({ status, count, narrowed = false, children }: WeakSpotsHeaderProps): React.JSX.Element {
+function WeakSpotsHeader({ status, count, narrowed = false, children, revealLead = false }: WeakSpotsHeaderProps): React.JSX.Element {
 	const title = status === "unresolved" ? "Weak spots" : "Resolved weak spots";
 	const subtitle = buildSubtitle(status, count, narrowed);
 	return (
@@ -390,7 +418,7 @@ function WeakSpotsHeader({ status, count, narrowed = false, children }: WeakSpot
           the title block with its CTA at a tight gap-4, so the page's larger
           rhythm opens up around the pair rather than between title and button. */}
 			<div className="flex flex-col gap-4">
-				<PageHeader kanji="弱" label="Weak spots" title={title} subtitle={subtitle} />
+				<PageHeader kanji="弱" label="Weak spots" title={title} subtitle={subtitle} revealLead={revealLead} />
 				{children}
 			</div>
 		</div>
@@ -449,12 +477,27 @@ function NoMatches({ onClear }: { onClear: () => void }): React.JSX.Element {
 	);
 }
 
-function PageShell({ children }: { children: React.ReactNode }): React.JSX.Element {
+function PageShell({
+	children,
+	fill = false,
+	contentRef,
+}: {
+	children: React.ReactNode;
+	/** Center children in the content viewport (loading state). */
+	fill?: boolean;
+	contentRef?: React.RefObject<HTMLDivElement | null>;
+}): React.JSX.Element {
 	return (
 		<>
 			<WeakSpotsTopBar />
 			<div className={PAGE_SHELL_CLASS}>
-				<div className={PAGE_CONTAINER_CLASS}>{children}</div>
+				{fill
+					? (
+							<div className={PAGE_FILL_CLASS}>{children}</div>
+						)
+					: (
+							<div className={PAGE_CONTAINER_CLASS} ref={contentRef}>{children}</div>
+						)}
 			</div>
 		</>
 	);
@@ -472,30 +515,4 @@ function ErrorAlert(): React.JSX.Element {
 	);
 }
 
-function ListSkeleton(): React.JSX.Element {
-	return (
-		<div
-			aria-busy="true"
-			aria-label="Loading weak spots"
-			className="mt-6 overflow-hidden rounded-xs border border-soft-hairline bg-warm-paper-raised"
-		>
-			<span aria-hidden="true" className="block h-0.5 w-full bg-inari-vermillion/40" />
-			<div className="flex flex-col">
-				{Array.from({ length: 5 }, (_, i) => (
-					<div
-						key={i}
-						className="flex items-center justify-between gap-3 border-b border-soft-hairline px-4 py-5 last:border-b-0 sm:px-5 sm:py-6"
-					>
-						{/* Three tiers, matching the redesigned row: hero, meaning, meta. */}
-						<div className="flex flex-1 flex-col gap-2">
-							<Skeleton className="h-6 w-2/3" />
-							<Skeleton className="h-4 w-1/3" />
-							<Skeleton className="h-5 w-40" />
-						</div>
-						<Skeleton className="h-8 w-16 shrink-0" />
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
+// Live + dev loading both route through <PageLoader/>; no bespoke skeleton here.

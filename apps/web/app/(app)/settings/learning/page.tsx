@@ -21,6 +21,7 @@ export default async function SettingsLearningPage(): Promise<React.JSX.Element>
 
 	return (
 		<LearningSection
+			initialVersion={profile.version}
 			initialJlptTarget={profile.jlptTarget}
 			initialDailyNew={profile.dailyNewCardsLimit}
 			initialDailyReview={profile.dailyReviewLimit}

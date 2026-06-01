@@ -3,7 +3,7 @@
 import type { CreateDrillSessionInput } from "@/lib/actions/weak-spots.actions";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MobileStickyActionBar } from "@/app/(app)/_components/mobile-sticky-action-bar";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +12,7 @@ import { QuietLink } from "@/components/ui/QuietLink";
 import { Radio } from "@/components/ui/Radio";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { useWeakSpotDrillSetupDevState } from "@/dev/panels/weak-spot-drill-setup";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useDecks } from "@/lib/api/decks";
 import {
 	useCreateDrillSessionMutation,
@@ -53,6 +54,13 @@ export function DrillSetupClient(): React.JSX.Element {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const deeplinkCardId = searchParams.get("cardId");
+
+	// Page-level section reveal (mount mode — no ScrollTrigger). Header lead +
+	// the three drill-setup SectionCards (summary, source, session size) cascade
+	// in. Field inputs inside the cards are not individually revealed — only the
+	// option-card chrome (spec §P2.6).
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, {});
 
 	const [source, setSource] = useState<DrillSource>(
 		deeplinkCardId !== null
@@ -107,12 +115,13 @@ export function DrillSetupClient(): React.JSX.Element {
 	);
 
 	return (
-		<PageFrame desktopCentered>
+		<PageFrame desktopCentered contentRef={contentRef}>
 			<PageHeader
 				kanji="弱"
 				label="Drill setup"
 				title="Practice your weak spots."
 				subtitle="A focused, schedule-safe drill. Your review timing stays exactly as it is."
+				revealLead
 			/>
 
 			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-10">
@@ -132,6 +141,7 @@ export function DrillSetupClient(): React.JSX.Element {
 							label="Source"
 							description="Which cards should this drill pull from?"
 							variant="compact"
+							reveal
 						>
 							<fieldset className="flex flex-col gap-2">
 								<legend className="sr-only">Drill source</legend>
@@ -214,6 +224,7 @@ export function DrillSetupClient(): React.JSX.Element {
 							label="Session size"
 							description="Keep it bounded. You can always run another."
 							variant="compact"
+							reveal
 						>
 							<div
 								role="radiogroup"
@@ -285,6 +296,7 @@ function DrillSetupSummary({
 			kanji="弱"
 			label="This drill"
 			description="Practice only. Your review schedule stays exactly as it is."
+			reveal
 		>
 			<dl
 				className={cn(

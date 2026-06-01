@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { KitsuneEmptyState } from "@/components/ui/KitsuneEmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageLoader } from "@/components/ui/TomoLoader";
-
 import { useForecastDevState } from "@/dev/panels/insights-forecast";
+
+import { useRevealScroll } from "@/hooks/use-reveal-scroll";
 
 import { useReviewForecast } from "@/lib/api/reviews";
 import { InsightsErrorAlert } from "../../_components/insights-error-alert";
@@ -35,6 +36,7 @@ function ForecastHeader(): React.JSX.Element {
 				label="Looking ahead"
 				title="Forecast"
 				subtitle="What's landing on your schedule over the next few weeks, and how to plan around it."
+				revealLead
 			/>
 		</div>
 	);
@@ -58,6 +60,17 @@ export function ForecastView(): React.JSX.Element {
 	const isError = dev.forcedState === "error" ? true : forecastQuery.isError;
 	const isLoading = dev.forcedState === "loading" ? true : forecastQuery.isLoading;
 
+	const hasAnyData = items.some(d => d.count > 0);
+	const contentReady = !isError && !isLoading && hasAnyData;
+
+	// Page-level section reveal (scroll mode — free, this route already ships
+	// ScrollTrigger via the forecast charts). Header lead + the five forecast
+	// SectionCards cascade in. Re-runs when the data branch first mounts; a no-op
+	// in loading/error/empty branches (no `data-reveal` nodes), reduced-motion at
+	// rest.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealScroll(contentRef, { deps: [contentReady] });
+
 	if (isError) {
 		return (
 			<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />}>
@@ -70,26 +83,27 @@ export function ForecastView(): React.JSX.Element {
 	}
 
 	if (isLoading) {
-		// Header omitted while loading so the centered PageLoader owns the
-		// viewport instead of sitting below the title + subtitle.
+		// `fill` centers the loader in the content viewport (header omitted) so it
+		// owns the screen instead of sitting below the title + subtitle.
 		return (
-			<InsightsPageShell topBar={<ForecastTopBar />}>
+			<InsightsPageShell topBar={<ForecastTopBar />} fill>
 				<PageLoader />
 			</InsightsPageShell>
 		);
 	}
 
-	const hasAnyData = items.some(d => d.count > 0);
 	if (!hasAnyData) {
 		return (
 			<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />}>
-				<ForecastEmpty />
+				<div className="animate-memory-fade-in">
+					<ForecastEmpty />
+				</div>
 			</InsightsPageShell>
 		);
 	}
 
 	return (
-		<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />}>
+		<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />} contentRef={contentRef}>
 			{/* Single full-width stack, top to bottom: the "what's landing" story
           (upcoming load, new-card simulator, catch-up), then the deck
           contributors, and finally the time estimate on its own row. Every

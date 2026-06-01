@@ -22,10 +22,17 @@ import { cn } from "@/lib/utils";
 
 // ── Frame ─────────────────────────────────────────────────────────────────────
 
-export function Frame({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function Frame({
+	children,
+	contentRef,
+}: {
+	children: React.ReactNode;
+	/** Forwarded to PageFrame for a header-only page-level reveal (chrome). */
+	contentRef?: React.RefObject<HTMLDivElement | null>;
+}): React.JSX.Element {
 	// Top-anchored (not desktopCentered): this is a long scrollable form, and
 	// page-level vertical centering would fight the sticky preview column.
-	return <PageFrame>{children}</PageFrame>;
+	return <PageFrame {...(contentRef !== undefined && { contentRef })}>{children}</PageFrame>;
 }
 
 // ── Section requirement tag ────────────────────────────────────────────────
@@ -127,7 +134,7 @@ export function CollapsibleSection({
 				</button>
 			</h2>
 			{open && (
-				<div className="mt-3 flex flex-col gap-6 border-t border-soft-hairline pt-5">
+				<div className="animate-page-enter mt-3 flex flex-col gap-6 border-t border-soft-hairline pt-5">
 					{children}
 				</div>
 			)}
@@ -269,6 +276,7 @@ export function PreviewBlock({
 							{sentenceIndex + 1}
 							{" "}
 							of
+							{" "}
 							{sentenceCount}
 						</span>
 						<PagerButton

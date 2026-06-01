@@ -1,11 +1,15 @@
 "use client";
 
 import type { OnboardingLevel } from "@/stores/onboarding.store";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { VolumeBar } from "@/components/srs/VolumeBar";
 import { SelectionCard } from "@/components/ui/SelectionCard";
 import { useOnboardingLevelDevState } from "@/dev/panels/onboarding-level";
+import { listPremadeDecksAction } from "@/lib/actions/premade.actions";
+import { staleTimes } from "@/lib/api/config";
+import { queryKeys } from "@/lib/api/queryKeys";
 import { NEXT_STEP, useOnboardingStore } from "@/stores/onboarding.store";
 import { StepCard, StepChild } from "../_components/step-card";
 import { StepFooter } from "../_components/step-footer";
@@ -40,6 +44,7 @@ const VOLUME_KEY_MAP: Record<OnboardingLevel, "beginner" | "N5" | "N4" | "N3" | 
 export default function LevelPage(): React.JSX.Element {
 	useOnboardingLevelDevState();
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const level = useOnboardingStore(s => s.level);
 	const setLevel = useOnboardingStore(s => s.actions.setLevel);
 	const applyStepDefault = useOnboardingStore(s => s.actions.applyStepDefault);
@@ -49,8 +54,17 @@ export default function LevelPage(): React.JSX.Element {
 			// Re-tapping the currently-selected card deselects it (returns to null
 			// state). This lets the user back out without picking another option.
 			setLevel(level === value ? null : value);
+			// Kick off the premade deck catalogue fetch so the decks step can show
+			// data immediately instead of a loading spinner. The user is 3 steps
+			// away from the decks page — plenty of time for the response to land.
+			// prefetchQuery no-ops if the data is already fresh in cache.
+			void queryClient.prefetchQuery({
+				queryKey: queryKeys.premadeDecks.list(),
+				queryFn: () => listPremadeDecksAction(),
+				staleTime: staleTimes.deckList,
+			});
 		},
-		[level, setLevel],
+		[level, setLevel, queryClient],
 	);
 
 	const isSkipping = level === null;

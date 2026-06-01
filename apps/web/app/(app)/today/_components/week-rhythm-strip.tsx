@@ -1,10 +1,12 @@
 "use client";
 
 import type { ApiForecastDay } from "@fsrs-japanese/shared-types";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { QuietLink } from "@/components/ui/QuietLink";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { useEnterSettle } from "@/hooks/use-enter-settle";
+import { STAGGER } from "@/lib/motion/easings";
 
 import {
 	addDaysToDateKey,
@@ -128,6 +130,21 @@ export function WeekRhythmStrip({
 	const [glossaryOpen, setGlossaryOpen] = useState(false);
 	const isEmptyForecast = days.every(day => day.total === 0);
 
+	// Day-cell settle on mount (per docs/motion/DASHBOARD_MOTION_SPEC.md §2.7):
+	// the bar columns rise + fade in with a short stagger. `opacity` (not
+	// autoAlpha) because each cell's `aria-label` is the only place that day's
+	// counts reach AT — it must stay in the a11y tree through the tween. The ref
+	// only attaches in the normal branch; in the error/empty branches the hook
+	// no-ops (null root). Gated behind prefers-reduced-motion: no-preference.
+	const barsRef = useRef<HTMLOListElement>(null);
+	useEnterSettle(barsRef, {
+		copySelector: "[data-rhythm-cell]",
+		copyY: 8,
+		copyStagger: STAGGER.cells,
+		copyDuration: 0.35,
+		deps: [days],
+	});
+
 	if (state === "error") {
 		return (
 			<SectionCard
@@ -174,6 +191,7 @@ export function WeekRhythmStrip({
 		>
 			<div className="mt-5">
 				<ol
+					ref={barsRef}
 					className="flex items-end gap-2 sm:gap-2 lg:gap-3"
 					style={{ height: `${CHART_HEIGHT}px` }}
 					aria-label="Review forecast for the week ahead"
@@ -239,6 +257,7 @@ function BarColumn({ day, dayIndex, scaleMax, mobileHidden = false }: BarColumnP
 
 	return (
 		<li
+			data-rhythm-cell
 			className={[
 				"h-full min-w-0 flex-1 flex-col items-center justify-end",
 				mobileHidden ? "hidden sm:flex" : "flex",

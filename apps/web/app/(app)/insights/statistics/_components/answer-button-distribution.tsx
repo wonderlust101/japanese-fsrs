@@ -35,7 +35,16 @@ export function AnswerButtonDistribution({
 	];
 
 	const total = slices.reduce((acc, s) => acc + s.count, 0);
-	const safeTotal = total <= 0 ? 1 : total;
+
+	if (total === 0) {
+		return (
+			<p className="text-sm leading-[1.55] text-faded-sumi">
+				No answer data yet. Rate cards during reviews to see how often you reach for each button.
+			</p>
+		);
+	}
+
+	const safeTotal = total;
 
 	return (
 		<figure className="flex flex-col gap-y-4">

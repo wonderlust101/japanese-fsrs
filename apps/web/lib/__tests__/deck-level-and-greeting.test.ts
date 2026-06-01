@@ -89,6 +89,16 @@ describe("getJapaneseGreeting / getEnglishWelcomeClause", () => {
 		expect(getJapaneseGreeting(23)).toBe("おかえり");
 	});
 
+	it("getJapaneseGreeting avoids おかえり for first-time visitors at late hours", () => {
+		// First-time visitors haven't been here before, so the late-night
+		// "welcome back / welcome home" greeting must fall back to a neutral one.
+		expect(getJapaneseGreeting(23, true)).toBe("こんばんは");
+		// Day buckets are already return-neutral, so the flag is a no-op there.
+		expect(getJapaneseGreeting(6, true)).toBe("おはよう");
+		expect(getJapaneseGreeting(13, true)).toBe("こんにちは");
+		expect(getJapaneseGreeting(19, true)).toBe("こんばんは");
+	});
+
 	it("getEnglishWelcomeClause maps bucket → clause", () => {
 		expect(getEnglishWelcomeClause("morning")).toBe("Pour the coffee.");
 		expect(getEnglishWelcomeClause("afternoon")).toBe("Pull up a chair.");

@@ -2,13 +2,14 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SectionCard } from "@/components/ui/SectionCard";
 
 import { useSettingsSecurityDevState } from "@/dev/panels/settings-security";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import {
 	changePasswordAction,
 	deleteAccountAction,
@@ -34,6 +35,10 @@ export function SecuritySection(): React.JSX.Element {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const feedback = useFieldFeedback();
+
+	// Single SectionCard settle (mount mode, no lead/stagger). Fields not revealed.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, {});
 
 	// ─── Change password ──────────────────────────────────────────────────────
 	const [currentPwd, setCurrentPwd] = useState("");
@@ -132,6 +137,7 @@ export function SecuritySection(): React.JSX.Element {
 	return (
 		<SectionShell
 			heading="Security settings"
+			contentRef={contentRef}
 			strip={(
 				<ContextStrip>
 					<ContextNote eyebrow="Password" title="What makes a good one">
@@ -161,6 +167,7 @@ export function SecuritySection(): React.JSX.Element {
 				label="Security"
 				description="How you safeguard your sign-in, and how you walk away."
 				variant="compact"
+				reveal
 			>
 				{/* ─── Change password ─────────────────────────────────────────── */}
 				<form onSubmit={submitChangePassword} className="flex flex-col gap-y-4">

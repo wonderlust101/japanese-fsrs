@@ -141,6 +141,16 @@ export function NewCardImpactCard({
 				? `≈ ${delta} more reviews next week.`
 				: `≈ ${Math.abs(delta)} fewer reviews next week.`;
 
+	// Projected-series color — vermillion when pace adds load, aizome when it
+	// reduces load. Swatch, line, dots, and band all share this token so the
+	// whole "chosen" track reads as one semantic unit.
+	const projectedStroke = delta < 0
+		? "var(--color-aizome-indigo)"
+		: "var(--color-inari-vermillion-deep)";
+	const bandFill = delta < 0
+		? "var(--color-aizome-indigo)"
+		: "var(--color-inari-vermillion)";
+
 	// Y range — anchored to the larger of the two curves.
 	const dataMax = Math.max(0, ...dayPoints.map(d => Math.max(d.baseline, d.projected)));
 	const yMax = niceCeil(Math.max(5, dataMax));
@@ -181,9 +191,10 @@ export function NewCardImpactCard({
 			kanji="増"
 			label="New-card impact"
 			description="A rough estimate of how changing your new-card pace would shift the next seven days."
+			reveal
 		>
 			<div className="pb-1 lg:py-2 xl:py-3">
-				<ScrollableChartFrame minWidth={640}>
+				<ScrollableChartFrame minWidth={640} drawOnDeps={[ordered]}>
 					<svg
 						role="img"
 						aria-label={
@@ -214,24 +225,33 @@ export function NewCardImpactCard({
 							);
 						})}
 
-						{/* Delta band (only visible when projected > baseline) */}
-						{delta > 0 && (
+						{/* Delta band — visible when pace departs from current; vermillion
+						    for added load, aizome for reduced load. The path is symmetric:
+						    projected forward + baseline reversed forms the correct closed
+						    region whether projected sits above or below the baseline. */}
+						{delta !== 0 && (
 							<path
+								data-chart-area
 								d={deltaArea}
-								fill="var(--color-inari-vermillion)"
-								opacity={0.22}
+								fill={bandFill}
+								fillOpacity={0.22}
 							/>
 						)}
 
-						{/* Baseline area (sumi-wash) */}
+						{/* Baseline area — fillOpacity instead of opacity so GSAP's
+						    autoAlpha tween (opacity + visibility) on [data-chart-area]
+						    doesn't bake CSS opacity:1 into the element and override
+						    the intended transparency after the draw-on completes. */}
 						<path
+							data-chart-area
 							d={baselineArea}
 							fill="var(--color-sumi-ink)"
-							opacity={0.08}
+							fillOpacity={0.08}
 						/>
 
 						{/* Baseline line (sumi) */}
 						<path
+							data-chart-line
 							d={baselinePath}
 							fill="none"
 							stroke="var(--color-sumi-ink)"
@@ -242,11 +262,12 @@ export function NewCardImpactCard({
 							vectorEffect="non-scaling-stroke"
 						/>
 
-						{/* Projected line (vermillion) */}
+						{/* Projected line — color tracks delta direction */}
 						<path
+							data-chart-line
 							d={projectedPath}
 							fill="none"
-							stroke="var(--color-inari-vermillion-deep)"
+							stroke={projectedStroke}
 							strokeWidth={2.4}
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -260,7 +281,7 @@ export function NewCardImpactCard({
 								cx={xFor(i)}
 								cy={yFor(d.projected)}
 								r={3.2}
-								fill="var(--color-inari-vermillion-deep)"
+								fill={projectedStroke}
 							/>
 						))}
 
@@ -291,7 +312,14 @@ export function NewCardImpactCard({
 				<figcaption className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-sm tabular-nums text-faded-sumi">
 					<span className="flex flex-wrap items-center gap-x-4 gap-y-1">
 						<LegendLine color="var(--color-sumi-ink)" opacity={0.7} label={`At current · ${baselineWeek}`} />
-						<LegendLine color="var(--color-inari-vermillion-deep)" label={`At chosen · ${projectedWeek}`} bold />
+						<LegendLine
+							color={projectedStroke}
+							label={`At chosen · ${projectedWeek}`}
+							textClass={cn(
+								"font-medium",
+								delta < 0 ? "text-aizome-indigo" : "text-inari-vermillion-deep",
+							)}
+						/>
 					</span>
 					<span className="text-sumi-ink/85">7-day projection</span>
 				</figcaption>
@@ -394,12 +422,12 @@ export function NewCardImpactCard({
 function LegendLine({
 	color,
 	opacity = 1,
-	bold = false,
+	textClass,
 	label,
 }: {
 	color: string;
 	opacity?: number;
-	bold?: boolean;
+	textClass?: string;
 	label: string;
 }): React.JSX.Element {
 	return (
@@ -409,9 +437,7 @@ function LegendLine({
 				className="inline-block h-0.5 w-4 rounded-[1px]"
 				style={{ backgroundColor: color, opacity }}
 			/>
-			<span className={bold ? "font-medium text-inari-vermillion-deep" : undefined}>
-				{label}
-			</span>
+			<span className={textClass}>{label}</span>
 		</span>
 	);
 }

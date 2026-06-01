@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { TomoSelect } from "@/components/ui/TomoSelect";
 import { useAddDevState } from "@/dev/panels/add";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useDecks } from "@/lib/api/decks";
 import {
 	useCaptureDraftActions,
@@ -61,6 +62,12 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 	const router = useRouter();
 	const [, startNav] = useTransition();
 	const captureActions = useCaptureDraftActions();
+
+	// Page-level reveal (mount mode). A single beat: the PageHeader lead + the
+	// capture SectionCard chrome. The form FIELDS inside are not individually
+	// revealed (spec §P2.6); the preview aside stays static. Re-runs once the
+	// form branch mounts (after the decks loader).
+	const contentRef = useRef<HTMLDivElement | null>(null);
 
 	// ── Required fields ─────────────────────────────────────────────────────
 	const [word, setWord] = useState<string>("");
@@ -248,18 +255,22 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 		/>
 	);
 
+	// Fire the reveal once the form (not the loader) is what renders.
+	useRevealMount(contentRef, { deps: [decksQuery.isLoading] });
+
 	// ── Render ──────────────────────────────────────────────────────────────
 	if (decksQuery.isLoading) {
 		return <PageLoader />;
 	}
 
 	return (
-		<PageFrame desktopCentered>
+		<PageFrame desktopCentered contentRef={contentRef}>
 			<PageHeader
 				kanji="採"
 				label="Capture"
 				title="Save what you found."
 				subtitle="Tomo adds context, you stay in the moment."
+				revealLead
 			/>
 
 			{/* items-start so the single-column (below lg) grid doesn't stretch the
@@ -275,6 +286,7 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 						label="Write it down"
 						description="A word and a deck make a card."
 						stripeTone="brand"
+						reveal
 					>
 						<form
 							className="flex flex-col gap-7 pt-1"
@@ -327,15 +339,17 @@ export function AddClient({ todayKey }: AddClientProps): React.JSX.Element {
 
 				{/* Right: session-faithful preview + sibling action block */}
 				<aside className="lg:col-span-6 lg:sticky lg:top-10 lg:self-start flex flex-col gap-6">
-					<AddSessionPreview
-						word={trimmedWord}
-						sentence={trimmedSentence}
-						todayKey={todayKey}
-						dimmed={submitting}
-						targetMissing={targetMissing}
-					/>
+					<div data-reveal="">
+						<AddSessionPreview
+							word={trimmedWord}
+							sentence={trimmedSentence}
+							todayKey={todayKey}
+							dimmed={submitting}
+							targetMissing={targetMissing}
+						/>
+					</div>
 
-					<div className="hidden lg:block">{actions}</div>
+					<div className="hidden lg:block" data-reveal="">{actions}</div>
 				</aside>
 			</div>
 

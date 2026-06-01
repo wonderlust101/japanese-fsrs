@@ -69,6 +69,7 @@ export function DeckContributorsCard(): React.JSX.Element {
 			kanji="束"
 			label="Deck contributors"
 			description="Estimated from current deck schedules. Hover or focus a segment to see the deck, count, and share."
+			reveal
 		>
 			{isLoading
 				? (

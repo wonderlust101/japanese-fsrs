@@ -6,10 +6,10 @@ import {
 	getWordFields,
 
 } from "@fsrs-japanese/shared-types";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
@@ -22,6 +22,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { PageLoader, TomoLoader } from "@/components/ui/TomoLoader";
 import { useCardDevState } from "@/dev/panels/card-detail";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { getCardByIdAction } from "@/lib/actions/cards.actions";
 import { queryKeys } from "@/lib/api/queryKeys";
 
@@ -62,17 +63,20 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 	const [sentenceIndex, setSentenceIndex] = useState(0);
 	const { toast, showToast, dismissToast } = useToast();
 
-	const { data: liveCard, isLoading: liveLoading } = useQuery({
+	// `gcTime: 0` pairs with `useSuspenseQuery` to evict cache on unmount so
+	// navigation back always fetches fresh card data instead of flashing stale.
+	const { data: liveCard } = useSuspenseQuery({
 		queryKey: queryKeys.cards.detail(cardId),
 		queryFn: () => getCardByIdAction(cardId),
+		gcTime: 0,
 	});
 
 	// Dev-only fixture override. In production, devState is always
 	// `{ fixture: 'off', card: null, loading: false }` and `panel` is null;
-	// the card / isLoading bindings then fall through to the live query.
+	// the card binding falls through to the live query.
 	const devState = useCardDevState(deckId);
 	const card = devState.fixture === "off" ? liveCard : devState.card;
-	const isLoading = devState.fixture === "off" ? liveLoading : devState.loading;
+	const isLoading = devState.fixture === "off" ? false : devState.loading;
 
 	// ── Content extraction ────────────────────────────────────────────────
 	// The CardBack component (rendered below) does its own field resolution
@@ -129,6 +133,13 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 	// memory popup. See use-card-detail-shortcuts.
 	useCardDetailShortcuts({ editHref, isPremadeSource, setShowHistory });
 
+	// Page-level reveal (mount mode). Three beats: the identity header lands as
+	// the lead, the actions strip settles second, and the card-back SectionCard
+	// arrives third. The example pager stays static (minor control); the memory
+	// history Dialog has its own pass-1 motion (spec §P2.6: not revealed here).
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, { stagger: 0.06, deps: [isLoading, card?.id ?? null] });
+
 	if (isLoading) {
 		return (
 			<>
@@ -155,14 +166,14 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 			<div className="flex min-h-[calc(100dvh-4rem)] flex-col justify-center bg-cool-paper-base py-10 lg:py-16">
 				<div className="mx-auto w-full max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">
 					{/* Content spans the full 1440px container. */}
-					<div className="w-full">
+					<div ref={contentRef} className="w-full">
 
 						{/* ── Page header — dictionary-style identity for this card.
                 The headword is the hero (Japanese is the most beautiful
                 thing on the page); deck + JLPT ride the eyebrow as context
                 (and are therefore dropped from the meta strip below to keep
                 the page from repeating itself). */}
-						<div className="pb-3 sm:pb-4 lg:pb-5">
+						<div className="pb-3 sm:pb-4 lg:pb-5" data-reveal-lead>
 							<CardIdentityHeader
 								word={word}
 								reading={reading}
@@ -176,7 +187,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 						{/* ── Actions strip right under the header. Ordered by intent:
                 modify → inspect → fix → pause → destroy. */}
 						{card !== null && card !== undefined && (
-							<div className="mb-6 lg:mb-7">
+							<div className="mb-6 lg:mb-7" data-reveal="">
 								<CardActionsStrip
 									editHref={editHref}
 									isPremade={isPremadeSource}
@@ -199,7 +210,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 							{isLoading && <LoadingBody />}
 
 							{card !== null && card !== undefined && (
-								<SectionCard kanji="札" label="Card back" omitTitle>
+								<SectionCard kanji="札" label="Card back" omitTitle reveal>
 									{/* Bonded top row mirrors the review card: the frequency
                       badge sits under the vermillion stripe. Renders only
                       when the card has a rank, so there's no empty row. */}
@@ -237,6 +248,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 											{clampedSentence + 1}
 											{" "}
 											of
+											{" "}
 											{sentenceCount}
 										</span>
 										<PagerButton
@@ -267,6 +279,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 					<span lang="ja" className="font-semibold text-sumi-ink">{word}</span>
 					{" "}
 					from
+					{" "}
 					{deckName}
 					? This cannot be undone.
 				</p>
@@ -311,6 +324,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 						? (
 								<>
 									Return
+									{" "}
 									<span lang="ja" className="font-semibold text-sumi-ink">{word}</span>
 									{" "}
 									to the active review queue?
@@ -319,6 +333,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 						: (
 								<>
 									Pause
+									{" "}
 									<span lang="ja" className="font-semibold text-sumi-ink">{word}</span>
 									{" "}
 									from appearing in reviews until you unsuspend it?

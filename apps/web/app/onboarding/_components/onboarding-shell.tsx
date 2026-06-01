@@ -114,7 +114,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
 					{!isWelcome && (
 						<div
 							key={pathname}
-							className="mb-4 px-1 flex items-center gap-4"
+							className="mb-4 px-1 flex items-center gap-4 animate-card-reveal"
 						>
 							<p className="sr-only" aria-live="polite">
 								Step
@@ -122,6 +122,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }): Re
 								{stepIndex + 1}
 								{" "}
 								of
+								{" "}
 								{totalSteps}
 							</p>
 

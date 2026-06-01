@@ -1,17 +1,16 @@
 "use client";
 
-// The four Today hero variants (Due / CaughtUp / FirstTime / Resume) plus the
+// The three Today hero variants (Due / CaughtUp / FirstTime) plus the
 // shared HeroLayout, HeroKicker, HeroPrimaryAction, CTA palette and queue
 // normalizer. Consumed by DashboardHero in ./today-hero.
 
-import type { DueQueue, HeroDeckPreview, ResumeContextSnapshot } from "./today-hero-types";
+import type { DueQueue } from "./today-hero-types";
 
 import Link from "next/link";
 import { ArrowGlyph } from "@/components/icons/arrow-glyph";
 import { CompositionStrip } from "@/components/review/CompositionStrip";
 import { Logo } from "@/components/ui/Logo";
 
-import { QuietLink } from "@/components/ui/QuietLink";
 import { formatExactCount, safeNonNegativeInteger } from "./today-format";
 import { DeckStack } from "./today-hero-deck-stack";
 import { HeroPreSessionNote } from "./today-hero-pre-session-note";
@@ -49,30 +48,12 @@ function heroCtaClass(variant: "primary" | "secondary"): string {
 	return [HERO_CTA_BASE, variant === "primary" ? HERO_CTA_PRIMARY : HERO_CTA_SECONDARY].join(" ");
 }
 
-// ── Placeholder decks ────────────────────────────────────────────────────────
-
-const RESTING_DECKS: HeroDeckPreview[] = [
-	{
-		id: "resting-review",
-		title: "Review deck",
-		subtitle: "Nothing is due right now",
-		dueCount: 0,
-		tag: { kind: "none" },
-	},
-	{
-		id: "resting-schedule",
-		title: "Next review",
-		subtitle: "Cards return at the right time",
-		dueCount: 0,
-		tag: { kind: "none" },
-	},
-];
-
 // ── Variant: Due ─────────────────────────────────────────────────────────────
 
-export function DueContent({ queue, dateKey }: {
+export function DueContent({ queue, dateKey, isFirstVisit = false }: {
 	queue: DueQueue;
 	dateKey: string | undefined;
+	isFirstVisit?: boolean;
 }): React.JSX.Element {
 	const safeQueue = normalizeDueQueue(queue);
 	const cardWord = safeQueue.total === 1 ? "card" : "cards";
@@ -96,6 +77,7 @@ export function DueContent({ queue, dateKey }: {
 
 			<h2
 				id="hero-headline"
+				data-hero-headline
 				className="mt-6 break-words font-display text-hero text-sumi-ink"
 			>
 				{formatExactCount(safeQueue.total)}
@@ -105,33 +87,35 @@ export function DueContent({ queue, dateKey }: {
 				due
 			</h2>
 
-			<CompositionStrip
-				breakdown={{
-					newCount: safeQueue.newCnt,
-					reviewCount: safeQueue.review,
-					backlogCount: safeQueue.backlog,
-				}}
-				className="mt-6"
-			/>
+			<div data-hero-meta>
+				<CompositionStrip
+					breakdown={{
+						newCount: safeQueue.newCnt,
+						reviewCount: safeQueue.review,
+						backlogCount: safeQueue.backlog,
+					}}
+					className="mt-6"
+				/>
 
-			<HeroPreSessionNote dateKey={dateKey} />
+				<HeroPreSessionNote dateKey={dateKey} isFirstVisit={isFirstVisit} />
 
-			<div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-				<Link
-					href="/review/session"
-					className={`hidden lg:inline-flex ${heroCtaClass("primary")}`}
-				>
-					Start reviews
-					<ArrowGlyph direction="right" />
-				</Link>
+				<div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+					<Link
+						href="/review/session"
+						className={`hidden lg:inline-flex ${heroCtaClass("primary")}`}
+					>
+						Start reviews
+						<ArrowGlyph direction="right" />
+					</Link>
 
-				<Link
-					href="/review/setup"
-					className={heroCtaClass("secondary")}
-				>
-					Customize this session
-					<ArrowGlyph direction="right" />
-				</Link>
+					<Link
+						href="/review/setup"
+						className={heroCtaClass("secondary")}
+					>
+						Customize this session
+						<ArrowGlyph direction="right" />
+					</Link>
+				</div>
 			</div>
 		</HeroLayout>
 	);
@@ -150,7 +134,10 @@ export function CaughtUpContent(): React.JSX.Element {
 		>
 			<HeroKicker kanji="済" label="All clear" />
 
-			<div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+			<div
+				data-hero-headline
+				className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center"
+			>
 				<h2
 					id="hero-headline"
 					className="break-words font-display text-hero leading-none text-sumi-ink"
@@ -160,11 +147,12 @@ export function CaughtUpContent(): React.JSX.Element {
 				</h2>
 			</div>
 
-			<p className="mt-6 max-w-measure break-words text-base text-faded-sumi leading-relaxed">
-				The desk is clear. Cards return when they are close to fading.
-			</p>
-
-			<HeroPrimaryAction href="/add" variant="secondary" desktopOnly>Add Japanese</HeroPrimaryAction>
+			<div data-hero-meta>
+				<p className="mt-6 max-w-measure break-words text-base text-faded-sumi leading-relaxed">
+					The desk is clear. Cards return when they are close to fading.
+				</p>
+				<HeroPrimaryAction href="/add" variant="secondary" desktopOnly>Add Japanese</HeroPrimaryAction>
+			</div>
 		</HeroLayout>
 	);
 }
@@ -176,76 +164,36 @@ export function FirstTimeContent(): React.JSX.Element {
 		<HeroLayout
 			visual={(
 				<div className="flex items-center justify-center">
-					<Logo size={200} wordmarkSize="xl" />
+					<Logo size={200} showWordmark={false} />
 				</div>
 			)}
 		>
 			<HeroKicker kanji="始" label="Begin" />
 
-			<p
-				lang="ja"
-				className="mt-6 font-display text-md leading-none text-faded-sumi sm:text-lg"
-			>
-				始めましょう。
-			</p>
+			<div data-hero-headline>
+				<p
+					lang="ja"
+					className="mt-6 font-display text-md leading-none text-faded-sumi sm:text-lg"
+				>
+					始めましょう。
+				</p>
 
-			<h2
-				id="hero-headline"
-				className="mt-2 break-words font-display text-hero leading-none text-sumi-ink"
-			>
-				Let&rsquo;s begin.
-				<span className="block text-faded-sumi font-normal">
-					Pick a deck Tomo prepared for you.
-				</span>
-			</h2>
+				<h2
+					id="hero-headline"
+					className="mt-2 break-words font-display text-hero leading-none text-sumi-ink"
+				>
+					Let&rsquo;s begin.
+					<span className="block text-faded-sumi font-normal">
+						Pick a deck Tomo prepared for you.
+					</span>
+				</h2>
+			</div>
 
-			<p className="mt-6 max-w-measure break-words text-base leading-relaxed text-faded-sumi">
-				JLPT vocabulary, Joyo kanji, grammar patterns, or your own Japanese. Either path opens the same way: calm, considered, no rush.
-			</p>
-
-			<HeroPrimaryAction href="/decks" desktopOnly>Browse premade decks</HeroPrimaryAction>
-		</HeroLayout>
-	);
-}
-
-// ── Variant: Resume ──────────────────────────────────────────────────────────
-
-export function ResumeContent({ context }: { context: ResumeContextSnapshot }): React.JSX.Element {
-	const remaining = safeNonNegativeInteger(context.remaining);
-	const cardWord = remaining === 1 ? "card" : "cards";
-
-	return (
-		<HeroLayout
-			visual={(
-				<DeckStack
-					decks={RESTING_DECKS}
-					overflowDecks={0}
-					resting
-					emptyLabel="Session paused"
-					emptyDescription="Pick up where you left off."
-				/>
-			)}
-		>
-			<HeroKicker kanji="続" label="Resume practice" />
-
-			<h2
-				id="hero-headline"
-				className="mt-6 break-words font-display text-hero leading-none text-sumi-ink"
-			>
-				{formatExactCount(remaining)}
-				{" "}
-				{cardWord}
-				{" "}
-				left
-				<span className="block font-normal text-faded-sumi">in your last session.</span>
-			</h2>
-
-			<HeroPrimaryAction href="/review/session" desktopOnly>Resume review</HeroPrimaryAction>
-
-			<div className="mt-3">
-				<QuietLink href="/review/setup" tone="sumi">
-					Start a new session instead
-				</QuietLink>
+			<div data-hero-meta>
+				<p className="mt-6 max-w-measure break-words text-base leading-relaxed text-faded-sumi">
+					JLPT vocabulary, Joyo kanji, grammar patterns, or your own Japanese. Either path opens the same way: calm, considered, no rush.
+				</p>
+				<HeroPrimaryAction href="/decks" desktopOnly>Browse premade decks</HeroPrimaryAction>
 			</div>
 		</HeroLayout>
 	);

@@ -2,17 +2,18 @@
 
 import { isJlptLevel } from "@fsrs-japanese/shared-types";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pill, PillGroup } from "@/components/ui/Pill";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { TomoSlider } from "@/components/ui/TomoSlider";
 
 import { useSettingsLearningDevState } from "@/dev/panels/settings-learning";
-import { updateProfileAction } from "@/lib/actions/profile.actions";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { ContextNote, ContextStrip } from "./context-strip";
 import { SectionShell } from "./section-shell";
 import { SettingsField } from "./settings-field";
 import { useFieldFeedback } from "./use-field-feedback";
+import { useProfileMutation } from "./use-profile-mutation";
 
 const JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1", "beyond_jlpt"] as const;
 type JlptLevel = (typeof JLPT_LEVELS)[number];
@@ -33,6 +34,7 @@ const INTEREST_OPTIONS = [
 ];
 
 interface Props {
+	initialVersion: number;
 	initialJlptTarget: string | null;
 	initialDailyNew: number;
 	initialDailyReview: number;
@@ -50,6 +52,7 @@ interface Props {
  * API is hit once per scrub.
  */
 export function LearningSection({
+	initialVersion,
 	initialJlptTarget,
 	initialDailyNew,
 	initialDailyReview,
@@ -58,6 +61,11 @@ export function LearningSection({
 }: Props): React.JSX.Element {
 	useSettingsLearningDevState();
 	const feedback = useFieldFeedback();
+	const saveProfile = useProfileMutation(initialVersion);
+
+	// Single SectionCard settle (mount mode, no lead/stagger). Fields not revealed.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, {});
 
 	const [jlpt, setJlpt] = useState<JlptLevel>(
 		() => isJlptLevel(initialJlptTarget) ? initialJlptTarget : "N5",
@@ -75,12 +83,12 @@ export function LearningSection({
 
 	async function commit(
 		fieldId: string,
-		payload: Parameters<typeof updateProfileAction>[0],
+		payload: Parameters<typeof saveProfile>[0],
 		rollback: () => void,
 		onSuccess?: () => void,
 	): Promise<void> {
 		try {
-			await updateProfileAction(payload);
+			await saveProfile(payload);
 			feedback.markSaved(fieldId);
 			onSuccess?.();
 		} catch (e) {
@@ -152,6 +160,7 @@ export function LearningSection({
 	return (
 		<SectionShell
 			heading="Learning settings"
+			contentRef={contentRef}
 			strip={(
 				<ContextStrip>
 					<ContextNote eyebrow="Daily load" title={`${dailyNew} new · up to ${dailyReview} reviews`}>
@@ -179,6 +188,7 @@ export function LearningSection({
 			<SectionCard
 				id="learning"
 				kanji="学"
+				reveal
 				label="Learning"
 				description="How firmly you practice, and what Tomo writes about."
 				variant="compact"

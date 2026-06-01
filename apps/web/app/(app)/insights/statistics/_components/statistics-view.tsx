@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { Suspense, useMemo, useRef } from "react";
 
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
@@ -10,13 +10,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Time } from "@/components/ui/Time";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useStatisticsDevState } from "@/dev/panels/insights-statistics";
+import { useRevealScroll } from "@/hooks/use-reveal-scroll";
 import { getProfileAction } from "@/lib/actions/profile.actions";
-import { useAnalyticsDashboard } from "@/lib/api/analytics";
 
+import { useAnalyticsDashboard } from "@/lib/api/analytics";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { useReviewForecast } from "@/lib/api/reviews";
 import { InsightsErrorAlert } from "../../_components/insights-error-alert";
-import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
+import { INSIGHTS_CONTENT_FILL_CLASS, INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
 import { ActivitySection } from "./activity-section";
 import { adaptLiveStatistics, hasMeaningfulData } from "./adapt-live";
 import { CardsSection } from "./cards-section";
@@ -48,22 +49,38 @@ function StatisticsHeader(): React.JSX.Element {
 				label="Statistics"
 				title="Statistics"
 				subtitle="Detailed numbers from your practice: activity, retention, collection, schedule, and FSRS state. Grouped by question rather than by metric."
+				revealLead
 			/>
 		</div>
 	);
 }
 
-/**
- * Statistics container. Renders chrome (TopBar + PageHeader + sticky section
- * tabs) and the five sections in order. Data flows from the live insights /
- * analytics endpoints (dashboard + maturity-history + decks + forecast +
- * profile); the dev panel's fixture data, when selected, overrides the live
- * inputs so designers can preview every state in development without
- * leaving the route.
- */
+/** Shell — renders the TopBar before any data loads, wrapping content in a
+ *  Suspense boundary so the TopBar always paints on first frame. */
 export function StatisticsView(): React.JSX.Element {
+	return (
+		<InsightsPageShell topBar={<StatisticsTopBar />} header={<StatisticsHeader />}>
+			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
+				<StatisticsContent />
+			</Suspense>
+		</InsightsPageShell>
+	);
+}
+
+/**
+ * Statistics content — owns data fetching, the five sections, and all state
+ * branches. Rendered inside the shell's Suspense boundary so any suspension
+ * only replaces the content area, not the top bar.
+ */
+function StatisticsContent(): React.JSX.Element {
 	const dev = useStatisticsDevState();
 	const isDev = process.env.NODE_ENV === "development";
+
+	// Page-level section reveal (scroll mode — free, this route already ships
+	// ScrollTrigger via the statistics charts). Header lead + the FIVE stat
+	// `StatisticsSection`s cascade in (not the inner SectionCards — those would
+	// over-animate). Attaches to the shell content container.
+	const contentRef = useRef<HTMLDivElement | null>(null);
 
 	const dashboardQuery = useAnalyticsDashboard();
 	// Statistics-scoped strict queries: these surface real errors (unlike the
@@ -86,7 +103,7 @@ export function StatisticsView(): React.JSX.Element {
 		return adaptLiveStatistics({
 			dashboard: dashboardQuery.data,
 			maturityHistory: maturityHistoryQuery.data,
-			decks: decksQuery.data?.items,
+			decks: decksQuery.data.items,
 			forecast: forecastQuery.data?.items,
 			retentionTarget: profileQuery.data?.retentionTarget,
 			distributions: distributionsQuery.data,
@@ -100,53 +117,39 @@ export function StatisticsView(): React.JSX.Element {
 		distributionsQuery.data,
 	]);
 
-	// Forced dev states override live state classification entirely.
+	// Reveal readiness: the main (sections) branch only renders when not forced
+	// loading/error, the load-bearing query resolved, and the data is meaningful.
+	// Used purely as a `useReveal` re-run key so the cascade fires once the
+	// `data-reveal` sections actually mount.
+	// dashboard/maturity/distributions/decks are now useSuspenseQuery: their
+	// isLoading/isError are always false. forecast stays as useQuery.
+	const sectionsWillRender
+		= dev.forcedState !== "error"
+			&& dev.forcedState !== "loading"
+			&& !(dev.fixtureData === null && forecastQuery.isLoading)
+			&& hasMeaningfulData(dev.fixtureData ?? liveData);
+	useRevealScroll(contentRef, { deps: [sectionsWillRender] });
+
+	// Forced dev states (inside shell — no TopBar wrapper needed here).
 	if (dev.forcedState === "error") {
-		return (
-			<PageShell>
-				<StatisticsErrorAlert onRetry={() => { void dashboardQuery.refetch(); }} />
-			</PageShell>
-		);
+		return <StatisticsErrorAlert onRetry={() => { void dashboardQuery.refetch(); }} />;
 	}
 	if (dev.forcedState === "loading") {
-		return (
-			<PageShell header={null}>
-				<PageLoader />
-			</PageShell>
-		);
+		return <div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>;
 	}
 
-	const isLoading
-		= dev.fixtureData === null
-			&& (dashboardQuery.isLoading || maturityHistoryQuery.isLoading || forecastQuery.isLoading);
-
-	// Treat dashboard as the load-bearing query; the others either fall back
-	// to empty (`apiCallSafe`) or aren't blocking (profile, maturity history).
-	const isError = dev.fixtureData === null && dashboardQuery.isError;
-
-	if (isError) {
-		return (
-			<PageShell>
-				<StatisticsErrorAlert onRetry={() => { void dashboardQuery.refetch(); }} />
-			</PageShell>
-		);
-	}
-
-	if (isLoading) {
-		return (
-			<PageShell header={null}>
-				<PageLoader />
-			</PageShell>
-		);
-	}
+	// dashboard/maturity/distributions/decks are useSuspenseQuery — loading and
+	// errors for those are handled by the Suspense/error boundaries. Only
+	// forecast (still useQuery) can still transition through loading here.
+	const isLoading = dev.fixtureData === null && forecastQuery.isLoading;
 
 	const data = dev.fixtureData ?? liveData;
 
 	if (!hasMeaningfulData(data)) {
 		return (
-			<PageShell>
+			<div className="animate-memory-fade-in">
 				<StatisticsEmpty isDev={isDev} />
-			</PageShell>
+			</div>
 		);
 	}
 
@@ -155,20 +158,22 @@ export function StatisticsView(): React.JSX.Element {
 	const live = dev.fixtureData === null;
 	const updatedAt = live ? dashboardQuery.dataUpdatedAt : null;
 
-	// Per-source failure flags (fixtures never error). Each maps to the modules
-	// it feeds, so a failed section shows a retry rather than looking empty.
-	const distError = live && distributionsQuery.isError;
-	const matError = live && maturityHistoryQuery.isError;
-	const deckError = live && decksQuery.isError;
+	// Per-source failure flags. dist/mat/deck are useSuspenseQuery so their
+	// errors propagate to the error boundary rather than to section-level states.
+	const distError = false;
+	const matError = false;
+	const deckError = false;
 	const fcError = live && forecastQuery.isError;
 
+	// retryDist/Mat/Deck: error states are false (Suspense propagates to boundary)
+	// but keep as valid refetch callbacks for section props.
 	const retryDist = (): void => { void distributionsQuery.refetch(); };
 	const retryMat = (): void => { void maturityHistoryQuery.refetch(); };
 	const retryDeck = (): void => { void decksQuery.refetch(); };
 	const retryFc = (): void => { void forecastQuery.refetch(); };
 
 	return (
-		<PageShell>
+		<div ref={contentRef}>
 			<SectionCollapseProvider>
 				<StatisticsSectionTabs />
 
@@ -218,7 +223,7 @@ export function StatisticsView(): React.JSX.Element {
 				</div>
 
 			</SectionCollapseProvider>
-		</PageShell>
+		</div>
 	);
 }
 
@@ -235,29 +240,6 @@ function formatRelative(epochMs: number): string {
 		return `${hr} hr ago`;
 	const days = Math.round(hr / 24);
 	return days === 1 ? "yesterday" : `${days} days ago`;
-}
-
-// ── Shared page shell ───────────────────────────────────────────────────────
-// Wraps the shared <InsightsPageShell> with this page's TopBar + PageHeader so
-// each return branch doesn't repeat the chrome wiring.
-
-function PageShell({
-	header = <StatisticsHeader />,
-	children,
-}: {
-	/**
-	 * Pass `null` to suppress the page header (e.g. while loading, so the
-	 *  centered PageLoader owns the viewport instead of sitting below the
-	 *  title + subtitle).
-	 */
-	header?: React.ReactNode;
-	children: React.ReactNode;
-}): React.JSX.Element {
-	return (
-		<InsightsPageShell topBar={<StatisticsTopBar />} header={header}>
-			{children}
-		</InsightsPageShell>
-	);
 }
 
 // ── States ──────────────────────────────────────────────────────────────────

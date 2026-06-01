@@ -10,6 +10,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 
 } from "react";
@@ -22,6 +23,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { Textarea } from "@/components/ui/Textarea";
 import { TomoSelect } from "@/components/ui/TomoSelect";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import {
 	generateMnemonicAction,
@@ -278,6 +280,12 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
 		return () => window.removeEventListener("keydown", handler);
 	}, [onSave]);
 
+	// Page-level reveal — header lead + aside preview column (chrome only).
+	// Form fields/editors stay static (spec §P2.6: never revealed). The edit
+	// page is always server-rendered with card data so deps stays empty.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, { deps: [] });
+
 	// ── Render ──────────────────────────────────────────────────────────────
 	const header = {
 		kanji: "筆",
@@ -287,8 +295,8 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
 	};
 
 	return (
-		<Frame>
-			<PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
+		<Frame contentRef={contentRef}>
+			<PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} revealLead />
 
 			{/* Two-column desktop (6/6): field SectionCards left, preview + Save right.
           items-start at every breakpoint: below lg the single-column grid would
@@ -488,25 +496,29 @@ export function EditCardClient({ card, deckName, decks }: EditCardClientProps): 
             the field column scrolls, so the preview and Save pin flush with the
             top of the form rather than drifting. */}
 				<aside className="flex flex-col gap-6 lg:col-span-6 lg:sticky lg:top-12 lg:self-start">
-					<PreviewBlock
-						card={previewCard}
-						flipped={flipped}
-						onFlip={() => setFlipped(f => !f)}
-						aiError={aiError}
-						sentenceCount={sentenceCount}
-						sentenceIndex={clampedPreviewIdx}
-						onPrevSentence={() => setPreviewSentenceIdx(i => Math.max(0, i - 1))}
-						onNextSentence={() => setPreviewSentenceIdx(i => Math.min(sentenceCount - 1, i + 1))}
-					/>
-					<SaveBlock
-						saving={saving}
-						busy={busy}
-						blockers={blockers}
-						attemptedSave={attemptedSave}
-						saveError={saveError}
-						onSave={onSave}
-						onCancel={onCancel}
-					/>
+					<div data-reveal="">
+						<PreviewBlock
+							card={previewCard}
+							flipped={flipped}
+							onFlip={() => setFlipped(f => !f)}
+							aiError={aiError}
+							sentenceCount={sentenceCount}
+							sentenceIndex={clampedPreviewIdx}
+							onPrevSentence={() => setPreviewSentenceIdx(i => Math.max(0, i - 1))}
+							onNextSentence={() => setPreviewSentenceIdx(i => Math.min(sentenceCount - 1, i + 1))}
+						/>
+					</div>
+					<div data-reveal="">
+						<SaveBlock
+							saving={saving}
+							busy={busy}
+							blockers={blockers}
+							attemptedSave={attemptedSave}
+							saveError={saveError}
+							onSave={onSave}
+							onCancel={onCancel}
+						/>
+					</div>
 				</aside>
 			</div>
 		</Frame>

@@ -40,7 +40,8 @@ export default async function DashboardPage(): Promise<React.JSX.Element> {
 					dateTime={calendar.dateTime}
 					greetingName={greetingName}
 					greetingPrefix={calendar.greetingPrefix}
-					timeZone={calendar.timeZone}
+					timeZone={profile?.timezone !== "UTC" ? (profile?.timezone ?? null) : null}
+					profileVersion={profile?.version ?? null}
 				/>
 			</div>
 		</>

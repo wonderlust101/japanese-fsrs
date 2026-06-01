@@ -9,10 +9,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { DeckSummary } from "@/components/srs/DeckSummary";
 import { RecommendedDeckCard } from "@/components/ui/RecommendedDeckCard";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { TomoLoader } from "@/components/ui/TomoLoader";
 import { useOnboardingDecksDevState } from "@/dev/panels/onboarding-decks";
-import { updateProfileAction } from "@/lib/actions/profile.actions";
+import { getProfileAction, updateProfileAction } from "@/lib/actions/profile.actions";
 import { useCopyPremadeDeck, usePremadeDecks } from "@/lib/api/premade";
 import { useOnboardingStore } from "@/stores/onboarding.store";
 
@@ -174,7 +174,15 @@ export default function DecksPage(): React.JSX.Element {
 	// error alert continues to surface mutation failures verbatim; the deck-
 	// copy fan-out below uses its own outcome reporting (a summary toast).
 	const profileMutation = useMutation({
-		mutationFn: (payload: UpdateProfileInput) => updateProfileAction(payload),
+		// Onboarding has no loaded profile to read a version from, so fetch the
+		// current one to satisfy the PATCH's If-Match guard, then write. Runs once
+		// on "Add and begin"; the extra round-trip is negligible for a one-time step.
+		mutationFn: async (payload: UpdateProfileInput) => {
+			const current = await getProfileAction();
+			if (current === null)
+				throw new Error("Not authenticated");
+			return updateProfileAction(current.version, payload);
+		},
 	});
 
 	// Deck-copy mutation. The hook invalidates decks.list + reviews.due +
@@ -277,7 +285,13 @@ export default function DecksPage(): React.JSX.Element {
 				)}
 			>
 				<div className="flex flex-col gap-2" aria-busy={isLoading ? true : undefined}>
-					{isLoading && <RecommendedDeckRowSkeletons />}
+					{isLoading && (
+						<StepChild>
+							<div className="flex justify-center py-10">
+								<TomoLoader size="block" />
+							</div>
+						</StepChild>
+					)}
 
 					{!isLoading && recommendedDecks.length === 0 && (
 						<StepChild>
@@ -331,29 +345,6 @@ export default function DecksPage(): React.JSX.Element {
 }
 
 // ─── Subviews ────────────────────────────────────────────────────────────────
-
-function RecommendedDeckRowSkeletons(): React.JSX.Element {
-	return (
-		<>
-			{[0, 1, 2].map(i => (
-				<StepChild key={i}>
-					<div
-						className="flex items-center gap-4 rounded-xs border border-soft-hairline px-4 py-3"
-						aria-hidden="true"
-					>
-						<Skeleton className="h-5 w-10" />
-						<div className="flex-1 min-w-0 flex flex-col gap-y-2">
-							<Skeleton className="h-4 w-2/3" />
-							<Skeleton className="h-3 w-5/6" />
-						</div>
-						<Skeleton className="h-3 w-8" />
-						<Skeleton className="h-8 w-16" />
-					</div>
-				</StepChild>
-			))}
-		</>
-	);
-}
 
 function EmptyRecommendationsNotice(): React.JSX.Element {
 	return (

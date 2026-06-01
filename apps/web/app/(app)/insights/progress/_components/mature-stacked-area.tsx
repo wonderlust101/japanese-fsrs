@@ -210,7 +210,7 @@ export function MatureStackedArea({
 				<span className="text-sumi-ink/85">cards by maturity over time</span>
 			</p>
 
-			<ScrollableChartFrame minWidth={640}>
+			<ScrollableChartFrame minWidth={640} drawOnDeps={[view, yMax]}>
 				<svg
 					role="img"
 					aria-label="Card pipeline over time: new, learning, young, and mature counts stacked"
@@ -232,14 +232,15 @@ export function MatureStackedArea({
 					))}
 
 					{/* Stacked areas, bottom (new) to top (mature). */}
-					{newArea !== "" && <path d={newArea} fill={STAGES[0].fill} stroke="none" />}
-					{learningArea !== "" && <path d={learningArea} fill={STAGES[1].fill} stroke="none" />}
-					{youngArea !== "" && <path d={youngArea} fill={STAGES[2].fill} stroke="none" />}
-					{matureArea !== "" && <path d={matureArea} fill={STAGES[3].fill} stroke="none" />}
+					{newArea !== "" && <path data-chart-area d={newArea} fill={STAGES[0].fill} stroke="none" />}
+					{learningArea !== "" && <path data-chart-area d={learningArea} fill={STAGES[1].fill} stroke="none" />}
+					{youngArea !== "" && <path data-chart-area d={youngArea} fill={STAGES[2].fill} stroke="none" />}
+					{matureArea !== "" && <path data-chart-area d={matureArea} fill={STAGES[3].fill} stroke="none" />}
 
 					{/* Mature edge */}
 					{matureLine !== "" && (
 						<path
+							data-chart-line
 							d={matureLine}
 							fill="none"
 							stroke="var(--color-inari-vermillion-deep)"

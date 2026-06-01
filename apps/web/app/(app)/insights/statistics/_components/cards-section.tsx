@@ -27,7 +27,7 @@ export function CardsSection({
 	onRetryDecks,
 }: CardsSectionProps): React.JSX.Element {
 	return (
-		<StatisticsSection section={SECTION}>
+		<StatisticsSection section={SECTION} reveal>
 			<div className="flex flex-col gap-y-6 lg:gap-y-6">
 				<SectionCard
 					kanji="熟"

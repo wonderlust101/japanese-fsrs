@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -8,13 +8,14 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Textarea } from "@/components/ui/Textarea";
 import { TomoSelect } from "@/components/ui/TomoSelect";
 import { useSettingsProfileDevState } from "@/dev/panels/settings-profile";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 
-import { updateProfileAction } from "@/lib/actions/profile.actions";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ContextNote, ContextStrip } from "./context-strip";
 import { SectionShell } from "./section-shell";
 import { SettingsField } from "./settings-field";
 import { useFieldFeedback } from "./use-field-feedback";
+import { useProfileMutation } from "./use-profile-mutation";
 
 const LANGUAGES = [
 	{ value: "en", label: "English" },
@@ -32,6 +33,7 @@ type LanguageValue = (typeof LANGUAGES)[number]["value"];
 
 interface Props {
 	email: string;
+	initialVersion: number;
 	initialDisplayName: string;
 	initialNativeLanguage: string;
 	initialTimezone: string;
@@ -54,6 +56,7 @@ interface Props {
  */
 export function ProfileSection({
 	email,
+	initialVersion,
 	initialDisplayName,
 	initialNativeLanguage,
 	initialTimezone,
@@ -61,6 +64,13 @@ export function ProfileSection({
 }: Props): React.JSX.Element {
 	useSettingsProfileDevState();
 	const feedback = useFieldFeedback();
+	const saveProfile = useProfileMutation(initialVersion);
+
+	// Single SectionCard settle (mount mode, no lead, no stagger). The card
+	// chrome fades in; the form FIELDS inside are not individually revealed
+	// (spec §P2.6 / P2-low).
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	useRevealMount(contentRef, {});
 
 	const [emailValue, setEmailValue] = useState(email);
 	const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -125,7 +135,7 @@ export function ProfileSection({
 		if (value === previous)
 			return;
 		try {
-			await updateProfileAction({ nativeLanguage: value });
+			await saveProfile({ nativeLanguage: value });
 			feedback.markSaved("native-language");
 		} catch (e) {
 			setNative(previous);
@@ -189,7 +199,7 @@ export function ProfileSection({
 		if (timezoneDirty && trimmedTz.length > 0) {
 			tasks.push((async (): Promise<CommitOutcome> => {
 				try {
-					await updateProfileAction({ timezone: trimmedTz });
+					await saveProfile({ timezone: trimmedTz });
 					return { id: "timezone", ok: true };
 				} catch (e) {
 					return { id: "timezone", ok: false, error: e instanceof Error ? e.message : "Could not save." };
@@ -200,7 +210,7 @@ export function ProfileSection({
 		if (studyGoalDirty) {
 			tasks.push((async (): Promise<CommitOutcome> => {
 				try {
-					await updateProfileAction({ studyGoal });
+					await saveProfile({ studyGoal });
 					return { id: "study-goal", ok: true };
 				} catch (e) {
 					return { id: "study-goal", ok: false, error: e instanceof Error ? e.message : "Could not save." };
@@ -243,6 +253,7 @@ export function ProfileSection({
 	return (
 		<SectionShell
 			heading="Profile settings"
+			contentRef={contentRef}
 			strip={(
 				<ContextStrip>
 					<ContextNote eyebrow="Locale" title="How Tomo reads your day">
@@ -271,6 +282,7 @@ export function ProfileSection({
 				id="profile"
 				kanji="人"
 				label="Account"
+				reveal
 				description="How you appear inside Tomo, and the locale your day runs on."
 				variant="compact"
 			>

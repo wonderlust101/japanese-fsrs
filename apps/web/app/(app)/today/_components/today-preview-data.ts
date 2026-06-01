@@ -22,20 +22,9 @@ const PREVIEW_FORECAST_LENGTH = 14;
 
 export function buildPreviewHeroVariant(controls: HeroDevControls): DashboardHeroVariant {
 	switch (controls.variant) {
-		case "due": return { kind: "due", queue: buildPreviewQueue(controls) };
+		case "due": return { kind: "due", queue: buildPreviewQueue(controls), isFirstVisit: false };
 		case "caught-up": return { kind: "caught-up" };
 		case "first-time": return { kind: "first-time" };
-		case "resume": return { kind: "resume", context: { remaining: previewResumeRemaining(controls) } };
-	}
-}
-
-function previewResumeRemaining(controls: HeroDevControls): number {
-	switch (controls.queue) {
-		case "one": return 1;
-		case "no-backlog": return 8;
-		case "typical": return 12;
-		case "backlog-heavy": return 22;
-		case "large": return 38;
 	}
 }
 

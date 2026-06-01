@@ -11,6 +11,7 @@ export function SectionShell({
 	children,
 	strip,
 	heading,
+	contentRef,
 }: {
 	children: React.ReactNode;
 	strip?: React.ReactNode;
@@ -20,10 +21,17 @@ export function SectionShell({
 	 *  label) → h3, instead of starting at the SectionCard's h2.
 	 */
 	heading?: string;
+	/**
+	 * Optional ref onto the content column (the node wrapping the section's
+	 * `SectionCard`). A per-section `useRevealMount` attaches here for the single
+	 * SectionCard settle (no lead, no stagger). Default undefined leaves the
+	 * section static.
+	 */
+	contentRef?: React.RefObject<HTMLDivElement | null>;
 }): React.JSX.Element {
 	return (
 		<>
-			<div className="min-w-0 flex-1">
+			<div className="min-w-0 flex-1" ref={contentRef}>
 				{heading !== undefined && <h1 className="sr-only">{heading}</h1>}
 				{children}
 			</div>

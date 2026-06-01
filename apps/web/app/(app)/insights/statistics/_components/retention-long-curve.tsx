@@ -45,8 +45,16 @@ export function RetentionLongCurve({
 	const sorted = sortAsc(days).slice(-windowDays);
 	const values = sorted.map(d => (d.count > 0 ? d.retention : null));
 	const numeric = values.filter((v): v is number => v !== null);
-	if (numeric.length < 3)
-		return null;
+	if (numeric.length < 3) {
+		return (
+			<p className="text-sm leading-[1.55] text-faded-sumi">
+				Not enough review days in this window yet.
+				{windowDays > 30 ? " Try the 30d view, or" : " Keep reviewing and"}
+				{" "}
+				check back once you have a few more practice sessions on record.
+			</p>
+		);
+	}
 
 	// Y range anchored to data, snapped to 5% steps.
 	const dataMin = Math.min(...numeric);
@@ -203,6 +211,7 @@ export function RetentionLongCurve({
 					<span className="text-sumi-ink/70">·</span>
 					{" "}
 					last
+					{" "}
 					{windowDays}
 					{" "}
 					days

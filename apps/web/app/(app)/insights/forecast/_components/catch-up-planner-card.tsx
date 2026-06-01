@@ -49,6 +49,7 @@ export function CatchUpPlannerCard({
 			kanji="整"
 			label="Catch up"
 			description={`${backlog} overdue ${backlog === 1 ? "card is" : "cards are"} waiting. Three ways to bring the queue back to current.`}
+			reveal
 		>
 			<div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-3 sm:gap-x-6">
 				{scenarios.map(sc => (
@@ -131,7 +132,7 @@ function ScenarioTile({ scenario }: { scenario: Scenario }): React.JSX.Element {
 
 function AllClearMoment(): React.JSX.Element {
 	return (
-		<SectionCard kanji="整" label="Catch up" omitTitle>
+		<SectionCard kanji="整" label="Catch up" omitTitle reveal>
 			<div className="flex flex-col items-center gap-y-6 py-6 text-center">
 				{/* Hi-no-maru disc with the 整 kanji reversed out in warm paper.
             A small ✦ sits above as the brand's quiet "well done" glyph,

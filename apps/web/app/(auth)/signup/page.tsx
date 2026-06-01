@@ -25,7 +25,7 @@ import { useUserStore } from "@/stores/useUserStore";
 // still usable, instead of exactly as it dies. Requires GoTrue's
 // SMTP_MAX_FREQUENCY to be ≤ this value; if not, the resend error path handles
 // the rejection gracefully.
-const OTP_RESEND_COOLDOWN = 30;
+const OTP_RESEND_COOLDOWN = 60;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/;
 
@@ -384,7 +384,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
 		mutationFn: (otp: string) => verifyOtpAction(email, otp),
 		onSuccess: () => {
 			useUserStore.getState().actions.reset();
-			router.push("/onboarding/level");
+			router.push("/onboarding");
 			router.refresh();
 		},
 		onError: (err) => {
@@ -453,6 +453,7 @@ function VerifyFormView({ email, onBack }: { email: string; onBack: () => void }
 							? (
 									<span>
 										Resend in
+										{" "}
 										{remaining}
 										s
 									</span>

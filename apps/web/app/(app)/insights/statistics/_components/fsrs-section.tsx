@@ -32,7 +32,7 @@ export function FsrsSection({
 }: FsrsSectionProps): React.JSX.Element {
 	const retry = onRetryHistograms ?? (() => {});
 	return (
-		<StatisticsSection section={SECTION}>
+		<StatisticsSection section={SECTION} reveal>
 			<div className="flex flex-col gap-y-6 lg:gap-y-6">
 				{/* Top: Dial + comparison side by side on lg+ */}
 				<SectionCard

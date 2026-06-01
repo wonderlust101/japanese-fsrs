@@ -71,6 +71,7 @@ export function TimeEstimateCard({
 			kanji="時"
 			label="Time estimate"
 			description="At a steady review pace, here's roughly how much sitting time the next few days ask for."
+			reveal
 		>
 			<dl className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-0">
 				<EstimateRow

@@ -60,13 +60,12 @@ export function StepCard({
 	return (
 		<Card variant="default">
 			<div className="grid grid-cols-1 lg:grid-cols-[38%_1fr] gap-8 lg:gap-12">
-				{/* SRS preview pane (left on md, top on mobile) */}
-				<aside className="flex flex-col items-stretch gap-3">
-					{/* Section caption for the preview pane. The preview visualizations
-              use this same mono/faded-sumi style for their own internal labels
-              ("Estimated cards to learn", day names, etc.), so a bare word would
-              read as part of the image. The trailing hairline frames "Preview"
-              as a caption sitting above the visualization, not a line within it. */}
+				{/* SRS preview pane: arrives first in the cascade so the visualization
+            is already settling when the question column begins to appear. */}
+				<aside
+					className="flex flex-col items-stretch gap-3 animate-card-reveal"
+					style={{ animationDelay: "150ms" }}
+				>
 					<div className="flex items-center gap-3 text-xs font-mono tracking-wide text-faded-sumi">
 						<span>Preview</span>
 						<span aria-hidden="true" className="h-px flex-1 bg-soft-hairline" />
@@ -74,9 +73,12 @@ export function StepCard({
 					<div className="flex-1">{previewPane}</div>
 				</aside>
 
-				{/* Right column with its own inner stagger */}
+				{/* Right column: heading → body → footer cascade */}
 				<section className="flex flex-col gap-8">
-					<header className="flex flex-col gap-2">
+					<header
+						className="flex flex-col gap-2 animate-card-reveal"
+						style={{ animationDelay: "240ms" }}
+					>
 						<h1 className="font-display text-2xl md:text-3xl font-semibold text-sumi-ink leading-[1.1]">
 							{heading}
 						</h1>
@@ -85,11 +87,17 @@ export function StepCard({
 						</p>
 					</header>
 
-					{/* Inner stagger so body items (selection cards, chips, deck rows)
-              arrive one by one instead of together. */}
-					<div>{children}</div>
+					<div
+						className="animate-card-reveal"
+						style={{ animationDelay: "330ms" }}
+					>
+						{children}
+					</div>
 
-					<div className="mt-auto pt-2">
+					<div
+						className="mt-auto pt-2 animate-card-reveal"
+						style={{ animationDelay: "430ms" }}
+					>
 						{footer}
 					</div>
 				</section>

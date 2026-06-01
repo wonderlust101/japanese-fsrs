@@ -97,6 +97,7 @@ function DeckStackCard({
 
 	return (
 		<article
+			data-deck-ornament
 			className={[
 				`today-hero-card-shell today-hero-card-${index} absolute w-[min(84%,22rem)]`,
 				deckPositionClass(index, visibleDeckCount),

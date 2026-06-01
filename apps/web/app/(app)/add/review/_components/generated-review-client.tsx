@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { TomoSelect } from "@/components/ui/TomoSelect";
 import { useAddReviewDevState } from "@/dev/panels/add-review";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import {
 	saveCardAction,
@@ -178,6 +179,18 @@ export function GeneratedReviewClient(): React.JSX.Element {
 	// blocked click is what surfaces the (now escalated) requirement copy.
 	const busy = generating || save.status === "saving";
 
+	// Page-level reveal — CHROME ONLY (mount, single header beat, no stagger).
+	// The body is the card EDITOR (field SectionCards in `card-editor-sections`),
+	// which is on the no-reveal list (spec §P2.6: form fields/editors never
+	// revealed). Risk of touching the editor's own autofocus / multi-frame
+	// branches is high, so we reveal only the PageHeader lead and leave every
+	// field static. Re-runs when the editor branch (not loader/generating/saved)
+	// mounts.
+	const revealRootRef = useRef<HTMLDivElement | null>(null);
+	const editorBranchShowing
+		= !(noDraft && save.status !== "saved") && !generating && save.status !== "saved";
+	useRevealMount(revealRootRef, { deps: [editorBranchShowing] });
+
 	// Warn before a hard navigation / tab close drops unsaved edits. Suppressed
 	// once a save is in flight or has landed (the success screen then replaces
 	// the form). Soft in-app navigation isn't guarded (App Router limitation).
@@ -290,12 +303,14 @@ export function GeneratedReviewClient(): React.JSX.Element {
 		// Short closure screen: vertically centered (desktopCentered) rather
 		// than top-anchored like the long form.
 			<PageFrame desktopCentered>
-				<SuccessBlock
-					count={save.count}
-					deckName={save.deckName}
-					onAddAnother={() => startNav(() => router.push("/add"))}
-					onReturnToToday={() => startNav(() => router.push("/today"))}
-				/>
+				<div className="animate-page-enter">
+					<SuccessBlock
+						count={save.count}
+						deckName={save.deckName}
+						onAddAnother={() => startNav(() => router.push("/add"))}
+						onReturnToToday={() => startNav(() => router.push("/today"))}
+					/>
+				</div>
 			</PageFrame>
 		);
 	}
@@ -315,8 +330,8 @@ export function GeneratedReviewClient(): React.JSX.Element {
 			};
 
 	return (
-		<Frame>
-			<PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} />
+		<Frame contentRef={revealRootRef}>
+			<PageHeader kanji={header.kanji} label={header.label} title={header.title} subtitle={header.subtitle} revealLead />
 
 			{/* Two-column desktop (6/6): field SectionCards left, preview + Save right.
           items-start at every breakpoint: below lg this is a single-column grid
@@ -532,21 +547,23 @@ export function GeneratedReviewClient(): React.JSX.Element {
             No max-height / internal scroll: the aside is its natural height so
             it never shows its own scrollbar over the preview. */}
 				<aside className="order-first lg:order-none flex flex-col gap-6 lg:col-span-6 lg:sticky lg:top-12 lg:self-start">
-					<PreviewBlock
-						card={previewCard}
-						flipped={flipped}
-						onFlip={() => setFlipped(f => !f)}
-						loading={generating}
-						aiError={aiError}
-						sentenceCount={sentenceCount}
-						sentenceIndex={clampedPreviewIdx}
-						onPrevSentence={() => setPreviewSentenceIdx(i => Math.max(0, i - 1))}
-						onNextSentence={() => setPreviewSentenceIdx(i => Math.min(sentenceCount - 1, i + 1))}
-					/>
+					<div data-reveal="">
+						<PreviewBlock
+							card={previewCard}
+							flipped={flipped}
+							onFlip={() => setFlipped(f => !f)}
+							loading={generating}
+							aiError={aiError}
+							sentenceCount={sentenceCount}
+							sentenceIndex={clampedPreviewIdx}
+							onPrevSentence={() => setPreviewSentenceIdx(i => Math.max(0, i - 1))}
+							onNextSentence={() => setPreviewSentenceIdx(i => Math.min(sentenceCount - 1, i + 1))}
+						/>
+					</div>
 					{/* Desktop Save lives under the sticky preview. On mobile it's hidden
               here and re-homed to the bottom sticky bar so it stays in reach
               without scrolling the full form. */}
-					<div className="hidden lg:block">
+					<div className="hidden lg:block" data-reveal="">
 						<SaveBlock
 							saving={save.status === "saving"}
 							busy={busy}

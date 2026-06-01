@@ -54,13 +54,16 @@ function computeYAxis(max: number, targetTicks = 5): { yMax: number; ticks: numb
  */
 export function IntervalHistogram({
 	buckets,
-}: IntervalHistogramProps): React.JSX.Element | null {
-	if (buckets.length === 0)
-		return null;
-
+}: IntervalHistogramProps): React.JSX.Element {
 	const max = Math.max(0, ...buckets.map(b => b.count));
-	if (max === 0)
-		return null;
+
+	if (buckets.length === 0 || max === 0) {
+		return (
+			<p className="text-sm leading-[1.55] text-faded-sumi">
+				No interval data yet. Review cards across multiple sessions and FSRS will spread them into scheduled intervals.
+			</p>
+		);
+	}
 	const { yMax, ticks: yTicks } = computeYAxis(Math.max(5, max), 5);
 
 	const innerW = VIEW_W - PAD_LEFT - PAD_RIGHT;

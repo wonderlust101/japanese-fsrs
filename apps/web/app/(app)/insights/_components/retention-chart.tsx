@@ -263,9 +263,11 @@ export function RetentionChart({ heatmap }: RetentionChartProps): React.JSX.Elem
 			<ChartFigcaption>
 				<span>
 					Daily retention
+					{" "}
 					<span className="text-sumi-ink/70">·</span>
 					{" "}
 					last
+					{" "}
 					{days.length}
 					{" "}
 					days

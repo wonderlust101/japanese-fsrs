@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { FuriganaText } from "@/components/ui/FuriganaText";
 import { Pill } from "@/components/ui/Pill";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { Time } from "@/components/ui/Time";
+import { TomoLoader } from "@/components/ui/TomoLoader";
 
 import { WeakSpotDiagnosisPanel } from "./weak-spot-diagnosis-panel";
 import { WEAK_SPOT_DRILL_ENABLED } from "./weak-spots-types";
@@ -69,7 +69,9 @@ export function WeakSpotDetailsDialog({
 			size="xl"
 		>
 			{isLoading || weakSpot === undefined ? (
-				<DetailSkeleton />
+				<div aria-busy="true" aria-label="Loading weak spot" className="flex justify-center py-12">
+					<TomoLoader size="block" />
+				</div>
 			) : isError ? (
 				<div
 					role="alert"
@@ -275,26 +277,6 @@ function StatusPill({ resolved }: { resolved: boolean }): React.JSX.Element {
 		>
 			{resolved ? "Resolved" : "Unresolved"}
 		</span>
-	);
-}
-
-function DetailSkeleton(): React.JSX.Element {
-	return (
-		<div aria-busy="true" aria-label="Loading weak spot" className="flex flex-col gap-y-6">
-			<Skeleton className="h-28 w-full" />
-			<div className="flex flex-col gap-5 py-1">
-				<div className="flex gap-8">
-					<Skeleton className="h-10 w-16" />
-					<Skeleton className="h-10 w-16" />
-				</div>
-				<div className="flex gap-8">
-					<Skeleton className="h-10 w-24" />
-					<Skeleton className="h-10 w-24" />
-					<Skeleton className="h-10 w-24" />
-				</div>
-			</div>
-			<Skeleton className="h-28 w-full" />
-		</div>
 	);
 }
 

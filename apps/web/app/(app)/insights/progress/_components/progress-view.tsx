@@ -8,7 +8,7 @@ import type { ProgressRangeKey } from "./progress-range";
 import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressData, ProgressSummary, RetentionPoint } from "./progress-types";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { YearHeatmap } from "@/components/charts";
@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useProgressDevState } from "@/dev/panels/insights-progress";
+import { useRevealScroll } from "@/hooks/use-reveal-scroll";
 import { getProfileAction } from "@/lib/actions/profile.actions";
 import { useAnalyticsDashboard } from "@/lib/api/analytics";
 
@@ -25,7 +26,7 @@ import { useMaturityHistory } from "@/lib/api/insights";
 import { queryKeys } from "@/lib/api/queryKeys";
 import { ChartRangeToggle } from "../../_components/chart-range-toggle";
 import { InsightsErrorAlert } from "../../_components/insights-error-alert";
-import { INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
+import { INSIGHTS_CONTENT_FILL_CLASS, INSIGHTS_HEADER_PADDING_CLASS, InsightsPageShell } from "../../_components/insights-page-shell";
 import { JlptCoverageStrip } from "./jlpt-coverage-strip";
 import { MatureStackedArea } from "./mature-stacked-area";
 import { ProgressEmpty } from "./progress-empty";
@@ -80,6 +81,7 @@ function ProgressHeader({ subtitle }: ProgressHeaderProps): React.JSX.Element {
 				label="Progress"
 				title="Progress"
 				subtitle={subtitle}
+				revealLead
 			/>
 		</div>
 	);
@@ -214,14 +216,24 @@ function computeMilestones(series: ReadonlyArray<MaturePoint>): MatureMilestone[
 
 // ── View ───────────────────────────────────────────────────────────────────
 
-/**
- * Container for /insights/progress. Five SectionCards stack vertically:
- * Summary, Retention, Mature, JLPT, Consistency. Data flows from the
- * dev panel when a fixture is selected, otherwise from the live
- * analytics dashboard. Limited-data and error/loading states branch
- * before chart rendering.
- */
+/** Shell — renders the TopBar before any data loads and wraps the content in a
+ *  Suspense boundary. TopBar is outside the boundary so it paints immediately. */
 export function ProgressView(): React.JSX.Element {
+	return (
+		<InsightsPageShell topBar={<ProgressTopBar />}>
+			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
+				<ProgressContent />
+			</Suspense>
+		</InsightsPageShell>
+	);
+}
+
+/**
+ * Inner content for /insights/progress. Five SectionCards stack vertically:
+ * Summary, Retention, Mature, JLPT, Consistency. Rendered inside the shell's
+ * Suspense boundary so any suspension only replaces the content area.
+ */
+function ProgressContent(): React.JSX.Element {
 	const dev = useProgressDevState();
 	const isDev = process.env.NODE_ENV === "development";
 	// One range drives both time-series charts. The control lives in the
@@ -240,88 +252,77 @@ export function ProgressView(): React.JSX.Element {
 		staleTime: 1000 * 60 * 60,
 	});
 
+	// Page-level section reveal (scroll mode — this route already ships
+	// ScrollTrigger via the chart draw-on). Attaches to the shell content
+	// container so the PageHeader lead + the 5 SectionCards cascade in. The hook
+	// no-ops when the content/sections aren't mounted (loading/error/empty
+	// branches), and reduced-motion renders everything at rest.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+
 	const data = useMemo<ProgressData | null>(() => {
 		if (dev.fixtureData !== null)
 			return dev.fixtureData;
-		if (dashboardQuery.data === undefined)
-			return null;
+		// dashboardQuery.data and maturityHistoryQuery.data are always defined
+		// (useSuspenseQuery guarantees it — the component suspends until both resolve).
 		const desiredRetention = profileQuery.data?.retentionTarget ?? 0.9;
-		const cardsAddedThisMonth = dashboardQuery.data.cardsAddedThisMonth;
 		return adaptDashboard(
 			dashboardQuery.data,
-			maturityHistoryQuery.data ?? [],
+			maturityHistoryQuery.data,
 			desiredRetention,
-			cardsAddedThisMonth,
+			dashboardQuery.data.cardsAddedThisMonth,
 		);
 	}, [dev.fixtureData, dashboardQuery.data, maturityHistoryQuery.data, profileQuery.data]);
 
+	// Page-level section reveal (scroll mode — this route already ships
+	// ScrollTrigger via the chart draw-on). Attaches to the shell content
+	// container so the PageHeader lead + the 5 SectionCards cascade in once the
+	// data branch mounts. Re-runs when the SectionCard stack first renders
+	// (keyed on data presence + state); a no-op in loading/error/empty branches
+	// where no `data-reveal` nodes exist, and reduced-motion renders at rest.
+	const contentReady = data !== null && data.state !== "limited";
+	useRevealScroll(contentRef, { deps: [contentReady] });
+
 	const defaultSubtitle = "What you've grown, where you stand, how you've been showing up.";
 
-	// Forced dev states win first.
+	// Forced dev states win first (inside shell — no TopBar wrapper needed here).
 	if (dev.forcedState === "error") {
 		return (
-			<PageShell header={<ProgressHeader subtitle={defaultSubtitle} />}>
+			<>
+				<ProgressHeader subtitle={defaultSubtitle} />
 				<InsightsErrorAlert
 					label="your progress"
 					onRetry={() => { void dashboardQuery.refetch(); }}
 				/>
-			</PageShell>
+			</>
 		);
 	}
 	if (dev.forcedState === "loading") {
-		// Header omitted while loading so the centered PageLoader owns the
-		// viewport instead of sitting below the title + subtitle.
-		return (
-			<PageShell header={null}>
-				<PageLoader />
-			</PageShell>
-		);
-	}
-
-	if (dev.fixtureData === null && dashboardQuery.isError) {
-		return (
-			<PageShell header={<ProgressHeader subtitle={defaultSubtitle} />}>
-				<InsightsErrorAlert
-					label="your progress"
-					onRetry={() => { void dashboardQuery.refetch(); }}
-				/>
-			</PageShell>
-		);
-	}
-
-	if (dev.fixtureData === null && (dashboardQuery.isLoading || maturityHistoryQuery.isLoading)) {
-		return (
-			<PageShell header={null}>
-				<PageLoader />
-			</PageShell>
-		);
+		return <div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>;
 	}
 
 	if (data === null || data.state === "limited") {
 		return (
-			<PageShell
-				header={(
-					<ProgressHeader
-						subtitle={data === null ? defaultSubtitle : buildHeaderLine(data)}
+			<>
+				<ProgressHeader subtitle={data === null ? defaultSubtitle : buildHeaderLine(data)} />
+				<div className="animate-memory-fade-in">
+					<ProgressEmpty
+						activeDays={data?.retention.length ?? null}
+						isDev={isDev && dev.fixtureData !== null}
 					/>
-				)}
-			>
-				<ProgressEmpty
-					activeDays={data?.retention.length ?? null}
-					isDev={isDev && dev.fixtureData !== null}
-				/>
-			</PageShell>
+				</div>
+			</>
 		);
 	}
 
 	const headerLine = buildHeaderLine(data);
 	const hasMature = data.mature.length >= 14;
-	// Surface a real maturity-history fetch failure instead of silently showing
-	// the "few more weeks" fallback, which would masquerade as an empty state.
-	const maturityError = dev.fixtureData === null && maturityHistoryQuery.isError;
+	// maturityHistoryQuery is now useSuspenseQuery — errors propagate to the
+	// error boundary so this section-level error state is no longer reachable.
+	const maturityError = false;
 
 	return (
-		<PageShell header={<ProgressHeader subtitle={headerLine} />}>
+		<div ref={contentRef}>
+			<ProgressHeader subtitle={headerLine} />
 			{/* Outcomes tier: the "are you on track" story, full-width and leading. */}
 			<div className="flex flex-col gap-y-8 lg:gap-y-10">
 				<SectionCard
@@ -331,6 +332,7 @@ export function ProgressView(): React.JSX.Element {
 					description="A quiet read of where you stand today."
 					chrome="chart"
 					variant="chart"
+					reveal
 				>
 					<ProgressSummaryStrip data={data} />
 				</SectionCard>
@@ -342,6 +344,7 @@ export function ProgressView(): React.JSX.Element {
 					description={buildRetentionLine(data)}
 					chrome="chart"
 					variant="chart"
+					reveal
 					rightContent={(
 						<ChartRangeToggle
 							label="Time range for the retention and mature charts"
@@ -371,6 +374,7 @@ export function ProgressView(): React.JSX.Element {
 					}
 					chrome="chart"
 					variant="chart"
+					reveal
 					rightContent={hasMature && !maturityError ? <RangeEcho rangeKey={range} /> : undefined}
 				>
 					{maturityError
@@ -403,6 +407,7 @@ export function ProgressView(): React.JSX.Element {
 					description="A proportional read across the five levels."
 					chrome="chart"
 					variant="chart"
+					reveal
 				>
 					<JlptCoverageStrip data={data} />
 				</SectionCard>
@@ -414,29 +419,16 @@ export function ProgressView(): React.JSX.Element {
 					description={buildConsistencyLine(data)}
 					chrome="chart"
 					variant="chart"
+					reveal
 				>
 					<YearHeatmap days={data.heatmap} />
 				</SectionCard>
 			</div>
-		</PageShell>
+		</div>
 	);
 }
 
-// ── PageShell + auxiliary blocks ───────────────────────────────────────────
-
-function PageShell({
-	header,
-	children,
-}: {
-	header: React.ReactNode;
-	children: React.ReactNode;
-}): React.JSX.Element {
-	return (
-		<InsightsPageShell topBar={<ProgressTopBar />} header={header}>
-			{children}
-		</InsightsPageShell>
-	);
-}
+// ── Auxiliary blocks ───────────────────────────────────────────────────────
 
 /**
  * Read-only echo of the active page range, shown in the Mature card header.

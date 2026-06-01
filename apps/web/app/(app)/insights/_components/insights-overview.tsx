@@ -3,11 +3,12 @@
 import type { NoteWeight } from "./ranked-note";
 
 import type { FigureKind, NoteTone, ReportNote, WeeklyReport, WeeklyReportInputs } from "./weekly-report";
-import { useMemo } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { TopBar } from "@/app/(app)/_components/top-bar";
 import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useInsightsDevState } from "@/dev/panels/insights-overview";
+import { useRevealMount } from "@/hooks/use-reveal-mount";
 
 import { useAnalyticsDashboard } from "@/lib/api/analytics";
 import { useReviewForecast } from "@/lib/api/reviews";
@@ -16,7 +17,7 @@ import { EmptyInsights } from "./empty-insights";
 import { ForecastChart } from "./forecast-chart";
 import { InsightsErrorAlert } from "./insights-error-alert";
 import { InsightsMasthead } from "./insights-masthead";
-import { InsightsPageShell } from "./insights-page-shell";
+import { INSIGHTS_CONTENT_FILL_CLASS, InsightsPageShell } from "./insights-page-shell";
 import { MistakeBudgetChart } from "./mistake-budget-chart";
 import { RankedNote } from "./ranked-note";
 import { ReportRecommendation } from "./report-recommendation";
@@ -47,12 +48,29 @@ function OverviewTopBar(): React.JSX.Element {
 }
 
 /**
- * Container — owns data fetching, derives the weekly report, and renders
- * `OverviewView`. The view is exported separately so the in-page dev panel
- * (and any future preview surface) can render the same composition against
- * fixture data.
+ * Shell — renders the TopBar immediately (before any data loads) then wraps the
+ * data-fetching content in a Suspense boundary. Keeping the TopBar outside the
+ * Suspense boundary ensures it paints on the first frame regardless of query
+ * state, eliminating the "no top bar during load" flash.
  */
 export function InsightsOverview(): React.JSX.Element {
+	return (
+		<InsightsPageShell topBar={<OverviewTopBar />}>
+			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
+				<InsightsOverviewContent />
+			</Suspense>
+		</InsightsPageShell>
+	);
+}
+
+/**
+ * Inner content — owns data fetching, derives the weekly report, and renders
+ * `OverviewView`. Rendered inside the shell's Suspense boundary so any
+ * suspension only replaces the content area, not the top bar.
+ * The view is exported separately so the in-page dev panel (and any future
+ * preview surface) can render the same composition against fixture data.
+ */
+function InsightsOverviewContent(): React.JSX.Element {
 	const dashboard = useAnalyticsDashboard();
 	const forecast = useReviewForecast();
 
@@ -72,35 +90,36 @@ export function InsightsOverview(): React.JSX.Element {
 		[effectiveInputs, effectiveToday, dev.seed],
 	);
 
-	const isError = dev.forcedState === "error" || (dev.forcedState === null && dashboard.isError && forecast.isError);
-	const isLoading = dev.forcedState === "loading" || (dev.forcedState === null && (dashboard.isLoading || forecast.isLoading));
+	// dashboard is useSuspenseQuery — isError/isLoading are always false for it.
+	// forecast stays as useQuery so it can still transition through loading/error.
+	const isError = dev.forcedState === "error" || (dev.forcedState === null && forecast.isError);
+	const isLoading = dev.forcedState === "loading" || (dev.forcedState === null && forecast.isLoading);
+
+	// Page-level section reveal (mount mode). Re-runs when success branch mounts.
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const revealBranch = isError || isLoading ? "chrome" : report.lowData ? "empty" : "report";
+	useRevealMount(contentRef, { deps: [revealBranch] });
 
 	if (isError) {
 		return (
-			<InsightsPageShell topBar={<OverviewTopBar />}>
-				<InsightsErrorAlert
-					label="your insights"
-					onRetry={() => {
-						void dashboard.refetch();
-						void forecast.refetch();
-					}}
-				/>
-			</InsightsPageShell>
+			<InsightsErrorAlert
+				label="your insights"
+				onRetry={() => {
+					void dashboard.refetch();
+					void forecast.refetch();
+				}}
+			/>
 		);
 	}
 
 	if (isLoading) {
-		return (
-			<InsightsPageShell topBar={<OverviewTopBar />}>
-				<PageLoader />
-			</InsightsPageShell>
-		);
+		return <div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>;
 	}
 
 	return (
-		<InsightsPageShell topBar={<OverviewTopBar />}>
+		<div ref={contentRef}>
 			<OverviewView report={report} inputs={effectiveInputs} todayIso={effectiveToday} />
-		</InsightsPageShell>
+		</div>
 	);
 }
 
@@ -131,7 +150,9 @@ export function OverviewView({
 					weekEnd={report.window.weekEnd}
 					weekNumber={report.window.weekNumber}
 				/>
-				<EmptyInsights />
+				<div className="animate-memory-fade-in">
+					<EmptyInsights />
+				</div>
 			</article>
 		);
 	}
@@ -151,7 +172,15 @@ export function OverviewView({
           statement, the recommendation parks on the right as the action
           callout. Keyed to the column's own width so the pair each gets its
           own full-width row while the sidebar squeezes the column. */}
-			<div className="mt-9 grid grid-cols-1 gap-x-10 gap-y-8 lg:mt-11 @4xl/insights:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] @4xl/insights:items-start @4xl/insights:gap-x-14">
+			{/* Headline + recommendation land first as the lead beat; the notes
+			    section cascades behind it (§P2.2: overview = headline lead + group
+			    reveal). Marking the whole row as the lead avoids nesting a
+			    `data-reveal-lead` inside a `data-reveal` (which would double-fade
+			    the headline). */}
+			<div
+				className="mt-9 grid grid-cols-1 gap-x-10 gap-y-8 lg:mt-11 @4xl/insights:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] @4xl/insights:items-start @4xl/insights:gap-x-14"
+				data-reveal-lead
+			>
 				<section aria-label="This week's headline">
 					<Headline tone={report.headline.tone} text={report.headline.text} />
 				</section>
@@ -178,6 +207,7 @@ export function OverviewView({
 			<section
 				aria-label="This week's notes"
 				className="mt-12 flex flex-col gap-y-6 lg:mt-14 lg:gap-y-6"
+				data-reveal
 			>
 				<NoteSlot
 					note={report.notes.lead}

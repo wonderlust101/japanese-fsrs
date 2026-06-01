@@ -22,7 +22,7 @@ export function ActivitySection({
 	stats,
 }: ActivitySectionProps): React.JSX.Element {
 	return (
-		<StatisticsSection section={SECTION}>
+		<StatisticsSection section={SECTION} reveal>
 			<SectionCard kanji="動" label="Reviewed" omitTitle>
 				<div className="flex flex-col gap-y-8 px-1 pb-1 pt-1">
 					<ActivityStatsStrip stats={stats} />

@@ -57,13 +57,16 @@ function computeYAxis(max: number, targetTicks = 5): { yMax: number; ticks: numb
  */
 export function CumulativeDueCurve({
 	data,
-}: CumulativeDueCurveProps): React.JSX.Element | null {
-	if (data.length < 2)
-		return null;
-
+}: CumulativeDueCurveProps): React.JSX.Element {
 	const max = data[data.length - 1]?.cumulative ?? 0;
-	if (max === 0)
-		return null;
+
+	if (data.length < 2 || max === 0) {
+		return (
+			<p className="text-sm leading-[1.55] text-faded-sumi">
+				No upcoming reviews in the forecast window. You&apos;re all caught up, or no cards are due in the next few days.
+			</p>
+		);
+	}
 	const { yMax, ticks: yTicks } = computeYAxis(max, 5);
 
 	const innerW = VIEW_W - PAD_LEFT - PAD_RIGHT;
@@ -176,6 +179,7 @@ export function CumulativeDueCurve({
 					<span className="text-sumi-ink/70">·</span>
 					{" "}
 					next
+					{" "}
 					{data.length}
 					{" "}
 					days

@@ -10,12 +10,19 @@ export function getGreetingBucket(hour: number): GreetingTimeBucket {
 	return "late";
 }
 
-export function getJapaneseGreeting(hour: number): string {
+/**
+ * `firstTime` swaps the late-night greeting away from おかえり ("welcome
+ * back / welcome home"), which wrongly implies a return for someone opening
+ * Tomo for the first time. The neutral こんばんは ("good evening") is used
+ * instead. The day buckets are already return-neutral time greetings, so
+ * only the late bucket needs to branch.
+ */
+export function getJapaneseGreeting(hour: number, firstTime = false): string {
 	switch (getGreetingBucket(hour)) {
 		case "morning": return "おはよう";
 		case "afternoon": return "こんにちは";
 		case "evening": return "こんばんは";
-		case "late": return "おかえり";
+		case "late": return firstTime ? "こんばんは" : "おかえり";
 	}
 }
 

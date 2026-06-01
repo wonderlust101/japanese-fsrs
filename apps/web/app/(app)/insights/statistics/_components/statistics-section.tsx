@@ -10,6 +10,13 @@ interface StatisticsSectionProps {
 	children: React.ReactNode;
 	/** Optional right slot for a per-section control (e.g. time range tabs). */
 	rightSlot?: React.ReactNode;
+	/**
+	 * Opt-in page-level reveal participation. When `true`, emits `data-reveal` on
+	 * this section's outer `<section>` so the statistics `useRevealScroll`
+	 * cascade staggers the FIVE stat sections in (rather than the 10+ inner
+	 * SectionCards — that would over-animate). Default `false`.
+	 */
+	reveal?: boolean;
 }
 
 /**
@@ -23,6 +30,7 @@ export function StatisticsSection({
 	section,
 	children,
 	rightSlot,
+	reveal = false,
 }: StatisticsSectionProps): React.JSX.Element {
 	const ariaId = `${section.id}-heading`;
 	const panelId = `${section.id}-panel`;
@@ -33,6 +41,7 @@ export function StatisticsSection({
 			id={section.id}
 			aria-labelledby={ariaId}
 			className="scroll-mt-32"
+			{...(reveal && { "data-reveal": "" })}
 		>
 			<header className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-soft-hairline pb-4 lg:mb-8 lg:pb-5">
 				<div className="flex flex-col gap-y-1">

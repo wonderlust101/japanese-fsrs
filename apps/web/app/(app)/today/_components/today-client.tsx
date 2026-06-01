@@ -13,7 +13,8 @@ import { ArrowGlyph } from "@/components/icons/arrow-glyph";
 import { QueueErrorPane } from "@/components/ui/QueueErrorPane";
 import { PageGate } from "@/components/ui/TomoLoader";
 import { useTodayDevState } from "@/dev/panels/today";
-import { useDecks } from "@/lib/api/decks";
+import { updateProfileAction } from "@/lib/actions/profile.actions";
+import { useSuspenseDecksWithStats } from "@/lib/api/decks";
 import { queryKeys } from "@/lib/api/queryKeys";
 
 import { useDueCards, useReviewForecast } from "@/lib/api/reviews";
@@ -25,7 +26,6 @@ import {
 	getGreetingBucket,
 	getJapaneseGreeting,
 } from "@/lib/japanese-greeting";
-import { useResumeContext } from "@/stores/useReviewSessionStore";
 import { OfflineStatusBand } from "./offline-status-band";
 import {
 	addDaysToDateKey,
@@ -50,7 +50,8 @@ interface TodayClientProps {
 	dateTime: string;
 	greetingName: string | null;
 	greetingPrefix: string;
-	timeZone: string;
+	timeZone: string | null;
+	profileVersion: number | null;
 }
 
 function calendarContextsEqual(
@@ -73,8 +74,10 @@ export function DashboardClient({
 	greetingName,
 	greetingPrefix,
 	timeZone,
+	profileVersion,
 }: TodayClientProps): React.JSX.Element {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const { hero: heroControls, modules: moduleControls, errors: errorControls, previewActive } = useTodayDevState();
 	const [calendar, setCalendar] = useState<DashboardCalendarContext>(() => ({
 		dateLabel,
@@ -86,11 +89,28 @@ export function DashboardClient({
 	}));
 
 	// Tick the calendar context once a minute so date/greeting stay accurate
-	// across midnight without a full page reload.
+	// across midnight without a full page reload. When no profile timezone is
+	// configured (null), fall back to the browser's IANA timezone so users who
+	// haven't set a preference see their local date rather than UTC.
+	//
+	// Also auto-saves the detected timezone to the profile the first time so
+	// all API endpoints (forecast, due cards, day reflection) use the correct
+	// local timezone on subsequent loads — they all read from profile.timezone.
 	useEffect(() => {
+		const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		const effectiveTz = timeZone ?? browserTz;
+
+		if (timeZone === null && profileVersion !== null) {
+			void updateProfileAction(profileVersion, { timezone: browserTz }).then(() => {
+				// Invalidate all queries that use profile.timezone for bucketing so
+				// they refetch immediately using the newly saved timezone.
+				void queryClient.invalidateQueries({ queryKey: ["reviews"] });
+			});
+		}
+
 		function sync(): void {
 			setCalendar((current) => { // eslint-disable-line react/set-state-in-effect -- once-a-minute tick keeps the calendar context accurate across midnight
-				const next = buildDashboardCalendarContext(new Date(), timeZone);
+				const next = buildDashboardCalendarContext(new Date(), effectiveTz);
 				return calendarContextsEqual(current, next) ? current : next;
 			});
 		}
@@ -98,13 +118,12 @@ export function DashboardClient({
 		sync();
 		const id = window.setInterval(sync, CALENDAR_TICK_MS);
 		return () => window.clearInterval(id);
-	}, [timeZone]);
+	}, [timeZone, profileVersion, queryClient]);
 
 	// ── Live data sources ──────────────────────────────────────────────────────
-	const decksQuery = useDecks();
+	const decksQuery = useSuspenseDecksWithStats();
 	const dueQuery = useDueCards();
 	const forecastQuery = useReviewForecast();
-	const resume = useResumeContext();
 
 	// Pre-review-note queries. Mirrored from HeroPreSessionNote so the page
 	// gate can hold the screen until the right note (weak-spot peek, Tomo
@@ -118,10 +137,23 @@ export function DashboardClient({
 	});
 	const weakSpotsSettled = !weakSpotsQuery.isPending;
 	const hasWeakSpots = (weakSpotsQuery.data?.items ?? []).length > 0;
+
+	// A user is "new" if they have decks (completed onboarding and subscribed to
+	// something) but no card in any deck has ever been reviewed. lastReviewedAt is
+	// MAX(cards.last_review) server-side; null means genuinely zero review history.
+	// This correctly greeted the user as "Welcome" (not "Welcome back") and hides
+	// the week rhythm strip whose bars would otherwise be entirely empty.
+	const hasNoReviewHistory = useMemo(() => {
+		const items = decksQuery.data?.items ?? [];
+		return items.length > 0 && items.every(d => d.lastReviewedAt === null);
+	}, [decksQuery.data, decksQuery.isPending]);
+
 	// Mirror HeroPreSessionNote's enabled gate: AI quota only spent on calm
 	// days. When not enabled, the tomoNote query stays pending forever
 	// (TanStack semantics) — we must NOT wait for it in that case.
-	const tomoNoteEnabled = weakSpotsSettled && !hasWeakSpots;
+	// Skip the AI note for first-time users: they have no review history to
+	// reflect on, and the quota is better spent once they have sessions behind them.
+	const tomoNoteEnabled = weakSpotsSettled && !hasWeakSpots && !hasNoReviewHistory;
 	const tomoNoteQuery = useTomoNoteQuery({
 		dateKey: calendar.todayKey,
 		enabled: tomoNoteEnabled,
@@ -158,31 +190,41 @@ export function DashboardClient({
 
 		window.addEventListener("keydown", handleKey);
 		return () => window.removeEventListener("keydown", handleKey);
-	}, [router, resume]);
+	}, [router]);
 
 	// ── Hero variant ───────────────────────────────────────────────────────────
-	// Resume takes precedence over every other variant per IA. PageGate
-	// guarantees decks/due/forecast have resolved before this renders, and
-	// critical errors are handled by the page-level QueueErrorPane below,
+	// PageGate guarantees decks/due/forecast have resolved before this renders,
+	// and critical errors are handled by the page-level QueueErrorPane below,
 	// so the hero never sees an error state.
-	const liveHeroVariant = useMemo<DashboardHeroVariant>(() => {
-		if (resume !== null)
-			return { kind: "resume", context: { remaining: resume.remaining } };
+	// "Nothing due" splits into two genuinely different states: a brand-new
+	// account that owns no cards at all (→ first-time welcome), versus an
+	// account whose cards are all scheduled in the future (→ caught-up). Both
+	// produce an empty due queue, so the due count alone can't tell them
+	// apart; the deck library's total card count is the discriminator. PageGate
+	// guarantees decksQuery has resolved before this renders, so an empty
+	// `items` here means a genuinely empty library, not a still-loading one.
+	const totalCardCount = useMemo(
+		() => (decksQuery.data?.items ?? []).reduce((sum, deck) => sum + deck.cardCount, 0),
+		[decksQuery.data],
+	);
 
+	const liveHeroVariant = useMemo<DashboardHeroVariant>(() => {
 		const items = dueQuery.data?.items ?? [];
 		if (items.length === 0)
-			return { kind: "caught-up" };
+			return totalCardCount === 0 ? { kind: "first-time" } : { kind: "caught-up" };
 
 		return {
 			kind: "due",
 			queue: buildHeroQueueFromDueCards(items, calendar.todayKey, calendar.timeZone, deckById),
+			isFirstVisit: hasNoReviewHistory,
 		};
 	}, [
 		calendar.todayKey,
 		calendar.timeZone,
 		deckById,
 		dueQuery.data,
-		resume,
+		hasNoReviewHistory,
+		totalCardCount,
 	]);
 
 	// `process.env.NODE_ENV === "development"` short-circuits the preview builder
@@ -204,19 +246,15 @@ export function DashboardClient({
 	// ── Critical error / partial failure routing ───────────────────────────────
 	// Critical = "can we show today's queue?" If either due or decks errored,
 	// the hero's primary purpose is broken, so the route enters the unified
-	// error state. Resume still wins (a finished session can be picked up
-	// even when fresh-data queries fail). Partial failure = only forecast
-	// errored: the hero renders real data and the week strip falls back to
-	// the silhouette below.
+	// error state. Partial failure = only forecast errored: the hero renders
+	// real data and the week strip falls back to the silhouette below.
 	//
 	// Dev-panel "Today · Errors" can force either state for visual
 	// inspection without staging a real failure.
-	const queryClient = useQueryClient();
 	const [refreshing, setRefreshing] = useState(false);
 	const criticalError = errorControls.state === "critical"
 		|| (
 			!previewActive
-			&& resume === null
 			&& (dueQuery.isError || decksQuery.isError)
 		);
 	const forecastOnlyError = errorControls.state === "forecast-only"
@@ -273,17 +311,15 @@ export function DashboardClient({
 					<>
 						<div className="relative z-10 grid flex-1 grid-cols-1 content-start lg:content-center gap-y-8 mx-auto w-full max-w-[1440px] px-4 pt-4 pb-30 md:px-12 md:pt-10 lg:px-16 lg:pt-12 lg:pb-12">
 							<div className="grid grid-cols-1 gap-y-4">
-								<GreetingHeader greetingName={greetingName} />
+								<GreetingHeader greetingName={greetingName} firstTime={heroVariant.kind === "first-time" || hasNoReviewHistory} />
 								<OfflineStatusBand />
 								<DashboardHero variant={heroVariant} dateKey={calendar.todayKey} />
 							</div>
 
-							{/* First-time learners have no decks yet, so the
-                                forecast is structurally empty. Hiding the
-                                week strip keeps the welcome focused on
-                                picking a deck instead of staring at a flat
-                                chart. */}
-							{heroVariant.kind !== "first-time" && (
+							{/* Hide the week strip for learners with no review history: either
+                                no decks yet (first-time) or decks subscribed but never reviewed
+                                (new user). In both cases the strip would be entirely empty bars. */}
+							{heroVariant.kind !== "first-time" && !hasNoReviewHistory && (
 								forecastOnlyError
 									? (
 											<TodayWeekRhythmSilhouette />
@@ -351,16 +387,25 @@ function HeroStickyCtaLink({ cta }: { cta: HeroCta }): React.JSX.Element {
 
 // ── Greeting header ──────────────────────────────────────────────────────────
 
-function GreetingHeader({ greetingName }: { greetingName: string | null }): React.JSX.Element {
+function GreetingHeader({
+	greetingName,
+	firstTime,
+}: {
+	greetingName: string | null;
+	firstTime: boolean;
+}): React.JSX.Element {
 	// Japanese eyebrow and English second clause are derived from the browser
 	// hour, so they're hydration-only. Reserve their vertical space ahead of
 	// mount so the headline doesn't reflow when they fade in.
 	const [hour, setHour] = useState<number | null>(null);
 	useEffect(() => { setHour(new Date().getHours()); }, []); // eslint-disable-line react/set-state-in-effect -- browser-hour greeting is hydration-only; cannot run during SSR render
 
-	const japaneseGreeting = hour !== null ? getJapaneseGreeting(hour) : null;
+	const japaneseGreeting = hour !== null ? getJapaneseGreeting(hour, firstTime) : null;
 	const warmClause = hour !== null ? getEnglishWelcomeClause(getGreetingBucket(hour)) : null;
-	const englishLead = greetingName !== null ? `Welcome back, ${greetingName}.` : "Welcome back.";
+	// A first-time visitor hasn't been here before, so "back" is wrong; greet
+	// them with a plain welcome instead.
+	const leadVerb = firstTime ? "Welcome" : "Welcome back";
+	const englishLead = greetingName !== null ? `${leadVerb}, ${greetingName}.` : `${leadVerb}.`;
 
 	return (
 		<header className="grid gap-y-3">

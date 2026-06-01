@@ -56,6 +56,11 @@ export function useWeakSpotsQuery(
 		queryKey: queryKeys.weakSpots.list(opts),
 		queryFn: () => listWeakSpotsAction(opts),
 		staleTime: staleTimes.analytics,
+		// gcTime: 0 evicts the cache when all observers unmount (page navigation).
+		// On the next visit the query starts fresh — isLoading fires and the
+		// component's own loading branch renders instead of flashing stale rows.
+		// keepPreviousData is preserved for filter/page changes within the page.
+		gcTime: 0,
 		placeholderData: keepPreviousData,
 	});
 }

@@ -99,18 +99,19 @@ afterEach(() => {
 
 describe("cardDetailView", () => {
 	describe("loading state", () => {
-		it("renders a PageLoader while the card query is in flight", () => {
+		it("suspends (shows Suspense fallback) while the card query is in flight", () => {
 			mockedGetCard.mockReturnValueOnce(new Promise(() => {}));
 
 			renderWithProviders(
 				<CardDetailView cardId="card-1" deckId="deck-1" deckName="N5 Vocabulary" />,
 			);
 
-			// PageLoader doesn't carry a heading; assert the back link is the only
-			// chrome rendered (label points to the deck).
+			// With useSuspenseQuery the card query suspends; the Suspense boundary
+			// fires and the component content is not rendered until data resolves.
+			expect(screen.getByTestId("suspense-fallback")).toBeInTheDocument();
 			expect(
-				screen.getByRole("link", { name: /back to n5 vocabulary/i }),
-			).toBeInTheDocument();
+				screen.queryByRole("link", { name: /back to n5 vocabulary/i }),
+			).not.toBeInTheDocument();
 		});
 	});
 

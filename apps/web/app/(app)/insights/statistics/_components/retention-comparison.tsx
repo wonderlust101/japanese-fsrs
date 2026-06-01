@@ -50,9 +50,11 @@ export function RetentionComparison({
 					{" "}
 					{desiredPct}
 					%
+					{" "}
 					<span className="text-sumi-ink/40">·</span>
 					{" "}
 					actual
+					{" "}
 					{actualPct}
 					%
 				</p>
