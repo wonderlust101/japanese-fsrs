@@ -397,6 +397,17 @@
   --animate-eyebrow-kanji-bloom: eyebrow-kanji-bloom 580ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
   --animate-eyebrow-label-ink:   eyebrow-label-ink   360ms cubic-bezier(0.165, 0.84, 0.44, 1) 180ms both;
 
+  /* ── Diagnosis content reveal: AI-authored text inks in when the
+     panel transitions from empty to filled. Expo ease-out mirrors the
+     tomo-stage-fade impulse but with more vertical travel (6 px) and a
+     longer hold (300 ms) to give AI-generated content its due weight. ── */
+  --animate-diagnosis-content-in: diagnosis-content-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes diagnosis-content-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
   @keyframes eyebrow-kanji-bloom {
     from {
       opacity:   0;
@@ -427,7 +438,7 @@
    call. Local, in-component z-[1]/z-10 stacking contexts are intentionally
    NOT on this ladder — they only compete with their own siblings. */
 :root {
-  --z-sticky:  10;  /* sticky headers / rails (top bar, settings rail, tabs) */
+  --z-sticky:  15;  /* sticky headers / rails (top bar, settings rail, tabs) */
   --z-raised:  20;  /* sticky action bars (bulk bar, sticky action bar)       */
   --z-bar:     30;  /* fixed bottom rating / action bars, undo pills          */
   --z-nav:     40;  /* session top bar; mobile-drawer scrim                   */
@@ -451,6 +462,26 @@ body {
 /* Noto Sans JP on any element carrying the lang attribute */
 [lang="ja"] {
   font-family: var(--font-noto-sans-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+/* Interactive cursor affordance. Tailwind v4's Preflight resets <button> to
+   `cursor: default`, which drops the pointer hover signal that tells users an
+   element is clickable. Restore it for genuinely-interactive controls. Links
+   (<a href>) already get a pointer from the UA stylesheet, so they're not
+   listed here. Disabled controls are excluded so they keep the default arrow
+   (the `:disabled` pseudo covers native buttons; `[aria-disabled="true"]`
+   covers buttons/role-buttons kept focusable while inert).
+
+   Scoped to `@layer base` deliberately: it outranks Preflight (same layer,
+   higher specificity) yet still yields to any explicit `cursor-*` utility,
+   since Tailwind's utilities layer cascades after base. That keeps purpose-
+   built cursors intact — e.g. a drag handle button with `cursor-grab`. */
+@layer base {
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* ── Lenis smooth scroll ─────────────────────────────────────────────────
@@ -614,6 +645,18 @@ html.lenis body {
    handled globally (animation collapses to ~0ms). */
 @utility animate-sentence-swap {
   animation: tomo-stage-fade 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-diagnosis-content-in {
+  animation: var(--animate-diagnosis-content-in);
+}
+
+@utility animate-page-enter {
+  animation: var(--animate-page-enter);
+}
+
+@utility animate-curve-breath {
+  animation: var(--animate-curve-breath);
 }
 
 .ui-motion-colors {
