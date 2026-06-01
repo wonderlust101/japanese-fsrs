@@ -115,13 +115,15 @@ afterEach(() => {
 
 describe("cardsBrowserView", () => {
 	describe("loading state", () => {
-		it("renders the Cards top-bar title while the query is in flight", () => {
+		it("renders a loader while the query is in flight", () => {
 			// Resolve never — leaves the query in the loading branch.
 			mockedList.mockReturnValueOnce(new Promise(() => {}));
 
 			renderWithProviders(<CardsBrowserView />);
-			// During cold boot, the page renders the top bar + a PageLoader.
-			expect(screen.getAllByText("Cards").length).toBeGreaterThan(0);
+			// The TopBar title ("Cards") is provided by the layout-level AppTopBar
+			// via route config — not by the component itself. The component renders
+			// a PageLoader (role="status") in the cold-boot state.
+			expect(screen.getByRole("status")).toBeInTheDocument();
 		});
 	});
 

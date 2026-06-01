@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Suspense } from "react";
+import { useTopBarStore } from "@/stores/useTopBarStore";
 
 /**
  * Render helper that wires the minimum provider set every component test needs
@@ -42,6 +43,7 @@ export function renderWithProviders(
 		return (
 			<QueryClientProvider client={queryClient}>
 				<Suspense fallback={<div data-testid="suspense-fallback" />}>
+					<TopBarStoreRenderer />
 					{children}
 				</Suspense>
 			</QueryClientProvider>
@@ -55,6 +57,31 @@ export function renderWithProviders(
 		user: userEvent.setup(),
 		queryClient,
 	};
+}
+
+/**
+ * Renders the top bar store's current override into the test DOM so that
+ * component tests can find TopBar-level elements (back links, titles, actions)
+ * set via SetTopBar without needing the full (app)/layout. Mirrors what
+ * AppTopBar does in production but without the usePathname route-config layer.
+ */
+function TopBarStoreRenderer(): ReactElement | null {
+	const override = useTopBarStore(s => s.override);
+	if (!override)
+		return null;
+	return (
+		<div data-testid="test-top-bar">
+			{override.backHref !== undefined && (
+				<a href={override.backHref} aria-label={override.backAriaLabel ?? "Back"}>
+					←
+				</a>
+			)}
+			{override.kanji !== undefined && override.label !== undefined && (
+				<span>{override.label}</span>
+			)}
+			{override.actions}
+		</div>
+	);
 }
 
 // Re-export Testing Library so test files import everything from one place.

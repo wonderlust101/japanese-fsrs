@@ -46,10 +46,12 @@ interface TomoLoaderProps {
 
 const SLOW_DEFAULT_LABEL = "Taking longer than usual. Still working.";
 const STAGE_INTERVAL_MS = 1800;
-/* Page-size centerpiece cadence. Kept well under the loader's typical visible
-   lifetime so the glyph visibly changes during an ordinary route load (the
-   previous 1600ms outlived most loads, leaving the kanji apparently frozen). */
-const KANJI_CYCLE_MS = 700;
+/* Page-size centerpiece cadence. Matched to the 2200ms card-draw cycle so the
+   kanji swaps feel unhurried rather than rapid. ~1.7 swaps per loop. */
+const KANJI_CYCLE_MS = 1300;
+/* Fade-out and fade-in duration for each kanji swap (ms). The content swaps
+   mid-fade so the new glyph never appears abruptly. Must be < KANJI_CYCLE_MS / 2. */
+const KANJI_FADE_MS = 220;
 /* Curated pool of common, well-supported kanji for the page-size centerpiece.
    A random glyph is shown on each cycle. The pool is hand-picked (rather than
    sampling arbitrary codepoints) so every frame renders cleanly in the CJK
@@ -180,7 +182,7 @@ function CardStack({ size }: CardStackProps): React.JSX.Element {
 				);
 			})}
 
-			{/* secondary card (top of the deck, brightens on each draw) */}
+			{/* secondary card (top of the deck, brightens and recedes on each draw) */}
 			<rect
 				x={offset}
 				y={top}
@@ -188,7 +190,7 @@ function CardStack({ size }: CardStackProps): React.JSX.Element {
 				height={height * 0.78}
 				rx={radius}
 				className="tomo-card motion-reduce:!animate-none"
-				style={{ animation: "var(--animate-tomo-card-reveal)", transformOrigin: "center" }}
+				style={{ animation: "var(--animate-tomo-card-reveal), var(--animate-tomo-stack-recede)", transformOrigin: "center" }}
 			/>
 
 			{/* lead card: drawn upward each loop. Carries the canonical Tomo card
@@ -241,6 +243,7 @@ function PageCenterKana(): React.JSX.Element {
 	// Deterministic first paint (index 0) so SSR and the client agree; the glyph
 	// is randomized on mount and on every cycle thereafter.
 	const [idx, setIdx] = useState(0);
+	const [visible, setVisible] = useState(true);
 	const [reduced, setReduced] = useState(false);
 
 	useEffect(() => {
@@ -260,22 +263,31 @@ function PageCenterKana(): React.JSX.Element {
 		setIdx(i => randomKanjiIndex(i)); // eslint-disable-line react/set-state-in-effect -- randomizes the first shown glyph after mount
 		if (reduced)
 			return;
+		let swapTimer: number | undefined;
 		const t = window.setInterval(() => {
-			setIdx(i => randomKanjiIndex(i));
+			// Fade out, swap the glyph at the opacity nadir, then fade back in.
+			setVisible(false); // eslint-disable-line react/set-state-in-effect -- begins the fade-out phase of each kanji cycle
+			swapTimer = window.setTimeout(() => {
+				setIdx(i => randomKanjiIndex(i)); // eslint-disable-line react/set-state-in-effect -- swaps glyph while opacity is 0
+				setVisible(true); // eslint-disable-line react/set-state-in-effect -- begins the fade-in phase of each kanji cycle
+			}, KANJI_FADE_MS);
 		}, KANJI_CYCLE_MS);
-		return () => window.clearInterval(t);
+		return () => {
+			window.clearInterval(t);
+			if (swapTimer !== undefined)
+				window.clearTimeout(swapTimer);
+		};
 	}, [reduced]);
 
 	return (
-	/* Fixed 2rem square, glyph centered inside: the character swaps every
-       KANJI_CYCLE_MS, but the box never resizes, so the swap can't nudge the
-       loader off-center or shift anything around it. Sized to the text-2xl em
-       (1.5rem) with headroom so any pool glyph renders without clipping,
-       independent of which font in the CJK fallback chain draws it. */
+	/* Fixed 2rem square, glyph centered inside: the character fades out and in
+       every KANJI_CYCLE_MS. The box never resizes, so the transition can't nudge
+       the loader off-center. */
 		<div
 			lang="ja"
 			aria-hidden="true"
-			className="-mt-2 flex h-8 w-8 items-center justify-center text-2xl leading-none tracking-[0.04em] text-faded-sumi/70"
+			className="-mt-2 flex h-8 w-8 items-center justify-center text-2xl leading-none tracking-[0.04em] text-faded-sumi/70 motion-safe:transition-opacity"
+			style={{ opacity: visible ? 1 : 0, transitionDuration: `${KANJI_FADE_MS}ms` }}
 		>
 			{KANJI_POOL[idx]}
 		</div>

@@ -11,6 +11,11 @@ export type OnboardingLevel = "beginner" | "N5" | "N4" | "N3" | "N2" | "N1";
 export type OnboardingGoal = "jlpt" | "anime_manga" | "novels" | "life_work";
 export type OnboardingSchedule = "light" | "steady" | "intensive";
 
+// Goal enum → free-text study-goal sentence mapping. Kept in a Zustand-free
+// module so server components can import it without bundling this store; re-
+// exported here for ergonomic access alongside the OnboardingGoal type.
+export { GOAL_STUDY_SENTENCE, normalizeStudyGoal } from "@/lib/study-goal";
+
 // ── Step routing constants ────────────────────────────────────────────────────
 
 export const ONBOARDING_STEPS = [

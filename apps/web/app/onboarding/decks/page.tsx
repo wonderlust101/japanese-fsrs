@@ -14,7 +14,7 @@ import { TomoLoader } from "@/components/ui/TomoLoader";
 import { useOnboardingDecksDevState } from "@/dev/panels/onboarding-decks";
 import { getProfileAction, updateProfileAction } from "@/lib/actions/profile.actions";
 import { useCopyPremadeDeck, usePremadeDecks } from "@/lib/api/premade";
-import { useOnboardingStore } from "@/stores/onboarding.store";
+import { GOAL_STUDY_SENTENCE, useOnboardingStore } from "@/stores/onboarding.store";
 
 import { StepCard, StepChild } from "../_components/step-card";
 import { StepFooter } from "../_components/step-footer";
@@ -212,7 +212,7 @@ export default function DecksPage(): React.JSX.Element {
 
 		const payload: UpdateProfileInput = {
 			jlptTarget: storedLevel === "beginner" || storedLevel === null ? "N5" : storedLevel,
-			...(goal !== null ? { studyGoal: goal } : {}),
+			...(goal !== null ? { studyGoal: GOAL_STUDY_SENTENCE[goal] } : {}),
 			interests,
 			dailyNewCardsLimit: SCHEDULE_TO_CARD_LIMIT[pace ?? "steady"] ?? 20,
 		};

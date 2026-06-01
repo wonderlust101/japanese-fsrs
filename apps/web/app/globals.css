@@ -319,27 +319,39 @@
   }
 
   /* ── Tomo loader: a card draws from the deck, holds, returns.
-     Two-phase loop on a 1600ms cycle. Lift uses ease-out-expo
-     (a deliberate, weighted exhale); settle uses ease-in-quart
-     (a quiet return). Only transform + opacity are animated. ── */
+     2200ms cycle — unhurried but not sluggish. Lead card and the
+     rest of the deck move together: the lead lifts while the stack
+     settles backward, then both return in sync. ease-in-out on every
+     animation so neither end snaps. Only transform + opacity animated. ── */
   --animate-tomo-card-draw:
-    tomo-card-draw 1600ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    tomo-card-draw 2200ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
 
   @keyframes tomo-card-draw {
     0%   { transform: translateY(0)     rotate(0deg); opacity: 1; }
-    38%  { transform: translateY(-46%)  rotate(-1.4deg); opacity: 1; }
-    62%  { transform: translateY(-46%)  rotate(-1.4deg); opacity: 1; }
+    32%  { transform: translateY(-46%)  rotate(-1.0deg); opacity: 1; }
+    68%  { transform: translateY(-46%)  rotate(-1.0deg); opacity: 1; }
     100% { transform: translateY(0)     rotate(0deg); opacity: 1; }
   }
 
-  /* Secondary card sits just behind the lead; brightens slightly
-     while the lead is held aloft, then recedes. */
+  /* Secondary card sits just behind the lead; brightens while aloft. */
   --animate-tomo-card-reveal:
-    tomo-card-reveal 1600ms cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    tomo-card-reveal 2200ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
 
   @keyframes tomo-card-reveal {
     0%, 100% { opacity: 0.74; }
     50%      { opacity: 0.94; }
+  }
+
+  /* Stack recede: background rects settle 5 px downward as the lead
+     is drawn, returning in sync. Gives the deck physical continuity. */
+  --animate-tomo-stack-recede:
+    tomo-stack-recede 2200ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+
+  @keyframes tomo-stack-recede {
+    0%   { transform: translateY(0); }
+    32%  { transform: translateY(5px); }
+    68%  { transform: translateY(5px); }
+    100% { transform: translateY(0); }
   }
 
   /* Stage label crossfade for AI waits. 1800ms hold, 220ms fade. */
@@ -1003,6 +1015,10 @@ html.lenis body {
   fill:         var(--color-warm-paper-raised);
   stroke:       color-mix(in srgb, var(--color-soft-hairline) 75%, transparent);
   stroke-width: 1px;
+  animation:    var(--animate-tomo-stack-recede);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tomo-card { animation: none !important; }
 }
 .tomo-card-lead {
   fill:         var(--color-warm-paper-raised);
