@@ -1890,7 +1890,7 @@ describe("weakSpot.service — diagnoseWeakSpot (Stage 7)", () => {
 			{ data: FULL_WEAK_SPOT_RESPONSE, error: null }, // step 5: getWeakSpotById
 		];
 		state.responses.profiles = [{ data: PROFILE_FETCH, error: null }];
-		state.responses.review_logs = [{ data: [{ rating: "again" }, { rating: "hard" }], error: null }];
+		state.responses.review_logs = [{ data: [{ rating: "again", elapsed_days: 1 }, { rating: "hard", elapsed_days: 3 }], error: null }];
 		aiMock.diagnosisResponses = [{
 			data: { diagnosis: "Reading 猫 confused.", prescription: "Mini-set drill." },
 			error: null,
@@ -1909,9 +1909,15 @@ describe("weakSpot.service — diagnoseWeakSpot (Stage 7)", () => {
 		expect(args[1]).toBe("ねこ"); // reading
 		expect(args[2]).toBe("cat"); // meaning
 		expect(args[3]).toBe(8); // lapseCount
-		expect(args[4]).toEqual(["hard", "again"]); // ratings oldest→newest (reversed)
+		// args[4] is now { rating, elapsedDays }[] oldest→newest (reversed from DESC).
+		const recentReviews = (args[4] ?? []) as { rating: string }[];
+		expect(recentReviews.map(r => r.rating)).toEqual(["hard", "again"]);
 		expect(args[5]).toBe("N3"); // jlpt level
 		expect(args[6]).toBe("en"); // native language
+		// args[7] is the card-content slice (sentences + mnemonic) the prescription critiques.
+		expect(args[7]).toBeDefined();
+		expect(args[7]).toHaveProperty("exampleSentences");
+		expect(args[7]).toHaveProperty("mnemonic");
 	});
 
 	it("replay path: existing diagnosis returns the stored row without calling AI", async () => {
@@ -2038,7 +2044,7 @@ describe("weakSpot.service — diagnoseWeakSpot (Stage 7)", () => {
 		];
 		state.responses.profiles = [{ data: PROFILE_FETCH, error: null }];
 		state.responses.review_logs = [{
-			data: [{ rating: "good" }, { rating: "hard" }, { rating: "again" }],
+			data: [{ rating: "good", elapsed_days: 5 }, { rating: "hard", elapsed_days: 3 }, { rating: "again", elapsed_days: 1 }],
 			error: null,
 		}];
 		aiMock.diagnosisResponses = [{
@@ -2048,8 +2054,9 @@ describe("weakSpot.service — diagnoseWeakSpot (Stage 7)", () => {
 
 		await diagnoseWeakSpot("user-1", WEAK_SPOT_ID);
 
-		const ratings = (aiMock.diagnosisCalls[0] ?? [])[4];
-		expect(ratings).toEqual(["again", "hard", "good"]);
+		// arg[4] is now an array of { rating, elapsedDays } objects, oldest→newest.
+		const recentReviews = ((aiMock.diagnosisCalls[0] ?? [])[4] ?? []) as { rating: string }[];
+		expect(recentReviews.map(r => r.rating)).toEqual(["again", "hard", "good"]);
 	});
 
 	it("propagates AI service errors (e.g. OPENAI_KEY_MISSING) without persisting partial state", async () => {
@@ -2165,7 +2172,7 @@ describe("weakSpot.service — diagnoseWeakSpot compliance (Stage 7.1)", () => {
 			{ data: SAMPLE_WEAK_SPOT_ROW, error: null }, // getWeakSpotById
 		];
 		state.responses.profiles = [{ data: { jlpt_target: "N3", native_language: "en" }, error: null }];
-		state.responses.review_logs = [{ data: [{ rating: "good" }, { rating: "hard" }], error: null }];
+		state.responses.review_logs = [{ data: [{ rating: "good", elapsed_days: 4 }, { rating: "hard", elapsed_days: 2 }], error: null }];
 		aiMock.diagnosisResponses = [{
 			data: { diagnosis: "d", prescription: "p" },
 			error: null,

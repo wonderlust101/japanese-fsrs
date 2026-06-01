@@ -12,10 +12,21 @@ import { AppError } from "../../middleware/errorHandler.ts";
 export const WEAK_SPOT_THRESHOLD = env.WEAK_SPOT_THRESHOLD;
 
 // ─── FSRS instance ────────────────────────────────────────────────────────────
-// Single scheduler at request_retention = 0.85 (the profiles.retention_target
+// Single scheduler at request_retention = 0.88 (the profiles.retention_target
 // default). Params are fixed at construction.
+//
+// 0.88 (raised from 0.85 on 2026-06-01) trades a slightly higher review load
+// for a gentler stability ramp: the all-Good interval sequence softens from
+// 4d→31d→174d→776d to ~3d→18d→86d→335d, roughly halving each jump while keeping
+// intervals long enough to avoid re-drilling known cards. request_retention is
+// the only knob that scales the whole curve — learning_steps move the sub-day
+// learning phase only, and the per-card w[] weights are left at ts-fsrs
+// defaults until a per-user optimizer (e.g. @open-spaced-repetition/binding
+// trained on review_logs) is wired in. NOTE: this instance is global; per-user
+// profiles.retention_target is stored/displayed but not yet wired into
+// scheduling — keep this constant and that column's default in sync.
 
-export const scheduler: TsFsrsInstance = fsrs(generatorParameters({ request_retention: 0.85 }));
+export const scheduler: TsFsrsInstance = fsrs(generatorParameters({ request_retention: 0.88 }));
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

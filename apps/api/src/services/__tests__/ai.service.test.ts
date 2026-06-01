@@ -78,7 +78,7 @@ describe("ai.service — cache hit short-circuits OpenAI", () => {
 		// lockstep with the service constant.
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
-		const key = `card:v5:${word}:${level}:${hash}`;
+		const key = `card:v6:${word}:${level}:${hash}`;
 		state.redisStore.set(key, cached);
 
 		const result = await generateCard(word, level, []);
@@ -97,7 +97,7 @@ describe("ai.service — cache hit short-circuits OpenAI", () => {
 				{ ja: "b", en: "b", furigana: "" },
 			],
 		});
-		state.redisStore.set(`sentences:水:N5:${hash}:2`, cachedFor2);
+		state.redisStore.set(`sentences:v1:水:N5:${hash}:2`, cachedFor2);
 
 		const out = await generateSentences("水", "N5", [], 2);
 		expect(out.sentences).toHaveLength(2);
@@ -113,14 +113,14 @@ describe("ai.service — cache hit short-circuits OpenAI", () => {
 		const avoidHash = createHash("sha256").update(JSON.stringify(avoid)).digest("hex").slice(0, 16);
 
 		const cached = JSON.stringify({ sentences: [{ ja: "新しい本。", en: "A new book.", furigana: "あたらしいほん。" }] });
-		state.redisStore.set(`sentences:水:N5:${interestsHash}:1:${avoidHash}`, cached);
+		state.redisStore.set(`sentences:v1:水:N5:${interestsHash}:1:${avoidHash}`, cached);
 
 		const out = await generateSentences("水", "N5", [], 1, avoid);
 		expect(out.sentences[0]?.ja).toBe("新しい本。");
 	});
 
 	it("generateMnemonic cache key is user-scoped", async () => {
-		state.redisStore.set("mnemonic:水:user-1", JSON.stringify({ mnemonic: "flowing strokes" }));
+		state.redisStore.set("mnemonic:v1:水:user-1", JSON.stringify({ mnemonic: "flowing strokes" }));
 		const out = await generateMnemonic("水", "user-1", "N5", "en", []);
 		expect(out.mnemonic).toBe("flowing strokes");
 	});
@@ -180,7 +180,7 @@ describe("ai.service — Stage 2 Lapis fields on the cached payload", () => {
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
 		// Cache key includes the prompt version so this fixture lives at the v5 key.
-		const key = `card:v5:${word}:${level}:${hash}`;
+		const key = `card:v6:${word}:${level}:${hash}`;
 		state.redisStore.set(key, cached);
 
 		const result = await generateCard(word, level, []);
@@ -189,16 +189,16 @@ describe("ai.service — Stage 2 Lapis fields on the cached payload", () => {
 		expect(result.nuance).toBe("Refers to the visible sky; for \"outer space\" use 宇宙.");
 	});
 
-	it("generateCard bypasses pre-version-bump cache entries (v5 key shape differs from prior keys)", async () => {
+	it("generateCard bypasses pre-version-bump cache entries (v6 key shape differs from prior keys)", async () => {
 		const word = "川";
 		const level = "N5";
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
 
-		// Seed an entry under a stale (pre-v5) key shape. After deploy, lookups
-		// now happen at the v5 key, so this entry is dead weight until it TTLs
+		// Seed an entry under a stale (pre-v6) key shape. After deploy, lookups
+		// now happen at the v6 key, so this entry is dead weight until it TTLs
 		// out. The new lookup must miss and fall through.
-		const oldKey = `card:v4:${word}:${level}:${hash}`;
+		const oldKey = `card:v5:${word}:${level}:${hash}`;
 		state.redisStore.set(oldKey, JSON.stringify({ word: "stale", reading: "stale", meaning: "stale" }));
 
 		const result = await generateCard(word, level, []).catch(err => err);
@@ -347,10 +347,10 @@ describe("ai.service — generateTomoNote cache", () => {
 		const cached = JSON.stringify({
 			body: "猫が好きです (neko ga suki desu) — your N3 verb conjugation has been steady this week.",
 		});
-		const key = `tomo:note:v1:${userId}:${dateKey}`;
+		const key = `tomo:note:v2:${userId}:${dateKey}`;
 		state.redisStore.set(key, cached);
 
-		const result = await generateTomoNote(userId, dateKey, "N3", "en", [], null, null);
+		const result = await generateTomoNote(userId, dateKey, "N3", "en", [], null, null, null, []);
 		expect(result.body).toMatch(/N3 verb conjugation/);
 	});
 
@@ -363,7 +363,7 @@ describe("ai.service — generateTomoNote cache", () => {
 		// OpenAI is unmocked here, so the call will reject. We only assert that
 		// the stale `body: 'stale'` payload was never read — the result either
 		// throws or returns a fresh value, but it never equals the stale body.
-		const result = await generateTomoNote(userId, dateKey, "N3", "en", [], null, null)
+		const result = await generateTomoNote(userId, dateKey, "N3", "en", [], null, null, null, [])
 			.catch(err => err);
 
 		if (!(result instanceof Error)) {
@@ -383,7 +383,7 @@ describe("ai.service — corrupt cached payload is treated as miss", () => {
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
 		// Key includes `v4` for CARD_PROMPT_VERSION — see the Stage 2/3 block above.
-		const key = `card:v5:水:N5:${hash}`;
+		const key = `card:v6:水:N5:${hash}`;
 		const corrupt = JSON.stringify({ word: "水" /* missing reading + meaning */ });
 		state.redisStore.set(key, corrupt);
 
@@ -402,7 +402,7 @@ describe("ai.service — corrupt cached payload is treated as miss", () => {
 	it("generateSentences removes the corrupt cache entry (does not surface ZodError)", async () => {
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
-		const key = `sentences:水:N5:${hash}:3`;
+		const key = `sentences:v1:水:N5:${hash}:3`;
 		const corrupt = JSON.stringify({ wrong: "shape" });
 		state.redisStore.set(key, corrupt);
 
@@ -429,7 +429,7 @@ describe("ai.service — generateSentenceCard cache", () => {
 			furigana: "コーヒーをください。",
 			nuance: "Polite enough for a café — neutral register.",
 		});
-		const key = `sentence-card:v2:${topic}:${level}:${hash}`;
+		const key = `sentence-card:v3:${topic}:${level}:${hash}`;
 		state.redisStore.set(key, cached);
 
 		const result = await generateSentenceCard(topic, level, []);
@@ -447,7 +447,7 @@ describe("ai.service — generateSentenceCard cache", () => {
 
 		// Seed an entry under the vocabulary card key shape — wrong namespace
 		// for the sentence generator; it must not be served.
-		const wrongNamespaceKey = `card:v5:${topic}:${level}:${hash}`;
+		const wrongNamespaceKey = `card:v6:${topic}:${level}:${hash}`;
 		state.redisStore.set(wrongNamespaceKey, JSON.stringify({
 			word: "お茶",
 			reading: "おちゃ",
@@ -531,7 +531,7 @@ describe("ai.service — generateCard cache miss (mocked OpenAI)", () => {
 		ai.queueChat({ word: "水", reading: "みず", meaning: "water", mnemonic: "flowing strokes" });
 		const { createHash } = await import("node:crypto");
 		const hash = createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16);
-		const cacheKey = `card:v5:水:N5:${hash}`;
+		const cacheKey = `card:v6:水:N5:${hash}`;
 		expect(state.redisStore.has(cacheKey)).toBe(false);
 
 		const result = await generateCard("水", "N5", []);
@@ -547,7 +547,7 @@ describe("ai.service — generateCard cache miss (mocked OpenAI)", () => {
 	it("strips HTML from the word before it reaches the prompt and the cache key", async () => {
 		ai.queueChat({ word: "水", reading: "みず", meaning: "water" });
 		const { createHash } = await import("node:crypto");
-		const sanitizedKey = `card:v5:水:N5:${createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16)}`;
+		const sanitizedKey = `card:v6:水:N5:${createHash("sha256").update(JSON.stringify([])).digest("hex").slice(0, 16)}`;
 
 		await generateCard("<script>水</script>", "N5", []);
 
@@ -585,7 +585,7 @@ describe("ai.service — other generators cache miss (mocked OpenAI)", () => {
 
 		expect(out.sentences).toHaveLength(2);
 		expect(ai.chatCalls).toHaveLength(1);
-		expect(state.redisStore.has(`sentences:水:N5:${hash}:2`)).toBe(true);
+		expect(state.redisStore.has(`sentences:v1:水:N5:${hash}:2`)).toBe(true);
 	});
 
 	it("generateMnemonic returns the parsed mnemonic and caches under a user-scoped key", async () => {
@@ -594,16 +594,16 @@ describe("ai.service — other generators cache miss (mocked OpenAI)", () => {
 		const out = await generateMnemonic("水", "user-1", "N5", "en", []);
 
 		expect(out.mnemonic).toBe("water flows in three strokes");
-		expect(state.redisStore.has("mnemonic:水:user-1")).toBe(true);
+		expect(state.redisStore.has("mnemonic:v1:水:user-1")).toBe(true);
 	});
 
 	it("generateTomoNote returns the parsed note and caches under the version+day key", async () => {
 		ai.queueChat({ body: "Your N3 verb conjugation has been steady this week." });
 
-		const out = await generateTomoNote("user-tomo-9", "2026-05-17", "N3", "en", [], null, null);
+		const out = await generateTomoNote("user-tomo-9", "2026-05-17", "N3", "en", [], null, null, null, []);
 
 		expect(out.body).toMatch(/N3 verb conjugation/);
-		expect(state.redisStore.has("tomo:note:v1:user-tomo-9:2026-05-17")).toBe(true);
+		expect(state.redisStore.has("tomo:note:v2:user-tomo-9:2026-05-17")).toBe(true);
 	});
 
 	it("generateSentenceCard returns the parsed card and caches under its own namespace", async () => {
@@ -614,6 +614,95 @@ describe("ai.service — other generators cache miss (mocked OpenAI)", () => {
 		const out = await generateSentenceCard("ordering coffee", "N3", []);
 
 		expect(out.ja).toBe("コーヒーをください。");
-		expect(state.redisStore.has(`sentence-card:v2:ordering coffee:N3:${hash}`)).toBe(true);
+		expect(state.redisStore.has(`sentence-card:v3:ordering coffee:N3:${hash}`)).toBe(true);
+	});
+});
+
+// ─── Determinism policy: temperature + seed per generator type ───────────────
+// Structured/factual generators run cold (low temp + fixed seed) for run-to-run
+// consistency; creative generators run warm (high temp, no seed) for variety.
+describe("ai.service — temperature + seed policy", () => {
+	it("generateCard (structured) sends a low temperature and a fixed seed", async () => {
+		ai.queueChat({ word: "水", reading: "みず", meaning: "water" });
+		await generateCard("水", "N5", []);
+		const params = ai.chatCalls[0] as { temperature?: number; seed?: number };
+		expect(params.temperature).toBe(0.3);
+		expect(typeof params.seed).toBe("number");
+	});
+
+	it("generateSentences (creative) sends a high temperature and no seed", async () => {
+		ai.queueChat({ sentences: [{ ja: "水を飲む。", en: "Drink water.", furigana: "みずをのむ。" }] });
+		await generateSentences("水", "N5", [], 1);
+		const params = ai.chatCalls[0] as { temperature?: number; seed?: number };
+		expect(params.temperature).toBe(0.8);
+		expect(params.seed).toBeUndefined();
+	});
+});
+
+// ─── Structured-output repair retry ──────────────────────────────────────────
+// A first response that fails schema validation triggers exactly one repair
+// turn; a valid second response is returned, and the failure is never surfaced
+// as a ZodError. Structured generators only.
+describe("ai.service — structured repair retry", () => {
+	it("generateCard retries once on a malformed first response, then succeeds", async () => {
+		// First response is missing required `reading` + `meaning` → ZodError.
+		ai.queueChat({ word: "水" });
+		// Repaired response is valid.
+		ai.queueChat({ word: "水", reading: "みず", meaning: "water" });
+
+		const result = await generateCard("水", "N5", []);
+
+		expect(result.reading).toBe("みず");
+		expect(result.meaning).toBe("water");
+		// Exactly two OpenAI calls: original + one repair.
+		expect(ai.chatCalls).toHaveLength(2);
+	});
+
+	it("generateCard surfaces a 502 (not a ZodError) when the repair also fails", async () => {
+		ai.queueChat({ word: "水" }); // malformed
+		ai.queueChat({ word: "水" }); // still malformed after repair
+
+		let caught: unknown;
+		try { await generateCard("水", "N5", []); } catch (e) { caught = e; }
+		expect((caught as { statusCode?: number }).statusCode).toBe(502);
+		expect((caught as { name?: string }).name).not.toBe("ZodError");
+		expect(ai.chatCalls).toHaveLength(2);
+	});
+});
+
+// ─── Sentence word-presence guard (conjugation-aware) ────────────────────────
+describe("ai.service — generateSentences word-presence guard", () => {
+	it("drops sentences that do not contain the target word", async () => {
+		ai.queueChat({ sentences: [
+			{ ja: "毎日水を飲む。", en: "I drink water every day.", furigana: "まいにちみずをのむ。" },
+			{ ja: "今日は暑い。", en: "It's hot today.", furigana: "きょうはあつい。" }, // no 水
+		] });
+
+		const out = await generateSentences("水", "N5", [], 2);
+
+		expect(out.sentences).toHaveLength(1);
+		expect(out.sentences[0]?.ja).toContain("水");
+	});
+
+	it("keeps a conjugated form of the target word (kanji stem match)", async () => {
+		// 食べる appears conjugated as 食べなかった — a literal includes('食べる')
+		// would reject it, but the kanji-core (食) match keeps it.
+		ai.queueChat({ sentences: [
+			{ ja: "昨日は何も食べなかった。", en: "I didn't eat anything yesterday.", furigana: "きのうはなにもたべなかった。" },
+		] });
+
+		const out = await generateSentences("食べる", "N5", [], 1);
+
+		expect(out.sentences).toHaveLength(1);
+	});
+
+	it("returns 502 when the model produced sentences but none are on target", async () => {
+		ai.queueChat({ sentences: [
+			{ ja: "今日は暑い。", en: "It's hot today.", furigana: "きょうはあつい。" },
+		] });
+
+		let caught: unknown;
+		try { await generateSentences("水", "N5", [], 1); } catch (e) { caught = e; }
+		expect((caught as { statusCode?: number }).statusCode).toBe(502);
 	});
 });

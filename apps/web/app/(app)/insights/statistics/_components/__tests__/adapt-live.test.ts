@@ -105,8 +105,8 @@ describe("adaptLiveStatistics — trueRetention is review-weighted", () => {
 
 // ── retentionTarget ─────────────────────────────────────────────────────────
 
-describe("adaptLiveStatistics — retentionTarget default = 0.85", () => {
-	it("falls back to 0.85 when undefined or null", () => {
+describe("adaptLiveStatistics — retentionTarget default = 0.88", () => {
+	it("falls back to 0.88 when undefined or null", () => {
 		const base = {
 			dashboard: undefined,
 			maturityHistory: undefined,
@@ -114,8 +114,8 @@ describe("adaptLiveStatistics — retentionTarget default = 0.85", () => {
 			forecast: undefined,
 			distributions: EMPTY_DISTRIBUTIONS,
 		};
-		expect(adaptLiveStatistics({ ...base, retentionTarget: undefined }).fsrs.desiredRetention).toBe(0.85);
-		expect(adaptLiveStatistics({ ...base, retentionTarget: null }).fsrs.desiredRetention).toBe(0.85);
+		expect(adaptLiveStatistics({ ...base, retentionTarget: undefined }).fsrs.desiredRetention).toBe(0.88);
+		expect(adaptLiveStatistics({ ...base, retentionTarget: null }).fsrs.desiredRetention).toBe(0.88);
 	});
 
 	it("uses the supplied target when provided", () => {

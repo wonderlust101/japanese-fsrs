@@ -1,6 +1,7 @@
-import type { ApiTomoNote } from "@fsrs-japanese/shared-types";
+import type { ApiTomoNote, FieldsData } from "@fsrs-japanese/shared-types";
 import { createHash } from "node:crypto";
 import {
+	getWordFields,
 	JLPTLevel,
 
 } from "@fsrs-japanese/shared-types";
@@ -12,6 +13,8 @@ import { componentLogger } from "../lib/logger.ts";
 import { normalizeTimeZone } from "../lib/timezone.ts";
 import { AppError, ServiceUnavailableError } from "../middleware/errorHandler.ts";
 import { generateTomoNote } from "./ai.service.ts";
+import * as profileService from "./profile.service.ts";
+import * as reviewService from "./review.service.ts";
 
 // JLPTLevel from shared-types is both a const and a type alias. Locally we
 // only need the type for nullable parameters; alias to keep the call sites
@@ -154,6 +157,17 @@ export function pickIdiomBody(
 	return pool[index]?.body ?? "";
 }
 
+// Slim weak-spot → card join used to surface the learner's current trouble
+// words in the morning note. Parsed per-row with safeParse so a relationship
+// that comes back unexpectedly shaped degrades to "no words" rather than
+// throwing inside the request path.
+const TomoWeakSpotRowSchema = z.object({
+	card: z.object({
+		fields_data: z.record(z.string(), z.unknown()),
+		layout_type: z.enum(["vocabulary", "grammar", "sentence"]),
+	}).nullable(),
+});
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 /**
@@ -222,7 +236,46 @@ export async function getTomoNote(userId: string): Promise<ApiTomoNote> {
 			return rows.find(r => r.date === yKey) ?? null;
 		});
 
-	const [interests, yesterdayRow] = await Promise.all([interestsPromise, heatmapPromise]);
+	// Step 3b — due-today count from the source of truth (get_due_cards via the
+	// review service, which is itself cached). Lets the morning note orient the
+	// learner to the session ahead. Degrades to null on any failure so the note
+	// simply omits the line rather than failing.
+	const dueTodayPromise: Promise<number | null> = profileService.getProfileCached(userId)
+		.then(p => reviewService.getDueCards(userId, p))
+		.then(list => list.items.length)
+		.catch((err: unknown) => {
+			log.warn({ userId, err: { message: err instanceof Error ? err.message : String(err) } }, "failed to load due count for tomo note; omitting");
+			return null;
+		});
+
+	// Step 3c — current unresolved weak-spot words (most recent first). Degrades
+	// to an empty list on any failure; words are flavour, not correctness.
+	// PromiseLike, not Promise: supabase-js builders are thenables (no .catch).
+	const weakSpotWordsPromise: PromiseLike<string[]> = supabaseAdmin
+		.from("weak_spots")
+		.select("card:cards(fields_data, layout_type)")
+		.eq("user_id", userId)
+		.eq("resolved", false)
+		.order("created_at", { ascending: false })
+		.limit(5)
+		.then((res) => {
+			if (res.error !== null) {
+				log.warn({ userId, err: { message: res.error.message } }, "failed to load weak spots for tomo note; omitting");
+				return [] as string[];
+			}
+			return (res.data ?? [])
+				.map(r => TomoWeakSpotRowSchema.safeParse(r))
+				.flatMap(p => (p.success && p.data.card !== null ? [p.data.card] : []))
+				.map(c => getWordFields({ layoutType: c.layout_type, fieldsData: c.fields_data as FieldsData })?.word)
+				.filter((w): w is string => typeof w === "string" && w.length > 0);
+		});
+
+	const [interests, yesterdayRow, dueToday, weakSpotWords] = await Promise.all([
+		interestsPromise,
+		heatmapPromise,
+		dueTodayPromise,
+		weakSpotWordsPromise,
+	]);
 	const yesterdayReviews: number | null = yesterdayRow?.count ?? null;
 	const yesterdayRetention: number | null = yesterdayRow?.retention ?? null;
 
@@ -242,6 +295,8 @@ export async function getTomoNote(userId: string): Promise<ApiTomoNote> {
 			interests,
 			yesterdayReviews,
 			yesterdayRetention,
+			dueToday,
+			weakSpotWords,
 		);
 		return { body: generated.body, kind: "insight", dateKey };
 	} catch (err) {

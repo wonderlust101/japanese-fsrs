@@ -487,7 +487,7 @@ function CalmProof(): React.JSX.Element {
 export function WhyTomo(): React.JSX.Element {
 	return (
 		<section aria-labelledby="why-tomo" className="bg-warm-paper-base py-20 md:py-28">
-			<div className="mx-auto w-full max-w-6xl px-6 sm:px-8">
+			<div className="mx-auto w-full max-w-[1440px] px-6 sm:px-8">
 				<div data-reveal className="flex max-w-measure flex-col gap-4">
 					<SectionKicker>Why Tomo</SectionKicker>
 					<h2

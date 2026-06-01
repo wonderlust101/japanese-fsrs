@@ -26,9 +26,9 @@ import type {
 /**
  * The FSRS request-retention the backend schedules at when the user hasn't
  * set their own target. Mirrors `profile.retentionTarget`'s default + the
- * project's CLAUDE.md note that the single scheduler runs at 0.85.
+ * project's CLAUDE.md note that the single scheduler runs at 0.88.
  */
-const DEFAULT_RETENTION_TARGET = 0.85;
+const DEFAULT_RETENTION_TARGET = 0.88;
 
 // ── Inputs envelope ──────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ export interface LiveStatisticsInputs {
 	decks: ReadonlyArray<ApiDeck> | undefined;
 	/** Review forecast (14 days). */
 	forecast: ReadonlyArray<ApiForecastDay> | undefined;
-	/** FSRS request-retention the user is scheduling at. Falls back to 0.85. */
+	/** FSRS request-retention the user is scheduling at. Falls back to 0.88. */
 	retentionTarget: number | null | undefined;
 	/** Bundled rating + interval + stability + difficulty histograms. */
 	distributions: ApiInsightsDistributions | undefined;

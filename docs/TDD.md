@@ -52,7 +52,7 @@ Key implementation rules:
 - Review submission persists card state, review log, and weak spot detection atomically.
 - Premade source cards have `user_id = NULL` and must not receive user review state.
 - Users *copy* a premade deck into their library via `copy_premade_deck`, which creates a standalone user-owned deck plus personal card copies in one transaction. There is no ongoing subscription — refreshing content means deleting the deck and copying again, with the FSRS-progress cost surfaced explicitly. Source premade decks are hidden with `is_active = false` rather than hard-deleted, which only affects new copies; existing user copies are unaffected because they are independent rows.
-- A single FSRS scheduler runs at `request_retention = 0.85`. The historic per-modality split (`comprehension` / `production` / `listening`) was removed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
+- A single FSRS scheduler runs at `request_retention = 0.88` (raised from `0.85` in `20260713000000` for a gentler interval ramp; the value lives in `fsrs/shared.ts` and is mirrored by the `profiles.retention_target` default). The historic per-modality split (`comprehension` / `production` / `listening`) was removed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
 - `layout_type` is the content shape (`vocabulary`, `grammar`, `sentence`) used by `fields_data` validation and rendering, and is the dimension behind `get_accuracy_by_layout_type`.
 - `parent_card_id` links sibling cards for shared field propagation.
 
@@ -70,7 +70,8 @@ Key implementation rules:
 - Keep prompts and OpenAI calls in API services, not controllers or frontend components.
 - Sanitize user-provided prompt inputs.
 - Request structured JSON where applicable and validate returned payloads with shared Zod schemas.
-- Cache successful AI results where the service layer already defines safe cache keys.
+- Cache successful AI results where the service layer already defines safe cache keys. Every generator embeds a `*_PROMPT_VERSION` segment in its cache key; bump it whenever the prompt body changes so stale pre-edit output is not served until TTL.
+- Tune generators by type for the consistency/creativity tradeoff: structured/factual generators (card, sentence-card, diagnosis) run at low temperature (`0.3`) with a fixed `seed` and a one-retry `parseWithRepair` on malformed JSON; creative generators (sentences, mnemonic, tomo-note, day-reflection) run warm (`0.8`, no seed). The structured generators may use a stronger model via `OPENAI_CHAT_MODEL_STRUCTURED`. Constants live in `apps/api/src/services/ai/shared.ts`.
 - Treat visible AI chrome as a product/design violation unless [PRODUCT.md](PRODUCT.md) explicitly allows the affordance.
 
 ## Testing
@@ -86,4 +87,4 @@ At minimum, risky changes should include focused tests around the affected layer
 
 ---
 
-*Last updated: 2026-05-12*
+*Last updated: 2026-06-01*

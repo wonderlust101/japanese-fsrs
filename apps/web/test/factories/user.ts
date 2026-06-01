@@ -3,7 +3,7 @@
  *
  * Matches `ProfileSchema` in `packages/shared-types/src/schemas/api.schema.ts`.
  * Defaults model a fresh-but-onboarded learner: English native speaker
- * targeting N5, `dailyNewCardsLimit = 10`, retention target 0.85 (the global
+ * targeting N5, `dailyNewCardsLimit = 10`, retention target 0.88 (the global
  * FSRS request_retention).
  */
 
@@ -18,7 +18,7 @@ export function makeProfile(overrides: Partial<Profile> = {}): Profile {
 		interests: [],
 		dailyNewCardsLimit: 10,
 		dailyReviewLimit: 200,
-		retentionTarget: 0.85,
+		retentionTarget: 0.88,
 		timezone: "UTC",
 		version: 1,
 		createdAt: "2026-05-01T00:00:00.000Z",

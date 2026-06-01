@@ -14,8 +14,17 @@ import { normalizeTimeZone } from "../lib/timezone.ts";
 import { AppError, ServiceUnavailableError } from "../middleware/errorHandler.ts";
 import { generateDayReflection } from "./ai.service.ts";
 import { getProfileCached } from "./profile.service.ts";
+import { yesterdayDateKey } from "./tomo-note.service.ts";
 
 const log = componentLogger("day-reflection.service");
+
+// Prior-day row from get_heatmap_data (count + retention per local day).
+// Mirrors the shape tomo-note.service parses; retention is already 0–100.
+const HeatmapRowSchema = z.object({
+	date: z.string(),
+	retention: z.coerce.number(),
+	count: z.coerce.number(),
+});
 
 // Envelope returned by the `get_day_review_aggregate` RPC (migration
 // 20260627000000). Locked to a Zod schema at the service boundary so any
@@ -198,6 +207,21 @@ export async function getDayReflection(
 	// 4) Generate (AI with rule-based fallback), then persist so the next read
 	//    — including the one the session-close precompute warms — is a row hit.
 	//    The `source` tag lets the UI subtly indicate provenance.
+	// Prior-day signal for the reflection's comparison line. Best-effort: a
+	// failure or no-activity-yesterday degrades to nulls and the prompt omits
+	// the line. Only fetched on the generate path (after the stored-row miss).
+	const yKey = yesterdayDateKey(agg.date_key);
+	const { yesterdayReviews, yesterdayRetention } = await supabaseAdmin
+		.rpc("get_heatmap_data", { p_user_id: userId, p_timezone: timeZone })
+		.then((res) => {
+			if (res.error !== null) {
+				log.warn({ userId, dateKey: agg.date_key, err: { message: res.error.message } }, "heatmap load failed for day-reflection prior-day line; omitting");
+				return { yesterdayReviews: null as number | null, yesterdayRetention: null as number | null };
+			}
+			const row = z.array(HeatmapRowSchema).parse(res.data ?? []).find(r => r.date === yKey);
+			return { yesterdayReviews: row?.count ?? null, yesterdayRetention: row?.retention ?? null };
+		});
+
 	let body: string;
 	let source: "ai" | "fallback";
 	try {
@@ -213,6 +237,8 @@ export async function getDayReflection(
 			breakdown: agg.breakdown,
 			sessionCount: agg.session_count,
 			weakSpotWords: agg.weak_spot_words,
+			yesterdayReviews,
+			yesterdayRetention,
 		});
 		body = generated.body;
 		source = "ai";

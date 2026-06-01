@@ -7,7 +7,7 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, hashInterests, joinInterests, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL_STRUCTURED, CHAT_UNAVAILABLE_MSG, hashInterests, joinInterests, log, parseWithRepair, readCache, STRUCTURED_SEED, STRUCTURED_TEMPERATURE } from "./shared.ts";
 
 const CARD_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days — per TDD §10.1
 
@@ -26,7 +26,11 @@ const CARD_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days — per TDD §10.1
 // constrained to closed enums in the prompt (POS uses the hiragana verb /
 // adjective convention). Entries cached under prior keys are bypassed by the
 // new key shape, so cache-warm cost spikes once per deploy and steady-state hit
-// rate recovers as v5 entries populate.
+// rate recovers as v5 entries populate. Bumped to 'v6' when the prompt gained
+// explicit per-JLPT-level example-sentence rules, word-tier self-inference,
+// per-field quality rules (grammar variety, synonym-contrasting nuance), and a
+// one-shot worked example — alongside low temperature + a fixed seed for
+// run-to-run consistency.
 //
 // Schema-admitted but intentionally NOT in the prompt (kept here so a future
 // reader doesn't try to "fix" the omission): `picture`. It requires a hosted
@@ -34,7 +38,7 @@ const CARD_CACHE_TTL = 60 * 60 * 24 * 7; // 7 days — per TDD §10.1
 // fulfill produces hallucinated 404s, which is worse than no field. The schema
 // admits it so a future prompt-version bump or out-of-band populator can land
 // without a second schema change.
-const CARD_PROMPT_VERSION = "v5";
+const CARD_PROMPT_VERSION = "v6";
 
 // ── Card generator helpers ───────────────────────────────────────────────────
 
@@ -52,34 +56,65 @@ function buildCardInputs(word: string, userLevel: string, interests: string[]): 
 	};
 }
 
-function parseCardResponse(raw: string | null | undefined): GeneratedCardData {
-	if (raw === null || raw === undefined) {
-		throw new AppError(502, "OpenAI returned an empty response", { code: "OPENAI_EMPTY_RESPONSE" });
-	}
-	return GeneratedCardDataSchema.parse(JSON.parse(raw));
-}
+// One worked example anchoring the expected depth, field discipline, and
+// furigana convention. Deliberately a DIFFERENT word from any likely target so
+// it teaches the *shape* without biasing the content. Demonstrates: grammar
+// variety across sentences (plain present / past negative / polite invitation),
+// a kanji breakdown with radical + reading, a confident pitch class + position,
+// and a synonym-contrasting nuance.
+const CARD_EXAMPLE = `{
+  "word": "食べる",
+  "reading": "たべる",
+  "meaning": "to eat",
+  "partOfSpeech": "る verb",
+  "exampleSentences": [
+    { "ja": "毎朝パンを食べる。", "en": "I eat bread every morning.", "furigana": "まいあさパンをたべる。" },
+    { "ja": "昨日は何も食べなかった。", "en": "I didn't eat anything yesterday.", "furigana": "きのうはなにもたべなかった。" },
+    { "ja": "一緒に晩ご飯を食べませんか。", "en": "Would you like to eat dinner together?", "furigana": "いっしょにばんごはんをたべませんか。" }
+  ],
+  "kanjiBreakdown": [
+    { "kanji": "食", "radical": "eat", "meaning": "eat, food", "reading": "た" }
+  ],
+  "pitchAccent": "nakadaka",
+  "pitchPosition": 2,
+  "nuance": "Neutral, everyday verb for eating. Rougher/masculine 食う is casual; 頂く is the humble form used when politely receiving food.",
+  "mnemonic": "Picture a TAH-BEH table where you sit down to eat."
+}`;
 
 async function callCardGenerator(
 	client: NonNullable<typeof openai>,
 	inputs: CardInputs,
 	signal: AbortSignal | undefined,
 ): Promise<GeneratedCardData> {
-	let response;
 	try {
-		response = await client.chat.completions.create({
-			model: CHAT_MODEL,
-			response_format: { type: "json_object" },
-			messages: [
-				{
-					role: "system",
-					content: `You are a Japanese language expert generating SRS card data.
-Always respond with valid JSON.
+		return await parseWithRepair(
+			client,
+			{
+				model: CHAT_MODEL_STRUCTURED,
+				temperature: STRUCTURED_TEMPERATURE,
+				seed: STRUCTURED_SEED,
+				response_format: { type: "json_object" },
+				messages: [
+					{
+						role: "system",
+						content: `You are a Japanese language expert generating SRS card data.
+Always respond with valid JSON and nothing else.
 User level: ${inputs.safeLevel}. User interests: ${joinInterests(inputs.safeInterests)}.
-Generate content appropriate for the user's level and interests.`,
-				},
-				{
-					role: "user",
-					content: `Generate complete card data for the Japanese word: ${inputs.safeWord}
+
+First, infer the JLPT tier of the TARGET WORD itself (N5 easiest → N1 hardest, or beyond-JLPT for native/literary/domain vocabulary). Pitch example-sentence difficulty to the harder of {the word's own tier, the user's level}, but cap the surrounding vocabulary so a ${inputs.safeLevel} learner can still read each sentence.
+
+Example-sentence level rubric:
+- N5: ≤ 8 words, kana-heavy, plain or polite present/past, everyday topics.
+- N4: short sentences, common particles, te-form and basic conjugations.
+- N3: natural everyday register, compound sentences allowed.
+- N2: idiomatic, more abstract topics, varied connectives.
+- N1: fully natural native register, nuanced vocabulary.
+
+Tie example sentences to the user's interests when it does not distort naturalness.`,
+					},
+					{
+						role: "user",
+						content: `Generate complete card data for the Japanese word: ${inputs.safeWord}
 
 Return JSON with these keys:
 {
@@ -87,18 +122,25 @@ Return JSON with these keys:
   "reading": string (hiragana/katakana reading),
   "meaning": string (English meaning),
   "partOfSpeech": string (choose EXACTLY ONE of these literal values: "Noun", "る verb", "う verb", "Irregular verb", "い adjective", "な adjective", "Adverb", "Particle", "Conjunction", "Expression", "Counter". For verbs use the hiragana form: ichidan/ru-verbs are "る verb", godan/u-verbs are "う verb". Omit the field if none fit.),
-  "exampleSentences": [{ "ja": string, "en": string, "furigana": string }],
+  "exampleSentences": [{ "ja": string, "en": string, "furigana": string }] (provide 2–3 sentences; EACH must use a DIFFERENT grammatical structure — e.g. one plain statement, one question or negative, one using a connective or polite form — and EACH must contain the target word. "furigana" replaces only the kanji with their hiragana readings and keeps every kana and particle identical to "ja".),
   "kanjiBreakdown": [{ "kanji": string, "radical": string (the radical name in English, e.g. "person" or "water" — omit per-character if unsure), "meaning": string, "reading": string (the on-yomi or kun-yomi most relevant in this word, hiragana or katakana — omit per-character if unsure) }],
   "pitchAccent": string (choose EXACTLY ONE of these literal values: "heiban", "atamadaka", "nakadaka", "odaka". Omit the field if you are not confident.),
   "pitchPosition": integer (mora position of the pitch drop; 0 = heiban / flat, 1 = drop after the first mora, 2 = drop after the second mora, etc. Omit the field if you are not confident.),
-  "nuance": string (1–2 sentences in English on register, connotation, or distinctions vs. close synonyms — what a learner needs to use the word correctly, not just translate it. Omit if there is nothing distinctive to say.),
-  "mnemonic": string (memorable association for ${inputs.safeLevel} learner)
+  "nuance": string (1–2 sentences in English that CONTRAST the word with a close synonym OR name a register/connotation constraint — what a learner needs to use it correctly, not just translate it. Omit only if there is genuinely nothing distinctive to say.),
+  "mnemonic": string (memorable association for a ${inputs.safeLevel} learner)
 }
 
+Here is one example of the expected depth and format (for a DIFFERENT word — match its quality, not its content):
+${CARD_EXAMPLE}
+
 Do NOT invent a value for "picture" (image URL). It requires a hosted asset the system cannot yet produce; if you do not have a real, hostable URL, omit the field entirely.`,
-				},
-			],
-		}, { signal });
+					},
+				],
+			},
+			{ signal },
+			GeneratedCardDataSchema,
+			"generateCard",
+		);
 	} catch (err) {
 		log.error({
 			err: {
@@ -108,8 +150,6 @@ Do NOT invent a value for "picture" (image URL). It requires a hosted asset the 
 		}, "generateCard OpenAI request failed");
 		throw err;
 	}
-
-	return parseCardResponse(response.choices[0]?.message.content);
 }
 
 /**

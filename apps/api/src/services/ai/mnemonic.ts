@@ -7,9 +7,14 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, joinInterests, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, CREATIVE_TEMPERATURE, joinInterests, log, readCache } from "./shared.ts";
 
 const MNEMONIC_CACHE_TTL = 60 * 60 * 24 * 30; // 30 days — per TDD §10.1
+
+// Prompt-template version baked into the cache key. Previously absent, so a
+// prompt edit silently served stale pre-edit entries for up to the 30-day TTL.
+// 'v1' = the keyword-method revision.
+const MNEMONIC_PROMPT_VERSION = "v1";
 
 // ── Mnemonic generator helpers ───────────────────────────────────────────────
 
@@ -54,6 +59,7 @@ async function callMnemonicGenerator(
 	try {
 		response = await client.chat.completions.create({
 			model: CHAT_MODEL,
+			temperature: CREATIVE_TEMPERATURE,
 			response_format: { type: "json_object" },
 			messages: [
 				{
@@ -61,7 +67,8 @@ async function callMnemonicGenerator(
 					content: `You are a Japanese language tutor crafting memorable mnemonics.
 Always respond with valid JSON.
 User level: ${inputs.safeLevel}. Native language: ${inputs.safeNative}. Interests: ${joinInterests(inputs.safeInterests)}.
-Mnemonics must be vivid, link sound + meaning, and reference the user's interests when possible.`,
+
+Use the KEYWORD METHOD: find a word or short phrase in the learner's native language (${inputs.safeNative}) that SOUNDS like the Japanese reading, then bind that keyword to the word's meaning inside one concrete, vivid scene. The sound link and the meaning must both be present in the image. Reference the user's interests when it strengthens the image.`,
 				},
 				{
 					role: "user",
@@ -72,8 +79,8 @@ Return JSON with this exact shape:
 
 Constraints:
 - Keep it under 200 characters.
-- Connect the reading to the meaning through a vivid image.
-- Use the user's native language for the mnemonic text.`,
+- Step 1: pick a ${inputs.safeNative} keyword that echoes the word's reading. Step 2: build one vivid image that ties that keyword to the meaning. Show the result as a single sentence, not the steps.
+- Use the user's native language (${inputs.safeNative}) for the mnemonic text.`,
 				},
 			],
 		}, { signal });
@@ -110,7 +117,7 @@ export async function generateMnemonic(
 	const client = openai; // see generateCard for the narrowing rationale.
 
 	const inputs = buildMnemonicInputs(word, userLevel, nativeLanguage, interests);
-	const cacheKey = `mnemonic:${inputs.safeWord}:${userId}`;
+	const cacheKey = `mnemonic:${MNEMONIC_PROMPT_VERSION}:${inputs.safeWord}:${userId}`;
 
 	const fromCache = await readCache(cacheKey, GeneratedMnemonicSchema);
 	if (fromCache !== null)

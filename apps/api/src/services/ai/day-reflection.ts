@@ -7,7 +7,7 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, ENHANCEMENT_REQUEST_OPTS, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, CREATIVE_TEMPERATURE, ENHANCEMENT_REQUEST_OPTS, log, readCache } from "./shared.ts";
 
 // Day reflection (post-session AI note over the user's local-day aggregate
 // of reviews). Versioned independently of the morning Tomo note so the two
@@ -18,7 +18,9 @@ import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, ENHANCEMENT_REQUEST_OPT
 // sessions explicitly rather than silently producing a generic line. The
 // version bump invalidates every cached v1 entry on deploy; cost spike is
 // one regeneration per active user per day.
-const REFLECTION_PROMPT_VERSION = "v2";
+// v3: good/bad voice exemplars in the system prompt + a prior-day comparison
+// line so the reflection can notice direction (sharper/quieter than yesterday).
+const REFLECTION_PROMPT_VERSION = "v3";
 const REFLECTION_CACHE_TTL = 60 * 60 * 36;
 
 // In-process single-flight for concurrent identical generations (keyed by the
@@ -44,6 +46,11 @@ interface DayReflectionInput {
 	breakdown: { again: number; hard: number; good: number; easy: number };
 	sessionCount: number;
 	weakSpotWords: string[];
+	// Prior-day signal (from get_heatmap_data) so the reflection can notice
+	// direction. Null when the learner had no activity yesterday or the lookup
+	// failed; the prompt then simply omits the comparison line.
+	yesterdayReviews: number | null;
+	yesterdayRetention: number | null;
 }
 
 // ── Day-reflection generator helpers ─────────────────────────────────────────
@@ -60,6 +67,7 @@ interface DayReflectionPromptInputs {
 	breakdownPhrase: string;
 	weakSpotPhrase: string;
 	shortSessionPhrase: string;
+	priorDayPhrase: string;
 }
 
 function buildDayReflectionPromptInputs(input: DayReflectionInput): DayReflectionPromptInputs {
@@ -77,6 +85,11 @@ function buildDayReflectionPromptInputs(input: DayReflectionInput): DayReflectio
 	const shortSessionPhrase = input.totalCards < 5
 		? "\nNote: this was a short session, not enough cards to read a clear pattern. A brief, honest reflection is fine."
 		: "";
+	// Prior-day comparison (from get_heatmap_data). `yesterdayRetention` is
+	// already a 0–100 percentage — do not multiply again.
+	const priorDayPhrase = input.yesterdayReviews !== null
+		? `For comparison, yesterday: ${input.yesterdayReviews} card${input.yesterdayReviews === 1 ? "" : "s"}${input.yesterdayRetention !== null ? ` at ${Math.round(input.yesterdayRetention)}% retention` : ""}.`
+		: "";
 
 	return {
 		safeLevel: sanitizeForPrompt(input.userLevel),
@@ -90,6 +103,7 @@ function buildDayReflectionPromptInputs(input: DayReflectionInput): DayReflectio
 		breakdownPhrase,
 		weakSpotPhrase,
 		shortSessionPhrase,
+		priorDayPhrase,
 	};
 }
 
@@ -117,6 +131,7 @@ async function callDayReflectionGenerator(
 			// 256 leaves generous headroom for the JSON envelope so the body is
 			// never truncated below GeneratedTomoNoteSchema's expectations.
 			max_completion_tokens: 256,
+			temperature: CREATIVE_TEMPERATURE,
 			messages: [
 				{
 					role: "system",
@@ -165,7 +180,14 @@ Quality bar:
 The reflection should sound like a tutor noticing something real from today's work.
 Prefer concrete noticing over praise.
 Prefer gentle direction over encouragement.
-The learner should feel seen, not managed.`,
+The learner should feel seen, not managed.
+When a prior-day comparison is given, you may note the direction (steadier, quieter, sharper) — only if it's honest and useful, never forced.
+
+Examples of the closing-day register (do not reuse the wording):
+GOOD: "Cleaner than yesterday — the Again pile shrank and the readings came faster. Worth resting on."
+GOOD: "A short, honest sit. 持つ slipped again; one focused pass next time should settle it."
+AVOID (too perky): "Fantastic day!! Huge progress 🎉 you're unstoppable!"
+AVOID (too generic): "Good work today. Keep reviewing to get better at Japanese."`,
 				},
 				{
 					role: "user",
@@ -173,7 +195,7 @@ The learner should feel seen, not managed.`,
 ${inputs.sessionPhrase} totaling ${inputs.totalCards} cards in ~${inputs.minutes} minutes.
 Overall accuracy: ${inputs.accuracyPct}%.
 ${inputs.breakdownPhrase}
-${inputs.weakSpotPhrase}${inputs.shortSessionPhrase}
+${inputs.weakSpotPhrase}${inputs.priorDayPhrase !== "" ? `\n${inputs.priorDayPhrase}` : ""}${inputs.shortSessionPhrase}
 
 Write one reflective English note based on today's practice.
 

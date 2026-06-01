@@ -18,6 +18,12 @@ const envSchema = z.object({
 	UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 	OPENAI_API_KEY: z.string().min(1).optional(),
 	OPENAI_CHAT_MODEL: z.string().default("gpt-5.4-nano"),
+	// Model for the *structured/factual* generators (card, diagnosis) where
+	// accuracy of reading / POS / pitch / kanji breakdown matters more than
+	// cost. Optional; when unset it falls back to OPENAI_CHAT_MODEL so a deploy
+	// that doesn't care keeps a single model with zero config. Resolved in
+	// services/ai/shared.ts as CHAT_MODEL_STRUCTURED.
+	OPENAI_CHAT_MODEL_STRUCTURED: z.string().optional(),
 	OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
 	WEAK_SPOT_THRESHOLD: z.coerce.number().int().positive().default(8),
 	// Comma-separated list of allowed origins. Tightened so misconfiguration

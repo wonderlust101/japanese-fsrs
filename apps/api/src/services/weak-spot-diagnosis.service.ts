@@ -30,9 +30,24 @@ const ProfileForDiagnosisSchema = z.object({
  */
 type DiagnosisProfile = z.infer<typeof ProfileForDiagnosisSchema>;
 
-/** Recent review-log ratings for the card, oldest → newest. */
-const ReviewLogRatingRowSchema = z.object({
+/**
+ * Recent review-log rows for the card, oldest → newest. `elapsed_days` is the
+ * interval (in days) since the previous review — fed to the diagnosis prompt so
+ * it can read the rhythm of failures, not just their count.
+ */
+const ReviewLogRowSchema = z.object({
 	rating: z.string(),
+	elapsed_days: z.number(),
+});
+
+/**
+ * Slice of the card's `fields_data` the diagnosis prompt critiques: the
+ * existing example sentences + mnemonic. Parsed leniently (safeParse) so a
+ * card missing either degrades to empty rather than failing the diagnosis.
+ */
+const DiagnosisCardContentSchema = z.object({
+	exampleSentences: z.array(z.object({ ja: z.string() })).optional(),
+	mnemonic: z.string().nullable().optional(),
 });
 
 /**
@@ -147,7 +162,7 @@ export async function diagnoseWeakSpot(
 	//    (card_id, user_id, reviewed_at DESC).
 	const ratingsPromise = supabaseAdmin
 		.from("review_logs")
-		.select("rating")
+		.select("rating, elapsed_days")
 		.eq("card_id", weakSpotRow.card_id)
 		.eq("user_id", userId)
 		.order("reviewed_at", { ascending: false })
@@ -179,9 +194,20 @@ export async function diagnoseWeakSpot(
 	if (ratingError !== null) {
 		log.warn({ weakSpotId, err: { message: ratingError.message, code: ratingError.code } }, "diagnoseWeakSpot review_logs fetch failed; proceeding with empty pattern");
 	}
-	const recentRatings = (ratingRows ?? [])
-		.map(r => ReviewLogRatingRowSchema.parse(r).rating)
-		.reverse(); // oldest → newest for the prompt
+	const recentReviews = (ratingRows ?? [])
+		.map(r => ReviewLogRowSchema.parse(r))
+		.reverse() // oldest → newest for the prompt
+		.map(r => ({ rating: r.rating, elapsedDays: r.elapsed_days }));
+
+	// The card's existing sentences + mnemonic, so the prescription can critique
+	// the real material. Lenient parse: a card missing either degrades to empty.
+	const contentParse = DiagnosisCardContentSchema.safeParse(card.fields_data);
+	const cardContent = {
+		exampleSentences: contentParse.success
+			? (contentParse.data.exampleSentences ?? []).map(s => s.ja)
+			: [],
+		mnemonic: contentParse.success ? (contentParse.data.mnemonic ?? null) : null,
+	};
 
 	// 6. Call OpenAI via the AI service. The semaphore + breaker + cache live
 	//    there; this service just provides the inputs and writes the output.
@@ -190,9 +216,10 @@ export async function diagnoseWeakSpot(
 		fields.reading,
 		fields.meaning,
 		card.lapses,
-		recentRatings,
+		recentReviews,
 		profile.jlpt_target ?? "N5",
 		profile.native_language,
+		cardContent,
 	);
 
 	// 7. Persist the diagnosis + prescription onto the weakSpot row. Only updates

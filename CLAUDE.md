@@ -130,6 +130,7 @@ UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=
+OPENAI_CHAT_MODEL_STRUCTURED=
 OPENAI_EMBEDDING_MODEL=
 WEAK_SPOT_THRESHOLD=8
 CORS_ORIGIN=http://localhost:3000
@@ -137,6 +138,10 @@ LOG_LEVEL=debug
 ```
 
 `OPENAI_CHAT_MODEL` is optional; defaults to `gpt-5.4-nano`. Used for card / sentence / mnemonic generation. Swap without a rebuild.
+
+`OPENAI_CHAT_MODEL_STRUCTURED` is optional; when unset it falls back to `OPENAI_CHAT_MODEL`. It is the model used by the **structured/factual** generators (`generateCard`, `generateWeakSpotDiagnosis`) where reading / POS / pitch / kanji-breakdown accuracy outweighs cost. Set it to a stronger model to upgrade only those generators while the rest stay on the cheap default. Resolved in `apps/api/src/services/ai/shared.ts` as `CHAT_MODEL_STRUCTURED`.
+
+The structured generators (card, sentence-card, diagnosis) also run at low temperature (`STRUCTURED_TEMPERATURE = 0.3`) with a fixed `seed` for run-to-run consistency, and validate output through `parseWithRepair` (one corrective retry on malformed JSON, kept inside the breaker so a content failure isn't counted as an outage). The creative generators (sentences, mnemonic, tomo-note, day-reflection) run warm (`CREATIVE_TEMPERATURE = 0.8`, no seed) for variety. All temperature/seed/model constants live in `apps/api/src/services/ai/shared.ts`.
 
 `OPENAI_EMBEDDING_MODEL` is optional; defaults to `text-embedding-3-small`. The chosen model **must produce 1536-dim vectors** to match the `cards.embedding vector(1536)` column type. Switching to a model with a different dimension requires a schema migration.
 
@@ -194,7 +199,7 @@ Full architecture boundaries live in [docs/TDD.md](./docs/TDD.md). Keep these ro
 - Use TanStack Query for server-derived frontend data and Zustand for review/session-local state.
 - Keep embeddings in Supabase PostgreSQL with pgvector unless the technical design changes.
 - Upstash Redis supports AI response caching, rate limiting, and offline review retry buffering.
-- A single FSRS instance schedules every card at `request_retention = 0.85`. The historic per-modality split was collapsed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
+- A single FSRS instance schedules every card at `request_retention = 0.88` (raised from `0.85` in migration `20260713000000`; the constant lives in `apps/api/src/services/fsrs/shared.ts` and is mirrored by the `profiles.retention_target` default). The historic per-modality split was collapsed in migration `20260614000000_drop_card_type.sql`; there is no `card_type` column.
 
 ---
 
@@ -264,7 +269,7 @@ Before finishing code work:
 - **Keep the generator in sync with `fields_data`.** Any time a new field is added to `WordFieldsSchema`, `ExampleSentenceSchema`, `VocabularyFieldsDataSchema`, `GrammarFieldsDataSchema`, or `SentenceFieldsDataSchema` (`packages/shared-types/src/schemas/field-shapes.schema.ts`), the corresponding generator must be updated in the same PR:
   1. Extend the matching `Generated*Schema` in `packages/shared-types/src/schemas/ai.schema.ts` so structured-output validation admits the field.
   2. Update the prompt body in the matching generator under `apps/api/src/services/ai/` so the model is instructed to produce the field (or explicitly told to omit it when the field requires assets the backend can't host yet, e.g. audio URLs).
-  3. Bump the relevant prompt version constant (`CARD_PROMPT_VERSION`, `SENTENCE_CARD_PROMPT_VERSION`, `MNEMONIC_PROMPT_VERSION`, `DIAGNOSIS_PROMPT_VERSION`, …) so cached Redis responses for the old prompt are not served after deploy. Mirror the pattern established by `DIAGNOSIS_PROMPT_VERSION` in `apps/api/src/services/ai/diagnosis.ts`.
+  3. Bump the relevant prompt version constant so cached Redis responses for the old prompt are not served after deploy. Every generator now carries one and embeds it in its cache key: `CARD_PROMPT_VERSION`, `SENTENCE_CARD_PROMPT_VERSION`, `DIAGNOSIS_PROMPT_VERSION`, `SENTENCES_PROMPT_VERSION`, `MNEMONIC_PROMPT_VERSION`, `TOMO_NOTE_PROMPT_VERSION`, `REFLECTION_PROMPT_VERSION`. Mirror the pattern established by `DIAGNOSIS_PROMPT_VERSION` in `apps/api/src/services/ai/diagnosis.ts`. (A prompt edit without a version bump silently serves stale cached output until TTL.)
   4. Cover the new field with at least one test fixture in `apps/api/src/services/__tests__/ai.service.test.ts` that asserts the field is admitted on the wire (or correctly omitted when intentionally unmapped).
   A field that ships on the schema without a generator update will only ever be populated through manual card editing — the AI path will continue producing cards without it, and the UI slot will keep rendering empty in production. Treat the schema and the generator as one unit.
 

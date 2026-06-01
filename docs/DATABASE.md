@@ -120,7 +120,7 @@ Extends `auth.users` with application-specific user preferences. Exactly one row
 | `study_goal` | `TEXT` | YES | `NULL` | Free-form user-provided goal text. Displayed on the dashboard. |
 | `daily_new_cards_limit` | `INT` | NO | `20` | Maximum new cards introduced per day. Enforced by `get_due_cards()` and applied to today's bucket + future-day projection in `get_review_forecast()`. CHECK ≥ 0. |
 | `daily_review_limit` | `INT` | NO | `200` | Maximum review cards shown per day. Enforced by `get_due_cards()` and applied to today's bucket in `get_review_forecast()`. CHECK ≥ 0. |
-| `retention_target` | `FLOAT` | NO | `0.85` | Target recall probability (0–1) used as the global fallback for FSRS scheduling. CHECK `> 0 AND <= 1`. Per-layout FSRS instances may override this with their own `request_retention`. |
+| `retention_target` | `FLOAT` | NO | `0.88` | Target recall probability (0–1) used as the global fallback for FSRS scheduling. Raised from `0.85` → `0.88` in `20260713000000` to soften the stability ramp; mirrors the scheduler constant in `fsrs/shared.ts`. CHECK `> 0 AND <= 1`. Per-layout FSRS instances may override this with their own `request_retention`. |
 | `timezone` | `TEXT` | NO | `'UTC'` | IANA timezone string (e.g. `Asia/Tokyo`, `Etc/GMT+8`). Validated by `profiles_timezone_iana` CHECK. Used to compute learner-local day boundaries for daily review caps, heatmap buckets, forecast buckets, and dashboard calendar copy. |
 | `version` | `INT` | NO | `1` | Optimistic-concurrency counter. Incremented by `update_profile_with_interests()` on every successful PATCH. Required as `If-Match` header on `PATCH /api/v1/profile`. |
 | `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | Row creation timestamp. |

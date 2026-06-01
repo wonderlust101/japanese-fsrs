@@ -30,16 +30,16 @@ const NAV_LINK
 		+ "focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2";
 
 /**
- * Full-width marketing navbar. Transparent while it floats over the 100vh hero,
- * then settles into a solid warm-paper bar with a hairline border once the user
- * scrolls past the fold. On small screens the section anchors and Sign in fold
- * into an accessible disclosure menu (they cannot fit the bar), which also
- * forces the bar solid while open.
+ * Full-width marketing navbar. A solid warm-paper bar with a hairline border at
+ * all scroll positions (a transparent float over the hero let the brand mark
+ * overlap the headline). On small screens the section anchors and Sign in fold
+ * into an accessible disclosure menu (they cannot fit the bar).
  *
  * A vermillion ink rail along the bottom edge tracks reading progress through
  * the page. It is driven imperatively (a `scaleX` transform written to a ref),
- * so per-frame scroll updates never re-render React. `scrolled` and `menuOpen`
- * are the only scroll/UI state that flows through render.
+ * so per-frame scroll updates never re-render React. `scrolled` gates the rail's
+ * fade-in (it appears once the hero has scrolled past); `menuOpen` is the only
+ * other UI state that flows through render.
  */
 export function MarketingNav(): React.JSX.Element {
 	const [scrolled, setScrolled] = useState(false);
@@ -48,10 +48,10 @@ export function MarketingNav(): React.JSX.Element {
 
 	useEffect(() => {
 		let frame = 0;
-		// The bar floats transparent over the hero, then turns solid the instant the
-		// hero's bottom edge passes under the 4rem bar. Pages without a hero (help /
-		// privacy / terms) have no `[data-hero]` element, so they read as solid from
-		// the first frame.
+		// `scrolled` flips true the instant the hero's bottom edge passes under the
+		// 4rem bar; it gates the reading-progress rail's fade-in (the bar itself is
+		// always solid now). Pages without a hero (help / privacy / terms) have no
+		// `[data-hero]` element, so they read as scrolled from the first frame.
 		const NAV_H = 64;
 		const onScroll = (): void => {
 			if (frame !== 0)
@@ -92,23 +92,22 @@ export function MarketingNav(): React.JSX.Element {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [menuOpen]);
 
-	const solid = scrolled || menuOpen;
-
 	return (
 		<header
 			className={cn(
 				// Pinned above the whole z-ladder so the GSAP-pinned (position: fixed)
 				// sections and z-10 content below can never paint over it. `--z-nav`
 				// (40) sits above sticky/raised/bar and the page's local z-10 layers,
-				// below toasts. Transparent while it floats over the hero, then fully
-				// opaque warm-paper once the hero has scrolled past (or the menu opens).
-				"fixed inset-x-0 top-0 z-[var(--z-nav)] transition-colors duration-300",
-				solid
-					? "border-b border-soft-hairline bg-warm-paper-base shadow-card"
-					: "border-b border-transparent bg-transparent",
+				// below toasts. Always a solid warm-paper bar with a hairline + card
+				// shadow: a transparent float let the brand mark overlap the hero
+				// headline, so the bar stays opaque over the fold too.
+				"fixed inset-x-0 top-0 z-[var(--z-nav)] border-b border-soft-hairline bg-warm-paper-base shadow-card",
 			)}
 		>
-			<div className="flex h-16 w-full items-center justify-between px-6 sm:px-8 lg:px-12">
+			{/* Gutters mirror the hero's inner container (px-6 sm:px-10 lg:px-16) so the
+          brand mark shares a left edge with the headline and the CTA aligns with
+          the hero's right edge — the bar reads as the same measure as the fold. */}
+			<div className="flex h-16 w-full items-center justify-between px-6 sm:px-10 lg:px-16">
 				<Link
 					href="/"
 					aria-label="Tomo — home"
@@ -160,7 +159,7 @@ export function MarketingNav(): React.JSX.Element {
 			{/* Mobile menu panel — only rendered when open, only shown below md. */}
 			{menuOpen && (
 				<div id="mobile-menu" className="border-t border-soft-hairline bg-warm-paper-base md:hidden">
-					<ul className="flex flex-col px-6 py-2 sm:px-8">
+					<ul className="flex flex-col px-6 py-2 sm:px-10">
 						{SECTION_LINKS.map(link => (
 							<li key={link.href} className="border-b border-soft-hairline/60 last:border-b-0">
 								<Link href={link.href} onClick={() => setMenuOpen(false)} className={cn("inline-flex w-full", NAV_LINK)}>

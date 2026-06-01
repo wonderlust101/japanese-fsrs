@@ -20,9 +20,11 @@ import { WhyTomo } from "./why-tomo";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-// Inner measure for the talky bands (why / coverage). The hero and
-// the continuous-take stage deliberately break out of this to go edge-to-edge.
-const INNER = "mx-auto w-full max-w-6xl px-6 sm:px-8";
+// Inner measure for the talky bands (why / coverage). Capped at a 1440px design
+// canvas: content fills the viewport (minus the px-6/sm:px-8 gutters) up to that
+// width, then holds. The hero and the continuous-take stage deliberately break
+// out of this to go edge-to-edge.
+const INNER = "mx-auto w-full max-w-[1440px] px-6 sm:px-8";
 
 // Expo ease-out — the project's "weighted exhale" curve (globals.css
 // --ease-out-expo). Mirrored here so GSAP tweens settle with the same
@@ -212,7 +214,7 @@ function ContinuousTake({ trackRef }: { trackRef: React.RefObject<HTMLDivElement
 						{act.kanji}
 					</span>
 
-					<div className="relative z-10 mx-auto grid h-full w-full max-w-6xl items-center gap-12 px-6 sm:px-8 lg:grid-cols-2 lg:place-content-center lg:gap-16">
+					<div className="relative z-10 mx-auto grid h-full w-full max-w-[1440px] items-center gap-12 px-6 sm:px-8 lg:grid-cols-2 lg:place-content-center lg:gap-16">
 						<div data-act-copy className="flex flex-col gap-4">
 							<SectionKicker>{act.kicker}</SectionKicker>
 							<h2 className="max-w-[18ch] font-display text-3xl font-semibold leading-tight tracking-[-0.01em] text-sumi-ink md:text-4xl lg:text-5xl">

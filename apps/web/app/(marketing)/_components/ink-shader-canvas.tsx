@@ -136,11 +136,21 @@ export function InkShaderCanvas({ className }: { className?: string }): React.JS
 		if (!canvas)
 			return;
 
-		const gl = canvas.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "low-power" });
+		// `alpha: true` so the backbuffer composites with transparency: any pixel
+		// the fullscreen triangle doesn't cover (a sub-pixel edge gap during a
+		// DPR-rounded resize on a HiDPI/fractional-scaled display) reveals the
+		// parent's light CSS wash behind it, not opaque black. With `alpha: false`
+		// the uncovered seam painted near-black, which showed as a dark L-frame
+		// around the hero while scrolling. Drawn pixels stay fully opaque (the
+		// fragment outputs alpha 1.0), so the ink itself looks identical.
+		const gl = canvas.getContext("webgl2", { antialias: false, alpha: true, premultipliedAlpha: true, powerPreference: "low-power" });
 		if (!gl) {
 			setFailed(true);
 			return;
 		}
+		// Transparent clear colour, applied every frame before the draw so the
+		// uncovered seam (if any) is transparent rather than the default black.
+		gl.clearColor(0, 0, 0, 0);
 
 		const vert = compile(gl, gl.VERTEX_SHADER, VERT_SRC);
 		const frag = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
@@ -196,6 +206,7 @@ export function InkShaderCanvas({ className }: { className?: string }): React.JS
 		onScroll();
 
 		const draw = (timeSeconds: number): void => {
+			gl.clear(gl.COLOR_BUFFER_BIT); // wipe any edge seam to transparent first
 			eased.x += (target.x - eased.x) * 0.06;
 			eased.y += (target.y - eased.y) * 0.06;
 			gl.uniform1f(uTime, timeSeconds);

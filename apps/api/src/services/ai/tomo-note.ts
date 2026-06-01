@@ -7,11 +7,12 @@ import { openai, openaiSemaphore } from "../../lib/openai.ts";
 import { scrubKeyish } from "../../lib/scrub.ts";
 import { AppError } from "../../middleware/errorHandler.ts";
 
-import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, joinInterests, log, readCache } from "./shared.ts";
+import { CHAT_BREAKER, CHAT_MODEL, CHAT_UNAVAILABLE_MSG, CREATIVE_TEMPERATURE, joinInterests, log, readCache } from "./shared.ts";
 
 // Bump on any change to the Tomo daily-note prompt body so cached notes from
-// the previous template aren't served against the new prompt.
-const TOMO_NOTE_PROMPT_VERSION = "v1";
+// the previous template aren't served against the new prompt. 'v2' = good/bad
+// voice exemplars + due-today and weak-spot context fed into the note.
+const TOMO_NOTE_PROMPT_VERSION = "v2";
 
 // Tomo note cache TTL — 36h. The cache key is keyed by `dateKey` (one
 // learner-local day), so a longer TTL never serves the wrong day. 36h is
@@ -28,7 +29,12 @@ interface TomoNoteInputs {
 	safeInterests: string[];
 	safeDateKey: string;
 	yesterdaySummary: string;
+	dueSummary: string;
+	weakSpotSummary: string;
 }
+
+// Cap weak-spot words injected so a long list can't crowd the instruction text.
+const MAX_TOMO_WEAK_SPOTS = 5;
 
 function buildTomoNoteInputs(
 	dateKey: string,
@@ -37,6 +43,8 @@ function buildTomoNoteInputs(
 	interests: string[],
 	yesterdayReviews: number | null,
 	yesterdayRetention: number | null,
+	dueToday: number | null,
+	weakSpotWords: string[],
 ): TomoNoteInputs {
 	// Render yesterday's signal into plain prose for the prompt. The empty
 	// branch keeps the line readable when the learner hasn't reviewed yet today;
@@ -48,6 +56,22 @@ function buildTomoNoteInputs(
 		? `Reviewed ${yesterdayReviews} cards yesterday${yesterdayRetention !== null ? ` with ${Math.round(yesterdayRetention)}% retention` : ""}.`
 		: "No reviews recorded yesterday.";
 
+	// Due-today is the source-of-truth count from get_due_cards (null = couldn't
+	// load; omit rather than guess). Lets the morning note orient to the session.
+	const dueSummary = dueToday === null
+		? ""
+		: dueToday === 0
+			? "Nothing is due right now."
+			: `${dueToday} card${dueToday === 1 ? " is" : "s are"} due now.`;
+
+	const safeWeakSpots = weakSpotWords
+		.slice(0, MAX_TOMO_WEAK_SPOTS)
+		.map(w => sanitizeForPrompt(w, 50))
+		.filter(w => w.length > 0);
+	const weakSpotSummary = safeWeakSpots.length > 0
+		? `Words currently giving trouble: ${safeWeakSpots.join(", ")}.`
+		: "";
+
 	return {
 		safeLevel: sanitizeForPrompt(userLevel),
 		safeNative: sanitizeForPrompt(nativeLanguage),
@@ -56,6 +80,8 @@ function buildTomoNoteInputs(
 		// a future caller that pipes user input in can't poison the cache key.
 		safeDateKey: sanitizeForPrompt(dateKey),
 		yesterdaySummary,
+		dueSummary,
+		weakSpotSummary,
 	};
 }
 
@@ -75,6 +101,7 @@ async function callTomoNoteGenerator(
 	try {
 		response = await client.chat.completions.create({
 			model: CHAT_MODEL,
+			temperature: CREATIVE_TEMPERATURE,
 			response_format: { type: "json_object" },
 			messages: [
 				{
@@ -126,12 +153,20 @@ A good note should feel like a small useful observation from a real tutor.
 It should not sound automated, inflated, vague, cute, or overly enthusiastic.
 Prefer concrete noticing over praise.
 Prefer gentle direction over encouragement.
-The learner should feel seen, not managed.`,
+The learner should feel seen, not managed.
+When cards are due, you may gently orient the learner toward the session ahead.
+When a trouble word is listed, you may name one concretely (quoted) rather than speaking in general.
+
+Examples of the register (do not reuse the wording):
+GOOD: "Your readings on the 〜つ counters are steadying — worth one slow pass while they're fresh."
+GOOD: "A short sit today, but the work was clean. Small, honest reps are how this sticks."
+AVOID (too perky): "Amazing job today!! You're absolutely crushing it 🎉 keep it up!!"
+AVOID (too generic): "Keep practicing every day to improve your Japanese."`,
 				},
 				{
 					role: "user",
 					content: `Practice summary:
-${inputs.yesterdaySummary}
+${inputs.yesterdaySummary}${inputs.dueSummary !== "" ? `\n${inputs.dueSummary}` : ""}${inputs.weakSpotSummary !== "" ? `\n${inputs.weakSpotSummary}` : ""}
 
 Write one warm, grounded English note based on the practice summary.
 
@@ -175,13 +210,15 @@ export async function generateTomoNote(
 	interests: string[],
 	yesterdayReviews: number | null,
 	yesterdayRetention: number | null,
+	dueToday: number | null,
+	weakSpotWords: string[],
 	opts?: { signal?: AbortSignal },
 ): Promise<GeneratedTomoNote> {
 	if (openai === null)
 		throw new AppError(500, "OPENAI_API_KEY not configured", { code: "OPENAI_KEY_MISSING" });
 	const client = openai;
 
-	const inputs = buildTomoNoteInputs(dateKey, userLevel, nativeLanguage, interests, yesterdayReviews, yesterdayRetention);
+	const inputs = buildTomoNoteInputs(dateKey, userLevel, nativeLanguage, interests, yesterdayReviews, yesterdayRetention, dueToday, weakSpotWords);
 	// Cache key includes (version, userId, dateKey). userId scopes to one
 	// learner; dateKey scopes to one calendar day in their timezone; version
 	// invalidates the whole keyspace on prompt edits.
