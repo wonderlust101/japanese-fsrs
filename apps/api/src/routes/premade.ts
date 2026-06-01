@@ -13,6 +13,9 @@ router.use(authMiddleware, defaultUserRateLimitMiddleware);
 
 router.get("/", premadeController.list);
 router.get("/:id", premadeController.get);
+// Read-only catalogue preview: a premade deck's source cards, paginated +
+// searchable. No copy occurs, so the default user rate limit (above) suffices.
+router.get("/:id/cards", premadeController.listCards);
 
 // Backend Completion Plan Stage 4 (copy model). Reuses
 // `subscribeRateLimitMiddleware` for the same per-user lockout the old

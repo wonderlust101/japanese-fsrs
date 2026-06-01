@@ -4,6 +4,7 @@ import type { RequestHandler } from "express";
 import { cacheControl } from "../lib/http.ts";
 import { withIdempotency } from "../lib/idempotency.ts";
 import {
+	listPremadeDeckCardsQuerySchema,
 	listPremadeDecksQuerySchema,
 	premadeDeckIdParamSchema,
 } from "../schemas/premade.schema.ts";
@@ -36,6 +37,22 @@ export const get: RequestHandler = async (req, res): Promise<void> => {
 	// `public`: premade decks are global (user_id IS NULL, no per-user fields in
 	// listPremadeDecks/getPremadeDeck), so a shared CDN/proxy may cache one copy
 	// for every authenticated caller. Per-user endpoints stay `private`.
+	cacheControl(res, PREMADE_MAX_AGE_SECONDS, "public");
+	res.json(data);
+};
+
+/**
+ * GET /api/v1/premade-decks/:id/cards
+ * Returns a paginated, optionally-searched slice of a premade deck's source
+ * cards for the read-only catalogue preview.
+ */
+export const listCards: RequestHandler = async (req, res): Promise<void> => {
+	const { id } = premadeDeckIdParamSchema.parse(req.params);
+	const query = listPremadeDeckCardsQuerySchema.parse(req.query);
+	const data = await premadeService.listPremadeDeckCards(id, query);
+	// `public`: premade source cards are global (user_id IS NULL); the preview
+	// response carries no per-user state, so a shared cache may serve one copy
+	// to every authenticated caller — same rationale as the deck list/get above.
 	cacheControl(res, PREMADE_MAX_AGE_SECONDS, "public");
 	res.json(data);
 };

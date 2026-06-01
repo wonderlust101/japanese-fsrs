@@ -191,3 +191,128 @@ describeIntegration("premade copy route — Stage 4 acceptance", () => {
 		expect(res.body.code).toBe("PREMADE_DECK_NOT_FOUND");
 	});
 });
+
+// Read-only catalogue preview. GET /premade-decks/:id/cards lists a premade
+// deck's *source* cards (user_id IS NULL, premade_deck_id = :id) so a learner
+// can browse before copying. The cross-deck browser can't reach these rows —
+// it joins the caller's own decks — so this is a distinct read path.
+describeIntegration("premade preview route — GET /premade-decks/:id/cards", () => {
+	it("lists source cards with the read-only cross-deck shape", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ cardCount: 3 });
+
+		const res = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+
+		expect(res.status).toBe(200);
+		expect(res.body.totalCount).toBe(3);
+		expect(res.body.hasMore).toBe(false);
+		expect(res.body.items).toHaveLength(3);
+
+		const item = res.body.items[0];
+		// deckId/deckName carry the premade deck's identity (source cards have no
+		// owning `decks` row), and the personal-state fields are never surfaced.
+		expect(item.deckId).toBe(premadeId);
+		expect(typeof item.deckName).toBe("string");
+		expect(item.fieldsData).toBeDefined();
+		expect(item.version).toBeUndefined();
+		expect(item.userId).toBeUndefined();
+	});
+
+	it("paginates with limit/offset and reports hasMore + totalCount", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ cardCount: 3 });
+
+		const first = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?limit=2`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(first.status).toBe(200);
+		expect(first.body.items).toHaveLength(2);
+		expect(first.body.hasMore).toBe(true);
+		expect(first.body.totalCount).toBe(3);
+
+		const second = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?limit=2&offset=2`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(second.status).toBe(200);
+		expect(second.body.items).toHaveLength(1);
+		expect(second.body.hasMore).toBe(false);
+	});
+
+	it("filters by a case-insensitive substring across word/reading/meaning", async () => {
+		const u = await seedUser(); seeded.push(u);
+		// Seeded cards carry meaning "source 0/1/2" and reading "げん0/1/2".
+		const premadeId = await seedPremadeDeck({ cardCount: 3 });
+
+		const byMeaning = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?search=source%202`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(byMeaning.status).toBe(200);
+		expect(byMeaning.body.totalCount).toBe(1);
+		expect(byMeaning.body.items[0].fieldsData.meaning).toBe("source 2");
+
+		const byReading = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?search=${encodeURIComponent("げん1")}`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(byReading.status).toBe(200);
+		expect(byReading.body.totalCount).toBe(1);
+	});
+
+	it("accepts the recent/due/lapses sort axes (aligned with the cross-deck browser)", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ cardCount: 3 });
+
+		// Source cards are pristine (state 0, due now, 0 lapses) so sort *order*
+		// isn't deterministic here; we assert the axes are accepted and return the
+		// full set rather than pinning an order the data can't distinguish.
+		for (const sort of ["recent", "due", "lapses"]) {
+			const res = await request(app)
+				.get(`/api/v1/premade-decks/${premadeId}/cards?sort=${sort}&sortDir=desc`)
+				.set("Authorization", `Bearer ${u.jwt}`);
+			expect(res.status).toBe(200);
+			expect(res.body.totalCount).toBe(3);
+		}
+	});
+
+	it("filters by FSRS status — all source cards are New", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ cardCount: 3 });
+
+		const asNew = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?status=new`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(asNew.status).toBe(200);
+		expect(asNew.body.totalCount).toBe(3);
+
+		// No reviewed cards exist on a premade source deck, so review/suspended
+		// narrow to zero — the filter is wired even though it's a near-no-op here.
+		const asReview = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?status=review`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(asReview.status).toBe(200);
+		expect(asReview.body.totalCount).toBe(0);
+	});
+
+	it("rejects an unknown sort field (strict schema)", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ cardCount: 1 });
+
+		const res = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards?sort=word`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		// `word` is not a valid sort axis (the preview uses recent/due/lapses).
+		expect(res.status).toBe(400);
+	});
+
+	it("returns 404 for an inactive premade deck", async () => {
+		const u = await seedUser(); seeded.push(u);
+		const premadeId = await seedPremadeDeck({ isActive: false, cardCount: 2 });
+
+		const res = await request(app)
+			.get(`/api/v1/premade-decks/${premadeId}/cards`)
+			.set("Authorization", `Bearer ${u.jwt}`);
+		expect(res.status).toBe(404);
+		expect(res.body.code).toBe("PREMADE_DECK_NOT_FOUND");
+	});
+});
