@@ -20,8 +20,6 @@ interface ForgettingCurveProps {
 export function ForgettingCurve({
 	className = "",
 }: ForgettingCurveProps): React.JSX.Element {
-	const _reducedMotion = false;
-
 	// Plot 30 days. R = 0.9 ^ (t / S) with S=10 (a typical mid-stability card).
 	// Bake the curve as an SVG path; the live "breath" is opacity-only.
 	const W = 480;
@@ -113,27 +111,47 @@ export function ForgettingCurve({
 					);
 				})}
 
-				{/* Curve fill (vermillion at low alpha) */}
-				<path d={fillPathD} fill="var(--color-inari-vermillion)" opacity="0.08" />
-
-				{/* Curve stroke (vermillion at full saturation) */}
-				<path
-					d={pathD}
-					stroke="var(--color-inari-vermillion)"
-					strokeWidth="2"
-					fill="none"
-					strokeLinecap="round"
-				/>
-
-				{/* Endpoint dot */}
-				{lastPoint !== undefined && (
-					<circle
-						cx={lastPoint.x}
-						cy={lastPoint.y}
-						r="3"
-						fill="var(--color-inari-vermillion)"
+				{/* Curve group breathes at rest — a slow 6s opacity pulse that gives the
+            welcome cover ambient life without animating layout or layout-adjacent
+            properties. The breath gates out under prefers-reduced-motion via the
+            global .animate-curve-breath rule. */}
+				<g className="animate-curve-breath">
+					{/* Fill fades in slightly behind the stroke draw so the area appears
+              as the ink stroke completes it. Fill uses rgba alpha so the
+              opacity animation can go 0 → 1 without washing out the tint. */}
+					<path
+						d={fillPathD}
+						fill="rgba(176, 54, 70, 0.08)"
+						className="animate-memory-fade-in"
+						style={{ animationDelay: "300ms" }}
 					/>
-				)}
+
+					{/* Stroke draws in via pathLength="1" dash technique: strokeDashoffset
+              animates 1 → 0, which the browser translates to "full path length
+              → 0 offset", revealing the stroke from left to right like a brush. */}
+					<path
+						d={pathD}
+						stroke="var(--color-inari-vermillion)"
+						strokeWidth="2"
+						fill="none"
+						strokeLinecap="round"
+						pathLength="1"
+						strokeDasharray="1"
+						className="animate-memory-curve-draw"
+					/>
+
+					{/* Endpoint dot blooms on after the stroke reaches it. */}
+					{lastPoint !== undefined && (
+						<circle
+							cx={lastPoint.x}
+							cy={lastPoint.y}
+							r="3"
+							fill="var(--color-inari-vermillion)"
+							className="animate-memory-fade-in"
+							style={{ animationDelay: "820ms" }}
+						/>
+					)}
+				</g>
 
 				{/* Caption: retention vs days since review */}
 				<text

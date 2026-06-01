@@ -32,8 +32,6 @@ export function SampleCard({
 	changeKey = `${word}-${reading}-${meaning}`,
 	className = "",
 }: SampleCardProps): React.JSX.Element {
-	const _reducedMotion = false;
-
 	return (
 		<div
 			className={[
@@ -51,6 +49,7 @@ export function SampleCard({
 			<>
 				<div
 					key={changeKey}
+					className="animate-sentence-swap"
 				>
 					<FuriganaText
 						text={word}

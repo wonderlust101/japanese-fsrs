@@ -66,11 +66,19 @@ export function DailyQuotaChart({ pace, className = "" }: DailyQuotaChartProps):
 						>
 							<div
 								className="absolute inset-0 bg-sumi-ink/60 origin-bottom"
-								style={{ transform: `scaleY(${reviewFrac})`, willChange: "transform" }}
+								style={{
+									transform: `scaleY(${reviewFrac})`,
+									willChange: "transform",
+									transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+								}}
 							/>
 							<div
 								className="absolute inset-0 bg-inari-vermillion origin-bottom"
-								style={{ transform: `translateY(-${reviewFrac * 100}%) scaleY(${newFrac})`, willChange: "transform" }}
+								style={{
+									transform: `translateY(-${reviewFrac * 100}%) scaleY(${newFrac})`,
+									willChange: "transform",
+									transition: "transform 400ms cubic-bezier(0.22, 1, 0.36, 1)",
+								}}
 							/>
 						</div>
 					);

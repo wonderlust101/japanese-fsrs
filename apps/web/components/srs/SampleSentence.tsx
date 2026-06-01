@@ -33,8 +33,6 @@ export function SampleSentence({
 	changeKey,
 	className = "",
 }: SampleSentenceProps): React.JSX.Element {
-	const _reducedMotion = false;
-
 	const key = changeKey ?? chunks.map(c => typeof c === "string" ? c : c.base).join("");
 
 	return (
@@ -53,6 +51,7 @@ export function SampleSentence({
 			<>
 				<div
 					key={key}
+					className="animate-sentence-swap"
 				>
 					<p lang="ja" className="font-japanese text-base text-sumi-ink leading-relaxed">
 						{chunks.map((chunk, i) => {

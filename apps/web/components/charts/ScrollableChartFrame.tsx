@@ -1,3 +1,10 @@
+"use client";
+
+import { useRef } from "react";
+
+import { useScrollDrawOn } from "@/hooks/use-scroll-draw-on";
+import { DUR } from "@/lib/motion/easings";
+
 interface ScrollableChartFrameProps {
 	/**
 	 * Minimum plot width in px. Below this, the chart scrolls horizontally
@@ -10,6 +17,24 @@ interface ScrollableChartFrameProps {
 	children: React.ReactNode;
 	/** Appended to the scroll container (e.g. a focus-ring breathing pad). */
 	className?: string;
+	/**
+	 * Re-run dependencies for the scroll-draw animation (per
+	 * `docs/motion/DASHBOARD_MOTION_SPEC.md` §2.4). Pass the data the chart's
+	 * paths are derived from so the line `getTotalLength()` is re-read and the
+	 * draw re-initializes when the series changes (e.g. a range toggle). Defaults
+	 * to `[]` (draw once on mount).
+	 */
+	drawOnDeps?: ReadonlyArray<unknown>;
+	/**
+	 * Delay (s) before the chart draw-on begins, so a containing
+	 * `useReveal({ mode: "scroll" })` SectionCard fades in *first* and the line
+	 * never draws under an `opacity: 0` section (DASHBOARD_MOTION_SPEC §P2.3).
+	 * Defaults to `DUR.md` (≈ the section reveal duration) because every consumer
+	 * of this frame lives on an Insights route inside a revealed SectionCard.
+	 * Pass `0` to draw immediately on scroll-in if a frame is ever used outside a
+	 * revealed section.
+	 */
+	drawDelay?: number;
 }
 
 /**
@@ -24,14 +49,30 @@ interface ScrollableChartFrameProps {
  * below `sm:` — and since `minWidth` always exceeds a phone viewport and
  * always fits desktop, the fade is visible precisely when scroll is
  * possible. The scrollbar is hidden to match those same rails.
+ *
+ * Motion: this frame is the `[data-chart-frame]` ScrollTrigger root for the
+ * chart draw-on (§2.4 / §2.9). It scopes {@link useScrollDrawOn}, which animates
+ * any `[data-chart-line]` (strokeDashoffset draw), `[data-chart-area]` (fill
+ * fade), and `[data-heatmap-cell]` (grid-stagger) within it once the figure
+ * scrolls into view — all gated behind `prefers-reduced-motion: no-preference`.
+ * Consumers opt in by tagging their `<path>`/`<rect>` marks with those hooks;
+ * untagged charts simply render statically.
  */
 export function ScrollableChartFrame({
 	minWidth,
 	children,
 	className = "",
+	drawOnDeps = [],
+	drawDelay = DUR.md,
 }: ScrollableChartFrameProps): React.JSX.Element {
+	const frameRef = useRef<HTMLDivElement>(null);
+
+	useScrollDrawOn(frameRef, drawOnDeps, drawDelay);
+
 	return (
 		<div
+			ref={frameRef}
+			data-chart-frame
 			className={[
 				// py-1 keeps SVG focus rings (outline-offset-2) from clipping
 				// against the computed overflow-y when overflow-x is set.

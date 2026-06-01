@@ -244,7 +244,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 
 	return (
 		<figure className="flex flex-col gap-y-3">
-			<ScrollableChartFrame minWidth={viewW}>
+			<ScrollableChartFrame minWidth={viewW} drawOnDeps={[days]}>
 				<div className="relative w-full">
 					<svg
 						ref={svgRef}
@@ -300,6 +300,7 @@ export function YearHeatmap({ days }: YearHeatmapProps): React.JSX.Element | nul
 								<rect
 									key={`${week}-${row}`}
 									id={cellId(i)}
+									data-heatmap-cell
 									role="gridcell"
 									aria-label={cellLabel(cell)}
 									aria-selected={isActive}

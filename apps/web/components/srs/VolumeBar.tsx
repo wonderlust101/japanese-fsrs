@@ -45,11 +45,15 @@ export function VolumeBar({ selected, className = "" }: VolumeBarProps): React.J
 				{/* The vertical bar.
             Uses transform: scaleY (composited on the GPU) instead of animating
             height (which would trigger layout every frame). Anchor at bottom so
-            the bar grows upward. */}
+            the bar grows upward. CSS transition smooths level changes. */}
 				<div className="relative w-12 h-[280px] bg-cream-inset rounded-xs overflow-hidden border border-soft-hairline">
 					<div
 						className="absolute inset-0 bg-inari-vermillion origin-bottom"
-						style={{ transform: `scaleY(${fillHeight})` }}
+						style={{
+							transform: `scaleY(${fillHeight})`,
+							transition: "transform 480ms cubic-bezier(0.22, 1, 0.36, 1)",
+							willChange: "transform",
+						}}
 					/>
 				</div>
 
@@ -69,6 +73,7 @@ export function VolumeBar({ selected, className = "" }: VolumeBarProps): React.J
 								<span
 									className={[
 										"text-xs font-mono whitespace-nowrap",
+										"transition-colors duration-200",
 										isCurrent ? "text-inari-vermillion font-semibold" : "text-faded-sumi",
 									].join(" ")}
 								>
@@ -78,6 +83,7 @@ export function VolumeBar({ selected, className = "" }: VolumeBarProps): React.J
 								<span
 									className={[
 										"text-xs font-mono tabular-nums whitespace-nowrap",
+										"transition-colors duration-200",
 										isCurrent ? "text-sumi-ink font-medium" : "text-faded-sumi",
 									].join(" ")}
 								>
