@@ -16,7 +16,7 @@ const ANALYTICS_MAX_AGE_SECONDS = 300;
  * only analytics read path the API exposes today.
  */
 export const dashboard: RequestHandler = async (req, res): Promise<void> => {
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const data = await analyticsService.getDashboardData(req.user.id, profile.timezone);
 	cacheControl(res, ANALYTICS_MAX_AGE_SECONDS);
 	res.json(data);

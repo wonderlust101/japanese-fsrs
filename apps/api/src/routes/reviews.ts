@@ -31,6 +31,14 @@ router.get("/day-reflection/:sessionId",	aiRateLimitMiddleware, aiDailyQuotaMidd
 // daily-quota middleware so heavy sessions can't burn the user's quota.
 router.post("/sessions/:sessionId/diagnose-weak-spots",	aiRateLimitMiddleware, aiDailyQuotaMiddleware, reviewsController.diagnoseSessionWeakSpots);
 
+// Session-close signal. Returns 202 and fires day-reflection + weak-spot
+// diagnosis precompute fire-and-forget, server-side, so the Review Summary's
+// AI enrichments are warm by load time. Deliberately NOT behind the AI
+// rate-limit/quota chain: the AI work is system-initiated (bounded by
+// openaiSemaphore) and idempotent, and the inherited authMiddleware +
+// defaultUserRateLimitMiddleware (router.use) already cap close-spam.
+router.post("/sessions/:sessionId/close", reviewsController.close);
+
 router.get("/:cardId/preview", reviewsController.previewRatings);
 
 // Stage 8 — rollback a specific review_log by its id. The path is keyed on

@@ -22,7 +22,7 @@ import * as weakSpotService from "../services/weak-spot.service.ts";
  * daily review and new-card limits.
  */
 export const getDue: RequestHandler = async (req, res): Promise<void> => {
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const cards = await reviewService.getDueCards(req.user.id, profile);
 	res.json(cards);
 };
@@ -83,7 +83,7 @@ export const batch: RequestHandler = async (req, res): Promise<void> => {
  * Days with zero due cards are omitted from the response array.
  */
 export const forecast: RequestHandler = async (req, res): Promise<void> => {
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const data = await reviewService.getReviewForecast(req.user.id, profile);
 	res.json(data);
 };
@@ -95,7 +95,7 @@ export const forecast: RequestHandler = async (req, res): Promise<void> => {
  */
 export const sessionSummary: RequestHandler = async (req, res): Promise<void> => {
 	const { sessionId } = sessionSummaryParamsSchema.parse(req.params);
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const summary = await reviewService.getSessionSummary(sessionId, req.user.id, profile);
 	res.json(summary);
 };
@@ -131,6 +131,48 @@ export const diagnoseSessionWeakSpots: RequestHandler = async (req, res): Promis
 	const { sessionId } = sessionSummaryParamsSchema.parse(req.params);
 	const result = await weakSpotService.batchDiagnoseForSession(req.user.id, sessionId);
 	res.json(result);
+};
+
+// Structured error shape for the detached-precompute backstop logs below.
+function precomputeErr(err: unknown): { name: string; message: string } {
+	return err instanceof Error
+		? { name: err.name, message: err.message }
+		: { name: "Unknown", message: String(err) };
+}
+
+/**
+ * POST /api/v1/reviews/sessions/:sessionId/close
+ *
+ * Session-close signal. Returns 202 immediately and fires the post-session AI
+ * work — day-reflection generation and the session's weak-spot diagnoses —
+ * fire-and-forget, server-side, so they are warm/persisted by the time the
+ * Review Summary loads instead of starting cold on that screen.
+ *
+ * Detached from the request lifecycle on purpose (same pattern as the
+ * post-create embedding backfill in card/crud.ts): the work outlives the
+ * response, and per-job failures are logged, never surfaced. The summary load
+ * path is self-healing — it regenerates the reflection on a miss and R3's
+ * per-row diagnosis covers any weak spot this didn't finish in time — so a
+ * dropped job (e.g. SIGTERM mid-flight) degrades to the old lazy behavior.
+ *
+ * No idempotency key: both jobs are naturally idempotent (the reflection is
+ * cached/persisted per day-fingerprint; diagnoses replay-on-existing), so a
+ * repeated close after the first is a near no-op.
+ */
+export const close: RequestHandler = (req, res): void => {
+	const { sessionId } = sessionSummaryParamsSchema.parse(req.params);
+	emptyBodySchema.parse(req.body ?? {});
+	const userId = req.user.id;
+	const log = req.log;
+
+	void dayReflectionService.getDayReflection(sessionId, userId).catch((err: unknown) => {
+		log.warn({ sessionId, err: precomputeErr(err) }, "session-close precompute: day-reflection failed");
+	});
+	void weakSpotService.batchDiagnoseForSession(userId, sessionId).catch((err: unknown) => {
+		log.warn({ sessionId, err: precomputeErr(err) }, "session-close precompute: batch diagnose failed");
+	});
+
+	res.status(202).json({ accepted: true });
 };
 
 /**

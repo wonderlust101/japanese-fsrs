@@ -19,7 +19,7 @@ import * as profileService from "../services/profile.service.ts";
  */
 export const generateCard: RequestHandler = async (req, res): Promise<void> => {
 	const { word } = generateCardInputSchema.parse(req.body);
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const userLevel = profile.jlptTarget ?? "N5";
 	const interests = profile.interests ?? [];
 
@@ -52,7 +52,7 @@ export const generateSentences: RequestHandler = async (req, res): Promise<void>
 		word = input.word;
 	}
 
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const data = await aiService.generateSentences(
 		word,
 		profile.jlptTarget ?? "N5",
@@ -75,7 +75,7 @@ export const generateMnemonic: RequestHandler = async (req, res): Promise<void> 
 	await deckService.assertCardDeckActive(cardId, req.user.id);
 
 	const card = await cardService.getCard(cardId, req.user.id);
-	const profile = await profileService.getProfile(req.user.id);
+	const profile = await profileService.getProfileCached(req.user.id);
 	const word = getWordFields(card)?.word ?? "";
 
 	if (word.length === 0) {

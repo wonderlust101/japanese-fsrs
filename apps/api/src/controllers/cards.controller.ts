@@ -86,7 +86,7 @@ export const create: RequestHandler = async (req, res): Promise<void> => {
 			let fieldsData: FieldsData | GeneratedCardData | GeneratedSentenceCard;
 
 			if (input.mode === "ai") {
-				const profile = await profileService.getProfile(req.user.id);
+				const profile = await profileService.getProfileCached(req.user.id);
 				// Backend Completion Plan Stage 13 — dispatch the AI generator on
 				// layoutType. Sentence-layout cards need ja/en/furigana (per the
 				// Stage 12 schema + DB CHECK); vocabulary/grammar cards need
