@@ -1,4 +1,9 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useRef } from "react";
+
+import { useEnterSettle } from "@/hooks/use-enter-settle";
 
 type EmptyStateDensity = "primary" | "quiet";
 
@@ -31,6 +36,14 @@ interface EmptyStateProps {
  * optional title, and body + CTA as children. Replaces the five hand-built
  * variants that had drifted on border, padding, gap, and title weight.
  *
+ * Motion (per `docs/motion/DASHBOARD_MOTION_SPEC.md` §2.5): on mount the kanji
+ * ornament settles (`scale 0.96 → 1`, autoAlpha — decorative), and the copy
+ * group (title + body/CTA children) rises and fades in with a small stagger,
+ * overlapping the tail of the ornament (ornament leads). Copy uses `opacity`,
+ * never `autoAlpha`, so the heading and CTA stay in the a11y tree through the
+ * tween. Gated behind `prefers-reduced-motion: no-preference`; the SSR markup is
+ * the reduced-motion experience (everything at its final state).
+ *
  * For the full-page kitsune empty beat (a whole report or list that can't yet
  * appear), use the sibling {@link KitsuneEmptyState} instead: a different,
  * larger composition that intentionally stays separate from this card.
@@ -44,8 +57,16 @@ export function EmptyState({
 	children,
 }: EmptyStateProps): React.JSX.Element {
 	const isPrimary = density === "primary";
+	const rootRef = useRef<HTMLDivElement>(null);
+
+	useEnterSettle(rootRef, {
+		ornamentSelector: "[data-empty-ornament]",
+		copySelector: "[data-empty-copy]",
+	});
+
 	return (
 		<div
+			ref={rootRef}
 			role={role}
 			className={[
 				"flex flex-col items-center rounded-xs border border-soft-hairline bg-warm-paper-raised text-center",
@@ -57,6 +78,7 @@ export function EmptyState({
 				<span
 					lang="ja"
 					aria-hidden="true"
+					data-empty-ornament
 					className={[
 						"font-display leading-none",
 						isPrimary ? "text-3xl text-inari-vermillion" : "text-numeral text-inari-vermillion/75",
@@ -66,9 +88,20 @@ export function EmptyState({
 				</span>
 			)}
 			{title !== undefined && (
-				<h2 className="text-lg font-semibold text-sumi-ink">{title}</h2>
+				<h2 data-empty-copy className="text-lg font-semibold text-sumi-ink">{title}</h2>
 			)}
-			{children}
+			{/* Children (body + CTA) grouped into one copy item so the settle
+          stagger has a single trailing target. The wrapper inherits the
+          column gap/centering so spacing is unchanged from a flat list. */}
+			<div
+				data-empty-copy
+				className={[
+					"flex flex-col items-center",
+					isPrimary ? "gap-4" : "gap-3",
+				].join(" ")}
+			>
+				{children}
+			</div>
 		</div>
 	);
 }

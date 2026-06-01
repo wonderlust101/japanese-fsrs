@@ -177,6 +177,7 @@ export function SentenceEditor({
 					? (
 							<p className="pt-3 text-sm text-faded-sumi">
 								Up to
+								{" "}
 								{MAX_SENTENCES}
 								{" "}
 								sentences.

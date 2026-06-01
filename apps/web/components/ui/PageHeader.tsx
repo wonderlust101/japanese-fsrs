@@ -34,6 +34,14 @@ interface PageHeaderProps {
 	 *  "advanced" link). Hidden below `sm` to keep small screens calm.
 	 */
 	rightSlot?: ReactNode;
+	/**
+	 * Opt-in page-level reveal lead. When `true`, emits `data-reveal-lead` on the
+	 * `<header>` so a `useRevealMount` / `useRevealScroll` cascade lands the
+	 * header *first*, ahead of the body sections. Default `false` — leave off on
+	 * routes where the header should render at rest immediately (sticky chrome,
+	 * or pages where only a sub-block reveals). See `hooks/use-reveal.ts`.
+	 */
+	revealLead?: boolean;
 }
 
 /**
@@ -52,9 +60,13 @@ export function PageHeader({
 	title,
 	subtitle,
 	rightSlot,
+	revealLead = false,
 }: PageHeaderProps): React.JSX.Element {
 	return (
-		<header className="flex items-start justify-between gap-4">
+		<header
+			className="flex items-start justify-between gap-4"
+			{...(revealLead && { "data-reveal-lead": "" })}
+		>
 			<div>
 				<p className="flex items-baseline gap-3">
 					<KanjiLabel kanji={kanji} label={label} variant="eyebrow" />

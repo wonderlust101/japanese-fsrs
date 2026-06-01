@@ -52,7 +52,7 @@ export function CardStack({
 			})}
 
 			<div className="relative">
-				<div key={contentKey}>
+				<div key={contentKey} className="animate-page-enter">
 					{children}
 				</div>
 			</div>

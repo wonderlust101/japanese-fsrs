@@ -164,7 +164,7 @@ export function RatingBar({ onRate, nextIntervals }: RatingBarProps): React.JSX.
 									// aria-label so SR/keyboard users keep the affordance; the
 									// visible numeral is gone for a slimmer touch chrome.
 									"group relative flex flex-col items-center justify-center gap-0.5",
-									"h-14 rounded-md border px-3",
+									"h-14 rounded-xs border px-3",
 									"text-warm-paper-raised",
 									spec.tone,
 									"transition-[filter,transform] duration-200 ease-out",

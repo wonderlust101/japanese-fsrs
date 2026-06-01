@@ -81,6 +81,14 @@ interface SectionCardProps {
 	ariaBusy?: boolean;
 	/** Additional classes appended to the outer card chrome. */
 	className?: string;
+	/**
+	 * Opt-in page-level reveal participation. When `true`, emits `data-reveal`
+	 * on the existing outer `<section>` (no wrapper div) so a `useRevealMount` /
+	 * `useRevealScroll` cascade on an ancestor content root staggers this card
+	 * in. Default `false` — existing call sites are unaffected. See
+	 * `hooks/use-reveal.ts` and `docs/motion/DASHBOARD_MOTION_SPEC.md` §P2.
+	 */
+	reveal?: boolean;
 	children: React.ReactNode;
 }
 
@@ -125,6 +133,7 @@ export function SectionCard({
 	omitTitle = false,
 	ariaBusy,
 	className = "",
+	reveal = false,
 	children,
 }: SectionCardProps): React.JSX.Element {
 	const baseChrome = chrome === "chart" ? CHART_MODULE_CHROME : LIST_MODULE_CHROME;
@@ -144,6 +153,7 @@ export function SectionCard({
 			{...(id !== undefined && { id })}
 			{...(headingId !== undefined && { "aria-labelledby": headingId })}
 			{...(ariaBusy === true && { "aria-busy": true })}
+			{...(reveal && { "data-reveal": "" })}
 			className={outerClass}
 		>
 			{stripeColor !== undefined && (
