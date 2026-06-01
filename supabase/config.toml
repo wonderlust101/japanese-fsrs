@@ -16,3 +16,42 @@ port = 54324
 
 [auth]
 enable_signup = true
+# Canonical site URL (drives redirect allow-list + email link bases).
+# Read from the environment so prod/staging/local differ without editing this file.
+site_url = "env(SUPABASE_AUTH_SITE_URL)"
+additional_redirect_urls = ["http://localhost:3000", "https://www.tomo-srs.com"]
+
+[auth.email]
+# This app verifies typed 6-digit codes (verifyOtp), so confirmations are OTP-based.
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 60         # seconds — matches the "expires in 1 minute" copy in templates/ and the app's ~1min verify copy
+max_frequency = "60s"   # anti-abuse throttle on resends
+
+# Custom SMTP (Resend) so auth email bypasses Supabase's shared-pool rate limits.
+# The password is the Resend API key — a secret read from the environment, never
+# committed. Locally, `supabase start` reads env(...) from the project-root .env
+# (gitignored). In production it is set in the hosted dashboard's SMTP settings.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+admin_email = "noreply@tomo-srs.com"
+sender_name = "Tomo"
+
+# Branded templates. content_path is resolved relative to the directory the
+# Supabase CLI runs from (the project root), NOT relative to this config.toml.
+# {{ .Token }} (the 6-digit OTP) is the load-bearing variable — see docs/EMAIL.md.
+[auth.email.template.confirmation]
+subject = "Confirm your Tomo account"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Tomo password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new Tomo email"
+content_path = "./supabase/templates/email_change.html"

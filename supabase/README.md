@@ -7,8 +7,21 @@ This directory contains Supabase configuration and PostgreSQL migrations for the
 ```
 supabase/
 ├── config.toml          # Local development configuration
+├── templates/           # Branded Auth email templates (HTML)
 └── migrations/          # SQL migration files (applied in order)
 ```
+
+## Auth Email
+
+Auth emails (signup confirmation, password reset, email change) are sent by
+Supabase Auth (GoTrue) through custom **Resend SMTP**, using the branded
+templates in `templates/`. These are wired in `config.toml` under
+`[auth.email.smtp]` and `[auth.email.template.*]`, with the SMTP secret read from
+the gitignored project-root `.env` via `env(SUPABASE_AUTH_SMTP_PASS)`. The flows
+are **OTP-based** — templates surface the 6-digit `{{ .Token }}`, not a link.
+Setup, plain-text copy, and the deliverability checklist live in
+[../docs/EMAIL.md](../docs/EMAIL.md). Locally, sent mail is captured by Inbucket
+at <http://localhost:54324>.
 
 ## Local Development Setup
 

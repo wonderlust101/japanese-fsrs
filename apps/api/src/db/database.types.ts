@@ -190,6 +190,39 @@ export type Database = {
           },
         ]
       }
+      day_reflections: {
+        Row: {
+          body: string
+          created_at: string
+          date_key: string
+          fingerprint: string
+          session_count: number
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          date_key: string
+          fingerprint: string
+          session_count?: number
+          source: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          date_key?: string
+          fingerprint?: string
+          session_count?: number
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       decks: {
         Row: {
           archived_at: string | null

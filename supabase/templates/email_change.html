@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<!--
+  Tomo — email change confirmation (OTP), full-bleed editorial layout.
+  {{ .Token }} confirms the change; {{ .NewEmail }} is the destination address.
+  GoTrue derives text/plain from this HTML. Tokens mirror docs/DESIGN.md.
+  See confirmation.html for the shared construction notes.
+-->
+<html lang="en" dir="ltr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Confirm your new Tomo email</title>
+    <!--[if mso]><style>* { font-family: Helvetica, Arial, sans-serif !important; }</style><![endif]-->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@500&display=swap');
+      body { margin: 0; padding: 0; width: 100% !important; background-color: #FDFBF7; }
+      a { color: #B03646; }
+      .tomo-pad { padding-left: 44px !important; padding-right: 44px !important; }
+      @media (max-width: 600px) {
+        .tomo-pad { padding-left: 24px !important; padding-right: 24px !important; }
+        .tomo-h1 { font-size: 32px !important; }
+        .tomo-code { font-size: 28px !important; letter-spacing: 0.2em !important; }
+        .tomo-runlabel { display: none !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0; padding:0; background-color:#FDFBF7;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+      Confirm your new Tomo email with code {{ .Token }}. It expires in 1 minute.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FDFBF7;">
+      <tr><td style="background-color:#B03646; height:4px; line-height:4px; font-size:0;">&nbsp;</td></tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FDFBF7;">
+      <tr>
+        <td align="center" style="padding:0;">
+          <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%; background-color:#FDFBF7;">
+
+            <tr>
+              <td class="tomo-pad" style="padding-top:34px; padding-bottom:22px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="left" style="vertical-align:middle;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td style="padding-right:10px; vertical-align:middle;">
+                            <img src="https://www.tomo-srs.com/brand/logo-email.png" width="34" height="34" alt="" style="display:block; border:0; outline:none; text-decoration:none;" />
+                          </td>
+                          <td style="vertical-align:middle;">
+                            <span style="font-family:'Bricolage Grotesque','DM Sans',Helvetica,Arial,sans-serif; font-size:18px; font-weight:600; color:#1F1A18; letter-spacing:0.12em;">TOMO</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                    <td align="right" class="tomo-runlabel" style="vertical-align:middle;">
+                      <span style="font-family:'JetBrains Mono',ui-monospace,'Courier New',monospace; font-size:11px; font-weight:500; letter-spacing:0.2em; text-transform:uppercase; color:#6B5F58;">Email change</span>
+                      &nbsp;<span style="color:#B03646;">&#9632;</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr><td class="tomo-pad"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #E5DCD0; font-size:0; line-height:0;">&nbsp;</td></tr></table></td></tr>
+
+            <tr>
+              <td class="tomo-pad" style="padding-top:40px;">
+                <h1 class="tomo-h1" style="margin:0; font-family:'Bricolage Grotesque','DM Sans',Helvetica,Arial,sans-serif; font-size:44px; font-weight:500; line-height:1.04; letter-spacing:-0.015em; color:#1F1A18;">
+                  Confirm your<br />new email.
+                </h1>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;">
+                  <tr><td style="width:48px; height:3px; background-color:#B03646; font-size:0; line-height:0;">&nbsp;</td></tr>
+                </table>
+                <p style="margin:22px 0 0 0; max-width:36em; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:15px; line-height:1.62; color:#6B5F58;">
+                  Enter this code in the app to switch your Tomo account email to
+                  <span style="color:#1F1A18; font-weight:500;">{{ .NewEmail }}</span>.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="tomo-pad" style="padding-top:30px;">
+                <table role="presentation" align="left" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color:#F4EFE6; border-bottom:2px solid #B03646; padding:20px 28px;">
+                      <div class="tomo-code" style="font-family:'JetBrains Mono',ui-monospace,'Courier New',monospace; font-size:34px; font-weight:500; letter-spacing:0.3em; color:#1F1A18; white-space:nowrap;">{{ .Token }}</div>
+                    </td>
+                  </tr>
+                </table>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-size:0; line-height:0;">&nbsp;</td></tr></table>
+                <p style="margin:14px 0 0 0; font-family:'JetBrains Mono',ui-monospace,'Courier New',monospace; font-size:12px; letter-spacing:0.04em; color:#6B5F58;">
+                  Expires in 1 minute.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="tomo-pad" style="padding-top:24px; padding-bottom:40px;">
+                <p style="margin:0; max-width:36em; font-family:'DM Sans',Helvetica,Arial,sans-serif; font-size:13px; line-height:1.6; color:#6B5F58;">
+                  If you didn't request this, ignore this message and consider updating your password.
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="tomo-pad" style="padding-top:22px; padding-bottom:36px; border-top:1px solid #E5DCD0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="left" style="vertical-align:middle;">
+                      <span style="font-family:'JetBrains Mono',ui-monospace,'Courier New',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#6B5F58;">Tomo &middot; Japanese spaced repetition</span>
+                    </td>
+                    <td align="right" class="tomo-runlabel" style="vertical-align:middle;">
+                      <span style="font-family:'JetBrains Mono',ui-monospace,'Courier New',monospace; font-size:11px; letter-spacing:0.08em; color:#6B5F58;">tomo-srs.com</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+          </table>
+          <!--[if mso]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
