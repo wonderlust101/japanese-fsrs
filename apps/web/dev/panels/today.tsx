@@ -11,8 +11,7 @@ import { cn } from "@/lib/utils";
 export type HeroKindKey
 	= | "due"
 		| "caught-up"
-		| "first-time"
-		| "resume";
+		| "first-time";
 
 export type HeroQueuePreset = "one" | "no-backlog" | "typical" | "backlog-heavy" | "large";
 export type HeroDeckPreset = "none" | "one" | "two" | "three" | "more";
@@ -151,7 +150,6 @@ function labelForHeroVariant(v: HeroKindKey): string {
 		case "due": return "Due";
 		case "caught-up": return "Caught up";
 		case "first-time": return "First time";
-		case "resume": return "Resume";
 	}
 }
 
@@ -181,7 +179,6 @@ const VARIANT_OPTIONS: Array<{ value: HeroKindKey; label: string }> = [
 	{ value: "due", label: "Due" },
 	{ value: "caught-up", label: "Caught up" },
 	{ value: "first-time", label: "First time" },
-	{ value: "resume", label: "Resume" },
 ];
 
 const QUEUE_OPTIONS: Array<{ value: HeroQueuePreset; label: string }> = [

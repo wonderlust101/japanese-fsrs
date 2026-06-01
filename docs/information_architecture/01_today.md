@@ -2,7 +2,7 @@
 
 ## Page Purpose
 
-Today is the primary daily entry point for Tomo. Its job is to help the learner understand the immediate review workload, feel calm about starting, and begin or resume practice with minimal hesitation.
+Today is the primary daily entry point for Tomo. Its job is to help the learner understand the immediate review workload, feel calm about starting, and begin practice with minimal hesitation.
 
 Today should not behave like a generic dashboard. It should behave like a practice launchpad. The learner should arrive, understand what is waiting, receive one useful orientation note, and start review. The page can contain future workload information, but only enough to reduce uncertainty and help the learner prepare.
 
@@ -10,7 +10,6 @@ Today should not behave like a generic dashboard. It should behave like a practi
 
 - Understand whether there are reviews due.
 - Start the daily review session immediately.
-- Resume an unfinished session.
 - Understand whether today's workload is manageable.
 - See a short preview of the next few days.
 - Receive a small, practical note about what to watch for during review.
@@ -22,7 +21,7 @@ Today should not behave like a generic dashboard. It should behave like a practi
 ### Primary Content
 
 1. Today's review status.
-2. Primary action to start or resume review.
+2. Primary action to start review.
 3. Estimated effort, such as card count and approximate time.
 4. A concise pre-session note focused on a likely weak point or helpful reminder.
 5. Compact upcoming workload preview.
@@ -85,10 +84,6 @@ Break the workload into a manageable first session. Avoid implying that everythi
 
 Suggested copy direction: “There’s a larger backlog today. Start small. Clearing part of it still counts.”
 
-### Session in Progress
-
-Resume should override the normal page hierarchy. The learner started something, so continuity matters most.
-
 ### First-Time User
 
 The page should introduce Tomo's value before requiring setup. A short explanation and sample review should appear before account creation or onboarding questions.
@@ -105,13 +100,12 @@ Errors should explain what failed, whether data is safe, and what the user can d
 
 - Start Review launches the default session directly.
 - Tune Session opens optional session setup.
-- Resume Session returns to the unfinished review state.
 - Upcoming workload can link to Insights Forecast if the learner wants detail.
 - Pre-session note may link to related cards or examples, but should not interrupt the review start path.
 
 ## Responsive Behavior
 
-Desktop can show a richer workload preview. Mobile should prioritize Start or Resume, then the note, then a minimal future preview. The mobile experience should respect quick sessions during commute or short breaks.
+Desktop can show a richer workload preview. Mobile should prioritize Start, then the note, then a minimal future preview. The mobile experience should respect quick sessions during commute or short breaks.
 
 ## Copy Tone
 

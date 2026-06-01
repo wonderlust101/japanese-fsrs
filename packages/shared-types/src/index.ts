@@ -170,6 +170,7 @@ export {
 	cardPresentFieldEnum,
 	cardSortDirEnum,
 	cardSortFieldEnum,
+	cardStatusFilterEnum,
 	copyCardBodySchema,
 	createCardSchema,
 	crossDeckJlptFilterEnum,

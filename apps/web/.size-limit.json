@@ -1,10 +1,10 @@
 [
 	{
-		"name": "Web client JS (user-facing chunks, brotli; excludes dev-only /dev/components)",
+		"name": "Web client JS (user-facing chunks, brotli; excludes dev-only /dev/components). Raised 775->786 KB on 2026-05-30: GSAP dashboard motion (Dialog/Toast/charts/etc.) places gsap core in the shared (app) chunk — a deliberate, bounded cost.",
 		"path": [
 			".next/static/chunks/**/*.js",
 			"!.next/static/chunks/app/dev/**"
 		],
-		"limit": "775 KB"
+		"limit": "786 KB"
 	}
 ]

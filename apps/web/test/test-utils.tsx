@@ -4,6 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Suspense } from "react";
 
 /**
  * Render helper that wires the minimum provider set every component test needs
@@ -38,7 +39,13 @@ export function renderWithProviders(
 	const { queryClient = makeQueryClient(), ...rest } = options;
 
 	function Wrapper({ children }: { children: ReactNode }): ReactElement {
-		return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+		return (
+			<QueryClientProvider client={queryClient}>
+				<Suspense fallback={<div data-testid="suspense-fallback" />}>
+					{children}
+				</Suspense>
+			</QueryClientProvider>
+		);
 	}
 
 	const result = render(ui, { wrapper: Wrapper, ...rest });

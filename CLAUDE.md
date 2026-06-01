@@ -167,6 +167,23 @@ by `apps/web/lib/env.ts` and falls back to `http://localhost:3000` when unset,
 which is correct for local dev but wrong for any deployed environment — set it
 in staging/production.
 
+### Supabase Auth email (SMTP) — project-root `.env`
+Auth emails (signup confirmation, password reset, email change) are sent by
+Supabase Auth through custom Resend SMTP using branded templates in
+`supabase/templates/`. The Supabase CLI reads these from the **gitignored
+project-root `.env`** via `env(...)` interpolation in `supabase/config.toml`:
+
+```
+SUPABASE_AUTH_SMTP_PASS=        # Resend API key (SMTP password) — secret
+SUPABASE_AUTH_SITE_URL=         # canonical site URL for the auth redirect allow-list
+```
+
+These are **Supabase-only secrets** — never `NEXT_PUBLIC_*`, never in
+`apps/web` or `apps/api`. Production values live in the hosted Supabase
+dashboard. Full setup, plain-text copy, and the deliverability checklist are in
+[docs/EMAIL.md](./docs/EMAIL.md). The flows are OTP-based, so templates must use
+`{{ .Token }}` (the 6-digit code), not `{{ .ConfirmationURL }}`.
+
 ---
 
 ## Architecture Notes

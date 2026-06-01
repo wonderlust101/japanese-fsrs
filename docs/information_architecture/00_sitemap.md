@@ -10,7 +10,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 
 | Nav Item | Primary User Question | Description |
 |---|---|---|
-| Today | What should I practice right now? | Daily practice launchpad. Shows due reviews, a calm pre-session note, session resume states, and short future workload preview. |
+| Today | What should I practice right now? | Daily practice launchpad. Shows due reviews, a calm pre-session note, and short future workload preview. |
 | Add | How do I capture Japanese I found? | Fast capture flow for a Japanese word or phrase plus sentence context. The goal is to turn real-world Japanese into high-quality study material with minimal friction. |
 | Decks | What collections am I studying? | Deck-level management for user decks, decks copied from premade catalogues, deck options, scheduling defaults, and deck-specific actions. Premade decks are a starting point: adding one creates a personal copy that diverges immediately — there is no ongoing subscription. |
 | Cards | How do I search, edit, tag, or repair individual cards? | Advanced card browser for search, filters, bulk actions, mass tagging, card quality management, and cross-deck card operations. |
@@ -21,7 +21,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 
 | File | Page | Short Description |
 |---|---|---|
-| `01_today.md` | Today | Main daily hub for review readiness, start/resume review, upcoming workload, no-review states, overdue recovery, and first-time value preview. |
+| `01_today.md` | Today | Main daily hub for review readiness, start review, upcoming workload, no-review states, overdue recovery, and first-time value preview. |
 | `02_review_setup.md` | Review Setup | Optional session tuning screen for temporary review overrides such as skipping new cards, changing session size, deck inclusion, and card order. |
 | `03_review_session.md` | Review Session | Focused review mode with large centered cards, minimal chrome, no hints, keyboard support, mobile review support, and card-type-specific layouts. |
 | `04_review_summary.md` | Review Summary | Post-session reflection that explains performance, identifies mistakes, offers focused next actions, and closes the practice loop without forcing more work. |

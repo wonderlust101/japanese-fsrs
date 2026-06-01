@@ -327,6 +327,7 @@ function MobileTake(): React.JSX.Element {
 							{current + 1}
 							{" "}
 							of
+							{" "}
 							{total}
 						</span>
 					</div>

@@ -100,10 +100,7 @@ const HERO_SINGLE_DECK_QUEUE: DueQueue = {
 
 function heroVariantFor(kind: HeroKind, deckMode: HeroDeckPreviewMode): DashboardHeroVariant {
 	if (kind === "due") {
-		return { kind: "due", queue: deckMode === "single" ? HERO_SINGLE_DECK_QUEUE : HERO_QUEUE };
-	}
-	if (kind === "resume") {
-		return { kind: "resume", context: { remaining: 12 } };
+		return { kind: "due", queue: deckMode === "single" ? HERO_SINGLE_DECK_QUEUE : HERO_QUEUE, isFirstVisit: false };
 	}
 	return { kind };
 }

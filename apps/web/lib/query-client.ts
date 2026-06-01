@@ -12,6 +12,14 @@ function makeQueryClient(): QueryClient {
 		defaultOptions: {
 			queries: {
 				staleTime: 60 * 1000,
+				// Focus-refetch is off app-wide: every mutation that can change
+				// server-derived data already invalidates its queries explicitly,
+				// so re-fetching on every tab focus is redundant. It was also the
+				// root of a `reviews/due` refetch storm during the review→summary
+				// transition (stale `due` + multiple always-mounted observers +
+				// focus churn). Freshness is preserved by explicit invalidation
+				// plus the 60s staleTime above.
+				refetchOnWindowFocus: false,
 			},
 		},
 	});

@@ -21,8 +21,8 @@ interface ReviewSummaryDevStateOptions {
 
 /**
  * Register the Review Summary dev panel. The body renders a grid of fixture
- * links; each click navigates to `/review/summary?fixture=<key>`, which the
- * Summary page reads and renders against the matching synthetic payload.
+ * links; each click navigates to `/review/summary/_fixture?fixture=<key>`,
+ * which the Summary page reads and renders against the matching synthetic payload.
  *
  * The `active` arg is forwarded so the panel highlights the live selection.
  */
@@ -39,7 +39,7 @@ export function useReviewSummaryDevState({ active }: ReviewSummaryDevStateOption
 						return (
 							<Link
 								key={key}
-								href={`/review/summary?fixture=${key}`}
+								href={`/review/summary/_fixture?fixture=${key}`}
 								className={cn(
 									"rounded-[2px] px-2 py-1.5 text-[0.65rem] text-center cursor-pointer",
 									"transition-colors duration-150 ease-out",
@@ -53,7 +53,7 @@ export function useReviewSummaryDevState({ active }: ReviewSummaryDevStateOption
 						);
 					})}
 					<Link
-						href="/review/summary"
+						href="/review/summary/_fixture"
 						className="col-span-2 rounded-[2px] border border-warm-paper-raised/15 px-2 py-1.5 text-[0.625rem] text-center text-warm-paper-raised/55 hover:text-warm-paper-raised hover:bg-warm-paper-raised/5 cursor-pointer transition-colors duration-150 ease-out"
 						title="Clear fixture"
 					>

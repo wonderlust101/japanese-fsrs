@@ -258,7 +258,7 @@ function SessionDevBody(): React.JSX.Element {
 					{SUMMARY_FIXTURE_KEYS.map(key => (
 						<a
 							key={key}
-							href={`/review/summary?fixture=${key}`}
+							href={`/review/summary/_fixture?fixture=${key}`}
 							className="rounded-[2px] border border-warm-paper-raised/20 bg-warm-paper-raised/10 px-2 py-1.5 text-[0.65rem] text-warm-paper-raised hover:bg-warm-paper-raised/20 cursor-pointer text-center"
 						>
 							{summaryFixtureLabel(key)}

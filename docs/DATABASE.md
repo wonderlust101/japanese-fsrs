@@ -26,6 +26,7 @@ This document describes every table in the Supabase (PostgreSQL) database, the p
   - [`weak_spot_drill_attempts`](#table-weak_spot_drill_attempts)
   - [`idempotency_keys`](#table-idempotency_keys)
   - [`card_state_snapshots`](#table-card_state_snapshots)
+  - [`day_reflections`](#table-day_reflections)
 - [SECURITY DEFINER Functions / RPCs](#security-definer-functions--rpcs)
 - [Triggers](#triggers)
 - [Relationships Overview](#relationships-overview)
@@ -97,6 +98,7 @@ Set in migration `20260511000000_grant_table_privileges.sql`. Supabase's automat
 | `weak_spot_drill_session_cards` | ALL | SELECT, INSERT | — |
 | `weak_spot_drill_attempts` | ALL | SELECT, INSERT | — |
 | `card_state_snapshots` | ALL | SELECT | — |
+| `day_reflections` | ALL | SELECT | — |
 | `premade_decks` | ALL | SELECT | SELECT |
 | `idempotency_keys` | (via SECURITY DEFINER RPCs only) | — | — |
 
@@ -621,6 +623,29 @@ Per-day maturity-pipeline snapshot — one row per (user, learner-local day). Po
 **RLS policies:**
 - SELECT: `auth.uid() = user_id`.
 - INSERT/UPDATE/DELETE: **No policy.** Rows are written exclusively by the `SECURITY DEFINER` cron function (which bypasses RLS).
+
+---
+
+### Table: `day_reflections`
+
+One persisted Tomo-voice "day reflection" per user-day — the prose shown on the Review Summary's Session details card. Added in migration `20260712000000_day_reflections.sql`. Generated + upserted by `day-reflection.service.ts` (the API, via `service_role`); the client never writes it. The stored `fingerprint` (sha256 of the day's session-id set) is compared against the current day's fingerprint on read: a match serves the stored row with zero AI cost; a mismatch (a new same-day session joined the aggregate) regenerates. The session-close precompute (`POST /reviews/sessions/:id/close`) warms this row server-side so the summary load is a row read, not an on-screen AI call.
+
+| Column | Type | Nullable | Default | Purpose |
+|---|---|---|---|---|
+| `user_id` | `UUID` | NO | — | FK to `auth.users(id)` — cascades on user deletion. Part of the composite PK. |
+| `date_key` | `TEXT` | NO | — | The user-local calendar day (`YYYY-MM-DD`) the reflection covers. Part of the composite PK. |
+| `body` | `TEXT` | NO | — | The reflection prose (English, < 220 chars). |
+| `source` | `TEXT` | NO | — | `'ai'` or `'fallback'` (CHECK-constrained) — provenance, so the UI can subtly mark rule-based copy. |
+| `fingerprint` | `TEXT` | NO | — | `sha256(sorted-session-ids).slice(0,12)`. Drives the serve-vs-regenerate decision. |
+| `session_count` | `INTEGER` | NO | `0` | Number of sessions the reflection aggregates (CHECK `>= 0`). |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | First generation. |
+| `updated_at` | `TIMESTAMPTZ` | NO | `NOW()` | Maintained by the `set_updated_at()` trigger on regenerate. |
+
+**Primary key:** `(user_id, date_key)` — also the upsert conflict target (`ON CONFLICT (user_id, date_key)`); no additional indexes.
+
+**RLS policies:**
+- SELECT: `auth.uid() = user_id` (defense-in-depth).
+- INSERT/UPDATE/DELETE: **No policy.** Rows are written exclusively by the API via `service_role` (which bypasses RLS), like `profiles`.
 
 ---
 

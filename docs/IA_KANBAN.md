@@ -58,7 +58,7 @@ Scoped tracking for information-architecture work only — per-page design adopt
 ## Done
 - 
 - [x] **Today page redesign (`01_today.md`)**
-  - Active. Practice-launchpad framing (greeting + hero + week-ahead strip + exit links), card-stack identity, draggable dev tools, offline status band, resume detection via Zustand, full hero variant matrix wired through preview controls.
+  - Active. Practice-launchpad framing (greeting + hero + week-ahead strip + exit links), card-stack identity, draggable dev tools, offline status band, full hero variant matrix wired through preview controls.
   - Files: `apps/web/app/(app)/today/` (page + `_components/`).
   - Open: production-grade wiring of all six hero variants against live data, copy variants for overdue + severe-backlog, no-reviews-due state polish.
 - [x] **App Router IA migration phase 1 (2026-05-14)**
