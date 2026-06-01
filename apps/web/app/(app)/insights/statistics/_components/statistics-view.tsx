@@ -139,10 +139,9 @@ function StatisticsContent(): React.JSX.Element {
 	}
 
 	// dashboard/maturity/distributions/decks are useSuspenseQuery — loading and
-	// errors for those are handled by the Suspense/error boundaries. Only
-	// forecast (still useQuery) can still transition through loading here.
-	const isLoading = dev.fixtureData === null && forecastQuery.isLoading;
-
+	// errors for those are handled by the Suspense/error boundaries. Forecast
+	// (still useQuery) is the only source that can transition through loading
+	// here, and that is folded into sectionsWillRender above for the reveal.
 	const data = dev.fixtureData ?? liveData;
 
 	if (!hasMeaningfulData(data)) {
