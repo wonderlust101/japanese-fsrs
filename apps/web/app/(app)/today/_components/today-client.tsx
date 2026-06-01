@@ -14,7 +14,7 @@ import { QueueErrorPane } from "@/components/ui/QueueErrorPane";
 import { PageGate } from "@/components/ui/TomoLoader";
 import { useTodayDevState } from "@/dev/panels/today";
 import { updateProfileAction } from "@/lib/actions/profile.actions";
-import { useSuspenseDecksWithStats } from "@/lib/api/decks";
+import { useDecksWithStats } from "@/lib/api/decks";
 import { queryKeys } from "@/lib/api/queryKeys";
 
 import { useDueCards, useReviewForecast } from "@/lib/api/reviews";
@@ -121,7 +121,12 @@ export function DashboardClient({
 	}, [timeZone, profileVersion, queryClient]);
 
 	// ── Live data sources ──────────────────────────────────────────────────────
-	const decksQuery = useSuspenseDecksWithStats();
+	// useDecksWithStats (non-suspending) avoids the useSuspenseQuery + useRouter
+	// conflict: both use useSyncExternalStore and their store notifications can
+	// race during Suspense recovery, triggering a "update during render" warning.
+	// PageGate already gates content on !decksQuery.isPending, so the Suspense
+	// layer was redundant here.
+	const decksQuery = useDecksWithStats();
 	const dueQuery = useDueCards();
 	const forecastQuery = useReviewForecast();
 
@@ -148,13 +153,15 @@ export function DashboardClient({
 		return items.length > 0 && items.every(d => d.lastReviewedAt === null);
 	}, [decksQuery.data, decksQuery.isPending]);
 
-	// Mirror HeroPreSessionNote's enabled gate: AI quota only spent on calm
-	// days. When not enabled, the tomoNote query stays pending forever
-	// (TanStack semantics) — we must NOT wait for it in that case.
-	// Skip the AI note for first-time users: they have no review history to
-	// reflect on, and the quota is better spent once they have sessions behind them.
+	// Mirror HeroPreSessionNote's enabled gate so the query starts here
+	// (before the gate opens) and is already in-flight when HeroPreSessionNote
+	// mounts. TanStack Query deduplicates the two subscribers. We deliberately
+	// do NOT include this query in pageReady: it is an AI call that can take
+	// 500ms–2s, and gating the full page on it causes a second loading phase.
+	// HeroPreSessionNote's FallbackPreparationRow handles the brief window while
+	// the note is still in-flight — same layout, different body text.
 	const tomoNoteEnabled = weakSpotsSettled && !hasWeakSpots && !hasNoReviewHistory;
-	const tomoNoteQuery = useTomoNoteQuery({
+	useTomoNoteQuery({
 		dateKey: calendar.todayKey,
 		enabled: tomoNoteEnabled,
 	});
@@ -285,21 +292,18 @@ export function DashboardClient({
 	);
 	const weekRhythmDays = previewActive && previewWeekRhythmDays !== null ? previewWeekRhythmDays : (forecastQuery.data?.items ?? []);
 
-	// Page-level wait-then-reveal gate. Holds the content area until every
-	// critical query has resolved (or errored). Preview mode opens the gate
-	// immediately since no real data is in flight. Once open, the gate
-	// latches so background refetches do not hide the page.
-	//
-	// Pre-review note queries are included so the right note (weak-spots,
-	// Tomo note, or fallback line) is in place at first paint — no
-	// placeholder flash inside the hero.
+	// Page-level wait-then-reveal gate. Holds the content area until the four
+	// server-prefetched queries have resolved (or errored). With HydrationBoundary
+	// seeding the cache in today/page.tsx, all four are immediately ready on
+	// mount so the gate opens on the first render. Once open, the gate latches
+	// so background refetches do not hide the page.
+	// Tomo note is intentionally excluded — see useTomoNoteQuery comment above.
 	const pageReady = previewActive
 		|| (
 			!decksQuery.isPending
 			&& !dueQuery.isPending
 			&& !forecastQuery.isPending
 			&& !weakSpotsQuery.isPending
-			&& (!tomoNoteEnabled || !tomoNoteQuery.isPending)
 		);
 
 	return (

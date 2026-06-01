@@ -64,10 +64,11 @@ function pickPreparationLine(seed: string): string {
 // — this is the orientation the learner reads before starting, not filler.
 
 export function HeroPreSessionNote({ dateKey, isFirstVisit = false }: { dateKey: string | undefined; isFirstVisit?: boolean }): React.JSX.Element {
-	// Both queries are awaited at the route level by today-client's PageGate
-	// (see today-client.tsx, `pageReady`). By the time this component
-	// mounts, the TanStack Query cache is warm and these hooks return
-	// resolved data on first render — no loading branch needed.
+	// weakSpotsQuery: server-prefetched in today/page.tsx — cache is warm,
+	// returns data on first render with no loading branch.
+	// tomoNoteQuery: NOT gated in PageGate (see today-client.tsx); the query
+	// may still be in-flight when this mounts. Falls through to
+	// FallbackPreparationRow below while it loads.
 	const weakSpotsQuery = useWeakSpotsQuery({
 		status: "unresolved",
 		limit: WEAK_SPOT_QUERY_LIMIT,
