@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
@@ -18,10 +17,6 @@ import { NavSection } from "./nav-section";
 import { useReviewsSubLabel } from "./use-reviews-sub-label";
 import { UserMenu } from "./user-menu";
 
-interface Props {
-	user: User | null;
-}
-
 /**
  * Mobile chrome (< lg breakpoint). Slide-in drawer from the left with the
  * V5.1 design: brand strip + bilingual today strip + kanji-led nav sections
@@ -31,7 +26,7 @@ interface Props {
  * close button, the Escape key, or any nav row (which closes before the
  * route change).
  */
-export function MobileDrawer({ user }: Props): React.JSX.Element {
+export function MobileDrawer(): React.JSX.Element {
 	const isOpen = useMobileNavStore(s => s.isOpen);
 	const close = useMobileNavStore(s => s.close);
 	const drawerRef = useRef<HTMLDivElement>(null);
@@ -250,7 +245,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 				{/* Account strip — Help moved into this menu so the drawer keeps
             only navigation + account, with secondary actions tucked away. */}
 				<div className="px-2 py-3 border-t border-soft-hairline shrink-0">
-					<UserMenu user={user} onItemSelect={close} />
+					<UserMenu onItemSelect={close} />
 				</div>
 			</div>
 		</>

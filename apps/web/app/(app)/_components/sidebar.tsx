@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@supabase/supabase-js";
 import type { NavItemConfig } from "./nav-config";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -17,21 +16,14 @@ import { TodayStripCollapsed, TodayStripExpanded } from "./today-strip";
 import { useReviewsSubLabel } from "./use-reviews-sub-label";
 import { UserMenu } from "./user-menu";
 
-interface Props {
-	user: User | null;
-}
-
 /**
  * Account strip: thin wrapper around UserMenu that swaps to a seal-only
  *  trigger in the collapsed rail. Kept inline since it's only used here.
  */
-function AccountStripCollapsed({ user }: { user: User | null }): React.JSX.Element {
-	// The UserMenu component itself handles the full account row; in collapsed
-	// mode we render the same UserMenu but inside a narrower wrapper. The
-	// UserMenu's button is w-full so it naturally fits.
+function AccountStripCollapsed(): React.JSX.Element {
 	return (
 		<div className="px-2 py-3 border-t border-soft-hairline shrink-0 relative z-[1] bg-warm-paper-raised">
-			<UserMenu user={user} />
+			<UserMenu />
 		</div>
 	);
 }
@@ -50,7 +42,7 @@ function AccountStripCollapsed({ user }: { user: User | null }): React.JSX.Eleme
  *    its source size during the transition so content is clipped rather
  *    than reflowed.
  */
-export function Sidebar({ user }: Props): React.JSX.Element {
+export function Sidebar(): React.JSX.Element {
 	const [widthCollapsed, setWidthCollapsed] = useLocalStorageBoolean(
 		"tomo.sidebar.collapsed",
 		false,
@@ -218,7 +210,7 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 				</div>
 
 				{/* Account strip */}
-				<AccountStripCollapsed user={user} />
+				<AccountStripCollapsed />
 			</div>
 		</aside>
 	);

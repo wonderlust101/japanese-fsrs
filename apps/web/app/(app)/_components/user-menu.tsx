@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -16,9 +15,9 @@ import { MenuItem } from "@/components/ui/MenuItem";
 import { signOutAction } from "@/lib/actions/auth.actions";
 import { getUserDisplayName } from "@/lib/supabase/user-metadata";
 import { useHelpDialogActions } from "@/stores/useHelpDialogStore";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface Props {
-	user: User | null;
 	/**
 	 * Optional callback fired after the user picks any item or signs out.
 	 *  The MobileDrawer passes its `close` action so the drawer collapses
@@ -45,7 +44,8 @@ function NOOP(): void {}
  * On the trigger row the avatar disc replaces a leading icon — the initial
  * carries identity at this position.
  */
-export function UserMenu({ user, onItemSelect = NOOP }: Props): React.JSX.Element {
+export function UserMenu({ onItemSelect = NOOP }: Props): React.JSX.Element {
+	const user = useCurrentUser() ?? null;
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const wrapperRef = useRef<HTMLDivElement>(null);

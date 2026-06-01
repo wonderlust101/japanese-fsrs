@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { HelpDialog } from "@/components/help/HelpDialog";
-import { getAuthUser } from "@/lib/supabase/get-auth-user";
+import { AppTopBar } from "./_components/app-top-bar";
 import { GlobalHelpKeybind } from "./_components/global-help-keybind";
 import { MobileDrawer } from "./_components/mobile-drawer";
 import { RouteFocusManager } from "./_components/route-focus-manager";
@@ -13,11 +13,10 @@ export const metadata: Metadata = {
 	robots: { index: false, follow: false },
 };
 
-// The middleware already guarantees an authenticated user reaches this layout.
-// We fetch the user here only to pass display data (email) to the chrome.
-export default async function AppLayout({ children }: { children: React.ReactNode }): Promise<React.JSX.Element> {
-	const user = await getAuthUser();
-
+// The middleware guarantees an authenticated user reaches this layout.
+// UserMenu fetches its own display data client-side so this layout stays sync
+// and never contributes to a loading-state cascade.
+export default function AppLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
 	return (
 		<div className="flex h-dvh bg-cool-paper-base overflow-hidden">
 			{/* Skip link: first focusable element so keyboard users can bypass the
@@ -29,10 +28,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 			>
 				Skip to main content
 			</a>
-			<Sidebar user={user} />
+			<Sidebar />
 
 			{/* Main content column */}
 			<div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+				{/* Persistent top bar — lives outside <main> so it never unmounts
+				    during page transitions. AppTopBar derives chrome from the current
+				    pathname (static routes) and the useTopBarStore override (dynamic
+				    titles / actions set via SetTopBar). */}
+				<AppTopBar />
 				<main id="main-content" tabIndex={-1} className="flex flex-col flex-1 overflow-y-auto outline-none">
 					{children}
 				</main>
@@ -40,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
 			{/* Mobile chrome: drawer overlay triggered by the hamburger inside TopBar.
           Always rendered; visibility/transform driven by useMobileNavStore. */}
-			<MobileDrawer user={user} />
+			<MobileDrawer />
 
 			{/* Global help: dialog + ? keybind, mounted once for every (app) route.
           Opened from the sidebar/drawer HelpRow or the ? shortcut. */}
