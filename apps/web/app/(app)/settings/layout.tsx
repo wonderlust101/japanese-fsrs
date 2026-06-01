@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
+import { getProfileAction } from "@/lib/actions/profile.actions";
+import { normalizeStudyGoal } from "@/lib/study-goal";
+import { getAuthUser } from "@/lib/supabase/get-auth-user";
+import { getUserDisplayName } from "@/lib/supabase/user-metadata";
 
+import { SettingsAllSections } from "./_components/settings-all-sections";
 import { SettingsTabBar } from "./_components/settings-rail";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -10,35 +14,53 @@ export const metadata: Metadata = { title: "Settings" };
 /**
  * Shared chrome for every /settings/* sub-route.
  *
- * Frame: 1440px maximum content width, matching Insights and the rest
- * of the (app) shell. A horizontal tab bar sticks beneath the TopBar at
- * the same 1440px width; below it the content area runs in a flex row
- * so each leaf section can render an optional `<ContextStrip>` into the
- * right column on `xl` breakpoints.
+ * Data for all three sections is fetched once here so that switching tabs
+ * never triggers a server round-trip or a loading state. `SettingsAllSections`
+ * keeps all panels in the DOM simultaneously; the active one uses
+ * `display: contents` and inactive ones are hidden with the HTML `hidden`
+ * attribute, preserving any dirty form state across tab switches.
  *
- * Each leaf page wraps its content in `<SectionShell>`, which provides
- * the content-column max-width and the optional strip slot. The shell
- * is the contract between layout and section, so leaf pages never have
- * to know the layout's flex internals.
+ * The sub-route page files (`/profile`, `/learning`, `/security`) are now
+ * metadata-only stubs that return null — they exist solely so Next.js can
+ * set the per-tab `<title>` and so direct URL navigation works correctly.
  */
-export default function SettingsLayout({
+export default async function SettingsLayout({
 	children,
 }: {
 	children: React.ReactNode;
-}): React.JSX.Element {
+}): Promise<React.JSX.Element> {
+	const [profile, user] = await Promise.all([
+		getProfileAction(),
+		getAuthUser(),
+	]);
+
+	if (profile === null || user === null) {
+		redirect("/login");
+	}
+
+	const displayName = getUserDisplayName(user) ?? "";
+	const studyGoal = profile.studyGoal !== null ? normalizeStudyGoal(profile.studyGoal) : "";
+
 	return (
 		<>
-			<TopBar>
-				<TopBarTitle kanji="設" label="Settings" />
-			</TopBar>
-
 			<SettingsTabBar />
 
-			<section aria-label="Settings" className="mx-auto w-full max-w-[1440px] px-4 py-8 md:px-12 lg:px-16 lg:py-12">
-				<div className="flex gap-10 xl:gap-14">
-					{children}
-				</div>
-			</section>
+			<SettingsAllSections
+				email={user.email ?? ""}
+				displayName={displayName}
+				version={profile.version}
+				nativeLanguage={profile.nativeLanguage}
+				timezone={profile.timezone}
+				studyGoal={studyGoal}
+				jlptTarget={profile.jlptTarget}
+				dailyNew={profile.dailyNewCardsLimit}
+				dailyReview={profile.dailyReviewLimit}
+				retention={profile.retentionTarget}
+				interests={profile.interests}
+			/>
+
+			{/* Sub-route stubs — return null, rendered here only to satisfy Next.js routing */}
+			{children}
 		</>
 	);
 }

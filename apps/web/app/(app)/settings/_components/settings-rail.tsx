@@ -57,7 +57,7 @@ export function SettingsTabBar(): React.JSX.Element {
 	return (
 		<nav
 			aria-label="Settings sections"
-			className="sticky top-16 z-[var(--z-sticky)] border-b border-soft-hairline bg-cool-paper-base"
+			className="sticky top-0 z-[var(--z-sticky)] border-b border-soft-hairline bg-cool-paper-base"
 		>
 			<div
 				ref={containerRef}
