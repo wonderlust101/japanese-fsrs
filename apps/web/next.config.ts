@@ -11,9 +11,11 @@ const nextConfig: NextConfig = {
 	transpilePackages: ["@fsrs-japanese/shared-types"],
 
 	// Security headers — applied to every route. Mirrors the API's Helmet
-	// config (apps/api/src/app.ts:28-33) for the HTML-response side. CSP here
-	// is intentionally minimal (frame-ancestors only) — a fuller script/style
-	// CSP is deferred because Next.js's hydration model would require nonces.
+	// config (apps/api/src/app.ts:28-33) for the HTML-response side. The full
+	// Content-Security-Policy is set per-request in `middleware.ts` (it carries
+	// a per-request nonce, so it can't be a static header here). These remaining
+	// headers are request-independent, so they stay static and also cover
+	// non-HTML responses like `/_next/static`.
 	async headers() {
 		return [
 			{
@@ -24,10 +26,9 @@ const nextConfig: NextConfig = {
 					// this header over plain HTTP, so it is safe to send unconditionally.
 					{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
 					// Clickjacking — DENY because the app is never legitimately framed.
+					// Belt-and-braces with the CSP `frame-ancestors 'none'` set in
+					// middleware, for browsers that ignore XFO in some contexts (Firefox).
 					{ key: "X-Frame-Options", value: "DENY" },
-					// Belt-and-braces with X-Frame-Options for browsers that respect
-					// CSP frame-ancestors but ignore XFO in some contexts (Firefox).
-					{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
 					// Block MIME-type sniffing on every response (incl. /_next/static).
 					{ key: "X-Content-Type-Options", value: "nosniff" },
 					// Send full referrer same-origin; only the origin cross-origin.

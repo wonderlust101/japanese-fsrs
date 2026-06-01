@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+
 /**
  * Renders a single JSON-LD structured-data block. Server-component only — it
  * just emits a `<script>` tag, no hooks.
@@ -6,15 +8,22 @@
  * user input, so `dangerouslySetInnerHTML` is safe. We still escape `<` to
  * `<` defensively so a literal `</script>` in any future copy can never
  * break out of the script element.
+ *
+ * The CSP nonce (minted per request in `middleware.ts`, exposed via the
+ * `x-nonce` request header) is stamped onto the tag so the strict
+ * `script-src` policy admits it. Reading `headers()` makes this async; the
+ * marketing pages that render it are already dynamic under the nonce policy,
+ * so there's no extra rendering cost.
  */
-export function JsonLd({
+export async function JsonLd({
 	schema,
 }: {
 	schema: Record<string, unknown> | Record<string, unknown>[];
-}): React.JSX.Element {
+}): Promise<React.JSX.Element> {
+	const nonce = (await headers()).get("x-nonce") ?? undefined;
 	const json = JSON.stringify(schema).replace(/</g, "\\u003c");
 	// eslint-disable-next-line react/dom-no-dangerously-set-innerhtml -- author-controlled JSON-LD; `<` escaped above so a literal </script> cannot break out (see header).
-	return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />;
+	return <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: json }} />;
 }
 
 // ── Schema builders ─────────────────────────────────────────────────────────

@@ -2,11 +2,68 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
+import { buildContentSecurityPolicy } from "@/lib/csp";
 import { env } from "@/lib/env";
 
+// App route prefixes that require authentication. A path matches if it equals
+// the prefix or sits beneath it (`/decks` and `/decks/abc` both match `/decks`).
+const PROTECTED_PREFIXES = [
+	"/today",
+	"/add",
+	"/review",
+	"/decks",
+	"/cards",
+	"/insights",
+	"/weak-spots",
+	"/settings",
+	"/onboarding",
+] as const;
+
+// Auth pages a logged-in user should be bounced away from.
+const AUTH_PAGES = new Set(["/login", "/signup", "/signup/verify", "/forgot-password"]);
+
+// connect-src needs the Express API + Supabase auth origins, otherwise
+// `default-src 'self'` blocks every XHR/fetch. Computed once at module load.
+const CONNECT_ORIGINS = [
+	new URL(env.NEXT_PUBLIC_API_URL).origin,
+	new URL(env.NEXT_PUBLIC_SUPABASE_URL).origin,
+];
+
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+function isProtectedPath(pathname: string): boolean {
+	return PROTECTED_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
-	// Start with a passthrough response so we can mutate its cookies.
-	let supabaseResponse = NextResponse.next({ request });
+	// Mint a fresh nonce per request and build the policy around it.
+	const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+	const csp = buildContentSecurityPolicy({ nonce, connectOrigins: CONNECT_ORIGINS, isDev: IS_DEV });
+
+	// Thread the nonce + policy onto the *request* headers. Next.js reads the
+	// CSP off the request to auto-apply the nonce to its own bootstrap scripts;
+	// server components read `x-nonce` to nonce their own inline scripts
+	// (e.g. <JsonLd>). Every response we return below also carries the CSP.
+	const requestHeaders = new Headers(request.headers);
+	requestHeaders.set("x-nonce", nonce);
+	requestHeaders.set("content-security-policy", csp);
+
+	const { pathname } = request.nextUrl;
+	const isAuthPage = AUTH_PAGES.has(pathname);
+	const isRoot = pathname === "/";
+	const isProtected = isProtectedPath(pathname);
+
+	// Public pages (e.g. /privacy, /terms, /help) need the CSP but no auth
+	// round-trip — skip the Supabase call entirely.
+	if (!isAuthPage && !isRoot && !isProtected) {
+		const response = NextResponse.next({ request: { headers: requestHeaders } });
+		response.headers.set("content-security-policy", csp);
+		return response;
+	}
+
+	// Auth-aware routes: keep the Supabase getUser() flow, threading the nonce'd
+	// request headers through every NextResponse.next() the cookie sync creates.
+	let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
 	// Untyped against the `Database` schema — auth-only client.
 	const supabase = createServerClient(
@@ -21,7 +78,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 					// Propagate new cookies onto both the request (for subsequent
 					// middleware) and the response (sent back to the browser).
 					cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-					supabaseResponse = NextResponse.next({ request });
+					supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 					cookiesToSet.forEach(({ name, value, options }) => {
 						supabaseResponse.cookies.set(name, value, options);
 					});
@@ -37,72 +94,42 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 		data: { user },
 	} = await supabase.auth.getUser();
 
-	const { pathname } = request.nextUrl;
-	const isAuthPage
-		= pathname === "/login"
-			|| pathname === "/signup"
-			|| pathname === "/signup/verify"
-			|| pathname === "/forgot-password";
-	// The root is the public marketing landing page. Logged-out visitors (and
-	// crawlers) must reach it; authenticated users skip the funnel and go to the
-	// app. The other public surfaces (/privacy, /terms, /help) are not in the
-	// matcher at all, so middleware never runs on them — they are public by
-	// default.
-	const isRoot = pathname === "/";
-
 	if (user && (isAuthPage || isRoot)) {
 		// Authenticated user hitting an auth page or the landing → straight to the app.
 		const url = request.nextUrl.clone();
 		url.pathname = "/today";
-		return NextResponse.redirect(url);
+		const redirect = NextResponse.redirect(url);
+		redirect.headers.set("content-security-policy", csp);
+		return redirect;
 	}
 
-	if (!user && !isAuthPage && !isRoot) {
+	if (!user && isProtected) {
 		// Unauthenticated user hitting a protected route → send to login, carrying
 		// the original path+query as `next` so login can return them there after
-		// authenticating (instead of always dropping them on /today). The landing
-		// (isRoot) is exempt: logged-out visitors fall through and see it.
+		// authenticating (instead of always dropping them on /today).
 		const next = request.nextUrl.pathname + request.nextUrl.search;
 		const url = request.nextUrl.clone();
 		url.pathname = "/login";
 		url.search = "";
 		url.searchParams.set("next", next);
-		return NextResponse.redirect(url);
+		const redirect = NextResponse.redirect(url);
+		redirect.headers.set("content-security-policy", csp);
+		return redirect;
 	}
 
+	supabaseResponse.headers.set("content-security-policy", csp);
 	return supabaseResponse;
 }
 
 export const config = {
 	matcher: [
-		// Root — public marketing landing for logged-out visitors; authenticated
-		// users are redirected to /today (handled above).
-		"/",
-		// Protected (app) routes
-		"/today/:path*",
-		"/today",
-		"/add/:path*",
-		"/add",
-		"/review/:path*",
-		"/decks/:path*",
-		"/cards/:path*",
-		"/cards",
-		"/insights/:path*",
-		"/insights",
-		// Weak-spots review surface and its drill sub-tree. Omitting these left the
-		// routes outside the auth gate entirely: middleware never ran, and
-		// (app)/layout.tsx does not redirect on its own, so logged-out visitors
-		// rendered the app shell here.
-		"/weak-spots/:path*",
-		"/weak-spots",
-		"/settings/:path*",
-		// Onboarding — requires authentication; unauthenticated users are sent to /login
-		"/onboarding/:path*",
-		"/onboarding",
-		// Auth pages — checked so logged-in users are redirected away from them
-		"/login",
-		"/signup",
-		"/signup/verify",
-		"/forgot-password",
+		// Run on every route so the CSP reaches all HTML responses, except:
+		//  - Next internals (`_next/static`, `_next/image`)
+		//  - file-extension paths served from /public or generated by app routes
+		//    (favicon, brand/og images, robots.txt, sitemap.xml, manifest) — these
+		//    are non-HTML and don't need a CSP.
+		// Auth gating is decided inside the handler via PROTECTED_PREFIXES, so a
+		// catch-all matcher does not over-gate public pages.
+		"/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)$).*)",
 	],
 };
