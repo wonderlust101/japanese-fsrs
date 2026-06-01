@@ -8,26 +8,18 @@ import { IconChevronLeft, IconChevronRight } from "@/components/icons/chrome-mar
 import { Logo } from "@/components/ui/Logo";
 import { useLocalStorageBoolean } from "@/hooks/use-local-storage-boolean";
 
-import { useDueCards } from "@/lib/api/reviews";
 import { AddCardCta } from "./add-card-cta";
 import { HelpRow } from "./help-row";
 import { NAV_SECTIONS } from "./nav-config";
 import { NavItem, WeakSpotCountNavItem } from "./nav-item";
 import { NavSection } from "./nav-section";
 import { TodayStripCollapsed, TodayStripExpanded } from "./today-strip";
+import { useReviewsSubLabel } from "./use-reviews-sub-label";
 import { UserMenu } from "./user-menu";
 
 interface Props {
 	user: User | null;
 }
-
-/**
- * Time estimate for the Reviews row subLabel. 0.5 min per card (30 sec) is
- *  a conservative average across modalities; can be replaced with a per-user
- *  FSRS-derived estimate in the future. The minimum-of-1 clamp keeps the
- *  estimate from reading as "0 min" when due count is small.
- */
-const MIN_PER_CARD = 0.5;
 
 /**
  * Account strip: thin wrapper around UserMenu that swaps to a seal-only
@@ -100,13 +92,10 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 		return () => window.removeEventListener("keydown", handleKey);
 	}, [setWidthCollapsed]);
 
-	// Reviews row microcopy: derived from the real due-cards query.
-	const dueCardsQuery = useDueCards();
-	const dueCount = dueCardsQuery.data?.items.length ?? 0;
-
-	const reviewsSubLabel = dueCount > 0
-		? `${dueCount} card${dueCount === 1 ? "" : "s"} · ~${Math.max(1, Math.ceil(dueCount * MIN_PER_CARD))} min`
-		: undefined;
+	// Reviews row microcopy: always a string (loading / empty / count / error)
+	// so the row stays two-line and the nav below it never shifts as the
+	// due-cards query resolves. See useReviewsSubLabel.
+	const reviewsSubLabel = useReviewsSubLabel();
 
 	// Decorate the Reviews nav item with the dynamic subLabel. The static
 	// NAV_SECTIONS config can't carry it (depends on live data). We rebuild
@@ -119,7 +108,7 @@ export function Sidebar({ user }: Props): React.JSX.Element {
 		if (item.hasWeakSpotCount === true) {
 			return <WeakSpotCountNavItem key={item.href} item={item} collapsed={renderCollapsed} />;
 		}
-		if (item.hasDueCount === true && reviewsSubLabel !== undefined) {
+		if (item.hasDueCount === true) {
 			return <NavItem key={item.href} item={item} collapsed={renderCollapsed} subLabel={reviewsSubLabel} />;
 		}
 		return <NavItem key={item.href} item={item} collapsed={renderCollapsed} />;

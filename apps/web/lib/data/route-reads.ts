@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getCardByIdAction } from "@/lib/actions/cards.actions";
 
 import { getDeckAction } from "@/lib/actions/decks.actions";
+import { getPremadeDeckAction } from "@/lib/actions/premade.actions";
 import "server-only";
 
 /**
@@ -18,3 +19,4 @@ import "server-only";
  */
 export const getCardByIdCached = cache(getCardByIdAction);
 export const getDeckCached = cache(getDeckAction);
+export const getPremadeDeckCached = cache(getPremadeDeckAction);

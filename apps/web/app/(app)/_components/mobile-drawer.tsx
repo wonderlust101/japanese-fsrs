@@ -7,20 +7,20 @@ import { useEffect, useRef } from "react";
 import { IconClose } from "@/components/icons/chrome-marks";
 
 import { Logo } from "@/components/ui/Logo";
-import { useDueCards } from "@/lib/api/reviews";
+import { DUR, EASE } from "@/lib/motion/easings";
+import { gsap, useGSAP } from "@/lib/motion/register";
 import { useMobileNavStore } from "@/stores/useMobileNavStore";
 
 import { AddCardCta } from "./add-card-cta";
 import { NAV_SECTIONS } from "./nav-config";
 import { NavItem, WeakSpotCountNavItem } from "./nav-item";
 import { NavSection } from "./nav-section";
+import { useReviewsSubLabel } from "./use-reviews-sub-label";
 import { UserMenu } from "./user-menu";
 
 interface Props {
 	user: User | null;
 }
-
-const MIN_PER_CARD = 0.5;
 
 /**
  * Mobile chrome (< lg breakpoint). Slide-in drawer from the left with the
@@ -35,6 +35,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 	const isOpen = useMobileNavStore(s => s.isOpen);
 	const close = useMobileNavStore(s => s.close);
 	const drawerRef = useRef<HTMLDivElement>(null);
+	const backdropRef = useRef<HTMLDivElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 
 	// Body scroll lock while open.
@@ -100,21 +101,66 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [isOpen, close]);
 
-	// Reviews row microcopy: real due-cards query.
-	const dueCardsQuery = useDueCards();
-	const dueCount = dueCardsQuery.data?.items.length ?? 0;
-	const reviewsSubLabel = dueCount > 0
-		? `${dueCount} card${dueCount === 1 ? "" : "s"} · ~${Math.max(1, Math.ceil(dueCount * MIN_PER_CARD))} min`
-		: undefined;
+	// Drawer open/close motion (per docs/motion/DASHBOARD_MOTION_SPEC.md §2.10).
+	// The panel x-slides (transform only — it stays visible and in the a11y tree
+	// so the nav inside is focusable as it slides; never autoAlpha the panel) and
+	// the backdrop fades (autoAlpha — decorative). Gated `< lg` (the drawer is
+	// `lg:hidden`) and behind `prefers-reduced-motion: no-preference`. The CSS
+	// `translate-x`/`opacity` classes remain as the instant reduced-motion / no-JS
+	// baseline; this effect overrides them with an animated transition and clears
+	// its inline props on cleanup so the class state takes back over. Sidebar and
+	// nav-item internals are deliberately untouched (forbidden / tuned CSS).
+	useGSAP(
+		() => {
+			const panel = drawerRef.current;
+			const backdrop = backdropRef.current;
+			if (panel === null || backdrop === null)
+				return;
+
+			const mm = gsap.matchMedia();
+			mm.add("(prefers-reduced-motion: no-preference) and (max-width: 1023px)", () => {
+				if (isOpen) {
+					const tl = gsap.timeline({ defaults: { ease: EASE.out } });
+					tl.fromTo(panel, { xPercent: -100 }, { xPercent: 0, duration: DUR.md }, 0)
+						.fromTo(backdrop, { autoAlpha: 0 }, { autoAlpha: 1, duration: DUR.sm }, 0);
+					return () => {
+						tl.kill();
+						gsap.set(panel, { clearProps: "transform" });
+						gsap.set(backdrop, { clearProps: "opacity,visibility" });
+					};
+				}
+				const tl = gsap.timeline({ defaults: { ease: EASE.exit } });
+				tl.to(panel, { xPercent: -100, duration: DUR.xs }, 0)
+					.to(backdrop, { autoAlpha: 0, duration: DUR.xs }, 0);
+				return () => {
+					tl.kill();
+					gsap.set(panel, { clearProps: "transform" });
+					gsap.set(backdrop, { clearProps: "opacity,visibility" });
+				};
+			});
+
+			return () => mm.revert();
+		},
+		{ scope: drawerRef, dependencies: [isOpen] },
+	);
+
+	// Reviews row microcopy: always a string (loading / empty / count / error)
+	// so the row stays two-line and the nav below it never shifts as the
+	// due-cards query resolves. Shared with the desktop Sidebar.
+	const reviewsSubLabel = useReviewsSubLabel();
 
 	return (
 		<>
-			{/* Backdrop */}
+			{/* Backdrop. Decorative scrim → GSAP autoAlpha (§2.10). The opacity
+          classes are the instant reduced-motion / no-JS baseline; the GSAP
+          effect animates the fade and clears its inline props on cleanup. */}
 			<div
+				ref={backdropRef}
+				data-drawer-backdrop
 				aria-hidden="true"
 				onClick={close}
 				className={[
-					"lg:hidden fixed inset-0 z-[var(--z-nav)] bg-sumi-ink/40 transition-opacity duration-[250ms] ease-out",
+					"lg:hidden fixed inset-0 z-[var(--z-nav)] bg-sumi-ink/40",
 					isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
 				].join(" ")}
 			/>
@@ -122,6 +168,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 			{/* Drawer */}
 			<div
 				ref={drawerRef}
+				data-drawer-panel
 				role="dialog"
 				aria-modal="true"
 				aria-label="Menu"
@@ -129,8 +176,12 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 				inert={!isOpen}
 				className={[
 					"lg:hidden fixed inset-y-0 left-0 z-[var(--z-overlay)] w-[85vw] max-w-[320px] bg-warm-paper-raised flex flex-col",
-					"transform transition-transform duration-[250ms] ease-out",
+					"transform",
 					"border-r border-soft-hairline",
+					// Instant reduced-motion / no-JS baseline position; the GSAP effect
+					// (§2.10) animates the x-slide and clears its inline transform on
+					// cleanup so this class state takes back over. Panel stays visible
+					// (opacity untouched) so the nav inside stays in the a11y tree.
 					isOpen ? "translate-x-0" : "-translate-x-full",
 				].join(" ")}
 			>
@@ -186,7 +237,7 @@ export function MobileDrawer({ user }: Props): React.JSX.Element {
 										key={item.href}
 										item={item}
 										onNavigate={close}
-										{...(item.hasDueCount === true && reviewsSubLabel !== undefined
+										{...(item.hasDueCount === true
 											? { subLabel: reviewsSubLabel }
 											: {})}
 									/>

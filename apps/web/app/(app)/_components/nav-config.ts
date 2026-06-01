@@ -17,6 +17,7 @@ export type NavIconKey
 	= | "reviews"
 		| "weakSpots"
 		| "decks"
+		| "premade"
 		| "cards"
 		| "overview"
 		| "progress"
@@ -50,15 +51,9 @@ export interface NavSectionConfig {
 }
 
 /**
- * Hrefs that are strict path-prefixes of any other nav href in the config.
- * Those hrefs must use exact-equality matching for active state — otherwise
- * a parent-ish row like `/insights` would light up alongside its more-
- * specific sibling rows (`/insights/progress`, `/weak-spots`, …)
- * whenever the user lands on one of them.
- *
- * Derived at module load by flattening the tree and checking, for each
- * href, whether any *other* href in the set starts with `href + '/'`.
- * Adding a new prefix-sharing pair never needs a manual flag.
+ * Flattens the section tree (depth-first, parents before children) into the
+ * full list of nav hrefs. Used to resolve longest-prefix active state in
+ * `resolveActiveHref`.
  */
 function collectHrefs(items: NavItemConfig[]): string[] {
 	const out: string[] = [];
@@ -68,17 +63,6 @@ function collectHrefs(items: NavItemConfig[]): string[] {
 			out.push(...collectHrefs(item.children));
 	}
 	return out;
-}
-
-function buildExactMatchSet(sections: NavSectionConfig[]): Set<string> {
-	const hrefs = sections.flatMap(s => collectHrefs(s.items));
-	const exact = new Set<string>();
-	for (const a of hrefs) {
-		if (hrefs.some(b => b !== a && b.startsWith(`${a}/`))) {
-			exact.add(a);
-		}
-	}
-	return exact;
 }
 
 export const NAV_SECTIONS: NavSectionConfig[] = [
@@ -95,6 +79,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
 		kanji: "書",
 		items: [
 			{ href: "/decks", iconKey: "decks", label: "Decks" },
+			{ href: "/decks/premade", iconKey: "premade", label: "Premade decks" },
 			{ href: "/cards", iconKey: "cards", label: "Cards" },
 		],
 	},
@@ -110,4 +95,35 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
 	},
 ];
 
-export const EXACT_MATCH_HREFS: ReadonlySet<string> = buildExactMatchSet(NAV_SECTIONS);
+/**
+ * Every nav href, flattened from the section tree. Sourced from the same
+ * config the chrome renders, so active-state resolution can never drift from
+ * the visible rows.
+ */
+const ALL_NAV_HREFS: readonly string[] = NAV_SECTIONS.flatMap(s => collectHrefs(s.items));
+
+/**
+ * The single nav href that best represents `pathname`: the longest href that
+ * is either equal to the pathname or one of its path-segment prefixes.
+ *
+ * Longest-prefix matching is what nav highlighting actually wants. A detail
+ * route lights up its section (`/decks/<id>` → `/decks`), while a more-
+ * specific sibling still wins whenever the user is beneath it (`/decks/premade`
+ * and everything under it → `/decks/premade`, never `/decks`). The earlier
+ * exact-match rule couldn't express this: it forced `/decks` to exact-only
+ * because `/decks/premade` shares its prefix, which left deck-detail pages
+ * with no active row.
+ *
+ * Returns `null` for routes with no nav representation (e.g. the full-screen
+ * review flow), so no row lights up there.
+ */
+export function resolveActiveHref(pathname: string): string | null {
+	let best: string | null = null;
+	for (const href of ALL_NAV_HREFS) {
+		if (pathname === href || pathname.startsWith(`${href}/`)) {
+			if (best === null || href.length > best.length)
+				best = href;
+		}
+	}
+	return best;
+}

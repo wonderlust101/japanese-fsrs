@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+	IconBrowse,
 	IconCards,
 	IconChevronRight,
 	IconDecks,
@@ -16,7 +17,7 @@ import {
 	IconWeakSpots,
 } from "@/components/icons/chrome-marks";
 import { useUnresolvedWeakSpotCount } from "@/lib/api/weak-spots";
-import { EXACT_MATCH_HREFS } from "./nav-config";
+import { resolveActiveHref } from "./nav-config";
 import { OfflineQueueBadge } from "./offline-queue-badge";
 
 /**
@@ -32,6 +33,7 @@ const NAV_ICON_REGISTRY: Record<NavIconKey, (props: { className?: string }) => R
 	reviews: IconReviews,
 	weakSpots: IconWeakSpots,
 	decks: IconDecks,
+	premade: IconBrowse,
 	cards: IconCards,
 	overview: IconOverview,
 	progress: IconProgress,
@@ -74,17 +76,6 @@ interface NavItemProps {
 	 * in the collapsed rail since the rail shows icons only.
 	 */
 	weakSpotBadge?: { count: number; hasMore: boolean };
-}
-
-function isMatch(pathname: string, href: string): boolean {
-	// Hrefs that are strict prefixes of another nav href (e.g. `/insights`
-	// vs `/insights/progress`) must match exactly — otherwise the shorter
-	// row would light up alongside the more-specific one when the user is
-	// on a sub-page. EXACT_MATCH_HREFS is derived from the nav config so
-	// this rule auto-extends to new prefix-sharing pairs.
-	if (EXACT_MATCH_HREFS.has(href))
-		return pathname === href;
-	return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 /**
@@ -145,17 +136,15 @@ export function NavItem({
 	const children = item.children ?? [];
 	const hasChildren = children.length > 0;
 
-	// When set, override exact-equality match against this href wins over
-	// the normal pathname-based match — used to redirect the active state
-	// to a section other than the one the URL path implies (see
-	// `resolveOverrideHref`).
+	// The one nav href that should render active for this location. A `?from=`
+	// override (see `resolveOverrideHref`) wins when present; otherwise the
+	// longest-prefix match against the nav config decides, so a detail route
+	// lights up its section (e.g. `/decks/<id>` → `/decks`). Computed once per
+	// render and compared by equality below.
 	const overrideHref = resolveOverrideHref(pathname, searchParams.get("from"));
+	const activeHref = overrideHref ?? resolveActiveHref(pathname);
 
-	// Local match predicate that consults the override before falling back
-	// to the module-level pathname predicate. Closes over `overrideHref`
-	// so every match check on this render obeys the same rule.
-	const matchHref = (href: string): boolean =>
-		overrideHref !== null ? href === overrideHref : isMatch(pathname, href);
+	const matchHref = (href: string): boolean => href === activeHref;
 
 	const childMatches = hasChildren && children.some(c => matchHref(c.href));
 	// Parent stays *inactive* when a child is active so we never show two active

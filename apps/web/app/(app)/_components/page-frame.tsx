@@ -9,6 +9,16 @@ interface PageFrameProps {
 	 * for scrollable list / detail pages.
 	 */
 	desktopCentered?: boolean;
+	/**
+	 * Optional ref onto the inner content-grid div (the node that holds the
+	 * page's direct children). Page-level section-reveal (`useRevealMount`)
+	 * attaches here so a single `rootRef` spans the `PageHeader` lead and the
+	 * `SectionCard` cascade WITHOUT introducing a wrapper div that would break
+	 * the grid's inter-child gap rhythm. This grid div carries no `page-enter`
+	 * keyframe of its own, so there is no double-animation (constraint #4): the
+	 * reveal owns `opacity`/`y` on the section children, not the frame.
+	 */
+	contentRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -36,11 +46,13 @@ interface PageFrameProps {
 export function PageFrame({
 	children,
 	desktopCentered = false,
+	contentRef,
 }: PageFrameProps): React.JSX.Element {
 	return (
 		<div className="flex min-h-[calc(100dvh-4rem)] flex-col">
 			<div className="relative isolate flex flex-1 flex-col">
 				<div
+					ref={contentRef}
 					className={[
 						"content-start relative z-10 mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1",
 						"gap-y-8 px-4 pt-6 pb-30",
