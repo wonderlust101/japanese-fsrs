@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { KitsuneEmptyState } from "@/components/ui/KitsuneEmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageLoader } from "@/components/ui/TomoLoader";
@@ -19,14 +17,6 @@ import { DeckContributorsCard } from "./deck-contributors-card";
 import { NewCardImpactCard } from "./new-card-impact-card";
 import { TimeEstimateCard } from "./time-estimate-card";
 import { WorkloadCard } from "./workload-card";
-
-function ForecastTopBar(): React.JSX.Element {
-	return (
-		<TopBar>
-			<TopBarTitle kanji="予" label="Forecast" />
-		</TopBar>
-	);
-}
 
 function ForecastHeader(): React.JSX.Element {
 	return (
@@ -73,7 +63,7 @@ export function ForecastView(): React.JSX.Element {
 
 	if (isError) {
 		return (
-			<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />}>
+			<InsightsPageShell header={<ForecastHeader />}>
 				<InsightsErrorAlert
 					label="your forecast"
 					onRetry={() => { void forecastQuery.refetch(); }}
@@ -86,7 +76,7 @@ export function ForecastView(): React.JSX.Element {
 		// `fill` centers the loader in the content viewport (header omitted) so it
 		// owns the screen instead of sitting below the title + subtitle.
 		return (
-			<InsightsPageShell topBar={<ForecastTopBar />} fill>
+			<InsightsPageShell fill>
 				<PageLoader />
 			</InsightsPageShell>
 		);
@@ -94,7 +84,7 @@ export function ForecastView(): React.JSX.Element {
 
 	if (!hasAnyData) {
 		return (
-			<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />}>
+			<InsightsPageShell header={<ForecastHeader />}>
 				<div className="animate-memory-fade-in">
 					<ForecastEmpty />
 				</div>
@@ -103,7 +93,7 @@ export function ForecastView(): React.JSX.Element {
 	}
 
 	return (
-		<InsightsPageShell topBar={<ForecastTopBar />} header={<ForecastHeader />} contentRef={contentRef}>
+		<InsightsPageShell header={<ForecastHeader />} contentRef={contentRef}>
 			{/* Single full-width stack, top to bottom: the "what's landing" story
           (upcoming load, new-card simulator, catch-up), then the deck
           contributors, and finally the time estimate on its own row. Every

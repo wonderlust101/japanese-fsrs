@@ -10,9 +10,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 import { useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
+import { SetTopBar } from "@/app/(app)/_components/set-top-bar";
 import { MoveCardDialog } from "@/app/(app)/decks/[id]/_components/move-card-dialog";
 import { CardBack } from "@/components/review/session/CardBack";
 import { FrequencyBadge } from "@/components/review/session/FrequencyBadge";
@@ -143,9 +141,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 	if (isLoading) {
 		return (
 			<>
-				<TopBar>
-					<TopBarBackLink href={`/decks/${deckId}`} ariaLabel={`Back to ${deckName}`} />
-				</TopBar>
+				<SetTopBar backHref={`/decks/${deckId}`} backAriaLabel={`Back to ${deckName}`} />
 				<PageLoader />
 			</>
 		);
@@ -153,11 +149,7 @@ export function CardDetailView({ cardId, deckId, deckName }: Props): React.JSX.E
 
 	return (
 		<>
-			{/* Minimal TopBar — deck-back + word only. No actions. */}
-			<TopBar>
-				<TopBarBackLink href={`/decks/${deckId}`} ariaLabel={`Back to ${deckName}`} />
-				<TopBarTitle kanji="札" label={word} labelLang="ja" />
-			</TopBar>
+			<SetTopBar kanji="札" label={word} labelLang="ja" backHref={`/decks/${deckId}`} backAriaLabel={`Back to ${deckName}`} />
 
 			{/* Vertical centering: this wrapper fills the viewport minus the
           sticky TopBar (h-16 = 4rem) and uses flex to center its child on

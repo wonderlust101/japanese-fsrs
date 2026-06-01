@@ -12,8 +12,6 @@ import {
 } from "@fsrs-japanese/shared-types";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { MoveCardDialog } from "@/app/(app)/decks/[id]/_components/move-card-dialog";
 import { ModuleError } from "@/components/ui/ModuleError";
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
@@ -289,9 +287,6 @@ export function CardsBrowserView(): React.JSX.Element {
 	if (!usingFixture && liveQuery.isError && liveQuery.data === undefined) {
 		return (
 			<>
-				<TopBar>
-					<TopBarTitle kanji="札" label="Cards" />
-				</TopBar>
 				<div className="mx-auto w-full max-w-[1440px] px-4 pt-6 md:px-12 lg:px-16">
 					<ModuleError label="your cards" onRetry={() => void liveQuery.refetch()} />
 				</div>
@@ -302,9 +297,6 @@ export function CardsBrowserView(): React.JSX.Element {
 	if (coldBoot) {
 		return (
 			<>
-				<TopBar>
-					<TopBarTitle kanji="札" label="Cards" />
-				</TopBar>
 				<PageLoader />
 			</>
 		);
@@ -312,9 +304,6 @@ export function CardsBrowserView(): React.JSX.Element {
 
 	return (
 		<>
-			<TopBar>
-				<TopBarTitle kanji="札" label="Cards" />
-			</TopBar>
 
 			{/* Outer wrapper is a flex column so the bulk bar always sits at
           the very bottom of the page regardless of content height.

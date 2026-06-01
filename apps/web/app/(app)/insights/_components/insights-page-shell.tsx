@@ -32,8 +32,10 @@ const PAGE_CONTAINER_CLASS = "@container/insights mx-auto max-w-[1440px] px-4 pt
 // header chrome a non-loading state would otherwise place above it.
 const PAGE_FILL_CLASS = "flex h-full items-center justify-center px-6";
 
-/** Exported for inner content components that need a centered loader but live
- *  inside an already-mounted `InsightsPageShell` (i.e. after the TopBar split). */
+/**
+ * Exported for inner content components that need a centered loader but live
+ *  inside an already-mounted `InsightsPageShell` (i.e. after the TopBar split).
+ */
 export const INSIGHTS_CONTENT_FILL_CLASS = "flex min-h-[60vh] items-center justify-center px-6";
 
 /**
@@ -47,7 +49,7 @@ export const INSIGHTS_CONTENT_FILL_CLASS = "flex min-h-[60vh] items-center justi
 export const INSIGHTS_HEADER_PADDING_CLASS = PAGE_HEADER_PADDING;
 
 interface InsightsPageShellProps {
-	topBar: ReactNode;
+	topBar?: ReactNode;
 	header?: ReactNode;
 	children: ReactNode;
 	/**

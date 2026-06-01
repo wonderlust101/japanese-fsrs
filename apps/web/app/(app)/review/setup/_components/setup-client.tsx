@@ -291,49 +291,51 @@ export function SetupClient({
 	}
 
 	return (
-		<PageFrame desktopCentered contentRef={contentRef}>
-			<PageHeader
-				kanji="備"
-				label="Review setup"
-				title="Tune today's session."
-				subtitle="Your deck defaults stay the same. These choices only apply today."
-				revealLead
-			/>
-
-			{isFirstTime && <FirstTimeState />}
-
-			{!isFirstTime && isNoReviews && <NoReviewsState />}
-
-			{!isFirstTime && !isNoReviews && (
-				<SetupSummary
-					tone={isLoading ? "loading" : "default"}
-					breakdown={previewBreakdown}
-					timeLabel={timeEstimate.label}
-					actions={actions}
-					{...(staleFlag !== undefined && { flag: staleFlag })}
+		<div className="flex min-h-full flex-col pb-40 lg:pb-32">
+			<PageFrame desktopCentered contentRef={contentRef}>
+				<PageHeader
+					kanji="備"
+					label="Review setup"
+					title="Tune today's session."
+					subtitle="Your deck defaults stay the same. These choices only apply today."
+					revealLead
 				/>
-			)}
 
-			{!isFirstTime && !isNoReviews && (
-				<SetupControls
-					tuning={tuning}
-					onChange={tuningActions.set}
-					decks={deckRows}
-					totalDue={totalDue}
-					disabled={isLoading}
-				/>
-			)}
+				{isFirstTime && <FirstTimeState />}
 
-			{/* Mobile sticky action bar. Hidden at lg+ (its default) — at lg the
+				{!isFirstTime && isNoReviews && <NoReviewsState />}
+
+				{!isFirstTime && !isNoReviews && (
+					<SetupSummary
+						tone={isLoading ? "loading" : "default"}
+						breakdown={previewBreakdown}
+						timeLabel={timeEstimate.label}
+						actions={actions}
+						{...(staleFlag !== undefined && { flag: staleFlag })}
+					/>
+				)}
+
+				{!isFirstTime && !isNoReviews && (
+					<SetupControls
+						tuning={tuning}
+						onChange={tuningActions.set}
+						decks={deckRows}
+						totalDue={totalDue}
+						disabled={isLoading}
+					/>
+				)}
+
+				{/* Mobile sticky action bar. Hidden at lg+ (its default) — at lg the
           summary's internal actions appear at the bottom of the stacked
           summary card; at min-[1180px]+ the summary becomes the sticky
           sidebar and parks the start button there. */}
-			{!isFirstTime && (
-				<MobileStickyActionBar ariaLabel="Start review session">
-					{actions}
-				</MobileStickyActionBar>
-			)}
-		</PageFrame>
+				{!isFirstTime && (
+					<MobileStickyActionBar ariaLabel="Start review session">
+						{actions}
+					</MobileStickyActionBar>
+				)}
+			</PageFrame>
+		</div>
 	);
 }
 

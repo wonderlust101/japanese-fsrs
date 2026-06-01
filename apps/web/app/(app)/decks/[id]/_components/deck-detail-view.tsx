@@ -8,10 +8,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
 
-import { TopBar } from "@/app/(app)/_components/top-bar";
+import { SetTopBar } from "@/app/(app)/_components/set-top-bar";
 import { TopBarActions } from "@/app/(app)/_components/top-bar-actions";
-import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { CardsBulkBar } from "@/app/(app)/cards/_components/cards-bulk-bar";
 import { apiCardToRow, bulkMoveSyntheticCard, truncate } from "@/app/(app)/cards/_components/cards-card-rows";
 import { CardsCountLine } from "@/app/(app)/cards/_components/cards-count-line";
@@ -250,10 +248,7 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 	if (cardsLoading) {
 		return (
 			<>
-				<TopBar>
-					<TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
-					<TopBarTitle kanji="束" label={displayName} />
-				</TopBar>
+				<SetTopBar kanji="束" label={displayName} backHref="/decks" backAriaLabel="Back to Decks" />
 				<PageLoader />
 			</>
 		);
@@ -261,66 +256,69 @@ export function DeckDetailView({ deckId, deckName }: Props): React.JSX.Element {
 
 	return (
 		<>
-			<TopBar>
-				<TopBarBackLink href="/decks" ariaLabel="Back to Decks" />
-				<TopBarTitle kanji="束" label={displayName} />
-
-				<TopBarActions>
-					<DecksMenu
-						align="end"
-						menuClassName="min-w-[12rem]"
-						renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
-							<button
-								ref={triggerRef}
-								type="button"
-								onClick={onClick}
-								onKeyDown={onKeyDown}
-								aria-haspopup="menu"
-								aria-expanded={ariaExpanded}
-								aria-label="Deck options"
-								className="ui-motion-colors flex h-8 w-8 shrink-0 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
-							>
-								<IconMore className="h-4 w-4" />
-							</button>
-						)}
-						renderItems={({ close }) => (
-							<>
-								<MenuItem
-									leading={<IconEdit className="h-3.5 w-3.5" />}
-									onClick={() => { setActiveDialog({ kind: "rename" }); close(); }}
+			<SetTopBar
+				kanji="束"
+				label={displayName}
+				backHref="/decks"
+				backAriaLabel="Back to Decks"
+				actions={(
+					<TopBarActions>
+						<DecksMenu
+							align="end"
+							menuClassName="min-w-[12rem]"
+							renderTrigger={({ onClick, onKeyDown, ariaExpanded, triggerRef }) => (
+								<button
+									ref={triggerRef}
+									type="button"
+									onClick={onClick}
+									onKeyDown={onKeyDown}
+									aria-haspopup="menu"
+									aria-expanded={ariaExpanded}
+									aria-label="Deck options"
+									className="ui-motion-colors flex h-8 w-8 shrink-0 items-center justify-center rounded-xs text-faded-sumi hover:bg-cream-inset hover:text-sumi-ink focus-visible:outline focus-visible:outline-1 focus-visible:outline-sumi-ink focus-visible:outline-offset-2"
 								>
-									Rename
-								</MenuItem>
-								<MenuSeparator />
-								{isArchived
-									? (
-											<MenuItem
-												leading={<IconReveal className="h-3.5 w-3.5" />}
-												onClick={() => { handleRestore(); close(); }}
-											>
-												Restore
-											</MenuItem>
-										)
-									: (
-											<MenuItem
-												leading={<IconHide className="h-3.5 w-3.5" />}
-												onClick={() => { handleArchive(); close(); }}
-											>
-												Archive
-											</MenuItem>
-										)}
-								<MenuItem
-									leading={<IconDelete className="h-3.5 w-3.5" />}
-									onClick={() => { setActiveDialog({ kind: "delete" }); close(); }}
-									danger
-								>
-									Delete
-								</MenuItem>
-							</>
-						)}
-					/>
-				</TopBarActions>
-			</TopBar>
+									<IconMore className="h-4 w-4" />
+								</button>
+							)}
+							renderItems={({ close }) => (
+								<>
+									<MenuItem
+										leading={<IconEdit className="h-3.5 w-3.5" />}
+										onClick={() => { setActiveDialog({ kind: "rename" }); close(); }}
+									>
+										Rename
+									</MenuItem>
+									<MenuSeparator />
+									{isArchived
+										? (
+												<MenuItem
+													leading={<IconReveal className="h-3.5 w-3.5" />}
+													onClick={() => { handleRestore(); close(); }}
+												>
+													Restore
+												</MenuItem>
+											)
+										: (
+												<MenuItem
+													leading={<IconHide className="h-3.5 w-3.5" />}
+													onClick={() => { handleArchive(); close(); }}
+												>
+													Archive
+												</MenuItem>
+											)}
+									<MenuItem
+										leading={<IconDelete className="h-3.5 w-3.5" />}
+										onClick={() => { setActiveDialog({ kind: "delete" }); close(); }}
+										danger
+									>
+										Delete
+									</MenuItem>
+								</>
+							)}
+						/>
+					</TopBarActions>
+				)}
+			/>
 
 			<PageFrame contentRef={contentRef}>
 

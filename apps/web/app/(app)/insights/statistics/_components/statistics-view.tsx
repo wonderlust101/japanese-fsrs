@@ -3,8 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useRef } from "react";
 
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { KitsuneEmptyState } from "@/components/ui/KitsuneEmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Time } from "@/components/ui/Time";
@@ -33,14 +31,6 @@ import {
 } from "./statistics-queries";
 import { StatisticsSectionTabs } from "./statistics-section-tabs";
 
-function StatisticsTopBar(): React.JSX.Element {
-	return (
-		<TopBar>
-			<TopBarTitle kanji="数" label="Statistics" />
-		</TopBar>
-	);
-}
-
 function StatisticsHeader(): React.JSX.Element {
 	return (
 		<div className={INSIGHTS_HEADER_PADDING_CLASS}>
@@ -55,11 +45,13 @@ function StatisticsHeader(): React.JSX.Element {
 	);
 }
 
-/** Shell — renders the TopBar before any data loads, wrapping content in a
- *  Suspense boundary so the TopBar always paints on first frame. */
+/**
+ * Shell — renders the TopBar before any data loads, wrapping content in a
+ *  Suspense boundary so the TopBar always paints on first frame.
+ */
 export function StatisticsView(): React.JSX.Element {
 	return (
-		<InsightsPageShell topBar={<StatisticsTopBar />} header={<StatisticsHeader />}>
+		<InsightsPageShell header={<StatisticsHeader />}>
 			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
 				<StatisticsContent />
 			</Suspense>

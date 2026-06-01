@@ -9,8 +9,6 @@ import type { HeatmapCell, JlptCoverage, MatureMilestone, MaturePoint, ProgressD
 
 import { useQuery } from "@tanstack/react-query";
 import { Suspense, useMemo, useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { YearHeatmap } from "@/components/charts";
 import { ModuleError } from "@/components/ui/ModuleError";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -60,14 +58,6 @@ import { RetentionRibbonChart } from "./retention-ribbon-chart";
 const MATURE_MILESTONES: ReadonlyArray<number> = [100, 250, 500, 1000, 2500, 5000];
 
 // ── Page chrome ─────────────────────────────────────────────────────────────
-
-function ProgressTopBar(): React.JSX.Element {
-	return (
-		<TopBar>
-			<TopBarTitle kanji="歩" label="Progress" />
-		</TopBar>
-	);
-}
 
 interface ProgressHeaderProps {
 	subtitle: string;
@@ -216,11 +206,13 @@ function computeMilestones(series: ReadonlyArray<MaturePoint>): MatureMilestone[
 
 // ── View ───────────────────────────────────────────────────────────────────
 
-/** Shell — renders the TopBar before any data loads and wraps the content in a
- *  Suspense boundary. TopBar is outside the boundary so it paints immediately. */
+/**
+ * Shell — renders the TopBar before any data loads and wraps the content in a
+ *  Suspense boundary. TopBar is outside the boundary so it paints immediately.
+ */
 export function ProgressView(): React.JSX.Element {
 	return (
-		<InsightsPageShell topBar={<ProgressTopBar />}>
+		<InsightsPageShell>
 			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
 				<ProgressContent />
 			</Suspense>

@@ -7,8 +7,6 @@ import type { CardsPageSize } from "@/app/(app)/cards/_components/cards-paginati
 import type { ListWeakSpotsOptions } from "@/lib/actions/weak-spots.actions";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { CardsPagination } from "@/app/(app)/cards/_components/cards-pagination";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { PAGE_HEADER_PADDING, PageHeader } from "@/components/ui/PageHeader";
@@ -383,14 +381,6 @@ export function WeakSpotsView(): React.JSX.Element {
 
 // ─── Chrome / shell ──────────────────────────────────────────────────────────
 
-function WeakSpotsTopBar(): React.JSX.Element {
-	return (
-		<TopBar>
-			<TopBarTitle kanji="弱" label="Weak spots" />
-		</TopBar>
-	);
-}
-
 interface WeakSpotsHeaderProps {
 	status: "unresolved" | "resolved";
 	count: number | null;
@@ -489,7 +479,6 @@ function PageShell({
 }): React.JSX.Element {
 	return (
 		<>
-			<WeakSpotsTopBar />
 			<div className={PAGE_SHELL_CLASS}>
 				{fill
 					? (

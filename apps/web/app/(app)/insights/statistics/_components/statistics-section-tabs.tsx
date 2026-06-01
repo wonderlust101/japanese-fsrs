@@ -69,7 +69,7 @@ export function StatisticsSectionTabs(): React.JSX.Element {
 				// Negative margins exactly mirror the page container's padding
 				// (`px-4 md:px-12 lg:px-16`) so the bar bleeds to precisely the
 				// max-w-[1440px] container edge and never overshoots past it.
-				"sticky top-16 z-[var(--z-sticky)] -mx-4 md:-mx-12 lg:-mx-16",
+				"sticky top-0 z-[var(--z-sticky)] -mx-4 md:-mx-12 lg:-mx-16",
 				"border-b border-soft-hairline bg-cool-paper-base",
 			)}
 		>

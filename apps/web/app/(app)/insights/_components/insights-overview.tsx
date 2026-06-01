@@ -4,8 +4,6 @@ import type { NoteWeight } from "./ranked-note";
 
 import type { FigureKind, NoteTone, ReportNote, WeeklyReport, WeeklyReportInputs } from "./weekly-report";
 import { Suspense, useMemo, useRef } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { PageLoader } from "@/components/ui/TomoLoader";
 import { useInsightsDevState } from "@/dev/panels/insights-overview";
 import { useRevealMount } from "@/hooks/use-reveal-mount";
@@ -34,28 +32,9 @@ function todayIso(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-/**
- * Titled top bar for the Overview, matching the eyebrow chrome on the deeper
- * Insights tabs (Progress / Forecast / Statistics). No back link — Overview is
- * the section root, reached from the sidebar rather than a deeper page.
- */
-function OverviewTopBar(): React.JSX.Element {
-	return (
-		<TopBar>
-			<TopBarTitle kanji="観" label="Overview" />
-		</TopBar>
-	);
-}
-
-/**
- * Shell — renders the TopBar immediately (before any data loads) then wraps the
- * data-fetching content in a Suspense boundary. Keeping the TopBar outside the
- * Suspense boundary ensures it paints on the first frame regardless of query
- * state, eliminating the "no top bar during load" flash.
- */
 export function InsightsOverview(): React.JSX.Element {
 	return (
-		<InsightsPageShell topBar={<OverviewTopBar />}>
+		<InsightsPageShell>
 			<Suspense fallback={<div className={INSIGHTS_CONTENT_FILL_CLASS}><PageLoader /></div>}>
 				<InsightsOverviewContent />
 			</Suspense>

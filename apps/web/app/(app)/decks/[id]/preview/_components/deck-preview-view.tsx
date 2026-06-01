@@ -5,9 +5,7 @@ import type { CardPageSize } from "../../_components/card-list-pagination";
 
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
+import { SetTopBar } from "@/app/(app)/_components/set-top-bar";
 import { apiCardToRow } from "@/app/(app)/cards/_components/cards-card-rows";
 import { CardsCountLine } from "@/app/(app)/cards/_components/cards-count-line";
 import { naturalSortDirFor } from "@/app/(app)/cards/_components/cards-filter-state";
@@ -126,9 +124,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
 	if (cardsLoading) {
 		return (
 			<>
-				<TopBar>
-					<TopBarBackLink href="/decks/premade" ariaLabel="Back to Premade decks" />
-				</TopBar>
+				<SetTopBar backHref="/decks/premade" backAriaLabel="Back to Premade decks" />
 				<PageLoader />
 			</>
 		);
@@ -136,10 +132,7 @@ export function DeckPreviewView({ deckId, deckName }: Props): React.JSX.Element 
 
 	return (
 		<>
-			<TopBar>
-				<TopBarBackLink href="/decks/premade" ariaLabel="Back to Premade decks" />
-				<TopBarTitle kanji="集" label={deckName} />
-			</TopBar>
+			<SetTopBar kanji="集" label={deckName} backHref="/decks/premade" backAriaLabel="Back to Premade decks" />
 
 			<div className="min-h-screen bg-cool-paper-base pb-32">
 				<div ref={contentRef} className="mx-auto max-w-[1440px] px-4 pt-4 pb-20 md:px-12 lg:px-16">

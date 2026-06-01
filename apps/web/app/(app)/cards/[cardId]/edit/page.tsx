@@ -5,7 +5,6 @@ import { notFound, redirect } from "next/navigation";
 import { listDecksAction } from "@/lib/actions/decks.actions";
 import { getCardByIdCached, getDeckCached } from "@/lib/data/route-reads";
 
-import { TopBar } from "../../../_components/top-bar";
 import { EditCardClient } from "./_components/edit-card-client";
 
 interface Props { params: Promise<{ cardId: string }> }
@@ -54,11 +53,8 @@ export default async function EditCardPage({ params }: Props): Promise<React.JSX
 	}
 
 	return (
-		<>
-			<TopBar desktopHidden />
-			<div className="flex min-h-full flex-col">
-				<EditCardClient card={card} deckName={deck?.name ?? "your deck"} decks={deckOptions} />
-			</div>
-		</>
+		<div className="flex min-h-full flex-col">
+			<EditCardClient card={card} deckName={deck?.name ?? "your deck"} decks={deckOptions} />
+		</div>
 	);
 }

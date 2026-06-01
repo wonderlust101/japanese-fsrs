@@ -12,9 +12,6 @@ import { assertNever } from "@fsrs-japanese/shared-types";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PageFrame } from "@/app/(app)/_components/page-frame";
-import { TopBar } from "@/app/(app)/_components/top-bar";
-import { TopBarBackLink } from "@/app/(app)/_components/top-bar-back-link";
-import { TopBarTitle } from "@/app/(app)/_components/top-bar-title";
 import { buildDashboardCalendarContext } from "@/app/(app)/today/_components/today-calendar";
 import { WeekRhythmStrip } from "@/app/(app)/today/_components/week-rhythm-strip";
 import { Button } from "@/components/ui/Button";
@@ -252,10 +249,6 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	if (!usingFixture && !skipApi && query.isLoading && summary === undefined) {
 		return (
 			<>
-				<TopBar>
-					<TopBarBackLink href="/today" ariaLabel="Back to Today" />
-					<TopBarTitle kanji="済" label="Session summary" />
-				</TopBar>
 				<PageFrame desktopCentered><PageLoader /></PageFrame>
 			</>
 		);
@@ -269,10 +262,6 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 	if (apiUnavailable && !endedEarly) {
 		return (
 			<>
-				<TopBar>
-					<TopBarBackLink href="/today" ariaLabel="Back to Today" />
-					<TopBarTitle kanji="済" label="Session summary" />
-				</TopBar>
 				<PageFrame desktopCentered>
 					<div className="mx-auto w-full max-w-[640px]">
 						<Card variant="default" stripeTone="error">
@@ -405,10 +394,6 @@ export default function ReviewSummaryPage(): React.JSX.Element {
 
 	return (
 		<>
-			<TopBar>
-				<TopBarBackLink href="/today" ariaLabel="Back to Today" />
-				<TopBarTitle kanji="済" label="Session summary" />
-			</TopBar>
 
 			<PageFrame desktopCentered>
 				<ClosureHeader
