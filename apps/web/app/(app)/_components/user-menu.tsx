@@ -12,10 +12,10 @@ import {
 	IconSignOut,
 } from "@/components/icons/chrome-marks";
 import { MenuItem } from "@/components/ui/MenuItem";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { signOutAction } from "@/lib/actions/auth.actions";
 import { getUserDisplayName } from "@/lib/supabase/user-metadata";
 import { useHelpDialogActions } from "@/stores/useHelpDialogStore";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface Props {
 	/**

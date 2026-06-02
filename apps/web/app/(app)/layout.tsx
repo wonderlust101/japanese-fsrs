@@ -13,6 +13,12 @@ export const metadata: Metadata = {
 	robots: { index: false, follow: false },
 };
 
+// Every (app) route is auth-gated and renders per-user data (nav reads
+// `useSearchParams()`; client pages fetch via server-action queryFns). None of
+// it is statically cacheable, so opt the whole segment out of static prerender.
+// Inherited by all nested routes, so individual pages don't each need this.
+export const dynamic = "force-dynamic";
+
 // The middleware guarantees an authenticated user reaches this layout.
 // UserMenu fetches its own display data client-side so this layout stays sync
 // and never contributes to a loading-state cascade.

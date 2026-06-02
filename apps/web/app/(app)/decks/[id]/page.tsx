@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
+import { notFound } from "next/navigation";
 
 import { listCardsCrossDeckAction } from "@/lib/actions/cards.actions";
 import { queryKeys } from "@/lib/api/queryKeys";
