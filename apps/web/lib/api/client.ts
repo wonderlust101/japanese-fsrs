@@ -100,6 +100,11 @@ export async function apiCall<T>(
 	if (!res.ok) {
 		const raw = await res.json().catch(() => ({}));
 		const body = apiErrorBodySchema.safeParse(raw).data ?? {};
+		console.error(`[apiCall] ${path} → ${res.status}`, {
+			url: `${env.NEXT_PUBLIC_API_URL}${path}`,
+			status: res.status,
+			error: body.error ?? "(no body)",
+		});
 		throw new ApiHttpError(res.status, body.error ?? errorPrefix);
 	}
 

@@ -114,6 +114,14 @@ export function useDueCards(opts?: { enabled?: boolean }): UseQueryResult<ApiLis
 		queryKey: queryKeys.reviews.due(),
 		queryFn: getDueCardsAction,
 		staleTime: 1000 * 60 * 5,
+		// One retry instead of the default 3. A 403/401 from infrastructure is
+		// permanent (not transient), and retrying three times floods server logs
+		// with `POST /<page> 500` entries — especially because this query is
+		// mounted globally via useReviewsSubLabel in every (app)-shell page.
+		// ApiHttpError.status is stripped across the server-action boundary in
+		// production so we can't gate on status code here; 1 retry is enough for
+		// genuine transient network blips.
+		retry: 1,
 		// Default: always on (the nav badge observes this unconditionally). The
 		// session client passes `enabled: phase === 'idle'` so it only fetches to
 		// bootstrap a session and stops observing once one is active/finished.
