@@ -4,7 +4,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { redis } from "../db/redis.ts";
 import { env } from "../lib/env.ts";
 import { componentLogger } from "../lib/logger.ts";
-import { AppError } from "./errorHandler.ts";
+import { AppError, ServiceUnavailableError } from "./errorHandler.ts";
 
 // Module-scoped fallback logger. Used only when `req.log` is unexpectedly
 // missing (pino-http ran but failed to decorate, or the middleware order ever
@@ -33,7 +33,9 @@ const log = componentLogger("rate-limit");
  * the middleware source.
  */
 function failOpenOnInfraError(err: unknown, req: Request, next: NextFunction): void {
-	if (err instanceof AppError) {
+	// ServiceUnavailableError (circuit breaker open) is an AppError subclass,
+	// but it is infra failure — fail open rather than gating every request.
+	if (err instanceof AppError && !(err instanceof ServiceUnavailableError)) {
 		next(err);
 		return;
 	}
