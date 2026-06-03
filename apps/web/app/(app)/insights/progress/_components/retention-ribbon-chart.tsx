@@ -5,7 +5,7 @@ import type { ProgressRangeKey } from "./progress-range";
 import type { RetentionPoint } from "./progress-types";
 
 import { useMemo } from "react";
-import { ScrollableChartFrame, smoothLinePath } from "@/components/charts";
+import { pickXTicks, ScrollableChartFrame, smoothLinePath } from "@/components/charts";
 import { rangeDays } from "./progress-range";
 
 interface RetentionRibbonChartProps {
@@ -95,54 +95,6 @@ function pickWindowDays(viewLength: number): number {
 	if (viewLength <= 7)
 		return Math.max(2, Math.floor(viewLength / 2));
 	return 7;
-}
-
-// ── Tick helpers ────────────────────────────────────────────────────────────
-
-type XAnchor = "start" | "middle" | "end";
-
-interface XTick {
-	index: number;
-	label: string;
-	anchor: XAnchor;
-}
-
-function formatDateShort(iso: string): string {
-	return new Date(`${iso}T00:00:00Z`)
-		.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-/**
- * Pick evenly-spaced ticks. The first tick anchors `start` (so its label
- * extends rightward from the left edge instead of being clipped); the
- * last anchors `end` (so its label extends leftward and "today" is never
- * cropped past the right edge); interior ticks use `middle`.
- */
-function pickXTicks(dates: ReadonlyArray<string>, want: number): XTick[] {
-	if (dates.length === 0)
-		return [];
-	if (dates.length === 1) {
-		const only = dates[0];
-		if (only === undefined)
-			return [];
-		return [{ index: 0, label: formatDateShort(only), anchor: "middle" }];
-	}
-	const lastIdx = dates.length - 1;
-	const tickCount = Math.max(2, Math.min(want, dates.length));
-	const out: XTick[] = [];
-	const seen = new Set<number>();
-	for (let i = 0; i < tickCount; i += 1) {
-		const idx = Math.round((i / (tickCount - 1)) * lastIdx);
-		if (seen.has(idx))
-			continue;
-		seen.add(idx);
-		const d = dates[idx];
-		if (d === undefined)
-			continue;
-		const anchor: XAnchor = idx === 0 ? "start" : idx === lastIdx ? "end" : "middle";
-		out.push({ index: idx, label: formatDateShort(d), anchor });
-	}
-	return out;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────

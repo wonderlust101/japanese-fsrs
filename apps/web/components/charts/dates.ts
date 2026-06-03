@@ -45,6 +45,59 @@ export function isWeekEnd(iso: string): boolean {
 	return (parseIso(iso).getUTCDay() + 6) % 7 === 6;
 }
 
+/** Format an ISO day as a short `Mon D` label (e.g. `Jun 2`), in UTC. */
+export function formatDateShort(iso: string): string {
+	return parseIso(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Horizontal text anchor for an axis tick. */
+export type XAnchor = "start" | "middle" | "end";
+
+/** A single x-axis tick: which series index it sits on, its label, and anchor. */
+export interface XTick {
+	index: number;
+	label: string;
+	anchor: XAnchor;
+}
+
+/**
+ * Pick up to `want` evenly-spaced x-axis ticks across a date series. The first
+ * tick anchors `start` (its label extends rightward from the left edge instead
+ * of being clipped); the last anchors `end` (so the rightmost/"today" label is
+ * never cropped past the viewBox); interior ticks use `middle`. Duplicate
+ * rounded indices are de-duped, so short series yield fewer than `want` ticks.
+ *
+ * Centralized here because `MatureStackedArea` and `RetentionRibbonChart`
+ * carried byte-identical copies; sharing one implementation keeps their x-axis
+ * provably aligned (both render on the same date series, side by side).
+ */
+export function pickXTicks(dates: ReadonlyArray<string>, want: number): XTick[] {
+	if (dates.length === 0)
+		return [];
+	if (dates.length === 1) {
+		const only = dates[0];
+		if (only === undefined)
+			return [];
+		return [{ index: 0, label: formatDateShort(only), anchor: "middle" }];
+	}
+	const lastIdx = dates.length - 1;
+	const tickCount = Math.max(2, Math.min(want, dates.length));
+	const out: XTick[] = [];
+	const seen = new Set<number>();
+	for (let i = 0; i < tickCount; i += 1) {
+		const idx = Math.round((i / (tickCount - 1)) * lastIdx);
+		if (seen.has(idx))
+			continue;
+		seen.add(idx);
+		const d = dates[idx];
+		if (d === undefined)
+			continue;
+		const anchor: XAnchor = idx === 0 ? "start" : idx === lastIdx ? "end" : "middle";
+		out.push({ index: idx, label: formatDateShort(d), anchor });
+	}
+	return out;
+}
+
 /**
  * Round a max value up to a "nice" axis ceiling so gridlines land on readable
  * numbers (5, 10, 25, 50, 100, 200, 500, then multiples of 250).

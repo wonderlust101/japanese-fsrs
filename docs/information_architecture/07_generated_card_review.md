@@ -33,7 +33,6 @@ This page is not a raw form. It is a review and correction surface. The user sho
 - Example sentence.
 - Mnemonic.
 - Image.
-- Tags.
 - Deck placement.
 
 ### Advanced Content
@@ -51,7 +50,7 @@ The default should be one note producing two cards:
 - Vocabulary recognition.
 - Sentence understanding.
 
-Production can be available but unchecked by default unless user settings favor production-heavy study.
+Reverse-direction (production-style) recall is a future per-user display preference applied on top of the vocabulary layout — not a separately generated card (see `03_review_session.md`).
 
 The save action should make the review-load impact visible. Use copy such as “Save 2 cards” instead of a generic “Save.”
 
@@ -86,7 +85,6 @@ Avoid saying “AI is uncertain.” Prefer: “This word has a few common meanin
 
 - Pitch accent.
 - Frequency.
-- Tags.
 - Raw template fields.
 
 ## UX Notes
@@ -121,7 +119,6 @@ Allow saving when missing:
 - Source.
 - Pitch accent.
 - Extra example.
-- Tags.
 
 ## Interaction Notes
 

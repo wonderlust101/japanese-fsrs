@@ -30,7 +30,7 @@ The three sections below describe the front/back composition for each `layout_ty
 
 Purpose: test whether the learner understands a Japanese expression.
 
-Before reveal, show the Japanese expression and sentence context. Audio may be available if the card includes it. Do not show the English definition before reveal.
+Before reveal, show the Japanese expression and sentence context. Do not show the English definition before reveal.
 
 After reveal, show reading, meaning, sentence translation, nuance, and any memory-support content that is part of the card.
 
@@ -44,7 +44,7 @@ Same `fields_data` shape as vocabulary (`word`, `reading`, `meaning` are require
 
 Purpose: test whether the learner understands a sentence and its target expression in context.
 
-`fields_data` here is a distinct shape — required `ja` / `en` / `furigana`, optional `breakdown` / `nuance` / `audio` — per the Stage 12 CHECK in `supabase/migrations/20260612000000_sentence_layout_check.sql`.
+`fields_data` here is a distinct shape — required `ja` / `en` / `furigana`, optional `breakdown` / `nuance` — per the Stage 12 CHECK in `supabase/migrations/20260612000000_sentence_layout_check.sql`.
 
 Before reveal, prioritise the Japanese sentence. Avoid over-highlighting the target word unless testing shows learners need it. After reveal, show translation, per-token breakdown if present, and a concise explanatory note.
 
@@ -85,7 +85,6 @@ AI-generated explanations should not appear automatically after every mistake. T
 Hidden by default:
 
 - Deck
-- Tags
 - Layout type
 - JLPT level
 - Source
@@ -145,7 +144,7 @@ Keep review copy minimal. This is not a chatty surface. The product should feel 
 
 - Do not add hints.
 - Do not show definitions before reveal on recognition cards.
-- Do not show Japanese before reveal on production cards.
+- Do not show Japanese before reveal in reverse-direction (production) mode.
 - Do not make the review card visually compete with navigation.
 - Do not add teaching panels that interrupt the rating loop.
 

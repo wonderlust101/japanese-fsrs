@@ -2,14 +2,14 @@
 
 ## Page Purpose
 
-Card Detail is the deep inspection and editing surface for one card or note. It should let the learner understand the full learning object, edit its fields, inspect generated card types, review history, tags, deck placement, scheduling status, and repair recommendations.
+Card Detail is the deep inspection and editing surface for one card or note. It should let the learner understand the full learning object, edit its fields, inspect generated card types, review history, deck placement, scheduling status, and repair recommendations.
 
 This page is essential because Tomo is not only a review app. It is a Japanese-tailored card quality system. The individual card is where card quality becomes visible.
 
 ## Primary User Jobs
 
 - Inspect one card deeply.
-- Edit expression, reading, meaning, sentence, translation, nuance, mnemonic, image, audio, and tags.
+- Edit expression, reading, meaning, sentence, translation, nuance, mnemonic, and image.
 - Understand which card types are generated from the note.
 - Change deck placement.
 - View review history and scheduling information.
@@ -25,7 +25,8 @@ A single Japanese note may produce:
 
 - Vocabulary recognition card.
 - Sentence understanding card.
-- Production card.
+
+(Reverse-direction "production" recall is a future render-time preference on the vocabulary layout, not a separately generated card — see `03_review_session.md`.)
 
 Card Detail should make this relationship understandable without forcing the user into technical note-type terminology. Use plain language such as “Cards created from this item.”
 
@@ -46,8 +47,6 @@ Card Detail should make this relationship understandable without forcing the use
 - Contrast note.
 - Mnemonic.
 - Image.
-- Audio.
-- Tags.
 - Deck.
 - JLPT level.
 - Source.
@@ -89,13 +88,11 @@ The page should not be a giant exposed form by default. Reading and inspecting t
 - Contrast.
 - Mnemonic.
 - Image.
-- Audio.
 
 ### Study Configuration
 
 - Deck.
 - Card types generated.
-- Tags.
 - JLPT level.
 - Card status.
 - Suspended state.
@@ -126,7 +123,7 @@ Examples of quality suggestions:
 - “This card has repeated misses and no mnemonic.”
 - “This expression is often confused with another card.”
 - “The meaning may be too broad for the sentence.”
-- “Production card is enabled, but the prompt may be ambiguous.”
+- “Reverse-direction recall is on, but the prompt may be ambiguous.”
 
 Suggestions should be practical and actionable.
 

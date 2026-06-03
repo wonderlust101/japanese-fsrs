@@ -49,7 +49,7 @@ This page is about the collection. It should not become the full Cards browser, 
 
 The page should make the deck's current condition visible without making the learner read a report. The key questions are: is there work due, and what action should I take?
 
-Deck Detail should connect cleanly to Cards. If users want to edit or tag individual cards, the action should route to Cards with this deck filter applied.
+Deck Detail should connect cleanly to Cards. If users want to edit individual cards, the action should route to Cards with this deck filter applied.
 
 ## UI Notes
 

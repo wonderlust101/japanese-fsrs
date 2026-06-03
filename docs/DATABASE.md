@@ -2,7 +2,7 @@
 
 This document describes every table in the Supabase (PostgreSQL) database, the purpose of each column, and the constraints, indexes, triggers, and RPCs that govern them.
 
-> **Generated from:** migrations in `supabase/migrations/` through `20260709000000` (HEAD).
+> **Generated from:** migrations in `supabase/migrations/` through `20260713000000` (HEAD).
 > **Database:** Supabase PostgreSQL with the `pgvector` extension.
 > **Convention:** All wire formats are camelCase; all DB columns are snake_case. The transform happens at the service layer (`toRow` / `toCardRow` / `toPremadeRow` for responses; explicit patch maps for inputs).
 
@@ -78,7 +78,7 @@ The `service_role` connection has `statement_timeout = '10s'` and `lock_timeout 
 >
 > `jlpt_level.beyond_jlpt` covers native-level, domain-specific, and literary vocabulary not on any JLPT list. Do **not** use `NULL` to mean "not on JLPT" — use `beyond_jlpt` explicitly.
 >
-> `card_type` was dropped end-to-end by migration `20260614000000_drop_card_type.sql` — the historic per-modality split (`comprehension`, `production`, `listening`) was collapsed to a single FSRS scheduler at `request_retention = 0.85`. The old `deck_type` value `'grammar'` was removed in `20260520000000`.
+> `card_type` was dropped end-to-end by migration `20260614000000_drop_card_type.sql` — the historic per-modality split (`comprehension`, `production`, `listening`) was collapsed to a single FSRS scheduler (`request_retention`, currently `0.88` — see `profiles.retention_target`). The old `deck_type` value `'grammar'` was removed in `20260520000000`.
 
 ---
 

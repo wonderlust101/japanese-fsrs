@@ -40,7 +40,7 @@ Tomo's promise is **integration**: a single tool that ships modern FSRS, AI-as-t
 
 ## Business Model
 
-For the MVP release, **Tomo is fully free**. Every feature ships available to every learner: FSRS scheduling, premade decks (JLPT N5 through N1, Beyond JLPT, Joyo Kanji, grammar patterns), manual card creation, AI-assisted card generation, AI-personalized contextual example sentences, AI-written mnemonics, weak-spot diagnosis and prescriptive next-step guidance, full analytics, offline review, and full keyboard and screen-reader accessibility. No feature is gated.
+For the MVP release, **Tomo is fully free**. Every feature ships available to every learner: FSRS scheduling, premade decks (JLPT N5 through N1 vocabulary), manual card creation, AI-assisted card generation, AI-personalized contextual example sentences, AI-written mnemonics, weak-spot diagnosis and prescriptive next-step guidance, full analytics, offline review, and full keyboard and screen-reader accessibility. No feature is gated.
 
 A monetization model may return in a later phase once the product has shipped, reached learners, and demonstrated value. The MVP's job is to be the best Japanese SRS practice instrument it can be, not to defend a paywall. Decisions about future tiers, if any, will be made *after* learners are using the product, not before.
 

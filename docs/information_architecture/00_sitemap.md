@@ -13,7 +13,7 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 | Today | What should I practice right now? | Daily practice launchpad. Shows due reviews, a calm pre-session note, and short future workload preview. |
 | Add | How do I capture Japanese I found? | Fast capture flow for a Japanese word or phrase plus sentence context. The goal is to turn real-world Japanese into high-quality study material with minimal friction. |
 | Decks | What collections am I studying? | Deck-level management for user decks, decks copied from premade catalogues, deck options, scheduling defaults, and deck-specific actions. Premade decks are a starting point: adding one creates a personal copy that diverges immediately — there is no ongoing subscription. |
-| Cards | How do I search, edit, tag, or repair individual cards? | Advanced card browser for search, filters, bulk actions, mass tagging, card quality management, and cross-deck card operations. |
+| Cards | How do I search, edit, or repair individual cards? | Advanced card browser for search, filters, bulk actions, card quality management, and cross-deck card operations. |
 | Insights | How am I progressing, and what needs work? | Teacher-report style learning insight area with progress, mistakes, forecasting, and an advanced statistics tab for Anki-style data. |
 | Settings | How should Tomo behave? | Account, learning preferences, review behavior, display, data, sync, and security. |
 
@@ -29,8 +29,8 @@ Tomo should feel like a calm practice instrument with Anki-level power available
 | `06_add_japanese.md` | Add Japanese | Capture-first page for entering a Japanese word or phrase and sentence context before generated card review. |
 | `07_generated_card_review.md` | Generated Card Review | Confirmation page where the learner chooses meaning, reviews generated fields, selects card types, assigns deck, and saves created cards. |
 | `08_decks.md` | Decks | Deck management hub for study collections, premade decks, deck health, scheduling defaults, and deck-level actions. |
-| `09_cards.md` | Cards | Card browser for search, filtering, saved views, mass tagging, bulk actions, and cross-deck management. |
-| `10_card_detail.md` | Card Detail | Deep view for one card or note: fields, generated card types, history, scheduling, tags, quality status, and repair actions. |
+| `09_cards.md` | Cards | Card browser for search, filtering, saved views, bulk actions, and cross-deck management. |
+| `10_card_detail.md` | Card Detail | Deep view for one card or note: fields, generated card types, history, scheduling, quality status, and repair actions. |
 | `11_deck_detail.md` | Deck Detail | Detail page for one deck with deck health, review load, deck-specific cards, deck options, and deck-level study actions. |
 | `12_deck_preview.md` | Deck Preview | Premade deck inspection page with sample cards, included fields, estimated review load, scope, and an "Add to my library" action that copies the deck into the learner's collection (no ongoing subscription). |
 | `13_insights_overview.md` | Insights Overview | Default insights landing page: calm teacher report focused on progress, mistakes, and future workload. |
@@ -50,7 +50,7 @@ Decks and Cards support different mental models. Decks are containers and schedu
 
 Decks should answer: what am I studying, what is due, what are the deck defaults, and how does this collection behave?
 
-Cards should answer: where is this specific item, how do I edit it, what tags does it have, what fields are missing, and how do I manage many cards at once?
+Cards should answer: where is this specific item, how do I edit it, what fields are missing, and how do I manage many cards at once?
 
 Combining them under a single Library label hides this distinction and weakens information scent for Anki-like workflows.
 

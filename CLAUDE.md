@@ -193,7 +193,7 @@ dashboard. Full setup, plain-text copy, and the deliverability checklist are in
 
 ## Architecture Notes
 
-Full architecture boundaries live in [docs/TDD.md](./docs/TDD.md). Keep these routing decisions in mind while coding:
+Keep these architecture boundaries in mind while coding:
 
 - Next.js API routes are only for auth callbacks and lightweight proxying; business logic lives in the Express API.
 - Use TanStack Query for server-derived frontend data and Zustand for review/session-local state.
@@ -234,7 +234,7 @@ Before finishing code work:
 - AI endpoints must go through the rate limiter middleware before the controller handler.
 - Body and query Zod schemas should reject unknown keys with `.strict()`.
 - Wire payloads are camelCase; database columns and SQL RPC parameters are snake_case. Transform at the service layer.
-- Retryable mutating POSTs use `Idempotency-Key`; optimistic PATCH routes use `If-Match`. Exact contracts live in [docs/DATABASE.md](./docs/DATABASE.md) and [docs/TDD.md](./docs/TDD.md).
+- Retryable mutating POSTs use `Idempotency-Key`; optimistic PATCH routes use `If-Match`. Exact contracts live in [docs/DATABASE.md](./docs/DATABASE.md).
 - Rate limiters fail open on Upstash infrastructure failure and are bypassed in development; preserve that availability behavior unless the technical design changes.
 - Graceful shutdown must keep readiness/liveness behavior consistent with `apps/api/src/lib/shutdown.ts`.
 - Logging: every API line goes through `pino` (`apps/api/src/lib/logger.ts`). Handlers use `req.log` (auto-tagged with `reqId` from `pino-http`); services use `componentLogger('component-name')` from `lib/logger.ts`. Never `console.log` in `apps/api/src` code. Sensitive paths (`email`, `password`, `*token*`, `authorization`/`cookie` headers) are auto-redacted by pino's `redact` config; do not log raw user identifiers — use the `userId` UUID instead. Every request honors `X-Request-ID` (or generates one) and echoes it back as a response header.
@@ -275,7 +275,7 @@ Before finishing code work:
 
 ## Common Pitfalls
 
-- Exact FSRS state values, RPC behavior, and persistence rules live in [docs/DATABASE.md](./docs/DATABASE.md) and [docs/TDD.md](./docs/TDD.md).
+- Exact FSRS state values, RPC behavior, and persistence rules live in [docs/DATABASE.md](./docs/DATABASE.md).
 - **Use `f.next()` for all normal reviews, not `f.repeat()`.** `f.repeat()` computes all 4 rating outcomes simultaneously and is only valid inside `previewNextStates()`. Never call `f.repeat()` for an actual user review — it does not persist state and calling it more than once is not idempotent.
 - **Never pass `rating: 'manual'` from a user review submission.** It is only valid for `forgetCard()` and `rescheduleFromHistory()` internal operations. Reject `'manual'` at the Zod schema layer on the submit-review route.
 - **Rollback requires non-null `state_before` in the review log.** Logs written before migration `20260502000001` have null before-snapshots and cannot be rolled back — `rollbackReview()` throws 409 for those.
@@ -297,10 +297,7 @@ Always refer to the canonical docs before suggesting architectural changes, prod
 - **Coding Standards:** [docs/CODING_STANDARDS.md](./docs/CODING_STANDARDS.md) - mandatory cross-cutting coding standards.
 - **Frontend Standards:** [docs/CODING_STANDARDS_FRONTEND.md](./docs/CODING_STANDARDS_FRONTEND.md) - mandatory standards for `apps/web`.
 - **Backend Standards:** [docs/CODING_STANDARDS_BACKEND.md](./docs/CODING_STANDARDS_BACKEND.md) - mandatory standards for `apps/api`.
-- **Product Companion:** [docs/PRD.md](./docs/PRD.md) - requirement framing that defers to product/design/database truth.
-- **Technical Companion:** [docs/TDD.md](./docs/TDD.md) - architecture and implementation boundaries that defer to the database reference.
 - **Active Board:** [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md) - current project tasks and owner decisions in motion.
-- **Status Index:** [docs/IMPLEMENTATION_STATUS.md](./docs/IMPLEMENTATION_STATUS.md) - current status index; detailed code-inspected evidence lives in `docs/status/`.
 - **Backend Completion Plan:** tracked as stage-labelled entries in [docs/KANBAN_BOARD.md](./docs/KANBAN_BOARD.md). Each stage ships as one PR with scoped acceptance criteria; the kanban records the dependency order as Done entries.
 - **Testing:** [docs/TESTING.md](./docs/TESTING.md) - test tiers, locations, mocking, and execution guidance.
 - **Information Architecture / Wireframes:** [docs/information_architecture/README.md](./docs/information_architecture/README.md) - per-page wireframes (one file per screen) plus the cross-page [sitemap](./docs/information_architecture/00_sitemap.md). Consult before changing page structure, navigation, or adding new screens.

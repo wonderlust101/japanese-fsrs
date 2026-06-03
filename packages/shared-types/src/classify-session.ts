@@ -29,13 +29,16 @@ export interface PatternInputs {
 	endedEarly: boolean;
 }
 
-// Threshold constants. Exported so consumers can reference the same
-// numbers in copy ("8 or more lapses…") without duplicating literals.
-export const NO_PATTERN_MIN_CARDS = 5;
-export const WEAK_SPOT_MIN_COUNT = 3;
-export const DIFFICULT_MAX_ACCURACY = 65;
-export const DIFFICULT_MAX_AGAIN_RATIO = 0.25;
-export const STRONG_MIN_ACCURACY = 90;
+// Threshold constants. Module-private: the only consumer of these numbers is
+// `classifySession` below. They were originally exported so copy could quote
+// the same literals, but no consumer ever did — the barrel (`index.ts`)
+// intentionally does not re-export them. Re-add `export` (and the barrel line)
+// if a consumer ever needs to reference a threshold in prose.
+const NO_PATTERN_MIN_CARDS = 5;
+const WEAK_SPOT_MIN_COUNT = 3;
+const DIFFICULT_MAX_ACCURACY = 65;
+const DIFFICULT_MAX_AGAIN_RATIO = 0.25;
+const STRONG_MIN_ACCURACY = 90;
 
 /**
  * Ordered most-specific-first; first matching predicate wins. The order

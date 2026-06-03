@@ -37,7 +37,6 @@ Decks are containers and scheduling contexts. Cards are individual learning obje
 ### Content to Avoid
 
 - Full card table.
-- Bulk card tagging.
 - Advanced card search.
 - Long analytics sections.
 - Full FSRS statistics.

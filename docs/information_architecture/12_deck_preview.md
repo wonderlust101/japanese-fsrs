@@ -13,7 +13,7 @@ Deck Preview lets learners inspect a premade deck before adding it to their libr
 - See card count and card types.
 - Understand JLPT or proficiency scope.
 - Estimate review load.
-- Understand included fields such as audio, image, sentence, nuance, and mnemonic.
+- Understand included fields such as image, sentence, nuance, and mnemonic.
 - Add the deck to their library with controlled defaults.
 
 ## Content Hierarchy
@@ -30,7 +30,7 @@ Deck Preview lets learners inspect a premade deck before adding it to their libr
 
 - Included fields.
 - Card type breakdown.
-- Tags or topics.
+- Topics.
 - Creator or source, if relevant.
 - Last updated.
 - Preview more cards.

@@ -4,17 +4,16 @@
 
 Cards is the advanced browser for individual study items. It should be Tomo's improved version of Anki's card browser: powerful enough for serious users, but clearer, calmer, and more Japanese-aware.
 
-This page is for search, filtering, mass tagging, bulk operations, repair workflows, and cross-deck card management. It is not the daily review surface and should not compete with Today.
+This page is for search, filtering, bulk operations, repair workflows, and cross-deck card management. It is not the daily review surface and should not compete with Today.
 
 ## Primary User Jobs
 
 - Search cards across all decks.
-- Filter cards by deck, type, JLPT level, tag, status, and missing fields.
+- Filter cards by deck, type, JLPT level, status, and missing fields.
 - Select multiple cards.
-- Add or remove tags in bulk.
 - Move cards between decks.
 - Suspend, unsuspend, or mark cards for repair.
-- Find weak spots, weak spots, or low-retention cards.
+- Find weak spots or low-retention cards.
 - Open Card Detail for deep editing.
 
 ## Content Hierarchy
@@ -63,7 +62,6 @@ Recommended search capabilities:
 - Sentence search.
 - Kana-insensitive matching.
 - Kanji search.
-- Tag search.
 - Deck search.
 - JLPT filter.
 - Card type filter.
@@ -90,12 +88,10 @@ Saved views make advanced search discoverable. They should be visible near the t
 Recommended default views:
 
 - Weak spots.
-- Weak spots.
 - Missing images.
 - Missing mnemonic.
 - Recently added.
 - Suspended.
-- Production cards.
 - Due today.
 - N4 verbs.
 
@@ -105,16 +101,11 @@ Bulk actions should appear only after selection.
 
 Recommended actions:
 
-- Add tag.
-- Remove tag.
 - Move to deck.
 - Suspend.
 - Unsuspend.
 - Mark for repair.
-- Change card type.
 - Delete, if supported, with confirmation.
-
-Mass tagging is important and should feel first-class. When applying a tag to many cards, show how many cards will be affected and whether review history is changed.
 
 ## UI Notes
 
@@ -134,7 +125,6 @@ Recommended columns or row fields:
 - Meaning.
 - Deck.
 - Card type.
-- Tags.
 - Status.
 - Due date.
 - Retention or problem signal.
@@ -188,7 +178,6 @@ Use precise card-management language. This is a power surface, so clarity matter
 
 ## Designer Watchouts
 
-- Do not hide mass tagging under obscure menus.
 - Do not make Cards visually identical to Decks.
 - Do not require raw search syntax for common filters.
 - Do not expose too much scheduling data by default.
