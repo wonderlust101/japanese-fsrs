@@ -184,7 +184,7 @@ export function DeckListView(): React.JSX.Element {
               there's nothing to sort, filter, or page through yet. */}
 					{!(summary.headerVariant.kind === "empty") && (
 						<>
-							<div className="relative mt-4" data-reveal>
+							<div className="relative z-[var(--z-popover)] mt-4" data-reveal>
 								<DecksTabs
 									view={prefs.view}
 									counts={{ active: summary.activeCount, mature: summary.matureTabCount, archived: summary.archivedCount }}
