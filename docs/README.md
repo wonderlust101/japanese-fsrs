@@ -2,13 +2,49 @@
 
 A spaced-repetition practice app for Japanese learners — FSRS v5 scheduling with OpenAI-backed card generation, personalized mnemonics, contextual example sentences, and a weak-spot diagnostic engine, all in one self-contained app.
 
-## Demo
+## Screenshots
+
+### Landing page
 
 ![Marketing page — hero](./screenshots/marketing.png)
 
-| | |
+### Auth
+
+| **Sign in** | **Create account** |
 |---|---|
-| ![Sign in](./screenshots/login.png) | ![Create account](./screenshots/signup.png) |
+| ![Sign in](./screenshots/login.png) | ![Sign up](./screenshots/signup.png) |
+
+### Today dashboard
+
+![Today — due cards and weekly forecast](./screenshots/today.png)
+
+### Review session
+
+| **Review setup** | **Card question** |
+|---|---|
+| ![Review setup](./screenshots/review-setup.png) | ![Review session — question](./screenshots/review-session.png) |
+
+![Card answer — rating buttons, furigana, pitch accent, nuance tab](./screenshots/review-answer.png)
+
+### Library
+
+| **Decks** | **All cards** |
+|---|---|
+| ![Decks](./screenshots/decks.png) | ![Cards](./screenshots/cards.png) |
+
+### Card capture
+
+![Add card — AI generation form](./screenshots/add-card.png)
+
+### Insights & weak spots
+
+| **Insights overview** | **Weak spots** |
+|---|---|
+| ![Insights overview](./screenshots/insights.png) | ![Weak spots](./screenshots/weak-spots.png) |
+
+### Settings
+
+![Settings — account, locale, and study goal](./screenshots/settings.png)
 
 ## Features
 
